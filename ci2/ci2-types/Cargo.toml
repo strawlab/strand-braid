@@ -1,0 +1,9 @@
+[package]
+name = "ci2-types"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+serde = {version = "1.0", default-features = false}
+serde_derive = "1.0"
+enum-iter = { path="../../enum-iter"}

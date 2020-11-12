@@ -1,0 +1,11 @@
+[package]
+name = "opencv-calibrate"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+
+[build-dependencies]
+pkg-config = "0.3"
+cc = "1.0"

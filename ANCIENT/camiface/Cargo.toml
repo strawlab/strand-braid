@@ -1,0 +1,18 @@
+[package]
+name = "camiface"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+description = "Rust bindings for libcamiface camera library."
+
+[lib]
+name = "camiface"
+
+[dependencies]
+libc = "~0.1"
+log = "0.4"
+camiface-sys = { path = "../camiface-sys" }
+machine-vision-formats = { path = "../machine-vision-formats" }
+
+[dev-dependencies]
+env_logger = "0.3.3"
+imagefmt = "4.0.0"

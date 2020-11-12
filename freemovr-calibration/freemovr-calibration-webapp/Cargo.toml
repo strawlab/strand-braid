@@ -1,0 +1,38 @@
+[package]
+name = "freemovr-calibration-webapp"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+yew = "0.17.4"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+web-sys = {version="0.3", features=["CssStyleDeclaration","HtmlAnchorElement"]}
+log = "0.4"
+wasm-logger = "0.2.0"
+serde = {version = "1.0", default-features = false, features=["derive"]}
+serde_json = "1.0"
+serde_yaml = "0.8"
+failure = "0.1"
+http = "0.2"
+itertools = "0.7.8"
+chrono = {version="0.4", features=["serde"]}
+ncollide3d = {version="0.26", features=["serde-serialize"]}
+backtrace = "0.3.40" # here only to require this high version number, not used directly
+
+mvg = {path="../../mvg", features=["serde-serialize"]}
+enum-iter = {path="../../enum-iter"}
+ads-webasm = {path="../../ads-webasm", features=["obj","csv-widget"]}
+
+freemovr-calibration = {path=".."}
+
+# Bypass (for now) build errors when this is in the workspace below me.
+[workspace]
+members = []
+
+[patch.crates-io]
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}

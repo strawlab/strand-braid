@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>example</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <noscript>
+        <h1>❌ Error: your browser does not support JavaScript. ❌</h1>
+    </noscript>
+    <script type='text/javascript'>
+        // Check if WebAssembly is supported. Code from
+        // https://stackoverflow.com/questions/47879864 .
+        const supported = (() => {
+            try {
+                if (typeof WebAssembly === "object"
+                    && typeof WebAssembly.instantiate === "function") {
+                    const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+                    if (module instanceof WebAssembly.Module)
+                        return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+                }
+            } catch (e) {
+            }
+            return false;
+        })();
+
+        if (!supported) {
+            document.body.innerHTML = "<h1>❌ Error: your browser does not support WebAssembly. ❌</h1>" +
+                "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
+        }
+    </script>
+
+    <!-- Note the usage of `type=module` here as this is an ES6 module -->
+    <script type="module">
+        import init from './ads_webasm_example.js';
+
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+
+</body>
+
+</html>

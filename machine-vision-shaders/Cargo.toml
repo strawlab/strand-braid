@@ -1,0 +1,9 @@
+[package]
+name = "machine-vision-shaders"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+log = "0.4"
+
+machine-vision-formats = { path = "../machine-vision-formats" }

@@ -1,0 +1,6 @@
+build
+dist
+example.egg-info
+example/_native__lib.so
+eisvogel.egg-info
+eisvogel/_native__lib.so

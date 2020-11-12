@@ -1,0 +1,11 @@
+[package]
+name = "strand-cam-csv-config-types"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+chrono = {version="^0.4.6", features=["serde"]}
+serde = {version="^1.0", features=["derive"]}
+
+image-tracker-types = {path="../image-tracker/image-tracker-types", default-features=false}

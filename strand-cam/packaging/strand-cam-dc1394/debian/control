@@ -1,0 +1,10 @@
+Source: strand-cam-dc1394
+Maintainer: Andrew Straw <strawman@astraw.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.1
+
+Package: strand-cam-dc1394
+Architecture: any
+Description: machine vision and realtime tracking app
+Depends: libdc1394-22, ${shlibs:Depends}
+Recommends: ffmpeg

@@ -1,0 +1,253 @@
+# Precompiled VPX for Windows: https://github.com/ShiftMediaProject/libvpx/releases
+
+# Do not forget that our AWS server at PylonDownloadUrlBase must have the
+# objects publicly visible.
+
+jobs:
+  - job: vpx_Linux
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          curl --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+          sudo dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+        displayName: install libvpx
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup
+      - script: |
+          export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+          cargo run --example save-animation --release
+        workingDirectory: webm-writer
+        displayName: build and test webm-writer
+
+  - job: vpx_Mac
+    pool:
+      vmImage: 'macOS-10.14'
+    steps:
+      - script: |
+          curl --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-1.8.0.sierra.bottle.tar.gz > /tmp/libvpx-1.8.0.sierra.bottle.tar.gz
+          sudo mkdir -p /opt
+          sudo tar xvzf /tmp/libvpx-1.8.0.sierra.bottle.tar.gz -C /opt
+          # TODO delete next line
+          find /opt/libvpx
+        displayName: install libvpx
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup
+      - script: |
+          export VPX_VERSION=1.8.0
+          export VPX_STATIC=1
+          export VPX_LIB_DIR="/opt/libvpx/1.8.0/lib"
+          export VPX_INCLUDE_DIR="/opt/libvpx/1.8.0/include"
+          cargo run --example save-animation --release
+        workingDirectory: webm-writer
+        displayName: build and test webm-writer
+
+  - job: vpx_Windows
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+      - script: |
+          curl -sSfL -O https://github.com/ShiftMediaProject/libvpx/releases/download/v1.8.2/libvpx_v1.8.2_msvc16.zip
+        displayName: download libvpx
+      - task: ExtractFiles@1
+        inputs:
+          archiveFilePatterns: libvpx_v1.8.2_msvc16.zip
+          destinationFolder: C:/unzipped
+        displayName: extract libvpx
+      # - script: |
+      #     dir C:\vcpkg\packages
+      #     dir C:\vcpkg\packages\libvpx_x64-windows-static
+      - script: |
+          curl -sSf -o rustup-init.exe https://win.rustup.rs
+          rustup-init.exe -y --profile minimal 2>&1
+          set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+          echo '##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin'
+        displayName: install rustup on Windows
+      - script: |
+          echo on
+          set VPX_VERSION=1.8.2
+          set VPX_STATIC=1
+          set VPX_LIB_DIR=C:/unzipped/lib/x64
+          set VPX_INCLUDE_DIR=C:/unzipped/include
+          cargo run --example save-animation --release
+        workingDirectory: webm-writer
+        displayName: build and test webm-writer
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: '$(Build.SourcesDirectory)/target/release/examples'
+          contents: '**\*'
+          targetFolder: '$(Build.ArtifactStagingDirectory)'
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathToPublish: '$(Build.ArtifactStagingDirectory)'
+          artifactName: 'WebmWriterSaveAnimationWindows'
+
+  - job: fastimage_macOS
+    pool:
+      vmImage: 'macOS-10.14'
+    steps:
+      - script: |
+          set -x
+          curl -sSfL -O "$PYLON_DOWNLOAD_URL_BASE/m_ipp_2019.3.199.dmg"
+          hdiutil mount *.dmg
+          cp /Volumes/m_ipp_2019.3.199/m_ipp_2019.3.199.app/Contents/MacOS/silent.cfg silent.cfg
+          echo "ACCEPT_EULA=accept" >> silent.cfg
+          sudo /Volumes/m_ipp_2019.3.199/m_ipp_2019.3.199.app/Contents/MacOS/install.sh --silent silent.cfg
+        displayName: download and install Intel IPP
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup
+      - script: |
+          set -x
+          echo $IPPROOT
+          source /opt/intel/compilers_and_libraries_2019/mac/bin/compilervars.sh -arch intel64 -platform mac
+          echo $IPPROOT
+          export IPP_STATIC=1
+          # We could stop building the examples at some point.
+          cargo build -v --features "ipp-sys/2019" --examples
+          ls -ltrh ../target/debug/examples/version
+          otool -L ../target/debug/examples/version
+          ../target/debug/examples/version
+        workingDirectory: fastimage
+        displayName: fastimage build (macOS)
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: '$(Build.SourcesDirectory)/target/debug/examples'
+          contents: 'version'
+          targetFolder: '$(Build.ArtifactStagingDirectory)'
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathToPublish: '$(Build.ArtifactStagingDirectory)'
+          artifactName: 'FastImageVersionMac'
+
+  - job: fastimage_Windows
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+      - script : |
+          curl -sSfL -O %PYLON_DOWNLOAD_URL_BASE%/w_ipp_2019.3.203.exe
+          w_ipp_2019.3.203.exe --silent --log ipp-extract-log.txt  --remove-extracted-files yes --a install --output ipp-install-log.txt --eula=accept
+        displayName: download and install Intel IPP SDK
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: |
+          curl -sSf -o rustup-init.exe https://win.rustup.rs
+          rustup-init.exe -y --profile minimal 2>&1
+          set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+          echo '##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin'
+        displayName: install rustup on Windows
+      - task: BatchScript@1
+        inputs:
+          filename: 'c:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\ipp\bin\ippvars.bat'
+          arguments: intel64
+          modifyEnvironment: True
+      - script: |
+          cmd /k "c:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\ipp\bin\ippvars.bat" intel64
+          set IPP_STATIC=1
+          rem We could stop building the examples at some point.
+          cargo build --features "ipp-sys/2019" --examples
+        workingDirectory: fastimage
+        displayName: fastimage build (Windows)
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: '$(Build.SourcesDirectory)/target/debug/examples'
+          contents: '**\*'
+          targetFolder: '$(Build.ArtifactStagingDirectory)'
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathToPublish: '$(Build.ArtifactStagingDirectory)'
+          artifactName: 'FastImageVersionWindows'
+
+  - job: fastimage_Linux
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          set -x
+          curl -sSfL -O "$PYLON_DOWNLOAD_URL_BASE/l_ipp_2019.3.199.tgz"
+          tar xf *.tgz
+          cd l_ipp*
+          echo "ACCEPT_EULA=accept" >> silent.cfg
+          ./install.sh --silent silent.cfg
+        displayName: download and install Intel IPP
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup
+      - script: |
+          source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux
+          export IPP_STATIC=1
+          # TODO: remove the --examples and all following lines
+          cargo build --features "ipp-sys/2019" --examples
+          ls -ltrh ../target/debug/examples/version
+          ldd ../target/debug/examples/version
+          ../target/debug/examples/version
+        workingDirectory: fastimage
+        displayName: fastimage build (Linux)
+
+  - job: ci2_simple_demo_pylon_Linux
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup
+      - script : |
+          curl -sSfL -O "$PYLON_DOWNLOAD_URL_BASE/pylon_5.2.0.13457-deb0_amd64.deb"
+          sudo dpkg -i pylon_5.2.0.13457-deb0_amd64.deb
+        displayName: download and install Basler Pylon .deb SDK
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: cargo build --features "backend_pyloncxx"
+        workingDirectory: ci2-simple-demo
+        displayName: ci2-simple-demo build (pylon, Linux)
+
+  - job: ci2_simple_demo_pylon_Windows
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+      - script: |
+          curl -sSf -o rustup-init.exe https://win.rustup.rs
+          rustup-init.exe -y --profile minimal 2>&1
+          set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+          echo '##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin'
+        displayName: install rustup on Windows
+      - script : |
+          curl -sSfL -O %PYLON_DOWNLOAD_URL_BASE%/Basler_pylon_5.2.0.13457.exe
+          Basler_pylon_5.2.0.13457.exe /quiet /install
+        displayName: download and install Basler Pylon SDK
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: cargo build --features "backend_pyloncxx"
+        workingDirectory: ci2-simple-demo
+        displayName: ci2-simple-demo build (pylon, Windows)
+
+  - job: ci2_simple_demo_pylon_MacOS
+    pool:
+      vmImage: 'macOS-10.14'
+    steps:
+      - script : |
+          set -x
+          curl -sSfL -O $PYLON_DOWNLOAD_URL_BASE/pylon-5.1.1.13069.dmg
+          hdiutil mount *.dmg
+          sudo installer -pkg "/Volumes/pylon 5 Camera Software Suite/"*.pkg -target /
+        displayName: download and install Basler Pylon SDK on macOS
+        env:
+          PYLON_DOWNLOAD_URL_BASE: $(PylonDownloadUrlBase)
+      - script: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+        displayName: install rustup on macOS
+      - script: cargo build --features "backend_pyloncxx"
+        workingDirectory: ci2-simple-demo
+        displayName: ci2-simple-demo build (pylon, macOS)

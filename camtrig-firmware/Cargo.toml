@@ -1,0 +1,39 @@
+[package]
+name = "camtrig-firmware"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+description = "firmware for Strawlab camera trigger device"
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6.2"
+cortex-m-rt = "0.6.10"
+cortex-m-rtfm = "0.5"
+panic-semihosting = {version="0.5.1", optional=true}
+cortex-m-semihosting = {version="0.3.2", optional=true}
+panic-itm = {version="0.4.1", optional=true}
+stm32f3xx-hal = {git="https://github.com/astraw/stm32f3xx-hal", features=["rt", "stm32f303"], rev="96aa9e655581e90a8c164da7a069ca6bc57774c1"}
+nb = "0.1.0"
+cast = {version="0.2", default-features = false}
+byteorder = { version = "1", default-features = false }
+heapless = "0.5"
+camtrig-comms = {path="../camtrig-comms"}
+mini-rxtx = {git="https://bare-git.strawlab.org/mini-rxtx.git", rev="d8f9b7902aae8c2e69a3262ccf70fde31a2011ee"}
+void = {version = "1.0.2", default-features = false}
+embedded-hal = "0.2.0"
+
+[profile.release]
+lto = true
+debug = true
+opt-level = "s"
+
+[features]
+default = ["nucleo64","semihosting"]
+
+# semihosting and itm features are mutually exclusive
+semihosting = ["panic-semihosting", "cortex-m-semihosting"]
+itm = ["panic-itm"]
+
+# nucleo32 and nucleo64 features are mutually exclusive
+nucleo32 = []
+nucleo64 = []

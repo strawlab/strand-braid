@@ -1,0 +1,9 @@
+[package]
+name = "dynlink-cuda"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+libloading = "0.5.2"
+thiserror = "1.0"

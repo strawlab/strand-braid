@@ -1,0 +1,23 @@
+[package]
+name = "camtrig"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.25"
+camtrig-comms = {path="../camtrig-comms"}
+ssmarshal = "1.0"
+byteorder = "1"
+failure = "0.1"
+failure_derive = "0.1"
+log = "0.4"
+env_logger = "0.8"
+tokio-serial = "4.3.3"
+futures = "0.3"
+tokio = {version="0.2", default-features=false, features=["rt-core","macros","time","stream"]}
+tokio-util = {version="0.3", features=["codec"]}
+bytes = "0.5"
+mini-rxtx = {version="0.1", features=["std"]}
+parking_lot = "0.11"
+mio-serial = { version = "3.3.1", default-features = false }

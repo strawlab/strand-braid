@@ -1,0 +1,11 @@
+[package]
+name = "lstsq"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+nalgebra = "0.23"
+
+[dev-dependencies]
+approx = "0.4"

@@ -1,0 +1,11 @@
+[package]
+name = "simple-obj-parse"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+nalgebra = "0.23"
+ncollide3d = "0.26"
+genmesh = "0.6"
+obj = {version="0.10", features=["genmesh"]}

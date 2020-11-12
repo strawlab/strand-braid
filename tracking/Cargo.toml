@@ -1,0 +1,12 @@
+[package]
+name = "tracking"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+adskalman = "0.4"
+nalgebra = "0.23"
+num-traits = "0.2"
+
+[dev-dependencies]
+approx = "0.4"

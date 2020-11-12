@@ -1,0 +1,24 @@
+[submodule "image-tracker/ros_flydra"]
+	path = image-tracker/ros_flydra
+	url = https://github.com/strawlab/ros_flydra
+[submodule "image-tracker/triggerbox"]
+	path = image-tracker/triggerbox
+	url = https://github.com/strawlab/triggerbox
+[submodule "_submodules/flydra"]
+	path = _submodules/flydra
+	url = https://github.com/strawlab/flydra
+[submodule "_submodules/nextgen-camera-users"]
+	path = _submodules/nextgen-camera-users
+	url = https://bare-git.strawlab.org/nextgen-camera-users.git
+[submodule "_submodules/common_msgs"]
+	path = _submodules/common_msgs
+	url = https://github.com/ros/common_msgs
+[submodule "_submodules/std_msgs"]
+	path = _submodules/std_msgs
+	url = https://github.com/ros/std_msgs
+[submodule "_submodules/ros_comm_msgs"]
+	path = _submodules/ros_comm_msgs
+	url = https://github.com/ros/ros_comm_msgs
+[submodule "_submodules/apriltag"]
+	path = _submodules/apriltag
+	url = https://github.com/AprilRobotics/apriltag

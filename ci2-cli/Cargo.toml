@@ -1,0 +1,36 @@
+[package]
+name = "ci2-cli"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[[bin]]
+name = "ci2"
+path = "src/ci2-cli.rs"
+
+[dependencies]
+log = "0.4"
+env_logger = "0.8"
+structopt = "0.3"
+chrono = "0.4"
+failure = "0.1"
+failure_derive = "0.1"
+
+machine-vision-formats = { path = "../machine-vision-formats" }
+timestamped-frame = { path = "../timestamped-frame" }
+ci2 = { path = "../ci2" }
+
+# ci2-aravis = { path = "../ci2-aravis", optional = true }
+ci2-pylon = { path = "../ci2-pylon", optional = true }
+ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
+ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
+ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
+
+[features]
+default = []
+
+# Backend choice
+# backend_aravis = ["ci2-aravis"]
+backend_dc1394 = ["ci2-dc1394"]
+backend_flycap2 = ["ci2-flycap2"]
+backend_pylon = ["ci2-pylon"]
+backend_pyloncxx = ["ci2-pyloncxx"]

@@ -1,0 +1,17 @@
+[package]
+name = "ci2-aravis"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+log = "0.4"
+failure = "0.1.2"
+failure_derive = "0.1.2"
+chrono = "0.4"
+parking_lot = "0.6"
+
+ci2 = { path = "../ci2" }
+aravis = {git="https://bare-git.strawlab.org/aravis-rs.git", rev="3acbd674fca506bf9558bea5971b54fa977ef528", features = ["v0_6"]}
+aravis-sys = {git="https://bare-git.strawlab.org/aravis-rs.git", rev="3acbd674fca506bf9558bea5971b54fa977ef528", features = ["v0_6"]}
+machine-vision-formats = { path = "../machine-vision-formats" }
+basic-frame = { path = "../basic-frame" }

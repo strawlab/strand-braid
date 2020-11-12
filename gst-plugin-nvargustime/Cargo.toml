@@ -1,0 +1,27 @@
+[package]
+name = "gst-plugin-nvargustime"
+description = "support for timestamps from nvarguscamersrc"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+repository = "https://gitlab.strawlab.org/straw/rust-cam.git"
+license = "Proprietary"
+
+[lib]
+name = "gstrsnvargustime"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+libc = "0.2"
+glib = "0.10"
+glib-sys = "0.10"
+gobject-sys = "0.10"
+gstreamer = "0.16"
+gstreamer-sys = "0.9"
+gstreamer-base = "0.16"
+gstreamer-video = "0.16"
+lazy_static = "1.0"
+
+[build-dependencies]
+gst-plugin-version-helper = "0.2"

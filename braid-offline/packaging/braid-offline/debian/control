@@ -1,0 +1,10 @@
+Source: braid-offline
+Maintainer: Andrew Straw <strawman@astraw.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.1
+
+Package: braid-offline
+Architecture: any
+Description: offline utilities for multi-camera tracking
+Depends: ${shlibs:Depends}
+Conflicts: flydra2 (< 0.20.31)

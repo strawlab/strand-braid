@@ -1,0 +1,26 @@
+[mainbrain]
+# cal_fname = "blah.xml"
+output_base_dirname = "DATA"
+http_api_server_addr = "127.0.0.1:33333"
+model_server_addr = "0.0.0.0:8397"
+lowlatency_camdata_udp_addr = "127.0.0.1:7777"
+save_empty_data2d = true
+
+[[cameras]]
+name = "Point Grey Research-49712223531814348"
+
+[cameras.point_detection_config]
+alpha = 0.009999999776482582
+bg_update_interval = 200
+bright_non_gaussian_cutoff = 255
+bright_non_gaussian_replacement = 5
+clear_fraction = 0.30000001192092896
+despeckle_threshold = 5
+diff_threshold = 30
+do_update_background_model = true
+feature_window_size = 30
+max_num_points = 1
+n_sigma = 7.0
+polarity = "DetectAbsDiff"
+use_cmp = true
+valid_region = "Everything"

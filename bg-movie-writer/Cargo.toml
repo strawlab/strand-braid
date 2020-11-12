@@ -1,0 +1,16 @@
+[package]
+name = "bg-movie-writer"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4.5"
+chrono = "0.4"
+crossbeam-channel = "0.4"
+
+webm-writer = {path="../webm-writer"}
+machine-vision-formats = { path = "../machine-vision-formats" }
+ci2-remote-control = { path = "../ci2-remote-control"}
+nvenc = {path="../nvenc"}
+strand-cam-mkvfix = {path="../strand-cam-mkvfix"}

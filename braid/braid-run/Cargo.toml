@@ -1,0 +1,46 @@
+[package]
+name = "braid-run"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+jemallocator = {version="0.3", optional=true}
+ipp-sys = "0.4.4"
+log = { version = "0.4", features = ["release_max_level_debug"] }
+failure = "0.1"
+structopt = "0.3"
+tokio = {version="0.2.5", default-features=false}
+
+braid = {path=".."}
+image-tracker = {path = "../../image-tracker"}
+im-pt-detect-config = {path = "../../image-tracker/im-pt-detect-config"}
+strand-cam-storetype = {path = "../../strand-cam-storetype"}
+strand-cam = {path="../../strand-cam", default-features = false, features=["imtrack-absdiff", "start-object-detection", "initially-unsychronized", "checkercal",  "send-bg-images-to-mainbrain"] }
+flydra-types = {path="../../flydra-types"}
+flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
+flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
+rust-cam-bui-types = {path="../../rust-cam-bui-types"}
+
+[features]
+default = ["stand-cam-posix-sched-fifo", "fiducial", "jemalloc"]
+
+jemalloc = ["jemallocator"]
+
+fiducial = ["strand-cam/fiducial"]
+
+flydra-uds = ["image-tracker/flydra-uds"]
+
+# BUI frontend
+bundle_files = ["strand-cam/bundle_files", "flydra2-mainbrain/bundle_files"]
+serve_files = [ "strand-cam/serve_files",  "flydra2-mainbrain/serve_files" ]
+
+# Backend choice
+# backend_aravis = ["strand-cam/backend_aravis"]
+backend_dc1394 = ["strand-cam/backend_dc1394"]
+backend_flycap2 = ["strand-cam/backend_flycap2"]
+backend_pyloncxx = ["strand-cam/backend_pyloncxx"]
+
+stand-cam-posix-sched-fifo = ["strand-cam/posix_sched_fifo"]

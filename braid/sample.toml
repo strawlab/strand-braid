@@ -1,0 +1,21 @@
+[mainbrain]
+# cal_fname = "blah.xml"
+output_base_dirname = "~/DATA"
+http_api_server_addr = "127.0.0.1:0"
+model_server_addr = "0.0.0.0:8397"
+
+# [trigger]
+# device_fname = "/dev/trig1"
+# framerate = 100.0
+# query_dt = {secs=1, nanos=500000000}
+
+# [[cameras]]
+# name = "Point Grey Research-49712223531814348"
+# exposure_time_usec = 9500
+
+# [[cameras]]
+# name = "cam124"
+# exposure_time_usec = 9501
+
+[[cameras]]
+name = "Basler-22142486"

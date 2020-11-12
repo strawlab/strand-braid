@@ -1,0 +1,21 @@
+[package]
+name = "braid"
+version = "0.8.0" # braid release synchronized
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition="2018"
+
+[dependencies]
+configure = "0.1.1"
+toml = "0.5"
+serde = "1.0"
+serde_derive = "1.0"
+structopt = "0.3"
+log = { version = "0.4", features = ["release_max_level_debug"] }
+env_logger = "0.8"
+failure = "0.1"
+dotenv = "0.13"
+shellexpand = "2.0"
+
+flydra-types = {path="../flydra-types"}
+image-tracker-types = {path = "../image-tracker/image-tracker-types"}
+im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}

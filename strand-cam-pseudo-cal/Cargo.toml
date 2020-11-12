@@ -1,0 +1,20 @@
+[package]
+name = "strand-cam-pseudo-cal"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+serde_json = "1.0.29"
+nalgebra = "0.23"
+opencv-ros-camera = "0.4"
+cam-geom = "0.4"
+failure = "0.1.2"
+
+mvg = {path="../mvg"}
+flydra-mvg = {path="../flydra-mvg"}
+http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
+flydra-types = {path="../flydra-types"}
+
+[dev-dependencies]
+approx = "0.4"

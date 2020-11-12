@@ -1,0 +1,28 @@
+[package]
+name = "freemovr-calibration-cli"
+version = "0.6.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[[bin]]
+name = "freemovr-calibration"
+path = "src/main.rs"
+
+[dependencies]
+log = "0.4"
+env_logger = "0.8"
+failure = "0.1"
+structopt="0.3"
+nalgebra = "0.23"
+ncollide2d = "0.26"
+cam-geom = "0.4"
+opencv-ros-camera = "0.4"
+chrono = "0.4"
+
+freemovr-calibration = {path=".."}
+mvg = {path="../../mvg"}
+
+[features]
+default = []
+
+opencv = ["freemovr-calibration/opencv"]

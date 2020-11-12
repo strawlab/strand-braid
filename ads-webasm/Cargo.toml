@@ -1,0 +1,33 @@
+[package]
+name = "ads-webasm"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+yew = "0.17.4"
+js-sys = "0.3"
+web-sys = {version="0.3", features=["EventSource","DomRect","Element","DomTokenList","HtmlCanvasElement","HtmlImageElement"]}
+gloo = { version = "0.2.1" }
+wasm-bindgen = { version = "0.2.58", features = ["serde-serialize"] }
+http = "0.2"
+serde = "1.0"
+serde_yaml = "0.8"
+serde_derive = "1.0"
+failure = "0.1.6"
+bui-backend-types = "0.8"
+http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
+enum-iter = {path="../enum-iter"}
+rust-cam-bui-types = {path="../rust-cam-bui-types"}
+chrono = "0.4"
+yew-tincture = "0.1"
+
+uuid = { version = "0.8", features = ["v4"] } # add feature flag reqruied for uuid crate
+
+simple-obj-parse = {path="../simple-obj-parse", optional=true}
+ncollide3d = {version="0.26", optional=true}
+
+csv = {version="1.1", optional=true}
+
+[features]
+obj = ["simple-obj-parse", "ncollide3d"]
+csv-widget = ["csv"]

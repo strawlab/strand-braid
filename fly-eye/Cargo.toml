@@ -1,0 +1,33 @@
+[package]
+name = "fly-eye"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+failure = "0.1.2"
+log = { version = "0.4", features = ["release_max_level_debug"] }
+env_logger = "0.8"
+structopt = "0.3"
+crossbeam-channel = "0.4"
+image = "0.22"
+glium = "0.25"
+imagefmt = "4.0.0"
+time = "0.1"
+convert-image = { path = "../convert-image" }
+machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-shaders = { path = "../machine-vision-shaders" }
+crossbeam-ok = {path="../crossbeam-ok"}
+ci2 = { path = "../ci2" }
+ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
+ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
+ci2-pylon = { path = "../ci2-pylon", optional = true }
+
+[features]
+default = ["fly-eye"]
+
+camsrc_dc1394 = ["ci2-dc1394"]
+camsrc_flycap2 = ["ci2-flycap2"]
+camsrc_pylon = ["ci2-pylon"]
+
+fly-eye = []
+screen-quad = []

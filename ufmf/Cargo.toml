@@ -1,0 +1,16 @@
+[package]
+name = "ufmf"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+byteorder = "1.1"
+chrono = "0.4"
+failure = "0.1"
+failure_derive = "0.1"
+structure = "0.1.2"
+cast = "0.2.2"
+
+machine-vision-formats = { path = "../machine-vision-formats" }
+timestamped-frame = { path = "../timestamped-frame" }
+datetime-conversion = {path="../datetime-conversion"}

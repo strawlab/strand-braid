@@ -1,0 +1,30 @@
+[package]
+name = "strand-cam-storetype"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+serde = {version = "1.0", default-features = false, features=["derive"]}
+serde_json = "1.0"
+serde_yaml = "0.8"
+
+camtrig-comms = {path="../camtrig-comms", optional=true}
+ci2-types = { path = "../ci2/ci2-types" }
+ci2-remote-control = { path = "../ci2-remote-control"}
+image-tracker-types = {path = "../image-tracker/image-tracker-types"}
+http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
+rust-cam-bui-types = {path="../rust-cam-bui-types"}
+
+[features]
+default = ["std"]
+
+std = []
+alloc = []
+collections = ["alloc"]
+const_fn = []
+flydratrax = []
+checkercal = []
+
+# Camtrig device
+with_camtrig = ["camtrig-comms"]

@@ -1,0 +1,11 @@
+[package]
+name = "pylon-simple-record"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+error-chain = "0.11"
+log = "0.4"
+env_logger = "0.8"
+pylon = {path=".."}
+structopt = "0.3"

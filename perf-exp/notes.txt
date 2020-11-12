@@ -1,0 +1,5 @@
+perf sched record -- sleep 10
+perf script --header > sched.out
+
+perf record -F 997 -a -g -- sleep 10
+perf script --header > callgraph-script.out

@@ -1,0 +1,61 @@
+[package]
+name = "flydra2-mainbrain"
+version = "0.20.29"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+log = { version = "0.4", features = ["release_max_level_debug"] }
+env_logger = "0.8"
+configure = "0.1.1"
+failure = "0.1"
+failure_derive = "0.1"
+parking_lot = "0.11"
+crossbeam-channel = "0.4"
+serde = "1.0"
+serde_json = "1.0"
+toml = "0.5"
+regex = "1.0"
+flydra-types = {path="../flydra-types", features=["with-dns"]}
+flydra1-triggerbox = { path = "../flydra1-triggerbox-rs" }
+flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
+chrono = "0.4"
+futures = "0.3"
+tokio = {version="0.2", default-features=false, features=["sync","rt-core","stream"]}
+tokio-util = {version="0.2", features=["udp"]}
+stream-cancel = "0.6"
+bytes = "0.5"
+structopt = "0.3"
+clap = "2.20"
+qrcodegen = "1.4"
+image = "0.22"
+hyper = "0.13.0"
+lazy_static = "1.4"
+ctrlc = { version = "3.1.3", features = ["termination"] }
+
+includedir = { version = "0.6", optional = true }
+phf = { version = "0.8", optional = true }
+async-change-tracker = "0.3"
+bui-backend-types = "0.8"
+bui-backend = {version="0.9", default-features = false}
+
+mvg = {path="../mvg"}
+flydra-mvg = {path="../flydra-mvg"}
+bui-backend-session = {path="../bui-backend-session"}
+strand-cam-storetype = {path = "../strand-cam-storetype", default-features=false}
+image-tracker-types = {path = "../image-tracker/image-tracker-types", default-features = false}
+ci2-remote-control = {path = "../ci2-remote-control"}
+datetime-conversion = {path = "../datetime-conversion"}
+rust-cam-bui-types = {path="../rust-cam-bui-types"}
+crossbeam-ok = {path="../crossbeam-ok"}
+
+[build-dependencies]
+bui-backend-codegen = {version="0.9", default-features = false}
+
+[features]
+default = ["bundle_files"]
+
+deadlock_detection = ["parking_lot/deadlock_detection"]
+
+bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf"]
+serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "bui-backend-codegen/serve_files"]

@@ -1,0 +1,40 @@
+[package]
+name = "freemovr-calibration"
+version = "0.6.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.8"
+serde_json = "1.0"
+failure = "0.1"
+alga = "0.9"
+nalgebra = "0.23"
+ncollide2d = "0.26"
+ncollide3d = {version="0.26", features=["serde-serialize"]}
+cam-geom = "0.4"
+opencv-ros-camera = "0.4"
+genmesh = "0.6"
+obj = {version="0.10", features=["genmesh"]}
+byteorder = "1.2.2"
+image = "0.22"
+csv = "1.1"
+chrono = {version="0.4", features=["serde"]}
+
+dlt = "0.4"
+mvg = {path="../mvg", features=["serde-serialize"]}
+camcal = {path="../camcal", optional=true}
+simple-obj-parse = {path="../simple-obj-parse"}
+ncollide-geom = {path="../ncollide-geom"}
+
+[dev-dependencies]
+approx = "0.4"
+opencv-calibrate = {path="../opencv-calibrate"}
+
+[features]
+default = []
+
+opencv = ["camcal"]

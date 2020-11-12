@@ -1,0 +1,29 @@
+[package]
+name = "gst-plugin-apriltag"
+description = "support for April Tag fiducial markers"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+repository = "https://gitlab.strawlab.org/straw/rust-cam.git"
+license = "Proprietary"
+
+[lib]
+name = "gstrsapriltag"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+glib = "0.10"
+gobject-sys = "0.10"
+gstreamer = "0.16"
+gstreamer-base = "0.16"
+gstreamer-video = "0.16"
+lazy_static = "1.0"
+csv = "1.1"
+serde = {version="1.0", features=["derive"]}
+bytes = "0.5"
+
+apriltag = {path="../apriltag"}
+
+[build-dependencies]
+gst-plugin-version-helper = "0.2"

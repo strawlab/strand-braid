@@ -1,0 +1,25 @@
+[mainbrain]
+cal_fname = "cal-2018-11-13-good.xml"
+output_base_dirname = "DATA"
+http_api_server_addr = "127.0.0.1:44444"
+model_server_addr = "0.0.0.0:8397"
+lowlatency_camdata_udp_addr = "127.0.0.1:7777"
+save_empty_data2d = true
+
+[trigger]
+device_fname = "/dev/trig1"
+framerate = 150.0
+query_dt = {secs=1, nanos=500000000}
+
+[[cameras]]
+name = "Basler-22005677"
+
+[[cameras]]
+name = "Basler-22139107"
+
+[[cameras]]
+name = "Basler-22139109"
+
+[[cameras]]
+name = "Basler-22139110"
+

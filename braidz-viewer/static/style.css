@@ -1,0 +1,372 @@
+html,
+body {
+    margin: 0;
+    padding: 5px;
+}
+
+body {
+    font: 10px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    line-height: 1.4em;
+    background: #000000;
+    color: #adadad;
+    margin: 0 auto;
+}
+
+a {
+    color: #adadad;
+}
+
+input[type="text"], textarea {
+    background-color: #5e5e5e;
+    color: #bababa;
+    border: 0;
+}
+
+input[type="file"].custom-file-upload-input {
+    display: none;
+}
+
+.custom-file-upload {
+    cursor: pointer;
+}
+
+button {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 100%;
+    vertical-align: baseline;
+    font-family: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+button,
+input[type="checkbox"] {
+    outline: none;
+}
+
+.wrapper {
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.modal-container {
+    background: rgba(77, 77, 77, 1.0);
+    position: fixed;
+    left: 50px;
+    right: 50px;
+    height: 400px;
+    padding: 20px;
+    box-sizing: border-box;
+    box-shadow: 0 2px 4px 0 rgba(223, 25, 25, 0.92),
+    0 25px 50px 0 rgba(0, 255, 255, 0.91);
+}
+
+input[type="text"].ranged-value-input-error {
+    background-color: rgb(167, 99, 99);
+}
+
+.config-field-textarea {
+    width: 100%;
+    font-family: monospace;
+    white-space: pre;
+    font-size: 10px;
+    line-height: 1.4em;
+}
+
+.reset-background-btn {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.config-field-btns {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.config-field-on-server {
+    background: rgba(77, 77, 77, 1.0);
+    font-family: monospace;
+    white-space: pre;
+}
+
+.led-control {
+    display: inline-block;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.config-field-editor {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.config-field-col {
+    display: inline-block;
+}
+
+.config-field-left-col {
+    flex-grow: 1;
+}
+
+.config-field-middle-col {
+    flex-grow: 0;
+}
+
+.config-field-right-col {
+    flex-grow: 1;
+}
+
+.video-field-text {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.video-field-fno {
+    display: inline-block;
+    flex-grow: 1;
+}
+
+.video-field-mousepos {
+    display: inline-block;
+    flex-grow: 1;
+}
+
+.video-field-fps {
+    display: inline-block;
+    flex-grow: 1;
+}
+
+.video-field-canvas {
+    padding: 1px;
+    border: 1px solid #adadad;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    /* max-height: 600px; */
+    cursor: crosshair;
+}
+
+.btn {
+    padding: 2px;
+    margin: 2px;
+    border: 1px solid #adadad;
+    box-sizing: border-box;
+    border-radius: 3px;
+}
+
+.btn:enabled {
+    cursor: pointer;
+}
+
+.btn-active {
+    background: #5e5e5e;
+}
+
+button:disabled,
+button[disabled]{
+    color: #5e5e5e;
+    border: 1px solid #5e5e5e;
+}
+
+.toplevel-container {
+    padding: 2px;
+    margin: 2px;
+    box-sizing: border-box;
+}
+
+h2 {
+    padding: 5px;
+    background: #adadad;
+    color: #000000;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
+}
+
+h3 {
+    margin-top: 0.25em;
+    margin-bottom: 0.125em;
+}
+
+.cam-range-main {
+    display: inline-block;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+/* See https://alligator.io/css/collapsible/ for the initial inspiration of
+wrap-collapsible. */
+
+.wrap-collapsible {
+    border-radius: 7px;
+    border: 1px solid gray;
+}
+
+.wrap-collapsible > label {
+    cursor: pointer;
+    transition: all 0.25s ease-out;
+    border-radius: 7px;
+
+    display: block;
+
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-align: left;
+
+    padding: 1rem;
+}
+
+.wrap-collapsible > label::before {
+    content: ' ';
+    display: inline-block;
+
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 5px solid currentColor;
+
+    vertical-align: middle;
+    margin-right: .7rem;
+    transform: translateY(-2px);
+
+    transition: transform .2s ease-out;
+}
+
+.wrap-collapsible > input:checked + label::before {
+    transform: rotate(90deg) translateX(-3px);
+}
+
+.wrap-collapsible > input:checked + label {
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    /* border-bottom: 1px solid currentColor; */
+}
+
+.wrap-collapsible > input {
+    display: none;
+}
+
+/* `>` is child combinator and `~` is general sibling combinator, so this will
+select any "div" elements and display them when the input is checked */
+.wrap-collapsible > input:checked ~ div {
+    display: block;
+}
+.wrap-collapsible > input:not(:checked) ~ div {
+    display: none;
+}
+
+.wrap-collapsible > div {
+    padding: 1em;
+}
+
+.compute-modal {
+    background-color: rgba(0,0,0,0.5);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+.compute-modal-inner {
+    line-height: 1.5em;
+    position: fixed;
+    background-color: #7f7f7f;
+    color: black;
+    top: 10px;
+    padding: 10px;
+    left: 5%;
+    width: 90%;
+    box-shadow: 10px 5px 5px black;
+    text-align: center;
+}
+
+.display-none {
+    display: none;
+}
+
+/* ------------------------ */
+/* From https://loading.io/css/ */
+
+.lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 64px;
+    height: 64px;
+  }
+  .lds-ellipsis div {
+    position: absolute;
+    top: 27px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: black;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .lds-ellipsis div:nth-child(1) {
+    left: 6px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(2) {
+    left: 6px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(3) {
+    left: 26px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(4) {
+    left: 45px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(19px, 0);
+    }
+  }
+
+
+  #page-container {
+    position: relative;
+    min-height: 100vh;
+  }
+
+  #content-wrap {
+    padding-bottom: 2.5rem;    /* Footer height */
+  }
+
+  #footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 2.5rem;            /* Footer height */
+  }

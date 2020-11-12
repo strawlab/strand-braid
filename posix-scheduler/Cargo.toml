@@ -1,0 +1,13 @@
+[package]
+name = "posix-scheduler"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+posix-scheduler-build = {path="posix-scheduler-build"}
+
+[features]
+linux = ["posix-scheduler-build/linux"]

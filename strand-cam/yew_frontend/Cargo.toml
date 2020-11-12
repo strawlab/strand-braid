@@ -1,0 +1,47 @@
+[package]
+name = "strand-cam-frontend-yew"
+version = "0.7.2" # braid release synchronized
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+wasm-logger = "0.2.0"
+wasm-bindgen = "0.2.58"
+js-sys = "0.3"
+web-sys = {version="0.3", features=["EventSource","DomRect","Element","DomTokenList","HtmlCanvasElement","HtmlImageElement"]}
+yew = "0.17.4"
+serde = {version = "1.0", default-features = false}
+serde_json = "1.0"
+serde_yaml = "0.8"
+failure = "0.1"
+http = "0.2"
+backtrace = "0.3.40" # here only to require this high version number, not used directly
+
+strand-cam-storetype = {path = "../../strand-cam-storetype", default-features=false}
+image-tracker-types = {path = "../../image-tracker/image-tracker-types", default-features = false}
+http-video-streaming-types = {path = "../../http-video-streaming/http-video-streaming-types"}
+ci2-types = {path="../../ci2/ci2-types"}
+ci2-remote-control = { path = "../../ci2-remote-control" }
+
+camtrig-comms = {path="../../camtrig-comms", optional=true}
+enum-iter = {path="../../enum-iter"}
+ads-webasm = {path="../../ads-webasm"}
+yew-tincture = "0.1"
+
+[features]
+default = ["checkercal"]
+checkercal = ["strand-cam-storetype/checkercal"]
+
+with_camtrig = ["strand-cam-storetype/with_camtrig", "camtrig-comms", "camtrig-comms"]
+flydratrax = ["strand-cam-storetype/flydratrax"]
+
+# Bypass (for now) build errors when this is in the workspace below me.
+[workspace]
+members = []
+
+[patch.crates-io]
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}

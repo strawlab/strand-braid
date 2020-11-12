@@ -1,0 +1,22 @@
+[package]
+name = "flydra1-triggerbox"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+failure = "0.1.2"
+serialport = "3"
+log = "0.4"
+byteorder = "1"
+crossbeam-channel = "0.4"
+thread-control = "0.1"
+serde = "1.0"
+nalgebra = "0.23"
+chrono = "0.4"
+datetime-conversion = {path="../datetime-conversion"}
+lstsq = {path="../lstsq"}
+structopt = "0.3"
+env_logger = "0.8"
+rust-cam-bui-types = {path="../rust-cam-bui-types"}
+flydra-types = {path="../flydra-types"}
+crossbeam-ok = {path="../crossbeam-ok"}

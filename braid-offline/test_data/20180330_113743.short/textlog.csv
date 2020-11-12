@@ -1,0 +1,2 @@
+mainbrain_timestamp,cam_id,host_timestamp,message
+1522402663.4034228,mainbrain,1522402663.4034228,"MainBrain running at unknown fps, (flydra_version 2.0.0, git_revision 0581c8fa8da4e683921480085fad21bf3b77600e, time_tzname0 CEST)"

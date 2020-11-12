@@ -1,0 +1,10 @@
+Source: strand-cam-camtrig-pylon
+Maintainer: Andrew Straw <strawman@astraw.com>
+Build-Depends: debhelper (>= 9), pylon (>=6)
+Standards-Version: 3.9.1
+
+Package: strand-cam-camtrig-pylon
+Architecture: any
+Description: machine vision and realtime tracking app
+Depends: ${shlibs:Depends}, pylon (>=6)
+Recommends: ffmpeg

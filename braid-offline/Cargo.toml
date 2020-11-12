@@ -1,0 +1,38 @@
+[package]
+name = "braid-offline"
+version = "0.8.0" # braid release synchronized
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = { version = "0.4.5", features = ["release_max_level_debug"] }
+structopt = "0.3"
+failure = "0.1.2"
+csv = "1.1"
+serde = {version="^1.0", features=["derive"]}
+toml = "0.5"
+itertools = "0.8"
+env_logger = "0.8"
+
+csv-eof = {path="../csv-eof"}
+flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
+flydra-types = {path="../flydra-types"}
+groupby = {path="../groupby"}
+tokio = {version="0.2", default-features=false, features=["macros"]}
+zip-or-dir = {path="../zip-or-dir"}
+
+[dev-dependencies]
+download-verify = {path="../download-verify"}
+braidz-parser = {path="../braidz-parser"}
+anyhow = "1.0"
+tempfile = "3"
+
+[features]
+default = ["full-3d"]
+
+flat-3d = ["flydra2/flat-3d"]
+full-3d = ["flydra2/full-3d"]
+
+backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace"]

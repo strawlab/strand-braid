@@ -1,0 +1,88 @@
+use chrono::Local;
+use log::info;
+use std::time::Instant;
+
+use flydra2::GetsUpdates;
+use flydra2::{ModelServer, Result, SendType, TimeDataPassthrough};
+use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
+
+fn main() -> Result<()> {
+    let mut runtime = tokio::runtime::Builder::new()
+        .threaded_scheduler()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let rt_handle = runtime.handle().clone();
+    runtime.block_on(inner(rt_handle))
+}
+
+async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
+    env_logger::init();
+
+    let addr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
+    info!("send_pose server at {}", addr);
+    let info = flydra_types::StaticMainbrainInfo {
+        name: env!("CARGO_PKG_NAME").into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+    };
+
+    let (_quit_trigger, valve) = stream_cancel::Valve::new();
+
+    let ms = ModelServer::new(valve, None, &addr, info, rt_handle)?;
+
+    let starti = Instant::now();
+
+    let start = Local::now();
+    let start = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_dt(&start));
+
+    let mut record = KalmanEstimatesRow {
+        obj_id: 0,
+        frame: 0.into(),
+        timestamp: start.clone(),
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        xvel: 0.0,
+        yvel: 0.0,
+        zvel: 0.0,
+        P00: 0.0,
+        P01: 0.0,
+        P02: 0.0,
+        P11: 0.0,
+        P12: 0.0,
+        P22: 0.0,
+        P33: 0.0,
+        P44: 0.0,
+        P55: 0.0,
+    };
+    let tdpt = TimeDataPassthrough::new(SyncFno(0), &start);
+    ms.send_update(SendType::Birth(record.clone().into()), &tdpt)?;
+
+    // Create a stream to update pose
+    let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(100));
+
+    // Update the pose
+    let stream_done_future = async move {
+        loop {
+            interval_stream.tick().await;
+            let dur = starti.elapsed();
+            let dur_f64 = (dur.as_secs() as f64) + (1e-9 * dur.subsec_nanos() as f64);
+
+            let now = Some(FlydraFloatTimestampLocal::from_dt(&Local::now()));
+            record.frame.0 += 1;
+            record.timestamp = now;
+            record.x = dur_f64.sin();
+            record.y = dur_f64.cos();
+            let tdpt = TimeDataPassthrough::new(record.frame, &record.timestamp);
+            ms.send_update(SendType::Update(record.clone().into()), &tdpt)
+                .expect("send_update");
+            ms.send_update(SendType::EndOfFrame(record.frame), &tdpt)
+                .expect("send_eof");
+        }
+    };
+
+    stream_done_future.await;
+
+    Ok(())
+}

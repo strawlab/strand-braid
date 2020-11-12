@@ -1,0 +1,28 @@
+[package]
+name = "rt-image-viewer-frontend-yew"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+yew = "0.7"
+stdweb = "0.4.18"
+serde = {version = "1.0", default-features = false}
+serde_json = "1.0"
+serde_yaml = "0.8"
+serde_derive = "1.0"
+failure = "0.1"
+http = "0.2"
+backtrace = "0.3.40" # here only to require this high version number, not used directly
+
+http-video-streaming-types = {path = "../../http-video-streaming/http-video-streaming-types"}
+enum-iter = {path="../../enum-iter"}
+rt-image-viewer-storetype = { path = "../storetype" }
+ads-webasm-ancient = {path="ads-webasm-ancient"}
+
+# Bypass (for now) build errors when this is in the workspace below me.
+[workspace]
+members = []
+
+[patch.crates-io]
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="7142f78d81eed8b9989f87c8d650a27d414d891a"}

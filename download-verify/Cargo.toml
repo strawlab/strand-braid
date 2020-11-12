@@ -1,0 +1,13 @@
+[package]
+name = "download-verify"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ureq = "1.5"
+thiserror="1.0"
+sha2 = "0.9"
+hex = "0.4"

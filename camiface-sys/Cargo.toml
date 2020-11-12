@@ -1,0 +1,12 @@
+[package]
+name = "camiface-sys"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+description = "Rust bindings for libcamiface camera library."
+build = "build.rs"
+
+[lib]
+name = "camiface_sys"
+
+[dependencies]
+libc = "~0.1"

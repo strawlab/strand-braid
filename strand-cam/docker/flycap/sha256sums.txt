@@ -1,0 +1,17 @@
+dcc6eb4f6606d7fb759ed9c1bb8bfcc15dc7c0906a4e2fd6f191c9ce103a4f57  flycapture2-2.9.3.43-amd64/flycap-2.9.3.43_amd64.deb
+5687acb87a11092d753dca790fa236c930d63cc41523adf9e1bf4ea3363d209f  flycapture2-2.9.3.43-amd64/flycap2-conf
+bda43f6538c3b6316149dc72c0507cf650968929141a9956d6a3df9fb20048cc  flycapture2-2.9.3.43-amd64/flycapture-doc-2.9.3.43_amd64.deb
+435f4f28313784f85fa1f267f03184f35e49df4c0dc64498e4d6fc0629d64f2a  flycapture2-2.9.3.43-amd64/install_flycapture.sh
+4c45a19a7d95f56763b2e2ec4d4912a3d171196bebc05b8e87a837ae1b4b4fdb  flycapture2-2.9.3.43-amd64/libflycapture-2.9.3.43_amd64.deb
+a4a0d6029db8cefd95b79591e958714bc7ed396326586c918403881ab8b262b8  flycapture2-2.9.3.43-amd64/libflycapture-2.9.3.43_amd64-dev.deb
+609a6421ecd84aae9b8b699e34d3b50bb7306328f5d6d59c643dad2433e2bc8f  flycapture2-2.9.3.43-amd64/libflycapture-c-2.9.3.43_amd64.deb
+b441bdc4c04b3b2efe22f728d6be221045841ec2d98fe2cb568ca7b54e22a9a1  flycapture2-2.9.3.43-amd64/libflycapture-c-2.9.3.43_amd64-dev.deb
+7ecee23f60e74818670562ece5f6eea395633e5189d104923f931fa32a029f47  flycapture2-2.9.3.43-amd64/libflycapturegui-2.9.3.43_amd64.deb
+4a76acde11dce2b6aa6b4b748bdfa9dce3707bcb0fff13cc9e97015713a1cd9b  flycapture2-2.9.3.43-amd64/libflycapturegui-2.9.3.43_amd64-dev.deb
+7e66f799900666f9cc089ff8ef713c6ac99bcec288e013bdade7ecbb8e4d36f4  flycapture2-2.9.3.43-amd64/libflycapturegui-c-2.9.3.43_amd64.deb
+9610c529b1e2840995abd94d838384ae4c3597a520de1b0dcc7781670dbd7aed  flycapture2-2.9.3.43-amd64/libflycapturegui-c-2.9.3.43_amd64-dev.deb
+408617a3fb87e62a36ac13fba91c506760efcb39b37e4e5909a29913e7663019  flycapture2-2.9.3.43-amd64/libmultisync-2.9.3.43_amd64.deb
+ec00fa399d98a3d5e6884620557abdfd8f1a3701d96cba4dca278948c825b4b6  flycapture2-2.9.3.43-amd64/README
+2bf4de55f6818ad177db8ab70272bbb79d8f768b900e77bdd4e920efc93a33ae  flycapture2-2.9.3.43-amd64/releasenotes.txt
+6961fc504bcb39c4e23260e438c9e1b91f5546800a914270c1fe70ad05f84ad4  flycapture2-2.9.3.43-amd64/remove_flycapture.sh
+58d95e2ffb9037f14a61636ec49da62532d6e119b065582e040d9169468874d5  flycapture2-2.9.3.43-amd64/updatorgui-2.9.3.43_amd64.deb

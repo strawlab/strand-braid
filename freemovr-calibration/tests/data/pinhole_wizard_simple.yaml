@@ -1,0 +1,20 @@
+uv_display_points:
+- {display_x: 467.8555172720509, display_y: 663.6883597083049, texture_u: 0.0, texture_v: 0.5}
+- {display_x: 466.8167424561908, display_y: 597.5, texture_u: 0.0, texture_v: 1.0}
+- {display_x: 469.8169567759575, display_y: 723.9378926055141, texture_u: 0.0, texture_v: 0.25}
+- {display_x: 469.35362420490276, display_y: 616.7838871971885, texture_u: 0.0, texture_v: 0.75}
+- {display_x: 383.4282107841717, display_y: 692.7519952724155, texture_u: 0.75, texture_v: 0.5}
+- {display_x: 552.0, display_y: 667.7220329165609, texture_u: 0.25, texture_v: 0.5}
+- {display_x: 521.0, display_y: 725.0961137289682, texture_u: 0.125, texture_v: 0.25}
+- {display_x: 415.8404049975998, display_y: 729.026072866442, texture_u: 0.875, texture_v: 0.25}
+- {display_x: 527.0, display_y: 665.2934266687307, texture_u: 0.125, texture_v: 0.5}
+- {display_x: 404.0, display_y: 675.0, texture_u: 0.875, texture_v: 0.5}
+- {display_x: 513.0, display_y: 621.2502692439043, texture_u: 0.125, texture_v: 0.75}
+- {display_x: 414.3408830816845, display_y: 630.9621934694203, texture_u: 0.875, texture_v: 0.75}
+display:
+  width: 1024
+  height: 768
+geom:
+  center: {x: 0.0, y: 0.0, z: 0.0}
+  model: sphere
+  radius: 0.02

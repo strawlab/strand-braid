@@ -1,0 +1,9 @@
+[package]
+name = "im-pt-detect-config"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+image-tracker-types = {path="../image-tracker-types"}
+http-video-streaming-types = {path="../../http-video-streaming/http-video-streaming-types"}

@@ -1,0 +1,7 @@
+displays:
+  - {calibration_file: "pinhole_wizard_simple.yaml", x: 0, y: 0}
+  - {calibration_file: "pinhole_wizard_simple.yaml", x: 1024, y: 0}
+  - {calibration_file: "pinhole_wizard_simple.yaml", x: 2048, y: 0}
+final_size:
+  width: 3072
+  height: 768

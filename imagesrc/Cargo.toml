@@ -1,0 +1,11 @@
+[package]
+name = "imagesrc"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+futures = "0.3"
+
+machine-vision-formats = { path = "../machine-vision-formats" }

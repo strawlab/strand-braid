@@ -1,0 +1,24 @@
+[package]
+name = "fastimage"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+ipp-sys = "0.4.4"
+failure = "0.1"
+failure_derive = "0.1"
+num-traits = "0.2"
+
+[dev-dependencies]
+itertools = "0.8"
+criterion = "0.2"
+approx = "0.4"
+
+[features]
+default = ["simd-sse2"]
+simd-avx2 = []
+simd-sse2 = []
+
+[[bench]]
+name = "bench"
+harness = false

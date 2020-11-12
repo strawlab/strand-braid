@@ -1,0 +1,13 @@
+[package]
+name = "convert-image"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+machine-vision-formats = { path = "../machine-vision-formats" }
+basic-frame = { path = "../basic-frame" }
+image = "0.22"
+thiserror = "1.0"
+bayer = "0.1"
+itertools = "0.8"

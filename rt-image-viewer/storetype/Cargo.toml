@@ -1,0 +1,9 @@
+[package]
+name = "rt-image-viewer-storetype"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+http-video-streaming-types = {path="../../http-video-streaming/http-video-streaming-types"}

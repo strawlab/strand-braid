@@ -1,0 +1,10 @@
+[package]
+name = "ncollide-geom"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+ncollide2d = "0.26"
+delaunator = "0.2.0"
+nalgebra = "0.23"
