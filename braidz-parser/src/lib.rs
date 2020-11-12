@@ -283,7 +283,9 @@ pub fn braidz_parse<R: Read + Seek>(
                     if row.message.starts_with(line1_start) {
                         let line = row.message.replace(line1_start, "");
                         let fps_str = line.split(" ").next().unwrap();
-                        expected_fps = fps_str.parse()?;
+                        if fps_str != "unknown" {
+                            expected_fps = fps_str.parse()?;
+                        }
                     }
 
                     // parse to unstructured json
