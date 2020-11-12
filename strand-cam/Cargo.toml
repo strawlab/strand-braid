@@ -12,7 +12,7 @@ path = "src/strand-cam.rs"
 jemallocator = {version="0.3", optional=true}
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.9", default-features = false}
+bui-backend = {version="0.10", default-features = false}
 qrcodegen = "1.4"
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
 env_logger = "0.8"
@@ -56,8 +56,8 @@ chrono = { version = "0.4.6", features = ["serde"] }
 convert-image = {path = "../convert-image"}
 hyper = "0.13.0"
 futures = "0.3"
-tokio = {version="0.2.5", default-features=false, features=["rt-core","stream","rt-threaded"]}
-tokio-util = {version="0.3", features=["codec"]}
+tokio = {version="0.3", default-features=false, features=["rt","stream","rt-multi-thread","time","sync"]}
+tokio-util = {version="0.4", features=["codec"]}
 dotenv = "0.13.0"
 strand-cam-storetype = {path = "../strand-cam-storetype"}
 image-tracker = {path = "../image-tracker", default-features = false, optional=true}

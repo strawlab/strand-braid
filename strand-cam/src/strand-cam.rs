@@ -745,7 +745,7 @@ struct FlydraConfigState {
 #[rustfmt::skip]
 #[allow(unused_mut,unused_variables)]
 fn frame_process_thread(
-    handle: tokio::runtime::Handle,
+    my_runtime: Arc<tokio::runtime::Runtime>,
     #[cfg(feature="flydratrax")]
     model_server: flydra2::ModelServer,
     cam_name: RawCamName,
@@ -853,7 +853,7 @@ fn frame_process_thread(
         mpsc::channel::<Vec<u8>>(10);
     let http_camserver = CamHttpServerInfo::Server(http_camserver_info.clone());
     #[cfg(feature="image_tracker")]
-    let mut im_tracker = FlyTracker::new(&handle, &cam_name, width, height, cfg,
+    let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, cfg,
         Some(cam_args_tx.clone()), version_str, frame_offset, http_camserver,
         use_cbor_packets, ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
@@ -1038,7 +1038,7 @@ fn frame_process_thread(
                                     debug!("consume future noerr finished {}:{}", file!(), line!());
                                 });
 
-                                handle.spawn(consume_future_noerr); // flydratrax ignore for now
+                                my_runtime.spawn(consume_future_noerr); // flydratrax ignore for now
                                 maybe_flydra2_stream = Some(flydra2_tx);
                             },
                             video_streaming::Shape::Everything => {
@@ -1737,7 +1737,7 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new(
+    async fn new(
         shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
         secret: Option<Vec<u8>>,
         http_server_addr: &str,
@@ -1771,6 +1771,7 @@ impl MyApp {
             &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             Some(strand_cam_storetype::STRAND_CAM_EVENT_NAME.to_string()),
         )
+        .await
         .context(format!(
             "calling create_bui_app_inner with address {}",
             addr
@@ -2330,17 +2331,17 @@ impl Default for StrandCamArgs {
 }
 
 pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let mut runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .core_threads(4)
-        .thread_name("flydra2-mainbrain-runtime")
+        .worker_threads(4)
+        .thread_name("strand-cam-runtime")
         .thread_stack_size(3 * 1024 * 1024)
-        .build()
-        .expect("runtime");
+        .build()?;
 
-    let handle = runtime.handle().clone();
-    let (_bui_server_info, tx_cam_arg2, fut) = runtime.enter(move || setup_app(handle, args))?;
+    let my_runtime = Arc::new(runtime);
+    let (_bui_server_info, tx_cam_arg2, fut) = my_runtime.block_on(
+        setup_app(my_runtime.clone(), args)
+    )?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2358,7 +2359,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
     })
     .expect("Error setting Ctrl-C handler");
 
-    runtime.block_on(fut);
+    my_runtime.block_on(fut);
 
     info!("done");
     Ok(())
@@ -2366,8 +2367,8 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
 
 // we can remove the rustfmt::skip attribute with https://github.com/rust-lang/rustfmt/issues/4109
 #[rustfmt::skip]
-pub fn setup_app(
-    handle: tokio::runtime::Handle,
+pub async fn setup_app(
+    my_runtime: Arc<tokio::runtime::Runtime>,
     args: StrandCamArgs)
     -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>),failure::Error>
 {
@@ -2728,7 +2729,8 @@ pub fn setup_app(
     #[cfg(feature="debug-images")]
     let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let (firehose_callback_rx, my_app) = MyApp::new(
+    let (firehose_callback_rx, my_app) =
+    MyApp::new(
         shared_store_arc.clone(),
         secret,
         &args.http_server_addr,
@@ -2737,8 +2739,7 @@ pub fn setup_app(
         camtrig_tx_std.clone(),
         tx_frame3,
         valve.clone(),
-        shutdown_rx,
-    )?;
+        shutdown_rx).await?;
 
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0
@@ -2778,7 +2779,7 @@ pub fn setup_app(
     #[cfg(feature="checkercal")]
     let cam_name2 = cam_name.clone();
 
-    let rt_handle = handle.clone();
+    let rt_handle = my_runtime.clone();
 
     let frame_process_cjh = {
         let pixel_format = frame.pixel_format();
@@ -2794,7 +2795,7 @@ pub fn setup_app(
         let cam_args_tx2 = cam_args_tx.clone();
 
         #[cfg(feature="flydratrax")]
-        let handle2 = handle.clone();
+        let handle2 = my_runtime.clone();
         #[cfg(feature="flydratrax")]
         let model_server = {
 
@@ -2814,7 +2815,7 @@ pub fn setup_app(
         let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
             let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2.clone(), file!(), line!());
             thread_closer.maybe_err(frame_process_thread(
-                    handle,
+                    my_runtime,
                     #[cfg(feature="flydratrax")]
                     model_server,
                     cam_name,

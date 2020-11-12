@@ -71,7 +71,9 @@ mod offline_kalmanize;
 pub use crate::offline_kalmanize::{kalmanize, KalmanizeOptions};
 
 mod model_server;
-pub use crate::model_server::{GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType};
+pub use crate::model_server::{
+    new_model_server, GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType,
+};
 
 use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
@@ -115,6 +117,7 @@ pub enum ErrorKind {
     TomlDeError(toml::de::Error),
     InvalidHypothesisTestingParameters,
     ZipDir(zip_or_dir::Error),
+    Hyper(hyper::Error),
 }
 
 impl From<ErrorKind> for Error {
@@ -215,6 +218,14 @@ impl From<zip_or_dir::Error> for Error {
     fn from(orig: zip_or_dir::Error) -> Error {
         Error {
             kind: ErrorKind::ZipDir(orig),
+        }
+    }
+}
+
+impl From<hyper::Error> for Error {
+    fn from(orig: hyper::Error) -> Error {
+        Error {
+            kind: ErrorKind::Hyper(orig),
         }
     }
 }

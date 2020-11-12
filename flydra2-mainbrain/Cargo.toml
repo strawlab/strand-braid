@@ -21,8 +21,8 @@ flydra1-triggerbox = { path = "../flydra1-triggerbox-rs" }
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
 chrono = "0.4"
 futures = "0.3"
-tokio = {version="0.2", default-features=false, features=["sync","rt-core","stream"]}
-tokio-util = {version="0.2", features=["udp"]}
+tokio = {version="0.3", default-features=false, features=["sync","rt","stream"]}
+tokio-util = {version="0.4"}#, features=["udp"]}
 stream-cancel = "0.6"
 bytes = "0.5"
 structopt = "0.3"
@@ -37,7 +37,7 @@ includedir = { version = "0.6", optional = true }
 phf = { version = "0.8", optional = true }
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.9", default-features = false}
+bui-backend = {version="0.10", default-features = false}
 
 mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}

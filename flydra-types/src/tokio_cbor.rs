@@ -55,8 +55,7 @@ impl Decoder for CborPacketCodec {
     }
 }
 
-impl Encoder for CborPacketCodec {
-    type Item = FlydraRawUdpPacket;
+impl Encoder<FlydraRawUdpPacket> for CborPacketCodec {
     type Error = std::io::Error;
 
     fn encode(

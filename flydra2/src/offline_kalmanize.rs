@@ -4,6 +4,7 @@ use failure::ResultExt;
 use std::{
     collections::BTreeMap,
     io::{Read, Seek, Write},
+    sync::Arc,
 };
 
 use crate::frame_bundler::StreamItem;
@@ -131,7 +132,7 @@ pub async fn kalmanize<Q, R>(
     expected_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
-    rt_handle: tokio::runtime::Handle,
+    rt_handle: Arc<tokio::runtime::Runtime>,
 ) -> Result<()>
 where
     Q: AsRef<std::path::Path>,
@@ -388,7 +389,8 @@ where
                 version: env!("CARGO_PKG_VERSION").into(),
             };
 
-            let model_server = crate::ModelServer::new(valve, None, &addr, info, rt_handle)?;
+            let model_server =
+                crate::model_server::new_model_server(valve, None, &addr, info, rt_handle).await?;
             coord_processor.add_listener(Box::new(model_server));
         }
         None => {}
