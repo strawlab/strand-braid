@@ -23,6 +23,7 @@ machine-vision-formats = { path = "../../machine-vision-formats" }
 timestamped-frame = {path="../../timestamped-frame"}
 fmf = {path=".."}
 convert-image = { path = "../../convert-image" }
+basic-frame = { path = "../../basic-frame" }
 
 webm = {version="1", optional=true}
 webm-writer = { path = "../../webm-writer"}

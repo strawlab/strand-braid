@@ -193,6 +193,10 @@ struct ExportMkv {
     /// video codec
     #[structopt(long = "codec", default_value = "vp9")]
     codec: Codec,
+
+    /// clip the width of the incoming frames to be divisible by this number
+    #[structopt(long = "clip-divisible", default_value = "1")]
+    clip_so_width_is_divisible_by: u8,
 }
 
 #[derive(Debug)]
@@ -497,7 +501,7 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
         display_filename(&output_fname, "<stdout>").display()
     );
 
-    let out_fd = match output_fname {
+    let out_fd = match &output_fname {
         None => {
             failure::bail!("Cannot export mkv to stdout."); // Seek required
         }
@@ -541,15 +545,58 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
     #[cfg(not(feature = "nv-h264"))]
     let nv_enc = None;
 
+    debug!("opening file {}", output_fname.unwrap().display());
     let mut mkv_writer = webm_writer::WebmWriter::new(out_fd, cfg, nv_enc)?;
 
-    for fmf_frame in reader {
+    for (fno, fmf_frame) in reader.enumerate() {
+        debug!("saving frame {}", fno);
+        let fmf_frame_clipped = fmf_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
         let ts = fmf_frame.host_timestamp();
-        mkv_writer.write(&fmf_frame, ts)?;
+        mkv_writer.write(&fmf_frame_clipped, ts)?;
     }
 
+    debug!("finishing file");
     mkv_writer.finish()?;
     Ok(())
+}
+
+/// A view of a source image in which the rightmost pixels may be clipped
+struct ClippedFrame<'a> {
+    src: &'a basic_frame::BasicFrame,
+    width: u32,
+}
+
+impl<'a> ImageData for ClippedFrame<'a> {
+    fn width(&self) -> u32 {
+        self.width
+    }
+    fn height(&self) -> u32 {
+        self.src.height()
+    }
+    fn image_data(&self) -> &[u8] {
+        self.src.image_data()
+    }
+    fn pixel_format(&self) -> PixelFormat {
+        self.src.pixel_format()
+    }
+}
+
+impl<'a> Stride for ClippedFrame<'a> {
+    fn stride(&self) -> usize {
+        self.src.stride()
+    }
+}
+
+trait ClipFrame {
+    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame;
+}
+
+impl ClipFrame for basic_frame::BasicFrame {
+    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame {
+        let width = (self.width() / val as u32) * val as u32;
+        debug!("clipping image of width {} to {}", self.width(), width);
+        ClippedFrame { src: &self, width }
+    }
 }
 
 fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
