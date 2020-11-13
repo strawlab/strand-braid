@@ -600,13 +600,22 @@ pub fn encode_y4m_frame(frame: &dyn ImageStride, colorspace: Colorspace) -> Resu
                     Ok(frame.image_data().to_vec())
                 }
                 Colorspace::C420paldv => {
-                    // Convert pure luminance data (mono8) into YCbCr. First plane
-                    // is lumance data, next two planes are color chrominance.
+                    // Convert pure luminance data (mono8) into YCbCr. First
+                    // plane is lumance data, next two planes are color
+                    // chrominance.
+
                     let h = frame.height() as usize;
                     let w = frame.width() as usize;
                     let nh = h * 3 / 2;
+                    // Set everything to 128 initially for no chrominance.
                     let mut buf = vec![128u8; nh * w];
-                    buf[..(h * w)].copy_from_slice(frame.image_data());
+                    let src = frame.image_data();
+                    // Copy the luminance plane row-by-row
+                    for i in 0..h {
+                        let src_idx_start = i * frame.stride();
+                        let src_row = &src[src_idx_start..(src_idx_start + w)];
+                        buf[(i * w)..((i + 1) * w)].copy_from_slice(src_row);
+                    }
                     Ok(buf)
                 } // Colorspace::C444 => {
                   //     // Convert pure luminance data (mono8) into YCbCr.
