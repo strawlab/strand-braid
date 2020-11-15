@@ -1,6 +1,6 @@
 use crate::ffi::*;
 use crate::load::SharedLibrary;
-use crate::NvencError;
+use crate::{NvInt, NvencError};
 use std::{mem::MaybeUninit, rc::Rc};
 
 macro_rules! api_call {
@@ -183,7 +183,7 @@ impl<'lib> Encoder<'lib> {
         params.version = NV_ENC_CREATE_INPUT_BUFFER_VER;
         params.width = width;
         params.height = height;
-        params.bufferFmt = format as i32;
+        params.bufferFmt = format as NvInt;
 
         api_call!(unsafe { func(self_.inner.0, &mut params) });
 
@@ -231,7 +231,7 @@ impl<'lib> Encoder<'lib> {
         params.version = NV_ENC_PIC_PARAMS_VER;
         params.inputTimeStamp = dur2raw(&pts);
         params.inputBuffer = input.ptr;
-        params.bufferFmt = input.format as i32;
+        params.bufferFmt = input.format as NvInt;
         params.inputWidth = input.width;
         params.inputHeight = input.height;
         params.inputPitch = pitch as u32;
@@ -404,7 +404,7 @@ pub struct OutputBuffer<'lib> {
 pub struct LockedOutputBuffer<'lock, 'lib> {
     inner: &'lock OutputBuffer<'lib>,
     mem: &'lock [u8],
-    picture_type: i32,
+    picture_type: NvInt,
     /// presentation timestamp (from onset)
     pts: std::time::Duration,
     dropped: bool,
@@ -499,7 +499,7 @@ impl<'lib> OutputBuffer<'lib> {
 }
 
 /// Data format of input and output buffer
-#[repr(i32)]
+#[repr(u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum BufferFormat {
     Undefined = _NV_ENC_BUFFER_FORMAT::NV_ENC_BUFFER_FORMAT_UNDEFINED,
@@ -638,7 +638,7 @@ pub enum RateControlMode {
 }
 
 impl RateControlMode {
-    fn to_c(&self) -> i32 {
+    fn to_c(&self) -> NvInt {
         use RateControlMode::*;
         match self {
             Constqp => _NV_ENC_PARAMS_RC_MODE::NV_ENC_PARAMS_RC_CONSTQP,

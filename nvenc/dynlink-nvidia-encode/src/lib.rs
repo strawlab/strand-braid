@@ -16,6 +16,8 @@ pub use error::NvencError;
 pub use guids::*;
 pub use queue::Queue;
 
+type NvInt = u32;
+
 #[cfg(test)]
 mod tests {
     use crate::*;
