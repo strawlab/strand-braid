@@ -1,10 +1,10 @@
 use num_traits::{Zero, One};
 
-use crate::na::{DefaultAllocator, RealField};
-use crate::na::core::{VectorN, MatrixN, MatrixMN};
-use crate::na::core::dimension::DimMin;
-use crate::na::core::dimension::{U2, U4};
-use crate::na::allocator::Allocator;
+use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::core::{VectorN, MatrixN, MatrixMN};
+use nalgebra::core::dimension::DimMin;
+use nalgebra::core::dimension::{U2, U4};
+use nalgebra::allocator::Allocator;
 
 use adskalman::ObservationModelLinear;
 

@@ -1,8 +1,8 @@
-use crate::na;
-use crate::na::core::MatrixN;
-use crate::na::core::dimension::U6;
-use crate::na::{DefaultAllocator, RealField};
-use crate::na::allocator::Allocator;
+use nalgebra as na;
+use nalgebra::core::MatrixN;
+use nalgebra::core::dimension::U6;
+use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::allocator::Allocator;
 
 use adskalman::TransitionModelLinearNoControl;
 

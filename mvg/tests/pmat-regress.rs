@@ -6,7 +6,7 @@ extern crate num_traits;
 
 extern crate mvg;
 
-use crate::na::geometry::Point3;
+use nalgebra::geometry::Point3;
 
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 

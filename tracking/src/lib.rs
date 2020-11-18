@@ -1,6 +1,4 @@
-extern crate adskalman;
 extern crate nalgebra as na;
-extern crate num_traits;
 
 pub mod motion_model_2d;
 pub mod motion_model_3d;

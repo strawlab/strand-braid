@@ -1,9 +1,9 @@
 use num_traits::{One, Zero};
 
-use crate::na::allocator::Allocator;
-use crate::na::core::dimension::U6;
-use crate::na::core::MatrixN;
-use crate::na::{DefaultAllocator, RealField};
+use nalgebra::allocator::Allocator;
+use nalgebra::core::dimension::U6;
+use nalgebra::core::MatrixN;
+use nalgebra::{DefaultAllocator, RealField};
 
 use crate::motion_model_3d_fixed_dt::MotionModel3D;
 use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;

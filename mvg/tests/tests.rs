@@ -9,8 +9,8 @@ extern crate mvg;
 
 use opencv_ros_camera::{from_ros_yaml, NamedIntrinsicParameters};
 
-use crate::na::core::Unit;
-use crate::na::geometry::{Point2, Point3, Quaternion};
+use nalgebra::core::Unit;
+use nalgebra::geometry::{Point2, Point3, Quaternion};
 
 use mvg::{Camera, DistortedPixel, PointWorldFrame};
 

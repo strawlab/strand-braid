@@ -1,9 +1,9 @@
 use num_traits::{Zero, One};
 
-use crate::na::core::MatrixN;
-use crate::na::core::dimension::U4;
-use crate::na::{DefaultAllocator, RealField};
-use crate::na::allocator::Allocator;
+use nalgebra::core::MatrixN;
+use nalgebra::core::dimension::U4;
+use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::allocator::Allocator;
 
 use adskalman::TransitionModelLinearNoControl;
 
