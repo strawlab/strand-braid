@@ -436,7 +436,7 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "braid"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "configure",
  "dotenv",
@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "braid-offline"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "braidz-parser",
@@ -518,6 +518,8 @@ dependencies = [
  "chrono",
  "csv",
  "csv-eof",
+ "download-verify",
+ "env_logger 0.8.1",
  "flydra-mvg",
  "flydra-types",
  "hdrhistogram",
@@ -1960,6 +1962,7 @@ dependencies = [
 name = "fmf-cli"
 version = "0.1.0"
 dependencies = [
+ "basic-frame",
  "chrono",
  "ci2-remote-control",
  "convert-image",
@@ -5520,7 +5523,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "strand-cam"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "alga",
  "app_dirs",
@@ -5625,7 +5628,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam-offline-kalmanize"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "alga",
  "braidz-parser",
