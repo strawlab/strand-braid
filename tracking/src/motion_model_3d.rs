@@ -1,12 +1,12 @@
 use num_traits::{Zero, One};
 
-use na::core::MatrixN;
-use na::core::dimension::U6;
-use na::{DefaultAllocator, RealField};
-use na::allocator::Allocator;
+use crate::na::core::MatrixN;
+use crate::na::core::dimension::U6;
+use crate::na::{DefaultAllocator, RealField};
+use crate::na::allocator::Allocator;
 
-use ::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
-use motion_model_3d_fixed_dt::MotionModel3D;
+use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
+use crate::motion_model_3d_fixed_dt::MotionModel3D;
 
 /// constant velocity 3D motion model parameterized by `dt`
 ///

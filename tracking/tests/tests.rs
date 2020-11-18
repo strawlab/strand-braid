@@ -4,7 +4,7 @@ extern crate adskalman;
 #[macro_use]
 extern crate approx;
 
-use na::core::{Matrix4, Matrix6, Vector4, Vector6};
+use crate::na::core::{Matrix4, Matrix6, Vector4, Vector6};
 
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
