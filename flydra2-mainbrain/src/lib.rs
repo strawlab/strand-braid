@@ -73,134 +73,132 @@ struct HttpApiApp {
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
 }
 
-impl HttpApiApp {
-    /// Create our app
-    fn new(
-        shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-        auth: AccessControl,
-        cam_manager: flydra2::ConnectedCamerasManager,
-        shared: HttpApiShared,
-        config: Config,
-        time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-        triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
-        sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
-        expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-        output_base_dirname: std::path::PathBuf,
-        write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
-        current_images_arc: Arc<RwLock<flydra2::ImageDictType>>,
-    ) -> Result<Self> {
-        // Create our shared state.
-        let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
+async fn new_http_api_app(
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    auth: AccessControl,
+    cam_manager: flydra2::ConnectedCamerasManager,
+    shared: HttpApiShared,
+    config: Config,
+    time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
+    triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
+    sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
+    expected_framerate_arc: Arc<RwLock<Option<f32>>>,
+    output_base_dirname: std::path::PathBuf,
+    write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
+    current_images_arc: Arc<RwLock<flydra2::ImageDictType>>,
+) -> Result<HttpApiApp> {
+    // Create our shared state.
+    let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
 
-        // Create `inner`, which takes care of the browser communication details for us.
-        let chan_size = 10;
-        let (_, mut inner) = create_bui_app_inner(
-            Some(shutdown_rx),
-            &auth,
-            shared_store,
-            config,
-            chan_size,
-            &*EVENTS_PREFIX,
-            Some(flydra_types::BRAID_EVENT_NAME.to_string()),
-        )?;
+    // Create `inner`, which takes care of the browser communication details for us.
+    let chan_size = 10;
+    let (_, mut inner) = create_bui_app_inner(
+        Some(shutdown_rx),
+        &auth,
+        shared_store,
+        config,
+        chan_size,
+        &*EVENTS_PREFIX,
+        Some(flydra_types::BRAID_EVENT_NAME.to_string()),
+    )
+    .await?;
 
-        let mainbrain_server_info = {
-            let local_addr = inner.local_addr().clone();
-            let token = inner.token();
-            BuiServerInfo::new(local_addr, token)
-        };
+    let mainbrain_server_info = {
+        let local_addr = inner.local_addr().clone();
+        let token = inner.token();
+        BuiServerInfo::new(local_addr, token)
+    };
 
-        debug!(
-            "initialized HttpApiApp listening at {}",
-            mainbrain_server_info.guess_base_url_with_token()
-        );
+    debug!(
+        "initialized HttpApiApp listening at {}",
+        mainbrain_server_info.guess_base_url_with_token()
+    );
 
-        let cam_manager2 = cam_manager.clone();
-        let triggerbox_cmd2 = triggerbox_cmd.clone();
-        let time_model_arc2 = time_model_arc.clone();
+    let cam_manager2 = cam_manager.clone();
+    let triggerbox_cmd2 = triggerbox_cmd.clone();
+    let time_model_arc2 = time_model_arc.clone();
 
-        let expected_framerate_arc2 = expected_framerate_arc.clone();
-        let output_base_dirname2 = output_base_dirname.clone();
-        let write_controller_arc2 = write_controller_arc.clone();
-        let current_images_arc2 = current_images_arc.clone();
-        let shared_data = inner.shared_arc().clone();
+    let expected_framerate_arc2 = expected_framerate_arc.clone();
+    let output_base_dirname2 = output_base_dirname.clone();
+    let write_controller_arc2 = write_controller_arc.clone();
+    let current_images_arc2 = current_images_arc.clone();
+    let shared_data = inner.shared_arc().clone();
 
-        let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
-        // Create a Stream to handle callbacks from clients.
-        inner.set_callback_listener(Box::new(
-            move |msg: CallbackDataAndSession<HttpApiCallback>| {
-                // This closure is the callback handler called whenever the
-                // client sends us something.
+    let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
+    // Create a Stream to handle callbacks from clients.
+    inner.set_callback_listener(Box::new(
+        move |msg: CallbackDataAndSession<HttpApiCallback>| {
+            // This closure is the callback handler called whenever the
+            // client sends us something.
 
-                use crate::HttpApiCallback::*;
-                match msg.payload {
-                    NewCamera(cam_info) => {
-                        debug!("got NewCamera {:?}", cam_info);
-                        let mut cam_manager3 = cam_manager2.clone();
-                        cam_manager3.register_new_camera(
-                            &cam_info.orig_cam_name,
-                            &cam_info.http_camserver_info,
-                            &cam_info.ros_cam_name,
-                        );
-                    }
-                    UpdateCurrentImage(image_info) => {
-                        // new image from camera
-                        // (This replaces old FromRosThread::DoSendImage)
-                        debug!("got new image for camera {:?}", image_info.ros_cam_name);
-                        let mut current_images = current_images_arc2.write();
-                        let fname = format!("{}.png", image_info.ros_cam_name);
-                        current_images.insert(fname, image_info.current_image_png);
-                    }
-                    DoSyncCameras => {
-                        debug!("got DoSyncCameras");
-
-                        let sync_pulse_pause_started_arc3 = sync_pulse_pause_started_arc2.clone();
-                        #[allow(unused_mut)]
-                        let mut cam_manager3 = cam_manager2.clone();
-                        let time_model_arc3 = time_model_arc2.clone();
-                        let triggerbox_cmd3 = triggerbox_cmd2.clone();
-
-                        std::thread::spawn(move || {
-                            debug!("spawned thread to wait for sync");
-                            synchronize_cameras(
-                                triggerbox_cmd3.clone(),
-                                sync_pulse_pause_started_arc3,
-                                cam_manager3.clone(),
-                                time_model_arc3,
-                            );
-                        });
-                    }
-                    DoRecordCsvTables(value) => {
-                        debug!("got DoRecordCsvTables({})", value);
-                        toggle_saving_csv_tables(
-                            value,
-                            expected_framerate_arc2.clone(),
-                            output_base_dirname2.clone(),
-                            write_controller_arc2.clone(),
-                            current_images_arc2.clone(),
-                            shared_data.clone(),
-                        );
-                    }
-                    SetExperimentUuid(value) => {
-                        debug!("got SetExperimentUuid({})", value);
-                        let write_controller = write_controller_arc2.write();
-                        write_controller.set_experiment_uuid(value);
-                    }
+            use crate::HttpApiCallback::*;
+            match msg.payload {
+                NewCamera(cam_info) => {
+                    debug!("got NewCamera {:?}", cam_info);
+                    let mut cam_manager3 = cam_manager2.clone();
+                    cam_manager3.register_new_camera(
+                        &cam_info.orig_cam_name,
+                        &cam_info.http_camserver_info,
+                        &cam_info.ros_cam_name,
+                    );
                 }
-                futures::future::ok(())
-            },
-        ));
+                UpdateCurrentImage(image_info) => {
+                    // new image from camera
+                    // (This replaces old FromRosThread::DoSendImage)
+                    debug!("got new image for camera {:?}", image_info.ros_cam_name);
+                    let mut current_images = current_images_arc2.write();
+                    let fname = format!("{}.png", image_info.ros_cam_name);
+                    current_images.insert(fname, image_info.current_image_png);
+                }
+                DoSyncCameras => {
+                    debug!("got DoSyncCameras");
 
-        // Return our app.
-        Ok(HttpApiApp {
-            inner,
-            time_model_arc,
-            triggerbox_cmd,
-            sync_pulse_pause_started_arc,
-            expected_framerate_arc,
-            write_controller_arc,
-        })
-    }
+                    let sync_pulse_pause_started_arc3 = sync_pulse_pause_started_arc2.clone();
+                    #[allow(unused_mut)]
+                    let mut cam_manager3 = cam_manager2.clone();
+                    let time_model_arc3 = time_model_arc2.clone();
+                    let triggerbox_cmd3 = triggerbox_cmd2.clone();
+
+                    std::thread::spawn(move || {
+                        debug!("spawned thread to wait for sync");
+                        synchronize_cameras(
+                            triggerbox_cmd3.clone(),
+                            sync_pulse_pause_started_arc3,
+                            cam_manager3.clone(),
+                            time_model_arc3,
+                        );
+                    });
+                }
+                DoRecordCsvTables(value) => {
+                    debug!("got DoRecordCsvTables({})", value);
+                    toggle_saving_csv_tables(
+                        value,
+                        expected_framerate_arc2.clone(),
+                        output_base_dirname2.clone(),
+                        write_controller_arc2.clone(),
+                        current_images_arc2.clone(),
+                        shared_data.clone(),
+                    );
+                }
+                SetExperimentUuid(value) => {
+                    debug!("got SetExperimentUuid({})", value);
+                    let write_controller = write_controller_arc2.write();
+                    write_controller.set_experiment_uuid(value);
+                }
+            }
+            futures::future::ok(())
+        },
+    ));
+
+    // Return our app.
+    Ok(HttpApiApp {
+        inner,
+        time_model_arc,
+        triggerbox_cmd,
+        sync_pulse_pause_started_arc,
+        expected_framerate_arc,
+        write_controller_arc,
+    })
 }
 
 fn compute_trigger_timestamp(
@@ -260,7 +258,7 @@ fn display_qr_url(url: &str) {
 }
 
 pub struct StartupPhase1 {
-    pub camdata_socket: tokio::net::UdpSocket,
+    pub camdata_socket: UdpSocket,
     my_app: HttpApiApp,
     pub mainbrain_server_info: BuiServerInfo,
     cam_manager: flydra2::ConnectedCamerasManager,
@@ -454,7 +452,7 @@ pub async fn pre_run(
         }
     };
 
-    let my_app = HttpApiApp::new(
+    let my_app = new_http_api_app(
         shutdown_rx,
         auth,
         cam_manager.clone(),
@@ -467,7 +465,8 @@ pub async fn pre_run(
         output_base_dirname.clone(),
         write_controller_arc.clone(),
         current_images_arc.clone(),
-    )?;
+    )
+    .await?;
 
     let is_loopback = my_app.inner.local_addr().ip().is_loopback();
     let mainbrain_server_info =
@@ -757,13 +756,14 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         futures::future::ready(Some(StreamItem::Packet(fdp)))
     });
 
-    let ms = flydra2::ModelServer::new(
+    let ms = flydra2::new_model_server(
         valve.clone(),
         Some(model_server_shutdown_rx),
         &model_pose_server_addr,
         info,
         rt_handle2,
-    )?;
+    )
+    .await?;
 
     {
         let mut tracker = tracker2.write();

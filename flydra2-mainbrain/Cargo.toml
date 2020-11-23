@@ -21,9 +21,9 @@ flydra1-triggerbox = { path = "../flydra1-triggerbox-rs" }
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
 chrono = "0.4"
 futures = "0.3"
-tokio = {version="0.3", default-features=false, features=["sync","rt","stream"]}
-tokio-util = {version="0.4"}#, features=["udp"]}
-stream-cancel = "0.6"
+tokio = {version="0.3.4", default-features=false, features=["sync","rt","stream","net"]}
+tokio-util = {version="0.5.1", features=["net","codec"]} # not yet released
+stream-cancel = "0.7"
 bytes = "0.5"
 structopt = "0.3"
 clap = "2.20"
