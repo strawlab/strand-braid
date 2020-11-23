@@ -63,8 +63,8 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
     Ok(())
 }
 
-#[test]
-fn track_fmf() {
+#[tokio::test]
+async fn track_fmf() {
     env_logger::init();
 
     download_verify::download_verify(
@@ -74,12 +74,7 @@ fn track_fmf() {
     )
     .unwrap();
 
-    let mut runtime = tokio::runtime::Builder::new()
-        .basic_scheduler()
-        .enable_all()
-        .build()
-        .expect("runtime");
+    let runtime = tokio::runtime::Handle::current();
 
-    let handle = runtime.handle().clone();
-    runtime.block_on(track_fmf_with_error(handle)).unwrap();
+    track_fmf_with_error(runtime).await.unwrap();
 }

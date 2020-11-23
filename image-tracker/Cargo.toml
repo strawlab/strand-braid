@@ -19,8 +19,8 @@ serde = {version="1.0",features=["derive"]}
 serde_json = { version = "1.0"}
 serde_cbor = "0.9"
 serde_yaml = "0.8"
-tokio = {version="0.3", default-features=false}
-stream-cancel = "0.6"
+tokio = {version="0.3.4", default-features=false, features=["rt"]}
+stream-cancel = "0.7"
 hyper = "0.13.0"
 nalgebra = "0.23"
 ncollide2d = "0.26"
@@ -52,6 +52,7 @@ download-verify = {path="../download-verify"}
 env_logger = "0.8"
 im-pt-detect-config = {path = "im-pt-detect-config"}
 ipp-sys = "0.4.4"
+tokio = {version="0.3", default-features=false, features=["macros"]}
 
 [features]
 flydra-uds=["unix_socket"]
