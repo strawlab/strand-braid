@@ -1,3 +1,4 @@
+use crate::NvInt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -5,7 +6,7 @@ pub enum NvencError {
     #[error("dynamic library `{0}` could not be loaded: `{1}`")]
     DynLibLoadError(String, std::io::Error),
     #[error("NvEnc returned code `{0}`: {1}")]
-    ErrCode(i32, &'static str),
+    ErrCode(NvInt, &'static str),
     #[error("Name `{0}` could not be opened")]
     NameFFIError(String),
     #[error("Name `{0}` could not be opened: `{1}`")]

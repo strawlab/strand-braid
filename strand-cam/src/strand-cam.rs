@@ -97,6 +97,8 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
 
+mod clipped_frame;
+
 pub const DEBUG_ADDR_DEFAULT: &'static str = "127.0.0.1:8877";
 
 pub const APP_INFO: AppInfo = AppInfo {
@@ -1122,6 +1124,9 @@ fn frame_process_thread(
                 let frames = post_trig_buffer.get_and_clear();
                 let mut raw = bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, frames.len()+100);
                 for frame in frames.into_iter() {
+                    use clipped_frame::ClipFrame;
+                    // Force frame width to be power of 2.
+                    let clipped_frame = frame.clip_to_power_of_2(2);
                     let ts = frame.host_timestamp();
                     raw.write(frame, ts)?;
                 }

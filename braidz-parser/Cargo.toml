@@ -23,3 +23,7 @@ braidz-types = {path="../braidz-types"}
 flydra-types = {path="../flydra-types"}
 flydra-mvg = {path="../flydra-mvg"}
 zip-or-dir = {path="../zip-or-dir"}
+
+[dev-dependencies]
+env_logger = "0.8"
+download-verify = {path="../download-verify"}

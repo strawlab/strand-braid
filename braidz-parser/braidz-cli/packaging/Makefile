@@ -15,9 +15,5 @@ braidz-cli/braidz-cli: .built
 	mkdir -p braidz-cli
 	cp $(BUILD_DIR)/braidz-cli $@
 
-braidz-cli/debian/changelog: .built
-	mkdir -p braidz-cli/debian
-	cp changelog $@
-
-braidz-cli_VERSION_amd64.deb: braidz-cli/debian/changelog braidz-cli/braidz-cli
+braidz-cli_VERSION_amd64.deb: braidz-cli/braidz-cli
 	cd braidz-cli && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
