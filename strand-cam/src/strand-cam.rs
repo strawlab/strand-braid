@@ -747,7 +747,7 @@ struct FlydraConfigState {
 #[rustfmt::skip]
 #[allow(unused_mut,unused_variables)]
 fn frame_process_thread(
-    my_runtime: Arc<tokio::runtime::Runtime>,
+    my_runtime: tokio::runtime::Handle,
     #[cfg(feature="flydratrax")]
     model_server: flydra2::ModelServer,
     cam_name: RawCamName,
@@ -2344,9 +2344,8 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
         .build()?;
 
     let my_runtime = Arc::new(runtime);
-    let (_bui_server_info, tx_cam_arg2, fut) = my_runtime.block_on(
-        setup_app(my_runtime.clone(), args)
-    )?;
+    let (_bui_server_info, tx_cam_arg2, fut) =
+        my_runtime.block_on(setup_app(my_runtime.clone(), args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2784,7 +2783,7 @@ pub async fn setup_app(
     #[cfg(feature="checkercal")]
     let cam_name2 = cam_name.clone();
 
-    let rt_handle = my_runtime.clone();
+    let rt_handle = my_runtime.handle();
 
     let frame_process_cjh = {
         let pixel_format = frame.pixel_format();
@@ -2800,7 +2799,7 @@ pub async fn setup_app(
         let cam_args_tx2 = cam_args_tx.clone();
 
         #[cfg(feature="flydratrax")]
-        let handle2 = my_runtime.clone();
+        let handle2 = my_runtime.handle().clone();
         #[cfg(feature="flydratrax")]
         let model_server = {
 
@@ -2813,14 +2812,14 @@ pub async fn setup_app(
             };
 
             // we need the tokio reactor already by here
-            flydra2::ModelServer::new(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2)?
+            flydra2::new_model_server(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2.clone()).await?
         };
 
         let valve2 = valve.clone();
         let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
             let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2.clone(), file!(), line!());
             thread_closer.maybe_err(frame_process_thread(
-                    my_runtime,
+                    handle2,
                     #[cfg(feature="flydratrax")]
                     model_server,
                     cam_name,

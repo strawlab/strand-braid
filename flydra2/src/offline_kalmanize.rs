@@ -132,7 +132,7 @@ pub async fn kalmanize<Q, R>(
     expected_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
-    rt_handle: Arc<tokio::runtime::Runtime>,
+    rt_handle: &tokio::runtime::Handle,
 ) -> Result<()>
 where
     Q: AsRef<std::path::Path>,
@@ -390,7 +390,8 @@ where
             };
 
             let model_server =
-                crate::model_server::new_model_server(valve, None, &addr, info, rt_handle).await?;
+                crate::model_server::new_model_server(valve, None, &addr, info, rt_handle.clone())
+                    .await?;
             coord_processor.add_listener(Box::new(model_server));
         }
         None => {}

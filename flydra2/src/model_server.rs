@@ -43,7 +43,7 @@ struct ModelService {
     tx_new_connection: futures::channel::mpsc::Sender<NewEventStreamConnection>,
     info: StaticMainbrainInfo,
     valve: stream_cancel::Valve,
-    rt_handle: Arc<tokio::runtime::Runtime>,
+    rt_handle: tokio::runtime::Handle,
 }
 
 impl ModelService {
@@ -51,7 +51,7 @@ impl ModelService {
         valve: stream_cancel::Valve,
         tx_new_connection: futures::channel::mpsc::Sender<NewEventStreamConnection>,
         info: StaticMainbrainInfo,
-        rt_handle: Arc<tokio::runtime::Runtime>,
+        rt_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
             valve,
@@ -328,7 +328,7 @@ pub async fn new_model_server(
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     addr: &std::net::SocketAddr,
     info: StaticMainbrainInfo,
-    rt_handle: Arc<tokio::runtime::Runtime>,
+    rt_handle: tokio::runtime::Handle,
 ) -> Result<ModelServer> {
     {
         let channel_size = 2;
