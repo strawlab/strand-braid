@@ -4,7 +4,6 @@ use failure::ResultExt;
 use std::{
     collections::BTreeMap,
     io::{Read, Seek, Write},
-    sync::Arc,
 };
 
 use crate::frame_bundler::StreamItem;
