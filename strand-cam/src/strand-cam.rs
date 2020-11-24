@@ -2798,7 +2798,6 @@ pub async fn setup_app(
         let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
         let cam_args_tx2 = cam_args_tx.clone();
 
-        #[cfg(feature="flydratrax")]
         let handle2 = my_runtime.handle().clone();
         #[cfg(feature="flydratrax")]
         let model_server = {
