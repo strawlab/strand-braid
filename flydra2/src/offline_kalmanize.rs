@@ -131,7 +131,7 @@ pub async fn kalmanize<Q, R>(
     expected_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
-    rt_handle: &tokio::runtime::Handle,
+    rt_handle: tokio::runtime::Handle,
 ) -> Result<()>
 where
     Q: AsRef<std::path::Path>,

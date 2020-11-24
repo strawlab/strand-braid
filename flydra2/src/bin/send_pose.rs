@@ -12,10 +12,10 @@ fn main() -> Result<()> {
         .build()?;
 
     let runtime = Arc::new(runtime);
-    runtime.block_on(inner(runtime.clone()))
+    runtime.block_on(inner(runtime.handle().clone()))
 }
 
-async fn inner(rt_handle: Arc<tokio::runtime::Runtime>) -> Result<()> {
+async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
     env_logger::init();
 
     let addr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
