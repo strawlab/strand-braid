@@ -33,9 +33,9 @@ impl flydra2::GetsUpdates for FlydraTraxServer {
 pub fn flydratrax_handle_msg(
     cam_cal: mvg::Camera<MyFloat>,
     model_receiver: crossbeam_channel::Receiver<flydra2::SendType>,
-    led_state: &mut bool,
-    ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
+    #[allow(unused_variables)] led_state: &mut bool,
+    #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
+    #[allow(unused_variables)] camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
