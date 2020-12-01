@@ -28,6 +28,11 @@ test_crates:
     - cargo test --release
     - cd ..
 
+    # Test gstreamer nvargustime plugin
+    - cd gst-plugin-nvargustime
+    - cargo test --release
+    - cd ..
+
     # Test braidz-parser
     - cd braidz-parser
     - cargo test
