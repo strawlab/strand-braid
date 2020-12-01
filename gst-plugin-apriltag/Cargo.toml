@@ -8,7 +8,7 @@ repository = "https://github.com/strawlab/strand-braid"
 
 [lib]
 name = "gstrsapriltag"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
@@ -29,4 +29,3 @@ gst-plugin-version-helper = "0.2"
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}
-env_logger = "0.8"
