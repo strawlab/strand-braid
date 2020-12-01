@@ -20,7 +20,7 @@ gstreamer-video = "0.16"
 lazy_static = "1.0"
 csv = "1.1"
 serde = {version="1.0", features=["derive"]}
-bytes = "0.5"
+bytes = "0.6"
 
 apriltag = {path="../apriltag"}
 
