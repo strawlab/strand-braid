@@ -50,13 +50,15 @@ impl NvArgusTime {
     //
     // Details about what each function is good for is next to each function definition
     fn set_pad_functions(sinkpad: &gst::Pad, _srcpad: &gst::Pad) {
-        sinkpad.set_chain_function(|pad, parent, buffer| {
-            NvArgusTime::catch_panic_pad_function(
-                parent,
-                || Err(gst::FlowError::Error),
-                |identity, element| identity.sink_chain(pad, element, buffer),
-            )
-        });
+        unsafe {
+            sinkpad.set_chain_function(|pad, parent, buffer| {
+                NvArgusTime::catch_panic_pad_function(
+                    parent,
+                    || Err(gst::FlowError::Error),
+                    |identity, element| identity.sink_chain(pad, element, buffer),
+                )
+            });
+        }
     }
 
     // Called whenever a new buffer is passed to our sink pad. Here buffers should be processed and
@@ -132,13 +134,13 @@ impl ObjectSubclass for NvArgusTime {
 
     // Called when a new instance is to be created. We need to return an instance
     // of our struct here and also get the class struct passed in case it's needed
-    fn new_with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
+    fn with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
         // Create our two pads from the templates that were registered with
         // the class
         let templ = klass.get_pad_template("sink").unwrap();
-        let sinkpad = gst::Pad::new_from_template(&templ, Some("sink"));
+        let sinkpad = gst::Pad::builder_with_template(&templ, Some("sink")).build();
         let templ = klass.get_pad_template("src").unwrap();
-        let srcpad = gst::Pad::new_from_template(&templ, Some("src"));
+        let srcpad = gst::Pad::builder_with_template(&templ, Some("src")).build();
 
         // And then set all our pad functions for handling anything that happens
         // on these pads
