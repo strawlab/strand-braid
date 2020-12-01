@@ -23,6 +23,11 @@ test_crates:
     # Install pylon 6
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
+    # Test gstreamer apriltag detector
+    - cd gst-plugin-apriltag
+    - cargo test --release
+    - cd ..
+
     # Test braidz-parser
     - cd braidz-parser
     - cargo test
