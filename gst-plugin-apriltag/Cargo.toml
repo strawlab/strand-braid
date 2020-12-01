@@ -27,3 +27,7 @@ apriltag = {path="../apriltag"}
 
 [build-dependencies]
 gst-plugin-version-helper = "0.2"
+
+[dev-dependencies]
+download-verify = {path="../download-verify"}
+env_logger = "0.8"
