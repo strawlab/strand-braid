@@ -81,30 +81,37 @@ impl NvArgusTime {
 
         {
             // this will call `std::mem::forget(inbuf_orig)`
-            let bufptr: *const gst_sys::GstBuffer = unsafe{inbuf_orig.into_ptr()};
+            let bufptr: *const gst_sys::GstBuffer = unsafe { inbuf_orig.into_ptr() };
 
             let minibufptr = bufptr as *mut gst_sys::GstMiniObject;
-            let quark = unsafe{glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)};
-            let meta = unsafe{gst_sys::gst_mini_object_get_qdata(minibufptr, quark)} as *const AuxData;
+            let quark = unsafe {
+                glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)
+            };
+            let meta =
+                unsafe { gst_sys::gst_mini_object_get_qdata(minibufptr, quark) } as *const AuxData;
             if meta.is_null() {
                 panic!("unable to get GstBufferMetaData quark");
             }
-            let (frame_num, timestamp) = unsafe{((*meta).frame_num, (*meta).timestamp)};
-            println!("argustim: Acquired Frame: {}, time {}", frame_num, timestamp);
+            let (frame_num, timestamp) = unsafe { ((*meta).frame_num, (*meta).timestamp) };
+            println!(
+                "argustim: Acquired Frame: {}, time {}",
+                frame_num, timestamp
+            );
 
             // Above, `into_ptr()` calls `std::mem::forget()`. So, not to
             // leak, we need to deallocate the buffer. TODO: turn this back
             // into a rust object and prevent the copy above.
-            unsafe{gst_sys::gst_mini_object_unref(minibufptr)};
+            unsafe { gst_sys::gst_mini_object_unref(minibufptr) };
         }
-
 
         let mut ts = libc::timespec {
             tv_sec: 0,
             tv_nsec: 0,
         };
         // unsafe{ libc::clock_gettime(CLOCK_MONOTONIC_RAW, &mut ts); }
-        unsafe{ libc::clock_gettime(CLOCK_MONOTONIC, &mut ts); }
+        unsafe {
+            libc::clock_gettime(CLOCK_MONOTONIC, &mut ts);
+        }
         let tsc = ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64;
         // println!("argustim: kernel time:            {} {}", ts.tv_sec, ts.tv_nsec);
         println!("argustim: kernel time:             {}", tsc);
