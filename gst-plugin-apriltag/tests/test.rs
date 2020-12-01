@@ -46,16 +46,64 @@ fn test_runs() {
     let filesink = gst::ElementFactory::make("filesink", None).unwrap();
     // TODO: save data to something we then double check for correctness.
 
-    pipeline
-        .add_many(&[
-            &filesrc,
-            &decodebin,
-            &videoconvert,
-            &apriltagdetector,
-            &filesink,
-        ])
-        .unwrap();
+    let elements = &[
+        &filesrc,
+        &decodebin,
+        &videoconvert,
+        &apriltagdetector,
+        &filesink,
+    ];
+    pipeline.add_many(elements).unwrap();
+
+    filesrc.link(&decodebin).unwrap();
+    decodebin.link(&videoconvert).unwrap();
+    videoconvert.link(&apriltagdetector).unwrap();
+    apriltagdetector.link(&filesink).unwrap();
+
+    // gst::Element::link_many(elements).unwrap();
+
+    for e in elements {
+        e.sync_state_with_parent().unwrap();
+    }
+
+    // let pipeline = gst::parse_launch(&format!("filesrc location={} ! decodebin ! videoconvert ! aptriltagdetector family=standard-41h12 ! filesink",FNAME)).unwrap();
+
+    // let mut context = gst::ParseContext::new();
+    // let pipeline =
+    //     match gst::parse_launch_full(format!("filesrc location={} ! decodebin ! videoconvert ! aptriltagdetector family=standard-41h12 ! filesink",FNAME), Some(&mut context), gst::ParseFlags::empty()) {
+    //         Ok(pipeline) => pipeline,
+    //         Err(err) => {
+    //             if let Some(gst::ParseError::NoSuchElement) = err.kind::<gst::ParseError>() {
+    //                 println!("Missing element(s): {:?}", context.get_missing_elements());
+    //             } else {
+    //                 println!("Failed to parse pipeline: {}", err);
+    //             }
+
+    //             std::process::exit(-1)
+    //         }
+    //     };
+
+    let bus = pipeline.get_bus().unwrap();
 
     pipeline.set_state(gst::State::Playing).unwrap();
+
+    for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
+        use gst::MessageView;
+
+        match msg.view() {
+            MessageView::Eos(..) => break,
+            MessageView::Error(err) => {
+                println!(
+                    "Error from {:?}: {} ({:?})",
+                    err.get_src().map(|s| s.get_path_string()),
+                    err.get_error(),
+                    err.get_debug()
+                );
+                break;
+            }
+            _ => (),
+        }
+    }
+
     pipeline.set_state(gst::State::Null).unwrap();
 }
