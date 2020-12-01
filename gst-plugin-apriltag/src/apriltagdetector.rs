@@ -428,7 +428,7 @@ impl AprilTagDetector {
 
                 // We send our own caps downstream
                 let caps = gst::Caps::builder(SRC_CAPS).build();
-                self.srcpad.push_event(gst::Event::new_caps(&caps).build())
+                self.srcpad.push_event(gst::event::Caps::new(&caps))
             }
             _ => pad.event_default(Some(element), event),
         }
