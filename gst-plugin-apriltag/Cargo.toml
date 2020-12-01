@@ -4,7 +4,7 @@ description = "support for April Tag fiducial markers"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
-repository = "https://gitlab.strawlab.org/straw/rust-cam.git"
+repository = "https://github.com/strawlab/strand-braid"
 license = "Proprietary"
 
 [lib]
