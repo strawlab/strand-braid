@@ -11,6 +11,20 @@ cache:
 #   Ubuntu 16.04     - apt-get update && apt-get install -y curl build-essential libgfortran-5-dev liblapack-dev libblas-dev
 #   Debian (jessie?) - apt-get update && apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
+test_crates_linux_ubuntu_focal:
+  stage: build
+  tags:
+    - ubuntu-focal
+  script:
+    - curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+    - source $CARGO_HOME/env
+    - cargo --version
+    - apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    # Test gstreamer apriltag detector
+    - cd gst-plugin-apriltag
+    - cargo test --release
+    - cd ..
+
 test_crates:
   stage: build
   tags:
@@ -23,12 +37,9 @@ test_crates:
     # Install pylon 6
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
-    # Test gstreamer apriltag detector
-    - cd gst-plugin-apriltag
-    - cargo test --release
-    - cd ..
-
     # Test gstreamer nvargustime plugin
+    - apt-get update
+    - apt-get install -y libgstreamer-plugins-base1.0-dev
     - cd gst-plugin-nvargustime
     - cargo test --release
     - cd ..
