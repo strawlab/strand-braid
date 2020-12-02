@@ -28,8 +28,8 @@ Public License v1.0 only. See LICENSE.txt for more details.
 
 ## Future license plans
 
-We have a goal to release many of the generally useful crates under more
-licenses such as the MIT license, the Apache License (Version 2.0), and BSD-like
+We have a goal to release many of the generally useful crates under licenses
+such as the MIT license, the Apache License (Version 2.0), and BSD-like
 licenses. Please get in touch if there are specific pieces of code where this
 would be helpful so we can judge interest and prioritize this.
 
