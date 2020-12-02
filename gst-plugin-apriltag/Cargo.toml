@@ -4,12 +4,11 @@ description = "support for April Tag fiducial markers"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
-repository = "https://gitlab.strawlab.org/straw/rust-cam.git"
-license = "Proprietary"
+repository = "https://github.com/strawlab/strand-braid"
 
 [lib]
 name = "gstrsapriltag"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
@@ -21,9 +20,12 @@ gstreamer-video = "0.16"
 lazy_static = "1.0"
 csv = "1.1"
 serde = {version="1.0", features=["derive"]}
-bytes = "0.5"
+bytes = "0.6"
 
 apriltag = {path="../apriltag"}
 
 [build-dependencies]
 gst-plugin-version-helper = "0.2"
+
+[dev-dependencies]
+download-verify = {path="../download-verify"}
