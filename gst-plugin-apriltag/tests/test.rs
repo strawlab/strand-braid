@@ -38,50 +38,42 @@ fn test_runs() {
 
     let decodebin = gst::ElementFactory::make("decodebin", None).unwrap();
 
-    let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
+    pipeline.add_many(&[&filesrc, &decodebin]).unwrap();
+    gst::Element::link_many(&[&filesrc, &decodebin]).unwrap();
 
-    let apriltagdetector = gst::ElementFactory::make("apriltagdetector", None).unwrap();
-    apriltagdetector.set_property_from_str("family", "standard-41h12");
+    let pipeline_weak = pipeline.downgrade();
 
-    let filesink = gst::ElementFactory::make("filesink", None).unwrap();
-    // TODO: save data to something we then double check for correctness.
+    // see https://github.com/snapview/gstreamer-rs/blob/master/examples/src/bin/decodebin.rs
 
-    let elements = &[
-        &filesrc,
-        &decodebin,
-        &videoconvert,
-        &apriltagdetector,
-        &filesink,
-    ];
-    pipeline.add_many(elements).unwrap();
+    decodebin.connect_pad_added(move |_dbin, src_pad| {
+        let pipeline = match pipeline_weak.upgrade() {
+            Some(pipeline) => pipeline,
+            None => return,
+        };
 
-    filesrc.link(&decodebin).unwrap();
-    decodebin.link(&videoconvert).unwrap();
-    videoconvert.link(&apriltagdetector).unwrap();
-    apriltagdetector.link(&filesink).unwrap();
+        let videoconvert = gst::ElementFactory::make("videoconvert", None).unwrap();
 
-    // gst::Element::link_many(elements).unwrap();
+        let apriltagdetector = gst::ElementFactory::make("apriltagdetector", None).unwrap();
+        apriltagdetector.set_property_from_str("family", "standard-41h12");
 
-    for e in elements {
-        e.sync_state_with_parent().unwrap();
-    }
+        let filesink = gst::ElementFactory::make("filesink", None).unwrap();
+        // TODO: save data to something we then double check for correctness.
 
-    // let pipeline = gst::parse_launch(&format!("filesrc location={} ! decodebin ! videoconvert ! aptriltagdetector family=standard-41h12 ! filesink",FNAME)).unwrap();
+        let elements = &[&videoconvert, &apriltagdetector, &filesink];
+        pipeline.add_many(elements).unwrap();
+        gst::Element::link_many(elements).unwrap();
 
-    // let mut context = gst::ParseContext::new();
-    // let pipeline =
-    //     match gst::parse_launch_full(format!("filesrc location={} ! decodebin ! videoconvert ! aptriltagdetector family=standard-41h12 ! filesink",FNAME), Some(&mut context), gst::ParseFlags::empty()) {
-    //         Ok(pipeline) => pipeline,
-    //         Err(err) => {
-    //             if let Some(gst::ParseError::NoSuchElement) = err.kind::<gst::ParseError>() {
-    //                 println!("Missing element(s): {:?}", context.get_missing_elements());
-    //             } else {
-    //                 println!("Failed to parse pipeline: {}", err);
-    //             }
+        // According to https://github.com/snapview/gstreamer-rs/blob/master/examples/src/bin/decodebin.rs
+        // This should be done, but it fails for me:
+        // for e in elements {
+        //     e.sync_state_with_parent().unwrap();
+        // }
 
-    //             std::process::exit(-1)
-    //         }
-    //     };
+        let sink_pad = videoconvert
+            .get_static_pad("sink")
+            .expect("videoconvert has no sinkpad");
+        src_pad.link(&sink_pad).unwrap();
+    });
 
     let bus = pipeline.get_bus().unwrap();
 
