@@ -3003,7 +3003,7 @@ pub async fn setup_app(
                 let client = hyper::Client::builder()
                     .build::<_, hyper::Body>(https);
 
-                let r = check_version(client, known_version2.clone()).await;
+                let r = tokio_compat_02::FutureExt::compat(check_version(client, known_version2.clone())).await;
                 match r {
                     Ok(()) => {}
                     Err(e) => {error!("error checking version: {}",e);}
