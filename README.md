@@ -2,7 +2,10 @@
 
 ## Description
 
-[Strand Camera](https://strawlab.org/strand-cam/) is low-latency camera acquisition and tracking software. It is useful for 2D tracking of animals, robots, or other moving objects. It also serves as the basis for 3D tracking using Braid.
+[Strand Camera](https://strawlab.org/strand-cam/) is low-latency camera
+acquisition and tracking software. It is useful for 2D tracking of animals,
+robots, or other moving objects. It also serves as the basis for 3D tracking
+using Braid.
 
 [Braid](https://strawlab.org/braid/) is multi-camera acquisition and tracking
 software. It is useful for 3D tracking of animals, robots, or other moving
@@ -21,7 +24,8 @@ data analysis.
 
 ## License
 
-This software is developed by Prof. Dr. Andrew Straw at the University of Freiburg, Germany.
+This software is developed by Prof. Dr. Andrew Straw at the University of
+Freiburg, Germany.
 
 This open-source software is distributable under the terms of the Affero General
 Public License v1.0 only. See LICENSE.txt for more details.
@@ -46,6 +50,5 @@ shall be dual licensed under the terms of the
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or
    http://opensource.org/licenses/MIT)
 
-without any additional
-terms or conditions. (This helps us realize the future license plans as
-described above.)
+without any additional terms or conditions. (This helps us realize the future
+license plans as described above.)
