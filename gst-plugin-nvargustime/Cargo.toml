@@ -4,8 +4,7 @@ description = "support for timestamps from nvarguscamersrc"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
-repository = "https://gitlab.strawlab.org/straw/rust-cam.git"
-license = "Proprietary"
+repository = "https://github.com/strawlab/strand-braid"
 
 [lib]
 name = "gstrsnvargustime"

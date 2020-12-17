@@ -1,12 +1,12 @@
-use num_traits::{Zero, One};
+use num_traits::{One, Zero};
 
-use na::core::MatrixN;
-use na::core::dimension::U6;
-use na::{DefaultAllocator, RealField};
-use na::allocator::Allocator;
+use nalgebra::allocator::Allocator;
+use nalgebra::core::dimension::U6;
+use nalgebra::core::MatrixN;
+use nalgebra::{DefaultAllocator, RealField};
 
-use ::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
-use motion_model_3d_fixed_dt::MotionModel3D;
+use crate::motion_model_3d_fixed_dt::MotionModel3D;
+use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
 
 /// constant velocity 3D motion model parameterized by `dt`
 ///
@@ -16,26 +16,27 @@ use motion_model_3d_fixed_dt::MotionModel3D;
 /// The state vector is [x y z xvel yvel zvel].
 #[derive(Debug, Clone)]
 pub struct ConstantVelocity3DModel<R: RealField>
-    where DefaultAllocator: Allocator<R, U6, U6>,
-          DefaultAllocator: Allocator<R, U6>,
+where
+    DefaultAllocator: Allocator<R, U6, U6>,
+    DefaultAllocator: Allocator<R, U6>,
 {
     motion_noise_scale: R,
 }
 
 impl<R: RealField> ConstantVelocity3DModel<R>
-    where DefaultAllocator: Allocator<R, U6, U6>,
-          DefaultAllocator: Allocator<R, U6>,
+where
+    DefaultAllocator: Allocator<R, U6, U6>,
+    DefaultAllocator: Allocator<R, U6>,
 {
     pub fn new(motion_noise_scale: R) -> Self {
-        Self {
-            motion_noise_scale,
-        }
+        Self { motion_noise_scale }
     }
 }
 
 impl<R: RealField> MotionModel3D<R> for ConstantVelocity3DModel<R>
-    where DefaultAllocator: Allocator<R, U6, U6>,
-          DefaultAllocator: Allocator<R, U6>,
+where
+    DefaultAllocator: Allocator<R, U6, U6>,
+    DefaultAllocator: Allocator<R, U6>,
 {
     fn calc_for_dt(&self, dt: R) -> MotionModel3DFixedDt<R> {
         let zero: R = Zero::zero();
@@ -45,6 +46,7 @@ impl<R: RealField> MotionModel3D<R> for ConstantVelocity3DModel<R>
 
         // Create transition model. 3D position and 3D velocity.
         // This is "A" in most Kalman filter descriptions.
+        #[rustfmt::skip]
         let transition_model = MatrixN::<R,U6>::new(
                           one, zero, zero,   dt, zero, zero,
                          zero,  one, zero, zero,   dt, zero,
@@ -54,10 +56,11 @@ impl<R: RealField> MotionModel3D<R> for ConstantVelocity3DModel<R>
                          zero, zero, zero, zero, zero,  one);
         let transition_model_transpose = transition_model.transpose();
 
-        let t33 = (dt*dt*dt)/three;
-        let t22 = (dt*dt)/two;
+        let t33 = (dt * dt * dt) / three;
+        let t22 = (dt * dt) / two;
 
         // This is "Q" in most Kalman filter descriptions.
+        #[rustfmt::skip]
         let transition_noise_covariance = MatrixN::<R,U6>::new(
                         t33,  zero, zero, t22, zero,  zero,
                         zero,  t33, zero, zero,  t22, zero,

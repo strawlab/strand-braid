@@ -56,6 +56,12 @@ struct ModelFrameStarted {
 }
 
 #[derive(Debug)]
+enum ObservationModel {
+    ObservationModelAndLikelihoods(ObservationModelAndLikelihoods),
+    NoObservations,
+}
+
+#[derive(Debug)]
 struct ObservationModelAndLikelihoods {
     /// linearized observation model for a given camera
     observation_model: CameraObservationModel<MyFloat>,
@@ -67,7 +73,7 @@ struct ObservationModelAndLikelihoods {
 #[derive(Debug)]
 struct ModelFrameWithObservationLikes {
     /// Vec with one element per camera.
-    obs_models_and_likelihoods: Vec<ObservationModelAndLikelihoods>,
+    obs_models_and_likelihoods: Vec<ObservationModel>,
     /// The estimate prior to update from observation.
     prior: StateAndCovariance<MyFloat, U6>,
 }
@@ -209,62 +215,65 @@ impl LivingModel<ModelFrameStarted> {
         // for each camera with data:
         //  - compute likelihood of each real observation given expected observation
 
-        let obs_models_and_likelihoods: Vec<_> = all_cam_data
+        let obs_models_and_likelihoods: Vec<ObservationModel> = all_cam_data
             .inner
             .iter()
             .map(|cam_data| {
                 // outer loop: cameras
 
-                // TODO: short-circuit computation of expected point if there are no
-                // observations for this camera.
-
-                let cam = recon
-                    .cam_by_name(cam_data.frame_data.cam_name.as_str())
-                    .unwrap();
-                let (observation_model, eo) =
-                    self.compute_expected_observation(cam, ekf_observation_covariance_pixels);
-
-                let likes: Vec<f64> = if let Some(expected_observation) = eo {
-                    trace!(
-                        "object {} {} expects ({},{})",
-                        self.lmi.obj_id,
-                        cam_data.frame_data.cam_name,
-                        expected_observation.mean()[0],
-                        expected_observation.mean()[1]
-                    );
-
-                    cam_data
-                        .undistorted
-                        .iter()
-                        .map(|pt: &Undistorted| {
-                            // inner loop: points
-
-                            // Because we keep all points in order (and do not drop
-                            // NaNs, for example), we know the resulting vector has
-                            // the same ordering and length as the original
-                            // Vec<Undistorted> and thus we can index there to get
-                            // the point index.
-
-                            // Put our observation into an nalgebra::Vector2 type.
-                            let obs = Vector2::new(pt.x, pt.y);
-
-                            // Compute the likelihood of this observation given our model.
-                            let likelihood = expected_observation.pdf(&obs.transpose())[0];
-
-                            nalgebra::convert(likelihood)
-                        })
-                        .collect()
+                if cam_data.undistorted.len() == 0 {
+                    ObservationModel::NoObservations
                 } else {
-                    vec![0.0; cam_data.undistorted.len()]
-                };
-                trace!("incoming points: {:?}", cam_data.undistorted);
-                trace!("likelihoods: {:?}", likes);
-                ObservationModelAndLikelihoods {
-                    observation_model,
-                    likelihoods: nalgebra::RowDVector::from_iterator(
-                        likes.len(),
-                        likes.into_iter(),
-                    ),
+                    let cam = recon
+                        .cam_by_name(cam_data.frame_data.cam_name.as_str())
+                        .unwrap();
+                    let (observation_model, eo) =
+                        self.compute_expected_observation(cam, ekf_observation_covariance_pixels);
+
+                    let likes: Vec<f64> = if let Some(expected_observation) = eo {
+                        trace!(
+                            "object {} {} expects ({},{})",
+                            self.lmi.obj_id,
+                            cam_data.frame_data.cam_name,
+                            expected_observation.mean()[0],
+                            expected_observation.mean()[1]
+                        );
+
+                        cam_data
+                            .undistorted
+                            .iter()
+                            .map(|pt: &Undistorted| {
+                                // inner loop: points
+
+                                // Because we keep all points in order (and do not drop
+                                // NaNs, for example), we know the resulting vector has
+                                // the same ordering and length as the original
+                                // Vec<Undistorted> and thus we can index there to get
+                                // the point index.
+
+                                // Put our observation into an nalgebra::Vector2 type.
+                                let obs = Vector2::new(pt.x, pt.y);
+
+                                // Compute the likelihood of this observation given our model.
+                                let likelihood = expected_observation.pdf(&obs.transpose())[0];
+
+                                nalgebra::convert(likelihood)
+                            })
+                            .collect()
+                    } else {
+                        vec![0.0; cam_data.undistorted.len()]
+                    };
+                    trace!("incoming points: {:?}", cam_data.undistorted);
+                    trace!("likelihoods: {:?}", likes);
+                    ObservationModel::ObservationModelAndLikelihoods(
+                        ObservationModelAndLikelihoods {
+                            observation_model,
+                            likelihoods: nalgebra::RowDVector::from_iterator(
+                                likes.len(),
+                                likes.into_iter(),
+                            ),
+                        },
+                    )
                 }
             })
             .collect();
@@ -576,7 +585,7 @@ impl ModelCollection<CollectionFrameStarted> {
         );
 
         let (mcinner, state) = (self.mcinner, self.state);
-        let models_with_obs_likes: Vec<LivingModel<ModelFrameWithObservationLikes>> = state
+        let models_with_obs_likes: Vec<LivingModel<_>> = state
             .models
             .into_iter()
             .map(|x| {
@@ -685,18 +694,23 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 debug_assert!(frame_cam_points.frame_data.cam_name == fdp.frame_data.cam_name);
 
                 // Get pre-computed likelihoods for each model for this camera.
-                // There are N elements in the outer vector, one for each models
+                // There are N elements in the outer vector, one for each model
                 // and M elements in each inner container, corresponding to the M
                 // detected points for this camera on this frame.
                 let wantedness: Vec<_> = self
                     .state
                     .models_with_obs_likes
                     .iter()
-                    .map(|model| {
-                        model.state.obs_models_and_likelihoods[cam_idx]
-                            .likelihoods
-                            .clone()
-                    })
+                    .map(
+                        |model| match &model.state.obs_models_and_likelihoods[cam_idx] {
+                            ObservationModel::ObservationModelAndLikelihoods(oml) => {
+                                oml.likelihoods.clone()
+                            }
+                            ObservationModel::NoObservations => {
+                                nalgebra::RowDVector::zeros(frame_cam_points.undistorted.len())
+                            }
+                        },
+                    )
                     .collect();
 
                 debug_assert!(wantedness.len() == self.state.models_with_obs_likes.len());
@@ -752,8 +766,15 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             let observation_undistorted = Vector2::new(undist_pt.x, undist_pt.y);
 
                             let model = &self.state.models_with_obs_likes[row_idx];
-                            let obs_model =
-                                &model.state.obs_models_and_likelihoods[cam_idx].observation_model;
+                            let obs_model = match &model.state.obs_models_and_likelihoods[cam_idx] {
+                                ObservationModel::ObservationModelAndLikelihoods(oml) => {
+                                    &oml.observation_model
+                                }
+                                ObservationModel::NoObservations => {
+                                    // This should never happen.
+                                    panic!("non-zero wantedness for non-existent observation.");
+                                }
+                            };
 
                             let estimate = &next_model.state.posterior;
 

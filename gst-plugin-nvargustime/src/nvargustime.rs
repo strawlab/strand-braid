@@ -50,13 +50,15 @@ impl NvArgusTime {
     //
     // Details about what each function is good for is next to each function definition
     fn set_pad_functions(sinkpad: &gst::Pad, _srcpad: &gst::Pad) {
-        sinkpad.set_chain_function(|pad, parent, buffer| {
-            NvArgusTime::catch_panic_pad_function(
-                parent,
-                || Err(gst::FlowError::Error),
-                |identity, element| identity.sink_chain(pad, element, buffer),
-            )
-        });
+        unsafe {
+            sinkpad.set_chain_function(|pad, parent, buffer| {
+                NvArgusTime::catch_panic_pad_function(
+                    parent,
+                    || Err(gst::FlowError::Error),
+                    |identity, element| identity.sink_chain(pad, element, buffer),
+                )
+            });
+        }
     }
 
     // Called whenever a new buffer is passed to our sink pad. Here buffers should be processed and
@@ -79,30 +81,37 @@ impl NvArgusTime {
 
         {
             // this will call `std::mem::forget(inbuf_orig)`
-            let bufptr: *const gst_sys::GstBuffer = unsafe{inbuf_orig.into_ptr()};
+            let bufptr: *const gst_sys::GstBuffer = unsafe { inbuf_orig.into_ptr() };
 
             let minibufptr = bufptr as *mut gst_sys::GstMiniObject;
-            let quark = unsafe{glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)};
-            let meta = unsafe{gst_sys::gst_mini_object_get_qdata(minibufptr, quark)} as *const AuxData;
+            let quark = unsafe {
+                glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)
+            };
+            let meta =
+                unsafe { gst_sys::gst_mini_object_get_qdata(minibufptr, quark) } as *const AuxData;
             if meta.is_null() {
                 panic!("unable to get GstBufferMetaData quark");
             }
-            let (frame_num, timestamp) = unsafe{((*meta).frame_num, (*meta).timestamp)};
-            println!("argustim: Acquired Frame: {}, time {}", frame_num, timestamp);
+            let (frame_num, timestamp) = unsafe { ((*meta).frame_num, (*meta).timestamp) };
+            println!(
+                "argustim: Acquired Frame: {}, time {}",
+                frame_num, timestamp
+            );
 
             // Above, `into_ptr()` calls `std::mem::forget()`. So, not to
             // leak, we need to deallocate the buffer. TODO: turn this back
             // into a rust object and prevent the copy above.
-            unsafe{gst_sys::gst_mini_object_unref(minibufptr)};
+            unsafe { gst_sys::gst_mini_object_unref(minibufptr) };
         }
-
 
         let mut ts = libc::timespec {
             tv_sec: 0,
             tv_nsec: 0,
         };
         // unsafe{ libc::clock_gettime(CLOCK_MONOTONIC_RAW, &mut ts); }
-        unsafe{ libc::clock_gettime(CLOCK_MONOTONIC, &mut ts); }
+        unsafe {
+            libc::clock_gettime(CLOCK_MONOTONIC, &mut ts);
+        }
         let tsc = ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64;
         // println!("argustim: kernel time:            {} {}", ts.tv_sec, ts.tv_nsec);
         println!("argustim: kernel time:             {}", tsc);
@@ -132,13 +141,13 @@ impl ObjectSubclass for NvArgusTime {
 
     // Called when a new instance is to be created. We need to return an instance
     // of our struct here and also get the class struct passed in case it's needed
-    fn new_with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
+    fn with_class(klass: &subclass::simple::ClassStruct<Self>) -> Self {
         // Create our two pads from the templates that were registered with
         // the class
         let templ = klass.get_pad_template("sink").unwrap();
-        let sinkpad = gst::Pad::new_from_template(&templ, Some("sink"));
+        let sinkpad = gst::Pad::builder_with_template(&templ, Some("sink")).build();
         let templ = klass.get_pad_template("src").unwrap();
-        let srcpad = gst::Pad::new_from_template(&templ, Some("src"));
+        let srcpad = gst::Pad::builder_with_template(&templ, Some("src")).build();
 
         // And then set all our pad functions for handling anything that happens
         // on these pads

@@ -1,9 +1,9 @@
-use num_traits::{Zero, One};
+use num_traits::{One, Zero};
 
-use na::core::MatrixN;
-use na::core::dimension::U4;
-use na::{DefaultAllocator, RealField};
-use na::allocator::Allocator;
+use nalgebra::allocator::Allocator;
+use nalgebra::core::dimension::U4;
+use nalgebra::core::MatrixN;
+use nalgebra::{DefaultAllocator, RealField};
 
 use adskalman::TransitionModelLinearNoControl;
 
@@ -15,20 +15,20 @@ use adskalman::TransitionModelLinearNoControl;
 /// The state vector is [x y xvel yvel].
 #[derive(Debug)]
 pub struct ConstantVelocity2DModel<R: RealField>
-    where DefaultAllocator: Allocator<R, U4, U4>,
-          DefaultAllocator: Allocator<R, U4>,
+where
+    DefaultAllocator: Allocator<R, U4, U4>,
+    DefaultAllocator: Allocator<R, U4>,
 {
     motion_noise_scale: R,
 }
 
 impl<R: RealField> ConstantVelocity2DModel<R>
-    where DefaultAllocator: Allocator<R, U4, U4>,
-          DefaultAllocator: Allocator<R, U4>,
+where
+    DefaultAllocator: Allocator<R, U4, U4>,
+    DefaultAllocator: Allocator<R, U4>,
 {
     pub fn new(motion_noise_scale: R) -> Self {
-        Self {
-            motion_noise_scale,
-        }
+        Self { motion_noise_scale }
     }
 
     /// For a given `dt`, create a new instance of the motion model.
@@ -40,6 +40,7 @@ impl<R: RealField> ConstantVelocity2DModel<R>
 
         // Create transition model. 2D position and 2D velocity.
         // This is "A" in most Kalman filter descriptions.
+        #[rustfmt::skip]
         let transition_model = MatrixN::<R,U4>::new(
                           one, zero,   dt, zero,
                          zero,  one, zero,   dt,
@@ -47,8 +48,8 @@ impl<R: RealField> ConstantVelocity2DModel<R>
                          zero, zero, zero,  one);
         let transition_model_transpose = transition_model.transpose();
 
-        let t33 = (dt*dt*dt)/three;
-        let t22 = (dt*dt)/two;
+        let t33 = (dt * dt * dt) / three;
+        let t22 = (dt * dt) / two;
 
         // This form is after N. Shimkin's lecture notes in
         // Estimation and Identification in Dynamical Systems
@@ -57,6 +58,7 @@ impl<R: RealField> ConstantVelocity2DModel<R>
         // http://www.robots.ox.ac.uk/~ian/Teaching/Estimation/LectureNotes2.pdf
 
         // This is "Q" in most Kalman filter descriptions.
+        #[rustfmt::skip]
         let transition_noise_covariance = MatrixN::<R,U4>::new(
                         t33,  zero,  t22, zero,
                         zero,  t33, zero,  t22,
@@ -75,25 +77,27 @@ impl<R: RealField> ConstantVelocity2DModel<R>
 /// The state vector is [x y xvel yvel]
 #[derive(Debug)]
 pub struct MotionModel2DFixedDt<R: RealField>
-    where DefaultAllocator: Allocator<R, U4, U4>,
-          DefaultAllocator: Allocator<R, U4>,
+where
+    DefaultAllocator: Allocator<R, U4, U4>,
+    DefaultAllocator: Allocator<R, U4>,
 {
-    transition_model: MatrixN<R,U4>,
-    transition_model_transpose: MatrixN<R,U4>,
-    transition_noise_covariance: MatrixN<R,U4>,
+    transition_model: MatrixN<R, U4>,
+    transition_model_transpose: MatrixN<R, U4>,
+    transition_noise_covariance: MatrixN<R, U4>,
 }
 
 impl<R: RealField> TransitionModelLinearNoControl<R, U4> for MotionModel2DFixedDt<R>
-    where DefaultAllocator: Allocator<R, U4, U4>,
-          DefaultAllocator: Allocator<R, U4>,
+where
+    DefaultAllocator: Allocator<R, U4, U4>,
+    DefaultAllocator: Allocator<R, U4>,
 {
-    fn transition_model(&self) -> &MatrixN<R,U4> {
+    fn transition_model(&self) -> &MatrixN<R, U4> {
         &self.transition_model
     }
-    fn transition_model_transpose(&self) -> &MatrixN<R,U4> {
+    fn transition_model_transpose(&self) -> &MatrixN<R, U4> {
         &self.transition_model_transpose
     }
-    fn transition_noise_covariance(&self) -> &MatrixN<R,U4> {
+    fn transition_noise_covariance(&self) -> &MatrixN<R, U4> {
         &self.transition_noise_covariance
     }
 }

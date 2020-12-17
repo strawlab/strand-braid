@@ -1,5 +1,8 @@
 REM Prerequisite: yew_frontend/pkg is built. Do this by "windows-build-flydratrax.bat" in yew_frontend.
 
+REM Download opencv-3.2.0-vc14.exe from https://sourceforge.net/projects/opencvlibrary/files/opencv-win/3.2.0/opencv-3.2.0-vc14.exe/download
+REM then expand it in your Downloads directory.
+
 set OPENCV_VERSION=320
 set OPENCV_LIB_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\lib
 set OPENCV_INCLUDE_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\include
@@ -17,3 +20,5 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.9.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.9.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 cargo build --release --no-default-features --features bundle_files,backend_pyloncxx,flydratrax,imtrack-dark-circle,flydra2/bundle_files,ipp-sys/2019,cfg-pt-detect-src-prefs,checkercal
+
+copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world320.dll ..\target\release\

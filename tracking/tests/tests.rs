@@ -1,10 +1,7 @@
-extern crate tracking;
 extern crate nalgebra as na;
-extern crate adskalman;
-#[macro_use]
-extern crate approx;
+use approx::assert_relative_eq;
 
-use na::core::{Matrix4, Matrix6, Vector4, Vector6};
+use nalgebra::core::{Matrix4, Matrix6, Vector4, Vector6};
 
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
@@ -21,7 +18,7 @@ fn test_missing_frames_via_large_dt_2d() {
 
     let dt1 = 5.678;
     let state0 = Vector4::new(1.2, 3.4, 5.6, 7.8);
-    let covar0 = 42.0*Matrix4::<f64>::identity();
+    let covar0 = 42.0 * Matrix4::<f64>::identity();
 
     let est0 = StateAndCovariance::new(state0, covar0);
 
@@ -31,7 +28,7 @@ fn test_missing_frames_via_large_dt_2d() {
     let est1_2 = mm1.predict(&est1_1);
 
     // Run one time step of duration 2*dt.
-    let mm2 = model.calc_for_dt(2.0*dt1);
+    let mm2 = model.calc_for_dt(2.0 * dt1);
     let est2_2 = mm2.predict(&est0);
 
     assert_relative_eq!(est1_2.state(), est2_2.state());
@@ -49,7 +46,7 @@ fn test_missing_frames_via_large_dt_3d() {
 
     let dt1 = 5.678;
     let state0 = Vector6::new(1.2, 3.4, 5.6, 7.8, 9.10, 11.12);
-    let covar0 = 42.0*Matrix6::<f64>::identity();
+    let covar0 = 42.0 * Matrix6::<f64>::identity();
 
     let est0 = StateAndCovariance::new(state0, covar0);
 
@@ -59,7 +56,7 @@ fn test_missing_frames_via_large_dt_3d() {
     let est1_2 = mm1.predict(&est1_1);
 
     // Run one time step of duration 2*dt.
-    let mm2 = model.calc_for_dt(2.0*dt1);
+    let mm2 = model.calc_for_dt(2.0 * dt1);
     let est2_2 = mm2.predict(&est0);
 
     assert_relative_eq!(est1_2.state(), est2_2.state());
@@ -77,9 +74,9 @@ fn test_missing_frames_via_large_dt_flat3d() {
 
     let dt1 = 5.678;
     let state0 = Vector6::new(1.2, 3.4, 0.0, 7.8, 9.10, 0.0);
-    let mut covar0 = 42.0*Matrix6::<f64>::identity();
-    covar0[(2,2)] = 0.0;
-    covar0[(5,5)] = 0.0;
+    let mut covar0 = 42.0 * Matrix6::<f64>::identity();
+    covar0[(2, 2)] = 0.0;
+    covar0[(5, 5)] = 0.0;
 
     let est0 = StateAndCovariance::new(state0, covar0);
 
@@ -89,7 +86,7 @@ fn test_missing_frames_via_large_dt_flat3d() {
     let est1_2 = mm1.predict(&est1_1);
 
     // Run one time step of duration 2*dt.
-    let mm2 = model.calc_for_dt(2.0*dt1);
+    let mm2 = model.calc_for_dt(2.0 * dt1);
     let est2_2 = mm2.predict(&est0);
 
     assert_relative_eq!(est1_2.state(), est2_2.state());

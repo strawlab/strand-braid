@@ -233,7 +233,7 @@ where
                             ),
                         ));
                     }
-                    if let Some((h264_path, ref mut r)) = &mut raw {
+                    if let Some((_h264_path, ref mut r)) = &mut raw {
                         thread_try!(err_tx, r.write(&frame, stamp));
                     }
                 }
@@ -241,8 +241,6 @@ where
                     if raw.is_some() {
                         let (h264_path, mut webm_writer) = raw.unwrap();
                         thread_try!(err_tx, webm_writer.finish());
-
-                        let mut call_mkvfix = false;
 
                         if let Some(path) = h264_path {
                             if strand_cam_mkvfix::is_ffmpeg_available() {

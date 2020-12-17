@@ -1,5 +1,8 @@
 set PYLON_VERSION=6
 
+@REM Set IPPROOT environment variable: run this script in a shell opened with:
+@REM cmd /k "c:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019\windows\ipp\bin\ippvars.bat" intel64
+
 REM Download opencv-3.2.0-vc14.exe from https://sourceforge.net/projects/opencvlibrary/files/opencv-win/3.2.0/opencv-3.2.0-vc14.exe/download
 REM then expand it in your Downloads directory.
 

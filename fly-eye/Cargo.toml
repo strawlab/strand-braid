@@ -8,7 +8,7 @@ failure = "0.1.2"
 log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.8"
 structopt = "0.3"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 image = "0.22"
 glium = "0.25"
 imagefmt = "4.0.0"

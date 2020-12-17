@@ -43,6 +43,7 @@ use libflate::gzip::Encoder;
 use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
 
 use hyper_tls::HttpsConnector;
+#[allow(unused_imports)]
 use preferences::{AppInfo, Preferences};
 
 use ci2::{Camera, CameraInfo, CameraModule};
@@ -2566,8 +2567,9 @@ pub async fn setup_app(
     };
 
     if args.force_camera_sync_mode {
-        cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
+        // The trigger selector must be set before the trigger mode.
         cam.set_trigger_selector(ci2_types::TriggerSelector::FrameStart).unwrap();
+        cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
     }
 
     let trigger_mode = cam.trigger_mode()?;
@@ -2709,7 +2711,7 @@ pub async fn setup_app(
         had_frame_processing_error: false,
     });
 
-    let mut frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
+    let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
 
     let (flag, control) = thread_control::make_pair();
     let use_cbor_packets = args.use_cbor_packets;

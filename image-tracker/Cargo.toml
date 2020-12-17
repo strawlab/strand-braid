@@ -12,7 +12,7 @@ machine-vision-formats = { path = "../machine-vision-formats" }
 timestamped-frame = {path="../timestamped-frame"}
 basic-frame = {path="../basic-frame"}
 num-traits = "0.2"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 thread-control = "0.1"
 cast = "0.2.2"
 serde = {version="1.0",features=["derive"]}

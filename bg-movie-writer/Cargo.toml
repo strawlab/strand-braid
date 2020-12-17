@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 log = "0.4.5"
 chrono = "0.4"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 
 webm-writer = {path="../webm-writer"}
 machine-vision-formats = { path = "../machine-vision-formats" }

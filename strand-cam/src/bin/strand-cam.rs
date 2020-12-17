@@ -148,6 +148,11 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
                     .help("Force auto-opening of browser"),
             )
             .arg(
+                Arg::with_name("force_camera_sync_mode")
+                    .long("force_camera_sync_mode")
+                    .help("Force the camera to synchronize to external trigger"),
+            )
+            .arg(
                 Arg::with_name("flydra1")
                     .long("flydra1")
                     .help("backward compat with flydra1"),
@@ -297,6 +302,11 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
         _ => true,
     };
 
+    let force_camera_sync_mode = match matches.occurrences_of("force_camera_sync_mode") {
+        0 => false,
+        _ => true,
+    };
+
     let use_cbor_packets = match matches.occurrences_of("flydra1") {
         0 => true,
         _ => false,
@@ -337,7 +347,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
 
     let show_url = true;
 
-    let force_camera_sync_mode = false;
     let raise_grab_thread_priority = process_frame_priority.is_some();
 
     #[cfg(feature = "fiducial")]

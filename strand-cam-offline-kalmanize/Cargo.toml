@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam-offline-kalmanize"
-version = "0.8.1" # braid release synchronized
+version = "0.8.2" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
@@ -11,7 +11,7 @@ structopt = "0.3.13"
 failure = "0.1.2"
 failure_derive = "0.1.2"
 parking_lot = "0.11"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 csv = "1.1"
 chrono = "0.4.6"
 serde = {version="^1.0", features=["derive"]}
