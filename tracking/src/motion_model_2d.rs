@@ -91,13 +91,13 @@ where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
 {
-    fn transition_model(&self) -> &MatrixN<R, U4> {
+    fn F(&self) -> &MatrixN<R, U4> {
         &self.transition_model
     }
-    fn transition_model_transpose(&self) -> &MatrixN<R, U4> {
+    fn FT(&self) -> &MatrixN<R, U4> {
         &self.transition_model_transpose
     }
-    fn transition_noise_covariance(&self) -> &MatrixN<R, U4> {
+    fn Q(&self) -> &MatrixN<R, U4> {
         &self.transition_noise_covariance
     }
 }

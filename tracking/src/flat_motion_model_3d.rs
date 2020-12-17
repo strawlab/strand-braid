@@ -89,7 +89,7 @@ mod test {
     fn test_fix_z() {
         let model = FlatZZero3DModel::new(1.0);
         let m2 = model.calc_for_dt(1.0);
-        let matrix = m2.transition_model();
+        let matrix = m2.F();
 
         let pos1 = na::Vector6::new(0.1, 0.2, 0.3, 0.4, 0.5, 0.6);
         let pos2 = matrix * pos1;

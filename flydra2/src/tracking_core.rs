@@ -17,7 +17,8 @@ use tracking::motion_model_3d::ConstantVelocity3DModel;
 #[cfg(not(any(feature = "full-3d", feature = "flat-3d")))]
 compile_error!("must either have feature full-3d or flat-3d");
 
-use adskalman::{ObservationModelLinear, StateAndCovariance, TransitionModelLinearNoControl};
+use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
+use adskalman::ObservationModel as AdsKalmanObservationModel;
 use flydra_types::{
     CamNum, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow, RosCamName, SyncFno,
     Triggerbox,
@@ -182,8 +183,8 @@ impl LivingModel<ModelFrameStarted> {
 
         //  - compute expected observation through `frame_data.camera` given prior
         let projected_covariance = {
-            let h = obs_model.observation_matrix();
-            let ht = obs_model.observation_matrix_transpose();
+            let h = obs_model.H();
+            let ht = obs_model.HT();
             let p = prior.covariance();
             (h * p) * ht
         };
@@ -788,7 +789,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             trace!(" updated estimate {:?}", posterior.state());
 
                             // Compute the coords of the estimated state.
-                            let reproj_undistorted = obs_model.evaluate(posterior.state());
+                            let reproj_undistorted = obs_model.predict_observation(posterior.state());
                             let reproj_dist = ((reproj_undistorted.x - undist_pt.x).powi(2)
                                 + (reproj_undistorted.y - undist_pt.y).powi(2))
                             .sqrt();

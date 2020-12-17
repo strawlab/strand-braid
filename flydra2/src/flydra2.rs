@@ -26,7 +26,7 @@ use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::DimMin;
 use nalgebra::{DefaultAllocator, RealField};
 
-use adskalman::ObservationModelLinear;
+use adskalman::ObservationModel;
 #[allow(unused_imports)]
 use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
@@ -278,7 +278,7 @@ where
     }
 }
 
-impl<R> ObservationModelLinear<R, U6, U2> for CameraObservationModel<R>
+impl<R> ObservationModel<R, U6, U2> for CameraObservationModel<R>
 where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
@@ -290,16 +290,16 @@ where
     U2: DimMin<U2, Output = U2>,
     R: RealField + Default + serde::Serialize,
 {
-    fn observation_matrix(&self) -> &MatrixMN<R, U2, U6> {
+    fn H(&self) -> &MatrixMN<R, U2, U6> {
         &self.observation_matrix
     }
-    fn observation_matrix_transpose(&self) -> &MatrixMN<R, U6, U2> {
+    fn HT(&self) -> &MatrixMN<R, U6, U2> {
         &self.observation_matrix_transpose
     }
-    fn observation_noise_covariance(&self) -> &MatrixN<R, U2> {
+    fn R(&self) -> &MatrixN<R, U2> {
         &self.observation_noise_covariance
     }
-    fn evaluate(&self, state: &VectorN<R, U6>) -> VectorN<R, U2> {
+    fn predict_observation(&self, state: &VectorN<R, U6>) -> VectorN<R, U2> {
         // TODO: update to handle water here. See tag "laksdfjasl".
         let pt = to_world_point(&state);
         let undistored = self.cam.project_3d_to_pixel(&pt);

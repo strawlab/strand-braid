@@ -25,13 +25,13 @@ where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
 {
-    fn transition_model(&self) -> &MatrixN<R, U6> {
+    fn F(&self) -> &MatrixN<R, U6> {
         &self.transition_model
     }
-    fn transition_model_transpose(&self) -> &MatrixN<R, U6> {
+    fn FT(&self) -> &MatrixN<R, U6> {
         &self.transition_model_transpose
     }
-    fn transition_noise_covariance(&self) -> &MatrixN<R, U6> {
+    fn Q(&self) -> &MatrixN<R, U6> {
         &self.transition_noise_covariance
     }
 }
