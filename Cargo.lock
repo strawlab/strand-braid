@@ -442,7 +442,7 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "braid"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "configure",
  "dotenv 0.13.0",
@@ -461,7 +461,7 @@ dependencies = [
 
 [[package]]
 name = "braid-offline"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "braidz-parser",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "braidz-cli"
-version = "0.1.0"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "braidz-parser",
@@ -602,7 +602,7 @@ name = "bui-backend-session"
 version = "0.1.0"
 dependencies = [
  "bui-backend-types",
- "bytes",
+ "bytes 0.5.6",
  "cookie",
  "futures",
  "http",
@@ -660,6 +660,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
+name = "bytes"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0dcbc35f504eb6fc275a6d20e4ebcda18cf50d40ba6fabff8c711fa16cb3b16"
+
+[[package]]
 name = "cam-geom"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -688,7 +694,7 @@ name = "camtrig"
 version = "0.1.0"
 dependencies = [
  "byteorder",
- "bytes",
+ "bytes 0.5.6",
  "camtrig-comms",
  "clap",
  "env_logger 0.8.2",
@@ -1774,7 +1780,7 @@ dependencies = [
  "bitflags",
  "bui-backend-types",
  "byteorder",
- "bytes",
+ "bytes 0.5.6",
  "chrono",
  "datetime-conversion",
  "dns-lookup",
@@ -1880,7 +1886,7 @@ dependencies = [
  "bui-backend-codegen",
  "bui-backend-session",
  "bui-backend-types",
- "bytes",
+ "bytes 0.5.6",
  "chrono",
  "ci2-remote-control",
  "clap",
@@ -2492,10 +2498,9 @@ name = "gst-plugin-apriltag"
 version = "0.1.0"
 dependencies = [
  "apriltag",
- "bytes",
+ "bytes 0.6.0",
  "csv",
  "download-verify",
- "env_logger 0.8.2",
  "glib",
  "gobject-sys",
  "gst-plugin-version-helper",
@@ -2671,7 +2676,7 @@ version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e4728fd124914ad25e99e3d15a9361a879f6620f63cb56bbb08f95abb97a535"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "fnv",
  "futures-core",
  "futures-sink",
@@ -2762,7 +2767,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28d569972648b2c512421b5f2a405ad6ac9666547189d0c5477a3f200f3e02f9"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "fnv",
  "itoa",
 ]
@@ -2773,7 +2778,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13d5ff830006f7646652e057693569bfe0d51760c0085a071769d142a205111b"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "http",
 ]
 
@@ -2840,7 +2845,7 @@ version = "0.13.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6ad767baac13b44d4529fcf58ba2cd0995e36e7b435bc5b039de6f47e880dbf"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -2864,7 +2869,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d979acc56dcb5b8dddba3917601745e877576475aa046df3226eabdecef78eed"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "hyper",
  "native-tls",
  "tokio",
@@ -5556,7 +5561,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "strand-cam"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "alga",
  "app_dirs",
@@ -5569,7 +5574,7 @@ dependencies = [
  "bui-backend",
  "bui-backend-codegen",
  "bui-backend-types",
- "bytes",
+ "bytes 0.5.6",
  "camcal",
  "camtrig",
  "camtrig-comms",
@@ -5661,7 +5666,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam-offline-kalmanize"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "alga",
  "braidz-parser",
@@ -6104,7 +6109,7 @@ version = "0.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6d7ad61edd59bfcc7e80dababf0f4aed2e6d5e0ba1659356ae889752dfc12ff"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "fnv",
  "futures-core",
  "iovec",
@@ -6159,7 +6164,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "571da51182ec208780505a32528fc5512a8fe1443ab960b3f2f3ef093cd16930"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "futures-core",
  "futures-sink",
  "log",
@@ -6173,7 +6178,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be8242891f2b6cbef26a2d7e8605133c2c554cd35b3e4948ea892d6d68436499"
 dependencies = [
- "bytes",
+ "bytes 0.5.6",
  "futures-core",
  "futures-sink",
  "log",
