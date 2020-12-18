@@ -21,8 +21,8 @@ async fn test_min_two_rays_needed() {
         .with_context(|| format!("Parsing file {}", FNAME))
         .unwrap();
 
-    // let output = tempfile::tempdir().unwrap().into_path();
-    let output = std::path::PathBuf::from("test-output");
+    let output = tempfile::tempdir().unwrap().into_path();
+    // let output = std::path::PathBuf::from("test-output");
 
     let tracking_params_parsed: &flydra_types::TrackingParams = &archive
         .kalman_estimates_info
