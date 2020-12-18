@@ -425,7 +425,8 @@ struct Opt {
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
+    env_tracing_logger::init();
+
     let opt = Opt::from_args();
     compute_contiguous_kests(&opt.dirname)?;
     add_ml_estimates_tables(&opt.dirname)

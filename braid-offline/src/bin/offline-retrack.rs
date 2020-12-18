@@ -30,6 +30,15 @@ struct Opt {
 }
 
 fn main() -> Result<()> {
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var(
+            "RUST_LOG",
+            "braid_offline=info,flydra2=info,flydra2_mainbrain=info,error",
+        );
+    }
+
+    env_tracing_logger::init();
+
     let mut runtime = tokio::runtime::Builder::new()
         .threaded_scheduler()
         .enable_all()
@@ -41,14 +50,6 @@ fn main() -> Result<()> {
 }
 
 async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var(
-            "RUST_LOG",
-            "braid_offline=info,flydra2=info,flydra2_mainbrain=info,error",
-        );
-    }
-
-    env_logger::init();
     let opt = Opt::from_args();
 
     // TODO: open data_src with braidz_parser here?
