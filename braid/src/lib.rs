@@ -27,13 +27,28 @@ fn default_3d_tracking_params() -> flydra_types::TrackingParams {
 }
 
 pub fn braid_start(name: &str) -> Result<(), Error> {
+    use tracing_subscriber::{EnvFilter, FmtSubscriber};
+
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "braid=info,flydra2=info,flydra2_mainbrain=info,strand_cam=info,image_tracker=info,rt_image_viewer=info,flydra1_triggerbox=info,error");
     }
 
-    env_logger::init();
+    // This sends all log events using the `log` crate into the `tracing`
+    // infrastructure. The documentation
+    // [here](https://docs.rs/crate/tracing/0.1.22/source/README.md) says "Note
+    // that if you're using tracing-subscriber's FmtSubscriber, you don't need
+    // to depend on tracing-log directly". However, I did not find this to be
+    // true.
+    tracing_log::env_logger::init();
+
+    // a builder for `FmtSubscriber`.
+    let subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
     log::info!("{} {}", name, version);
