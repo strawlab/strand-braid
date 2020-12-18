@@ -14,10 +14,8 @@ log = { version = "0.4", features = ["release_max_level_debug"] }
 failure = "0.1"
 dotenv = "0.13"
 shellexpand = "2.0"
-tracing = "0.1"
-tracing-subscriber = "0.2.0"
-tracing-log = {version="0.1", features=["env_logger"]}
 
+env-tracing-logger = {path="../env-tracing-logger"}
 flydra-types = {path="../flydra-types"}
 image-tracker-types = {path = "../image-tracker/image-tracker-types"}
 im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
