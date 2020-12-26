@@ -12,7 +12,7 @@ path = "src/strand-cam.rs"
 jemallocator = {version="0.3", optional=true}
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.10", default-features = false}
+bui-backend = {version="0.11", default-features = false}
 qrcodegen = "1.4"
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
 env_logger = "0.8"
@@ -54,11 +54,11 @@ fmf = {path = "../fmf"}
 ufmf = {path = "../ufmf"}
 chrono = { version = "0.4.6", features = ["serde"] }
 convert-image = {path = "../convert-image"}
-hyper = "0.13.0"
+hyper = {version="0.14", features=["client","http1"]}
+# hyper-tls = "0.5"
 futures = "0.3"
-tokio = {version="0.3.4", default-features=false, features=["rt","stream","rt-multi-thread","time","sync"]}
-tokio-util = {version = "0.5.0", features=["codec"]}
-tokio-compat-02 = "0.1"
+tokio = {version="1.0", default-features=false, features=["rt","rt-multi-thread","time","sync"]}
+tokio-util = {version = "0.6", features=["codec"]}
 dotenv = "0.15.0"
 strand-cam-storetype = {path = "../strand-cam-storetype"}
 image-tracker = {path = "../image-tracker", default-features = false, optional=true}
@@ -67,7 +67,6 @@ im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
 datetime-conversion = {path = "../datetime-conversion"}
 http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
 http-video-streaming = {path = "../http-video-streaming"}
-hyper-tls = "0.4.0"
 semver = { version = "0.11.0", features = ["serde"] }
 shellexpand = "2"
 camtrig = {path="../camtrig", optional=true}
@@ -76,7 +75,7 @@ flydra-types = {path="../flydra-types", features=["with-dns"]}
 flydra2 = {path="../flydra2", default-features = false, optional=true}
 mvg = {path="../mvg", optional=true}
 serialport = { version = "3.0.0", optional = true }
-bytes = "0.6"
+bytes = "1.0"
 nalgebra = { version = "0.23", optional = true }
 opencv-ros-camera = "0.4"
 alga = { version = "0.9", optional = true }

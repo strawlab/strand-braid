@@ -28,6 +28,9 @@ extern crate ci2_pyloncxx as backend;
 use http_video_streaming as video_streaming;
 use machine_vision_formats as formats;
 
+mod interval_stream;
+use interval_stream::MyInterval;
+
 #[cfg(feature = "flydratrax")]
 use nalgebra as na;
 
@@ -42,7 +45,7 @@ use libflate::gzip::Encoder;
 
 use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
 
-use hyper_tls::HttpsConnector;
+// use hyper_tls::HttpsConnector;
 #[allow(unused_imports)]
 use preferences::{AppInfo, Preferences};
 
@@ -2141,7 +2144,8 @@ fn run_camtrig(
 }
 
 async fn check_version(
-    client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
+    client: hyper::Client<hyper::client::HttpConnector>,
+    // client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
     known_version: Arc<RwLock<semver::Version>>,
 ) -> hyper::Result<()> {
     let url = format!("https://version-check.strawlab.org/{}", env!("APP_NAME"));
@@ -2337,7 +2341,7 @@ impl Default for StrandCamArgs {
 }
 
 pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
-    let mut runtime = tokio::runtime::Builder::new_multi_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(4)
         .thread_name("strand-cam-runtime")
@@ -2994,16 +2998,21 @@ pub async fn setup_app(
         let interval_stream = tokio::time::interval(
             std::time::Duration::from_secs(1800));
 
+        let interval_stream = MyInterval { int: interval_stream};
+
         let mut incoming1 = valve.wrap(interval_stream);
 
         let known_version2 = known_version.clone();
         let stream_future = async move {
             while let Some(_) = incoming1.next().await {
-                let https = HttpsConnector::new();
-                let client = hyper::Client::builder()
-                    .build::<_, hyper::Body>(https);
+                // let https = HttpsConnector::new();
+                // let client = hyper::Client::builder()
+                //     .build::<_, hyper::Body>(https);
 
-                let r = tokio_compat_02::FutureExt::compat(check_version(client, known_version2.clone())).await;
+                let client = hyper::Client::builder()
+                    .build::<_, hyper::Body>(hyper::client::HttpConnector::new());
+
+                let r = check_version(client, known_version2.clone()).await;
                 match r {
                     Ok(()) => {}
                     Err(e) => {error!("error checking version: {}",e);}

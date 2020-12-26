@@ -348,8 +348,7 @@ pub async fn new_model_server(
 
         let server = {
             // this will fail unless there is a reactor already
-            use tokio_compat_02::FutureExt;
-            let bound = async { hyper::Server::try_bind(&addr) }.compat().await?;
+            let bound = async { hyper::Server::try_bind(&addr) }.await?;
             bound.serve(new_service)
         };
 
@@ -399,11 +398,9 @@ pub async fn new_model_server(
             let graceful = server.with_graceful_shutdown(async move {
                 shutdown_rx.await.ok();
             });
-            use tokio_compat_02::FutureExt;
-            rt_handle.spawn(Box::pin(graceful.map(log_and_swallow_err).compat()));
+            rt_handle.spawn(Box::pin(graceful.map(log_and_swallow_err)));
         } else {
-            use tokio_compat_02::FutureExt;
-            rt_handle.spawn(Box::pin(server.map(log_and_swallow_err).compat()));
+            rt_handle.spawn(Box::pin(server.map(log_and_swallow_err)));
         };
         Ok(result)
     }

@@ -1,4 +1,3 @@
-use bytes::buf::Buf;
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
@@ -32,7 +31,7 @@ impl Decoder for CborPacketCodec {
 
         // Parse all available input data.
         let available = buf.split();
-        let deserializer = serde_cbor::Deserializer::from_slice(available.bytes());
+        let deserializer = serde_cbor::Deserializer::from_slice(&available[..]);
         let new_results: Vec<Result<FlydraRawUdpPacket, serde_cbor::error::Error>> =
             deserializer.into_iter().collect();
 
