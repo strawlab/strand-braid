@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
-use futures::stream::StreamExt;
 use tokio::net::UdpSocket;
 use tokio_util::udp::UdpFramed;
 
@@ -305,7 +304,7 @@ pub async fn pre_run(
         // send.
         info!("got Ctrl-C, shutting down");
 
-        let mut shtdwn_q_tx2 = shtdwn_q_tx.clone();
+        let shtdwn_q_tx2 = shtdwn_q_tx.clone();
 
         // Send quit message.
         match futures::executor::block_on(shtdwn_q_tx2.send(())) {
@@ -368,7 +367,7 @@ pub async fn pre_run(
     let mut http_session_handler2 = http_session_handler.clone();
     let write_controller_arc2 = write_controller_arc.clone();
     handle.spawn(async move {
-        while let Some(()) = shtdwn_q_rx.next().await {
+        while let Some(()) = shtdwn_q_rx.recv().await {
             debug!("got shutdown command {}:{}", file!(), line!());
 
             {
