@@ -36,7 +36,8 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
         tokio::time::interval(std::time::Duration::from_millis(1000));
 
     let stream_future = async move {
-        while let Some(_) = interval_stream.next().await {
+        loop {
+            interval_stream.tick().await;
             // This closure is called once a second.
 
             // let msg = ToDevice::EchoRequest8((1,2,3,4,5,6,7,8));
