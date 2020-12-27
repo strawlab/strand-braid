@@ -31,7 +31,8 @@ fn launch_strand_cam(
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
-) -> Result<StrandCamInstance, Error> {
+    runtime: &tokio::runtime::Runtime,
+) -> StrandCamInstance {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
 
@@ -61,9 +62,9 @@ fn launch_strand_cam(
         force_camera_sync_mode: true,
     };
 
-    let (_, _, fut) = strand_cam::setup_app(handle, args).expect("setup_app");
+    let (_, _, fut) = runtime.block_on(strand_cam::setup_app(handle, args)).expect("setup_app");
     tokio::spawn(fut);
-    Ok(StrandCamInstance {})
+    StrandCamInstance {}
 }
 
 fn main() -> Result<(), Error> {
@@ -75,14 +76,12 @@ fn main() -> Result<(), Error> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .core_threads(4)
+        .worker_threads(4)
         .thread_name("braid-runtime")
         .thread_stack_size(3 * 1024 * 1024)
-        .build()
-        .expect("runtime");
+        .build()?;
 
     let trig_cfg = cfg.trigger;
     let show_tracking_params = false;
@@ -114,7 +113,8 @@ fn main() -> Result<(), Error> {
 
     let cfg_cameras = cfg.cameras;
     let handle = runtime.handle().clone();
-    let _strand_cams: Vec<StrandCamInstance> = runtime.enter(|| {
+    let _enter_guard = runtime.enter();
+    let _strand_cams: Vec<StrandCamInstance> = {
         cfg_cameras
             .into_iter()
             .map(|camera| {
@@ -124,10 +124,11 @@ fn main() -> Result<(), Error> {
                     camdata_addr,
                     Some(mainbrain_server_info.clone()),
                     handle.clone(),
+                    &runtime,
                 )
             })
-            .collect::<Result<Vec<StrandCamInstance>, Error>>()
-    })?;
+            .collect::<Vec<StrandCamInstance>>()
+    };
 
     debug!("done launching cameras");
 

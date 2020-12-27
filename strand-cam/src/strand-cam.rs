@@ -2348,9 +2348,11 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
+    let my_handle = runtime.handle().clone();
+
     let my_runtime = Arc::new(runtime);
     let (_bui_server_info, tx_cam_arg2, fut) =
-        my_runtime.block_on(setup_app(my_runtime.clone(), args))?;
+        my_runtime.block_on(setup_app(my_handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2377,7 +2379,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
 // we can remove the rustfmt::skip attribute with https://github.com/rust-lang/rustfmt/issues/4109
 #[rustfmt::skip]
 pub async fn setup_app(
-    my_runtime: Arc<tokio::runtime::Runtime>,
+    rt_handle: tokio::runtime::Handle,
     args: StrandCamArgs)
     -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>),failure::Error>
 {
@@ -2789,8 +2791,6 @@ pub async fn setup_app(
     #[cfg(feature="checkercal")]
     let cam_name2 = cam_name.clone();
 
-    let rt_handle = my_runtime.handle();
-
     let frame_process_cjh = {
         let pixel_format = frame.pixel_format();
         let is_starting = Arc::new(true);
@@ -2804,7 +2804,7 @@ pub async fn setup_app(
         let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
         let cam_args_tx2 = cam_args_tx.clone();
 
-        let handle2 = my_runtime.handle().clone();
+        let handle2 = rt_handle.clone();
         #[cfg(feature="flydratrax")]
         let model_server = {
 
