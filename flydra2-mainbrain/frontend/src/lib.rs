@@ -1,44 +1,23 @@
-#[macro_use]
-extern crate seed;
-use seed::prelude::*;
-use seed::fetch;
-use futures::Future;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use wasm_bindgen::JsCast;
-use web_sys::{MessageEvent, EventSource};
+use wasm_bindgen::prelude::*;
 
-use flydra_types::{HttpApiCallback, HttpApiShared, CamInfo, CamHttpServerInfo};
-use rust_cam_bui_types::ClockModel;
+use flydra_types::{CamHttpServerInfo, CamInfo, HttpApiCallback, HttpApiShared};
+use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-mod components;
-use components::{reload_button, RecordingPath};
+use yew::format::Json;
+use yew::prelude::*;
+use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
-// -----------------------------------------------------------------------------
-
-const READY_STATE_CONNECTING: u16 = 0;
-const READY_STATE_OPEN: u16 = 1;
-const READY_STATE_CLOSED: u16 = 2;
-
-fn ready_state_string(rs: u16) -> &'static str {
-    match rs {
-        READY_STATE_CONNECTING => "connecting",
-        READY_STATE_OPEN => "open",
-        READY_STATE_CLOSED => "closed",
-        _ => "<unknown>",
-    }
-}
+use ads_webasm::{
+    components::{Button, RecordingPathWidget, ReloadButton},
+    services::eventsource::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState},
+};
 
 // -----------------------------------------------------------------------------
 
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-// -----------------------------------------------------------------------------
-
-#[derive(Debug,Serialize,Deserialize)]
-struct MyError {
-}
+#[derive(Debug, Serialize, Deserialize)]
+struct MyError {}
 
 impl From<std::num::ParseIntError> for MyError {
     fn from(_orig: std::num::ParseIntError) -> MyError {
@@ -57,216 +36,305 @@ impl std::fmt::Display for MyError {
 // Model
 
 struct Model {
+    link: ComponentLink<Self>,
+    ft: Option<FetchTask>,
     shared: Option<HttpApiShared>,
-    es: EventSource,
-    connection_state: u16,
+    es: EventSourceTask,
+    fail_msg: String,
     html_page_title: Option<String>,
-    recording_path: RecordingPath,
+    recording_path: Option<RecordingPath>,
 }
 
 // -----------------------------------------------------------------------------
 
 // Update
 
-#[derive(Clone)]
 enum Msg {
-    Connected(JsValue),
-    ServerMessage(MessageEvent),
-    Error(JsValue),
+    /// Trigger a check of the event source state.
+    EsCheckState,
+
+    // Connected(JsValue),
+    // ServerMessage(MessageEvent),
+    // Error(JsValue),
+    NewServerState(HttpApiShared),
+    FailedDecode(String),
     DoSyncCameras,
     DoRecordCsvTables(bool),
-    Fetched(fetch::ResponseDataResult<()>),
-
-    Reload,
+    // Fetched(fetch::ResponseDataResult<()>),
+    Ignore,
 }
 
-fn update(msg: Msg, mut model: &mut Model, orders: &mut impl Orders<Msg>) {
-    match msg {
-        Msg::Connected(_) => {
-            model.connection_state = model.es.ready_state();
-        }
-        Msg::Error(_) => {
-            model.connection_state = model.es.ready_state();
-        }
-        Msg::ServerMessage(msg_event) => {
-            let txt = msg_event.data().as_string().unwrap();
-            let response: Result<HttpApiShared,_> = serde_json::from_str(&txt);
-            match response {
-                Ok(data_result) => {
-                    model.recording_path
-                        .set_value(data_result.csv_tables_dirname.clone());
-                    let title = if data_result.csv_tables_dirname.is_none() {
-                        data_result.flydra_app_name.clone()
-                    } else {
-                        format!("Saving - {}", data_result.flydra_app_name)
-                    };
-                    model.shared = Some(data_result);
+impl Component for Model {
+    type Message = Msg;
+    type Properties = ();
 
-                    let update_title = match model.html_page_title {
-                        None => true,
-                        Some(ref t) => t!=&title,
-                    };
-
-                    if update_title {
-                        let doc = web_sys::window().unwrap().document().unwrap();
-                        doc.set_title(&title);
-                        model.html_page_title = Some(title);
+    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+        let task = {
+            let data_callback = link.callback(|Json(data)| {
+                match data {
+                    Ok(data_result) => Msg::NewServerState(data_result),
+                    Err(e) => {
+                        log::error!("{}", e);
+                        Msg::FailedDecode(format!("{}", e)) //.to_string())
                     }
+                }
+            });
+            let notification = link.callback(|status| {
+                if status == EventSourceStatus::Error {
+                    log::error!("event source error");
+                }
+                Msg::EsCheckState
+            });
+            let mut task = EventSourceService::new()
+                .connect(flydra_types::BRAID_EVENTS_URL_PATH, notification)
+                .unwrap();
+            task.add_event_listener(flydra_types::BRAID_EVENT_NAME, data_callback);
+            task
+        };
 
-                }
-                Err(e) => {
-                    error!("error in response, {}", e);
-                }
-            };
-        }
-        Msg::DoSyncCameras => {
-            orders
-                .skip()
-                .perform_cmd(send_message(&HttpApiCallback::DoSyncCameras));
-        }
-        Msg::DoRecordCsvTables(val) => {
-            orders
-                .skip()
-                .perform_cmd(send_message(&HttpApiCallback::DoRecordCsvTables(val)));
-        }
-        Msg::Fetched(Ok(_response_data)) => {
-        }
-        Msg::Fetched(Err(fail_reason)) => {
-            error!("callback fetch error:", fail_reason);
-            orders.skip();
-        }
-        Msg::Reload => {
-            if let Some(window) = web_sys::window() {
-                if let Some(e) = window.location().reload().err() {
-                    error!("error reloading: {}", e);
-                }
-            }
+        Self {
+            link,
+            ft: None,
+            shared: None,
+            es: task,
+            fail_msg: "".to_string(),
+            html_page_title: None,
+            recording_path: None,
         }
     }
-}
 
-fn send_message(payload: &HttpApiCallback) -> impl Future<Output = Result<Msg,Msg>> {
-    let url = "callback";
-    fetch::Request::new(url)
-        .method(fetch::Method::Post)
-        .send_json(payload)
-        .fetch_json_data(Msg::Fetched)
+    fn change(&mut self, _: ()) -> ShouldRender {
+        false
+    }
+    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+        match msg {
+            Msg::EsCheckState => {
+                return true;
+            }
+            Msg::NewServerState(data_result) => {
+                self.recording_path = data_result.csv_tables_dirname.clone();
+                let title = if data_result.csv_tables_dirname.is_none() {
+                    data_result.flydra_app_name.clone()
+                } else {
+                    format!("Saving - {}", data_result.flydra_app_name)
+                };
+                self.shared = Some(data_result);
+
+                let update_title = match self.html_page_title {
+                    None => true,
+                    Some(ref t) => t != &title,
+                };
+
+                if update_title {
+                    let doc = web_sys::window().unwrap().document().unwrap();
+                    doc.set_title(&title);
+                    self.html_page_title = Some(title);
+                }
+            }
+            Msg::FailedDecode(s) => {
+                self.fail_msg = s;
+            }
+            Msg::DoSyncCameras => {
+                self.ft = self.send_message(&HttpApiCallback::DoSyncCameras);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::DoRecordCsvTables(val) => {
+                self.ft = self.send_message(&HttpApiCallback::DoRecordCsvTables(val));
+                return false; // don't update DOM, do that on return
+            }
+            Msg::Ignore => {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn view(&self) -> Html {
+        html! {
+            <div id="page-container",>
+                <div id="content-wrap",>
+                    <h1 style="text-align: center;">{"Braid "}
+                        <a href="https://strawlab.org/braid/",><span class="infoCircle",>{"ℹ"}</span></a>
+                    </h1>
+                    <img src="braid-logo-no-text.png", width="523", height="118", class="center",/>
+                    {self.disconnected_dialog()}
+                    {self.view_shared()}
+                    <footer id="footer",>
+                        {format!(
+                            "Braid frontend date: {} (revision {})",
+                            env!("GIT_DATE"),
+                            env!("GIT_HASH")
+                        )}
+                    </footer>
+                </div>
+            </div>
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------
 
 // View
 
-fn view(model: &Model) -> Node<Msg> {
-    // use wasm_bindgen::JsCast;
+impl Model {
+    fn send_message(&mut self, args: &HttpApiCallback) -> Option<yew::services::fetch::FetchTask> {
+        let post_request = Request::post("callback")
+            .header("Content-Type", "application/json;charset=UTF-8")
+            .body(Json(&args))
+            .expect("Failed to build request.");
 
-    div![attrs!{At::Id => "page-container"}, div![attrs!{At::Id => "content-wrap"},
-        h1![attrs![At::Style => "text-align: center;"],
-            "Braid ",
-            a![attrs!{At::Href => "https://strawlab.org/braid/"},
-            span![class!["infoCircle"],"ℹ"]],
-        ],
-        img![attrs!{At::Src => "braid-logo-no-text.png", At::Width => "523", At::Height => "118", At::Class => "center"}],
-        disconnected_dialog(&model),
-        view_shared(&model),
-        footer![attrs!{At::Id => "footer"},
-            format!("Braid frontend date: {} (revision {})",env!("GIT_DATE"), env!("GIT_HASH")),
-        ],
-    ]]
-}
+        let callback =
+            self.link
+                .callback(move |response: Response<Json<Result<(), anyhow::Error>>>| {
+                    if let (meta, Json(Ok(_body))) = response.into_parts() {
+                        if meta.status.is_success() {
+                            return Msg::Ignore;
+                        }
+                    }
+                    log::error!("failed sending message");
+                    Msg::Ignore
+                });
+        let mut options = FetchOptions::default();
+        options.credentials = Some(Credentials::SameOrigin);
+        match FetchService::fetch_with_options(post_request, options, callback) {
+            Ok(task) => Some(task),
+            Err(err) => {
+                log::error!("sending message failed with error: {}", err);
+                None
+            }
+        }
+    }
 
-fn disconnected_dialog(model: &Model) -> Node<Msg> {
-    if model.connection_state == READY_STATE_OPEN {
-        seed::empty()
-    } else {
-        div![class!["modal-container"],
-            h1!["Web browser not connected to Braid"],
-            p![format!("Connection State: {}", ready_state_string(model.connection_state))],
-            p!["Please restart Braid and ", reload_button(Msg::Reload)],
-        ]
+    fn view_shared(&self) -> Html {
+        if let Some(ref value) = self.shared {
+            html! {
+                <div>
+                    <div>
+                        <RecordingPathWidget
+                            label="Record .braidz file",
+                            value=self.recording_path.clone(),
+                            ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)}),
+                            />
+                        {view_clock_model(&value.clock_model_copy)}
+                        {view_calibration(&value.calibration_filename)}
+                        {view_cam_list(&value.connected_cameras)}
+                        {view_model_server_link(&value.model_server_addr)}
+                        <div>
+                            <Button:
+                                title="Synchronize Cameras",
+                                onsignal=self.link.callback(|_| Msg::DoSyncCameras),
+                                />
+                        </div>
+                    </div>
+                </div>
+            }
+        } else {
+            html! {
+                <div>
+                    { "" }
+                </div>
+            }
+        }
+    }
+
+    fn disconnected_dialog(&self) -> Html {
+        if self.es.ready_state() == ReadyState::Open {
+            html! {
+               <div>
+                 { "" }
+               </div>
+            }
+        } else {
+            html! {
+                <div class="modal-container",>
+                    <h1> { "Web browser not connected to Braid" } </h1>
+                    <p>{ format!("Connection State: {:?}", self.es.ready_state()) }</p>
+                    <p>{ "Please restart Braid and " }<ReloadButton: label="reload"/></p>
+                </div>
+            }
+        }
     }
 }
 
-fn view_shared(model: &Model) -> Node<Msg> {
-    if let Some(ref value) = model.shared {
-        div![
-            div![
-                model.recording_path.view_recording_path("Record .braidz file",|checked| Msg::DoRecordCsvTables(checked)),
-            ],
-            view_clock_model( &value.clock_model_copy ),
-            view_calibration( &value.calibration_filename ),
-            view_cam_list( &value.connected_cameras ),
-            view_model_server_link( &value.model_server_addr ),
-            div![
-                button![class!["btn", "btn-inactive"],
-                    "Synchronize Cameras",
-                    simple_ev(Ev::Click, Msg::DoSyncCameras)
-                ]
-            ]
-        ]
-    } else {
-        seed::empty()
-    }
-}
-
-fn view_clock_model(clock_model: &Option<ClockModel>) -> Node<Msg> {
+fn view_clock_model(clock_model: &Option<ClockModel>) -> Html {
     if let Some(ref cm) = clock_model {
-        div![
-            p![format!("trigger device clock model: {:?}", cm)],
-        ]
+        html! {
+            <div>
+                <p>
+                    {format!("trigger device clock model: {:?}", cm)}
+                </p>
+            </div>
+        }
     } else {
-        div![
-            p!["No trigger device clock model."],
-        ]
+        html! {
+            <div>
+                <p>
+                    {"No trigger device clock model."}
+                </p>
+            </div>
+        }
     }
 }
 
-fn view_calibration(calibration_filename: &Option<String>) -> Node<Msg> {
+fn view_calibration(calibration_filename: &Option<String>) -> Html {
     if let Some(ref fname) = calibration_filename {
-        p![
-            format!("Calibration: {}", fname)
-        ]
+        html! {
+            <div>
+                <p>
+                    {format!("Calibration: {}", fname)}
+                </p>
+            </div>
+        }
     } else {
-        p![
-            "No calibration."
-        ]
+        html! {
+            <div>
+                <p>
+                    {"No calibration."}
+                </p>
+            </div>
+        }
     }
 }
 
-fn view_cam_list(cams: &Vec<CamInfo> ) -> Node<Msg> {
+fn view_cam_list(cams: &Vec<CamInfo>) -> Html {
     let n_cams_msg = if cams.len() == 1 {
         "1 camera:".to_string()
     } else {
         format!("{} cameras:", cams.len())
     };
-    let all_rendered: Vec<Node<Msg>> = cams.iter().map(|cci| {
-        let cam_url = match cci.http_camserver_info {
-            CamHttpServerInfo::NoServer => "http://127.0.0.1/notexist".to_string(),
-            CamHttpServerInfo::Server(ref details) => details.guess_base_url_with_token(),
-        };
-        let state = format!("{:?}", cci.state );
-        let stats = format!("{:?}", cci.recent_stats);
-        li![
-            a![attrs!{At::Href => cam_url},
-                cci.name.as_str(),
-            ],
-            " ",
-            state,
-            " ",
-            stats,
-        ]
-    }).collect();
-    div![
-        div![
-            n_cams_msg
-        ],
-        ul![
-            all_rendered
-        ]
-    ]
+    let all_rendered: Vec<Html> = cams
+        .iter()
+        .map(|cci| {
+            let cam_url = match cci.http_camserver_info {
+                CamHttpServerInfo::NoServer => "http://127.0.0.1/notexist".to_string(),
+                CamHttpServerInfo::Server(ref details) => details.guess_base_url_with_token(),
+            };
+            let state = format!("{:?}", cci.state);
+            let stats = format!("{:?}", cci.recent_stats);
+            html! {
+                <li>
+                    <a href=cam_url>{cci.name.as_str()}</a>
+                    {" "}
+                    {state}
+                    {" "}
+                    {stats}
+                </li>
+            }
+        })
+        .collect();
+    html! {
+        <div>
+            <div>
+                {n_cams_msg}
+                <ul>
+                    {all_rendered}
+                </ul>
+            </div>
+        </div>
+    }
 }
 
-fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Node<Msg> {
+fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     if let Some(ref addr) = opt_addr {
@@ -279,66 +347,26 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Node<Msg> 
             addr.ip().clone()
         };
         let url = format!("http://{}:{}/", ip, addr.port());
-        div![
-            a![attrs!{At::Href => url},
-                "Model server"
-            ]
-        ]
+        html! {
+            <div>
+                <a href=url,>
+                    {"Model server"}
+                </a>
+            </div>
+        }
     } else {
-        p!["Data hasn't fetched yet."]
+        html! {
+            <p>
+               {"Data hasn't fetched yet."}
+            </p>
+        }
     }
 }
 
 // -----------------------------------------------------------------------------
 
-fn after_mount(_: Url, orders: &mut impl Orders<Msg>) -> AfterMount<Model> {
-
-    let recording_path = RecordingPath::new();
-
-    // connect event source
-    let events_url = flydra_types::BRAID_EVENTS_URL_PATH;
-    let es = EventSource::new(events_url).unwrap();
-    let connection_state = es.ready_state();
-    let shared = None;
-
-    register_es_handler("open", Msg::Connected, &es, orders);
-    register_es_handler(flydra_types::BRAID_EVENT_NAME, Msg::ServerMessage, &es, orders);
-    register_es_handler("error", Msg::Error, &es, orders);
-
-    // remove loading div
-    if let Some(window) = web_sys::window() {
-        if let Some(doc) = window.document() {
-            if let Some(loading_div) = doc.get_element_by_id("loading") {
-            loading_div.remove();
-            }
-        }
-    }
-
-    AfterMount::new(Model {shared, es, html_page_title: None, connection_state, recording_path})
-}
-
-fn register_es_handler<T, F>(
-    type_: &str,
-    msg: F,
-    es: &EventSource,
-    orders: &mut impl Orders<Msg>,
-) where
-    T: wasm_bindgen::convert::FromWasmAbi + 'static,
-    F: Fn(T) -> Msg + 'static,
-{
-    let (app, msg_mapper) = (orders.clone_app(), orders.msg_mapper());
-
-    let closure = Closure::new(move |data| {
-        app.update(msg_mapper(msg(data)));
-    });
-
-    es.add_event_listener_with_callback(type_, closure.as_ref().unchecked_ref()).unwrap();
-    closure.forget();
-}
-
 #[wasm_bindgen(start)]
-pub fn render() {
-    seed::App::builder(update, view)
-        .after_mount(after_mount)
-        .build_and_start();
+pub fn run_app() {
+    wasm_logger::init(wasm_logger::Config::default());
+    yew::start_app::<Model>();
 }
