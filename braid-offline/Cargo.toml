@@ -20,7 +20,7 @@ csv-eof = {path="../csv-eof"}
 flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
 flydra-types = {path="../flydra-types"}
 groupby = {path="../groupby"}
-tokio = {version="1.0", default-features=false, features=["macros"]}
+tokio = {version="1.0", default-features=false, features=["rt-multi-thread","macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 
 [dev-dependencies]
