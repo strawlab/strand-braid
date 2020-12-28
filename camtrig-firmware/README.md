@@ -9,7 +9,7 @@ Make sure the rust src is installed via rustup:
     rustup target add thumbv7em-none-eabihf
 
 You may also find these Debian and Ubuntu packages useful:
-`gdb-arm-none-eabi openocd qemu-system-arm`.
+`gdb-arm-none-eabi openocd qemu-system-arm binutils-arm-none-eabi`.
 
 # debugging
 
