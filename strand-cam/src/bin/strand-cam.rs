@@ -1,11 +1,9 @@
 extern crate clap;
 extern crate dotenv;
-extern crate env_logger;
 extern crate failure;
 #[cfg(feature = "image_tracker")]
 extern crate image_tracker;
 extern crate image_tracker_types;
-extern crate log;
 extern crate preferences;
 extern crate semver;
 extern crate shellexpand;
@@ -41,7 +39,8 @@ fn main() -> std::result::Result<(), failure::Error> {
         );
     }
 
-    env_logger::init();
+    env_tracing_logger::init();
+
     let args = parse_args()?;
 
     run_app(args)

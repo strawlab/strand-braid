@@ -34,6 +34,7 @@ members = [
     "dc1394",
     "download-verify",
     "enum-iter",
+    "env-tracing-logger",
     "fastimage",
     "fly-eye",
     "flycap2",

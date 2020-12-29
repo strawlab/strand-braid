@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
         );
     }
 
-    env_logger::init();
+    env_tracing_logger::init();
     let opt = Opt::from_args();
 
     // TODO: open data_src with braidz_parser here?

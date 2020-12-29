@@ -33,7 +33,7 @@ pub fn braid_start(name: &str) -> Result<(), Error> {
         std::env::set_var("RUST_LOG", "braid=info,flydra2=info,flydra2_mainbrain=info,strand_cam=info,image_tracker=info,rt_image_viewer=info,flydra1_triggerbox=info,error");
     }
 
-    env_logger::init();
+    env_tracing_logger::init();
 
     let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
     log::info!("{} {}", name, version);

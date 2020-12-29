@@ -1,0 +1,10 @@
+[package]
+name = "env-tracing-logger"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.2.0"
+tracing-log = {version="0.1", features=["env_logger"]}

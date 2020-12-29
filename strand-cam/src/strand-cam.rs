@@ -747,7 +747,11 @@ struct FlydraConfigState {
 }
 
 // We perform image analysis in its own thread.
-// we can remove the rustfmt::skip attribute with https://github.com/rust-lang/rustfmt/issues/4109
+// We want to remove rustfmt::skip attribute. There is a bug similar to
+// https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
+// 4109 does not seem exactly correct (at least presuming this was fixed in
+// rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
+// correct bug.
 #[rustfmt::skip]
 #[allow(unused_mut,unused_variables)]
 fn frame_process_thread(
@@ -2376,7 +2380,11 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
     Ok(())
 }
 
-// we can remove the rustfmt::skip attribute with https://github.com/rust-lang/rustfmt/issues/4109
+// We want to remove rustfmt::skip attribute. There is a bug similar to
+// https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
+// 4109 does not seem exactly correct (at least presuming this was fixed in
+// rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
+// correct bug.
 #[rustfmt::skip]
 pub async fn setup_app(
     rt_handle: tokio::runtime::Handle,

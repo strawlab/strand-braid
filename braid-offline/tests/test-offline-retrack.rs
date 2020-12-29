@@ -8,7 +8,7 @@ const SHA256SUM: &str = "500b235c321b81ca27a442801e716ec3dd1f12488a60cc9c7d57818
 
 #[tokio::test]
 async fn test_min_two_rays_needed() {
-    env_logger::init();
+    env_tracing_logger::init();
 
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
@@ -21,8 +21,8 @@ async fn test_min_two_rays_needed() {
         .with_context(|| format!("Parsing file {}", FNAME))
         .unwrap();
 
-    // let output = tempfile::tempdir().unwrap().into_path();
-    let output = std::path::PathBuf::from("test-output");
+    let output = tempfile::tempdir().unwrap().into_path();
+    // let output = std::path::PathBuf::from("test-output");
 
     let tracking_params_parsed: &flydra_types::TrackingParams = &archive
         .kalman_estimates_info
