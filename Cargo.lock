@@ -455,7 +455,7 @@ version = "0.8.2"
 dependencies = [
  "configure",
  "dotenv 0.13.0",
- "env_logger 0.8.2",
+ "env-tracing-logger",
  "failure",
  "flydra-types",
  "im-pt-detect-config",
@@ -477,7 +477,7 @@ dependencies = [
  "csv",
  "csv-eof",
  "download-verify",
- "env_logger 0.8.2",
+ "env-tracing-logger",
  "failure",
  "flydra-types",
  "flydra2",
@@ -1592,6 +1592,15 @@ checksum = "d7b0288dfa32606289ab9fac715e2d45eb3ce27b82d1bb8c908c4b9ab0fc1546"
 dependencies = [
  "pkg-config",
  "semver-parser 0.10.1",
+]
+
+[[package]]
+name = "env-tracing-logger"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5669,6 +5678,7 @@ dependencies = [
  "ctrlc",
  "datetime-conversion",
  "dotenv 0.15.0",
+ "env-tracing-logger",
  "failure",
  "flydra-types",
  "flydra2",
@@ -5716,9 +5726,6 @@ dependencies = [
  "timestamped-frame",
  "tokio",
  "tokio-util 0.3.1",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
  "ufmf",
  "webbrowser",
  "webm-writer",
