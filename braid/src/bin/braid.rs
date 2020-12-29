@@ -12,7 +12,7 @@ struct BraidLauncherCliArgs {
 }
 
 fn main() -> Result<(), Error> {
-    env_logger::init();
+    env_tracing_logger::init();
     // braid::braid_start("braid")?;
 
     let args = BraidLauncherCliArgs::from_args();
