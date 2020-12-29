@@ -114,3 +114,4 @@ cbindgen = {git="https://github.com/astraw/cbindgen", rev="7279a4faceec28593bd8a
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
 mini-rxtx = {git="https://bare-git.strawlab.org/mini-rxtx.git", rev="d8f9b7902aae8c2e69a3262ccf70fde31a2011ee"}
 tokio-serial = {git="https://github.com/mnbbrown/tokio-serial", rev="ace64363030f8af6b5c9aaadd930ee9515fe33f1"}
+stream-cancel = {git="https://github.com/astraw/stream-cancel", rev="3afc516723314e8e1e48bb18b3d1201d8646cc03"}
