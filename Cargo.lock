@@ -70,12 +70,11 @@ dependencies = [
 
 [[package]]
 name = "adskalman"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf0796ab2a47c6bb64ae057221bcf2482a9d17722522351102cb51186f2757a3"
+checksum = "a237ec6b57742e71d2afa9d49d187f06f8e93e7e126cf26852b79f6a6b56f233"
 dependencies = [
  "approx 0.4.0",
- "itertools 0.9.0",
  "log",
  "nalgebra",
  "num-traits 0.2.14",
@@ -491,7 +490,7 @@ dependencies = [
  "serde",
  "structopt",
  "tempfile",
- "tokio 1.0.1",
+ "tokio",
  "toml 0.5.8",
  "zip-or-dir",
 ]
@@ -514,7 +513,7 @@ dependencies = [
  "strand-cam",
  "strand-cam-storetype",
  "structopt",
- "tokio 1.0.1",
+ "tokio",
 ]
 
 [[package]]
@@ -592,9 +591,9 @@ dependencies = [
  "parking_lot 0.11.1",
  "serde",
  "serde_json",
- "stream-cancel 0.7.0",
+ "stream-cancel",
  "thiserror",
- "tokio 1.0.1",
+ "tokio",
  "tower-service",
  "url",
  "uuid",
@@ -635,7 +634,7 @@ dependencies = [
  "futures",
  "hyper",
  "log",
- "tokio 1.0.1",
+ "tokio",
 ]
 
 [[package]]
@@ -686,12 +685,12 @@ checksum = "ad1f8e949d755f9d79112b5bb46938e0ef9d3804a0b16dfab13aafcaa5f0fa72"
 
 [[package]]
 name = "cam-geom"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce7e944ac0d9c9b663987a3d0ca266436d72f42aa835bcf9ef876b05a96bc54a"
+checksum = "2ef56023833e95c469d40240c538d6357188e032968b6705a9dc98dd3cbdce2c"
 dependencies = [
  "approx 0.4.0",
- "itertools 0.9.0",
+ "itertools 0.10.0",
  "nalgebra",
  "num-iter",
  "serde",
@@ -725,7 +724,7 @@ dependencies = [
  "mio-serial",
  "parking_lot 0.11.1",
  "ssmarshal",
- "tokio 1.0.1",
+ "tokio",
  "tokio-serial",
  "tokio-util",
 ]
@@ -1889,11 +1888,11 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "strand-cam-csv-config-types",
- "stream-cancel 0.7.0",
+ "stream-cancel",
  "structopt",
  "tempdir",
  "tempfile",
- "tokio 1.0.1",
+ "tokio",
  "toml 0.5.8",
  "tower-service",
  "tracking",
@@ -1944,9 +1943,9 @@ dependencies = [
  "serde",
  "serde_json",
  "strand-cam-storetype",
- "stream-cancel 0.7.0",
+ "stream-cancel",
  "structopt",
- "tokio 1.0.1",
+ "tokio",
  "tokio-util",
  "toml 0.5.8",
 ]
@@ -2875,7 +2874,7 @@ dependencies = [
  "itoa",
  "pin-project 1.0.2",
  "socket2",
- "tokio 1.0.1",
+ "tokio",
  "tower-service",
  "tracing",
  "want",
@@ -2970,10 +2969,10 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "serde_yaml",
- "stream-cancel 0.7.0",
+ "stream-cancel",
  "thread-control",
  "timestamped-frame",
- "tokio 1.0.1",
+ "tokio",
  "ufmf",
  "unix_socket",
 ]
@@ -3141,6 +3140,15 @@ name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
 dependencies = [
  "either",
 ]
@@ -4342,12 +4350,6 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c917123afa01924fc84bb20c4c03f004d9c38e5127e3c039bbf7f4b9c76a2f6b"
-
-[[package]]
-name = "pin-project-lite"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b063f57ec186e6140e2b8b6921e5f1bd89c7356dda5b33acc5401203ca6131c"
@@ -4976,9 +4978,9 @@ dependencies = [
  "serde",
  "serde_json",
  "simple-frame",
- "stream-cancel 0.6.2",
+ "stream-cancel",
  "thread-control",
- "tokio 1.0.1",
+ "tokio",
 ]
 
 [[package]]
@@ -5593,10 +5595,10 @@ dependencies = [
  "strand-cam-csv-config-types",
  "strand-cam-pseudo-cal",
  "strand-cam-storetype",
- "stream-cancel 0.7.0",
+ "stream-cancel",
  "thread-control",
  "timestamped-frame",
- "tokio 1.0.1",
+ "tokio",
  "tokio-util",
  "ufmf",
  "webbrowser",
@@ -5659,7 +5661,7 @@ dependencies = [
  "strand-cam-pseudo-cal",
  "structopt",
  "tempdir",
- "tokio 1.0.1",
+ "tokio",
  "toml 0.5.8",
  "tracking",
  "withkey",
@@ -5710,26 +5712,13 @@ dependencies = [
 
 [[package]]
 name = "stream-cancel"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcbeca004dfaec7b6fd818d8ae6359eaea21770d134f137c4cb8fb5fa92b5a33"
-dependencies = [
- "futures-core",
- "futures-util",
- "pin-project 0.4.27",
- "tokio 0.2.24",
-]
-
-[[package]]
-name = "stream-cancel"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a702985572c7fd13dd18bca4c536451d7cea72acc97f90226df877b466c68758"
+source = "git+https://github.com/astraw/stream-cancel?rev=3afc516723314e8e1e48bb18b3d1201d8646cc03#3afc516723314e8e1e48bb18b3d1201d8646cc03"
 dependencies = [
  "futures-core",
  "futures-util",
  "pin-project 1.0.2",
- "tokio 0.3.6",
+ "tokio",
 ]
 
 [[package]]
@@ -6072,30 +6061,6 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "0.2.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "099837d3464c16a808060bb3f02263b412f6fafcb5d01c533d309985fbeebe48"
-dependencies = [
- "bytes 0.5.6",
- "fnv",
- "memchr",
- "pin-project-lite 0.1.11",
-]
-
-[[package]]
-name = "tokio"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "720ba21c25078711bf456d607987d95bce90f7c3bea5abe1db587862e7a1e87c"
-dependencies = [
- "autocfg 1.0.1",
- "bytes 0.6.0",
- "memchr",
- "pin-project-lite 0.2.0",
-]
-
-[[package]]
-name = "tokio"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d258221f566b6c803c7b4714abadc080172b272090cdc5e244a6d4dd13c3a6bd"
@@ -6108,7 +6073,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "parking_lot 0.11.1",
- "pin-project-lite 0.2.0",
+ "pin-project-lite",
  "signal-hook-registry",
  "tokio-macros",
  "winapi 0.3.9",
@@ -6132,7 +6097,7 @@ source = "git+https://github.com/mnbbrown/tokio-serial?rev=ace64363030f8af6b5c9a
 dependencies = [
  "futures",
  "mio-serial",
- "tokio 1.0.1",
+ "tokio",
 ]
 
 [[package]]
@@ -6143,8 +6108,8 @@ checksum = "3f3be913b74b13210c8fe04b17ab833f5a124f45b93d0f99f59fff621f64392a"
 dependencies = [
  "async-stream",
  "futures-core",
- "pin-project-lite 0.2.0",
- "tokio 1.0.1",
+ "pin-project-lite",
+ "tokio",
 ]
 
 [[package]]
@@ -6157,8 +6122,8 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "log",
- "pin-project-lite 0.2.0",
- "tokio 1.0.1",
+ "pin-project-lite",
+ "tokio",
  "tokio-stream",
 ]
 
@@ -6193,7 +6158,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f47026cdc4080c07e49b37087de021820269d996f581aac150ef9e5583eefe3"
 dependencies = [
  "cfg-if 1.0.0",
- "pin-project-lite 0.2.0",
+ "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
 ]
