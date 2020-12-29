@@ -45,7 +45,7 @@ use libflate::gzip::Encoder;
 
 use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
 
-// use hyper_tls::HttpsConnector;
+use hyper_tls::HttpsConnector;
 #[allow(unused_imports)]
 use preferences::{AppInfo, Preferences};
 
@@ -2148,8 +2148,7 @@ fn run_camtrig(
 }
 
 async fn check_version(
-    client: hyper::Client<hyper::client::HttpConnector>,
-    // client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
+    client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
     known_version: Arc<RwLock<semver::Version>>,
 ) -> hyper::Result<()> {
     let url = format!("https://version-check.strawlab.org/{}", env!("APP_NAME"));
@@ -2355,8 +2354,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
     let my_handle = runtime.handle().clone();
 
     let my_runtime = Arc::new(runtime);
-    let (_bui_server_info, tx_cam_arg2, fut) =
-        my_runtime.block_on(setup_app(my_handle, args))?;
+    let (_bui_server_info, tx_cam_arg2, fut) = my_runtime.block_on(setup_app(my_handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -3013,12 +3011,9 @@ pub async fn setup_app(
         let known_version2 = known_version.clone();
         let stream_future = async move {
             while let Some(_) = incoming1.next().await {
-                // let https = HttpsConnector::new();
-                // let client = hyper::Client::builder()
-                //     .build::<_, hyper::Body>(https);
-
+                let https = HttpsConnector::new();
                 let client = hyper::Client::builder()
-                    .build::<_, hyper::Body>(hyper::client::HttpConnector::new());
+                    .build::<_, hyper::Body>(https);
 
                 let r = check_version(client, known_version2.clone()).await;
                 match r {
