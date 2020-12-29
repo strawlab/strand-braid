@@ -22,7 +22,7 @@ hyper = "0.14"
 tokio = {version="1.0.1", default-features=false, features=["sync","rt"]}
 ipp-sys = "0.4.4"
 thread-control = "0.1.2"
-stream-cancel = "0.6"
+stream-cancel = "0.7"
 
 http-video-streaming = {path = "../http-video-streaming"}
 http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
