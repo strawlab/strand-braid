@@ -4,9 +4,10 @@ use seed::{prelude::*, *};
 
 use plotters::{
     drawing::IntoDrawingArea,
-    prelude::{CanvasBackend, ChartBuilder, Circle, FontDesc, LineSeries, GREEN, RED, WHITE},
+    prelude::{ChartBuilder, Circle, FontDesc, LineSeries, GREEN, RED, WHITE},
     style::Color,
 };
+use plotters_canvas::CanvasBackend;
 
 use futures::future::{Future, FutureExt};
 
@@ -197,7 +198,7 @@ fn update_2d_canvas(model: &mut Model) {
                             // .caption(format!("y=x^{}", pow), font)
                             .x_label_area_size(30)
                             .y_label_area_size(30)
-                            .build_ranged(
+                            .build_cartesian_2d(
                                 frame_lim[0] as i64..frame_lim[1] as i64,
                                 0.0..seq.max_pixel,
                             )
@@ -293,7 +294,7 @@ fn update_canvas(model: &mut Model) {
             // .caption(format!("y=x^{}", pow), font)
             .x_label_area_size(30)
             .y_label_area_size(30)
-            .build_ranged(xlim.clone(), ylim)
+            .build_cartesian_2d(xlim.clone(), ylim)
             .unwrap();
 
         chart
@@ -329,7 +330,7 @@ fn update_canvas(model: &mut Model) {
             // .caption(format!("y=x^{}", pow), font)
             .x_label_area_size(30)
             .y_label_area_size(30)
-            .build_ranged(xlim, zlim)
+            .build_cartesian_2d(xlim, zlim)
             .unwrap();
 
         chart
