@@ -278,7 +278,12 @@ fn update_canvas(model: &mut Model) {
 
     // top view
     if do_3d_plots {
-        let backend = CanvasBackend::new(TOPVIEW).unwrap();
+        let backend = if let Some(be) = CanvasBackend::new(TOPVIEW) {
+            be
+        } else {
+            model.did_error = true;
+            return;
+        };
         let root = backend.into_drawing_area();
         let _font: FontDesc = ("Arial", 20.0).into();
 
