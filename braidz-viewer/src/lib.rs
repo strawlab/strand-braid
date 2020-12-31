@@ -1,6 +1,12 @@
 #![recursion_limit = "1024"]
 
-use seed::{prelude::*, *};
+use std::time::Duration;
+
+use wasm_bindgen::prelude::*;
+
+use yew::prelude::*;
+use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
+use yew::services::{Task, TimeoutService};
 
 use plotters::{
     drawing::IntoDrawingArea,
@@ -9,19 +15,11 @@ use plotters::{
 };
 use plotters_canvas::CanvasBackend;
 
-use futures::future::{Future, FutureExt};
-
 use serde::{Deserialize, Serialize};
 
-use gloo_file::callbacks::FileRead;
-use gloo_timers::future::TimeoutFuture;
-
-use web_sys::{self, console::log_1, Blob, File};
+use web_sys::{self, console::log_1};
 
 // -----------------------------------------------------------------------------
-
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 const TOPVIEW: &'static str = "3d-topview-canvas";
 const SIDE1VIEW: &'static str = "3d-side1view-canvas";
@@ -65,113 +63,219 @@ impl std::fmt::Display for MyError {
 
 // -----------------------------------------------------------------------------
 
-// Model
-
 struct Model {
+    link: ComponentLink<Self>,
+    reader: ReaderService,
+    tasks: Vec<ReaderTask>,
     pub val: i32,
+    job: Option<Box<dyn Task>>,
     braidz_file: MaybeValidBraidzFile,
-    reader: Option<FileRead>,
     did_error: bool,
 }
-
-impl Default for Model {
-    fn default() -> Self {
-        Self {
-            val: 0,
-            reader: None,
-            braidz_file: MaybeValidBraidzFile::default(),
-            did_error: false,
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-
-// Update
 
 #[derive(Clone)]
 pub enum Msg {
     // Render,
     // Render2d,
     RenderAll,
-    FileChanged(Option<File>),
+    FileChanged(File),
     // BraidzFile(MaybeValidBraidzFile),
-    LoadedArrayBuffer((String, Result<js_sys::ArrayBuffer, String>)),
+    Loaded(FileData),
 }
 
-fn update(msg: Msg, mut model: &mut Model, orders: &mut impl Orders<Msg>) {
-    match msg {
-        // Msg::Render => update_canvas(&mut model),
-        // Msg::Render2d => update_2d_canvas(&mut model),
-        Msg::RenderAll => {
-            update_2d_canvas(&mut model);
-            update_canvas(&mut model);
+impl Component for Model {
+    type Message = Msg;
+    type Properties = ();
+
+    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+        Self {
+            link,
+            reader: ReaderService::new(),
+            tasks: vec![],
+            val: 0,
+            job: None,
+            braidz_file: MaybeValidBraidzFile::default(),
+            did_error: false,
         }
-        Msg::LoadedArrayBuffer((filename, result)) => {
-            match result {
-                Ok(buf) => {
-                    let arrbuff_value: js_sys::ArrayBuffer = buf;
+    }
 
-                    let typebuff: js_sys::Uint8Array = js_sys::Uint8Array::new(&arrbuff_value);
-                    let filesize: u64 = typebuff.length().into();
+    fn change(&mut self, _: ()) -> ShouldRender {
+        false
+    }
 
-                    // ugh, why not use JS memory?
-                    log_1(&("TODO: avoid copying entire array".into()));
-                    let mut rbuf: Vec<u8> = vec![0; filesize as usize];
-                    typebuff.copy_to(&mut rbuf);
+    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+        match msg {
+            // Msg::Render => update_canvas(&mut model),
+            // Msg::Render2d => update_2d_canvas(&mut model),
+            Msg::RenderAll => {
+                update_2d_canvas(self);
+                update_canvas(self);
+            }
+            Msg::Loaded(file) => {
+                let FileData { name, content } = file;
+                let filename = name;
+                let rbuf = content;
+                let filesize = rbuf.len() as u64;
 
-                    let cur = zip_or_dir::ZipDirArchive::from_zip(
-                        std::io::Cursor::new(rbuf),
-                        filename.clone(),
-                    )
-                    .unwrap();
+                let cur = zip_or_dir::ZipDirArchive::from_zip(
+                    std::io::Cursor::new(rbuf),
+                    filename.clone(),
+                )
+                .unwrap();
 
-                    let file = match braidz_parser::braidz_parse(cur) {
-                        Ok(archive) => {
-                            let v = ValidBraidzFile {
-                                filename,
-                                filesize,
-                                archive,
-                            };
-                            MaybeValidBraidzFile::Valid(v)
-                        }
-                        Err(e) => MaybeValidBraidzFile::ParseFail(e),
-                    };
+                let file = match braidz_parser::braidz_parse(cur) {
+                    Ok(archive) => {
+                        let v = ValidBraidzFile {
+                            filename,
+                            filesize,
+                            archive,
+                        };
+                        MaybeValidBraidzFile::Valid(v)
+                    }
+                    Err(e) => MaybeValidBraidzFile::ParseFail(e),
+                };
 
-                    model.braidz_file = file;
+                self.braidz_file = file;
 
-                    let fut03 = render_plots_after_delay();
-                    let tryfut03 = fut03.map(|msg: Msg| Ok(msg));
-                    orders.render().perform_cmd(tryfut03);
-                }
-                Err(_) => {
-                    log_1(&("Failed reading file buf".into()));
+                // Render plots after delay (so canvas is in DOM). TODO: make
+                // this more robust by triggering the render once the canvas is
+                // added to the DOM.
+                let handle = TimeoutService::spawn(
+                    Duration::from_millis(100),
+                    self.link.callback(|_| Msg::RenderAll),
+                );
+                self.job = Some(Box::new(handle));
+
+                // This can be replaced by `Vec::drain_filter()` when that is stable.
+                let mut i = 0;
+                while i != self.tasks.len() {
+                    if !self.tasks[i].is_active() {
+                        let _ = self.tasks.remove(i);
+                    } else {
+                        i += 1;
+                    }
                 }
             }
-        }
-        Msg::FileChanged(file) => {
-            if let Some(file) = file {
-                let filename = file.name();
-                let data: Blob = file.slice().unwrap();
-
-                let blob = gloo_file::Blob::from_raw(data);
-
-                let (app, msg_mapper) = (orders.clone_app(), orders.msg_mapper());
-
-                let r = gloo_file::callbacks::read_to_array_buffer(&blob, move |buf| {
-                    let buf2 = buf.map_err(|e| format!("{}", e));
-                    app.update(msg_mapper(Msg::LoadedArrayBuffer((filename, buf2))));
-                });
-
-                model.reader = Some(r);
+            Msg::FileChanged(file) => {
+                let file: File = file; // type annotation for IDE
+                let task = {
+                    let callback = self.link.callback(Msg::Loaded);
+                    self.reader.read_file(file, callback).unwrap()
+                };
+                self.tasks.push(task);
             }
+        }
+        true
+    }
+
+    fn view(&self) -> Html {
+        use crate::MaybeValidBraidzFile::*;
+        let braidz_file_part = match &self.braidz_file {
+            &Valid(ref fd) => detail_table_valid(&fd),
+            &NotLoaded => {
+                html! {
+                    <div><p></p>{"No BRAIDZ file loaded."}</div>
+                }
+            }
+            &ParseFail(ref _e) => {
+                html! {
+                <div>{"Parsing file failed."}</div>
+                }
+            }
+        };
+
+        let did_error_part = if self.did_error {
+            html! {
+                <div>
+                    <p></p>
+                    {"❌ Error: DOM element not ready prior to drawing figure. \
+                      Please reload this page and try again."}
+                </div>
+            }
+        } else {
+            if let Valid(ref fd) = &self.braidz_file {
+                add_2d_dom_elements(fd)
+            } else {
+                empty()
+            }
+        };
+
+        let the_3d_part = if let Valid(ref fd) = &self.braidz_file {
+            if fd.archive.kalman_estimates_info.is_some() {
+                add_3d_traj_dom_elements()
+            } else {
+                empty()
+            }
+        } else {
+            empty()
+        };
+
+        let spinner_div_class = if self.tasks.len() > 0 {
+            "compute-modal"
+        } else {
+            "display-none"
+        };
+
+        html! {
+            <div id="page-container",>
+                <div class=(spinner_div_class),>
+                    <div class="compute-modal-inner",>
+                        <p>
+                            {"Loading file."}
+                        </p>
+                        <div class="lds-ellipsis",>
+
+                            <div></div><div></div><div></div><div></div>
+
+                        </div>
+                    </div>
+                </div>
+                <div id="content-wrap",>
+                    <h1>{"BRAIDZ Viewer"}</h1>
+                    <p>
+                        {"Online viewer for files saved by "}
+                        <a href="https://strawlab.org/braid">{"Braid"}</a>{". Created by the "}
+                        <a href="https://strawlab.org/">{"Straw Lab"}</a>{", University of Freiburg."}
+                    </p>
+                    <p>
+                    </p>
+                    <div>
+                        <label class=("btn","custum-file-uplad"),>{"Select a BRAIDZ file."}
+                            <input type="file", class="custom-file-upload-input", accept=".braidz"
+                            onchange=self.link.callback(move |value| {
+                                let mut result = Vec::new();
+                                if let ChangeData::Files(files) = value {
+                                    let files = js_sys::try_iter(&files)
+                                        .unwrap()
+                                        .unwrap()
+                                        .into_iter()
+                                        .map(|v| File::from(v.unwrap()));
+                                    result.extend(files);
+                                }
+                                assert!(result.len()==1);
+                                Msg::FileChanged(result.pop().unwrap())
+                            })/>
+                        </label>
+                    </div>
+                    <div>
+                        {braidz_file_part}
+                        {did_error_part}
+                        {the_3d_part}
+                    </div>
+                    <footer id="footer">{format!("Viewer date: {} (revision {})",
+                                        env!("GIT_DATE"),
+                                        env!("GIT_HASH"))}
+                    </footer>
+                </div>
+            </div>
         }
     }
 }
 
-fn render_plots_after_delay() -> impl Future<Output = Msg> {
-    TimeoutFuture::new(3) // after 3 msec
-        .map(|_: ()| Msg::RenderAll)
+fn empty() -> Html {
+    html! {
+        <></>
+    }
 }
 
 fn update_2d_canvas(model: &mut Model) {
@@ -355,137 +459,51 @@ fn update_canvas(model: &mut Model) {
     }
 }
 
-// -----------------------------------------------------------------------------
-
-// View
-
-fn view(model: &Model) -> Node<Msg> {
-    use crate::MaybeValidBraidzFile::*;
-    use wasm_bindgen::JsCast;
-
-    div![
-        attrs! {At::Id => "page-container"},
-        div![
-            attrs! {At::Id => "content-wrap"},
-            h1!["BRAIDZ Viewer"],
-            p![
-                "Online viewer for files saved by ",
-                a![attrs! {At::Href => "https://strawlab.org/braid"}, "Braid"],
-                ". Created by the ",
-                a![attrs! {At::Href => "https://strawlab.org"}, "Straw Lab"],
-                ", University of Freiburg."
-            ],
-            p![],
-            div![label![
-                "Select a BRAIDZ file.",
-                class!["btn", "custom-file-uplad"],
-                input![
-                    ev(Ev::Change, |event| {
-                        let file = event
-                            .target()
-                            .and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok())
-                            .and_then(|file_input| file_input.files())
-                            .and_then(|file_list| file_list.get(0));
-
-                        Msg::FileChanged(file)
-                    }),
-                    attrs! {
-                        At::Type => "file",
-                        At::Class => "custom-file-upload-input",
-                        At::Accept => ".braidz",
-                    }
-                ],
-            ],],
-            div![match &model.braidz_file {
-                &Valid(ref fd) => detail_table_valid(&fd),
-                &NotLoaded => div![p![], "No BRAIDZ file loaded."],
-                &ParseFail(ref _e) => div!["Parsing file failed."],
-            }],
-            if model.did_error {
-                div![
-                    p![],
-                    "❌ Error: DOM element not ready prior to drawing figure. \
-                Please reload this page and try again."
-                ]
-            } else {
-                // empty![]
-                if let Valid(ref fd) = &model.braidz_file {
-                    add_2d_dom_elements(fd)
-                } else {
-                    empty![]
-                }
-            },
-            if let Valid(ref fd) = &model.braidz_file {
-                if fd.archive.kalman_estimates_info.is_some() {
-                    add_3d_traj_dom_elements()
-                } else {
-                    empty![]
-                }
-            } else {
-                empty![]
-            },
-            footer![
-                attrs! {At::Id => "footer"},
-                format!(
-                    "Viewer date: {} (revision {})",
-                    env!("GIT_DATE"),
-                    env!("GIT_HASH")
-                ),
-            ],
-        ]
-    ]
-}
-
-fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Node<Msg> {
-    let divs: Vec<_> = fd
+fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Html {
+    let divs: Vec<Html> = fd
         .archive
         .cam_info
         .camid2camn
         .keys()
         .map(|camid| {
             let canv_id = get_canv_id(camid);
-            div![
-                p![format!("{}", camid)],
-                canvas![attrs! {At::Id => canv_id; At::Width => "1000"; At::Height => "200"}],
-            ]
+            html! {
+                <div>
+                    <p>
+                        {format!("{}", camid)}
+                        <canvas id={canv_id}, width="1000", height="200"/>
+                    </p>
+                </div>
+            }
         })
         .collect();
-
-    div![
-        // div![
-        //     button![ class!["btn"],
-        //         simple_ev(Ev::Click, Msg::Render2d),
-        //         "Render 2d data"
-        //     ],
-        // ],
-        divs,
-    ]
+    html! {
+        <div>
+            {divs}
+        </div>
+    }
 }
 
 fn get_canv_id(camid: &str) -> String {
     format!("canv2d-{}", camid)
 }
 
-fn add_3d_traj_dom_elements() -> Node<Msg> {
-    div![
-        // div![
-        //     button![ class!["btn"],
-        //         simple_ev(Ev::Click, Msg::Render),
-        //         "Render 3d trajectories"
-        //     ],
-        // ],
-        div![
-            p!["Top view"],
-            canvas![attrs! {At::Id => TOPVIEW; At::Width => "600"; At::Height => "400"}],
-        ],
-        div![
-            p!["Side view"],
-            canvas![attrs! {At::Id => SIDE1VIEW; At::Width => "600"; At::Height => "400"}],
-        ],
-    ]
+fn add_3d_traj_dom_elements() -> Html {
+    html! {
+        <div>
+            <div>
+                <p>{"Top view"}</p>
+                <canvas id={TOPVIEW}, width="600", height="400"/>
+            </div>
+            <div>
+                <p>{"Side view"}</p>
+                <canvas id={SIDE1VIEW}, width="600", height="400"/>
+            </div>
+        </div>
+    }
 }
 
-fn detail_table_valid(fd: &ValidBraidzFile) -> Node<Msg> {
+fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
     let md = &fd.archive.metadata;
 
     let summary = braidz_parser::summarize_braidz(&fd.archive, fd.filename.clone(), fd.filesize); // should use this instead of recomputing all this.
@@ -533,28 +551,30 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Node<Msg> {
         &None => "no frames".to_string(),
     };
 
-    div![table![
-        tr![td!["File name:"], td![&fd.filename],],
-        tr![
-            td!["File size:"],
-            td![bytesize::to_string(fd.filesize as u64, false)],
-        ],
-        tr![td!["Schema version:"], td![format!("{}", md.schema)],],
-        tr![td!["Git revision:"], td![&md.git_revision],],
-        tr![td!["Original recording time:"], td![orig_rec_time],],
-        tr![td!["Frame range:"], td![frame_range_str],],
-        tr![td!["Number of cameras:"], td![num_cameras],],
-        tr![td!["Camera calibration:"], td![cal],],
-        tr![td!["Number of 3d trajectories:"], td![kest_est],],
-        tr![td!["X limits:"], td![bx],],
-        tr![td!["Y limits:"], td![by],],
-        tr![td!["Z limits:"], td![bz],],
-    ]]
+    html! {
+        <div>
+            <table>
+                <tr><td>{"File name:"}</td><td>{&fd.filename}</td></tr>
+                <tr><td>{"File size:"}</td><td>{bytesize::to_string(fd.filesize as u64, false)}</td></tr>
+                <tr><td>{"Schema version:"}</td><td>{format!("{}", md.schema)}</td></tr>
+                <tr><td>{"Git revision:"}</td><td>{&md.git_revision}</td></tr>
+                <tr><td>{"Original recording time:"}</td><td>{orig_rec_time}</td></tr>
+                <tr><td>{"Frame range:"}</td><td>{frame_range_str}</td></tr>
+                <tr><td>{"Number of cameras:"}</td><td>{num_cameras}</td></tr>
+                <tr><td>{"Camera calibration:"}</td><td>{cal}</td></tr>
+                <tr><td>{"Number of 3d trajectories:"}</td><td>{kest_est}</td></tr>
+                <tr><td>{"X limits:"}</td><td>{bx}</td></tr>
+                <tr><td>{"Y limits:"}</td><td>{by}</td></tr>
+                <tr><td>{"Z limits:"}</td><td>{bz}</td></tr>
+            </table>
+        </div>
+    }
 }
 
 // -----------------------------------------------------------------------------
 
 #[wasm_bindgen(start)]
-pub fn start() {
-    seed::App::builder(update, view).build_and_start();
+pub fn run_app() {
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
+    yew::start_app::<Model>();
 }
