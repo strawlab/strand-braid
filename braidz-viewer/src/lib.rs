@@ -145,6 +145,16 @@ impl Component for Model {
                     self.link.callback(|_| Msg::RenderAll),
                 );
                 self.job = Some(Box::new(handle));
+
+                // This can be replaced by `Vec::drain_filter()` when that is stable.
+                let mut i = 0;
+                while i != self.tasks.len() {
+                    if !self.tasks[i].is_active() {
+                        let _ = self.tasks.remove(i);
+                    } else {
+                        i += 1;
+                    }
+                }
             }
             Msg::FileChanged(file) => {
                 let file: File = file; // type annotation for IDE
@@ -200,8 +210,26 @@ impl Component for Model {
             empty()
         };
 
+        let spinner_div_class = if self.tasks.len() > 0 {
+            "compute-modal"
+        } else {
+            "display-none"
+        };
+
         html! {
             <div id="page-container",>
+                <div class=(spinner_div_class),>
+                    <div class="compute-modal-inner",>
+                        <p>
+                            {"Loading file."}
+                        </p>
+                        <div class="lds-ellipsis",>
+
+                            <div></div><div></div><div></div><div></div>
+
+                        </div>
+                    </div>
+                </div>
                 <div id="content-wrap",>
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
