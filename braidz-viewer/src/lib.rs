@@ -141,7 +141,7 @@ impl Component for Model {
                 // this more robust by triggering the render once the canvas is
                 // added to the DOM.
                 let handle = TimeoutService::spawn(
-                    Duration::from_secs(3),
+                    Duration::from_millis(100),
                     self.link.callback(|_| Msg::RenderAll),
                 );
                 self.job = Some(Box::new(handle));
