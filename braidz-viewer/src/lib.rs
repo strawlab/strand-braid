@@ -504,11 +504,11 @@ fn add_3d_traj_dom_elements() -> Html {
 }
 
 fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
-    let md = &fd.archive.metadata;
-
     let summary = braidz_parser::summarize_braidz(&fd.archive, fd.filename.clone(), fd.filesize); // should use this instead of recomputing all this.
 
-    let orig_rec_time: String = if let Some(ref ts) = md.original_recording_time {
+    let md = &summary.metadata;
+
+    let orig_rec_time: String = if let Some(ref ts) = summary.metadata.original_recording_time {
         let ts_msec = (ts.timestamp() as f64 * 1000.0) + (ts.timestamp_subsec_nanos() as f64 / 1e6);
         let ts_msec_js = JsValue::from_f64(ts_msec);
         let dt_js = js_sys::Date::new(&ts_msec_js);
@@ -518,10 +518,10 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
         "(Original recording time is unavailable.)".to_string()
     };
 
-    let num_cameras = fd.archive.cam_info.camn2camid.len();
+    let num_cameras = summary.cam_info.camn2camid.len();
     let num_cameras = format!("{}", num_cameras);
 
-    let cal = match &fd.archive.calibration_info {
+    let cal = match &summary.calibration_info {
         Some(ci) => match &ci.water {
             Some(n) => format!("present (water below z=0 with n={})", n),
             None => "present".to_string(),
@@ -529,25 +529,25 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
         None => "not present".to_string(),
     };
 
-    let kest_est = if let Some(ref k) = &fd.archive.kalman_estimates_info {
-        format!("{}", k.trajectories.len())
+    let kest_est = if let Some(ref k) = &summary.kalman_estimates_summary {
+        format!("{}", k.num_trajectories)
     } else {
         format!("(No 3D data)")
     };
 
-    let (bx, by, bz) = if let Some(ref k) = &fd.archive.kalman_estimates_info {
+    let (bx, by, bz) = if let Some(ref k) = &summary.kalman_estimates_summary {
         (
-            format!("{} {}", k.xlim[0], k.xlim[1]),
-            format!("{} {}", k.ylim[0], k.ylim[1]),
-            format!("{} {}", k.zlim[0], k.zlim[1]),
+            format!("{} {}", k.x_limits[0], k.x_limits[1]),
+            format!("{} {}", k.y_limits[0], k.y_limits[1]),
+            format!("{} {}", k.z_limits[0], k.z_limits[1]),
         )
     } else {
         let n = format!("(No 3D data)");
         (n.clone(), n.clone(), n)
     };
 
-    let frame_range_str = match &fd.archive.data2d_distorted {
-        &Some(ref x) => format!("{} - {}", x.frame_lim[0], x.frame_lim[1]),
+    let frame_range_str = match &summary.data2d_summary {
+        &Some(ref x) => format!("{} - {}", x.frame_limits[0], x.frame_limits[1]),
         &None => "no frames".to_string(),
     };
 
