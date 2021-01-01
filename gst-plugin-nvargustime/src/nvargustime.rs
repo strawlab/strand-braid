@@ -172,7 +172,7 @@ impl ObjectSubclass for NvArgusTime {
         // retrieved from the gst::Registry after initial registration
         // without having to load the plugin in memory.
         klass.set_metadata(
-            "Nvidia Argust Time",
+            "Nvidia Argus Time",
             "Generic",
             "Does nothing with the data",
             "Andrew Straw <strawman@astraw.com>",
