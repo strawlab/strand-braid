@@ -13,9 +13,10 @@ use flydra_types::{
 };
 
 use braidz_types::{
-    BraidMetadata, BraidzSummary, CalibrationInfo, CamInfoRow, CamNum, Data2dDistortedRow,
+    BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, CamInfoRow, CamNum, Data2dDistortedRow,
     Data2dSummary, HistogramSummary, KalmanEstimatesRow, KalmanEstimatesSummary,
 };
+
 use csv_eof::EarlyEofOk;
 
 #[derive(Debug)]
@@ -129,9 +130,9 @@ impl From<ErrorKind> for Error {
 /// The entire file contents, loaded to memory.
 ///
 /// Currently, the implementation does not load everything to memory, but it
-/// should. To load only a summary, use the summary types. Currently, a summary
-/// can only be made by loading the entire archive first, but more efficient
-/// path can be made later.
+/// should and will do so in the future. To load only a summary, use the
+/// `BraidzSummary` type. Currently, a summary can only be made by loading the
+/// entire archive first, but more efficient path can be made later.
 pub struct BraidzArchive<R: Read + Seek> {
     archive: zip_or_dir::ZipDirArchive<R>,
     pub metadata: BraidMetadata,
@@ -177,11 +178,6 @@ pub struct Seq2d {
     pub xdata: Vec<f64>,
     pub ydata: Vec<f64>,
     pub max_pixel: f64,
-}
-
-pub struct CamInfo {
-    pub camn2camid: BTreeMap<CamNum, String>,
-    pub camid2camn: BTreeMap<String, CamNum>,
 }
 
 // TODO: rename KalmanEstimates? or ..Data?
@@ -239,6 +235,7 @@ pub fn summarize_braidz<R: Read + Seek>(
         metadata: braidz_archive.metadata.clone(),
         calibration_info: braidz_archive.calibration_info.clone(),
         expected_fps: braidz_archive.expected_fps,
+        cam_info: braidz_archive.cam_info.clone(),
         filename,
         filesize,
         kalman_estimates_summary,

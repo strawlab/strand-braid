@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub use flydra_types::{
@@ -14,17 +16,30 @@ pub struct BraidMetadata {
     // pub saving_program_name: String, // TODO: add when we bump BraidMetadataSchemaTag
 }
 
+/// A summary of a braidz file.
+///
+/// Even for a many-gigabyte braidz file, this is expected to allocate
+/// megabytes, but not gigabytes, of memory and will contain a summary of the
+/// data such as filename, calibration, images, reconstruction quality metrics,
+/// and so on. It will not load the entire braidz file to memory.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BraidzSummary {
     pub filename: String,
     pub filesize: u64,
     pub metadata: BraidMetadata,
+    pub cam_info: CamInfo,
     pub expected_fps: f64,
     pub calibration_info: Option<CalibrationInfo>,
     pub data2d_summary: Option<Data2dSummary>,
     pub kalman_estimates_summary: Option<KalmanEstimatesSummary>,
     pub reconstruct_latency_usec_summary: Option<HistogramSummary>,
     pub reprojection_distance_100x_pixels_summary: Option<HistogramSummary>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CamInfo {
+    pub camn2camid: BTreeMap<CamNum, String>,
+    pub camid2camn: BTreeMap<String, CamNum>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
