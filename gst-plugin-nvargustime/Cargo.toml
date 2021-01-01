@@ -9,7 +9,7 @@ repository = "https://github.com/strawlab/strand-braid"
 
 [lib]
 name = "gstrsnvargustime"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
