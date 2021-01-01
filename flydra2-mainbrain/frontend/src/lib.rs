@@ -106,6 +106,7 @@ impl Component for Model {
     fn change(&mut self, _: ()) -> ShouldRender {
         false
     }
+
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::EsCheckState => {
