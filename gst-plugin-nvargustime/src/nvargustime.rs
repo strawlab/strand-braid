@@ -1,8 +1,4 @@
 // Copyright (C) 2020 Andrew Straw <strawman@astraw.com>
-//
-// Proprietary software. All rights reserved. This file may not be copied,
-// modified, or distributed.
-//
 // Copyright (C) 2018 Sebastian Dröge <sebastian@centricular.com>
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
