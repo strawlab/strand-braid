@@ -1,4 +1,4 @@
-# strand-braid
+# Strand-Braid
 
 ## Description
 
@@ -28,7 +28,8 @@ This software is developed by Prof. Dr. Andrew Straw at the University of
 Freiburg, Germany.
 
 This open-source software is distributable under the terms of the Affero General
-Public License v1.0 only. See LICENSE.txt for more details.
+Public License v1.0 only. See [COPYRIGHT](COPYRIGHT) and
+[LICENSE.txt](LICENSE.txt) for more details.
 
 ## Future license plans
 
