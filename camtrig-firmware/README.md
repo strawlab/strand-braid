@@ -20,10 +20,8 @@ You may also find these Debian and Ubuntu packages useful:
 
 # License
 
-This code is proprietary.
-
-Portions are drived from the cortex-m-quickstart project, which is licensed
-under either of
+Portions of this project are derived from the cortex-m-quickstart project, which
+is licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   http://www.apache.org/licenses/LICENSE-2.0)
