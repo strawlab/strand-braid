@@ -19,6 +19,10 @@ use gst;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 
+/// The data format as emitted by the nvarguscamerasrc component.
+///
+/// The best online reference I could find to this definition
+/// is [here](https://forums.developer.nvidia.com/t/nvarguscamerasrc-buffer-metadata-is-missing/77676/29).
 #[repr(C)]
 struct AuxData {
     frame_num: i64,
@@ -87,6 +91,7 @@ impl NvArgusTime {
             let quark = unsafe {
                 glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)
             };
+            // Cast the GstMiniObject to our AuxData type so we can read the values.
             let meta =
                 unsafe { gst_sys::gst_mini_object_get_qdata(minibufptr, quark) } as *const AuxData;
             if meta.is_null() {
