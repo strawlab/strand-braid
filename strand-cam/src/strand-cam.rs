@@ -1802,6 +1802,7 @@ struct MyApp {
 impl MyApp {
     #![cfg_attr(not(feature = "image_tracker"), allow(unused_variables))]
     async fn new(
+        rt_handle: tokio::runtime::Handle,
         shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
         secret: Option<Vec<u8>>,
         http_server_addr: &str,
@@ -1903,7 +1904,7 @@ impl MyApp {
             }
             debug!("new_conn_future closing {}:{}", file!(), line!());
         };
-        let _task_join_handle = tokio::spawn(new_conn_future);
+        let _task_join_handle = rt_handle.spawn(new_conn_future);
 
         let my_app = MyApp { inner, txers };
 
@@ -2802,6 +2803,7 @@ pub async fn setup_app(
 
     let (firehose_callback_rx, my_app) =
     MyApp::new(
+        rt_handle.clone(),
         shared_store_arc.clone(),
         secret,
         &args.http_server_addr,
