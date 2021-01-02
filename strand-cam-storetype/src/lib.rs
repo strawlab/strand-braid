@@ -82,6 +82,9 @@ pub struct StoreType {
     pub camtrig_device_path: Option<String>,
     #[cfg(feature = "checkercal")]
     pub checkerboard_data: CheckerboardCalState,
+    /// Path where debug data is being saved.
+    #[cfg(feature = "checkercal")]
+    pub checkerboard_save_debug: Option<String>,
     pub post_trigger_buffer_size: usize,
     pub cuda_devices: Vec<String>,
     /// This is None if no apriltag support is compiled in. Otherwise Some(_).

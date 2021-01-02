@@ -1190,23 +1190,39 @@ fn frame_process_thread(
                 post_trig_buffer.push(&frame); // If buffer size larger than 0, copies data.
 
                 #[cfg(feature="checkercal")]
-                let checkerboard_data = store_cache.as_ref().and_then(|x|
+                let checkercal_tmp = store_cache.as_ref().and_then(|x|
                     if x.checkerboard_data.enabled {
-                        Some(x.checkerboard_data.clone())
+                        Some((x.checkerboard_data.clone(),x.checkerboard_save_debug.clone()))
                     } else {
                         None
                     });
 
                 #[cfg(not(feature="checkercal"))]
-                let checkerboard_data: Option<()> = None;
+                let checkercal_tmp: Option<()> = None;
 
-                let (mut found_points, valid_display) = if let Some(checkerboard_data) = checkerboard_data {
+                let (mut found_points, valid_display) = if let Some((checkerboard_data,checkerboard_save_debug)) = checkercal_tmp {
                     let mut results = Vec::new();
                     #[cfg(feature="checkercal")]
                     {
 
                         // do not do this too often
                         if last_checkerboard_detection.elapsed() > checkerboard_loop_dur {
+
+                            let debug_image_stamp: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                            if let Some(debug_dir) = &checkerboard_save_debug {
+                                let format_str = format!("input_{}_{}_%Y%m%d_%H%M%S.png",
+                                    checkerboard_data.width, checkerboard_data.height);
+                                let stamped = debug_image_stamp.format(&format_str).to_string();
+                                let png_buf = convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png).unwrap();
+
+                                let debug_path = std::path::PathBuf::from(debug_dir);
+                                let image_path = debug_path.join(stamped);
+
+                                let mut f = File::create(
+                                    &image_path)
+                                    .expect("create file");
+                                f.write_all(&png_buf).unwrap();
+                            }
 
                             let start_time = std::time::Instant::now();
                             let rgb = convert_image::convert(&frame, formats::PixelFormat::RGB8)?;
@@ -1226,6 +1242,31 @@ fn frame_process_thread(
                             last_checkerboard_detection = std::time::Instant::now();
 
                             debug!("corners: {:?}", corners);
+
+                            if let Some(debug_dir) = &checkerboard_save_debug {
+                                let format_str = "input_%Y%m%d_%H%M%S.yaml";
+                                let stamped = debug_image_stamp.format(&format_str).to_string();
+
+                                let debug_path = std::path::PathBuf::from(debug_dir);
+                                let yaml_path = debug_path.join(stamped);
+
+                                let mut f = File::create(
+                                    &yaml_path)
+                                    .expect("create file");
+
+                                #[derive(Serialize)]
+                                struct CornerData<'a> {
+                                    corners: &'a Option<Vec<(f32, f32)>>,
+                                    work_duration: std::time::Duration,
+                                };
+                                let debug_data = CornerData {
+                                    corners: &corners,
+                                    work_duration,
+                                };
+
+                                serde_yaml::to_writer(f, &debug_data)
+                                    .expect("serde_yaml::to_writer");
+                            }
 
                             if let Some(corners) = corners {
                                 info!("Found {} chessboard corners.", corners.len());
@@ -2723,6 +2764,8 @@ pub fn setup_app(
         camtrig_device_path: args.camtrig_device_path,
         #[cfg(feature="checkercal")]
         checkerboard_data: strand_cam_storetype::CheckerboardCalState::new(),
+        #[cfg(feature="checkercal")]
+        checkerboard_save_debug: None,
         post_trigger_buffer_size: 0,
         cuda_devices,
         apriltag_state,
@@ -3483,6 +3526,35 @@ pub fn setup_app(
                         });
                     }
                 },
+                CamArg::ToggleCheckerboardDebug(val) => {
+                    #[cfg(feature="checkercal")]
+                    {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            if val {
+                                if shared.checkerboard_save_debug.is_none() {
+                                    // start saving checkerboard data
+                                    let basedir = std::env::temp_dir();
+
+                                    let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                                    let format_str = "checkerboard_debug_%Y%m%d_%H%M%S";
+                                    let stamped = local.format(&format_str).to_string();
+                                    let dirname = basedir.join(stamped);
+                                    info!("Saving checkerboard debug data to: {}", dirname.display());
+                                    std::fs::create_dir_all(&dirname).unwrap();
+                                    shared.checkerboard_save_debug = Some(format!("{}",dirname.display()));
+                                }
+                            } else {
+                                if shared.checkerboard_save_debug.is_some() {
+                                    // stop saving checkerboard data
+                                    info!("Stop saving checkerboard debug data.");
+                                    shared.checkerboard_save_debug = None;
+                                }
+                            }
+                        });
+                    }
+                },
+
                 CamArg::SetCheckerboardWidth(val) => {
                     #[cfg(feature="checkercal")]
                     {
@@ -3523,12 +3595,13 @@ pub fn setup_app(
                     #[cfg(feature="checkercal")]
                     {
                         info!("computing calibration");
-                        let (n_rows, n_cols) = {
+                        let (n_rows, n_cols, checkerboard_save_debug) = {
                             let tracker = shared_store_arc.read();
                             let shared = (*tracker).as_ref();
                             let n_rows = shared.checkerboard_data.height;
                             let n_cols = shared.checkerboard_data.width;
-                            (n_rows, n_cols)
+                            let checkerboard_save_debug = shared.checkerboard_save_debug.clone();
+                            (n_rows, n_cols, checkerboard_save_debug)
                         };
 
                         let goodcorners: Vec<camcal::CheckerBoardData> = {
@@ -3540,11 +3613,39 @@ pub fn setup_app(
                             }).collect()
                         };
 
+                        let ros_cam_name = cam_name2.to_ros();
+                        let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
+
+                        if let Some(debug_dir) = &checkerboard_save_debug {
+                            let format_str = format!("checkerboard_input_{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
+                            let stamped = local.format(&format_str).to_string();
+
+                            let debug_path = std::path::PathBuf::from(debug_dir);
+                            let corners_path = debug_path.join(stamped);
+
+                            let f = File::create(
+                                &corners_path)
+                                .expect("create file");
+
+                            #[derive(Serialize)]
+                            struct CornersData<'a> {
+                                corners: &'a Vec<camcal::CheckerBoardData>,
+                                image_width: u32,
+                                image_height: u32,
+                            };
+                            let debug_data = CornersData {
+                                corners: &goodcorners,
+                                image_width,
+                                image_height,
+                            };
+                            serde_yaml::to_writer(f, &debug_data)
+                                .expect("serde_yaml::to_writer");
+                        }
+
                         let size = camcal::PixelSize::new(image_width as usize,image_height as usize);
                         match camcal::compute_intrinsics::<f64>(size, &goodcorners) {
                             Ok(intrinsics) => {
                                 info!("got calibrated intrinsics: {:?}", intrinsics);
-                                let ros_cam_name = cam_name2.to_ros();
 
                                 // Convert from mvg to ROS format.
                                 let ci: opencv_ros_camera::RosCameraInfo<_> = opencv_ros_camera::NamedIntrinsicParameters {
@@ -3558,11 +3659,9 @@ pub fn setup_app(
                                     app_dirs::AppDataType::UserConfig,
                                     &APP_INFO, "camera_info").expect("app_dirs::app_dir");
 
-                                let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
                                 let format_str = format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
                                 let stamped = local.format(&format_str).to_string();
-                                let mut cam_info_file_stamped = cal_dir.clone();
-                                cam_info_file_stamped.push(stamped);
+                                let cam_info_file_stamped = cal_dir.join(stamped);
 
                                 let mut cam_info_file = cal_dir.clone();
                                 cam_info_file.push(ros_cam_name.as_str());

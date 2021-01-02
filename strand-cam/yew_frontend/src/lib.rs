@@ -133,6 +133,8 @@ enum Msg {
     #[cfg(feature = "checkercal")]
     ToggleCheckerboardDetection(bool),
     #[cfg(feature = "checkercal")]
+    ToggleCheckerboardDebug(bool),
+    #[cfg(feature = "checkercal")]
     SetCheckerboardWidth(u32),
     #[cfg(feature = "checkercal")]
     SetCheckerboardHeight(u32),
@@ -449,6 +451,11 @@ impl Component for Model {
             #[cfg(feature = "checkercal")]
             Msg::ToggleCheckerboardDetection(val) => {
                 self.ft = send_cam_message(CamArg::ToggleCheckerboardDetection(val), self);
+                return false;
+            }
+            #[cfg(feature = "checkercal")]
+            Msg::ToggleCheckerboardDebug(val) => {
+                self.ft = send_cam_message(CamArg::ToggleCheckerboardDebug(val), self);
                 return false;
             }
             #[cfg(feature = "checkercal")]
@@ -927,6 +934,12 @@ impl Model {
                 let num_checkerboards_collected =
                     format!("Number of checkerboards collected: {}", ncs);
 
+                let checkerboard_debug = if let Some(ref debug) = &shared.checkerboard_save_debug {
+                    format!("Saving debug data to {}", debug)
+                } else {
+                    "".to_string()
+                };
+
                 html! {
                     <div class="wrap-collapsible",>
                         <CheckboxLabel: label="Checkerboard Calibration", />
@@ -937,6 +950,14 @@ impl Model {
                                 value=shared.checkerboard_data.enabled,
                                 ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDetection(checked)}),
                                 />
+
+                            <Toggle:
+                                label="Save debug information",
+                                value=shared.checkerboard_save_debug.is_some(),
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDebug(checked)}),
+                                />
+
+                            <div>{checkerboard_debug}</div>
 
                             <h2>{"Input: Checkerboard Size"}</h2>
                             <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7)."}</p>
