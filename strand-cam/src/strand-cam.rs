@@ -70,14 +70,21 @@ use std::path::Path;
 
 use crate::formats::PixelFormat;
 
-use ci2_remote_control::{CamArg, CsvSaveConfig, MkvRecordingConfig, RecordingFrameRate};
+#[cfg(feature = "image_tracker")]
+use ci2_remote_control::CsvSaveConfig;
+use ci2_remote_control::{CamArg, MkvRecordingConfig, RecordingFrameRate};
 use flydra_types::{
     BuiServerInfo, CamHttpServerInfo, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr,
     RosCamName,
 };
+
 #[cfg(feature = "image_tracker")]
 use image_tracker::{FlyTracker, ImPtDetectCfg, UfmfState};
-use strand_cam_csv_config_types::{CameraCfgFview2_0_26, FullCfgFview2_0_26, SaveCfgFview2_0_25};
+
+use strand_cam_csv_config_types::CameraCfgFview2_0_26;
+#[cfg(feature = "image_tracker")]
+use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
+
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
 use strand_cam_storetype::{CallbackType, RangedValue, StoreType, ToCamtrigDevice};
@@ -819,6 +826,7 @@ fn frame_process_thread(
     #[cfg(feature="flydratrax")]
     let mut maybe_flydra2_write_control = None;
 
+    #[cfg_attr(not(feature = "image_tracker"), allow(dead_code))]
     struct CsvSavingState {
         fd: File,
         min_interval: chrono::Duration,
@@ -827,6 +835,7 @@ fn frame_process_thread(
     }
 
     // CSV saving
+    #[cfg_attr(not(feature = "image_tracker"), allow(dead_code))]
     enum SavingState {
         NotSaving,
         Starting(Option<f32>),
@@ -1747,6 +1756,7 @@ struct MyApp {
 }
 
 impl MyApp {
+    #![cfg_attr(not(feature = "image_tracker"), allow(unused_variables))]
     fn new(
         shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
         secret: Option<Vec<u8>>,
