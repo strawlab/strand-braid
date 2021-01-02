@@ -62,8 +62,8 @@ fn launch_strand_cam(
         force_camera_sync_mode: true,
     };
 
-    let (_, _, fut) = runtime.block_on(strand_cam::setup_app(handle, args)).expect("setup_app");
-    tokio::spawn(fut);
+    let (_, _, fut) = runtime.block_on(strand_cam::setup_app(handle.clone(), args)).expect("setup_app");
+    handle.spawn(fut);
     StrandCamInstance {}
 }
 
