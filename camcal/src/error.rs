@@ -1,9 +1,7 @@
-
 #[derive(Debug)]
 enum ErrorKind {
     OpenCvCalibrate(opencv_calibrate::Error),
     OpencvRosCamera(opencv_ros_camera::Error),
-    Mvg(mvg::MvgError),
     Other(failure::Error),
 }
 
@@ -21,12 +19,6 @@ impl From<opencv_calibrate::Error> for Error {
 impl From<opencv_ros_camera::Error> for Error {
     fn from(orig: opencv_ros_camera::Error) -> Error {
         Error { kind: ErrorKind::OpencvRosCamera(orig)}
-    }
-}
-
-impl From<mvg::MvgError> for Error {
-    fn from(orig: mvg::MvgError) -> Error {
-        Error { kind: ErrorKind::Mvg(orig)}
     }
 }
 
