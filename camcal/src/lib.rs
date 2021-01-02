@@ -1,8 +1,10 @@
 use nalgebra::RealField;
+use serde::{Deserialize, Serialize};
 
 type Coords3D = (f64, f64, f64);
 type Coords2D = (f64, f64);
 
+#[derive(Serialize, Deserialize)]
 pub struct CheckerBoardData {
     // dim: f64,
     n_rows: usize,
