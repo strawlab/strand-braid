@@ -69,6 +69,7 @@ members = [
     "nvenc/dynlink-nvidia-encode",
     "nvenc/dynlink-nvidia-encode/gen-nvenc-bindings",
     "opencv-calibrate",
+    "opencv-calibrate/find-chessboard",
     "plugin-defs",
     "posix-scheduler",
     "py-strandcam/rust",
