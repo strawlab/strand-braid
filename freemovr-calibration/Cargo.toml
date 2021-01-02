@@ -27,6 +27,7 @@ chrono = {version="0.4", features=["serde"]}
 dlt = "0.4"
 mvg = {path="../mvg", features=["serde-serialize"]}
 camcal = {path="../camcal", optional=true}
+opencv-calibrate = {path="../opencv-calibrate", optional=true}
 simple-obj-parse = {path="../simple-obj-parse"}
 ncollide-geom = {path="../ncollide-geom"}
 
@@ -37,4 +38,4 @@ opencv-calibrate = {path="../opencv-calibrate"}
 [features]
 default = []
 
-opencv = ["camcal"]
+opencv = ["camcal", "opencv-calibrate"]

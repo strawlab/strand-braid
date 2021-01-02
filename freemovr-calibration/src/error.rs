@@ -10,7 +10,7 @@ pub enum ErrorKind {
     SerdeYaml(serde_yaml::Error),
     SerdeJson(serde_json::Error),
     #[cfg(feature="opencv")]
-    Camcal(camcal::Error),
+    OpenCvCalibrate(opencv_calibrate::Error),
     Other(failure::Error),
     OtherBox(Box<dyn failure::Fail>),
     RequiredTriMesh,
@@ -59,9 +59,9 @@ impl From<serde_json::Error> for Error {
 }
 
 #[cfg(feature="opencv")]
-impl From<camcal::Error> for Error {
-    fn from(orig: camcal::Error) -> Error {
-        Error { kind: ErrorKind::Camcal(orig)}
+impl From<opencv_calibrate::Error> for Error {
+    fn from(orig: opencv_calibrate::Error) -> Error {
+        Error { kind: ErrorKind::OpenCvCalibrate(orig)}
     }
 }
 

@@ -1,10 +1,5 @@
 use nalgebra::RealField;
 
-mod error;
-pub use crate::error::Error;
-
-type Result<T> = std::result::Result<T, error::Error>;
-
 type Coords3D = (f64, f64, f64);
 type Coords2D = (f64, f64);
 
@@ -52,7 +47,7 @@ impl PixelSize {
 pub fn compute_intrinsics<R: RealField>(
     size: PixelSize,
     data: &[CheckerBoardData],
-) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>> {
+) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, opencv_calibrate::Error> {
     /*
     cal = camera_calibration.calibrator.MonoCalibrator([])
     cal.size = (width,height)
