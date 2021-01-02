@@ -1,6 +1,6 @@
 # opencv-calibrate
 
-A wrapper around OpenCV's `cvCalibrateCamera2` function.
+A wrapper of OpenCV `cvCalibrateCamera2` and `findChessboardCorners` functions.
 
 ## Building OpenCV for static linking.
 
