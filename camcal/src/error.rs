@@ -12,24 +12,29 @@ pub struct Error {
 
 impl From<opencv_calibrate::Error> for Error {
     fn from(orig: opencv_calibrate::Error) -> Error {
-        Error { kind: ErrorKind::OpenCvCalibrate(orig)}
+        Error {
+            kind: ErrorKind::OpenCvCalibrate(orig),
+        }
     }
 }
 
 impl From<opencv_ros_camera::Error> for Error {
     fn from(orig: opencv_ros_camera::Error) -> Error {
-        Error { kind: ErrorKind::OpencvRosCamera(orig)}
+        Error {
+            kind: ErrorKind::OpencvRosCamera(orig),
+        }
     }
 }
 
 impl From<failure::Error> for Error {
     fn from(orig: failure::Error) -> Error {
-        Error { kind: ErrorKind::Other(orig)}
+        Error {
+            kind: ErrorKind::Other(orig),
+        }
     }
 }
 
-impl std::error::Error for Error {
-}
+impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
