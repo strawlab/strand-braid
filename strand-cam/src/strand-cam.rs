@@ -1269,7 +1269,7 @@ fn frame_process_thread(
                             }
 
                             if let Some(corners) = corners {
-                                info!("Found {} chessboard corners.", corners.len());
+                                info!("Found {} chessboard corners in {} msec.", corners.len(), work_duration.as_millis());
                                 results = corners.iter().map(|(x,y)| {
                                     video_streaming::Point {
                                         x: *x,
@@ -1293,7 +1293,7 @@ fn frame_process_thread(
                                     });
                                 }
                             } else {
-                                info!("Found no chessboard corners.");
+                                info!("Found no chessboard corners in {} msec.", work_duration.as_millis());
                             }
                         }
                     }
