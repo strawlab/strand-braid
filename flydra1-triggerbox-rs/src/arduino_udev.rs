@@ -1,9 +1,8 @@
-use crate::{std, Result, serialport, ascii};
+use crate::{ascii, serialport, std, Result};
 
 pub(crate) fn serial_handshake(port: &std::path::Path) -> Result<ascii::String> {
     serial_handshake_no_defaults(port, 2, false)
 }
-
 
 fn reset_device(device: &mut Box<dyn serialport::SerialPort>) -> Result<()> {
     device.write_request_to_send(false)?;
@@ -38,7 +37,7 @@ fn _crc8maxim(mut crc: u8, c: &u8) -> u8 {
 fn crc8maxim(s: &[u8]) -> u8 {
     let mut crc = 0;
     for c in s {
-        crc = _crc8maxim(crc,c);
+        crc = _crc8maxim(crc, c);
     }
     crc
 }
@@ -62,15 +61,15 @@ impl From<ascii::Error> for UdevError {
     }
 }
 
-fn get_device_name(device: &mut Box<dyn serialport::SerialPort>)
-    -> std::result::Result<ascii::String,UdevError>
-{
-    let maxlen=8;
+fn get_device_name(
+    device: &mut Box<dyn serialport::SerialPort>,
+) -> std::result::Result<ascii::String, UdevError> {
+    let maxlen = 8;
 
-    use std::io::{Write, Read};
+    use std::io::{Read, Write};
     device.write(b"N?")?;
 
-    let len = maxlen+2;
+    let len = maxlen + 2;
 
     let mut buf = vec![0; len];
     device.read_exact(&mut buf)?;
@@ -93,7 +92,7 @@ fn get_device_name(device: &mut Box<dyn serialport::SerialPort>)
     }
 
     if some_ascii {
-        let computed_crc = format!("{:X}",crc8maxim(name));
+        let computed_crc = format!("{:X}", crc8maxim(name));
         trace!("computed CRC: {:?}", computed_crc);
         if &computed_crc == expected_crc {
             Ok(ascii::String::from_vec(name.to_vec())?)
@@ -103,10 +102,13 @@ fn get_device_name(device: &mut Box<dyn serialport::SerialPort>)
     } else {
         Err(UdevError::NameNotSet)
     }
-
 }
 
-fn serial_handshake_no_defaults(port: &std::path::Path, mut nretries: u8, error: bool) -> Result<ascii::String> {
+fn serial_handshake_no_defaults(
+    port: &std::path::Path,
+    mut nretries: u8,
+    error: bool,
+) -> Result<ascii::String> {
     let mut name: Option<ascii::String> = None;
 
     use serialport::*;
@@ -130,7 +132,7 @@ fn serial_handshake_no_defaults(port: &std::path::Path, mut nretries: u8, error:
                 name = Some(my_name);
                 flush_device(&mut ser)?;
                 break;
-            },
+            }
             Err(e) => {
                 match e {
                     UdevError::NameNotSet => {
@@ -153,15 +155,10 @@ fn serial_handshake_no_defaults(port: &std::path::Path, mut nretries: u8, error:
     }
 
     match name {
-        Some(name) => {
-            Ok(name)
-        },
-        None => {
-            match error {
-                true => Err(format_err!("no serial")),
-                false => Ok(ascii::String::empty())
-            }
+        Some(name) => Ok(name),
+        None => match error {
+            true => Err(format_err!("no serial")),
+            false => Ok(ascii::String::empty()),
         },
     }
-
 }
