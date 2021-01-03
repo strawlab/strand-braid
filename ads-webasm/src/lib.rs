@@ -4,12 +4,12 @@ extern crate gloo;
 extern crate wasm_bindgen;
 extern crate web_sys;
 
-extern crate http;
-extern crate yew;
 extern crate chrono;
+extern crate http;
 extern crate serde;
 extern crate serde_yaml;
 extern crate uuid;
+extern crate yew;
 extern crate yew_tincture;
 
 extern crate bui_backend_types;
