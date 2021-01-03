@@ -122,7 +122,7 @@ fn fixup_relative_path(
 pub struct BraidConfig {
     pub mainbrain: MainbrainConfig,
     pub trigger: Option<TriggerboxConfig>,
-    pub cameras: Vec<Flydra3CameraConfig>,
+    pub cameras: Vec<BraidCameraConfig>,
 }
 
 impl BraidConfig {
@@ -152,9 +152,9 @@ impl std::default::Default for BraidConfig {
             mainbrain: MainbrainConfig::default(),
             trigger: Some(TriggerboxConfig::default()),
             cameras: vec![
-                Flydra3CameraConfig::default_absdiff_config("fake-camera-1".to_string()),
-                Flydra3CameraConfig::default_absdiff_config("fake-camera-2".to_string()),
-                Flydra3CameraConfig::default_absdiff_config("fake-camera-3".to_string()),
+                BraidCameraConfig::default_absdiff_config("fake-camera-1".to_string()),
+                BraidCameraConfig::default_absdiff_config("fake-camera-2".to_string()),
+                BraidCameraConfig::default_absdiff_config("fake-camera-3".to_string()),
             ],
         }
     }
@@ -166,7 +166,7 @@ fn return_false() -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Flydra3CameraConfig {
+pub struct BraidCameraConfig {
     /// The name of the camera (e.g. "Basler-22005677")
     pub name: String,
     /// The pixel format to use.
@@ -179,7 +179,7 @@ pub struct Flydra3CameraConfig {
     pub raise_grab_thread_priority: bool,
 }
 
-impl Flydra3CameraConfig {
+impl BraidCameraConfig {
     fn default_absdiff_config(name: String) -> Self {
         Self {
             name,

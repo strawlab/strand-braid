@@ -14,7 +14,7 @@ use structopt::StructOpt;
 use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr};
 use strand_cam::ImPtDetectCfgSource;
 
-use braid::{braid_start, parse_config_file, Flydra3CameraConfig};
+use braid::{braid_start, parse_config_file, BraidCameraConfig};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "run the multi-camera realtime 3D tracker")]
@@ -27,7 +27,7 @@ struct BraidRunCliArgs {
 struct StrandCamInstance {}
 
 fn launch_strand_cam(
-    camera: Flydra3CameraConfig,
+    camera: BraidCameraConfig,
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
