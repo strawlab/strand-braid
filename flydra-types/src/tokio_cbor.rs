@@ -19,7 +19,6 @@ impl Default for CborPacketCodec {
     }
 }
 
-#[cfg(feature = "with-tokio-codec")]
 impl Decoder for CborPacketCodec {
     type Item = FlydraRawUdpPacket;
     type Error = std::io::Error;
@@ -76,7 +75,6 @@ impl Encoder for CborPacketCodec {
 
 // tests below here ---------------------
 
-#[cfg(feature = "with-tokio-codec")]
 #[test]
 fn cbor_decoder() {
     use bytes::{BufMut, BytesMut};
@@ -109,7 +107,6 @@ fn cbor_decoder() {
     assert_eq!(None, codec.decode_eof(buf).unwrap());
 }
 
-#[cfg(feature = "with-tokio-codec")]
 #[test]
 fn cbor_roundtrip() {
     use bytes::BytesMut;

@@ -1,4 +1,3 @@
-#[cfg(feature = "with-tokio-codec")]
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
@@ -18,7 +17,6 @@ impl Default for FlydraPacketCodec {
     }
 }
 
-#[cfg(feature = "with-tokio-codec")]
 impl Decoder for FlydraPacketCodec {
     type Item = FlydraRawUdpPacket;
     type Error = std::io::Error;
@@ -61,7 +59,6 @@ impl Decoder for FlydraPacketCodec {
     }
 }
 
-#[cfg(feature = "with-tokio-codec")]
 impl Encoder for FlydraPacketCodec {
     type Item = ();
     type Error = std::io::Error;

@@ -551,10 +551,14 @@ pub use crate::serialize::{
     CBOR_MAGIC, FLYDRA1_PACKET_HEADER_SIZE, FLYDRA1_PER_POINT_PAYLOAD_SIZE,
 };
 
+#[cfg(feature = "with-tokio-codec")]
 mod tokio_flydra1;
+#[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_flydra1::FlydraPacketCodec;
 
+#[cfg(feature = "with-tokio-codec")]
 mod tokio_cbor;
+#[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_cbor::CborPacketCodec;
 
 type Result<M> = std::result::Result<M, FlydraTypesError>;
