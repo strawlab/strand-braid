@@ -597,12 +597,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         let http_session_handler2 = http_session_handler.clone();
         let tracker2 = tracker.clone();
         let on_new_clock_model = Box::new(move |tm: Option<ClockModel>| {
-            let cm = tm.clone().map(|t| rust_cam_bui_types::ClockModel {
-                gain: t.gain,
-                offset: t.offset,
-                residuals: t.residuals,
-                n_measurements: t.n_measurements,
-            });
+            let cm = tm.clone();
             {
                 let mut guard = time_model_arc2.write();
                 *guard = tm;
