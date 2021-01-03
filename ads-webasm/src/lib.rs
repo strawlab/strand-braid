@@ -6,8 +6,6 @@ extern crate web_sys;
 
 extern crate http;
 extern crate yew;
-#[macro_use]
-extern crate failure;
 extern crate chrono;
 extern crate serde;
 extern crate serde_yaml;
