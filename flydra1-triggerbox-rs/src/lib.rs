@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate failure;
 extern crate byteorder;
 extern crate chrono;
 extern crate crossbeam_channel;
@@ -20,8 +18,8 @@ mod ascii;
 mod arduino_udev;
 use crate::arduino_udev::serial_handshake;
 
+use anyhow::{Context, Result};
 use chrono::Duration;
-use failure::ResultExt;
 use std::io::Write;
 
 use crossbeam_channel::{Receiver, Sender};
@@ -30,8 +28,6 @@ use std::collections::BTreeMap;
 use crossbeam_ok::CrossbeamOk;
 use flydra_types::TriggerClockInfoRow;
 use rust_cam_bui_types::ClockModel;
-
-type Result<T> = std::result::Result<T, failure::Error>;
 
 struct SerialThread {
     device: std::path::PathBuf,
@@ -252,7 +248,7 @@ impl SerialThread {
                 }
                 // give up after 20 seconds
                 if now.signed_duration_since(connect_time) > Duration::seconds(20) {
-                    return Err(format_err!("no version response"));
+                    return Err(anyhow::anyhow!("no version response"));
                 }
             }
         }
@@ -352,7 +348,7 @@ impl SerialThread {
 
                     let epsilon = 1e-10;
                     let results = lstsq::lstsq(&a, &b, epsilon)
-                        .map_err(|e| format_err!("lstsq err: {}", e))?;
+                        .map_err(|e| anyhow::anyhow!("lstsq err: {}", e))?;
 
                     let gain = results.solution[0];
                     let offset = results.solution[1];
@@ -413,7 +409,7 @@ impl SerialThread {
                     trace!("checksum OK");
                     valid_n_chars = Some(bytes.len() + 3)
                 } else {
-                    return Err(format_err!("checksum mismatch"));
+                    return Err(anyhow::anyhow!("checksum mismatch"));
                 }
 
                 if (packet_type == 'P') | (packet_type == 'V') {
@@ -470,7 +466,7 @@ fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
     if let Err(err) = real_func() {
         let mut stderr = std::io::stderr();
         writeln!(stderr, "Error: {}", err).expect("unable to write error to stderr");
-        for cause in err.iter_causes() {
+        for cause in err.chain() {
             writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
         }
         std::process::exit(1);

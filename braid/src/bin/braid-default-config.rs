@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate log;
 
+use anyhow::Result;
 use braid::{braid_start, BraidConfig};
-use failure::Error;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "show the default configuration in TOML format")]
 struct BraidDefaultConfigCliArgs {}
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     braid_start("default-config")?;
 
     let args = BraidDefaultConfigCliArgs::from_args();

@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate failure_derive;
-#[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate static_assertions;
@@ -563,34 +561,22 @@ pub use crate::tokio_cbor::CborPacketCodec;
 
 type Result<M> = std::result::Result<M, FlydraTypesError>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum FlydraTypesError {
-    #[fail(display = "CBOR data")]
+    #[error("CBOR data")]
     CborDataError,
-    #[fail(display = "serde error")]
+    #[error("serde error")]
     SerdeError,
-    #[fail(display = "unexpected hypothesis testing parameters")]
+    #[error("unexpected hypothesis testing parameters")]
     UnexpectedHypothesisTestingParameters,
-    #[fail(display = "input too long")]
+    #[error("input too long")]
     InputTooLong,
-    #[fail(display = "long string not implemented")]
+    #[error("long string not implemented")]
     LongStringNotImplemented,
-    #[fail(display = "{}", _0)]
-    IoError(#[cause] std::io::Error),
-    #[fail(display = "{}", _0)]
-    Utf8Error(#[cause] std::str::Utf8Error),
-}
-
-impl From<std::io::Error> for FlydraTypesError {
-    fn from(orig: std::io::Error) -> FlydraTypesError {
-        FlydraTypesError::IoError(orig)
-    }
-}
-
-impl From<std::str::Utf8Error> for FlydraTypesError {
-    fn from(orig: std::str::Utf8Error) -> FlydraTypesError {
-        FlydraTypesError::Utf8Error(orig)
-    }
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("{0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
 }
 
 #[derive(Deserialize, Serialize, Debug)]

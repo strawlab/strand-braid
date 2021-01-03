@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate log;
 
-use failure::{Error, ResultExt};
+use anyhow::{Context, Result};
+
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -11,7 +12,7 @@ struct BraidLauncherCliArgs {
     options: Vec<String>,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     env_tracing_logger::init();
     // braid::braid_start("braid")?;
 
@@ -23,7 +24,7 @@ fn main() -> Result<(), Error> {
     let status = std::process::Command::new(&cmd_name)
         .args(args.options)
         .status()
-        .context(format!("running '{}'", cmd_name))?;
+        .with_context(|| format!("running '{}'", cmd_name))?;
 
     if let Some(code) = status.code() {
         std::process::exit(code);

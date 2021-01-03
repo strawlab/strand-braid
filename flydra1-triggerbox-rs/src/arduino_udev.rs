@@ -1,4 +1,5 @@
-use crate::{ascii, serialport, std, Result};
+use crate::{ascii, serialport};
+use anyhow::Result;
 
 pub(crate) fn serial_handshake(port: &std::path::Path) -> Result<ascii::String> {
     serial_handshake_no_defaults(port, 2, false)
@@ -139,7 +140,7 @@ fn serial_handshake_no_defaults(
                         // repeat again
                     }
                     UdevError::CrcFail => {
-                        return Err(format_err!("crc error"));
+                        anyhow::bail!("crc error");
                     }
                     UdevError::Io(ioe) => {
                         return Err(ioe.into());
@@ -157,7 +158,7 @@ fn serial_handshake_no_defaults(
     match name {
         Some(name) => Ok(name),
         None => match error {
-            true => Err(format_err!("no serial")),
+            true => Err(anyhow::anyhow!("no serial")),
             false => Ok(ascii::String::empty()),
         },
     }

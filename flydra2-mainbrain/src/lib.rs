@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
 // Include the files to be served and define `fn get_default_config()`.
 include!(concat!(env!("OUT_DIR"), "/mainbrain_frontend.rs")); // Despite slash, this works on Windows.
 
-type Result<M> = std::result::Result<M, failure::Error>;
+use anyhow::Result;
 
 const SYNCHRONIZE_DURATION_SEC: u8 = 3;
 
@@ -323,10 +323,9 @@ pub async fn pre_run(
         info!("using calibration: {}", cal_fname.display());
 
         // read the calibration
-        let cal_file = failure::ResultExt::context(
-            std::fs::File::open(&cal_fname),
-            format!("loading calibration {}", cal_fname.display()),
-        )?;
+        let cal_file = anyhow::Context::with_context(std::fs::File::open(&cal_fname), || {
+            format!("loading calibration {}", cal_fname.display())
+        })?;
         Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?)
     } else {
         None
@@ -995,7 +994,7 @@ pub fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
 
         let mut stderr = std::io::stderr();
         writeln!(stderr, "Error: {}", err).expect("unable to write error to stderr");
-        for cause in err.iter_causes() {
+        for cause in err.chain() {
             writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
         }
         std::process::exit(1);

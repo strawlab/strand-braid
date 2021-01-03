@@ -8,7 +8,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use std::convert::TryInto;
 
-use failure::Error;
+use anyhow::Result;
 use structopt::StructOpt;
 
 use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr};
@@ -31,7 +31,7 @@ fn launch_strand_cam(
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
-) -> Result<StrandCamInstance, Error> {
+) -> Result<StrandCamInstance> {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
 
@@ -66,7 +66,7 @@ fn launch_strand_cam(
     Ok(StrandCamInstance {})
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     braid_start("run")?;
 
     let args = BraidRunCliArgs::from_args();
@@ -126,7 +126,7 @@ fn main() -> Result<(), Error> {
                     handle.clone(),
                 )
             })
-            .collect::<Result<Vec<StrandCamInstance>, Error>>()
+            .collect::<Result<Vec<StrandCamInstance>>>()
     })?;
 
     debug!("done launching cameras");

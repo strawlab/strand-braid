@@ -3,7 +3,6 @@ extern crate log;
 extern crate env_logger;
 
 extern crate crossbeam_channel;
-extern crate failure;
 extern crate structopt;
 
 extern crate crossbeam_ok;
@@ -24,7 +23,7 @@ struct Opt {
     fps: f64,
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     info!("flydra1_triggerbox starting");
     let opt = Opt::from_args();

@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde_derive;
 
-use failure::Error;
+use anyhow::Result;
 
 use flydra_types::TriggerboxConfig;
 use image_tracker_types::ImPtDetectCfg;
@@ -26,7 +26,7 @@ fn default_3d_tracking_params() -> flydra_types::TrackingParams {
     flydra_types::TrackingParamsInner3D::default().into()
 }
 
-pub fn braid_start(name: &str) -> Result<(), Error> {
+pub fn braid_start(name: &str) -> Result<()> {
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
@@ -103,12 +103,9 @@ fn split_path<P: AsRef<std::path::Path>>(path: P) -> (std::path::PathBuf, std::p
 ///
 /// `path` must be utf-8 encoded and can start with a tilde, which is expanded
 /// to the home directory.
-fn fixup_relative_path(
-    path: &mut std::path::PathBuf,
-    dirname: &std::path::Path,
-) -> Result<(), Error> {
+fn fixup_relative_path(path: &mut std::path::PathBuf, dirname: &std::path::Path) -> Result<()> {
     let pathstr = path.as_os_str().to_str().unwrap();
-    let expanded = shellexpand::full(&pathstr).map_err(|e| failure::format_err!("{}", e))?;
+    let expanded = shellexpand::full(&pathstr)?;
     *path = std::path::PathBuf::from(expanded.to_string());
 
     if path.is_relative() {
@@ -128,7 +125,7 @@ pub struct BraidConfig {
 impl BraidConfig {
     /// For all paths which are relative, make them relative to the
     /// config file location.
-    fn fixup_relative_paths(&mut self, orig_path: &std::path::Path) -> Result<(), Error> {
+    fn fixup_relative_paths(&mut self, orig_path: &std::path::Path) -> Result<()> {
         let (dirname, _orig_path) = split_path(orig_path);
 
         // fixup self.mainbrain.cal_fname
@@ -190,7 +187,7 @@ impl BraidCameraConfig {
     }
 }
 
-pub fn parse_config_file(fname: &std::path::Path) -> Result<BraidConfig, Error> {
+pub fn parse_config_file(fname: &std::path::Path) -> Result<BraidConfig> {
     use std::io::Read;
 
     let mut file = std::fs::File::open(&fname)?;
