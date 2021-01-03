@@ -2,7 +2,7 @@
 extern crate log;
 
 use anyhow::Result;
-use braid::{braid_start, BraidConfig};
+use braid::{braid_start, BraidConfig2};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     let args = BraidDefaultConfigCliArgs::from_args();
     debug!("{:?}", args);
 
-    let cfg = BraidConfig::default();
+    let cfg = BraidConfig2::default();
     // This 2 step serialization is needed to avoid ValueAfterTable
     // error. See https://github.com/alexcrichton/toml-rs/issues/142
     let value = toml::Value::try_from(&cfg)?;

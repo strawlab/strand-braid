@@ -375,12 +375,13 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
         mainbrain_internal_addr,
         camdata_addr,
         show_url,
-        force_camera_sync_mode,
         #[cfg(feature = "flydratrax")]
         save_empty_data2d,
         #[cfg(feature = "flydratrax")]
         model_server_addr,
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template,
+        force_camera_sync_mode,
+        software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit::NoChange,
     })
 }

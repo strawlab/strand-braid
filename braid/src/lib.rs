@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 
-use flydra_types::TriggerboxConfig;
+use flydra_types::{FakeSyncConfig, TriggerType, TriggerboxConfig};
 use image_tracker_types::ImPtDetectCfg;
 
 fn default_lowlatency_camdata_udp_addr() -> String {
@@ -113,15 +113,44 @@ fn fixup_relative_path(path: &mut std::path::PathBuf, dirname: &std::path::Path)
     Ok(())
 }
 
+/// The new configuration format.
+///
+/// Backwards compatibility is maintained by first attempting to deserialize
+/// with this definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BraidConfig {
+pub struct BraidConfig2 {
+    pub mainbrain: MainbrainConfig,
+    /// Triggerbox configuration.
+    #[serde(default)]
+    pub trigger: TriggerType,
+    pub cameras: Vec<BraidCameraConfig>,
+}
+
+impl From<BraidConfig1> for BraidConfig2 {
+    fn from(orig: BraidConfig1) -> BraidConfig2 {
+        let trigger = match orig.trigger {
+            None => TriggerType::FakeSync(FakeSyncConfig::default()),
+            Some(x) => TriggerType::TriggerboxV1(x),
+        };
+        BraidConfig2 {
+            mainbrain: orig.mainbrain,
+            trigger,
+            cameras: orig.cameras,
+        }
+    }
+}
+
+/// The old configuration format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BraidConfig1 {
     pub mainbrain: MainbrainConfig,
     pub trigger: Option<TriggerboxConfig>,
     pub cameras: Vec<BraidCameraConfig>,
 }
 
-impl BraidConfig {
+impl BraidConfig2 {
     /// For all paths which are relative, make them relative to the
     /// config file location.
     fn fixup_relative_paths(&mut self, orig_path: &std::path::Path) -> Result<()> {
@@ -142,11 +171,15 @@ impl BraidConfig {
     }
 }
 
-impl std::default::Default for BraidConfig {
+impl std::default::Default for BraidConfig2 {
     fn default() -> Self {
         Self {
             mainbrain: MainbrainConfig::default(),
-            trigger: Some(TriggerboxConfig::default()),
+            // This `trigger` field has a different default than
+            // TriggerType::default() in order to show the user (who will query
+            // this with the `braid default-config` command) how to configure
+            // the trigger box.
+            trigger: TriggerType::TriggerboxV1(TriggerboxConfig::default()),
             cameras: vec![
                 BraidCameraConfig::default_absdiff_config("fake-camera-1".to_string()),
                 BraidCameraConfig::default_absdiff_config("fake-camera-2".to_string()),
@@ -186,13 +219,25 @@ impl BraidCameraConfig {
     }
 }
 
-pub fn parse_config_file(fname: &std::path::Path) -> Result<BraidConfig> {
+pub fn parse_config_file(fname: &std::path::Path) -> Result<BraidConfig2> {
     use std::io::Read;
 
     let mut file = std::fs::File::open(&fname)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut cfg: BraidConfig = toml::from_str(&contents)?;
+    let mut cfg: BraidConfig2 = match toml::from_str(&contents) {
+        Ok(cfg) => cfg,
+        Err(err1) => {
+            let cfg1: BraidConfig1 = match toml::from_str(&contents) {
+                Ok(cfg1) => cfg1,
+                Err(_err2) => {
+                    return Err(err1.into());
+                }
+            };
+            BraidConfig2::from(cfg1)
+        }
+    };
+    // let mut cfg: BraidConfig = toml::from_str(&contents)?;
     cfg.fixup_relative_paths(&fname)?;
     Ok(cfg)
 }

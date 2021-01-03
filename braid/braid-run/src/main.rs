@@ -11,7 +11,7 @@ use std::convert::TryInto;
 use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr};
+use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr, TriggerType};
 use strand_cam::ImPtDetectCfgSource;
 
 use braid::{braid_start, parse_config_file, BraidCameraConfig};
@@ -31,6 +31,8 @@ fn launch_strand_cam(
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit,
 ) -> Result<StrandCamInstance> {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
@@ -58,7 +60,8 @@ fn launch_strand_cam(
         mainbrain_internal_addr,
         camdata_addr,
         show_url: false,
-        force_camera_sync_mode: true,
+        force_camera_sync_mode,
+        software_limit_framerate,
     };
 
     let (_, _, fut) = strand_cam::setup_app(handle, args).expect("setup_app");
@@ -85,6 +88,13 @@ fn main() -> Result<()> {
         .expect("runtime");
 
     let trig_cfg = cfg.trigger;
+    let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
+        TriggerType::TriggerboxV1(_) => (true, strand_cam::StartSoftwareFrameRateLimit::NoChange),
+        TriggerType::FakeSync(cfg) => (
+            false,
+            strand_cam::StartSoftwareFrameRateLimit::Enable(cfg.fps),
+        ),
+    };
     let show_tracking_params = false;
 
     let handle = runtime.handle().clone();
@@ -124,6 +134,8 @@ fn main() -> Result<()> {
                     camdata_addr,
                     Some(mainbrain_server_info.clone()),
                     handle.clone(),
+                    force_camera_sync_mode,
+                    software_limit_framerate.clone(),
                 )
             })
             .collect::<Result<Vec<StrandCamInstance>>>()

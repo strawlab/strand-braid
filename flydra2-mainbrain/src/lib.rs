@@ -21,8 +21,8 @@ use bui_backend_types::CallbackDataAndSession;
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, FlydraPacketCodec,
-    FlydraRawUdpPacket, HttpApiCallback, HttpApiShared, RosCamName, SyncFno, Triggerbox,
-    TriggerboxConfig,
+    FlydraRawUdpPacket, HttpApiCallback, HttpApiShared, RosCamName, SyncFno, TriggerType,
+    Triggerbox,
 };
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
@@ -267,7 +267,7 @@ pub struct StartupPhase1 {
     http_session_handler: HttpSessionHandler,
     handle: tokio::runtime::Handle,
     valve: stream_cancel::Valve,
-    trigger_cfg: Option<TriggerboxConfig>,
+    trigger_cfg: TriggerType,
     triggerbox_rx: Option<crossbeam_channel::Receiver<flydra1_triggerbox::Cmd>>,
     flydra1: bool,
     model_pose_server_addr: std::net::SocketAddr,
@@ -283,7 +283,7 @@ pub async fn pre_run(
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
     camdata_addr: &str,
-    trigger_cfg: Option<TriggerboxConfig>,
+    trigger_cfg: TriggerType,
     flydra1: bool,
     http_api_server_addr: String,
     http_api_server_token: Option<String>,
@@ -407,11 +407,12 @@ pub async fn pre_run(
 
     let time_model_arc = Arc::new(RwLock::new(None));
 
-    let (triggerbox_cmd, triggerbox_rx) = if trigger_cfg.is_some() {
-        let (tx, rx) = crossbeam_channel::unbounded();
-        (Some(tx), Some(rx))
-    } else {
-        (None, None)
+    let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
+        TriggerType::TriggerboxV1(_) => {
+            let (tx, rx) = crossbeam_channel::unbounded();
+            (Some(tx), Some(rx), false)
+        }
+        TriggerType::FakeSync(_) => (None, None, true),
     };
 
     let sync_pulse_pause_started: Option<std::time::Instant> = None;
@@ -420,6 +421,7 @@ pub async fn pre_run(
     let flydra_app_name = "Braid".to_string();
 
     let shared = HttpApiShared {
+        fake_sync,
         csv_tables_dirname: None,
         clock_model_copy: None,
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
@@ -573,40 +575,21 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     let tracker = my_app.inner.shared_arc().clone();
 
-    if let Some(ref cfg) = trigger_cfg {
-        let dev = &cfg.device_fname;
-        let fps = &cfg.framerate;
-        let query_dt = &cfg.query_dt;
-
-        use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
-
-        let device = std::path::PathBuf::from(dev);
-        let tx = my_app.triggerbox_cmd.clone().unwrap();
-        let cmd_rx = triggerbox_rx.unwrap();
-
-        tx.send(Cmd::StopPulsesAndReset).cb_ok();
-        tx.send(make_trig_fps_cmd(*fps as f64)).cb_ok();
-        tx.send(Cmd::StartPulses).cb_ok();
-
-        let mut expected_framerate = expected_framerate_arc.write();
-        *expected_framerate = Some(*fps);
-
-        // triggerbox_cmd = Some(tx);
-
-        let time_model_arc2 = time_model_arc.clone();
-        let http_session_handler2 = http_session_handler.clone();
-        let tracker2 = tracker.clone();
-        let on_new_clock_model = Box::new(move |tm: Option<ClockModel>| {
+    let on_new_clock_model = {
+        let time_model_arc = time_model_arc.clone();
+        let http_session_handler = http_session_handler.clone();
+        let tracker = tracker.clone();
+        Box::new(move |tm: Option<ClockModel>| {
             let cm = tm.clone();
             {
-                let mut guard = time_model_arc2.write();
+                let mut guard = time_model_arc.write();
                 *guard = tm;
             }
             {
-                let mut tracker = tracker2.write();
-                tracker.modify(|shared| shared.clock_model_copy = cm.clone());
+                let mut tracker_guard = tracker.write();
+                tracker_guard.modify(|shared| shared.clock_model_copy = cm.clone());
             }
-            let mut http_session_handler3 = http_session_handler2.clone();
+            let mut http_session_handler3 = http_session_handler.clone();
             handle.spawn(async move {
                 let r = http_session_handler3.send_clock_model_to_all(cm).await;
                 match r {
@@ -616,17 +599,57 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     }
                 };
             });
-        });
-        let (control, _handle) = launch_background_thread(
-            on_new_clock_model,
-            device,
-            cmd_rx,
-            Some(triggerbox_data_tx),
-            *query_dt,
-        )?;
+        })
+    };
 
-        _triggerbox_thread_control = Some(control);
-    }
+    // if let Some(ref cfg) = trigger_cfg {
+    match &trigger_cfg {
+        TriggerType::TriggerboxV1(cfg) => {
+            let dev = &cfg.device_fname;
+            let fps = &cfg.framerate;
+            let query_dt = &cfg.query_dt;
+
+            use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
+
+            let device = std::path::PathBuf::from(dev);
+            let tx = my_app.triggerbox_cmd.clone().unwrap();
+            let cmd_rx = triggerbox_rx.unwrap();
+
+            tx.send(Cmd::StopPulsesAndReset).cb_ok();
+            tx.send(make_trig_fps_cmd(*fps as f64)).cb_ok();
+            tx.send(Cmd::StartPulses).cb_ok();
+
+            let mut expected_framerate = expected_framerate_arc.write();
+            *expected_framerate = Some(*fps);
+
+            // triggerbox_cmd = Some(tx);
+
+            let (control, _handle) = launch_background_thread(
+                on_new_clock_model,
+                device,
+                cmd_rx,
+                Some(triggerbox_data_tx),
+                *query_dt,
+            )?;
+
+            _triggerbox_thread_control = Some(control);
+        }
+        TriggerType::FakeSync(cfg) => {
+            info!("No triggerbox configuration. Using fake synchronization.");
+            let gain = 1.0 / cfg.fps as f64;
+
+            let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+            // let local = now.with_timezone(&chrono::Local);
+            let offset = datetime_conversion::datetime_to_f64(&now);
+
+            (on_new_clock_model)(Some(ClockModel {
+                gain,
+                n_measurements: 0,
+                offset,
+                residuals: 0.0,
+            }));
+        }
+    };
 
     let expected_framerate_arc9 = expected_framerate_arc.clone();
 
@@ -690,10 +713,21 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
         let http_session_handler3 = http_session_handler2.clone();
 
+        let sync_time_min = match &trigger_cfg {
+            TriggerType::TriggerboxV1(_) => {
+                // Using trigger box
+                std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64)
+            }
+            TriggerType::FakeSync(_) => {
+                // Using fake trigger
+                std::time::Duration::from_secs(0)
+            }
+        };
+
         let synced_frame = match cam_manager2.got_new_frame_live(
             &packet,
             &sync_pulse_pause_started_arc,
-            std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64),
+            sync_time_min,
             std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
             |name, frame| {
                 let name2 = name.clone();
@@ -955,12 +989,7 @@ fn synchronize_cameras(
     if let Some(tx) = triggerbox_cmd {
         begin_cam_sync_triggerbox_in_process(tx);
     } else {
-        {
-            error!(
-                "Cannot synchronize cameras. ROS support was not enabled \
-                at compile time, but no connection to triggerbox."
-            );
-        }
+        info!("Using fake synchronization method.");
     }
 }
 

@@ -157,6 +157,7 @@ pub enum ConnectedCameraSyncState {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct HttpApiShared {
+    pub fake_sync: bool,
     pub clock_model_copy: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
     pub calibration_filename: Option<String>,
@@ -665,6 +666,32 @@ impl std::default::Default for TriggerboxConfig {
             framerate: 100.0,
             query_dt: std::time::Duration::from_millis(1500),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FakeSyncConfig {
+    pub fps: f64,
+}
+
+impl Default for FakeSyncConfig {
+    fn default() -> Self {
+        Self { fps: 95.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "trigger_type")]
+pub enum TriggerType {
+    TriggerboxV1(TriggerboxConfig),
+    FakeSync(FakeSyncConfig),
+}
+
+impl Default for TriggerType {
+    fn default() -> Self {
+        TriggerType::FakeSync(FakeSyncConfig::default())
     }
 }
 
