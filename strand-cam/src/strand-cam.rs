@@ -1272,7 +1272,7 @@ fn frame_process_thread(
                             }
 
                             if let Some(corners) = corners {
-                                info!("Found {} chessboard corners.", corners.len());
+                                info!("Found {} chessboard corners in {} msec.", corners.len(), work_duration.as_millis());
                                 results = corners.iter().map(|(x,y)| {
                                     video_streaming::Point {
                                         x: *x,
@@ -1296,7 +1296,7 @@ fn frame_process_thread(
                                     });
                                 }
                             } else {
-                                info!("Found no chessboard corners.");
+                                info!("Found no chessboard corners in {} msec.", work_duration.as_millis());
                             }
                         }
                     }
@@ -2343,16 +2343,31 @@ pub struct StrandCamArgs {
     pub process_frame_callback: Option<ProcessFrameCbData>,
     #[cfg(feature = "plugin-process-frame")]
     pub plugin_wait_dur: std::time::Duration,
-    pub force_camera_sync_mode: bool,
     #[cfg(feature = "flydratrax")]
     pub save_empty_data2d: SaveEmptyData2dType,
     #[cfg(feature = "flydratrax")]
     pub model_server_addr: std::net::SocketAddr,
     #[cfg(feature = "fiducial")]
     pub apriltag_csv_filename_template: String,
+
+    /// If set, camera acquisition will external trigger.
+    pub force_camera_sync_mode: bool,
+
+    /// If not Enable, limit framerate (FPS) at startup.
+    pub software_limit_framerate: StartSoftwareFrameRateLimit,
 }
 
 pub type SaveEmptyData2dType = bool;
+
+#[derive(Clone)]
+pub enum StartSoftwareFrameRateLimit {
+    /// Set the frame_rate limit at a given frame rate.
+    Enable(f64),
+    /// Disable the frame_rate limit.
+    Disabled,
+    /// Do not change the frame rate limit.
+    NoChange,
+}
 
 impl Default for StrandCamArgs {
     fn default() -> Self {
@@ -2387,6 +2402,7 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "plugin-process-frame")]
             plugin_wait_dur: std::time::Duration::from_millis(5),
             force_camera_sync_mode: false,
+            software_limit_framerate: StartSoftwareFrameRateLimit::NoChange,
             #[cfg(feature = "flydratrax")]
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
@@ -2501,28 +2517,35 @@ pub async fn setup_app(
 
     debug!("  current pixel format: {}", cam.pixel_format()?);
 
-    // Save the value of whether the frame rate limiter is enabled.
-    let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
-    debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+    let (frame_rate_limit_supported, mut frame_rate_limit_enabled) = {
+        // This entire section should be removed and converted to a query
+        // of the cameras capabilities.
 
-    // Check if we can set the frame rate, first by setting a limit to be on.
-    let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
-        Ok(()) => {
-            debug!("set set_acquisition_frame_rate_enable true");
-            // Then by setting a limit to be off.
-            match cam.set_acquisition_frame_rate_enable(false) {
-                Ok(()) => {debug!("{}:{}",file!(),line!());true},
-                Err(e) => {debug!("err {} {}:{}",e, file!(),line!());false},
-            }
-        },
-        Err(e) => {debug!("err {} {}:{}",e,file!(),line!());false},
+        // Save the value of whether the frame rate limiter is enabled.
+        let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+        debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+
+        // Check if we can set the frame rate, first by setting a limit to be on.
+        let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
+            Ok(()) => {
+                debug!("set set_acquisition_frame_rate_enable true");
+                // Then by setting a limit to be off.
+                match cam.set_acquisition_frame_rate_enable(false) {
+                    Ok(()) => {debug!("{}:{}",file!(),line!());true},
+                    Err(e) => {debug!("err {} {}:{}",e, file!(),line!());false},
+                }
+            },
+            Err(e) => {debug!("err {} {}:{}",e,file!(),line!());false},
+        };
+
+        if frame_rate_limit_supported {
+            // Restore the state of the frame rate limiter.
+            cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
+            debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+        }
+
+        (frame_rate_limit_supported, frame_rate_limit_enabled)
     };
-
-    if frame_rate_limit_supported {
-        // Restore the state of the frame rate limiter.
-        cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
-        debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
-    }
 
     cam.set_acquisition_mode(ci2::AcquisitionMode::Continuous)?;
     cam.acquisition_start()?;
@@ -2617,7 +2640,7 @@ pub async fn setup_app(
     let gain_auto = cam.gain_auto().ok();
     let exposure_auto = cam.exposure_auto().ok();
 
-    let frame_rate_limit = if frame_rate_limit_supported {
+    let mut frame_rate_limit = if frame_rate_limit_supported {
         let (min, max) = cam.acquisition_frame_rate_range()?;
         Some(RangedValue {
             name: "frame rate".into(),
@@ -2634,6 +2657,19 @@ pub async fn setup_app(
         // The trigger selector must be set before the trigger mode.
         cam.set_trigger_selector(ci2_types::TriggerSelector::FrameStart).unwrap();
         cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
+    }
+
+    if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &args.software_limit_framerate {
+        // Set the camera.
+        cam.set_acquisition_frame_rate(*fps_limit).unwrap();
+        cam.set_acquisition_frame_rate_enable(true).unwrap();
+        // Store the values we set.
+        if let Some(ref mut ranged) = frame_rate_limit {
+            ranged.current = cam.acquisition_frame_rate()?;
+        } else {
+            panic!("cannot set software frame rate limit");
+        }
+        frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
     }
 
     let trigger_mode = cam.trigger_mode()?;

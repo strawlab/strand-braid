@@ -2,16 +2,15 @@
 extern crate log;
 extern crate env_logger;
 
-extern crate failure;
-extern crate structopt;
 extern crate crossbeam_channel;
+extern crate structopt;
 
-extern crate flydra1_triggerbox;
 extern crate crossbeam_ok;
+extern crate flydra1_triggerbox;
 
-use structopt::StructOpt;
-use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
 use crossbeam_ok::CrossbeamOk;
+use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "standalone-triggerbox-demo")]
@@ -24,7 +23,7 @@ struct Opt {
     fps: f64,
 }
 
-fn main() -> Result<(),failure::Error> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     info!("flydra1_triggerbox starting");
     let opt = Opt::from_args();
@@ -41,8 +40,7 @@ fn main() -> Result<(),failure::Error> {
 
     let query_dt = std::time::Duration::from_secs(1);
 
-    let (control,_handle) = launch_background_thread(
-        cb, opt.device, rx, None, query_dt)?;
+    let (control, _handle) = launch_background_thread(cb, opt.device, rx, None, query_dt)?;
 
     while !control.is_done() {
         std::thread::sleep(std::time::Duration::from_secs(1));

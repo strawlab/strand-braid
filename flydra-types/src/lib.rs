@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate failure_derive;
-#[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate static_assertions;
@@ -159,6 +157,7 @@ pub enum ConnectedCameraSyncState {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct HttpApiShared {
+    pub fake_sync: bool,
     pub clock_model_copy: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
     pub calibration_filename: Option<String>,
@@ -551,42 +550,34 @@ pub use crate::serialize::{
     CBOR_MAGIC, FLYDRA1_PACKET_HEADER_SIZE, FLYDRA1_PER_POINT_PAYLOAD_SIZE,
 };
 
+#[cfg(feature = "with-tokio-codec")]
 mod tokio_flydra1;
+#[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_flydra1::FlydraPacketCodec;
 
+#[cfg(feature = "with-tokio-codec")]
 mod tokio_cbor;
+#[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_cbor::CborPacketCodec;
 
 type Result<M> = std::result::Result<M, FlydraTypesError>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum FlydraTypesError {
-    #[fail(display = "CBOR data")]
+    #[error("CBOR data")]
     CborDataError,
-    #[fail(display = "serde error")]
+    #[error("serde error")]
     SerdeError,
-    #[fail(display = "unexpected hypothesis testing parameters")]
+    #[error("unexpected hypothesis testing parameters")]
     UnexpectedHypothesisTestingParameters,
-    #[fail(display = "input too long")]
+    #[error("input too long")]
     InputTooLong,
-    #[fail(display = "long string not implemented")]
+    #[error("long string not implemented")]
     LongStringNotImplemented,
-    #[fail(display = "{}", _0)]
-    IoError(#[cause] std::io::Error),
-    #[fail(display = "{}", _0)]
-    Utf8Error(#[cause] std::str::Utf8Error),
-}
-
-impl From<std::io::Error> for FlydraTypesError {
-    fn from(orig: std::io::Error) -> FlydraTypesError {
-        FlydraTypesError::IoError(orig)
-    }
-}
-
-impl From<std::str::Utf8Error> for FlydraTypesError {
-    fn from(orig: std::str::Utf8Error) -> FlydraTypesError {
-        FlydraTypesError::Utf8Error(orig)
-    }
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("{0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -675,6 +666,32 @@ impl std::default::Default for TriggerboxConfig {
             framerate: 100.0,
             query_dt: std::time::Duration::from_millis(1500),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FakeSyncConfig {
+    pub fps: f64,
+}
+
+impl Default for FakeSyncConfig {
+    fn default() -> Self {
+        Self { fps: 95.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "trigger_type")]
+pub enum TriggerType {
+    TriggerboxV1(TriggerboxConfig),
+    FakeSync(FakeSyncConfig),
+}
+
+impl Default for TriggerType {
+    fn default() -> Self {
+        TriggerType::FakeSync(FakeSyncConfig::default())
     }
 }
 

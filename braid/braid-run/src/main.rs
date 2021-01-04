@@ -8,13 +8,13 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use std::convert::TryInto;
 
-use failure::Error;
+use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr};
+use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr, TriggerType};
 use strand_cam::ImPtDetectCfgSource;
 
-use braid::{braid_start, parse_config_file, Flydra3CameraConfig};
+use braid::{braid_start, parse_config_file, BraidCameraConfig};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "run the multi-camera realtime 3D tracker")]
@@ -27,11 +27,13 @@ struct BraidRunCliArgs {
 struct StrandCamInstance {}
 
 fn launch_strand_cam(
-    camera: Flydra3CameraConfig,
+    camera: BraidCameraConfig,
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
     runtime: &tokio::runtime::Runtime,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit,
 ) -> StrandCamInstance {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
@@ -59,15 +61,18 @@ fn launch_strand_cam(
         mainbrain_internal_addr,
         camdata_addr,
         show_url: false,
-        force_camera_sync_mode: true,
+        force_camera_sync_mode,
+        software_limit_framerate,
     };
 
-    let (_, _, fut) = runtime.block_on(strand_cam::setup_app(handle.clone(), args)).expect("setup_app");
+    let (_, _, fut) = runtime
+        .block_on(strand_cam::setup_app(handle.clone(), args))
+        .expect("setup_app");
     handle.spawn(fut);
     StrandCamInstance {}
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     braid_start("run")?;
 
     let args = BraidRunCliArgs::from_args();
@@ -84,6 +89,13 @@ fn main() -> Result<(), Error> {
         .build()?;
 
     let trig_cfg = cfg.trigger;
+    let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
+        TriggerType::TriggerboxV1(_) => (true, strand_cam::StartSoftwareFrameRateLimit::NoChange),
+        TriggerType::FakeSync(cfg) => (
+            false,
+            strand_cam::StartSoftwareFrameRateLimit::Enable(cfg.fps),
+        ),
+    };
     let show_tracking_params = false;
 
     let handle = runtime.handle().clone();
@@ -125,6 +137,8 @@ fn main() -> Result<(), Error> {
                     Some(mainbrain_server_info.clone()),
                     handle.clone(),
                     &runtime,
+                    force_camera_sync_mode,
+                    software_limit_framerate.clone(),
                 )
             })
             .collect::<Vec<StrandCamInstance>>()

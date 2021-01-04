@@ -208,8 +208,20 @@ impl Model {
 
     fn view_shared(&self) -> Html {
         if let Some(ref value) = self.shared {
+            let fake_sync_warning = if value.fake_sync {
+                html! {
+                    <div>
+                        {"⚠ Emulating synchronization because no trigger box in use. Data will not be perfectly synchronized. ⚠"}
+                    </div>
+                }
+            } else {
+                html! {
+                    <></>
+                }
+            };
             html! {
                 <div>
+                    {fake_sync_warning}
                     <div>
                         <RecordingPathWidget
                             label="Record .braidz file",

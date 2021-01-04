@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate log;
 
+use anyhow::Result;
 use braid::{braid_start, parse_config_file};
-use failure::Error;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -13,7 +13,7 @@ struct BraidShowConfigCliArgs {
     config_file: std::path::PathBuf,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     braid_start("show-config")?;
 
     let args = BraidShowConfigCliArgs::from_args();

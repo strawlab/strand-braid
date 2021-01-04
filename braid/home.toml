@@ -8,3 +8,7 @@ save_empty_data2d = true
 
 [[cameras]]
 name = "Basler-40058153"
+
+[trigger]
+fps = 95.0
+trigger_type = "FakeSync"
