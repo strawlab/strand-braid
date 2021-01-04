@@ -1258,7 +1258,7 @@ fn frame_process_thread(
                                 struct CornerData<'a> {
                                     corners: &'a Option<Vec<(f32, f32)>>,
                                     work_duration: std::time::Duration,
-                                };
+                                }
                                 let debug_data = CornerData {
                                     corners: &corners,
                                     work_duration,
@@ -3668,7 +3668,7 @@ pub fn setup_app(
                                 corners: &'a Vec<camcal::CheckerBoardData>,
                                 image_width: u32,
                                 image_height: u32,
-                            };
+                            }
                             let debug_data = CornersData {
                                 corners: &goodcorners,
                                 image_width,
