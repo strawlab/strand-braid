@@ -53,3 +53,9 @@ shall be dual licensed under the terms of the
 
 without any additional terms or conditions. (This helps us realize the future
 license plans as described above.)
+
+## Code of conduct
+
+Anyone who interacts with this software in any space, including but not limited
+to this GitHub repository, must follow our [code of
+conduct](code_of_conduct.md).
