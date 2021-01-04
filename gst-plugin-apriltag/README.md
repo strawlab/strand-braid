@@ -1,3 +1,4 @@
+# gst-plugin-apriltag
 
 ## Prerequisites:
 
@@ -5,7 +6,11 @@ This crate requires gstreamer (with the video plugin) and april tag libraries.
 
 On Debian/Ubuntu linux, you can install the prerequisites to build like this:
 
-    sudo apt install libgstreamer-plugins-base1.0-dev libapriltag-dev
+    sudo apt-get install libgstreamer-plugins-base1.0-dev libapriltag-dev
+
+On Debian/Ubuntu linux, you can install `gst-inspect-1.0` like this:
+
+    sudo apt-get install gstreamer1.0-tools
 
 ## Build and run
 
@@ -44,3 +49,10 @@ perform more debugging.
 For example:
 
     GST_DEBUG=2,apriltagdetector:6 gst-launch-1.0 videotestsrc num-buffers=5 is-live=1 ! apriltagdetector family=16h5 ! filesink location=trash.csv
+
+## License
+
+Like apriltag itself, gst-plugin-apriltag is licensed under the BSD-2-Clause license.
+
+Portions of the code derive from the gst-plugin tutorial (C) 2018 Sebastian
+Dröge, licensed under the Apache License, Version 2.0  or the MIT license.

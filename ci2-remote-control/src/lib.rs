@@ -253,6 +253,7 @@ pub enum CamArg {
     SetTriggerMode(ci2_types::TriggerMode),
     SetTriggerSelector(ci2_types::TriggerSelector),
     ToggleCheckerboardDetection(bool),
+    ToggleCheckerboardDebug(bool),
     SetCheckerboardWidth(u32),
     SetCheckerboardHeight(u32),
     ClearCheckerboards,

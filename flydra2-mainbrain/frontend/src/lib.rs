@@ -106,6 +106,7 @@ impl Component for Model {
     fn change(&mut self, _: ()) -> ShouldRender {
         false
     }
+
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::EsCheckState => {
@@ -367,6 +368,6 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    wasm_logger::init(wasm_logger::Config::default());
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
     yew::start_app::<Model>();
 }

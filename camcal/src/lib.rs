@@ -1,14 +1,10 @@
-
 use nalgebra::RealField;
+use serde::{Deserialize, Serialize};
 
-mod error;
-pub use crate::error::Error;
-
-type Result<T> = std::result::Result<T,error::Error>;
-
-type Coords3D = (f64,f64,f64);
+type Coords3D = (f64, f64, f64);
 type Coords2D = (f64, f64);
 
+#[derive(Serialize, Deserialize)]
 pub struct CheckerBoardData {
     // dim: f64,
     n_rows: usize,
@@ -32,7 +28,7 @@ fn to_image_points(board: &CheckerBoardData) -> Vec<Coords2D> {
     board.points.clone()
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct PixelSize {
     width: usize,
     height: usize,
@@ -40,10 +36,7 @@ pub struct PixelSize {
 
 impl PixelSize {
     pub fn new(width: usize, height: usize) -> Self {
-        Self {
-            width,
-            height
-        }
+        Self { width, height }
     }
 }
 
@@ -53,7 +46,10 @@ impl PixelSize {
 /// that unlike ROS, which scales the image so that k and p matrices are
 /// different, the code here does not. ROS does this so that undistorted images
 /// fill the entire image area.
-pub fn compute_intrinsics<R: RealField>(size: PixelSize, data: &[CheckerBoardData]) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>> {
+pub fn compute_intrinsics<R: RealField>(
+    size: PixelSize,
+    data: &[CheckerBoardData],
+) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, opencv_calibrate::Error> {
     /*
     cal = camera_calibration.calibrator.MonoCalibrator([])
     cal.size = (width,height)
@@ -64,19 +60,23 @@ pub fn compute_intrinsics<R: RealField>(size: PixelSize, data: &[CheckerBoardDat
     let object_points: Vec<Vec<Coords3D>> = mk_object_points(data);
     let image_points: Vec<Vec<Coords2D>> = data.iter().map(to_image_points).collect();
 
-    debug_assert!(object_points.len()==image_points.len());
+    debug_assert!(object_points.len() == image_points.len());
 
     use opencv_calibrate::CorrespondingPoint;
-    let pts: Vec<Vec<CorrespondingPoint>> = object_points.into_iter().zip(image_points.into_iter()).map(|(obj_pts,im_pts)|
-        obj_pts.into_iter().zip(im_pts.into_iter()).map(|(obj_pt, im_pt)|
-            CorrespondingPoint {
-                object_point: obj_pt,
-                image_point: im_pt,
-            }
-        )
-        .collect()
-    )
-    .collect();
+    let pts: Vec<Vec<CorrespondingPoint>> = object_points
+        .into_iter()
+        .zip(image_points.into_iter())
+        .map(|(obj_pts, im_pts)| {
+            obj_pts
+                .into_iter()
+                .zip(im_pts.into_iter())
+                .map(|(obj_pt, im_pt)| CorrespondingPoint {
+                    object_point: obj_pt,
+                    image_point: im_pt,
+                })
+                .collect()
+        })
+        .collect();
 
     let results = opencv_calibrate::calibrate_camera(&pts, size.width as i32, size.height as i32)?;
 
@@ -94,7 +94,9 @@ pub fn compute_intrinsics<R: RealField>(size: PixelSize, data: &[CheckerBoardDat
     );
     let dist = opencv_ros_camera::Distortion::from_opencv_vec(dist);
 
-    let r = opencv_ros_camera::RosOpenCvIntrinsics::from_params_with_distortion(fx, skew, fy, cx, cy, dist);
+    let r = opencv_ros_camera::RosOpenCvIntrinsics::from_params_with_distortion(
+        fx, skew, fy, cx, cy, dist,
+    );
     Ok(r)
 }
 
@@ -127,7 +129,7 @@ fn mk_object_points(data: &[CheckerBoardData]) -> Vec<Vec<Coords3D>> {
             let x = (j as f64 / b.n_cols as f64).trunc();
             let y = j as f64 % b.n_cols as f64;
             let z = 0.0;
-            opts_loc.push((x,y,z));
+            opts_loc.push((x, y, z));
         }
         result.push(opts_loc);
     }

@@ -1,0 +1,13 @@
+[package]
+name = "find-chessboard"
+version = "0.1.0"
+license = "BSD-3-Clause"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+opencv-calibrate = {path=".."}
+image = "0.23"
+serde_yaml = "0.8"
+structopt = "0.3"
+anyhow = "1.0"

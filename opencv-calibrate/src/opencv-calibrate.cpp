@@ -1,4 +1,5 @@
 #include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 extern "C" {
 
@@ -98,8 +99,21 @@ struct cv_return_value_bool find_chessboard_corners_inner(uchar* frameDataRGB, i
     try {
         cv::Size patternsize(patternWidth, patternHeight);
         cv::Mat frame(frameHeight, frameWidth, CV_8UC3, frameDataRGB);
-        // Default flags `CALIB_CB_ADAPTIVE_THRESH+CALIB_CB_NORMALIZE_IMAGE`.
-        result.result = findChessboardCorners(frame, patternsize, *corners);
+
+        int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE | cv::CALIB_CB_FAST_CHECK;
+        bool patternfound = cv::findChessboardCorners(frame, patternsize, *corners, chessBoardFlags);
+
+        if (patternfound) {
+            // Perform subpixel refinement.
+            cv::Mat gray;
+            cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+            cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
+                cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+            result.result = true;
+        } else {
+            result.result = false;
+        }
     } catch (const cv::Exception &e) {
         result.is_cv_exception = 1;
     } catch (...) {

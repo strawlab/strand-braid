@@ -1,4 +1,6 @@
-# extract time from nvidiaargussrc
+# gst-plugin-nvargustime
+
+Gstreamer plugin to extract time from nvidiaargussrc.
 
 See [this](https://devtalk.nvidia.com/default/topic/1056918/jetson-tx2/nvarguscamerasrc-buffer-metadata-is-missing-/post/5392925/#5392925) for more info.
 
@@ -30,3 +32,12 @@ See also [this](https://developer.ridgerun.com/wiki/index.php?title=NVIDIA_Jetso
 * The PTS is locked to the timestamp saved by `nvarguscamerasrc` offset by a
 fixed amount.
 * The timestamp saved by `nvarguscamerasrc` is in units of CLOCK_MONOTONIC
+
+## License
+
+gst-plugin-nvargustime is Copyright (C) 2020 Andrew Straw <strawman@astraw.com>.
+
+Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+http://opensource.org/licenses/MIT>, at your option. This file may not be
+copied, modified, or distributed except according to those terms.

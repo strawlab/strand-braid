@@ -16,6 +16,8 @@ fn infer_static(name: &str) -> bool {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=src/opencv-calibrate.cpp");
+
     println!("cargo:rerun-if-env-changed=OPENCV_LIB_DIR");
     println!("cargo:rerun-if-env-changed=OPENCV_VERSION");
     println!("cargo:rerun-if-env-changed=OPENCV_INCLUDE_DIR");

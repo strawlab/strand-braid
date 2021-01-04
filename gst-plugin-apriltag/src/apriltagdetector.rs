@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Andrew Straw <strawman@astraw.com>
 //
-// Proprietary software. All rights reserved. This file may not be copied,
-// modified, or distributed.
+// Licensed under the BSD 2 Clause License. See LICENSE.txt.
 //
 // Copyright (C) 2018 Sebastian Dröge <sebastian@centricular.com>
 //

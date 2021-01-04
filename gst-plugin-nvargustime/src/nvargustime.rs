@@ -1,8 +1,4 @@
 // Copyright (C) 2020 Andrew Straw <strawman@astraw.com>
-//
-// Proprietary software. All rights reserved. This file may not be copied,
-// modified, or distributed.
-//
 // Copyright (C) 2018 Sebastian Dröge <sebastian@centricular.com>
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -19,6 +15,10 @@ use gst;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 
+/// The data format as emitted by the nvarguscamerasrc component.
+///
+/// The best online reference I could find to this definition
+/// is [here](https://forums.developer.nvidia.com/t/nvarguscamerasrc-buffer-metadata-is-missing/77676/29).
 #[repr(C)]
 struct AuxData {
     frame_num: i64,
@@ -87,6 +87,7 @@ impl NvArgusTime {
             let quark = unsafe {
                 glib_sys::g_quark_from_static_string(b"GstBufferMetaData\0".as_ptr() as *const _)
             };
+            // Cast the GstMiniObject to our AuxData type so we can read the values.
             let meta =
                 unsafe { gst_sys::gst_mini_object_get_qdata(minibufptr, quark) } as *const AuxData;
             if meta.is_null() {
@@ -171,7 +172,7 @@ impl ObjectSubclass for NvArgusTime {
         // retrieved from the gst::Registry after initial registration
         // without having to load the plugin in memory.
         klass.set_metadata(
-            "Nvidia Argust Time",
+            "Nvidia Argus Time",
             "Generic",
             "Does nothing with the data",
             "Andrew Straw <strawman@astraw.com>",

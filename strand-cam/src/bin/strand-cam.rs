@@ -5,7 +5,6 @@ extern crate failure;
 extern crate image_tracker;
 extern crate image_tracker_types;
 extern crate preferences;
-extern crate semver;
 extern crate shellexpand;
 extern crate strand_cam;
 
@@ -17,6 +16,7 @@ use clap::Arg;
 
 use strand_cam::{run_app, StrandCamArgs};
 
+#[cfg(feature = "cfg-pt-detect-src-prefs")]
 use strand_cam::APP_INFO;
 
 type Result<T> = std::result::Result<T, failure::Error>;

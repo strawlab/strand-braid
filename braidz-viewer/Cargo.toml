@@ -13,25 +13,25 @@ members = []
 
 [dependencies]
 bytesize = "1.0"
+log = "0.4"
+wasm-logger = "0.2.0"
 
-braidz-types = {path="../braidz-types"}
-mvg = {path="../mvg", features=["serde-serialize"]}
-braidz-parser = {path="../braidz-parser"}
+yew = "0.17.4"
 
-seed = "0.6"
 wasm-bindgen = "^0.2.45"
 web-sys = {version="^0.3.28", features=["Blob", "DateTimeValue", "File",
     "FileList", "FileReader", "HtmlInputElement"]}
 js-sys = "0.3.28"
-plotters = "0.2"
+plotters = "0.3"
+plotters-canvas = "0.3"
 wee_alloc = "0.4.5"
 serde = { version = "^1.0.85", features = ['derive'] }
 futures = "0.3"
 
-gloo-timers = {version = "^0.2.0", features = ["futures"]}
-gloo-file = {git="https://github.com/rylev/gloo", rev="2679ee84d6a6caa0037086758d15be81fe0aae7c"}
-
+mvg = {path="../mvg", features=["serde-serialize"]}
 zip-or-dir = {path="../zip-or-dir"}
+braidz-types = {path="../braidz-types"}
+braidz-parser = {path="../braidz-parser"}
 
 [profile.release]  # Attempts to minimize file size
 lto = true
