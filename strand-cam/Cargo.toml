@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam"
-version = "0.8.2" # braid release synchronized
+version = "0.9.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 build = "build.rs"
 edition = "2018"
