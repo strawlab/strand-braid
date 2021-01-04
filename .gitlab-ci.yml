@@ -369,7 +369,7 @@ strand-cam-pylon-linux:
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ../target/release/write-debian-changelog strand-cam-pylon > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
       - build/
@@ -480,7 +480,7 @@ strand-cam-camtrig-pylon-focal:
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
   artifacts:
@@ -535,7 +535,7 @@ strand-cam-camtrig-pylon-linux:
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
   artifacts:
@@ -657,7 +657,7 @@ braid-pylon-linux:
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
 
-    - ../target/release/write-debian-changelog braid-pylon > ../target/release/braid.changelog
+    - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
     - ls -l ../target/release
     - cd packaging
     - apt-get update && apt-get install -y dpkg-dev debhelper
@@ -711,7 +711,7 @@ strand-cam-dc1394-linux:
     - ../target/release/strand-cam --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-dc1394
-    - ../target/release/write-debian-changelog strand-cam-dc1394 > $CI_PROJECT_DIR/build/strand-cam-dc1394.changelog
+    - ../target/release/write-debian-changelog strand-cam-dc1394 xenial > $CI_PROJECT_DIR/build/strand-cam-dc1394.changelog
   artifacts:
     paths:
       - build/
