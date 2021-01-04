@@ -416,6 +416,78 @@ py-strandcam-pylon-linux:
     - touch rust/build.rs
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pylon IPP_SYS=2017 python setup.py install
 
+strand-cam-camtrig-pylon-focal:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+
+    - apt-get update
+    - apt-get install -y cpio libudev-dev libapriltag-dev libssl-dev zlib1g-dev pkg-config
+
+    - ORIG_DIR=`pwd`
+    - echo $ORIG_DIR
+
+    # Install IPP
+    - mkdir -p /tmp/download-ipp
+    - cd /tmp/download-ipp
+    - curl -O --silent https://internal-static.strawlab.org/software/ipp/l_ipp_2017.3.196.tgz
+    - curl -O --silent https://internal-static.strawlab.org/software/ipp/install-ipp-2017.sh
+    - chmod a+x install-ipp-2017.sh
+    - /tmp/download-ipp/install-ipp-2017.sh
+    - cd /
+    - rm -rf /tmp/download-ipp
+
+    # Install nightly Rust
+    - cd /tmp
+    - curl -O --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly
+
+    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
+    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
+    - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
+    - chmod a+x $CARGO_HOME/bin/wasm-pack
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - wasm-pack --version
+
+    # TODO: include firmware bundled
+    - rustc --version
+    - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+
+    # Download pylon and install 6
+    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
+    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+
+    - curl --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
+    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
+
+    - cd $ORIG_DIR
+    - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.25-amd64.exe > $CARGO_HOME/bin/cargo-web
+    - chmod a+x $CARGO_HOME/bin/cargo-web
+    - cd rt-image-viewer/yew_frontend && time ./build.sh && cd ../..
+    - cargo web --version
+    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2017 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig" --release
+    - cd ../strand-cam-offline-kalmanize
+    - cargo build --release
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
+    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
+
 strand-cam-camtrig-pylon-linux:
   stage: build
   tags:
