@@ -20,7 +20,7 @@ serde_json = { version = "1.0"}
 serde_cbor = "0.9"
 serde_yaml = "0.8"
 tokio = {version="1.0.1", default-features=false, features=["rt"]}
-stream-cancel = "0.7"
+stream-cancel = "0.8"
 hyper = "0.14"
 nalgebra = "0.23"
 ncollide2d = "0.26"
