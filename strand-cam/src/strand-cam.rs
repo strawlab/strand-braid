@@ -25,6 +25,9 @@ use ci2_pylon as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
+#[cfg(feature = "fiducial")]
+use ads_apriltag as apriltag;
+
 use http_video_streaming as video_streaming;
 use machine_vision_formats as formats;
 

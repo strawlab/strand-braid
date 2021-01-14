@@ -1,4 +1,5 @@
 use machine_vision_formats::ImageData;
+use ads_apriltag as apriltag;
 
 #[test]
 fn test_detect_standard_41h12() {

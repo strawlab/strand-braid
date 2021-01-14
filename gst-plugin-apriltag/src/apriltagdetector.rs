@@ -22,6 +22,8 @@ use std::convert::TryInto;
 use std::i32;
 use std::sync::Mutex;
 
+use ads_apriltag as apriltag;
+
 const SRC_CAPS: &'static str = "text/x-csv";
 
 // Property value storage

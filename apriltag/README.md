@@ -1,9 +1,12 @@
-# apriltag
+# ads-apriltag
 
 This Rust crate provides high level rust bindings for the
 [apriltag-sys](https://crates.io/crates/apriltag-sys) crate. This allows using
 the [aptriltag](https://github.com/AprilRobotics/apriltag) library from rust
 without directly writing unsafe code.
+
+Note that there is another high level rust apriltag library
+[here](https://crates.io/crates/apriltag).
 
 ## Prerequisites:
 

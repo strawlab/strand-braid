@@ -92,7 +92,7 @@ plugin-defs = {path="../plugin-defs", optional=true}
 bg-movie-writer = {path="../bg-movie-writer"}
 strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal", optional=true}
 nvenc = {path="../nvenc"}
-apriltag = {path="../apriltag", optional=true}
+ads-apriltag = {path="../apriltag", optional=true}
 
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}
@@ -100,7 +100,7 @@ bui-backend-codegen = {version="0.9", default-features = false}
 [features]
 default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "checkercal", "jemalloc"]
 
-fiducial = ["apriltag", "csv", "libflate"]
+fiducial = ["ads-apriltag", "csv", "libflate"]
 
 send-bg-images-to-mainbrain = []
 
