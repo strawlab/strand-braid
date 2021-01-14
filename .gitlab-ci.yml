@@ -172,7 +172,7 @@ test_fastimage:
   script:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2017" -- --nocapture --test-threads 1
 
-xenial-deb-packages:
+strand-cam-ubuntu1604-debs:
   stage: test # only because we depend on artifacts from build stage
   tags:
     - dc1394
@@ -206,7 +206,46 @@ xenial-deb-packages:
   artifacts:
     paths:
       - rust-cam-xenial-debs-build/
-    name: "rust-cam-xenial-debs-build-${CI_COMMIT_SHA}"
+    name: "strand-cam-ubuntu1604-debs-${CI_COMMIT_SHA}"
+
+strand-cam-ubuntu2004-debs:
+  stage: test # only because we depend on artifacts from build stage
+  tags:
+    - ubuntu-focal
+  script:
+    # Download pylon and install 6
+    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
+    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+
+    - mkdir -p $CI_PROJECT_DIR/rust-cam-focal-debs-build
+
+    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
+    # package list here is probably more than needed, but should contain the required subset.
+    - apt-get update && apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev libdc1394-22-dev libusb-1.0-0-dev
+
+    - cd strand-cam/packaging
+    - pwd
+    - ls -l ../../build
+    - ldd ../../build/strand-cam-camtrig-pylon
+    - ldd ../../build/strand-cam-dc1394
+    - ldd ../../build/strand-cam-pylon
+    - make
+    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
+    - cp -a *.changes $CI_PROJECT_DIR/rust-cam-focal-debs-build/
+    - cp -a *.deb $CI_PROJECT_DIR/rust-cam-focal-debs-build/
+    - ls -lh $CI_PROJECT_DIR/rust-cam-focal-debs-build/
+    # hack to remove dc1394 files since the artifact is too big to upload
+    - rm -rf $CI_PROJECT_DIR/rust-cam-focal-debs-build/*dc1394*
+    - cd ../..
+  dependencies:
+    - strand-cam-pylon-ubuntu2004
+    - strand-cam-camtrig-pylon-ubuntu2004
+    - strand-cam-dc1394-ubuntu2004
+  artifacts:
+    paths:
+      - rust-cam-focal-debs-build/
+    name: "strand-cam-ubuntu2004-debs-${CI_COMMIT_SHA}"
 
 # internal-strand-cam-xenial-deb-packages:
 #   stage: test # only because we depend on artifacts from build stage
@@ -229,7 +268,7 @@ xenial-deb-packages:
 #     - internal_debs/
 #   name: "rust-cam-internal_debs-${CI_COMMIT_SHA}"
 
-xenial-camtrig-deb-packages:
+camtrig-ubuntu1604-debs:
   stage: test # only because we depend on artifacts from build stage
   tags:
     - ubuntu-16.04
@@ -369,11 +408,37 @@ strand-cam-pylon-linux:
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ../target/release/write-debian-changelog strand-cam-pylon > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
       - build/
     name: "strand-cam-pylon-linux-${CI_COMMIT_SHA}"
+
+strand-cam-pylon-ubuntu2004:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - rustc --version
+
+    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial" --release
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
+    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 py-strandcam-pylon-linux:
   stage: build
@@ -415,6 +480,39 @@ py-strandcam-pylon-linux:
     - cd ../py-strandcam
     - touch rust/build.rs
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pylon IPP_SYS=2017 python setup.py install
+
+strand-cam-camtrig-pylon-ubuntu2004:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - chmod a+x $CARGO_HOME/bin/cargo-web
+    - cd rt-image-viewer/yew_frontend && time ./build.sh && cd ../..
+    - cargo web --version
+    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig" --release
+    - cd ../strand-cam-offline-kalmanize
+    - cargo build --release
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
+    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
 strand-cam-camtrig-pylon-linux:
   stage: build
@@ -463,7 +561,7 @@ strand-cam-camtrig-pylon-linux:
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
   artifacts:
@@ -471,7 +569,7 @@ strand-cam-camtrig-pylon-linux:
       - build/
     name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
-braid-offline-linux:
+braid-offline-ubuntu1604:
   stage: build
   tags:
     - rust
@@ -491,9 +589,9 @@ braid-offline-linux:
   artifacts:
     paths:
       - braid-offline-linux-build/
-    name: "braid-offline-linux-${CI_COMMIT_SHA}"
+    name: "braid-offline-ubuntu1604-${CI_COMMIT_SHA}"
 
-braidz-cli-linux:
+braidz-cli-ubuntu1604:
   stage: build
   tags:
     - rust
@@ -513,7 +611,7 @@ braidz-cli-linux:
   artifacts:
     paths:
       - braidz-cli-linux-build/
-    name: "braidz-cli-linux-${CI_COMMIT_SHA}"
+    name: "braidz-cli-ubuntu1604-${CI_COMMIT_SHA}"
 
 braidz-viewer:
   stage: build
@@ -529,7 +627,7 @@ braidz-viewer:
     - cd braidz-viewer
     - ./build.sh
 
-braid-pylon-linux:
+braid-pylon-ubuntu1604:
   stage: build
   tags:
     - rust
@@ -585,7 +683,7 @@ braid-pylon-linux:
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
 
-    - ../target/release/write-debian-changelog braid-pylon > ../target/release/braid.changelog
+    - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
     - ls -l ../target/release
     - cd packaging
     - apt-get update && apt-get install -y dpkg-dev debhelper
@@ -602,7 +700,57 @@ braid-pylon-linux:
   artifacts:
     paths:
       - braid-pylon-linux-build/
-    name: "braid-pylon-linux-${CI_COMMIT_SHA}"
+    name: "braid-pylon-ubuntu1604-${CI_COMMIT_SHA}"
+
+braid-pylon-ubuntu2004:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
+
+    # build mainbrain web frontend
+    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
+    - ./build.sh
+
+    # build braid-run
+    - cd $CI_PROJECT_DIR/braid/braid-run
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc" --release
+    - ldd ../../target/release/braid-run
+
+    # build braid
+    - cd $CI_PROJECT_DIR/braid
+    # force recomputing git version tag
+    - touch build.rs
+    - NUM_JOBS=2 cargo build --release
+    - ldd ../target/release/braid
+
+    - ../target/release/write-debian-changelog braid-pylon focal > ../target/release/braid.changelog
+    - ls -l ../target/release
+    - cd packaging
+    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - make
+    - mkdir -p $CI_PROJECT_DIR/braid-pylon-focal-build
+    - cp *.deb $CI_PROJECT_DIR/braid-pylon-focal-build
+    - cp *.changes $CI_PROJECT_DIR/braid-pylon-focal-build
+    - ls -lh *.deb
+    - ls -l *.deb
+    - dpkg -I *.deb
+    - dpkg --contents *.deb
+    - dpkg --info *.deb
+
+  artifacts:
+    paths:
+      - braid-pylon-focal-build/
+    name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 strand-cam-dc1394-linux:
   stage: build
@@ -639,11 +787,36 @@ strand-cam-dc1394-linux:
     - ../target/release/strand-cam --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-dc1394
-    - ../target/release/write-debian-changelog strand-cam-dc1394 > $CI_PROJECT_DIR/build/strand-cam-dc1394.changelog
+    - ../target/release/write-debian-changelog strand-cam-dc1394 xenial > $CI_PROJECT_DIR/build/strand-cam-dc1394.changelog
   artifacts:
     paths:
       - build/
     name: "strand-cam-dc1394-linux-${CI_COMMIT_SHA}"
+
+strand-cam-dc1394-ubuntu2004:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - apt-get install -y libdc1394-22-dev libusb-1.0-0-dev
+
+    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
+    # force recomputing git version tag
+    - touch build.rs
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 NUM_JOBS=2 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1" cargo build --features "bundle_files posix_sched_fifo backend_dc1394 ipp-sys/2019 checkercal fiducial" --release
+    - ../target/release/strand-cam --version
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-dc1394
+    - ../target/release/write-debian-changelog strand-cam-dc1394 focal > $CI_PROJECT_DIR/build/strand-cam-dc1394.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-dc1394-ubuntu2004-${CI_COMMIT_SHA}"
 
 camtrig-linux:
   stage: build
@@ -727,7 +900,7 @@ test_simple_dc1394:
 #   # only:
 #   # - master
 
-deploy-camtrig:
+deploy-camtrig-ubuntu1604:
   stage: deploy
   tags:
     - debs.strawlab.org-deployer
@@ -737,12 +910,12 @@ deploy-camtrig:
     name: production
     url: http://debs.strawlab.org/xenial/
   dependencies:
-    - xenial-camtrig-deb-packages
+    - camtrig-ubuntu1604-debs
   when: manual
   # only:
   # - master
 
-deploy-braid-pylon:
+deploy-braid-pylon-ubuntu1604:
   stage: deploy
   tags:
     - aptly.strawlab.org-deployer
@@ -754,10 +927,10 @@ deploy-braid-pylon:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
   dependencies:
-    - braid-pylon-linux
+    - braid-pylon-ubuntu1604
   when: manual
 
-deploy-braid-offline:
+deploy-braid-offline-ubuntu1604:
   stage: deploy
   tags:
     - aptly.strawlab.org-deployer
@@ -769,10 +942,10 @@ deploy-braid-offline:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
   dependencies:
-    - braid-offline-linux
+    - braid-offline-ubuntu1604
   when: manual
 
-deploy-braidz-cli:
+deploy-braidz-cli-ubuntu1604:
   stage: deploy
   tags:
     - aptly.strawlab.org-deployer
@@ -784,10 +957,10 @@ deploy-braidz-cli:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
   dependencies:
-    - braidz-cli-linux
+    - braidz-cli-ubuntu1604
   when: manual
 
-deploy-strand-cam-internal:
+deploy-strand-cam-internal-ubuntu1604:
   stage: deploy
   tags:
     - aptly.strawlab.org-deployer
@@ -799,10 +972,10 @@ deploy-strand-cam-internal:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
   dependencies:
-    - xenial-deb-packages
+    - strand-cam-ubuntu1604-debs
   when: manual
 
-build-fmf-cli-xenial:
+build-fmf-cli-ubuntu1604:
   stage: build
   tags:
     - rust
@@ -823,4 +996,4 @@ build-fmf-cli-xenial:
   artifacts:
     paths:
       - fmf-cli-xenial
-    name: "fmf-cli-xenial-${CI_COMMIT_SHA}"
+    name: "fmf-cli-ubuntu1604-${CI_COMMIT_SHA}"

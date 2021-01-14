@@ -10,7 +10,7 @@ all: braid-offline_VERSION_amd64.deb
 
 .built:
 	cd .. && cargo build --release && cd -
-	cd .. && cargo run --release --bin write-debian-changelog -- braid-offline > packaging/changelog && cd -
+	cd .. && cargo run --release --bin write-debian-changelog -- braid-offline xenial > packaging/changelog && cd -
 
 braid-offline/compute-flydra1-compat: .built
 	mkdir -p braid-offline
