@@ -922,8 +922,18 @@ fn frame_process_thread(
     #[cfg(feature = "checkercal")]
     let mut last_checkerboard_detection = std::time::Instant::now();
 
+    // This limits the frequency at which the checkerboard detection routine is
+    // called. This is meant to both prevent flooding the calibration routine
+    // with many highly similar checkerboard images and also to allow the image
+    // processing thread to keep a low queue depth on incoming frames. In the
+    // current form here, however, keeping a low queue depth is dependent on the
+    // checkerboard detection function returning fairly quickly. I have observed
+    // the OpenCV routine taking ~90 seconds even though usually it takes 100
+    // msec. Thus, this requirement is not always met. We could move this
+    // checkerboard detection routine to a different thread (e.g. using a tokio
+    // work pool) to avoid this problem.
     #[cfg(feature = "checkercal")]
-    let mut checkerboard_loop_dur = std::time::Duration::from_millis(10);
+    let mut checkerboard_loop_dur = std::time::Duration::from_millis(500);
 
     let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
