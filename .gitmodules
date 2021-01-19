@@ -7,9 +7,6 @@
 [submodule "_submodules/flydra"]
 	path = _submodules/flydra
 	url = https://github.com/strawlab/flydra
-[submodule "_submodules/nextgen-camera-users"]
-	path = _submodules/nextgen-camera-users
-	url = https://bare-git.strawlab.org/nextgen-camera-users.git
 [submodule "_submodules/common_msgs"]
 	path = _submodules/common_msgs
 	url = https://github.com/ros/common_msgs
