@@ -1,11 +1,11 @@
-# nextgen-camera-users
+# strand-braid-user
 
-Files and support for users of next generation camera software from the Straw
+Files and support for users of Strand Camera and Braid software from the Straw
 Lab.
 
 ## Downloads
 
-The most recent files can be downloaded [here](https://github.com/strawlab/nextgen-camera-users/releases).
+The most recent files can be downloaded [here](https://github.com/strawlab/strand-braid/releases).
 
 ## Live 3D pose estimates
 
@@ -14,17 +14,9 @@ of parsing live, low-latency 3D tracking data.
 
 ## Analysis of saved trajectories from Braid
 
-Remember, you can view your `.braidz` file at https://braidz.strawlab.org/.
+You can view `.braidz` files at https://braidz.strawlab.org/.
 
 ## Questions, requests for help, etc.
 
  - [the online forum](https://groups.google.com/forum/#!forum/multicams)
- - [Github issues](https://github.com/strawlab/nextgen-camera-users/issues)
-
-### Convert mainbrain `.h5` file to a simple `.h5` file.
-
-For your own analysis, convert flydra mainbrain .h5 files to simple .h5
-files with `flydra_analysis_export_flydra_hdf5`. These files are much simpler
-and have only the 3D trajectories, so are much smaller and have already been
-through smoothing. The format is documented
-[here](https://strawlab.org/schemas/flydra/1.3).
+ - [Github issues](https://github.com/strawlab/strand-braid/issues)
