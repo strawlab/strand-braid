@@ -114,7 +114,6 @@ test_flydra2:
     - rust
   script:
     - ls -l _submodules
-    - ls -l _submodules/nextgen-camera-users
     - apt-get -y update
     - apt-get install -y wget ca-certificates && wget -O- https://strawlab.org/assets/astraw-archive-keyring.gpg | apt-key add -
     - echo "deb http://debs.strawlab.org/ xenial/" >> /etc/apt/sources.list

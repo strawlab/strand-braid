@@ -4,8 +4,7 @@ set -o errexit
 BASE=../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28
 RETRACKED=/tmp/kalmanized
 
-# from https://github.com/strawlab/nextgen-camera-users/
-NGCU=../_submodules/nextgen-camera-users
+NGCU=../strand-braid-user
 
 # Convert original flydra file to .csv
 python $NGCU/scripts/export_h5_to_csv.py "$BASE.h5"

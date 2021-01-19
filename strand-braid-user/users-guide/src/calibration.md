@@ -33,7 +33,7 @@ your sensor (from intensity values 0 to 255) with very little clipping.
 ## Step 2: run "Checkerboard Calibration" to get the camera intrinsic parameters
 
 (There is a script to draw checkerboards as SVG files:
-[`draw_checkerboard_svg.py`](https://github.com/strawlab/nextgen-camera-users/blob/master/scripts/draw_checkerboard_svg.py).)
+[`draw_checkerboard_svg.py`](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py).)
 
 In Strand Cam, there is a region called "Checkerboard Calibration" which allows
 you to calibrate the camera intrinsic parameters. Show a checkerboard to the
@@ -82,7 +82,7 @@ For example, let's say you have the file `20190924_161153.braidz` saved by the
 Braid program. We will use the script `convert_kalmanized_csv_to_flydra_h5.py`
 to do this conversion:
 
-    python ~/src/nextgen-camera-users/scripts/convert_kalmanized_csv_to_flydra_h5.py 20190924_161153.braidz
+    python ~/src/strand-braid/strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py 20190924_161153.braidz
 
 Upon success, there will be a new file saved with the suffix `.h5`. In this
 case, it will be named `20190924_161153.braidz.h5`.
@@ -91,7 +91,7 @@ We can do the above but making use of bash variables to save typing later `BRAID
 
     BRAIDZ_FILE=20190924_161153.braidz
     DATAFILE="$BRAIDZ_FILE.h5"
-    python ~/src/nextgen-camera-users/scripts/convert_kalmanized_csv_to_flydra_h5.py $BRAIDZ_FILE
+    python ~/src/strand-braid/strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py $BRAIDZ_FILE
 
 Note that this conversion requires the program `compute-flydra1-compat` (from
 the `braid-offline` package) to be on your path if you are converting 3D
