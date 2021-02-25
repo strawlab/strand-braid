@@ -2,6 +2,7 @@
 name = "strand-cam-frontend-yew"
 version = "0.7.2" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

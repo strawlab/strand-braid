@@ -1,26 +1,5 @@
 #![recursion_limit = "1000"]
 
-extern crate yew;
-
-extern crate ads_webasm;
-extern crate anyhow;
-#[cfg(feature = "with_camtrig")]
-extern crate camtrig_comms;
-extern crate ci2_remote_control;
-extern crate ci2_types;
-extern crate enum_iter;
-extern crate failure;
-extern crate http;
-extern crate http_video_streaming_types;
-extern crate image_tracker_types;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate strand_cam_storetype;
-extern crate wasm_bindgen;
-extern crate yew_event_source;
-extern crate yew_tincture;
-
 use ci2_remote_control::CamArg;
 
 #[cfg(feature = "with_camtrig")]
@@ -56,7 +35,7 @@ use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, R
 use ads_webasm::video_data::VideoData;
 
 mod components;
-use components::AutoModeSelect;
+use crate::components::AutoModeSelect;
 
 use ads_webasm::components::{
     Button, ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle, VideoField,
@@ -64,9 +43,6 @@ use ads_webasm::components::{
 
 #[cfg(feature = "with_camtrig")]
 use components::CamtrigControl;
-
-#[cfg(feature = "with_camtrig")]
-use camtrig_comms::DeviceState;
 
 const LAST_DETECTED_VALUE_LABEL: &'static str = "Last detected value: ";
 
@@ -1219,7 +1195,7 @@ impl Model {
 }
 
 fn get_bitrate(bitrate: &ci2_remote_control::MkvCodec) -> Result<BitrateSelection, ()> {
-    use BitrateSelection::*;
+    use crate::BitrateSelection::*;
     let bitrate: u32 = match bitrate {
         ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
         ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,
@@ -1251,7 +1227,7 @@ enum BitrateSelection {
 
 impl BitrateSelection {
     fn to_u32(&self) -> u32 {
-        use BitrateSelection::*;
+        use crate::BitrateSelection::*;
         match self {
             Bitrate500 => 500,
             Bitrate1000 => 1000,
@@ -1301,7 +1277,7 @@ enum CodecSelection {
 
 impl CodecSelection {
     fn get_codec(&self, old: &ci2_remote_control::MkvCodec) -> ci2_remote_control::MkvCodec {
-        use CodecSelection::*;
+        use crate::CodecSelection::*;
         let bitrate = match old {
             ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
             ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,

@@ -1,7 +1,6 @@
-use camtrig_comms::{ChannelState, ToDevice};
+use camtrig_comms::{ChannelState, DeviceState, ToDevice};
 use yew::prelude::*;
 use yew_tincture::components::CheckboxLabel;
-use DeviceState;
 
 use super::led_control::{ChangeLedState, ChangeLedStateValue, LedControl};
 
