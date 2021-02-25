@@ -20,6 +20,8 @@ serde_yaml = "0.8"
 failure = "0.1"
 http = "0.2"
 backtrace = "0.3.40" # here only to require this high version number, not used directly
+yew-event-source = "0.1"
+yew-tincture = "0.1"
 
 strand-cam-storetype = {path = "../../strand-cam-storetype", default-features=false}
 image-tracker-types = {path = "../../image-tracker/image-tracker-types", default-features = false}
@@ -30,7 +32,6 @@ ci2-remote-control = { path = "../../ci2-remote-control" }
 camtrig-comms = {path="../../camtrig-comms", optional=true}
 enum-iter = {path="../../enum-iter"}
 ads-webasm = {path="../../ads-webasm"}
-yew-tincture = "0.1"
 
 [features]
 default = ["checkercal"]

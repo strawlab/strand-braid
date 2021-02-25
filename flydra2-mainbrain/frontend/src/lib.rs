@@ -9,10 +9,9 @@ use yew::format::Json;
 use yew::prelude::*;
 use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
-use ads_webasm::{
-    components::{Button, RecordingPathWidget, ReloadButton},
-    services::eventsource::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState},
-};
+use ads_webasm::components::{Button, RecordingPathWidget, ReloadButton};
+
+use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
 
 // -----------------------------------------------------------------------------
 

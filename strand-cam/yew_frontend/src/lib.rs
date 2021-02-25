@@ -18,6 +18,7 @@ extern crate serde_json;
 extern crate serde_yaml;
 extern crate strand_cam_storetype;
 extern crate wasm_bindgen;
+extern crate yew_event_source;
 extern crate yew_tincture;
 
 use ci2_remote_control::CamArg;
@@ -50,9 +51,7 @@ use yew_tincture::components::{TypedInput, TypedInputStorage};
 
 use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
-use ads_webasm::services::eventsource::{
-    EventSourceService, EventSourceStatus, EventSourceTask, ReadyState,
-};
+use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
 
 use ads_webasm::video_data::VideoData;
 

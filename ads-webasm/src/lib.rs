@@ -20,5 +20,4 @@ extern crate rust_cam_bui_types;
 use http_video_streaming_types::ToClient as FirehoseImageData;
 
 pub mod components;
-pub mod services;
 pub mod video_data;
