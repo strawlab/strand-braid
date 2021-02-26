@@ -935,7 +935,7 @@ impl Model {
                             <div>{checkerboard_debug}</div>
 
                             <h2>{"Input: Checkerboard Size"}</h2>
-                            <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7)."}</p>
+                            <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7 for a standard chessboard)."}</p>
                             <label>{"width"}
                                 <TypedInput<u32>:
                                     storage=&self.checkerboard_width,
