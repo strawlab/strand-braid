@@ -118,7 +118,7 @@ const APP: () = {
     struct Resources {
         inner_led_state: InnerLedState,
         led_pulse_clock_count: u16,
-        rxtx: mini_rxtx::MiniTxRx<Rx<USART2>,WrappedTx>,
+        rxtx: mini_rxtx::MiniTxRx<Rx<USART2>,WrappedTx, heapless::consts::U128, heapless::consts::U128>,
         trigger_count_timer1: Timer1TriggerCount,
         timer2: Timer<stm32::TIM2>,
         timer7: Timer<stm32::TIM7>,
