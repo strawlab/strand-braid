@@ -7,8 +7,6 @@ edition = "2018"
 [dependencies]
 clap = "2.25"
 camtrig-comms = {path="../camtrig-comms"}
-ssmarshal = "1.0"
-byteorder = "1"
 failure = "0.1"
 failure_derive = "0.1"
 log = "0.4"
