@@ -12,7 +12,7 @@ byteorder = "1"
 crossbeam-channel = "0.5"
 thread-control = "0.1"
 serde = "1.0"
-nalgebra = "0.23"
+nalgebra = "0.25"
 chrono = "0.4"
 datetime-conversion = {path="../datetime-conversion"}
 lstsq = {path="../lstsq"}

@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 serde_json = "1.0.29"
-nalgebra = "0.23"
-opencv-ros-camera = "0.4"
-cam-geom = "0.4"
+nalgebra = "0.25"
+opencv-ros-camera = "0.6"
+cam-geom = "0.6"
 failure = "0.1.2"
 
 mvg = {path="../mvg"}
