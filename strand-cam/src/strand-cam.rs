@@ -25,6 +25,9 @@ use ci2_pylon as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
+#[cfg(feature = "fiducial")]
+use ads_apriltag as apriltag;
+
 use http_video_streaming as video_streaming;
 use machine_vision_formats as formats;
 
@@ -925,8 +928,18 @@ fn frame_process_thread(
     #[cfg(feature = "checkercal")]
     let mut last_checkerboard_detection = std::time::Instant::now();
 
+    // This limits the frequency at which the checkerboard detection routine is
+    // called. This is meant to both prevent flooding the calibration routine
+    // with many highly similar checkerboard images and also to allow the image
+    // processing thread to keep a low queue depth on incoming frames. In the
+    // current form here, however, keeping a low queue depth is dependent on the
+    // checkerboard detection function returning fairly quickly. I have observed
+    // the OpenCV routine taking ~90 seconds even though usually it takes 100
+    // msec. Thus, this requirement is not always met. We could move this
+    // checkerboard detection routine to a different thread (e.g. using a tokio
+    // work pool) to avoid this problem.
     #[cfg(feature = "checkercal")]
-    let mut checkerboard_loop_dur = std::time::Duration::from_millis(10);
+    let mut checkerboard_loop_dur = std::time::Duration::from_millis(500);
 
     let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
@@ -1261,7 +1274,7 @@ fn frame_process_thread(
                                 struct CornerData<'a> {
                                     corners: &'a Option<Vec<(f32, f32)>>,
                                     work_duration: std::time::Duration,
-                                };
+                                }
                                 let debug_data = CornerData {
                                     corners: &corners,
                                     work_duration,
@@ -3673,7 +3686,7 @@ pub async fn setup_app(
                                 corners: &'a Vec<camcal::CheckerBoardData>,
                                 image_width: u32,
                                 image_height: u32,
-                            };
+                            }
                             let debug_data = CornersData {
                                 corners: &goodcorners,
                                 image_width,

@@ -280,7 +280,7 @@ impl<'lib> Drop for Encoder<'lib> {
             let func = if let Some(func) = self.parent.inner.nvEncDestroyEncoder {
                 func
             } else {
-                panic!("No function 'nvEncDestroyEncoder'".to_string());
+                panic!("No function 'nvEncDestroyEncoder'");
             };
             let status = unsafe { func(self.inner.0) };
             if status != _NVENCSTATUS::NV_ENC_SUCCESS {
@@ -379,7 +379,7 @@ impl<'lib> Drop for InputBuffer<'lib> {
             let func = if let Some(func) = self.encoder.parent.inner.nvEncDestroyInputBuffer {
                 func
             } else {
-                panic!("No function 'nvEncDestroyInputBuffer'".to_string());
+                panic!("No function 'nvEncDestroyInputBuffer'");
             };
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };
@@ -416,7 +416,7 @@ impl<'lib> Drop for OutputBuffer<'lib> {
             let func = if let Some(func) = self.encoder.parent.inner.nvEncDestroyBitstreamBuffer {
                 func
             } else {
-                panic!("No function 'nvEncDestroyBitstreamBuffer'".to_string());
+                panic!("No function 'nvEncDestroyBitstreamBuffer'");
             };
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };

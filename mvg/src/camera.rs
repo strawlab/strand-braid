@@ -67,7 +67,7 @@ impl<'de, R: RealField + serde::Deserialize<'de>> serde::Deserialize<'de> for Ca
             Height,
             Extrinsics,
             Intrinsics,
-        };
+        }
 
         struct CameraVisitor<'de, R2: RealField + serde::Deserialize<'de>>(
             std::marker::PhantomData<&'de R2>,

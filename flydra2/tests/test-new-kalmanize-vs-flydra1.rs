@@ -192,8 +192,7 @@ where
         out_loc.display()
     );
 
-    let script =
-        "../_submodules/nextgen-camera-users/scripts/convert_kalmanized_csv_to_flydra_h5.py";
+    let script = "../strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
     let output = run_command(&arg);
 
@@ -249,7 +248,7 @@ where
         out_loc.to_string_lossy()
     );
 
-    let script = "../_submodules/nextgen-camera-users/scripts/export_h5_to_csv.py";
+    let script = "../strand-braid-user/scripts/export_h5_to_csv.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
     let output = run_command(&arg);
 

@@ -1,5 +1,5 @@
-use apriltag::ImageU8;
 use machine_vision_formats::ImageData;
+use ads_apriltag as apriltag;
 
 #[test]
 fn test_detect_standard_41h12() {
@@ -25,7 +25,7 @@ fn test_detect_standard_41h12() {
     convert_image::encode_into_gray8(&rgb,&mut im_data[..],stride).unwrap();
 
     let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
-    let detections = td.detect(im.inner());
+    let detections = td.detect(apriltag::ImageU8::inner(&im));
 
     println!("got {} detection(s):", detections.len());
     assert!(detections.len()==1);
@@ -60,6 +60,6 @@ fn test_detect_standard_36h11() {
     convert_image::encode_into_gray8(&rgb,&mut im_data[..],stride).unwrap();
 
     let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
-    let detections = td.detect(&im.inner());
+    let detections = td.detect(apriltag::ImageU8::inner(&im));
     assert!(detections.len()==0);
 }

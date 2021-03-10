@@ -21,7 +21,7 @@ failure = "0.1"
 http = "0.2"
 itertools = "0.7.8"
 chrono = {version="0.4", features=["serde"]}
-ncollide3d = {version="0.26", features=["serde-serialize"]}
+ncollide3d = {version="0.28", features=["serde-serialize"]}
 backtrace = "0.3.40" # here only to require this high version number, not used directly
 
 mvg = {path="../../mvg", features=["serde-serialize"]}

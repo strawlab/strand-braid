@@ -180,8 +180,8 @@ impl CheckerboardCalState {
         Self {
             enabled: false,
             num_checkerboards_collected: 0,
-            width: 7,
-            height: 7,
+            width: 8,
+            height: 6,
         }
     }
 }

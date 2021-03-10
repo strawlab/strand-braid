@@ -17,10 +17,9 @@ This repository is a mono repository that houses the source code for both pieces
 of software as well as many other related pieces, mostly written as Rust crates.
 
 Users, as opposed to developers, of this software should refer to the
-[nextgen-camera-users
-repository](https://github.com/strawlab/nextgen-camera-users/) which contains
-user documentation and scripts for interacting with the software and performing
-data analysis.
+[strand-braid-user directory](strand-braid-user) which contains user
+documentation and scripts for interacting with the software and performing data
+analysis.
 
 ## License
 
@@ -53,3 +52,9 @@ shall be dual licensed under the terms of the
 
 without any additional terms or conditions. (This helps us realize the future
 license plans as described above.)
+
+## Code of conduct
+
+Anyone who interacts with this software in any space, including but not limited
+to this GitHub repository, must follow our [code of
+conduct](code_of_conduct.md).

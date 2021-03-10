@@ -7,6 +7,9 @@ set OPENCV_VERSION=320
 set OPENCV_LIB_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\lib
 set OPENCV_INCLUDE_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\include
 
+@REM Set IPPROOT environment variable: run this script in a shell opened with:
+@REM cmd /k "c:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019\windows\ipp\bin\ippvars.bat" intel64
+
 REM Now build the binary
 
 set PYLON_VERSION=6

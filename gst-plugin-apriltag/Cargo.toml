@@ -23,7 +23,7 @@ csv = "1.1"
 serde = {version="1.0", features=["derive"]}
 bytes = "0.6"
 
-apriltag = {path="../apriltag"}
+ads-apriltag = {path="../apriltag"}
 
 [build-dependencies]
 gst-plugin-version-helper = "0.2"

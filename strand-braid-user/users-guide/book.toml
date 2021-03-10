@@ -1,0 +1,6 @@
+[book]
+authors = ["Andrew Straw"]
+language = "en"
+multilingual = false
+src = "src"
+title = "User's Guide for Braid and Strand Camera"

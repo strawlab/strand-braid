@@ -1,6 +1,6 @@
 [package]
 name = "braid-offline"
-version = "0.8.2" # braid release synchronized
+version = "0.9.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
@@ -14,6 +14,7 @@ csv = "1.1"
 serde = {version="^1.0", features=["derive"]}
 toml = "0.5"
 itertools = "0.8"
+chrono = "0.4"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 csv-eof = {path="../csv-eof"}
