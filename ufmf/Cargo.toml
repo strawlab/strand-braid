@@ -2,6 +2,7 @@
 name = "ufmf"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [dependencies]
 byteorder = "1.1"
@@ -14,3 +15,6 @@ cast = "0.2.2"
 machine-vision-formats = { path = "../machine-vision-formats" }
 timestamped-frame = { path = "../timestamped-frame" }
 datetime-conversion = {path="../datetime-conversion"}
+
+[dev-dependencies]
+basic-frame = {path="../basic-frame"}

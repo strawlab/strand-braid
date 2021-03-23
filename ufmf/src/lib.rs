@@ -418,18 +418,14 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 #[cfg(test)]
 mod tests {
     use byteorder::WriteBytesExt;
-    use crate::formats::{BasicFrame, FrameROI, AsImageStrideTime};
+    use basic_frame::BasicFrame;
     use crate::*;
+
+    use timestamped_frame::AsImageStrideTime;
 
     fn arange(start: u8, timestamp: f64) -> BasicFrame {
         let w = 10;
         let h = 10;
-        let roi = FrameROI {
-            xmin: 0,
-            ymin: 0,
-            width: w,
-            height: h,
-        };
         let mut image_data = Vec::new();
         for i in 0..100 {
             image_data.push(start + i as u8);
@@ -445,7 +441,8 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         BasicFrame {
-            roi,
+            width: w,
+            height: h,
             stride: w,
             image_data,
             pixel_format: PixelFormat::MONO8,
@@ -457,12 +454,6 @@ mod tests {
     fn arange_float(start: f32, timestamp: f64) -> BasicFrame {
         let w = 10;
         let h = 10;
-        let roi = FrameROI {
-            xmin: 0,
-            ymin: 0,
-            width: w,
-            height: h,
-        };
 
         let mut f = std::io::Cursor::new(Vec::with_capacity(4 * 100));
         for i in 0..100 {
@@ -481,10 +472,11 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         BasicFrame {
-            roi,
+            width: w,
+            height: h,
             stride: w * 4,
             image_data,
-            pixel_format: PixelFormat::MONO32f(formats::Endian::Little),
+            pixel_format: PixelFormat::MONO32f,
             host_timestamp,
             host_framenumber: 0,
         }
