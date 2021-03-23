@@ -98,13 +98,13 @@ fn open_files_and_run() -> Result<()> {
         None => None,
     };
 
-    let data_dir = tempdir::TempDir::new("strand-convert")?;
+    let flydra_csv_temp_dir = tempdir::TempDir::new("strand-convert")?;
 
-    info!("strand-cam csv conversion:");
+    info!("strand-cam csv conversion to temporary flydra format:");
     info!(
         "  {} -> {}",
         opt.point_detection_csv.display(),
-        data_dir.as_ref().display()
+        flydra_csv_temp_dir.as_ref().display()
     );
 
     let output_dirname = match opt.output {
@@ -128,7 +128,7 @@ fn open_files_and_run() -> Result<()> {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        data_dir,
+        Some(flydra_csv_temp_dir),
         &output_dirname,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),

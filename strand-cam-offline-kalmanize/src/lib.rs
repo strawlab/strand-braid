@@ -146,7 +146,7 @@ impl StrandCamConfig {
 
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
-    data_dir: tempdir::TempDir,
+    flydra_csv_temp_dir: Option<tempdir::TempDir>,
     output_dirname: &std::path::Path,
     tracking_params: TrackingParams,
     to_recon_func: fn(
@@ -161,18 +161,23 @@ async fn kalmanize_2d<R>(
 where
     R: BufRead,
 {
+    let flydra_csv_temp_dir = match flydra_csv_temp_dir {
+        Some(x) => x,
+        None => tempdir::TempDir::new("tmp-strand-convert")?,
+    };
+
     let num_points_converted = convert_strand_cam_csv_to_flydra_csv_dir(
         point_detection_csv_reader,
         to_recon_func,
         to_ts0,
         pseudo_cal_params,
-        &data_dir,
+        &flydra_csv_temp_dir,
         track_all_points_outside_calibration_region,
     )?;
 
     info!("    {} detected points converted.", num_points_converted);
 
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(data_dir.into_path())?;
+    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.into_path())?;
 
     flydra2::kalmanize(
         data_src,
@@ -193,7 +198,7 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
-    data_dir: &tempdir::TempDir,
+    flydra_csv_temp_dir: &tempdir::TempDir,
     track_all_points_outside_calibration_region: bool,
 ) -> Result<usize>
 where
@@ -206,7 +211,7 @@ where
     assert_eq!(recon.len(), 1);
 
     // -------------------------------------------------
-    let mut cal_path: std::path::PathBuf = data_dir.as_ref().to_path_buf();
+    let mut cal_path: std::path::PathBuf = flydra_csv_temp_dir.as_ref().to_path_buf();
     cal_path.push(CALIBRATION_XML_FNAME);
     cal_path.set_extension("xml");
 
@@ -219,7 +224,7 @@ where
     // -------------------------------------------------
     // save cam_info.csv
 
-    let mut csv_path = data_dir.as_ref().to_path_buf();
+    let mut csv_path = flydra_csv_temp_dir.as_ref().to_path_buf();
     csv_path.push(CAM_INFO_CSV_FNAME);
     csv_path.set_extension("csv");
     let fd = std::fs::File::create(&csv_path)?;
@@ -242,7 +247,7 @@ where
         .comment(Some(b'#'))
         .from_reader(point_detection_csv_reader);
 
-    let mut d2d_path = data_dir.as_ref().to_path_buf();
+    let mut d2d_path = flydra_csv_temp_dir.as_ref().to_path_buf();
     d2d_path.push(DATA2D_DISTORTED_CSV_FNAME);
     d2d_path.set_extension("csv");
     let fd = std::fs::File::create(&d2d_path)?;
@@ -410,7 +415,7 @@ pub struct PseudoCalParams {
 ///   converted to a file that ends with `.braidz`.
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    data_dir: tempdir::TempDir,
+    flydra_csv_temp_dir: Option<tempdir::TempDir>,
     output_dirname: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
@@ -441,7 +446,7 @@ where
 
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
-        data_dir,
+        flydra_csv_temp_dir,
         output_dirname,
         tracking_params.try_into()?,
         to_recon_func,

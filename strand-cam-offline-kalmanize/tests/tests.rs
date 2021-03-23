@@ -7,7 +7,7 @@ const CALIBRATION_PARAMS_TOML: &'static str = include_str!("data/cal1.toml");
 fn test_run_end_to_end() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let data_dir = tempdir::TempDir::new("strand-convert").unwrap();
+    let flydra_csv_temp_dir = Some(tempdir::TempDir::new("strand-convert").unwrap());
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
@@ -21,7 +21,7 @@ fn test_run_end_to_end() {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        data_dir,
+        flydra_csv_temp_dir,
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
@@ -44,7 +44,7 @@ fn test_run_end_to_end() {
 fn test_z_values_zero() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let data_dir = tempdir::TempDir::new("strand-convert").unwrap();
+    let flydra_csv_temp_dir = Some(tempdir::TempDir::new("strand-convert").unwrap());
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
@@ -56,7 +56,7 @@ fn test_z_values_zero() {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        data_dir,
+        flydra_csv_temp_dir,
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         None,
