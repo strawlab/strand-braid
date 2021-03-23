@@ -128,10 +128,14 @@ fn open_files_and_run() -> Result<()> {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        Some(flydra_csv_temp_dir),
+        Some(&flydra_csv_temp_dir),
         &output_dirname,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         track_all_points_outside_calibration_region,
-    )
+    )?;
+
+    flydra_csv_temp_dir.close()?;
+
+    Ok(())
 }

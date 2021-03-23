@@ -21,7 +21,7 @@ fn test_run_end_to_end() {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        flydra_csv_temp_dir,
+        flydra_csv_temp_dir.as_ref(),
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
@@ -38,6 +38,9 @@ fn test_run_end_to_end() {
 
     assert!(kalman_estimates_info.trajectories.len() >= 7);
     assert!(kalman_estimates_info.trajectories.len() < 1000);
+
+    flydra_csv_temp_dir.unwrap().close().unwrap();
+    output_dir.close().unwrap();
 }
 
 #[test]
@@ -56,7 +59,7 @@ fn test_z_values_zero() {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        flydra_csv_temp_dir,
+        flydra_csv_temp_dir.as_ref(),
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         None,
@@ -81,4 +84,7 @@ fn test_z_values_zero() {
     }
 
     assert!(count >= 1);
+
+    flydra_csv_temp_dir.unwrap().close().unwrap();
+    output_dir.close().unwrap();
 }

@@ -146,7 +146,7 @@ impl StrandCamConfig {
 
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
-    flydra_csv_temp_dir: Option<tempdir::TempDir>,
+    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_dirname: &std::path::Path,
     tracking_params: TrackingParams,
     to_recon_func: fn(
@@ -161,9 +161,14 @@ async fn kalmanize_2d<R>(
 where
     R: BufRead,
 {
+    let mut owned_temp_dir = None;
+
     let flydra_csv_temp_dir = match flydra_csv_temp_dir {
         Some(x) => x,
-        None => tempdir::TempDir::new("tmp-strand-convert")?,
+        None => {
+            owned_temp_dir = Some(tempdir::TempDir::new("tmp-strand-convert")?);
+            owned_temp_dir.as_ref().unwrap()
+        }
     };
 
     let num_points_converted = convert_strand_cam_csv_to_flydra_csv_dir(
@@ -177,7 +182,7 @@ where
 
     info!("    {} detected points converted.", num_points_converted);
 
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.into_path())?;
+    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.path().into())?;
 
     flydra2::kalmanize(
         data_src,
@@ -187,7 +192,13 @@ where
         flydra2::KalmanizeOptions::default(),
         rt_handle,
     )
-    .await
+    .await?;
+
+    if let Some(t) = owned_temp_dir {
+        t.close()?;
+    }
+
+    Ok(())
 }
 
 fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
@@ -415,7 +426,7 @@ pub struct PseudoCalParams {
 ///   converted to a file that ends with `.braidz`.
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    flydra_csv_temp_dir: Option<tempdir::TempDir>,
+    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_dirname: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
