@@ -188,6 +188,8 @@ pub struct KalmanEstimatesInfo {
     pub trajectories: BTreeMap<u32, Vec<(f32, f32, f32)>>, // TODO: switch to array, not tuple. add frame numbers.
     pub num_rows: u64,
     pub tracking_parameters: TrackingParams,
+    /// The sum of all distances in all trajectories.
+    pub total_distance: f64,
 }
 
 impl Seq2d {
@@ -403,6 +405,7 @@ pub fn braidz_parse<R: Read + Seek>(
             let mut ylim = [inf, -inf];
             let mut zlim = [inf, -inf];
             let mut num_rows = 0;
+
             for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
                 let row: KalmanEstimatesRow = row?;
                 let entry = trajectories.entry(row.obj_id).or_insert_with(|| Vec::new());
@@ -416,6 +419,21 @@ pub fn braidz_parse<R: Read + Seek>(
                 zlim[1] = max(zlim[1], row.z);
                 num_rows += 1;
             }
+
+            let mut total_distance: f64= 0.0;
+            for (_obj_id, pos) in trajectories.iter() {
+                let mut previous: Option<&(f32, f32, f32)> = None;
+                for current in pos.iter() {
+                    if let Some(previous) = &previous {
+                        let dx: f64 = (current.0 - previous.0).into();
+                        let dy: f64 = (current.1 - previous.1).into();
+                        let dz: f64 = (current.2 - previous.2).into();
+                        total_distance +=(dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt();
+                    }
+                    previous = Some(current);
+                }
+            }
+
             Some(KalmanEstimatesInfo {
                 xlim,
                 ylim,
@@ -423,6 +441,7 @@ pub fn braidz_parse<R: Read + Seek>(
                 trajectories,
                 num_rows,
                 tracking_parameters,
+                total_distance,
             })
         }
         Err(zip_or_dir::Error::FileNotFound) => None,
@@ -512,6 +531,7 @@ impl From<&KalmanEstimatesInfo> for KalmanEstimatesSummary {
             z_limits: orig.zlim,
             num_trajectories: orig.trajectories.len().try_into().unwrap(),
             tracking_parameters: orig.tracking_parameters.clone(),
+            total_distance: orig.total_distance,
         }
     }
 }
