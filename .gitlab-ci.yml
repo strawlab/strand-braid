@@ -59,6 +59,11 @@ test_crates:
     - cargo test
     - cd ..
 
+    # Test ufmf
+    - cd ufmf
+    - cargo test
+    - cd ..
+
     # Test flydra-types
     - cd flydra-types
     - cargo test
