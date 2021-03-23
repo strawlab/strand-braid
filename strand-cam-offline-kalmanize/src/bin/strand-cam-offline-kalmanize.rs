@@ -49,6 +49,10 @@ struct Opt {
     /// Calibration parameters TOML file. (Includes `center_x`, amongst others.)
     #[structopt(long = "cal", short = "p", parse(from_os_str))]
     calibration_params: std::path::PathBuf,
+
+    /// Include all data from outside the calibration region in tracking
+    #[structopt(long = "include-all", short = "a")]
+    track_all_points_outside_calibration_region: bool,
 }
 
 fn main() -> Result<()> {
@@ -119,6 +123,8 @@ fn open_files_and_run() -> Result<()> {
         .map_err(|e| failure::Error::from(e))?;
 
     let point_detection_csv_reader = std::io::BufReader::new(data_file);
+    let track_all_points_outside_calibration_region =
+        opt.track_all_points_outside_calibration_region;
 
     parse_configs_and_run(
         point_detection_csv_reader,
@@ -126,5 +132,6 @@ fn open_files_and_run() -> Result<()> {
         &output_dirname,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
+        track_all_points_outside_calibration_region,
     )
 }

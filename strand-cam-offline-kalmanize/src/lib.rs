@@ -156,6 +156,7 @@ async fn kalmanize_2d<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
+    track_all_points_outside_calibration_region: bool,
 ) -> Result<()>
 where
     R: BufRead,
@@ -166,6 +167,7 @@ where
         to_ts0,
         pseudo_cal_params,
         &data_dir,
+        track_all_points_outside_calibration_region,
     )?;
 
     info!("    {} detected points converted.", num_points_converted);
@@ -192,6 +194,7 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     data_dir: &tempdir::TempDir,
+    track_all_points_outside_calibration_region: bool,
 ) -> Result<usize>
 where
     R: BufRead,
@@ -249,11 +252,27 @@ where
     let mut count: usize = 0;
     for result in rdr.deserialize() {
         let record: Fview2CsvRecord = result?;
+        if !track_all_points_outside_calibration_region {
+            // reject points outside calibration region
+            if !is_inside_calibration_region(&record, &pseudo_cal_params) {
+                continue;
+            }
+        }
         let save = convert_row(record, &ts0, &mut row_state);
         writer.serialize(save)?;
         count += 1;
     }
     Ok(count)
+}
+
+#[inline]
+fn is_inside_calibration_region(
+    record: &Fview2CsvRecord,
+    pseudo_cal_params: &PseudoCalParams,
+) -> bool {
+    let dist2 = (record.x_px - pseudo_cal_params.center_x as f64).powi(2)
+        + (record.y_px - pseudo_cal_params.center_y as f64).powi(2);
+    dist2 as f64 <= (pseudo_cal_params.radius as f64).powi(2)
 }
 
 fn config25_upgrade(
@@ -395,6 +414,7 @@ pub fn parse_configs_and_run<R>(
     output_dirname: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
+    track_all_points_outside_calibration_region: bool,
 ) -> Result<()>
 where
     R: BufRead,
@@ -428,5 +448,6 @@ where
         to_ts0,
         &calibration_params,
         rt_handle,
+        track_all_points_outside_calibration_region,
     ))
 }

@@ -17,12 +17,15 @@ fn test_run_end_to_end() {
 
     let tracking_params_buf = Some(include_str!("data/tracking.toml"));
 
+    let track_all_points_outside_calibration_region = true;
+
     parse_configs_and_run(
         point_detection_csv_reader,
         data_dir,
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
+        track_all_points_outside_calibration_region,
     )
     .unwrap();
 
@@ -49,12 +52,15 @@ fn test_z_values_zero() {
     // The output .braid dir and ultimately .braidz filename:
     let output_dirname = output_dir.as_ref().join("out.braid");
 
+    let track_all_points_outside_calibration_region = false;
+
     parse_configs_and_run(
         point_detection_csv_reader,
         data_dir,
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         None,
+        track_all_points_outside_calibration_region,
     )
     .unwrap();
 
@@ -66,9 +72,13 @@ fn test_z_values_zero() {
     let kalman_estimates_info = parsed.kalman_estimates_info.as_ref().unwrap();
     let trajs = &kalman_estimates_info.trajectories;
 
+    let mut count = 0;
     for (_obj_id, traj_data) in trajs {
         for row in traj_data.iter() {
+            count += 1;
             assert!(row.2.abs() < 1e-6);
         }
     }
+
+    assert!(count >= 1);
 }
