@@ -299,9 +299,8 @@ fn to_recon_func(
         cam_name: flydra_types::RawCamName::new(cam_name.to_string()),
         width: cfg.camera.width,
         height: cfg.camera.height,
-        physical_diameter_meters: pseudo_cal_params.physical_diameter_meters, // TODO: remove hardcoded value
+        physical_diameter_meters: pseudo_cal_params.physical_diameter_meters,
         image_circle: http_video_streaming_types::CircleParams {
-            // TODO: remove hardcoded value
             center_x: pseudo_cal_params.center_x,
             center_y: pseudo_cal_params.center_y,
             radius: pseudo_cal_params.radius,
