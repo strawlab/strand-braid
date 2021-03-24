@@ -411,10 +411,13 @@ fn update_canvas(model: &mut Model) {
             .unwrap();
 
         if let Some(ref traj) = trajectories {
-            for (_obj_id, series) in traj.iter() {
+            for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
-                        series.iter().map(|pt| (pt.0 as f64, pt.1 as f64)),
+                        traj_data
+                            .position
+                            .iter()
+                            .map(|pt| (pt[0] as f64, pt[1] as f64)),
                         &RED,
                     ))
                     .unwrap();
@@ -447,10 +450,13 @@ fn update_canvas(model: &mut Model) {
             .unwrap();
 
         if let Some(ref traj) = trajectories {
-            for (_obj_id, series) in traj.iter() {
+            for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
-                        series.iter().map(|pt| (pt.0 as f64, pt.2 as f64)),
+                        traj_data
+                            .position
+                            .iter()
+                            .map(|pt| (pt[0] as f64, pt[2] as f64)),
                         &RED,
                     ))
                     .unwrap();

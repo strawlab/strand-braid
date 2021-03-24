@@ -77,9 +77,9 @@ fn test_z_values_zero() {
 
     let mut count = 0;
     for (_obj_id, traj_data) in trajs {
-        for row in traj_data.iter() {
+        for row in traj_data.position.iter() {
             count += 1;
-            assert!(row.2.abs() < 1e-6);
+            assert!(row[2].abs() < 1e-6);
         }
     }
 
