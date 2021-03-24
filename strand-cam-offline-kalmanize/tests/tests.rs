@@ -1,4 +1,4 @@
-use strand_cam_offline_kalmanize::parse_configs_and_run;
+use strand_cam_offline_kalmanize::{parse_configs_and_run, RowFilter};
 
 const INPUT_CSV: &'static str = include_str!("data/flytrax20191122_103500.csv");
 const CALIBRATION_PARAMS_TOML: &'static str = include_str!("data/cal1.toml");
@@ -17,15 +17,14 @@ fn test_run_end_to_end() {
 
     let tracking_params_buf = Some(include_str!("data/tracking.toml"));
 
-    let track_all_points_outside_calibration_region = true;
-
+    let row_filters = vec![];
     parse_configs_and_run(
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
-        track_all_points_outside_calibration_region,
+        &row_filters,
     )
     .unwrap();
 
@@ -55,15 +54,14 @@ fn test_z_values_zero() {
     // The output .braid dir and ultimately .braidz filename:
     let output_dirname = output_dir.as_ref().join("out.braid");
 
-    let track_all_points_outside_calibration_region = false;
-
+    let row_filters = vec![RowFilter::InPseudoCalRegion];
     parse_configs_and_run(
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
         &output_dirname,
         &CALIBRATION_PARAMS_TOML,
         None,
-        track_all_points_outside_calibration_region,
+        &row_filters,
     )
     .unwrap();
 

@@ -3,7 +3,7 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams};
+use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
 use std::io::Read;
 
@@ -123,8 +123,12 @@ fn open_files_and_run() -> Result<()> {
         .map_err(|e| failure::Error::from(e))?;
 
     let point_detection_csv_reader = std::io::BufReader::new(data_file);
-    let track_all_points_outside_calibration_region =
-        opt.track_all_points_outside_calibration_region;
+
+    let mut filters = Vec::new();
+
+    if !opt.track_all_points_outside_calibration_region {
+        filters.push(RowFilter::InPseudoCalRegion);
+    }
 
     parse_configs_and_run(
         point_detection_csv_reader,
@@ -132,7 +136,7 @@ fn open_files_and_run() -> Result<()> {
         &output_dirname,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
-        track_all_points_outside_calibration_region,
+        &filters,
     )?;
 
     flydra_csv_temp_dir.close()?;

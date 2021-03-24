@@ -156,7 +156,7 @@ async fn kalmanize_2d<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
-    track_all_points_outside_calibration_region: bool,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<()>
 where
     R: BufRead,
@@ -177,7 +177,7 @@ where
         to_ts0,
         pseudo_cal_params,
         &flydra_csv_temp_dir,
-        track_all_points_outside_calibration_region,
+        row_filters,
     )?;
 
     info!("    {} detected points converted.", num_points_converted);
@@ -201,6 +201,18 @@ where
     Ok(())
 }
 
+/// These filters can be used to exclude data from being converted.
+#[derive(Clone)]
+pub enum RowFilter {
+    /// Row is in time interval between start and stop
+    InTimeInterval(
+        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
+        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
+    ),
+    /// Row is in region of calibration
+    InPseudoCalRegion,
+}
+
 fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     mut point_detection_csv_reader: R,
     to_recon_func: fn(
@@ -210,7 +222,7 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     flydra_csv_temp_dir: &tempdir::TempDir,
-    track_all_points_outside_calibration_region: bool,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<usize>
 where
     R: BufRead,
@@ -268,15 +280,34 @@ where
     let mut count: usize = 0;
     for result in rdr.deserialize() {
         let record: Fview2CsvRecord = result?;
-        if !track_all_points_outside_calibration_region {
-            // reject points outside calibration region
-            if !is_inside_calibration_region(&record, &pseudo_cal_params) {
-                continue;
+
+        let mut keep_row = true;
+        for filter_row in row_filters.iter() {
+            match filter_row {
+                RowFilter::InTimeInterval(start, stop) => {
+                    let this_time = get_timestamp(&record, &ts0);
+                    if !(start.as_f64() <= this_time.as_f64()
+                        && this_time.as_f64() <= stop.as_f64())
+                    {
+                        keep_row = false;
+                        break;
+                    }
+                }
+                RowFilter::InPseudoCalRegion => {
+                    // reject points outside calibration region
+                    if !is_inside_calibration_region(&record, &pseudo_cal_params) {
+                        keep_row = false;
+                        break;
+                    }
+                }
             }
         }
-        let save = convert_row(record, &ts0, &mut row_state);
-        writer.serialize(save)?;
-        count += 1;
+
+        if keep_row {
+            let save = convert_row(record, &ts0, &mut row_state);
+            writer.serialize(save)?;
+            count += 1;
+        }
     }
     Ok(count)
 }
@@ -371,14 +402,21 @@ impl RowState {
     }
 }
 
+fn get_timestamp(
+    strand_cam_row: &Fview2CsvRecord,
+    ts0: &chrono::DateTime<chrono::Utc>,
+) -> flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock> {
+    let toffset = chrono::Duration::microseconds(strand_cam_row.time_microseconds);
+    let dt = *ts0 + toffset;
+    flydra_types::FlydraFloatTimestampLocal::from_dt(&dt)
+}
+
 // maybe use Data2dDistortedRowF32 ?
 fn convert_row(
     strand_cam_row: Fview2CsvRecord,
     ts0: &chrono::DateTime<chrono::Utc>,
     row_state: &mut RowState,
 ) -> Data2dDistortedRow {
-    let toffset = chrono::Duration::microseconds(strand_cam_row.time_microseconds);
-    let dt = *ts0 + toffset;
     let (eccentricity, slope) = match strand_cam_row.orientation_radians_mod_pi {
         Some(angle) => (1.1, angle.tan()),
         None => (std::f64::NAN, std::f64::NAN),
@@ -386,7 +424,7 @@ fn convert_row(
     let frame_pt_idx = row_state.update(strand_cam_row.frame);
     Data2dDistortedRow {
         area: strand_cam_row.central_moment.unwrap_or(std::f64::NAN),
-        cam_received_timestamp: flydra_types::FlydraFloatTimestampLocal::from_dt(&dt),
+        cam_received_timestamp: get_timestamp(&strand_cam_row, ts0),
         camn: flydra_types::CamNum(0),
         cur_val: 255,
         frame: strand_cam_row.frame,
@@ -430,7 +468,7 @@ pub fn parse_configs_and_run<R>(
     output_dirname: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
-    track_all_points_outside_calibration_region: bool,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<()>
 where
     R: BufRead,
@@ -464,6 +502,6 @@ where
         to_ts0,
         &calibration_params,
         rt_handle,
-        track_all_points_outside_calibration_region,
+        &row_filters,
     ))
 }
