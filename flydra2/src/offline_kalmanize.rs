@@ -132,6 +132,7 @@ pub async fn kalmanize<Q, R>(
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
+    save_performance_histograms: bool,
 ) -> Result<()>
 where
     Q: AsRef<std::path::Path>,
@@ -276,6 +277,7 @@ where
         fps: Some(fps as f32),
         images,
         print_stats: true,
+        save_performance_histograms,
     };
 
     write_controller.start_saving_data(save_cfg);

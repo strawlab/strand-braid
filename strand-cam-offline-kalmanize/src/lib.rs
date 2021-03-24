@@ -184,6 +184,8 @@ where
 
     let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.path().into())?;
 
+    let save_performance_histograms = false;
+
     flydra2::kalmanize(
         data_src,
         output_dirname,
@@ -191,6 +193,7 @@ where
         tracking_params,
         flydra2::KalmanizeOptions::default(),
         rt_handle,
+        save_performance_histograms,
     )
     .await?;
 

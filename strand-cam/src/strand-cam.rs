@@ -1716,6 +1716,7 @@ fn frame_process_thread(
                                     fps: expected_fps,
                                     images,
                                     print_stats: false,
+                                    save_performance_histograms: true,
                                 };
                                 write_controller.start_saving_data(cfg);
                             }

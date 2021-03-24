@@ -823,8 +823,8 @@ struct WritingState {
     writer_stats: Option<usize>,
     file_start_time: std::time::SystemTime,
 
-    reconstruction_latency_usec: HistogramWritingState,
-    reproj_dist_pixels: HistogramWritingState,
+    reconstruction_latency_usec: Option<HistogramWritingState>,
+    reproj_dist_pixels: Option<HistogramWritingState>,
 }
 
 impl Drop for WritingState {
@@ -856,36 +856,40 @@ impl Drop for WritingState {
 
         let now_system = std::time::SystemTime::now();
         {
-            finish_histogram(
-                &mut self.reconstruction_latency_usec.current_store,
-                self.file_start_time,
-                &mut self.reconstruction_latency_usec.histograms,
-                now_system,
-            )
-            .unwrap();
+            if let Some(reconstruction_latency_usec) = &mut self.reconstruction_latency_usec {
+                finish_histogram(
+                    &mut reconstruction_latency_usec.current_store,
+                    self.file_start_time,
+                    &mut reconstruction_latency_usec.histograms,
+                    now_system,
+                )
+                .unwrap();
 
-            finish_histogram(
-                &mut self.reproj_dist_pixels.current_store,
-                self.file_start_time,
-                &mut self.reproj_dist_pixels.histograms,
-                now_system,
-            )
-            .unwrap();
+                save_hlog(
+                    &output_dirname,
+                    RECONSTRUCT_LATENCY_LOG_FNAME,
+                    &mut reconstruction_latency_usec.histograms,
+                    self.file_start_time,
+                );
+            }
+
+            if let Some(reproj_dist_pixels) = &mut self.reproj_dist_pixels {
+                finish_histogram(
+                    &mut reproj_dist_pixels.current_store,
+                    self.file_start_time,
+                    &mut reproj_dist_pixels.histograms,
+                    now_system,
+                )
+                .unwrap();
+
+                save_hlog(
+                    &output_dirname,
+                    REPROJECTION_DIST_LOG_FNAME,
+                    &mut reproj_dist_pixels.histograms,
+                    self.file_start_time,
+                );
+            }
         }
-
-        save_hlog(
-            &output_dirname,
-            RECONSTRUCT_LATENCY_LOG_FNAME,
-            &mut self.reconstruction_latency_usec.histograms,
-            self.file_start_time,
-        );
-
-        save_hlog(
-            &output_dirname,
-            REPROJECTION_DIST_LOG_FNAME,
-            &mut self.reproj_dist_pixels.histograms,
-            self.file_start_time,
-        );
 
         {
             // TODO: read all the (forward) kalman estimates and smooth them to
@@ -1189,6 +1193,15 @@ impl WritingState {
             std::time::SystemTime::now()
         };
 
+        let (reconstruction_latency_usec, reproj_dist_pixels) = if cfg.save_performance_histograms {
+            (
+                Some(HistogramWritingState::default()),
+                Some(HistogramWritingState::default()),
+            )
+        } else {
+            (None, None)
+        };
+
         Ok(Self {
             output_dirname,
             readme_fd,
@@ -1201,8 +1214,8 @@ impl WritingState {
             experiment_info_wtr,
             writer_stats,
             file_start_time,
-            reconstruction_latency_usec: HistogramWritingState::default(),
-            reproj_dist_pixels: HistogramWritingState::default(),
+            reconstruction_latency_usec,
+            reproj_dist_pixels,
         })
     }
 
@@ -1360,23 +1373,27 @@ fn writer_thread_main(
 
                                     if let Some(latency_usec) = elapsed.num_microseconds() {
                                         if latency_usec >= 0 {
-                                            // The latency should always be positive, but num_microseconds()
-                                            // can return negative and we don't want to panic if time goes
-                                            // backwards for some reason.
-                                            match histogram_record(
-                                                latency_usec as u64,
-                                                &mut ws.reconstruction_latency_usec.current_store,
-                                                1000 * 1000 * 60,
-                                                2,
-                                                ws.file_start_time,
-                                                &mut ws.reconstruction_latency_usec.histograms,
-                                                now_system,
-                                            ) {
-                                                Ok(()) => {}
-                                                Err(_) => log::error!(
-                                                    "latency value {} out of expected range",
-                                                    latency_usec
-                                                ),
+                                            if let Some(reconstruction_latency_usec) =
+                                                &mut ws.reconstruction_latency_usec
+                                            {
+                                                // The latency should always be positive, but num_microseconds()
+                                                // can return negative and we don't want to panic if time goes
+                                                // backwards for some reason.
+                                                match histogram_record(
+                                                    latency_usec as u64,
+                                                    &mut reconstruction_latency_usec.current_store,
+                                                    1000 * 1000 * 60,
+                                                    2,
+                                                    ws.file_start_time,
+                                                    &mut reconstruction_latency_usec.histograms,
+                                                    now_system,
+                                                ) {
+                                                    Ok(()) => {}
+                                                    Err(_) => log::error!(
+                                                        "latency value {} out of expected range",
+                                                        latency_usec
+                                                    ),
+                                                }
                                             }
                                         }
                                     }
@@ -1387,20 +1404,22 @@ fn writer_thread_main(
                                 if let Some(mean_reproj_dist_100x) = mean_reproj_dist_100x {
                                     let now_system = std::time::SystemTime::now();
 
-                                    match histogram_record(
-                                        mean_reproj_dist_100x,
-                                        &mut ws.reproj_dist_pixels.current_store,
-                                        1000000,
-                                        2,
-                                        ws.file_start_time,
-                                        &mut ws.reproj_dist_pixels.histograms,
-                                        now_system,
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(_) => log::error!(
-                                            "mean reprojection 100x distance value {} out of expected range",
-                                            mean_reproj_dist_100x
-                                        ),
+                                    if let Some(reproj_dist_pixels) = &mut ws.reproj_dist_pixels {
+                                        match histogram_record(
+                                            mean_reproj_dist_100x,
+                                            &mut reproj_dist_pixels.current_store,
+                                            1000000,
+                                            2,
+                                            ws.file_start_time,
+                                            &mut reproj_dist_pixels.histograms,
+                                            now_system,
+                                        ) {
+                                            Ok(()) => {}
+                                            Err(_) => log::error!(
+                                                "mean reprojection 100x distance value {} out of expected range",
+                                                mean_reproj_dist_100x
+                                            ),
+                                        }
                                     }
                                 }
                             }
@@ -1479,6 +1498,7 @@ pub struct StartSavingCsvConfig {
     pub fps: Option<f32>,
     pub images: ImageDictType,
     pub print_stats: bool,
+    pub save_performance_histograms: bool,
 }
 
 /// A struct which implements `std::marker::Send` to control coord processing.

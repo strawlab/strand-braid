@@ -96,6 +96,8 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
         }
     }
 
+    let save_performance_histograms = true;
+
     flydra2::kalmanize(
         data_src,
         output_dirname,
@@ -103,6 +105,7 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
         tracking_params,
         opts,
         rt_handle,
+        save_performance_histograms,
     )
     .await
 }

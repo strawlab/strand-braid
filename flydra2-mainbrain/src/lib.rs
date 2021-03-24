@@ -922,6 +922,7 @@ fn toggle_saving_csv_tables(
             fps: *expected_framerate,
             images,
             print_stats: false,
+            save_performance_histograms: true,
         };
         write_controller.start_saving_data(cfg);
 
