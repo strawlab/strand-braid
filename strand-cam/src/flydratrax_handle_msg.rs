@@ -25,7 +25,7 @@ impl flydra2::GetsUpdates for FlydraTraxServer {
     ) -> std::result::Result<(), flydra2::Error> {
         self.model_sender
             .send(msg)
-            .map_err(|e| failure::format_err!("sending message: {}", e))?;
+            .map_err(|e| flydra2::wrap_error(e))?;
         Ok(())
     }
 }

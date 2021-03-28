@@ -1004,7 +1004,7 @@ fn frame_process_thread(
                                     physical_diameter_meters: kalman_tracking_config.arena_diameter_meters,
                                     image_circle: circ,
                                 };
-                                let recon = cal_data.to_camera_system().map_err(|e| my_wrap_err(e))?;
+                                let recon = cal_data.to_camera_system()?;
 
                                 let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
                                 maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
