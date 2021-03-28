@@ -793,6 +793,7 @@ struct WritingState {
     /// but this does not seem possible. So we have a potential slight race
     /// condition when we have our directory but not yet the file handle on
     /// readme.
+    #[allow(dead_code)]
     readme_fd: Option<std::fs::File>,
     save_empty_data2d: bool,
     // kalman_estimates_wtr: Option<csv::Writer<Box<dyn std::io::Write>>>,
