@@ -7,12 +7,14 @@ use std::{convert::TryInto, io::BufRead};
 use serde::{Deserialize, Serialize};
 
 use flydra2::{
-    Data2dDistortedRow, MyFloat, Result, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
+    Data2dDistortedRow, MyFloat, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
     DATA2D_DISTORTED_CSV_FNAME,
 };
 use flydra_types::CamInfoRow;
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
+
+use anyhow::Result;
 
 fn remove_trailing_newline(line1: &str) -> &str {
     if line1.ends_with("\n") {
@@ -30,7 +32,7 @@ where
         Initialized,
         FoundStartHeader,
         Reading(Vec<String>),
-        Finished(std::result::Result<Vec<String>, failure::Error>),
+        Finished(std::result::Result<Vec<String>, anyhow::Error>),
         Marker,
     }
     impl ReadState {
@@ -47,7 +49,7 @@ where
                             ReadState::Initialized
                         }
                     } else {
-                        // *self = ReadState::Finished(Err(failure::err_msg("no header")));
+                        // *self = ReadState::Finished(Err(anyhow::format_err!("no header")));
                         ReadState::Finished(Ok(Vec::new()))
                     }
                 }
@@ -58,11 +60,11 @@ where
                             ReadState::Reading(vec![this_line.to_string()])
                         } else {
                             ReadState::Finished(Err(
-                                failure::err_msg("unexpected line prefix").into()
+                                anyhow::format_err!("unexpected line prefix").into()
                             ))
                         }
                     } else {
-                        ReadState::Finished(Err(failure::err_msg("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
                     }
                 }
                 ReadState::Reading(mut vec_lines) => {
@@ -76,26 +78,26 @@ where
                                 ReadState::Reading(vec_lines)
                             }
                         } else {
-                            ReadState::Finished(Err(failure::err_msg("unexpected line prefix")))
+                            ReadState::Finished(Err(anyhow::format_err!("unexpected line prefix")))
                         }
                     } else {
-                        ReadState::Finished(Err(failure::err_msg("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
                     }
                 }
                 ReadState::Finished(_) => {
-                    ReadState::Finished(Err(failure::err_msg("parsing after finish")))
+                    ReadState::Finished(Err(anyhow::format_err!("parsing after finish")))
                 }
                 ReadState::Marker => {
-                    ReadState::Finished(Err(failure::err_msg("parsing while parsing")))
+                    ReadState::Finished(Err(anyhow::format_err!("parsing while parsing")))
                 }
             };
             *self = next;
         }
-        fn finish(self) -> std::result::Result<Vec<String>, failure::Error> {
+        fn finish(self) -> std::result::Result<Vec<String>, anyhow::Error> {
             if let ReadState::Finished(rv) = self {
                 rv
             } else {
-                Err(failure::err_msg("premature end of header"))
+                Err(anyhow::format_err!("premature end of header"))
             }
         }
     }
@@ -487,14 +489,14 @@ where
     let tracking_params = match tracking_params_buf {
         Some(ref buf) => {
             let tracking_params: flydra_types::TrackingParams =
-                toml::from_str(&buf).map_err(|e| failure::Error::from(e))?;
+                toml::from_str(&buf).map_err(|e| anyhow::Error::from(e))?;
             tracking_params
         }
         None => flydra2::TrackingParams::default().into(),
     };
 
     let calibration_params =
-        toml::from_str(&calibration_params_buf).map_err(|e| failure::Error::from(e))?;
+        toml::from_str(&calibration_params_buf).map_err(|e| anyhow::Error::from(e))?;
 
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
