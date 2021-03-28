@@ -51,7 +51,9 @@ impl PseudoCameraCalibrationData {
             extrinsics, intrinsics)
     }
 
-    pub fn to_camera_system(&self) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, failure::Error> {
+    pub fn to_camera_system(
+        &self,
+    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, mvg::MvgError> {
         let cam_name = self.cam_name.clone();
         let cam = self.to_cam()?;
         let mut cams_by_name = std::collections::BTreeMap::new();
