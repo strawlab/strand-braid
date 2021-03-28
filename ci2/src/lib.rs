@@ -63,7 +63,7 @@ where
     fn from(orig: failure::Context<T>) -> Error {
         let s = format!(
             "{} (Context: {})",
-            failure::Fail::find_root_cause(&orig),
+            <dyn failure::Fail>::find_root_cause(&orig),
             orig.get_context()
         );
         Error::Context(s)
