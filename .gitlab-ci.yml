@@ -166,7 +166,7 @@ test_image_tracker:
     - ipp
   script:
     - cargo --version
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd image-tracker && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2017"
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd image-tracker && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2019"
 
 test_fastimage:
   stage: test
@@ -174,7 +174,7 @@ test_fastimage:
     - rust
     - ipp
   script:
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2017" -- --nocapture --test-threads 1
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 strand-cam-ubuntu1604-debs:
   stage: test # only because we depend on artifacts from build stage
@@ -408,7 +408,7 @@ strand-cam-pylon-linux:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2017 checkercal fiducial" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial" --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
@@ -558,7 +558,7 @@ strand-cam-camtrig-pylon-linux:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2017 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig" --release
     - cd ../strand-cam-offline-kalmanize
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
@@ -677,7 +677,7 @@ braid-pylon-ubuntu1604:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2017 fiducial jemalloc" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc" --release
     - ldd ../../target/release/braid-run
 
     # build braid
@@ -787,7 +787,7 @@ strand-cam-dc1394-linux:
     - cd strand-cam/yew_frontend && time ./build.sh && cd ..
     # force recomputing git version tag
     - touch build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 NUM_JOBS=2 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1" cargo build --features "bundle_files posix_sched_fifo backend_dc1394 ipp-sys/2017 checkercal fiducial" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 NUM_JOBS=2 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1" cargo build --features "bundle_files posix_sched_fifo backend_dc1394 ipp-sys/2019 checkercal fiducial" --release
     - ../target/release/strand-cam --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-dc1394
