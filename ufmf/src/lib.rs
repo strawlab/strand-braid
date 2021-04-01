@@ -4,9 +4,6 @@ extern crate chrono;
 extern crate machine_vision_formats as formats;
 extern crate timestamped_frame;
 
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 extern crate datetime_conversion;
 
 #[macro_use]
@@ -23,32 +20,20 @@ pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
 mod save_indices;
 
-#[derive(Fail, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum UFMFError {
-    #[fail(display = "unimplemented pixel_format {}", _0)]
+    #[error("unimplemented pixel_format {0}")]
     UnimplementedPixelFormat(PixelFormat),
 
-    #[fail(display = "already closed")]
+    #[error("already closed")]
     AlreadyClosed,
-    #[fail(display = "mismatched pixel_format")]
+    #[error("mismatched pixel_format")]
     MismatchedEncoding,
 
-    #[fail(display = "{}", _0)]
-    Io(#[cause] std::io::Error),
-    #[fail(display = "{}", _0)]
-    Cast(#[cause] cast::Error),
-}
-
-impl From<std::io::Error> for UFMFError {
-    fn from(orig: std::io::Error) -> UFMFError {
-        UFMFError::Io(orig)
-    }
-}
-
-impl From<cast::Error> for UFMFError {
-    fn from(orig: cast::Error) -> UFMFError {
-        UFMFError::Cast(orig)
-    }
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+    #[error("{0}")]
+    Cast(#[from] cast::Error),
 }
 
 const KEYFRAME_CHUNK: u8 = 0;

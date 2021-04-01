@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use failure::{Fail, Context, ResultExt, Backtrace};
-use std::fmt::{self, Display};
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -20,62 +18,29 @@ pub use http_video_streaming_types::{Point, Shape, ToClient, CircleParams,
 
 type Result<T> = std::result::Result<T,Error>;
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "unknown path")]
+#[derive(Debug,thiserror::Error, Clone, Eq, PartialEq)]
+pub enum Error {
+    #[error("unknown path")]
     UnknownPath,
-    #[fail(display = "convert image")]
+    #[error("convert image")]
     ConvertImageError,
-    #[fail(display = "receive error")]
+    #[error("receive error")]
     RecvError,
-    #[fail(display = "try receive error")]
+    #[error("try receive error")]
     TryRecvError,
-    #[fail(display = "callback sender disconnected")]
+    #[error("callback sender disconnected")]
     CallbackSenderDisconnected,
 }
 
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        *self.inner.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error { inner: Context::new(kind) }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner: inner }
+impl From<convert_image::Error> for Error {
+    fn from(_: convert_image::Error) -> Error {
+        Error::ConvertImageError
     }
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
     fn from(_: crossbeam_channel::RecvError) -> Error {
-        ErrorKind::RecvError.into()
+        Error::RecvError
     }
 }
 
@@ -170,8 +135,7 @@ impl<F> PerSender<F>
                     // sent_time computed early so that latency includes duration to encode, etc.
                     let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
                     let bytes = ::convert_image::frame_to_image(&most_recent_frame_data.frame,
-                        convert_image::ImageOptions::Jpeg(80))
-                        .context(ErrorKind::ConvertImageError)?;
+                        convert_image::ImageOptions::Jpeg(80))?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
                     let found_points = most_recent_frame_data.found_points.clone();
@@ -268,7 +232,7 @@ pub fn firehose_thread<F>(sender_map_arc: Arc<RwLock<HashMap<ConnectionKey,
                             }
                         } else {
                             if !path.starts_with(events_prefix) {
-                                return Err(ErrorKind::UnknownPath.into());
+                                return Err(Error::UnknownPath);
                             }
                             let slash_idx = events_prefix.len()+1; // get location of '/' separator
                             let use_name = path[slash_idx..].to_string();
@@ -302,7 +266,7 @@ pub fn firehose_thread<F>(sender_map_arc: Arc<RwLock<HashMap<ConnectionKey,
                 }
                 Err(crossbeam_channel::TryRecvError::Empty) => break,
                 Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    return Err(ErrorKind::CallbackSenderDisconnected.into());
+                    return Err(Error::CallbackSenderDisconnected);
                 },
             };
         }

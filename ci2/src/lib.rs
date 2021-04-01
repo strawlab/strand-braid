@@ -1,5 +1,4 @@
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
-use failure::Fail;
 use machine_vision_formats as formats;
 
 // TODO add binning support
@@ -9,51 +8,33 @@ use machine_vision_formats as formats;
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[fail(display = "SingleFrameError({})", _0)]
+    #[error("SingleFrameError({0})")]
     SingleFrameError(String),
-    #[fail(display = "Timeout")]
+    #[error("Timeout")]
     Timeout,
-    #[fail(display = "CI2Error({})", _0)]
+    #[error("CI2Error({0})")]
     CI2Error(String),
-    #[fail(display = "feature not present")]
+    #[error("feature not present")]
     FeatureNotPresent,
-    #[fail(display = "BackendError({})", _0)]
+    #[error("BackendError({0})")]
     BackendError(failure::Error),
-    #[fail(display = "ErrorWithContext({:?})", _0)]
+    #[error("ErrorWithContext({0:?})")]
     Context(String),
 
-    #[fail(display = "{}", _0)]
-    IoError(#[cause] std::io::Error),
-    #[fail(display = "{}", _0)]
-    Utf8Error(#[cause] std::str::Utf8Error),
-    #[fail(display = "{}", _0)]
-    TryFromIntError(#[cause] std::num::TryFromIntError),
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("{0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error("{0}")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 }
 
 fn _test_error_is_send() {
     // Compile-time test to ensure Error implements Send trait.
     fn implements<T: Send>() {}
     implements::<Error>();
-}
-
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error::IoError(orig)
-    }
-}
-
-impl From<std::str::Utf8Error> for Error {
-    fn from(orig: std::str::Utf8Error) -> Error {
-        Error::Utf8Error(orig)
-    }
-}
-
-impl From<std::num::TryFromIntError> for Error {
-    fn from(orig: std::num::TryFromIntError) -> Error {
-        Error::TryFromIntError(orig)
-    }
 }
 
 impl<T> From<failure::Context<T>> for Error
