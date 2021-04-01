@@ -13,8 +13,8 @@ use std::collections::BTreeMap;
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
-use timestamped_frame::ImageStrideTime;
 use formats::PixelFormat;
+use timestamped_frame::ImageStrideTime;
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
@@ -255,7 +255,8 @@ impl<F: Write + Seek> UFMFWriter<F> {
                 let (x0, w) = do_size(i.x, i.w, self.xinc as u16, self.max_width);
                 let (y0, h) = do_size(i.y, i.h, self.yinc as u16, self.max_height);
                 RectFromCorner { x0, y0, w, h }
-            }).collect();
+            })
+            .collect();
 
         {
             // This is a scope in which we borrow from `rects`.
@@ -402,9 +403,9 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 
 #[cfg(test)]
 mod tests {
-    use byteorder::WriteBytesExt;
-    use basic_frame::BasicFrame;
     use crate::*;
+    use basic_frame::BasicFrame;
+    use byteorder::WriteBytesExt;
 
     use timestamped_frame::AsImageStrideTime;
 
