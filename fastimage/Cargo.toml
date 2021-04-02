@@ -5,8 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
 ipp-sys = "0.4.4"
-failure = "0.1"
-failure_derive = "0.1"
+thiserror = "1.0"
 num-traits = "0.2"
 
 [dev-dependencies]

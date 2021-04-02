@@ -1,8 +1,5 @@
 //! Provides interface for Intel IPP
 
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 extern crate ipp_sys as ipp;
 extern crate num_traits;
 
@@ -28,28 +25,25 @@ pub fn ipp_status_string(status: IppStatusType) -> &'static str {
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[fail(display = "IPP status error (code: {}, {})", _0, _1)]
+    #[error("IPP status error (code: {0}, {1})")]
     IppStatusError(IppStatusType, &'static str),
-    #[fail(display = "MismatchedTypes")]
+    #[error("MismatchedTypes")]
     MismatchedTypes,
-    #[fail(display = "NoFastImageImplementation")]
+    #[error("NoFastImageImplementation")]
     NoFastImageImplementation,
-    #[fail(display = "MomentStateNotInitialized")]
+    #[error("MomentStateNotInitialized")]
     MomentStateNotInitialized,
-    #[fail(display = "NotImplemented")]
+    #[error("NotImplemented")]
     NotImplemented,
-    #[fail(display = "UnsupportedDataType")]
+    #[error("UnsupportedDataType")]
     UnsupportedDataType,
-    #[fail(display = "UnsupportedChannelType")]
+    #[error("UnsupportedChannelType")]
     UnsupportedChannelType,
-    #[fail(display = "FailedAlloc")]
+    #[error("FailedAlloc")]
     FailedAlloc,
-    #[fail(
-        display = "MismatchedCompileRuntimeVersions (compiled: {}, runtime: {}, level: {}",
-        _0, _1, _2
-    )]
+    #[error("MismatchedCompileRuntimeVersions (compiled: {0}, runtime: {1}, level: {2}")]
     MismatchedCompileRuntimeVersions(ipp_ctypes::c_int, ipp_ctypes::c_int, &'static str),
 }
 
