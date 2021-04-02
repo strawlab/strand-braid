@@ -244,7 +244,7 @@ impl CloseAppOnThreadExit {
     }
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
-    fn check<T, E: failure::Fail>(&self, result: std::result::Result<T, E>) -> T {
+    fn check<T>(&self, result: std::result::Result<T, anyhow::Error>) -> T {
         match result {
             Ok(v) => v,
             Err(e) => self.fail(e),
@@ -252,15 +252,8 @@ impl CloseAppOnThreadExit {
     }
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
-    fn fail<E: failure::Fail>(&self, e: E) -> ! {
-        let bt = backtrace::Backtrace::new();
-        display_err(
-            &e,
-            self.file,
-            self.line,
-            self.thread_handle.name(),
-            Some(bt),
-        );
+    fn fail(&self, e: anyhow::Error) -> ! {
+        display_err(e, self.file, self.line, self.thread_handle.name());
         panic!(
             "panicing thread {:?} due to error",
             self.thread_handle.name()
@@ -816,12 +809,12 @@ fn frame_process_thread(
                                 // TODO: convert this to a future on our runtime?
                                 std::thread::Builder::new().name("flydratrax_handle_msg".to_string()).spawn(move || { // flydratrax ignore for now
                                     let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-                                    let cam_cal = thread_closer.check(cal_data.to_cam().compat()); // camera calibration
+                                    let cam_cal = thread_closer.check(cal_data.to_cam().map_err(|e| anyhow::Error::new(Box::new(e)))); // camera calibration
                                     let kalman_tracking_config = kalman_tracking_config2.clone();
                                     thread_closer.maybe_err(flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
                                             model_receiver,
                                             &mut led_state, ssa2, camtrig_tx_std2,
-                                            ));
+                                            ).map_err(|e| anyhow::Error::new(Box::new(e))));
                                 })?;
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
