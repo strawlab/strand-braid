@@ -342,6 +342,8 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
 
+    let defaults = StrandCamArgs::default();
+
     Ok(StrandCamArgs {
         secret,
         camera_name,
@@ -373,5 +375,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         apriltag_csv_filename_template,
         force_camera_sync_mode,
         software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit::NoChange,
+        ..defaults
     })
 }

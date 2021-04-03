@@ -173,8 +173,8 @@ pub enum StrandCamError {
     BuiBackendError(#[from] bui_backend::Error),
     #[error("ci2 error: {0}")]
     Ci2Error(#[from] ci2::Error),
-    // #[error("plugin disconnected")]
-    // PluginDisconnected,
+    #[error("plugin disconnected")]
+    PluginDisconnected,
     #[error("video streaming error")]
     VideoStreamingError(#[from] video_streaming::Error),
     #[error(
@@ -1384,7 +1384,7 @@ fn frame_process_thread(
                                         crossbeam_channel::RecvTimeoutError::Disconnected => {
                                             // The tx channel was discconected.
                                             error!("The plugin disconnected.");
-                                            return Err(ErrorKind::PluginDisconnected.into());
+                                            return Err(StrandCamError::PluginDisconnected.into());
                                         }
                                     }
                                 }
