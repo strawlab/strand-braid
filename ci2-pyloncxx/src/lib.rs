@@ -1,7 +1,6 @@
 extern crate machine_vision_formats as formats;
 
-use failure::Fail;
-use failure::ResultExt;
+use anyhow::Context;
 use parking_lot::Mutex;
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -15,26 +14,20 @@ trait ExtendedError<T> {
 
 impl<T> ExtendedError<T> for std::result::Result<T, pylon_cxx_rs::PylonError> {
     fn map_pylon_err(self) -> ci2::Result<T> {
-        self.map_err(|e| ci2::Error::BackendError(failure::Error::from(e)))
+        self.map_err(|e| ci2::Error::BackendError(e.into()))
     }
 }
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[fail(display = "{}", _0)]
-    PylonError(#[cause] pylon_cxx_rs::PylonError),
-    #[fail(display = "{}", _0)]
-    IntParseError(#[cause] std::num::ParseIntError),
-    #[fail(display = "OtherError {}", _0)]
+    #[error("{0}")]
+    PylonError(#[from] pylon_cxx_rs::PylonError),
+    #[error("{0}")]
+    IntParseError(#[from] std::num::ParseIntError),
+    #[error("OtherError {0}")]
     OtherError(String),
-}
-
-impl From<pylon_cxx_rs::PylonError> for Error {
-    fn from(o: pylon_cxx_rs::PylonError) -> Self {
-        Error::PylonError(o)
-    }
 }
 
 impl From<Error> for ci2::Error {

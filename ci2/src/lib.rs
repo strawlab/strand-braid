@@ -19,9 +19,7 @@ pub enum Error {
     #[error("feature not present")]
     FeatureNotPresent,
     #[error("BackendError({0})")]
-    BackendError(failure::Error),
-    #[error("ErrorWithContext({0:?})")]
-    Context(String),
+    BackendError(#[from] anyhow::Error),
 
     #[error("{0}")]
     IoError(#[from] std::io::Error),
@@ -35,20 +33,6 @@ fn _test_error_is_send() {
     // Compile-time test to ensure Error implements Send trait.
     fn implements<T: Send>() {}
     implements::<Error>();
-}
-
-impl<T> From<failure::Context<T>> for Error
-where
-    T: std::fmt::Display + Send + Sync,
-{
-    fn from(orig: failure::Context<T>) -> Error {
-        let s = format!(
-            "{} (Context: {})",
-            <dyn failure::Fail>::find_root_cause(&orig),
-            orig.get_context()
-        );
-        Error::Context(s)
-    }
 }
 
 impl<'a> From<&'a str> for Error {

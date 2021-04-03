@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0"
-failure = "0.1"
+anyhow = "1.0"
 
 machine-vision-formats = { path = "../machine-vision-formats" }
 ci2-types = {path="ci2-types"}
