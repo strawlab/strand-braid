@@ -29,7 +29,7 @@ pub enum StrandCamErrorCode {
 impl StrandCamErrorCode {
     /// This maps all errors that can possibly happen.
     pub fn from_error(error: &Error) -> StrandCamErrorCode {
-        for cause in error.iter_chain() {
+        for cause in error.chain() {
             if cause.downcast_ref::<Panic>().is_some() {
                 return StrandCamErrorCode::Panic;
             }
@@ -62,7 +62,7 @@ pub unsafe extern "C" fn strandcam_err_get_last_message() -> StrandCamStr {
     LAST_ERROR.with(|e| {
         if let Some(ref err) = *e.borrow() {
             let mut msg = err.to_string();
-            for cause in err.iter_causes() {
+            for cause in err.chain() {
                 write!(&mut msg, "\n  caused by: {}", cause).ok();
             }
             StrandCamStr::from_string(msg)
