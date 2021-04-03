@@ -1,33 +1,29 @@
-extern crate libdc1394_sys;
 #[macro_use]
 extern crate log;
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 
 use libdc1394_sys as ffi;
 use std::os::unix::io::{AsRawFd, RawFd};
 
 pub type Result<M> = std::result::Result<M,Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[fail(display = "DC1394Error {}", code)]
+    #[error("DC1394Error {code}")]
     DC1394Error {
         code: ffi::dc1394error_t::Type,
     },
-    #[fail(display = "Dc1394NewFailed")]
+    #[error("Dc1394NewFailed")]
     Dc1394NewFailed,
-    #[fail(display = "EnumerateCamerasFailed")]
+    #[error("EnumerateCamerasFailed")]
     EnumerateCamerasFailed,
-    #[fail(display = "CameraNewFailed")]
+    #[error("CameraNewFailed")]
     CameraNewFailed,
-    #[fail(display = "CaptureDequeueFailed")]
+    #[error("CaptureDequeueFailed")]
     CaptureDequeueFailed,
-    #[fail(display = "RequiresFormat7Mode")]
+    #[error("RequiresFormat7Mode")]
     RequiresFormat7Mode,
-    #[fail(display = "{}", _0)]
-    Utf8Error(#[cause] std::str::Utf8Error),
+    #[error("{0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
 }
 
 macro_rules! dc1394_try {
