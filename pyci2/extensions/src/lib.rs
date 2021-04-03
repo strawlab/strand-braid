@@ -4,8 +4,6 @@ extern crate cpython;
 extern crate ci2_dc1394;
 #[cfg(feature = "flycap2")]
 extern crate ci2_flycap2;
-#[cfg(feature = "pylon")]
-extern crate ci2_pylon;
 extern crate ci2;
 extern crate parking_lot;
 #[macro_use]
@@ -38,11 +36,6 @@ fn get_camera_module() -> ci2::Result<Box<ci2_dc1394::WrappedModule>> {
 #[cfg(feature = "flycap2")]
 fn get_camera_module() -> ci2::Result<Box<ci2_flycap2::WrappedModule>> {
     ci2_flycap2::WrappedModule::new()
-}
-
-#[cfg(feature = "pylon")]
-fn get_camera_module() -> ci2::Result<Box<ci2_pylon::WrappedModule>> {
-    ci2_pylon::WrappedModule::new()
 }
 
 enum ToCamThreadMsg {

@@ -43,10 +43,8 @@ ci2-async = { path = "../ci2-async" }
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
 ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
-ci2-pylon = { path = "../ci2-pylon", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
-pylon = { path = "../pylon", optional = true }
 ci2-remote-control = { path = "../ci2-remote-control" }
 machine-vision-formats = { path = "../machine-vision-formats" }
 timestamped-frame = { path = "../timestamped-frame" }
@@ -126,7 +124,6 @@ serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files"]#, "
 # Backend choice
 backend_dc1394 = ["ci2-dc1394"]
 backend_flycap2 = ["ci2-flycap2"]
-backend_pylon = ["ci2-pylon", "pylon"]
 backend_pyloncxx = ["ci2-pyloncxx"]
 # backend_aravis = ["ci2-aravis"]
 

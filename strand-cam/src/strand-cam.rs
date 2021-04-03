@@ -19,8 +19,6 @@ use ci2_aravis as backend;
 use ci2_dc1394 as backend;
 #[cfg(feature = "backend_flycap2")]
 use ci2_flycap2 as backend;
-#[cfg(feature = "backend_pylon")]
-use ci2_pylon as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 

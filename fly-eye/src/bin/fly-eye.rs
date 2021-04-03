@@ -12,8 +12,6 @@ extern crate crossbeam_ok;
 extern crate ci2_dc1394 as camsrc;
 #[cfg(feature = "camsrc_flycap2")]
 extern crate ci2_flycap2 as camsrc;
-#[cfg(feature = "camsrc_pylon")]
-extern crate ci2_pylon as camsrc;
 extern crate ci2;
 
 use fly_eye::{run_func, App};

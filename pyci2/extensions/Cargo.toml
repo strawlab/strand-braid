@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 ci2 = { path = "../../ci2" }
 ci2-dc1394 = { path = "../../ci2-dc1394", optional = true }
 ci2-flycap2 = { path = "../../ci2-flycap2", optional = true }
-ci2-pylon = { path = "../../ci2-pylon", optional = true }
 machine-vision-formats = { path = "../../machine-vision-formats" }
 parking_lot = "0.4"
 lazy_static = "0.2"
@@ -30,4 +29,3 @@ default = ["pylon"]
 # Backend choice
 dc1394 = ["ci2-dc1394"]
 flycap2 = ["ci2-flycap2"]
-pylon = ["ci2-pylon"]

@@ -470,8 +470,10 @@ py-strandcam-pylon-linux:
     - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.7.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.7.0-0ads1_amd64.deb
     - dpkg -i /tmp/libvpx-opt-static_1.7.0-0ads1_amd64.deb
 
-    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_5.2.0.13457-deb0_amd64.deb > /tmp/pylon_5.2.0.13457-deb0_amd64.deb
-    - dpkg -i /tmp/pylon_5.2.0.13457-deb0_amd64.deb
+    # Download pylon and install 6
+    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
+    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
     - curl --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
     - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
@@ -483,7 +485,7 @@ py-strandcam-pylon-linux:
     - touch build.rs
     - cd ../py-strandcam
     - touch rust/build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pylon IPP_SYS=2017 python setup.py install
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pyloncxx IPP_SYS=2017 python setup.py install
 
 strand-cam-camtrig-pylon-ubuntu2004:
   stage: build

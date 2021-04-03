@@ -20,6 +20,5 @@ cbindgen = "=0.8.2"
 plugin-defs = {path="../../plugin-defs"}
 
 [features]
-backend_pylon = ["strand-cam/backend_pylon"]
 backend_pyloncxx = ["strand-cam/backend_pyloncxx"]
 backend_dc1394 = ["strand-cam/backend_dc1394"]
