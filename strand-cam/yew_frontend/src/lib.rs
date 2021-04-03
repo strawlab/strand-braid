@@ -54,7 +54,8 @@ enum Msg {
 
     NewServerState(ServerState),
 
-    FailedDecode(String),
+    FailedCallbackJsonDecode(String),
+    DismissJsonDecodeError,
 
     DismissProcessingErrorModal,
     SetIgnoreAllFutureErrors(bool),
@@ -126,11 +127,13 @@ enum Msg {
 }
 
 struct Model {
+    /// Keep task to prevent it from being dropped.
+    #[allow(dead_code)]
     ft: Option<FetchTask>,
     video_data: VideoData,
 
     server_state: Option<ServerState>,
-    fail_msg: String,
+    json_decode_err: Option<String>,
     html_page_title: Option<String>,
     es: EventSourceTask,
     link: ComponentLink<Self>,
@@ -151,20 +154,18 @@ impl Component for Model {
 
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         let task = {
-            let data_callback = link.callback(|Json(data)| {
-                match data {
-                    Ok(data_result) => Msg::NewServerState(data_result),
-                    Err(e) => {
-                        log::error!("{}", e);
-                        Msg::FailedDecode(format!("{}", e)) //.to_string())
-                    }
+            let data_callback = link.callback(|Json(data)| match data {
+                Ok(data_result) => Msg::NewServerState(data_result),
+                Err(e) => {
+                    log::error!("in data callback: {}", e);
+                    Msg::FailedCallbackJsonDecode(format!("{}", e))
                 }
             });
             let stream_callback = link.callback(|Json(data)| match data {
                 Ok(image_result) => Msg::NewImageFrame(image_result),
                 Err(e) => {
-                    log::error!("{}", e);
-                    Msg::FailedDecode(format!("{}", e)) //.to_string())
+                    log::error!("in stream callback: {}", e);
+                    Msg::FailedCallbackJsonDecode(format!("{}", e))
                 }
             });
             let notification = link.callback(|status| {
@@ -192,7 +193,7 @@ impl Component for Model {
             video_data: VideoData::default(),
 
             server_state: None,
-            fail_msg: "".to_string(),
+            json_decode_err: None,
             html_page_title: None,
             es: task,
             link,
@@ -247,8 +248,11 @@ impl Component for Model {
                 // Update our cache of the server state
                 self.server_state = Some(response);
             }
-            Msg::FailedDecode(s) => {
-                self.fail_msg = s;
+            Msg::FailedCallbackJsonDecode(s) => {
+                self.json_decode_err = Some(s);
+            }
+            Msg::DismissJsonDecodeError => {
+                self.json_decode_err = None;
             }
             Msg::DismissProcessingErrorModal => {
                 let limit_duration = if self.ignore_all_future_frame_processing_errors {
@@ -487,6 +491,7 @@ impl Component for Model {
                 { self.camtrig_failed() }
                 <div class="wrapper",>
                     { self.view_video() }
+                    { self.view_decode_error() }
                     { self.view_camtrig() }
                     { self.view_led_triggering() }
                     { self.view_mkv_recording_options() }
@@ -512,6 +517,19 @@ impl Component for Model {
 }
 
 impl Model {
+    fn view_decode_error(&self) -> Html {
+        if let Some(ref json_decode_err) = self.json_decode_err {
+            html! {
+                <div>
+                    <p>{"Error decoding callback JSON from server: "}{json_decode_err}</p>
+                    <p><Button: title="Dismiss", onsignal=self.link.callback(|_| Msg::DismissJsonDecodeError), /></p>
+                </div>
+            }
+        } else {
+            html! {}
+        }
+    }
+
     #[cfg(feature = "with_camtrig")]
     fn view_camtrig(&self) -> Html {
         if let Some(ref shared) = self.server_state {

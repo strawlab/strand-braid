@@ -1,6 +1,6 @@
+use crate::AutoMode;
 use ads_webasm::components::EnumToggle;
 use yew::prelude::*;
-use crate::AutoMode;
 
 pub struct AutoModeSelect {
     link: ComponentLink<Self>,
