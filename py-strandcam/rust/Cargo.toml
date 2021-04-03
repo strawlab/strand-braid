@@ -9,7 +9,8 @@ name = "strandcam"
 crate-type = ["cdylib"]
 
 [dependencies]
-failure = "0.1.5"
+thiserror = "1.0"
+anyhow = "1.0"
 strand-cam = {path="../../strand-cam", features=["bundle_files", "plugin-process-frame", "checkercal"]}
 plugin-defs = {path="../../plugin-defs"}
 ipp-sys = "0.4.4" # Just so we can specify features

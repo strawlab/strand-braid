@@ -3,7 +3,7 @@ use std::ptr;
 use std::mem;
 // use std::str;
 use std::borrow::Cow;
-use failure::{Error, Fail};
+use anyhow::Error;
 use std::os::raw::c_char;
 
 use plugin_defs::{ProcessFrameFunc, DataHandle};
@@ -174,8 +174,8 @@ pub unsafe extern "C" fn strandcam_err_clear() {
 }
 
 /// An error  in place of panics.
-#[derive(Fail, Debug)]
-#[fail(display = "strandcam panicked: {}", _0)]
+#[derive(thiserror::Error, Debug)]
+#[error("strandcam panicked: {0}")]
 pub struct Panic(String);
 
 /// Register a global process frame callback and run the app.
