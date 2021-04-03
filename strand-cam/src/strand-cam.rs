@@ -191,8 +191,8 @@ pub enum StrandCamError {
     AddrParseError(#[from] std::net::AddrParseError),
     #[error("background movie writer error: {0}")]
     BgMovieWriterError(#[from] bg_movie_writer::Error),
-    // #[error("Braid update image listener disconnected")]
-    // BraidUpdateImageListenerDisconnected,
+    #[error("Braid update image listener disconnected")]
+    BraidUpdateImageListenerDisconnected,
     #[error("{0}")]
     NvEncError(#[from] nvenc::NvEncError),
     #[cfg(feature = "flydratrax")]
@@ -1429,7 +1429,7 @@ fn frame_process_thread(
                                 }
                                 if e.is_disconnected() {
                                     debug!("update image on braid listener disconnected");
-                                    return Err(ErrorKind::BraidUpdateImageListenerDisconnected.into());
+                                    return Err(StrandCamError::BraidUpdateImageListenerDisconnected.into());
                                 }
                             }
                         }
@@ -1848,7 +1848,9 @@ fn run_camtrig(
                 serialport::open_with_settings(serial_device, &settings)?
             }
             None => {
-                return Err(StrandCamError::StringError("no camtrig device path given".into()));
+                return Err(StrandCamError::StringError(
+                    "no camtrig device path given".into(),
+                ));
             }
         }
     };
