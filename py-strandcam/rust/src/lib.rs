@@ -1,12 +1,12 @@
 use std::cell::RefCell;
-use std::ptr;
 use std::mem;
+use std::ptr;
 // use std::str;
-use std::borrow::Cow;
 use anyhow::Error;
+use std::borrow::Cow;
 use std::os::raw::c_char;
 
-use plugin_defs::{ProcessFrameFunc, DataHandle};
+use plugin_defs::{DataHandle, ProcessFrameFunc};
 
 thread_local! {
     pub static LAST_ERROR: RefCell<Option<Error>> = RefCell::new(None);
@@ -89,7 +89,6 @@ pub struct StrandCamStr {
     pub owned: bool,
 }
 
-
 impl Default for StrandCamStr {
     fn default() -> StrandCamStr {
         StrandCamStr {
@@ -134,7 +133,12 @@ impl StrandCamStr {
 
     /// Returns the Rust string managed by a `StrandCamStr`.
     pub fn as_str(&self) -> &str {
-        unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.data as *const _, self.len)) }
+        unsafe {
+            std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                self.data as *const _,
+                self.len,
+            ))
+        }
     }
 }
 
@@ -180,7 +184,10 @@ pub struct Panic(String);
 
 /// Register a global process frame callback and run the app.
 #[no_mangle]
-pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(process_frame_callback: ProcessFrameFunc, data_handle: DataHandle) {
+pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(
+    process_frame_callback: ProcessFrameFunc,
+    data_handle: DataHandle,
+) {
     match std::panic::catch_unwind(|| {
         let cb_data = strand_cam::ProcessFrameCbData {
             func_ptr: process_frame_callback,
@@ -189,17 +196,17 @@ pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(process_frame_callback
         let mut args = strand_cam::StrandCamArgs::default();
         args.process_frame_callback = Some(cb_data);
         match strand_cam::run_app(args) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(e) => {
                 set_last_error(e);
                 return;
             }
         }
     }) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             set_last_error(Panic("".to_string()).into());
             return;
-        },
+        }
     }
 }
