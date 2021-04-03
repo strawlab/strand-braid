@@ -210,9 +210,10 @@ pub enum StrandCamError {
     ThreadDone,
 }
 
-#[allow(dead_code)]
-fn my_wrap_err(orig: failure::Error) -> StrandCamError {
-    StrandCamError::WrappedFailure(orig)
+impl From<failure::Error> for StrandCamError {
+    fn from(orig: failure::Error) -> StrandCamError {
+        StrandCamError::WrappedFailure(orig)
+    }
 }
 
 pub struct CloseAppOnThreadExit {
@@ -244,12 +245,17 @@ impl CloseAppOnThreadExit {
     }
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
-    fn check<T>(&self, result: std::result::Result<T, anyhow::Error>) -> T {
+    fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
+        where E: std::convert::Into<anyhow::Error>
+    {
         match result {
             Ok(v) => v,
-            Err(e) => self.fail(e),
+            Err(e) => {
+                self.fail(e.into())
+            },
         }
     }
+
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
@@ -1846,17 +1852,16 @@ fn run_camtrig(
             Some(ref serial_device) => {
                 // open with default settings 9600 8N1
                 serialport::open_with_settings(serial_device, &settings)
-                    .context(format!("opening serial device {}", serial_device))
-                    .map_err(|e| my_wrap_err(e.into()))?
+                    .map_err(|e| failure::format_err!("opening serial device {}: {}", serial_device, e))?
             }
             None => {
-                return Err(my_wrap_err(format_err!("no camtrig device path given")));
+                return Err(failure::format_err!("no camtrig device path given").into());
             }
         }
     };
 
     // separate reader and writer
-    let mut reader_port = port.try_clone().map_err(|e| my_wrap_err(e.into()))?;
+    let mut reader_port = port.try_clone().map_err(|e| failure::Error::from(e))?;
     let mut writer_port = port;
 
     let (flag, control) = thread_control::make_pair();
@@ -1891,8 +1896,8 @@ fn run_camtrig(
                     }
                     Err(e) => match e.kind() {
                         std::io::ErrorKind::TimedOut => continue,
-                        e => {
-                            thread_closer.fail(std::io::Error::from(e));
+                        _ => {
+                            thread_closer.fail(e.into());
                         }
                     },
                 }
@@ -1922,8 +1927,8 @@ fn run_camtrig(
                         Ok(msg) => msgs.push(msg),
                         Err(e) => match e {
                             crossbeam_channel::TryRecvError::Empty => break,
-                            e => {
-                                thread_closer.fail(e);
+                            _ => {
+                                thread_closer.fail(e.into());
                             }
                         },
                     }
