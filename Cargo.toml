@@ -98,7 +98,6 @@ exclude = [
     "ANCIENT",
     "camtrig-firmware",
     "ci2-aravis", # Exclude for now until we can update it
-    "pyci2/extensions", # Exclude for now because setuptools_rust doesn't find built product.
 ]
 
 [profile.release]
