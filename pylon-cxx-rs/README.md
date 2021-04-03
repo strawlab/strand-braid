@@ -1,4 +1,13 @@
+## Platform support
+
+Windows, linux, and macOS are all tested.
+
 ## Building
+
+This crate expects to find the Pylon developer kit at the usual install
+location. Build with normal rust commands. For example, to run the `grab` example:
+
+    cargo run --example grab
 
 ### On macOS
 
