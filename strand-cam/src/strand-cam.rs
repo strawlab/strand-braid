@@ -186,8 +186,6 @@ pub enum StrandCamError {
     #[error("MVG error: {0}")]
     MvgError(#[from] mvg::MvgError),
     #[error("{0}")]
-    WrappedFailure(failure::Error),
-    #[error("{0}")]
     WebmWriterError(#[from] webm_writer::Error),
     #[error("{0}")]
     AddrParseError(#[from] std::net::AddrParseError),
@@ -212,12 +210,6 @@ pub enum StrandCamError {
     #[cfg(feature = "with_camtrig")]
     #[error("{0}")]
     SerialportError(#[from] serialport::Error),
-}
-
-impl From<failure::Error> for StrandCamError {
-    fn from(orig: failure::Error) -> StrandCamError {
-        StrandCamError::WrappedFailure(orig)
-    }
 }
 
 pub struct CloseAppOnThreadExit {
@@ -1853,12 +1845,10 @@ fn run_camtrig(
         match shared.camtrig_device_path {
             Some(ref serial_device) => {
                 // open with default settings 9600 8N1
-                serialport::open_with_settings(serial_device, &settings).map_err(|e| {
-                    failure::format_err!("opening serial device {}: {}", serial_device, e)
-                })?
+                serialport::open_with_settings(serial_device, &settings)?
             }
             None => {
-                return Err(failure::format_err!("no camtrig device path given").into());
+                return Err(StrandCamError::StringError("no camtrig device path given".into()));
             }
         }
     };
@@ -3781,17 +3771,6 @@ fn open_browser(url: String) -> Result<()> {
         })?;
     Ok(())
 }
-
-// /// run a function returning Result<()> and handle errors.
-// // see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-// pub fn run_func<F>(fname: &str, line: u32, real_func: F)
-//     where F: FnOnce() -> std::result::Result<(),failure::Error>,
-// {
-//     // Decide which command to run, and run it, and print any errors.
-//     if let Err(err) = real_func() {
-//         display_err(err.as_fail(), fname, line, None, None);
-//     }
-// }
 
 #[cfg(feature = "fiducial")]
 fn make_family(family: &ci2_remote_control::TagFamily) -> apriltag::Family {
