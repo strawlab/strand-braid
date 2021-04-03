@@ -208,6 +208,10 @@ pub enum StrandCamError {
     CsvError(#[from] csv::Error),
     #[error("thread done")]
     ThreadDone,
+
+    #[cfg(feature = "with_camtrig")]
+    #[error("{0}")]
+    SerialportError(#[from] serialport::Error),
 }
 
 impl From<failure::Error> for StrandCamError {
@@ -246,16 +250,14 @@ impl CloseAppOnThreadExit {
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
     fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
-        where E: std::convert::Into<anyhow::Error>
+    where
+        E: std::convert::Into<anyhow::Error>,
     {
         match result {
             Ok(v) => v,
-            Err(e) => {
-                self.fail(e.into())
-            },
+            Err(e) => self.fail(e.into()),
         }
     }
-
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
@@ -1851,8 +1853,9 @@ fn run_camtrig(
         match shared.camtrig_device_path {
             Some(ref serial_device) => {
                 // open with default settings 9600 8N1
-                serialport::open_with_settings(serial_device, &settings)
-                    .map_err(|e| failure::format_err!("opening serial device {}: {}", serial_device, e))?
+                serialport::open_with_settings(serial_device, &settings).map_err(|e| {
+                    failure::format_err!("opening serial device {}: {}", serial_device, e)
+                })?
             }
             None => {
                 return Err(failure::format_err!("no camtrig device path given").into());
@@ -1861,7 +1864,7 @@ fn run_camtrig(
     };
 
     // separate reader and writer
-    let mut reader_port = port.try_clone().map_err(|e| failure::Error::from(e))?;
+    let mut reader_port = port.try_clone()?;
     let mut writer_port = port;
 
     let (flag, control) = thread_control::make_pair();
@@ -2209,7 +2212,7 @@ impl Default for StrandCamArgs {
     }
 }
 
-pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
+pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     let mut runtime = tokio::runtime::Builder::new()
         .threaded_scheduler()
         .enable_all()
