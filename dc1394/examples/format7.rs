@@ -1,9 +1,4 @@
-extern crate log;
-extern crate env_logger;
-extern crate dc1394;
-extern crate libdc1394_sys;
-
-use dc1394::{DC1394, Camera, Frame};
+use dc1394::{Camera, Frame, DC1394};
 use libdc1394_sys as ffi;
 use std::fs::File;
 use std::io::Write;
@@ -34,7 +29,7 @@ fn run() -> dc1394::Result<()> {
     println!("{} cameras found", list.len());
     for cam_id in list.iter() {
         println!("  {:?}", cam_id);
-        let mut cam = Camera::new(&dc1394, &cam_id.guid )?;
+        let mut cam = Camera::new(&dc1394, &cam_id.guid)?;
 
         // set format7 mode 0
         cam.set_video_mode(ffi::dc1394video_mode_t::DC1394_VIDEO_MODE_FORMAT7_0)?;
