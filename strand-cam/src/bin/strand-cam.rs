@@ -1,13 +1,3 @@
-extern crate clap;
-extern crate dotenv;
-extern crate failure;
-#[cfg(feature = "image_tracker")]
-extern crate image_tracker;
-extern crate image_tracker_types;
-extern crate preferences;
-extern crate shellexpand;
-extern crate strand_cam;
-
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
@@ -19,7 +9,7 @@ use strand_cam::{run_app, StrandCamArgs};
 #[cfg(feature = "cfg-pt-detect-src-prefs")]
 use strand_cam::APP_INFO;
 
-type Result<T> = std::result::Result<T, failure::Error>;
+type Result<T> = std::result::Result<T, anyhow::Error>;
 
 fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
     matches
@@ -29,7 +19,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
         .map(|s| s.into_bytes())
 }
 
-fn main() -> std::result::Result<(), failure::Error> {
+fn main() -> std::result::Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
@@ -64,10 +54,10 @@ fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32
                 let priority = priority.parse()?;
                 Ok(Some((policy, priority)))
             }
-            None => Err(failure::err_msg(errstr)),
+            None => Err(anyhow::anyhow!(errstr)),
         },
         None => match matches.value_of("sched_priority") {
-            Some(_priority) => Err(failure::err_msg(errstr)),
+            Some(_priority) => Err(anyhow::anyhow!(errstr)),
             None => Ok(None),
         },
     }
@@ -115,7 +105,7 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<strand_cam::ImPtDetect
     Ok(tracker_cfg_src)
 }
 
-fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
+fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let cli_args = get_cli_args();
 
     let arg_default = StrandCamArgs::default();
@@ -262,17 +252,17 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
 
     let mkv_filename_template = matches
         .value_of("mkv_filename_template")
-        .ok_or_else(|| failure::err_msg("expected mkv_filename_template"))?
+        .ok_or_else(|| anyhow::anyhow!("expected mkv_filename_template"))?
         .to_string();
 
     let fmf_filename_template = matches
         .value_of("fmf_filename_template")
-        .ok_or_else(|| failure::err_msg("expected fmf_filename_template"))?
+        .ok_or_else(|| anyhow::anyhow!("expected fmf_filename_template"))?
         .to_string();
 
     let ufmf_filename_template = matches
         .value_of("ufmf_filename_template")
-        .ok_or_else(|| failure::err_msg("expected ufmf_filename_template"))?
+        .ok_or_else(|| anyhow::anyhow!("expected ufmf_filename_template"))?
         .to_string();
 
     let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
@@ -281,16 +271,16 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
 
     let csv_save_dir = matches
         .value_of("csv_save_dir")
-        .ok_or_else(|| failure::err_msg("expected csv_save_dir"))?
+        .ok_or_else(|| anyhow::anyhow!("expected csv_save_dir"))?
         .to_string();
 
     let csv_save_dir = shellexpand::full(&csv_save_dir)
-        .map_err(|e| failure::format_err!("{}", e))?
+        .map_err(|e| anyhow::anyhow!("{}", e))?
         .into();
 
     let http_server_addr = matches
         .value_of("http_server_addr")
-        .ok_or_else(|| failure::err_msg("expected http_server_addr"))?
+        .ok_or_else(|| anyhow::anyhow!("expected http_server_addr"))?
         .to_string();
 
     let no_browser = match matches.occurrences_of("no_browser") {
@@ -320,7 +310,7 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
     #[cfg(feature = "flydratrax")]
     let model_server_addr = matches
         .value_of("model_server_addr")
-        .ok_or_else(|| failure::err_msg("expected model_server_addr"))?
+        .ok_or_else(|| anyhow::anyhow!("expected model_server_addr"))?
         .to_string()
         .parse()
         .unwrap();
@@ -351,6 +341,8 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
     #[cfg(feature = "fiducial")]
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
+
+    let defaults = StrandCamArgs::default();
 
     Ok(StrandCamArgs {
         secret,
@@ -383,5 +375,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, failure::Error> {
         apriltag_csv_filename_template,
         force_camera_sync_mode,
         software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit::NoChange,
+        ..defaults
     })
 }

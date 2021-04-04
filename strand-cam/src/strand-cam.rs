@@ -5,8 +5,7 @@
 
 // TODO: UI automatically reconnect to app after app restart.
 
-#[macro_use]
-extern crate failure;
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 #[macro_use]
 extern crate serde_derive;
@@ -34,9 +33,7 @@ use machine_vision_formats as formats;
 #[cfg(feature = "flydratrax")]
 use nalgebra as na;
 
-use failure::{Backtrace, Context, Fail, ResultExt};
 use std::convert::TryInto;
-use std::fmt::{self, Display};
 
 #[cfg(feature = "fiducial")]
 use libflate::finish::AutoFinishUnchecked;
@@ -144,263 +141,75 @@ const CAMTRIG_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
 pub type Result<M> = std::result::Result<M, StrandCamError>;
 
-#[derive(Debug)]
-pub struct StrandCamError {
-    inner: Context<ErrorKind>,
-}
-
-impl Fail for StrandCamError {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for StrandCamError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-#[derive(Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "setting scheduler priority error")]
+#[derive(Debug, thiserror::Error)]
+pub enum StrandCamError {
+    #[error("setting scheduler priority error")]
     SetSchedPriorityError,
-    #[fail(display = "other error")]
-    OtherError,
-    #[fail(display = "error: {}", _0)]
+    // #[error("other error")]
+    // OtherError,
+    #[error("string error: {0}")]
     StringError(String),
-    #[fail(display = "no cameras found")]
+    #[error("no cameras found")]
     NoCamerasFound,
-    #[cfg(feature = "image_tracker")]
-    #[fail(display = "ImageTrackerError: {}", _0)]
-    ImageTrackerError(image_tracker::Error),
-    #[fail(display = "ConvertImageError: {}", _0)]
-    ConvertImageError(convert_image::Error),
-    #[cfg(feature = "checkercal")]
-    #[fail(display = "OpenCvCalibrateError: {}", _0)]
-    OpenCvCalibrateError(opencv_calibrate::Error),
-    #[fail(display = "receiving on an empty and disconnected channel")]
-    CrossbeamChannelRecvError,
-    #[fail(display = "FMF error")]
-    FMFError,
-    #[fail(display = "UFMF error")]
-    UFMFError,
-    #[fail(display = "IO error")]
-    IoError,
-    #[fail(display = "try send error")]
+    // #[cfg(feature = "image_tracker")]
+    // #[error("ImageTrackerError: {0}")]
+    // ImageTrackerError(#[from] image_tracker::Error),
+    #[error("ConvertImageError: {0}")]
+    ConvertImageError(#[from] convert_image::Error),
+    // #[cfg(feature = "checkercal")]
+    // #[error("OpenCvCalibrateError: {0}")]
+    // OpenCvCalibrateError(#[from] opencv_calibrate::Error),
+    #[error("receiving on an empty and disconnected channel: {0}")]
+    CrossbeamChannelRecvError(#[from] crossbeam_channel::RecvError),
+    #[error("FMF error: {0}")]
+    FMFError(#[from] fmf::FMFError),
+    #[error("UFMF error: {0}")]
+    UFMFError(#[from] ufmf::UFMFError),
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("try send error")]
     TrySendError,
-    #[fail(display = "BUI backend error")]
-    BuiBackendError,
-    #[fail(display = "ci2 error")]
-    Ci2Error,
-    #[fail(display = "plugin disconnected")]
+    #[error("BUI backend error: {0}")]
+    BuiBackendError(#[from] bui_backend::Error),
+    #[error("ci2 error: {0}")]
+    Ci2Error(#[from] ci2::Error),
+    #[error("plugin disconnected")]
     PluginDisconnected,
-    #[fail(display = "video streaming error")]
-    VideoStreamingError,
-    #[fail(
-        display = "The --jwt-secret argument must be passed or the JWT_SECRET environment \
+    #[error("video streaming error")]
+    VideoStreamingError(#[from] video_streaming::Error),
+    #[error(
+        "The --jwt-secret argument must be passed or the JWT_SECRET environment \
                   variable must be set."
     )]
     JwtError,
-    #[fail(display = "mvg error")]
-    MvgError,
-    #[fail(display = "{}", _0)]
-    WrappedFailure(failure::Error),
-    #[fail(display = "{}", _0)]
-    WebmWriterError(webm_writer::Error),
-    #[fail(display = "{}", _0)]
-    AddrParseError(std::net::AddrParseError),
-    #[fail(display = "{}", _0)]
-    BgMovieWriterError(bg_movie_writer::Error),
-    #[fail(display = "Braid update image listener disconnected")]
-    BraidUpdateImageListenerDisconnected,
-    #[fail(display = "{}", _0)]
-    NvEncError(nvenc::NvEncError),
     #[cfg(feature = "flydratrax")]
-    #[fail(display = "{}", _0)]
-    Flydra2Error(flydra2::Error),
-    #[fail(display = "{}", _0)]
-    FuturesChannelMpscSend(futures::channel::mpsc::SendError),
+    #[error("MVG error: {0}")]
+    MvgError(#[from] mvg::MvgError),
+    #[error("{0}")]
+    WebmWriterError(#[from] webm_writer::Error),
+    #[error("{0}")]
+    AddrParseError(#[from] std::net::AddrParseError),
+    #[error("background movie writer error: {0}")]
+    BgMovieWriterError(#[from] bg_movie_writer::Error),
+    #[error("Braid update image listener disconnected")]
+    BraidUpdateImageListenerDisconnected,
+    #[error("{0}")]
+    NvEncError(#[from] nvenc::NvEncError),
+    #[cfg(feature = "flydratrax")]
+    #[error("flydra2 error: {0}")]
+    Flydra2Error(#[from] flydra2::Error),
+    #[cfg(feature = "flydratrax")]
+    #[error("futures mpsc send error: {0}")]
+    FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
     #[cfg(feature = "fiducial")]
-    #[fail(display = "{}", _0)]
-    CsvError(csv::Error),
-}
+    #[error("{0}")]
+    CsvError(#[from] csv::Error),
+    #[error("thread done")]
+    ThreadDone,
 
-#[allow(dead_code)]
-fn my_wrap_err(orig: failure::Error) -> StrandCamError {
-    StrandCamError {
-        inner: Context::new(ErrorKind::WrappedFailure(orig)),
-    }
-}
-
-impl StrandCamError {
-    pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl From<ErrorKind> for StrandCamError {
-    fn from(kind: ErrorKind) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(kind),
-        }
-    }
-}
-
-impl From<Context<ErrorKind>> for StrandCamError {
-    fn from(inner: Context<ErrorKind>) -> StrandCamError {
-        StrandCamError { inner: inner }
-    }
-}
-
-impl From<std::io::Error> for StrandCamError {
-    fn from(_orig: std::io::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::IoError),
-        }
-    }
-}
-
-impl From<fmf::FMFError> for StrandCamError {
-    fn from(_orig: fmf::FMFError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::FMFError),
-        }
-    }
-}
-
-impl From<ufmf::UFMFError> for StrandCamError {
-    fn from(_orig: ufmf::UFMFError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::UFMFError),
-        }
-    }
-}
-
-#[cfg(feature = "image_tracker")]
-impl From<image_tracker::Error> for StrandCamError {
-    fn from(orig: image_tracker::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::ImageTrackerError(orig)),
-        }
-    }
-}
-
-impl From<convert_image::Error> for StrandCamError {
-    fn from(orig: convert_image::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::ConvertImageError(orig)),
-        }
-    }
-}
-
-#[cfg(feature = "checkercal")]
-impl From<opencv_calibrate::Error> for StrandCamError {
-    fn from(orig: opencv_calibrate::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::OpenCvCalibrateError(orig)),
-        }
-    }
-}
-
-impl From<bui_backend::Error> for StrandCamError {
-    fn from(_orig: bui_backend::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::BuiBackendError),
-        }
-    }
-}
-
-impl From<ci2::Error> for StrandCamError {
-    fn from(_orig: ci2::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::Ci2Error),
-        }
-    }
-}
-
-impl From<bg_movie_writer::Error> for StrandCamError {
-    fn from(orig: bg_movie_writer::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::BgMovieWriterError(orig)),
-        }
-    }
-}
-
-impl From<video_streaming::Error> for StrandCamError {
-    fn from(_orig: video_streaming::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::VideoStreamingError),
-        }
-    }
-}
-
-#[cfg(feature = "flydratrax")]
-impl From<mvg::MvgError> for StrandCamError {
-    fn from(_orig: mvg::MvgError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::MvgError),
-        }
-    }
-}
-
-impl From<std::net::AddrParseError> for StrandCamError {
-    fn from(orig: std::net::AddrParseError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::AddrParseError(orig)),
-        }
-    }
-}
-
-impl From<webm_writer::Error> for StrandCamError {
-    fn from(orig: webm_writer::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::WebmWriterError(orig)),
-        }
-    }
-}
-
-impl From<crossbeam_channel::RecvError> for StrandCamError {
-    fn from(_: crossbeam_channel::RecvError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::CrossbeamChannelRecvError),
-        }
-    }
-}
-
-impl From<nvenc::NvEncError> for StrandCamError {
-    fn from(orig: nvenc::NvEncError) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::NvEncError(orig)),
-        }
-    }
-}
-
-#[cfg(feature = "flydratrax")]
-impl From<flydra2::Error> for StrandCamError {
-    fn from(orig: flydra2::Error) -> StrandCamError {
-        StrandCamError {
-            inner: Context::new(ErrorKind::Flydra2Error(orig)),
-        }
-    }
-}
-
-#[cfg(feature = "flydratrax")]
-impl From<futures::channel::mpsc::SendError> for StrandCamError {
-    fn from(orig: futures::channel::mpsc::SendError) -> StrandCamError {
-        ErrorKind::FuturesChannelMpscSend(orig).into()
-    }
-}
-
-#[cfg(feature = "fiducial")]
-impl From<csv::Error> for StrandCamError {
-    fn from(orig: csv::Error) -> StrandCamError {
-        ErrorKind::CsvError(orig).into()
-    }
+    #[cfg(feature = "with_camtrig")]
+    #[error("{0}")]
+    SerialportError(#[from] serialport::Error),
 }
 
 pub struct CloseAppOnThreadExit {
@@ -421,41 +230,30 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    fn maybe_err<E: failure::Fail>(self, result: std::result::Result<(), E>) {
+    fn maybe_err(self, result: anyhow::Result<()>) {
         match result {
             Ok(()) => self.success(),
             Err(e) => {
-                let bt = backtrace::Backtrace::new();
-                display_err(
-                    &e,
-                    self.file,
-                    self.line,
-                    self.thread_handle.name(),
-                    Some(bt),
-                );
+                display_err(e, self.file, self.line, self.thread_handle.name());
                 // The drop handler will close everything.
             }
         }
     }
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
-    fn check<T, E: failure::Fail>(&self, result: std::result::Result<T, E>) -> T {
+    fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
+    where
+        E: std::convert::Into<anyhow::Error>,
+    {
         match result {
             Ok(v) => v,
-            Err(e) => self.fail(e),
+            Err(e) => self.fail(e.into()),
         }
     }
 
     #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
-    fn fail<E: failure::Fail>(&self, e: E) -> ! {
-        let bt = backtrace::Backtrace::new();
-        display_err(
-            &e,
-            self.file,
-            self.line,
-            self.thread_handle.name(),
-            Some(bt),
-        );
+    fn fail(&self, e: anyhow::Error) -> ! {
+        display_err(e, self.file, self.line, self.thread_handle.name());
         panic!(
             "panicing thread {:?} due to error",
             self.thread_handle.name()
@@ -467,13 +265,7 @@ impl CloseAppOnThreadExit {
     }
 }
 
-fn display_err(
-    err: &dyn failure::Fail,
-    file: &str,
-    line: u32,
-    name: Option<&str>,
-    bt: Option<backtrace::Backtrace>,
-) {
+fn display_err(err: anyhow::Error, file: &str, line: u32, name: Option<&str>) {
     let mut stderr = std::io::stderr();
     writeln!(
         stderr,
@@ -481,16 +273,13 @@ fn display_err(
         file, line, name, err, err
     )
     .expect("unable to write error to stderr");
-    for cause in err.iter_causes() {
+    for cause in err.chain() {
         writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
     }
 
-    if let Some(bt) = bt {
-        writeln!(std::io::stderr(), "{:#?}", bt).expect("unable to write backtrace to stderr");
-    }
-
-    if let Some(backtrace) = err.backtrace() {
-        writeln!(stderr, "{}", backtrace).expect("unable to write backtrace to stderr");
+    #[cfg(feature = "backtrace")]
+    {
+        writeln!(stderr, "{}", err.backtrace()).expect("unable to write backtrace to stderr");
     }
 }
 
@@ -797,7 +586,7 @@ fn frame_process_thread(
     valve: stream_cancel::Valve,
     #[cfg(feature = "debug-images")]
     debug_image_server_shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
-) -> Result<()>
+) -> anyhow::Result<()>
 {
 
     let ros_cam_name: RosCamName = cam_name.to_ros();
@@ -1020,12 +809,12 @@ fn frame_process_thread(
                                 // TODO: convert this to a future on our runtime?
                                 std::thread::Builder::new().name("flydratrax_handle_msg".to_string()).spawn(move || { // flydratrax ignore for now
                                     let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-                                    let cam_cal = thread_closer.check(cal_data.to_cam().compat()); // camera calibration
+                                    let cam_cal = thread_closer.check(cal_data.to_cam().map_err(|e| anyhow::Error::new(Box::new(e)))); // camera calibration
                                     let kalman_tracking_config = kalman_tracking_config2.clone();
                                     thread_closer.maybe_err(flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
                                             model_receiver,
                                             &mut led_state, ssa2, camtrig_tx_std2,
-                                            ));
+                                            ).map_err(|e| anyhow::Error::new(Box::new(e))));
                                 })?;
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
@@ -1403,7 +1192,6 @@ fn frame_process_thread(
                             }
                         }
 
-                        #[cfg(feature="image_tracker")]
                         let points = tracker_annotation.points;
 
                         let mut new_state = None;
@@ -1596,7 +1384,7 @@ fn frame_process_thread(
                                         crossbeam_channel::RecvTimeoutError::Disconnected => {
                                             // The tx channel was discconected.
                                             error!("The plugin disconnected.");
-                                            return Err(ErrorKind::PluginDisconnected.into());
+                                            return Err(StrandCamError::PluginDisconnected.into());
                                         }
                                     }
                                 }
@@ -1641,7 +1429,7 @@ fn frame_process_thread(
                                 }
                                 if e.is_disconnected() {
                                     debug!("update image on braid listener disconnected");
-                                    return Err(ErrorKind::BraidUpdateImageListenerDisconnected.into());
+                                    return Err(StrandCamError::BraidUpdateImageListenerDisconnected.into());
                                 }
                             }
                         }
@@ -1822,7 +1610,7 @@ impl MyApp {
         tx_frame: crossbeam_channel::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> std::result::Result<(crossbeam_channel::Receiver<FirehoseCallback>, Self), failure::Error>
+    ) -> std::result::Result<(crossbeam_channel::Receiver<FirehoseCallback>, Self), StrandCamError>
     {
         let chan_size = 10;
 
@@ -1833,7 +1621,7 @@ impl MyApp {
             if addr.ip().is_loopback() {
                 AccessControl::Insecure(addr)
             } else {
-                return Err(ErrorKind::JwtError.into());
+                return Err(StrandCamError::JwtError);
             }
         };
 
@@ -1845,11 +1633,7 @@ impl MyApp {
             chan_size,
             &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             Some(strand_cam_storetype::STRAND_CAM_EVENT_NAME.to_string()),
-        )
-        .context(format!(
-            "calling create_bui_app_inner with address {}",
-            addr
-        ))?;
+        )?;
 
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
@@ -2061,18 +1845,18 @@ fn run_camtrig(
         match shared.camtrig_device_path {
             Some(ref serial_device) => {
                 // open with default settings 9600 8N1
-                serialport::open_with_settings(serial_device, &settings)
-                    .context(format!("opening serial device {}", serial_device))
-                    .map_err(|e| my_wrap_err(e.into()))?
+                serialport::open_with_settings(serial_device, &settings)?
             }
             None => {
-                return Err(my_wrap_err(format_err!("no camtrig device path given")));
+                return Err(StrandCamError::StringError(
+                    "no camtrig device path given".into(),
+                ));
             }
         }
     };
 
     // separate reader and writer
-    let mut reader_port = port.try_clone().map_err(|e| my_wrap_err(e.into()))?;
+    let mut reader_port = port.try_clone()?;
     let mut writer_port = port;
 
     let (flag, control) = thread_control::make_pair();
@@ -2107,8 +1891,8 @@ fn run_camtrig(
                     }
                     Err(e) => match e.kind() {
                         std::io::ErrorKind::TimedOut => continue,
-                        e => {
-                            thread_closer.fail(std::io::Error::from(e));
+                        _ => {
+                            thread_closer.fail(e.into());
                         }
                     },
                 }
@@ -2138,8 +1922,8 @@ fn run_camtrig(
                         Ok(msg) => msgs.push(msg),
                         Err(e) => match e {
                             crossbeam_channel::TryRecvError::Empty => break,
-                            e => {
-                                thread_closer.fail(e);
+                            _ => {
+                                thread_closer.fail(e.into());
                             }
                         },
                     }
@@ -2420,7 +2204,7 @@ impl Default for StrandCamArgs {
     }
 }
 
-pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
+pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     let mut runtime = tokio::runtime::Builder::new()
         .threaded_scheduler()
         .enable_all()
@@ -2464,7 +2248,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), failure::Error> {
 pub fn setup_app(
     handle: tokio::runtime::Handle,
     args: StrandCamArgs)
-    -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>),failure::Error>
+    -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>), StrandCamError>
 {
     debug!("CLI request for camera {:?}", args.camera_name);
 
@@ -2477,7 +2261,7 @@ pub fn setup_app(
 
     let cam_infos = mymod.camera_infos()?;
     if cam_infos.len() == 0 {
-        return Err(ErrorKind::NoCamerasFound.into());
+        return Err(StrandCamError::NoCamerasFound);
     }
 
     for cam_info in cam_infos.iter() {
@@ -2519,7 +2303,7 @@ pub fn setup_app(
     if let Some(ref pixfmt_str) = args.pixel_format {
         use std::str::FromStr;
         let pixfmt = formats::PixelFormat::from_str(&pixfmt_str)
-            .map_err(|e: &str| ErrorKind::StringError(e.to_string()))?;
+            .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
         info!("  setting pixel format: {}", pixfmt);
         cam.set_pixel_format(pixfmt)?;
     }
@@ -2981,7 +2765,7 @@ pub fn setup_app(
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         if control.is_done() {
-            bail!("frame thread has failed");
+            return Err(StrandCamError::ThreadDone);
         }
         ControlledJoinHandle {
             control,
@@ -3091,8 +2875,7 @@ pub fn setup_app(
             my_version
         };
 
-        info!("Welcome to {} {}. This is a pre-alpha release shared on \
-            the condition of no redistribution. For more details \
+        info!("Welcome to {} {}. For more details \
             contact Andrew Straw <straw@bio.uni-freiburg.de>. This program will check for new \
             versions automatically. To disable printing this message and checking for new \
             versions, set the environment variable DISABLE_VERSION_CHECK=1.", env!("APP_NAME"),
@@ -3813,7 +3596,7 @@ pub fn setup_app(
             false,
             &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             flag,
-        ));
+        ).map_err(|e| anyhow::Error::from(e)));
     })?.into();
     let video_streaming_cjh = ControlledJoinHandle { control, join_handle };
 
@@ -3990,17 +3773,6 @@ fn open_browser(url: String) -> Result<()> {
         })?;
     Ok(())
 }
-
-// /// run a function returning Result<()> and handle errors.
-// // see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-// pub fn run_func<F>(fname: &str, line: u32, real_func: F)
-//     where F: FnOnce() -> std::result::Result<(),failure::Error>,
-// {
-//     // Decide which command to run, and run it, and print any errors.
-//     if let Err(err) = real_func() {
-//         display_err(err.as_fail(), fname, line, None, None);
-//     }
-// }
 
 #[cfg(feature = "fiducial")]
 fn make_family(family: &ci2_remote_control::TagFamily) -> apriltag::Family {

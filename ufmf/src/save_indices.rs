@@ -1,5 +1,5 @@
-use byteorder::{LittleEndian, WriteBytesExt};
 use crate::*;
+use byteorder::{LittleEndian, WriteBytesExt};
 
 pub(crate) fn save_indices<F: Write + Seek>(
     f: &mut F,

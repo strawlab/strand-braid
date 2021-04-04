@@ -3,8 +3,6 @@
 #[macro_use]
 extern crate log;
 
-use failure::{Backtrace, Context, Fail};
-
 use futures::{channel::mpsc, stream::StreamExt};
 
 use machine_vision_formats as formats;
@@ -59,7 +57,7 @@ thread_local!(
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(ErrorKind::DivideByZero.into());
+        return Err(Error::DivideByZero);
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -486,7 +484,7 @@ macro_rules! do_send {
         match $sock.send(&$data) {
             Ok(sz) => {
                 if sz != $data.len() {
-                    return Err(ErrorKind::IncompleteSend.into());
+                    return Err(Error::IncompleteSend);
                 }
             }
             Err(err) => {
@@ -712,13 +710,13 @@ impl FlyTracker {
                 }
                 Err(e) => {
                     return Err(
-                        ErrorKind::OtherError(format!("could not parse to bins: {:?}", e)).into(),
+                        Error::OtherError(format!("could not parse to bins: {:?}", e)).into(),
                     );
                 }
             },
             Err(std::env::VarError::NotPresent) => {}
             Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(ErrorKind::OtherError(format!("received not unicode env var")).into());
+                return Err(Error::OtherError(format!("received not unicode env var")).into());
             }
         };
 
@@ -838,7 +836,7 @@ impl FlyTracker {
                     }
                     #[cfg(not(feature = "flydra-uds"))]
                     &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                        return Err(ErrorKind::UnixDomainSocketsNotSupported.into());
+                        return Err(Error::UnixDomainSocketsNotSupported.into());
                     }
                     &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
                         let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
@@ -980,7 +978,7 @@ impl FlyTracker {
         sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(ErrorKind::ImageSizeChanged.into());
+            return Err(Error::ImageSizeChanged);
         }
 
         // move state into local variable so we can move it into next state

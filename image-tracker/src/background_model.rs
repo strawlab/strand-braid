@@ -1,6 +1,6 @@
 use crate::*;
 
-use crate::errors::ErrorKind;
+use crate::errors::Error;
 
 #[cfg(feature = "linux")]
 use ::posix_scheduler;
@@ -138,7 +138,7 @@ impl BackgroundModel {
                 BayerGB8 => BayerGB32f,
                 BayerGR8 => BayerGR32f,
                 pixel_format => {
-                    return Err(ErrorKind::OtherError(format!(
+                    return Err(Error::OtherError(format!(
                         "unimplemented pixel_format {}",
                         pixel_format
                     ))

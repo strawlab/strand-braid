@@ -1,81 +1,47 @@
 #[macro_use]
 extern crate log;
 
-use failure::{Fail, Context, ResultExt, Backtrace};
-use std::fmt::{self, Display};
-use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
-use parking_lot::RwLock;
 use futures::sink::SinkExt;
+use parking_lot::RwLock;
 
-use bui_backend_types::{SessionKey, ConnectionKey};
 use bui_backend::lowlevel::EventChunkSender;
+use bui_backend_types::{ConnectionKey, SessionKey};
 
 use machine_vision_formats as formats;
 
-pub use http_video_streaming_types::{Point, Shape, ToClient, CircleParams,
-    FirehoseCallbackInner, DrawableShape};
+pub use http_video_streaming_types::{
+    CircleParams, DrawableShape, FirehoseCallbackInner, Point, Shape, ToClient,
+};
 
-type Result<T> = std::result::Result<T,Error>;
+type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "unknown path")]
+#[derive(Debug, thiserror::Error, Clone, Eq, PartialEq)]
+pub enum Error {
+    #[error("unknown path")]
     UnknownPath,
-    #[fail(display = "convert image")]
+    #[error("convert image")]
     ConvertImageError,
-    #[fail(display = "receive error")]
+    #[error("receive error")]
     RecvError,
-    #[fail(display = "try receive error")]
+    #[error("try receive error")]
     TryRecvError,
-    #[fail(display = "callback sender disconnected")]
+    #[error("callback sender disconnected")]
     CallbackSenderDisconnected,
 }
 
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        *self.inner.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error { inner: Context::new(kind) }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner: inner }
+impl From<convert_image::Error> for Error {
+    fn from(_: convert_image::Error) -> Error {
+        Error::ConvertImageError
     }
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
     fn from(_: crossbeam_channel::RecvError) -> Error {
-        ErrorKind::RecvError.into()
+        Error::RecvError
     }
 }
 
@@ -111,10 +77,14 @@ pub enum NameSelector {
 }
 
 impl<F> PerSender<F>
-    where
-        F: formats::ImageData + formats::Stride + Send,
+where
+    F: formats::ImageData + formats::Stride + Send,
 {
-    fn new(out: EventChunkSender, conn_key: ConnectionKey, name_selector: NameSelector) -> PerSender<F> {
+    fn new(
+        out: EventChunkSender,
+        conn_key: ConnectionKey,
+        name_selector: NameSelector,
+    ) -> PerSender<F> {
         PerSender {
             name_selector,
             out,
@@ -145,7 +115,7 @@ impl<F> PerSender<F>
     }
     fn got_callback(&mut self, msg: FirehoseCallback) {
         match chrono::DateTime::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
-        // match chrono::DateTime<chrono::FixedOffset>::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
+            // match chrono::DateTime<chrono::FixedOffset>::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
             Ok(sent_time) => {
                 let latency = msg.arrival_time.signed_duration_since(sent_time);
                 trace!("latency: {:?}", latency);
@@ -169,9 +139,10 @@ impl<F> PerSender<F>
                 if self.ready_to_send {
                     // sent_time computed early so that latency includes duration to encode, etc.
                     let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    let bytes = ::convert_image::frame_to_image(&most_recent_frame_data.frame,
-                        convert_image::ImageOptions::Jpeg(80))
-                        .context(ErrorKind::ConvertImageError)?;
+                    let bytes = ::convert_image::frame_to_image(
+                        &most_recent_frame_data.frame,
+                        convert_image::ImageOptions::Jpeg(80),
+                    )?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
                     let found_points = most_recent_frame_data.found_points.clone();
@@ -187,9 +158,11 @@ impl<F> PerSender<F>
                     };
 
                     let buf = serde_json::to_string(&tc).expect("encode");
-                    let buf = format!("event: {}\ndata: {}\n\n",
+                    let buf = format!(
+                        "event: {}\ndata: {}\n\n",
                         http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
-                        buf);
+                        buf
+                    );
                     let hc = buf.clone().into();
 
                     match futures::executor::block_on(self.out.send(hc)) {
@@ -212,17 +185,16 @@ impl<F> PerSender<F>
     }
 }
 
-pub fn firehose_thread<F>(sender_map_arc: Arc<RwLock<HashMap<ConnectionKey,
-                                                         (SessionKey, EventChunkSender, String)>>>,
-                       firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame<F>>,
-                       firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
-                       use_frame_selector: bool,
-                       events_prefix: &str,
-                       flag: thread_control::Flag,
-                       )
-                       -> Result<()>
-    where
-        F: formats::ImageData + formats::Stride + Send,
+pub fn firehose_thread<F>(
+    sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
+    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame<F>>,
+    firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
+    use_frame_selector: bool,
+    events_prefix: &str,
+    flag: thread_control::Flag,
+) -> Result<()>
+where
+    F: formats::ImageData + formats::Stride + Send,
 {
     // TODO switch this to a tokio core reactor based event loop and async processing.
     let mut per_sender_map: HashMap<ConnectionKey, PerSender<F>> = HashMap::new();
@@ -268,9 +240,9 @@ pub fn firehose_thread<F>(sender_map_arc: Arc<RwLock<HashMap<ConnectionKey,
                             }
                         } else {
                             if !path.starts_with(events_prefix) {
-                                return Err(ErrorKind::UnknownPath.into());
+                                return Err(Error::UnknownPath);
                             }
-                            let slash_idx = events_prefix.len()+1; // get location of '/' separator
+                            let slash_idx = events_prefix.len() + 1; // get location of '/' separator
                             let use_name = path[slash_idx..].to_string();
                             NameSelector::Name(use_name)
                         };
@@ -295,22 +267,23 @@ pub fn firehose_thread<F>(sender_map_arc: Arc<RwLock<HashMap<ConnectionKey,
                     match per_sender_map.get_mut(&msg.inner.ck) {
                         Some(ps) => ps.got_callback(msg),
                         None => {
-                            warn!("Got firehose_callback for non-existant connection key. \
-                            Did connection disconnect?");
+                            warn!(
+                                "Got firehose_callback for non-existant connection key. \
+                            Did connection disconnect?"
+                            );
                         }
                     };
                 }
                 Err(crossbeam_channel::TryRecvError::Empty) => break,
                 Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    return Err(ErrorKind::CallbackSenderDisconnected.into());
-                },
+                    return Err(Error::CallbackSenderDisconnected);
+                }
             };
         }
 
         for ps in per_sender_map.values_mut() {
             ps.service()?;
         }
-
     }
     Ok(())
 }

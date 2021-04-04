@@ -4,56 +4,22 @@ use machine_vision_formats::ImageStride;
 
 // TODO: generalize also to FMF writer
 
-#[derive(Debug)]
-pub enum ErrorKind {
-    IoError(std::io::Error),
-    WebmWriterError(webm_writer::Error),
-    MkvFix(strand_cam_mkvfix::Error),
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("webm writer error: {0}")]
+    WebmWriterError(#[from] webm_writer::Error),
+    #[error("mkvfix error: {0}")]
+    MkvFix(#[from] strand_cam_mkvfix::Error),
+    #[error("send error")]
     SendError,
+    #[error("receive error")]
     RecvError,
+    #[error("already done")]
     AlreadyDone,
+    #[error("disconnected")]
     Disconnected,
-}
-
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
-
-impl Error {
-    pub fn new(kind: ErrorKind) -> Self {
-        Self { kind }
-    }
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.kind)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error {
-            kind: ErrorKind::IoError(orig),
-        }
-    }
-}
-
-impl From<webm_writer::Error> for Error {
-    fn from(orig: webm_writer::Error) -> Error {
-        Error {
-            kind: ErrorKind::WebmWriterError(orig),
-        }
-    }
-}
-
-impl From<strand_cam_mkvfix::Error> for Error {
-    fn from(orig: strand_cam_mkvfix::Error) -> Error {
-        Error {
-            kind: ErrorKind::MkvFix(orig),
-        }
-    }
 }
 
 impl<IM> From<crossbeam_channel::SendError<Msg<IM>>> for Error
@@ -61,17 +27,13 @@ where
     IM: ImageStride + Send,
 {
     fn from(_orig: crossbeam_channel::SendError<Msg<IM>>) -> Error {
-        Error {
-            kind: ErrorKind::SendError,
-        }
+        Error::SendError
     }
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
     fn from(_orig: crossbeam_channel::RecvError) -> Error {
-        Error {
-            kind: ErrorKind::RecvError,
-        }
+        Error::RecvError
     }
 }
 
@@ -85,7 +47,7 @@ macro_rules! async_err {
             }
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {
-                return Err(Error::new(ErrorKind::Disconnected));
+                return Err(Error::Disconnected);
             }
         }
     };
@@ -121,7 +83,7 @@ where
     pub fn write(&mut self, frame: IM, timestamp: chrono::DateTime<chrono::Utc>) -> Result<()> {
         async_err!(self.err_rx);
         if self.is_done {
-            return Err(Error::new(ErrorKind::AlreadyDone));
+            return Err(Error::AlreadyDone);
         }
         let msg = Msg::Write((frame, timestamp));
         self.send(msg)
