@@ -1,6 +1,0 @@
-[target.x86_64-apple-darwin]
-rustflags = [
-   "-C", "link-arg=-Wl,-rpath,@loader_path",
-   "-C", "link-arg=-Wl,-framework,pylon",
-   "-C", "link-arg=-F/Library/Frameworks",
-]

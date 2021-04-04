@@ -49,11 +49,6 @@ test_crates:
     - cargo test
     - cd ..
 
-    # Test pylon-cxx-rs
-    - cd pylon-cxx-rs
-    - cargo test
-    - cd ..
-
     # Test tracking
     - cd tracking
     - cargo test

@@ -73,7 +73,6 @@ members = [
     "plugin-defs",
     "posix-scheduler",
     "py-strandcam/rust",
-    "pylon-cxx-rs",
     "refraction",
     "rt-image-viewer",
     "rt-image-viewer/storetype",
