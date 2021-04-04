@@ -7,8 +7,6 @@ extern crate ci2_aravis as backend;
 extern crate ci2_dc1394 as backend;
 #[cfg(feature = "backend_flycap2")]
 extern crate ci2_flycap2 as backend;
-#[cfg(feature = "backend_pylon")]
-extern crate ci2_pylon as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 extern crate ci2;

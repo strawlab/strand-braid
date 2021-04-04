@@ -23,7 +23,6 @@ members = [
     "ci2-cli",
     "ci2-dc1394",
     "ci2-flycap2",
-    "ci2-pylon",
     "ci2-pyloncxx",
     "ci2-remote-control",
     "ci2-simple-async-demo",
@@ -74,8 +73,6 @@ members = [
     "plugin-defs",
     "posix-scheduler",
     "py-strandcam/rust",
-    "pylon",
-    "pylon/pylon-simple-record",
     "pylon-cxx-rs",
     "refraction",
     "rt-image-viewer",
@@ -101,7 +98,6 @@ exclude = [
     "ANCIENT",
     "camtrig-firmware",
     "ci2-aravis", # Exclude for now until we can update it
-    "pyci2/extensions", # Exclude for now because setuptools_rust doesn't find built product.
 ]
 
 [profile.release]
