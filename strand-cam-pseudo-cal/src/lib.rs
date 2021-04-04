@@ -20,8 +20,8 @@ pub struct PseudoCameraCalibrationData {
 
 impl PseudoCameraCalibrationData {
     pub fn to_cam(&self) -> Result<mvg::Camera<MyFloat>, mvg::MvgError> {
-        use na::geometry::{Point3, UnitQuaternion};
         use na::core::Vector3;
+        use na::geometry::{Point3, UnitQuaternion};
 
         let zdist = 0.1; // Z distance is hardcoded to a fixed value.
 
@@ -29,9 +29,9 @@ impl PseudoCameraCalibrationData {
         // camera at 0,0,zpos looking up +Z axis with local up -Y axis
         let extrinsics = {
             let axis = na::core::Unit::new_normalize(Vector3::x());
-            let angle = na::convert( 0.0 );
+            let angle = na::convert(0.0);
             let rquat = UnitQuaternion::from_axis_angle(&axis, angle);
-            let camcenter = Point3::from( Vector3::new( 0.0, 0.0, zpos));
+            let camcenter = Point3::from(Vector3::new(0.0, 0.0, zpos));
             cam_geom::ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter)
         };
 
@@ -40,18 +40,24 @@ impl PseudoCameraCalibrationData {
         // case we choose a point at the x axis of the unit circle for
         // simplicity.
         let m: f64 = self.physical_diameter_meters as f64 * 0.5 / zdist;
-        let f = self.image_circle.radius as f64/m;
+        let f = self.image_circle.radius as f64 / m;
 
         let f: MyFloat = na::convert(f);
         let cx: MyFloat = na::convert(self.image_circle.center_x);
         let cy: MyFloat = na::convert(self.image_circle.center_y);
-        let intrinsics = opencv_ros_camera::RosOpenCvIntrinsics::from_params(f,0.0,f,cx,cy);
+        let intrinsics = opencv_ros_camera::RosOpenCvIntrinsics::from_params(f, 0.0, f, cx, cy);
 
-        mvg::Camera::new(self.width as usize, self.height as usize,
-            extrinsics, intrinsics)
+        mvg::Camera::new(
+            self.width as usize,
+            self.height as usize,
+            extrinsics,
+            intrinsics,
+        )
     }
 
-    pub fn to_camera_system(&self) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, failure::Error> {
+    pub fn to_camera_system(
+        &self,
+    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, mvg::MvgError> {
         let cam_name = self.cam_name.clone();
         let cam = self.to_cam()?;
         let mut cams_by_name = std::collections::BTreeMap::new();
@@ -71,7 +77,7 @@ impl PseudoCameraCalibrationData {
 
 #[test]
 fn test_pseudo_cal() {
-    use mvg::{PointWorldFrame, DistortedPixel};
+    use mvg::{DistortedPixel, PointWorldFrame};
     use na::geometry::{Point2, Point3};
 
     let pc = PseudoCameraCalibrationData {
@@ -88,18 +94,28 @@ fn test_pseudo_cal() {
     let cam = pc.to_cam().expect("pc.to_cam()");
 
     let m: f64 = pc.physical_diameter_meters as f64 * 0.5;
-    let pt_x = PointWorldFrame { coords: Point3::new(m, 0.0, 0.0) };
-    let pt_y = PointWorldFrame { coords: Point3::new(0.0, m, 0.0) };
+    let pt_x = PointWorldFrame {
+        coords: Point3::new(m, 0.0, 0.0),
+    };
+    let pt_y = PointWorldFrame {
+        coords: Point3::new(0.0, m, 0.0),
+    };
 
     let actual_x = cam.project_3d_to_distorted_pixel(&pt_x);
     let actual_y = cam.project_3d_to_distorted_pixel(&pt_y);
 
     let expected_x = DistortedPixel {
-        coords: Point2::new( pc.image_circle.center_x as f64 + pc.image_circle.radius as f64,
-            pc.image_circle.center_y as f64)};
+        coords: Point2::new(
+            pc.image_circle.center_x as f64 + pc.image_circle.radius as f64,
+            pc.image_circle.center_y as f64,
+        ),
+    };
     let expected_y = DistortedPixel {
-        coords: Point2::new( pc.image_circle.center_x as f64,
-        pc.image_circle.center_y as f64 + pc.image_circle.radius as f64)};
+        coords: Point2::new(
+            pc.image_circle.center_x as f64,
+            pc.image_circle.center_y as f64 + pc.image_circle.radius as f64,
+        ),
+    };
     approx::assert_relative_eq!(actual_x.coords, expected_x.coords, max_relative = 1e-5);
     approx::assert_relative_eq!(actual_y.coords, expected_y.coords, max_relative = 1e-5);
 }

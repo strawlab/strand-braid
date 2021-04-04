@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "ads-webasm",
     "apriltag",
@@ -22,7 +23,6 @@ members = [
     "ci2-cli",
     "ci2-dc1394",
     "ci2-flycap2",
-    "ci2-pylon",
     "ci2-pyloncxx",
     "ci2-remote-control",
     "ci2-simple-async-demo",
@@ -73,9 +73,6 @@ members = [
     "plugin-defs",
     "posix-scheduler",
     "py-strandcam/rust",
-    "pylon",
-    "pylon/pylon-simple-record",
-    "pylon-cxx-rs",
     "refraction",
     "rt-image-viewer",
     "rt-image-viewer/storetype",
@@ -100,7 +97,6 @@ exclude = [
     "ANCIENT",
     "camtrig-firmware",
     "ci2-aravis", # Exclude for now until we can update it
-    "pyci2/extensions", # Exclude for now because setuptools_rust doesn't find built product.
 ]
 
 [profile.release]
@@ -113,5 +109,4 @@ debug = true
 webm = { git = "https://bare-git.strawlab.org/rust-webm.git", rev="9f9d158031bd5bc465ff6b40103575fb8ed742aa"}
 cbindgen = {git="https://github.com/astraw/cbindgen", rev="7279a4faceec28593bd8a6b0192fd3ac3ee25b53"} # until https://github.com/eqrion/cbindgen/pull/304
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
-mini-rxtx = {git="https://bare-git.strawlab.org/mini-rxtx.git", rev="d8f9b7902aae8c2e69a3262ccf70fde31a2011ee"}
 tokio-serial = {git="https://github.com/mnbbrown/tokio-serial", rev="ace64363030f8af6b5c9aaadd930ee9515fe33f1"}

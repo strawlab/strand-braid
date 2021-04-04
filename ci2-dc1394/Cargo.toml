@@ -3,6 +3,7 @@ name = "ci2-dc1394"
 description = "implementation of ci2 interface for dc1394"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [dependencies]
 log = "0.4"
@@ -14,4 +15,3 @@ dc1394 = { path = "../dc1394" }
 libdc1394-sys = "0.2"
 chrono = "0.4"
 select = {path = "../select"}
-failure = "0.1"

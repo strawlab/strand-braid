@@ -20,7 +20,6 @@ timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
-ci2-pylon = { path = "../ci2-pylon", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
 ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
@@ -32,5 +31,4 @@ default = []
 # backend_aravis = ["ci2-aravis"]
 backend_dc1394 = ["ci2-dc1394"]
 backend_flycap2 = ["ci2-flycap2"]
-backend_pylon = ["ci2-pylon"]
 backend_pyloncxx = ["ci2-pyloncxx"]

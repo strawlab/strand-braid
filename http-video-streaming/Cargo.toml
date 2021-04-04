@@ -5,7 +5,7 @@ authors = ["strawlab"]
 edition = "2018"
 
 [dependencies]
-failure = "0.1"
+thiserror = "1.0"
 bui-backend = {version="0.11", default-features = false}
 bui-backend-types = "0.8"
 chrono = { version = "0.4", features = ["serde"] }

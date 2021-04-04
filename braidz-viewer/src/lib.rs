@@ -411,10 +411,13 @@ fn update_canvas(model: &mut Model) {
             .unwrap();
 
         if let Some(ref traj) = trajectories {
-            for (_obj_id, series) in traj.iter() {
+            for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
-                        series.iter().map(|pt| (pt.0 as f64, pt.1 as f64)),
+                        traj_data
+                            .position
+                            .iter()
+                            .map(|pt| (pt[0] as f64, pt[1] as f64)),
                         &RED,
                     ))
                     .unwrap();
@@ -447,10 +450,13 @@ fn update_canvas(model: &mut Model) {
             .unwrap();
 
         if let Some(ref traj) = trajectories {
-            for (_obj_id, series) in traj.iter() {
+            for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
-                        series.iter().map(|pt| (pt.0 as f64, pt.2 as f64)),
+                        traj_data
+                            .position
+                            .iter()
+                            .map(|pt| (pt[0] as f64, pt[2] as f64)),
                         &RED,
                     ))
                     .unwrap();
@@ -535,6 +541,12 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
         format!("(No 3D data)")
     };
 
+    let total_distance = if let Some(ref k) = &summary.kalman_estimates_summary {
+        format!("{}", k.total_distance)
+    } else {
+        format!("(No 3D data)")
+    };
+
     let (bx, by, bz) = if let Some(ref k) = &summary.kalman_estimates_summary {
         (
             format!("{} {}", k.x_limits[0], k.x_limits[1]),
@@ -563,6 +575,7 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
                 <tr><td>{"Number of cameras:"}</td><td>{num_cameras}</td></tr>
                 <tr><td>{"Camera calibration:"}</td><td>{cal}</td></tr>
                 <tr><td>{"Number of 3d trajectories:"}</td><td>{kest_est}</td></tr>
+                <tr><td>{"Total distance:"}</td><td>{total_distance}</td></tr>
                 <tr><td>{"X limits:"}</td><td>{bx}</td></tr>
                 <tr><td>{"Y limits:"}</td><td>{by}</td></tr>
                 <tr><td>{"Z limits:"}</td><td>{bz}</td></tr>

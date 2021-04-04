@@ -25,7 +25,7 @@ impl flydra2::GetsUpdates for FlydraTraxServer {
     ) -> std::result::Result<(), flydra2::Error> {
         self.model_sender
             .send(msg)
-            .map_err(|e| failure::format_err!("sending message: {}", e))?;
+            .map_err(|e| flydra2::wrap_error(e))?;
         Ok(())
     }
 }
@@ -132,7 +132,6 @@ pub fn flydratrax_handle_msg(
             let obj_in_led_radius = match &cur_pos2d {
                 None => false,
                 Some((_cur_obj_id, cur_pt2d)) => {
-                    use alga::linear::EuclideanSpace;
                     let this_dist = na::distance(&cur_pt2d.coords, &led_center);
                     if this_dist <= led_radius {
                         true

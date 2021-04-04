@@ -3,14 +3,13 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams};
+use anyhow::Context;
+
+use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
 use std::io::Read;
 
-use failure::ResultExt;
 use structopt::StructOpt;
-
-use flydra2::Result;
 
 lazy_static! {
     static ref VAL_HELP: String = {
@@ -49,9 +48,13 @@ struct Opt {
     /// Calibration parameters TOML file. (Includes `center_x`, amongst others.)
     #[structopt(long = "cal", short = "p", parse(from_os_str))]
     calibration_params: std::path::PathBuf,
+
+    /// Include all data from outside the calibration region in tracking
+    #[structopt(long = "include-all", short = "a")]
+    track_all_points_outside_calibration_region: bool,
 }
 
-fn main() -> Result<()> {
+fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
     }
@@ -59,7 +62,7 @@ fn main() -> Result<()> {
     open_files_and_run()
 }
 
-fn open_files_and_run() -> Result<()> {
+fn open_files_and_run() -> anyhow::Result<()> {
     env_logger::init();
     let opt = Opt::from_args();
 
@@ -70,11 +73,11 @@ fn open_files_and_run() -> Result<()> {
         );
         // read the calibration parameters
         let mut file = std::fs::File::open(&opt.calibration_params)
+            .map_err(|e| anyhow::Error::from(e))
             .context(format!(
                 "loading calibration parameters {}",
                 opt.calibration_params.display()
-            ))
-            .map_err(|e| failure::Error::from(e))?;
+            ))?;
         let mut buf = String::new();
         Read::read_to_string(&mut file, &mut buf)?;
         buf
@@ -85,8 +88,8 @@ fn open_files_and_run() -> Result<()> {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
             let mut file = std::fs::File::open(&fname)
-                .context(format!("loading tracking parameters {}", fname.display()))
-                .map_err(|e| failure::Error::from(e))?;
+                .map_err(|e| anyhow::Error::from(e))
+                .context(format!("loading tracking parameters {}", fname.display()))?;
             let mut buf = String::new();
             Read::read_to_string(&mut file, &mut buf)?;
             Some(buf)
@@ -94,13 +97,13 @@ fn open_files_and_run() -> Result<()> {
         None => None,
     };
 
-    let data_dir = tempdir::TempDir::new("strand-convert")?;
+    let flydra_csv_temp_dir = tempdir::TempDir::new("strand-convert")?;
 
-    info!("strand-cam csv conversion:");
+    info!("strand-cam csv conversion to temporary flydra format:");
     info!(
         "  {} -> {}",
         opt.point_detection_csv.display(),
-        data_dir.as_ref().display()
+        flydra_csv_temp_dir.as_ref().display()
     );
 
     let output_dirname = match opt.output {
@@ -112,19 +115,30 @@ fn open_files_and_run() -> Result<()> {
     };
 
     let data_file = std::fs::File::open(&opt.point_detection_csv)
+        .map_err(|e| anyhow::Error::from(e))
         .context(format!(
             "Could not open point detection csv file: {}",
             opt.point_detection_csv.display()
-        ))
-        .map_err(|e| failure::Error::from(e))?;
+        ))?;
 
     let point_detection_csv_reader = std::io::BufReader::new(data_file);
 
+    let mut filters = Vec::new();
+
+    if !opt.track_all_points_outside_calibration_region {
+        filters.push(RowFilter::InPseudoCalRegion);
+    }
+
     parse_configs_and_run(
         point_detection_csv_reader,
-        data_dir,
+        Some(&flydra_csv_temp_dir),
         &output_dirname,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
-    )
+        &filters,
+    )?;
+
+    flydra_csv_temp_dir.close()?;
+
+    Ok(())
 }

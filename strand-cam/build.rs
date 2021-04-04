@@ -23,9 +23,6 @@ const BASE: &str = "strand-cam";
 #[cfg(feature = "backend_dc1394")]
 const BACKEND: &str = "dc1394";
 
-#[cfg(feature = "backend_pylon")]
-const BACKEND: &str = "pylon";
-
 #[cfg(feature = "backend_pyloncxx")]
 const BACKEND: &str = "pyloncxx";
 
@@ -39,7 +36,6 @@ fn main() {
     #[cfg(not(any(
         feature = "backend_dc1394",
         feature = "backend_flycap2",
-        feature = "backend_pylon",
         feature = "backend_pyloncxx",
         feature = "backend_aravis"
     )))]

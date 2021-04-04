@@ -1,10 +1,8 @@
 use std::convert::TryInto;
+use anyhow::Context;
 
-use failure::ResultExt;
 use log::info;
 use structopt::StructOpt;
-
-use flydra2::Result;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "offline-retrack")]
@@ -30,7 +28,7 @@ struct Opt {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
@@ -48,8 +46,8 @@ async fn main() -> Result<()> {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
             let mut file = std::fs::File::open(&fname)
-                .context(format!("loading tracking parameters {}", fname.display()))
-                .map_err(|e| failure::Error::from(e))?;
+                .map_err(|e| anyhow::Error::from(e))
+                .context(format!("loading tracking parameters {}", fname.display()))?;
             let mut buf = String::new();
             std::io::Read::read_to_string(&mut file, &mut buf)?;
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
@@ -71,13 +69,13 @@ async fn main() -> Result<()> {
         output_dirname.set_extension("braid");
         output_dirname
     } else {
-        return Err(failure::format_err!("output file must end in '.braidz'").into());
+        return Err(anyhow::format_err!("output file must end in '.braidz'").into());
     };
 
     // Raise an error if outputs exist.
     for test_path in &[&output_braidz, &output_dirname] {
         if test_path.exists() {
-            return Err(failure::format_err!(
+            return Err(anyhow::format_err!(
                 "Path {} exists. Will not overwrite.",
                 test_path.display()
             )
@@ -87,6 +85,8 @@ async fn main() -> Result<()> {
 
     let rt_handle = tokio::runtime::Handle::current();
 
+    let save_performance_histograms = true;
+
     flydra2::kalmanize(
         data_src,
         output_dirname,
@@ -94,6 +94,8 @@ async fn main() -> Result<()> {
         tracking_params,
         opts,
         rt_handle,
+        save_performance_histograms,
     )
-    .await
+    .await?;
+    Ok(())
 }

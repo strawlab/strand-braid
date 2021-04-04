@@ -4,9 +4,6 @@ extern crate chrono;
 extern crate machine_vision_formats as formats;
 extern crate timestamped_frame;
 
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 extern crate datetime_conversion;
 
 #[macro_use]
@@ -16,39 +13,27 @@ use std::collections::BTreeMap;
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
-use timestamped_frame::ImageStrideTime;
 use formats::PixelFormat;
+use timestamped_frame::ImageStrideTime;
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
 mod save_indices;
 
-#[derive(Fail, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum UFMFError {
-    #[fail(display = "unimplemented pixel_format {}", _0)]
+    #[error("unimplemented pixel_format {0}")]
     UnimplementedPixelFormat(PixelFormat),
 
-    #[fail(display = "already closed")]
+    #[error("already closed")]
     AlreadyClosed,
-    #[fail(display = "mismatched pixel_format")]
+    #[error("mismatched pixel_format")]
     MismatchedEncoding,
 
-    #[fail(display = "{}", _0)]
-    Io(#[cause] std::io::Error),
-    #[fail(display = "{}", _0)]
-    Cast(#[cause] cast::Error),
-}
-
-impl From<std::io::Error> for UFMFError {
-    fn from(orig: std::io::Error) -> UFMFError {
-        UFMFError::Io(orig)
-    }
-}
-
-impl From<cast::Error> for UFMFError {
-    fn from(orig: cast::Error) -> UFMFError {
-        UFMFError::Cast(orig)
-    }
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+    #[error("{0}")]
+    Cast(#[from] cast::Error),
 }
 
 const KEYFRAME_CHUNK: u8 = 0;
@@ -270,7 +255,8 @@ impl<F: Write + Seek> UFMFWriter<F> {
                 let (x0, w) = do_size(i.x, i.w, self.xinc as u16, self.max_width);
                 let (y0, h) = do_size(i.y, i.h, self.yinc as u16, self.max_height);
                 RectFromCorner { x0, y0, w, h }
-            }).collect();
+            })
+            .collect();
 
         {
             // This is a scope in which we borrow from `rects`.
@@ -417,19 +403,15 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 
 #[cfg(test)]
 mod tests {
-    use byteorder::WriteBytesExt;
-    use crate::formats::{BasicFrame, FrameROI, AsImageStrideTime};
     use crate::*;
+    use basic_frame::BasicFrame;
+    use byteorder::WriteBytesExt;
+
+    use timestamped_frame::AsImageStrideTime;
 
     fn arange(start: u8, timestamp: f64) -> BasicFrame {
         let w = 10;
         let h = 10;
-        let roi = FrameROI {
-            xmin: 0,
-            ymin: 0,
-            width: w,
-            height: h,
-        };
         let mut image_data = Vec::new();
         for i in 0..100 {
             image_data.push(start + i as u8);
@@ -445,7 +427,8 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         BasicFrame {
-            roi,
+            width: w,
+            height: h,
             stride: w,
             image_data,
             pixel_format: PixelFormat::MONO8,
@@ -457,12 +440,6 @@ mod tests {
     fn arange_float(start: f32, timestamp: f64) -> BasicFrame {
         let w = 10;
         let h = 10;
-        let roi = FrameROI {
-            xmin: 0,
-            ymin: 0,
-            width: w,
-            height: h,
-        };
 
         let mut f = std::io::Cursor::new(Vec::with_capacity(4 * 100));
         for i in 0..100 {
@@ -481,10 +458,11 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         BasicFrame {
-            roi,
+            width: w,
+            height: h,
             stride: w * 4,
             image_data,
-            pixel_format: PixelFormat::MONO32f(formats::Endian::Little),
+            pixel_format: PixelFormat::MONO32f,
             host_timestamp,
             host_framenumber: 0,
         }

@@ -1,6 +1,5 @@
 use log::{debug, info, warn};
 
-use failure::ResultExt;
 use std::{
     collections::BTreeMap,
     io::{Read, Seek, Write},
@@ -54,7 +53,7 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_iter().map(|(_k, v)| v).collect()
 }
 
-fn calc_fps_from_data<R: Read>(data_file: R) -> Result<Option<f64>> {
+fn calc_fps_from_data<R: Read>(data_file: R) -> Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
     let row0: Option<std::result::Result<Data2dDistortedRow, _>> = data_iter.next();
@@ -78,12 +77,12 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> Result<Option<f64>> {
                 let ts1 = last_row.timestamp.map(|x| x.as_f64()).unwrap();
                 let ts0 = row0.timestamp.map(|x| x.as_f64()).unwrap();
                 let dt = ts1 - ts0;
-                Ok(Some(df as f64 / dt))
+                Ok(df as f64 / dt)
             } else {
                 // timestamp from host clock (should always be present)
                 let dt =
                     last_row.cam_received_timestamp.as_f64() - row0.cam_received_timestamp.as_f64();
-                Ok(Some(df as f64 / dt))
+                Ok(df as f64 / dt)
             }
         } else {
             debug!(
@@ -92,11 +91,11 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> Result<Option<f64>> {
                 file!(),
                 line!()
             );
-            Ok(None)
+            Err(crate::Error::InsufficientDataToCalculateFps)
         }
     } else {
         debug!("no 2d data could be read. {}:{}", file!(), line!());
-        Ok(None)
+        Err(crate::Error::InsufficientDataToCalculateFps)
     }
 }
 
@@ -132,7 +131,8 @@ pub async fn kalmanize<Q, R>(
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
-) -> Result<()>
+    save_performance_histograms: bool,
+) -> crate::Result<()>
 where
     Q: AsRef<std::path::Path>,
     R: 'static + Read + Seek + Send,
@@ -153,8 +153,7 @@ where
     // read the calibration
     let cal_file = cal_fname
         .open()
-        .context(format!("Could not open calibration file: {}", displayname))
-        .map_err(|e| failure::Error::from(e))?;
+        .map_err(|e| crate::file_error("Could not open calibration file", displayname, e))?;
     let recon = flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?;
 
     let mut cam_manager = crate::ConnectedCamerasManager::new(&Some(recon.clone()));
@@ -206,16 +205,7 @@ where
 
             // TODO: first choice parse "MainBrain running at {}" string (as in
             // braidz-parser). Second choice, do this.
-            match calc_fps_from_data(data_file)? {
-                Some(fps) => fps,
-                None => {
-                    return Err(failure::err_msg(
-                        "frame rate could not be determined from data \
-                        file and was not specified on command-line",
-                    )
-                    .into());
-                }
-            }
+            calc_fps_from_data(data_file)?
         }
     };
 
@@ -276,6 +266,7 @@ where
         fps: Some(fps as f32),
         images,
         print_stats: true,
+        save_performance_histograms,
     };
 
     write_controller.start_saving_data(save_cfg);
@@ -300,16 +291,14 @@ where
 
             let bufsize = 10000;
             let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
-                .context(format!("Reading rows from file: {}", display_fname))
-                .map_err(|e| failure::Error::from(e))?;
+                .map_err(|e| crate::file_error("reading rows", display_fname.clone(), e))?;
 
             let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
 
             for data_frame_rows in data_row_frame_iter {
                 // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
                 let data_frame_rows = data_frame_rows
-                    .context(format!("Reading rows from file: {}", display_fname))
-                    .map_err(|e| failure::Error::from(e))?;
+                    .map_err(|e| crate::file_error("reading rows", display_fname.clone(), e))?;
                 let rows = data_frame_rows.rows;
                 let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));
 

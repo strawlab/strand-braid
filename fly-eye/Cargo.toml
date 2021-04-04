@@ -20,14 +20,12 @@ crossbeam-ok = {path="../crossbeam-ok"}
 ci2 = { path = "../ci2" }
 ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
 ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
-ci2-pylon = { path = "../ci2-pylon", optional = true }
 
 [features]
 default = ["fly-eye"]
 
 camsrc_dc1394 = ["ci2-dc1394"]
 camsrc_flycap2 = ["ci2-flycap2"]
-camsrc_pylon = ["ci2-pylon"]
 
 fly-eye = []
 screen-quad = []

@@ -185,9 +185,17 @@ pub struct KalmanEstimatesInfo {
     pub xlim: [f64; 2],
     pub ylim: [f64; 2],
     pub zlim: [f64; 2],
-    pub trajectories: BTreeMap<u32, Vec<(f32, f32, f32)>>, // TODO: switch to array, not tuple. add frame numbers.
+    pub trajectories: BTreeMap<u32, TrajectoryData>,
     pub num_rows: u64,
     pub tracking_parameters: TrackingParams,
+    /// The sum of all distances in all trajectories.
+    pub total_distance: f64,
+}
+
+pub struct TrajectoryData {
+    pub position: Vec<[f32; 3]>,
+    pub start_frame: u64,
+    pub distance: f64,
 }
 
 impl Seq2d {
@@ -403,10 +411,21 @@ pub fn braidz_parse<R: Read + Seek>(
             let mut ylim = [inf, -inf];
             let mut zlim = [inf, -inf];
             let mut num_rows = 0;
+
             for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
                 let row: KalmanEstimatesRow = row?;
-                let entry = trajectories.entry(row.obj_id).or_insert_with(|| Vec::new());
-                entry.push((row.x as f32, row.y as f32, row.z as f32));
+                let entry = trajectories
+                    .entry(row.obj_id)
+                    .or_insert_with(|| TrajectoryData {
+                        // Initialize the structure with empty position vector
+                        // and zero distance.
+                        position: Vec::new(),
+                        start_frame: row.frame.0,
+                        distance: 0.0,
+                    });
+                entry
+                    .position
+                    .push([row.x as f32, row.y as f32, row.z as f32]);
 
                 xlim[0] = min(xlim[0], row.x);
                 xlim[1] = max(xlim[1], row.x);
@@ -416,6 +435,25 @@ pub fn braidz_parse<R: Read + Seek>(
                 zlim[1] = max(zlim[1], row.z);
                 num_rows += 1;
             }
+
+            let mut total_distance: f64 = 0.0;
+            // Loop through all individual trajectories and calculate the
+            // distance per trajectory.
+            for (_obj_id, mut traj_data) in trajectories.iter_mut() {
+                let mut previous: Option<&[f32; 3]> = None;
+                for current in traj_data.position.iter() {
+                    if let Some(previous) = previous {
+                        let dx: f64 = (current[0] - previous[0]).into();
+                        let dy: f64 = (current[1] - previous[1]).into();
+                        let dz: f64 = (current[2] - previous[2]).into();
+                        traj_data.distance += (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt();
+                    }
+                    previous = Some(current);
+                }
+                // Accumulate total distance of all trajectories.
+                total_distance += traj_data.distance;
+            }
+
             Some(KalmanEstimatesInfo {
                 xlim,
                 ylim,
@@ -423,6 +461,7 @@ pub fn braidz_parse<R: Read + Seek>(
                 trajectories,
                 num_rows,
                 tracking_parameters,
+                total_distance,
             })
         }
         Err(zip_or_dir::Error::FileNotFound) => None,
@@ -512,6 +551,7 @@ impl From<&KalmanEstimatesInfo> for KalmanEstimatesSummary {
             z_limits: orig.zlim,
             num_trajectories: orig.trajectories.len().try_into().unwrap(),
             tracking_parameters: orig.tracking_parameters.clone(),
+            total_distance: orig.total_distance,
         }
     }
 }

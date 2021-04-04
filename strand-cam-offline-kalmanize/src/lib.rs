@@ -7,12 +7,14 @@ use std::{convert::TryInto, io::BufRead};
 use serde::{Deserialize, Serialize};
 
 use flydra2::{
-    Data2dDistortedRow, MyFloat, Result, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
+    Data2dDistortedRow, MyFloat, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
     DATA2D_DISTORTED_CSV_FNAME,
 };
 use flydra_types::CamInfoRow;
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
+
+use anyhow::Result;
 
 fn remove_trailing_newline(line1: &str) -> &str {
     if line1.ends_with("\n") {
@@ -30,7 +32,7 @@ where
         Initialized,
         FoundStartHeader,
         Reading(Vec<String>),
-        Finished(std::result::Result<Vec<String>, failure::Error>),
+        Finished(std::result::Result<Vec<String>, anyhow::Error>),
         Marker,
     }
     impl ReadState {
@@ -47,7 +49,7 @@ where
                             ReadState::Initialized
                         }
                     } else {
-                        // *self = ReadState::Finished(Err(failure::err_msg("no header")));
+                        // *self = ReadState::Finished(Err(anyhow::format_err!("no header")));
                         ReadState::Finished(Ok(Vec::new()))
                     }
                 }
@@ -58,11 +60,11 @@ where
                             ReadState::Reading(vec![this_line.to_string()])
                         } else {
                             ReadState::Finished(Err(
-                                failure::err_msg("unexpected line prefix").into()
+                                anyhow::format_err!("unexpected line prefix").into()
                             ))
                         }
                     } else {
-                        ReadState::Finished(Err(failure::err_msg("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
                     }
                 }
                 ReadState::Reading(mut vec_lines) => {
@@ -76,26 +78,26 @@ where
                                 ReadState::Reading(vec_lines)
                             }
                         } else {
-                            ReadState::Finished(Err(failure::err_msg("unexpected line prefix")))
+                            ReadState::Finished(Err(anyhow::format_err!("unexpected line prefix")))
                         }
                     } else {
-                        ReadState::Finished(Err(failure::err_msg("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
                     }
                 }
                 ReadState::Finished(_) => {
-                    ReadState::Finished(Err(failure::err_msg("parsing after finish")))
+                    ReadState::Finished(Err(anyhow::format_err!("parsing after finish")))
                 }
                 ReadState::Marker => {
-                    ReadState::Finished(Err(failure::err_msg("parsing while parsing")))
+                    ReadState::Finished(Err(anyhow::format_err!("parsing while parsing")))
                 }
             };
             *self = next;
         }
-        fn finish(self) -> std::result::Result<Vec<String>, failure::Error> {
+        fn finish(self) -> std::result::Result<Vec<String>, anyhow::Error> {
             if let ReadState::Finished(rv) = self {
                 rv
             } else {
-                Err(failure::err_msg("premature end of header"))
+                Err(anyhow::format_err!("premature end of header"))
             }
         }
     }
@@ -146,7 +148,7 @@ impl StrandCamConfig {
 
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
-    data_dir: tempdir::TempDir,
+    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_dirname: &std::path::Path,
     tracking_params: TrackingParams,
     to_recon_func: fn(
@@ -156,21 +158,35 @@ async fn kalmanize_2d<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<()>
 where
     R: BufRead,
 {
+    let mut owned_temp_dir = None;
+
+    let flydra_csv_temp_dir = match flydra_csv_temp_dir {
+        Some(x) => x,
+        None => {
+            owned_temp_dir = Some(tempdir::TempDir::new("tmp-strand-convert")?);
+            owned_temp_dir.as_ref().unwrap()
+        }
+    };
+
     let num_points_converted = convert_strand_cam_csv_to_flydra_csv_dir(
         point_detection_csv_reader,
         to_recon_func,
         to_ts0,
         pseudo_cal_params,
-        &data_dir,
+        &flydra_csv_temp_dir,
+        row_filters,
     )?;
 
     info!("    {} detected points converted.", num_points_converted);
 
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(data_dir.into_path())?;
+    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.path().into())?;
+
+    let save_performance_histograms = false;
 
     flydra2::kalmanize(
         data_src,
@@ -179,8 +195,27 @@ where
         tracking_params,
         flydra2::KalmanizeOptions::default(),
         rt_handle,
+        save_performance_histograms,
     )
-    .await
+    .await?;
+
+    if let Some(t) = owned_temp_dir {
+        t.close()?;
+    }
+
+    Ok(())
+}
+
+/// These filters can be used to exclude data from being converted.
+#[derive(Clone)]
+pub enum RowFilter {
+    /// Row is in time interval between start and stop
+    InTimeInterval(
+        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
+        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
+    ),
+    /// Row is in region of calibration
+    InPseudoCalRegion,
 }
 
 fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
@@ -191,7 +226,8 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
-    data_dir: &tempdir::TempDir,
+    flydra_csv_temp_dir: &tempdir::TempDir,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<usize>
 where
     R: BufRead,
@@ -203,7 +239,7 @@ where
     assert_eq!(recon.len(), 1);
 
     // -------------------------------------------------
-    let mut cal_path: std::path::PathBuf = data_dir.as_ref().to_path_buf();
+    let mut cal_path: std::path::PathBuf = flydra_csv_temp_dir.as_ref().to_path_buf();
     cal_path.push(CALIBRATION_XML_FNAME);
     cal_path.set_extension("xml");
 
@@ -216,7 +252,7 @@ where
     // -------------------------------------------------
     // save cam_info.csv
 
-    let mut csv_path = data_dir.as_ref().to_path_buf();
+    let mut csv_path = flydra_csv_temp_dir.as_ref().to_path_buf();
     csv_path.push(CAM_INFO_CSV_FNAME);
     csv_path.set_extension("csv");
     let fd = std::fs::File::create(&csv_path)?;
@@ -239,7 +275,7 @@ where
         .comment(Some(b'#'))
         .from_reader(point_detection_csv_reader);
 
-    let mut d2d_path = data_dir.as_ref().to_path_buf();
+    let mut d2d_path = flydra_csv_temp_dir.as_ref().to_path_buf();
     d2d_path.push(DATA2D_DISTORTED_CSV_FNAME);
     d2d_path.set_extension("csv");
     let fd = std::fs::File::create(&d2d_path)?;
@@ -249,11 +285,46 @@ where
     let mut count: usize = 0;
     for result in rdr.deserialize() {
         let record: Fview2CsvRecord = result?;
-        let save = convert_row(record, &ts0, &mut row_state);
-        writer.serialize(save)?;
-        count += 1;
+
+        let mut keep_row = true;
+        for filter_row in row_filters.iter() {
+            match filter_row {
+                RowFilter::InTimeInterval(start, stop) => {
+                    let this_time = get_timestamp(&record, &ts0);
+                    if !(start.as_f64() <= this_time.as_f64()
+                        && this_time.as_f64() <= stop.as_f64())
+                    {
+                        keep_row = false;
+                        break;
+                    }
+                }
+                RowFilter::InPseudoCalRegion => {
+                    // reject points outside calibration region
+                    if !is_inside_calibration_region(&record, &pseudo_cal_params) {
+                        keep_row = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if keep_row {
+            let save = convert_row(record, &ts0, &mut row_state);
+            writer.serialize(save)?;
+            count += 1;
+        }
     }
     Ok(count)
+}
+
+#[inline]
+fn is_inside_calibration_region(
+    record: &Fview2CsvRecord,
+    pseudo_cal_params: &PseudoCalParams,
+) -> bool {
+    let dist2 = (record.x_px - pseudo_cal_params.center_x as f64).powi(2)
+        + (record.y_px - pseudo_cal_params.center_y as f64).powi(2);
+    dist2 as f64 <= (pseudo_cal_params.radius as f64).powi(2)
 }
 
 fn config25_upgrade(
@@ -299,9 +370,8 @@ fn to_recon_func(
         cam_name: flydra_types::RawCamName::new(cam_name.to_string()),
         width: cfg.camera.width,
         height: cfg.camera.height,
-        physical_diameter_meters: pseudo_cal_params.physical_diameter_meters, // TODO: remove hardcoded value
+        physical_diameter_meters: pseudo_cal_params.physical_diameter_meters,
         image_circle: http_video_streaming_types::CircleParams {
-            // TODO: remove hardcoded value
             center_x: pseudo_cal_params.center_x,
             center_y: pseudo_cal_params.center_y,
             radius: pseudo_cal_params.radius,
@@ -337,14 +407,21 @@ impl RowState {
     }
 }
 
+fn get_timestamp(
+    strand_cam_row: &Fview2CsvRecord,
+    ts0: &chrono::DateTime<chrono::Utc>,
+) -> flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock> {
+    let toffset = chrono::Duration::microseconds(strand_cam_row.time_microseconds);
+    let dt = *ts0 + toffset;
+    flydra_types::FlydraFloatTimestampLocal::from_dt(&dt)
+}
+
 // maybe use Data2dDistortedRowF32 ?
 fn convert_row(
     strand_cam_row: Fview2CsvRecord,
     ts0: &chrono::DateTime<chrono::Utc>,
     row_state: &mut RowState,
 ) -> Data2dDistortedRow {
-    let toffset = chrono::Duration::microseconds(strand_cam_row.time_microseconds);
-    let dt = *ts0 + toffset;
     let (eccentricity, slope) = match strand_cam_row.orientation_radians_mod_pi {
         Some(angle) => (1.1, angle.tan()),
         None => (std::f64::NAN, std::f64::NAN),
@@ -352,7 +429,7 @@ fn convert_row(
     let frame_pt_idx = row_state.update(strand_cam_row.frame);
     Data2dDistortedRow {
         area: strand_cam_row.central_moment.unwrap_or(std::f64::NAN),
-        cam_received_timestamp: flydra_types::FlydraFloatTimestampLocal::from_dt(&dt),
+        cam_received_timestamp: get_timestamp(&strand_cam_row, ts0),
         camn: flydra_types::CamNum(0),
         cur_val: 255,
         frame: strand_cam_row.frame,
@@ -392,10 +469,11 @@ pub struct PseudoCalParams {
 ///   converted to a file that ends with `.braidz`.
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    data_dir: tempdir::TempDir,
+    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_dirname: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
+    row_filters: &Vec<RowFilter>,
 ) -> Result<()>
 where
     R: BufRead,
@@ -409,23 +487,24 @@ where
     let tracking_params = match tracking_params_buf {
         Some(ref buf) => {
             let tracking_params: flydra_types::TrackingParams =
-                toml::from_str(&buf).map_err(|e| failure::Error::from(e))?;
+                toml::from_str(&buf).map_err(|e| anyhow::Error::from(e))?;
             tracking_params
         }
         None => flydra2::TrackingParams::default().into(),
     };
 
     let calibration_params =
-        toml::from_str(&calibration_params_buf).map_err(|e| failure::Error::from(e))?;
+        toml::from_str(&calibration_params_buf).map_err(|e| anyhow::Error::from(e))?;
 
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
-        data_dir,
+        flydra_csv_temp_dir,
         output_dirname,
         tracking_params.try_into()?,
         to_recon_func,
         to_ts0,
         &calibration_params,
         rt_handle,
+        &row_filters,
     ))
 }

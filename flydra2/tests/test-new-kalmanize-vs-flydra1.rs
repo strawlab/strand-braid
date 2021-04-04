@@ -309,6 +309,8 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     let data_src = zip_or_dir::ZipDirArchive::from_dir(untracked_dir).unwrap();
 
+    let save_performance_histograms = true;
+
     flydra2::kalmanize(
         data_src,
         &tracked_dir,
@@ -316,6 +318,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         tracking_params,
         flydra2::KalmanizeOptions::default(),
         rt_handle,
+        save_performance_histograms,
     )
     .await
     .unwrap();

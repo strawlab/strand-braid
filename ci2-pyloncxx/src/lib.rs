@@ -1,40 +1,33 @@
 extern crate machine_vision_formats as formats;
 
-use failure::Fail;
-use failure::ResultExt;
+use anyhow::Context;
 use parking_lot::Mutex;
 use std::convert::TryInto;
 use std::sync::Arc;
 
 use ci2::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
-use pylon_cxx_rs::{HasProperties, NodeMap};
+use pylon_cxx::{HasProperties, NodeMap};
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
 }
 
-impl<T> ExtendedError<T> for std::result::Result<T, pylon_cxx_rs::PylonError> {
+impl<T> ExtendedError<T> for std::result::Result<T, pylon_cxx::PylonError> {
     fn map_pylon_err(self) -> ci2::Result<T> {
-        self.map_err(|e| ci2::Error::BackendError(failure::Error::from(e)))
+        self.map_err(|e| ci2::Error::BackendError(e.into()))
     }
 }
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[fail(display = "{}", _0)]
-    PylonError(#[cause] pylon_cxx_rs::PylonError),
-    #[fail(display = "{}", _0)]
-    IntParseError(#[cause] std::num::ParseIntError),
-    #[fail(display = "OtherError {}", _0)]
+    #[error("{0}")]
+    PylonError(#[from] pylon_cxx::PylonError),
+    #[error("{0}")]
+    IntParseError(#[from] std::num::ParseIntError),
+    #[error("OtherError {0}")]
     OtherError(String),
-}
-
-impl From<pylon_cxx_rs::PylonError> for Error {
-    fn from(o: pylon_cxx_rs::PylonError) -> Self {
-        Error::PylonError(o)
-    }
 }
 
 impl From<Error> for ci2::Error {
@@ -45,10 +38,10 @@ impl From<Error> for ci2::Error {
 
 pub struct WrappedModule {
     #[allow(dead_code)]
-    pylon_auto_init: pylon_cxx_rs::PylonAutoInit,
+    pylon_auto_init: pylon_cxx::PylonAutoInit,
 }
 
-fn to_name(info: &pylon_cxx_rs::DeviceInfo) -> String {
+fn to_name(info: &pylon_cxx::DeviceInfo) -> String {
     // TODO: make ci2 cameras have full_name and friendly_name attributes?
     // &info.property_value("FullName").unwrap()
     let serial = &info.property_value("SerialNumber").unwrap();
@@ -58,7 +51,7 @@ fn to_name(info: &pylon_cxx_rs::DeviceInfo) -> String {
 
 pub fn new_module() -> ci2::Result<WrappedModule> {
     Ok(WrappedModule {
-        pylon_auto_init: pylon_cxx_rs::PylonAutoInit::new(),
+        pylon_auto_init: pylon_cxx::PylonAutoInit::new(),
     })
 }
 
@@ -70,7 +63,7 @@ impl ci2::CameraModule for WrappedModule {
         "pyloncxx"
     }
     fn camera_infos(&self) -> ci2::Result<Vec<Box<dyn ci2::CameraInfo>>> {
-        let pylon_infos = pylon_cxx_rs::TlFactory::instance()
+        let pylon_infos = pylon_cxx::TlFactory::instance()
             .enumerate_devices()
             .map_pylon_err()
             .context("enumerate_devices")?;
@@ -208,15 +201,15 @@ enum FramecoutingMethod {
 
 #[derive(Clone)]
 pub struct WrappedCamera {
-    pylon_auto_init: Arc<Mutex<pylon_cxx_rs::PylonAutoInit>>,
-    inner: Arc<Mutex<pylon_cxx_rs::InstantCamera>>,
+    pylon_auto_init: Arc<Mutex<pylon_cxx::PylonAutoInit>>,
+    inner: Arc<Mutex<pylon_cxx::InstantCamera>>,
     framecounting_method: FramecoutingMethod,
-    device_info: pylon_cxx_rs::DeviceInfo,
+    device_info: pylon_cxx::DeviceInfo,
     name: String,
     serial: String,
     model: String,
     vendor: String,
-    grab_result: Arc<Mutex<pylon_cxx_rs::GrabResult>>,
+    grab_result: Arc<Mutex<pylon_cxx::GrabResult>>,
     is_sfnc2: bool,
 }
 
@@ -228,7 +221,7 @@ fn _test_camera_is_send() {
 
 impl WrappedCamera {
     fn new(name: &str) -> ci2::Result<Self> {
-        let tl_factory = pylon_cxx_rs::TlFactory::instance();
+        let tl_factory = pylon_cxx::TlFactory::instance();
         let devices = tl_factory
             .enumerate_devices()
             .context("enumerate_devices")?;
@@ -274,9 +267,9 @@ impl WrappedCamera {
                 };
 
                 let grab_result =
-                    Arc::new(Mutex::new(pylon_cxx_rs::GrabResult::new().map_pylon_err()?));
+                    Arc::new(Mutex::new(pylon_cxx::GrabResult::new().map_pylon_err()?));
                 return Ok(Self {
-                    pylon_auto_init: Arc::new(Mutex::new(pylon_cxx_rs::PylonAutoInit::new())),
+                    pylon_auto_init: Arc::new(Mutex::new(pylon_cxx::PylonAutoInit::new())),
                     inner: Arc::new(Mutex::new(cam)),
                     name: name.to_string(),
                     framecounting_method,
@@ -672,7 +665,7 @@ impl ci2::Camera for WrappedCamera {
     fn acquisition_start(&mut self) -> ci2::Result<()> {
         self.inner
             .lock()
-            .start_grabbing(&pylon_cxx_rs::GrabOptions::default())
+            .start_grabbing(&pylon_cxx::GrabOptions::default())
             .map_pylon_err()?;
         Ok(())
     }
@@ -689,18 +682,13 @@ impl ci2::Camera for WrappedCamera {
         let cam = self.inner.lock();
 
         // Wait for an image and then retrieve it. A timeout of 99999 ms is used.
-        cam.retrieve_result(
-            99999,
-            &mut *gr,
-            pylon_cxx_rs::TimeoutHandling::ThrowException,
-        )
-        .map_pylon_err()?;
+        cam.retrieve_result(99999, &mut *gr, pylon_cxx::TimeoutHandling::ThrowException)
+            .map_pylon_err()?;
 
         let now = chrono::Utc::now(); // earliest possible timestamp
 
         // Image grabbed successfully?
         if gr.grab_succeeded().map_pylon_err()? {
-
             let buffer = gr.buffer().map_pylon_err()?;
             let block_id = gr.block_id().map_pylon_err()?;
 

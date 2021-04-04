@@ -38,7 +38,17 @@ async fn test_min_two_rays_needed() {
 
     let rt_handle = tokio::runtime::Handle::try_current().unwrap();
 
-    flydra2::kalmanize(data_src, output, None, tracking_params, opts, rt_handle)
-        .await
-        .unwrap();
+    let save_performance_histograms = true;
+
+    flydra2::kalmanize(
+        data_src,
+        output,
+        None,
+        tracking_params,
+        opts,
+        rt_handle,
+        save_performance_histograms,
+    )
+    .await
+    .unwrap();
 }

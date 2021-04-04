@@ -64,7 +64,7 @@ pub struct FrameData {
 pub type DataHandle = *mut c_void;
 
 /// Any `ProcessFrameFunc` allocates new memory that needs to be freed with `strandcam_frame_annotation_free`.
-pub type ProcessFrameFunc = fn(*const FrameData, DataHandle, f64) -> StrandCamFrameAnnotation;
+pub type ProcessFrameFunc = extern "C" fn(*const FrameData, DataHandle, f64) -> StrandCamFrameAnnotation;
 
 /// CABI wrapper around point.
 #[repr(C)]

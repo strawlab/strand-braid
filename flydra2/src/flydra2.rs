@@ -1,5 +1,10 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
+use thiserror::Error;
+
 use log::{debug, error, info, trace};
 
 use serde::{Deserialize, Serialize};
@@ -83,150 +88,133 @@ pub type MyFloat = flydra_types::MyFloat;
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
-
-impl Error {
-    pub fn kind(&self) -> &ErrorKind {
-        &self.kind
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Failure(failure::Error),
-    FlydraTypes(flydra_types::FlydraTypesError),
-    Mvg(mvg::MvgError),
-    Io(std::io::Error),
-    Csv(csv::Error),
-    GetTimezone(iana_time_zone::GetTimezoneError),
-    SerdeJson(serde_json::Error),
-    SerdeYaml(serde_yaml::Error),
-    FuturesSendError(futures::channel::mpsc::SendError),
-    TomlSerError(toml::ser::Error),
-    TomlDeError(toml::de::Error),
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("{source}")]
+    FlydraTypes {
+        #[from]
+        source: flydra_types::FlydraTypesError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Mvg {
+        #[from]
+        source: mvg::MvgError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Csv {
+        #[from]
+        source: csv::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    GetTimezone {
+        #[from]
+        source: iana_time_zone::GetTimezoneError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    SerdeJson {
+        #[from]
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    SerdeYaml {
+        #[from]
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    FuturesSendError {
+        #[from]
+        source: futures::channel::mpsc::SendError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    TomlSerError {
+        #[from]
+        source: toml::ser::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    TomlDeError {
+        #[from]
+        source: toml::de::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("invalid hypothesis testing parameters")]
     InvalidHypothesisTestingParameters,
-    ZipDir(zip_or_dir::Error),
-    Hyper(hyper::Error),
+    #[error("insufficient data to calculate FPS")]
+    InsufficientDataToCalculateFps,
+    #[error("{source}")]
+    HyperError {
+        #[from]
+        source: hyper::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    ZipDir {
+        #[from]
+        source: zip_or_dir::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("Error opening {filename}: {source}")]
+    FileError {
+        what: &'static str,
+        filename: String,
+        source: Box<dyn std::error::Error + Sync + Send>,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    WrappedError {
+        source: Box<dyn std::error::Error + Sync + Send>,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error { kind }
+pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
+where
+    E: 'static + std::error::Error + Sync + Send,
+{
+    Error::FileError {
+        what,
+        filename,
+        source: Box::new(source),
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace::capture(),
     }
 }
 
-impl From<flydra_types::FlydraTypesError> for Error {
-    fn from(orig: flydra_types::FlydraTypesError) -> Error {
-        Error {
-            kind: ErrorKind::FlydraTypes(orig),
-        }
-    }
-}
-
-impl From<failure::Error> for Error {
-    fn from(orig: failure::Error) -> Error {
-        Error {
-            kind: ErrorKind::Failure(orig),
-        }
-    }
-}
-
-impl From<mvg::MvgError> for Error {
-    fn from(orig: mvg::MvgError) -> Error {
-        Error {
-            kind: ErrorKind::Mvg(orig),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error {
-            kind: ErrorKind::Io(orig),
-        }
-    }
-}
-
-impl From<csv::Error> for Error {
-    fn from(orig: csv::Error) -> Error {
-        Error {
-            kind: ErrorKind::Csv(orig),
-        }
-    }
-}
-
-impl From<iana_time_zone::GetTimezoneError> for Error {
-    fn from(orig: iana_time_zone::GetTimezoneError) -> Error {
-        Error {
-            kind: ErrorKind::GetTimezone(orig),
-        }
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(orig: serde_json::Error) -> Error {
-        Error {
-            kind: ErrorKind::SerdeJson(orig),
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for Error {
-    fn from(orig: serde_yaml::Error) -> Error {
-        Error {
-            kind: ErrorKind::SerdeYaml(orig),
-        }
-    }
-}
-
-impl From<futures::channel::mpsc::SendError> for Error {
-    fn from(orig: futures::channel::mpsc::SendError) -> Error {
-        Error {
-            kind: ErrorKind::FuturesSendError(orig),
-        }
-    }
-}
-
-impl From<toml::ser::Error> for Error {
-    fn from(orig: toml::ser::Error) -> Error {
-        Error {
-            kind: ErrorKind::TomlSerError(orig),
-        }
-    }
-}
-
-impl From<toml::de::Error> for Error {
-    fn from(orig: toml::de::Error) -> Error {
-        Error {
-            kind: ErrorKind::TomlDeError(orig),
-        }
-    }
-}
-
-impl From<zip_or_dir::Error> for Error {
-    fn from(orig: zip_or_dir::Error) -> Error {
-        Error {
-            kind: ErrorKind::ZipDir(orig),
-        }
-    }
-}
-
-impl From<hyper::Error> for Error {
-    fn from(orig: hyper::Error) -> Error {
-        Error {
-            kind: ErrorKind::Hyper(orig),
-        }
+pub fn wrap_error<E>(source: E) -> Error
+where
+    E: 'static + std::error::Error + Sync + Send,
+{
+    Error::WrappedError {
+        source: Box::new(source),
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace::capture(),
     }
 }
 
@@ -661,10 +649,7 @@ pub enum SaveToDiskMsg {
 
 /// Load .csv or .csv.gz file
 #[deprecated = "use the zip-or-dir crate and pick_csvgz_or_csv2"]
-pub fn pick_csvgz_or_csv(
-    csv_path: &std::path::Path,
-) -> std::result::Result<Box<dyn std::io::Read>, failure::Error> {
-    use failure::ResultExt;
+pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::Read>> {
     let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
 
     if csv_path.exists() {
@@ -673,13 +658,12 @@ pub fn pick_csvgz_or_csv(
                 let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
                 rdr
             })
-            .context(format!("opening {}", csv_path.display()))
-            .map_err(|e| failure::Error::from(e).into())
+            .map_err(|e| file_error("opening", format!("opening {}", csv_path.display()), e))
     } else {
         // This gives us an error corresponding to a non-existing .gz file.
-        let gz_fd =
-            std::fs::File::open(&gz_fname).context(format!("opening {}", gz_fname.display()))?;
-        let decoder = libflate::gzip::Decoder::new(gz_fd).context("decoding .gz".to_string())?;
+        let gz_fd = std::fs::File::open(&gz_fname)
+            .map_err(|e| file_error("opening", format!("opening {}", gz_fname.display()), e))?;
+        let decoder = libflate::gzip::Decoder::new(gz_fd)?;
         Ok(Box::new(decoder))
     }
 }
@@ -690,22 +674,18 @@ pub fn pick_csvgz_or_csv(
 /// (`.csv`) or new (`.csv.gz`).
 fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
     csv_fname: &'a mut zip_or_dir::PathLike<R>,
-) -> std::result::Result<Box<dyn Read + 'a>, failure::Error> {
+) -> Result<Box<dyn Read + 'a>> {
     if csv_fname.exists() {
         Ok(Box::new(csv_fname.open()?))
     } else {
-        use failure::ResultExt;
-
         csv_fname.set_extension("csv.gz");
 
         let displayname = format!("{}", csv_fname.display());
 
         let gz_fd = csv_fname
             .open()
-            .context(format!("opening {}", displayname))?;
-        Ok(Box::new(
-            libflate::gzip::Decoder::new(gz_fd).context("decoding .gz".to_string())?,
-        ))
+            .map_err(|e| file_error("opening", displayname, e))?;
+        Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
     }
 }
 
@@ -822,6 +802,7 @@ struct WritingState {
     /// but this does not seem possible. So we have a potential slight race
     /// condition when we have our directory but not yet the file handle on
     /// readme.
+    #[allow(dead_code)]
     readme_fd: Option<std::fs::File>,
     save_empty_data2d: bool,
     // kalman_estimates_wtr: Option<csv::Writer<Box<dyn std::io::Write>>>,
@@ -834,8 +815,8 @@ struct WritingState {
     writer_stats: Option<usize>,
     file_start_time: std::time::SystemTime,
 
-    reconstruction_latency_usec: HistogramWritingState,
-    reproj_dist_pixels: HistogramWritingState,
+    reconstruction_latency_usec: Option<HistogramWritingState>,
+    reproj_dist_pixels: Option<HistogramWritingState>,
 }
 
 impl Drop for WritingState {
@@ -867,36 +848,40 @@ impl Drop for WritingState {
 
         let now_system = std::time::SystemTime::now();
         {
-            finish_histogram(
-                &mut self.reconstruction_latency_usec.current_store,
-                self.file_start_time,
-                &mut self.reconstruction_latency_usec.histograms,
-                now_system,
-            )
-            .unwrap();
+            if let Some(reconstruction_latency_usec) = &mut self.reconstruction_latency_usec {
+                finish_histogram(
+                    &mut reconstruction_latency_usec.current_store,
+                    self.file_start_time,
+                    &mut reconstruction_latency_usec.histograms,
+                    now_system,
+                )
+                .unwrap();
 
-            finish_histogram(
-                &mut self.reproj_dist_pixels.current_store,
-                self.file_start_time,
-                &mut self.reproj_dist_pixels.histograms,
-                now_system,
-            )
-            .unwrap();
+                save_hlog(
+                    &output_dirname,
+                    RECONSTRUCT_LATENCY_LOG_FNAME,
+                    &mut reconstruction_latency_usec.histograms,
+                    self.file_start_time,
+                );
+            }
+
+            if let Some(reproj_dist_pixels) = &mut self.reproj_dist_pixels {
+                finish_histogram(
+                    &mut reproj_dist_pixels.current_store,
+                    self.file_start_time,
+                    &mut reproj_dist_pixels.histograms,
+                    now_system,
+                )
+                .unwrap();
+
+                save_hlog(
+                    &output_dirname,
+                    REPROJECTION_DIST_LOG_FNAME,
+                    &mut reproj_dist_pixels.histograms,
+                    self.file_start_time,
+                );
+            }
         }
-
-        save_hlog(
-            &output_dirname,
-            RECONSTRUCT_LATENCY_LOG_FNAME,
-            &mut self.reconstruction_latency_usec.histograms,
-            self.file_start_time,
-        );
-
-        save_hlog(
-            &output_dirname,
-            REPROJECTION_DIST_LOG_FNAME,
-            &mut self.reproj_dist_pixels.histograms,
-            self.file_start_time,
-        );
 
         {
             // TODO: read all the (forward) kalman estimates and smooth them to
@@ -1200,6 +1185,15 @@ impl WritingState {
             std::time::SystemTime::now()
         };
 
+        let (reconstruction_latency_usec, reproj_dist_pixels) = if cfg.save_performance_histograms {
+            (
+                Some(HistogramWritingState::default()),
+                Some(HistogramWritingState::default()),
+            )
+        } else {
+            (None, None)
+        };
+
         Ok(Self {
             output_dirname,
             readme_fd,
@@ -1212,8 +1206,8 @@ impl WritingState {
             experiment_info_wtr,
             writer_stats,
             file_start_time,
-            reconstruction_latency_usec: HistogramWritingState::default(),
-            reproj_dist_pixels: HistogramWritingState::default(),
+            reconstruction_latency_usec,
+            reproj_dist_pixels,
         })
     }
 
@@ -1371,23 +1365,27 @@ fn writer_thread_main(
 
                                     if let Some(latency_usec) = elapsed.num_microseconds() {
                                         if latency_usec >= 0 {
-                                            // The latency should always be positive, but num_microseconds()
-                                            // can return negative and we don't want to panic if time goes
-                                            // backwards for some reason.
-                                            match histogram_record(
-                                                latency_usec as u64,
-                                                &mut ws.reconstruction_latency_usec.current_store,
-                                                1000 * 1000 * 60,
-                                                2,
-                                                ws.file_start_time,
-                                                &mut ws.reconstruction_latency_usec.histograms,
-                                                now_system,
-                                            ) {
-                                                Ok(()) => {}
-                                                Err(_) => log::error!(
-                                                    "latency value {} out of expected range",
-                                                    latency_usec
-                                                ),
+                                            if let Some(reconstruction_latency_usec) =
+                                                &mut ws.reconstruction_latency_usec
+                                            {
+                                                // The latency should always be positive, but num_microseconds()
+                                                // can return negative and we don't want to panic if time goes
+                                                // backwards for some reason.
+                                                match histogram_record(
+                                                    latency_usec as u64,
+                                                    &mut reconstruction_latency_usec.current_store,
+                                                    1000 * 1000 * 60,
+                                                    2,
+                                                    ws.file_start_time,
+                                                    &mut reconstruction_latency_usec.histograms,
+                                                    now_system,
+                                                ) {
+                                                    Ok(()) => {}
+                                                    Err(_) => log::error!(
+                                                        "latency value {} out of expected range",
+                                                        latency_usec
+                                                    ),
+                                                }
                                             }
                                         }
                                     }
@@ -1398,20 +1396,22 @@ fn writer_thread_main(
                                 if let Some(mean_reproj_dist_100x) = mean_reproj_dist_100x {
                                     let now_system = std::time::SystemTime::now();
 
-                                    match histogram_record(
-                                        mean_reproj_dist_100x,
-                                        &mut ws.reproj_dist_pixels.current_store,
-                                        1000000,
-                                        2,
-                                        ws.file_start_time,
-                                        &mut ws.reproj_dist_pixels.histograms,
-                                        now_system,
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(_) => log::error!(
-                                            "mean reprojection 100x distance value {} out of expected range",
-                                            mean_reproj_dist_100x
-                                        ),
+                                    if let Some(reproj_dist_pixels) = &mut ws.reproj_dist_pixels {
+                                        match histogram_record(
+                                            mean_reproj_dist_100x,
+                                            &mut reproj_dist_pixels.current_store,
+                                            1000000,
+                                            2,
+                                            ws.file_start_time,
+                                            &mut reproj_dist_pixels.histograms,
+                                            now_system,
+                                        ) {
+                                            Ok(()) => {}
+                                            Err(_) => log::error!(
+                                                "mean reprojection 100x distance value {} out of expected range",
+                                                mean_reproj_dist_100x
+                                            ),
+                                        }
                                     }
                                 }
                             }
@@ -1490,6 +1490,7 @@ pub struct StartSavingCsvConfig {
     pub fps: Option<f32>,
     pub images: ImageDictType,
     pub print_stats: bool,
+    pub save_performance_histograms: bool,
 }
 
 /// A struct which implements `std::marker::Send` to control coord processing.
@@ -1706,13 +1707,14 @@ pub fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
         writeln!(stderr, "In {}:{}: Error: {}", file!(), line!(), err)
             .expect("unable to write error to stderr");
 
-        if let ErrorKind::Failure(err) = err.kind {
-            writeln!(stderr, "Error: {}", err).expect("unable to write error to stderr");
+        use std::error::Error;
+        let mut source_err = err.source();
 
-            for cause in err.iter_causes() {
-                writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
-            }
+        while let Some(source) = source_err {
+            writeln!(stderr, "Source: {}", source).expect("unable to write error to stderr");
+            source_err = source.source();
         }
+
         std::process::exit(1);
     }
 }

@@ -73,4 +73,6 @@ pub struct KalmanEstimatesSummary {
     pub z_limits: [f64; 2],
     pub num_rows: u64,
     pub tracking_parameters: TrackingParams,
+    /// The sum of total distance in all trajectories.
+    pub total_distance: f64,
 }

@@ -1,16 +1,7 @@
 #[macro_use]
 extern crate log;
-extern crate parking_lot;
 
-extern crate libdc1394_sys;
-
-extern crate basic_frame;
-extern crate chrono;
-extern crate ci2;
-extern crate dc1394;
-extern crate failure;
-extern crate machine_vision_formats as formats;
-extern crate select;
+use machine_vision_formats as formats;
 
 use libdc1394_sys as ffi;
 use parking_lot::Mutex;
@@ -33,7 +24,7 @@ trait ExtendedError<T> {
 
 impl<T> ExtendedError<T> for std::result::Result<T, dc1394::Error> {
     fn map_dc1394_err(self) -> ci2::Result<T> {
-        self.map_err(|e| ci2::Error::BackendError(failure::Error::from(e)))
+        self.map_err(|e| ci2::Error::BackendError(e.into()))
     }
 }
 
