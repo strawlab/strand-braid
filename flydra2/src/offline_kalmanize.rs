@@ -116,17 +116,20 @@ impl Default for KalmanizeOptions {
     }
 }
 
-/// Perform tracking on the data
+/// Perform offline tracking on the data
 ///
 /// - `data_src` is the "flydra csv" format input directory. Create with
 ///   `convert_strand_cam_csv_to_flydra_csv_dir` or
 ///   `convert_flydra1_mainbrain_h5_to_csvdir`.
-/// - `output_dirname` is the directory name (typically ending with `.braid`)
+/// - `output_braidz` is the final .braidz file
 ///   into which the resulting files will be saved. Upon closing all files, this
 ///   is typically zipped and saved to .braidz file.
+///
+/// Note that a temporary directly ending with `.braid` is initially created and
+/// only on upon completed tracking is this converted to the output .braidz file.
 pub async fn kalmanize<Q, R>(
     mut data_src: zip_or_dir::ZipDirArchive<R>,
-    output_dirname: Q,
+    output_braidz: Q,
     expected_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
@@ -137,12 +140,20 @@ where
     Q: AsRef<std::path::Path>,
     R: 'static + Read + Seek + Send,
 {
+    let output_braidz = output_braidz.as_ref();
+    let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
+        let mut output_dirname: std::path::PathBuf = output_braidz.to_path_buf();
+        output_dirname.set_extension("braid");
+        output_dirname
+    } else {
+        return Err(crate::Error::OutputFilenameMustEndInBraidz {
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
+        });
+    };
+
     info!("tracking:");
-    info!(
-        "  {} -> {}",
-        data_src.display(),
-        output_dirname.as_ref().display()
-    );
+    info!("  {} -> {}", data_src.display(), output_dirname.display());
 
     let mut cal_fname = data_src.path_starter();
     cal_fname.push(CALIBRATION_XML_FNAME);
@@ -183,7 +194,7 @@ where
             continue;
         }
 
-        let mut new_image_fname: std::path::PathBuf = output_dirname.as_ref().into();
+        let mut new_image_fname: std::path::PathBuf = output_dirname.to_path_buf();
         new_image_fname.push(crate::IMAGES_DIRNAME);
         std::fs::create_dir_all(&new_image_fname)?; // Create dir if needed.
         new_image_fname.push(&cam_name);
@@ -260,7 +271,7 @@ where
 
     let write_controller = coord_processor.get_write_controller();
     let save_cfg = crate::StartSavingCsvConfig {
-        out_dir: output_dirname.as_ref().into(),
+        out_dir: output_dirname.to_path_buf(),
         local: None,
         git_rev: env!("GIT_HASH").to_string(),
         fps: Some(fps as f32),

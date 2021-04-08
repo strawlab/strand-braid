@@ -149,7 +149,7 @@ impl StrandCamConfig {
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
-    output_dirname: &std::path::Path,
+    output_braidz: &std::path::Path,
     tracking_params: TrackingParams,
     to_recon_func: fn(
         serde_yaml::Value,
@@ -190,7 +190,7 @@ where
 
     flydra2::kalmanize(
         data_src,
-        output_dirname,
+        output_braidz,
         None,
         tracking_params,
         flydra2::KalmanizeOptions::default(),
@@ -470,7 +470,7 @@ pub struct PseudoCalParams {
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
-    output_dirname: &std::path::Path,
+    output_braidz: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
     row_filters: &Vec<RowFilter>,
@@ -501,7 +501,7 @@ where
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
         flydra_csv_temp_dir,
-        output_dirname,
+        output_braidz,
         tracking_params.try_into()?,
         to_recon_func,
         to_ts0,

@@ -5,6 +5,9 @@ use anyhow::Context;
 
 use flydra2::KALMAN_ESTIMATES_FNAME;
 
+/// unzip the zip archive `src` into the destination `dest`.
+///
+/// The destination is created if it does not already exist.
 fn unzip_into<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
@@ -292,17 +295,10 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         ))
         .unwrap();
 
-    let tracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+    let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
+    let output_braidz = output_root.path().join("output.braidz");
 
     let expected_fps = None;
-
-    if tracked_dir.exists() {
-        println!(
-            "deleting pre-existing destination {}",
-            tracked_dir.display()
-        );
-        std::fs::remove_dir_all(&tracked_dir).unwrap();
-    }
 
     let tracking_params = flydra2::TrackingParams::default();
     println!("tracking with default parameters");
@@ -315,7 +311,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     flydra2::kalmanize(
         data_src,
-        &tracked_dir,
+        &output_braidz,
         expected_fps,
         tracking_params,
         flydra2::KalmanizeOptions::default(),
@@ -326,8 +322,11 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     .unwrap();
     println!("done tracking");
 
-    unzip_into(tracked_dir.with_extension("braidz"), &tracked_dir).unwrap();
+    // expand .braidz file into /<root>/expanded.braid directory
+    let tracked_dir = output_root.path().join("expanded.braid");
+    unzip_into(output_braidz, &tracked_dir).unwrap();
 
+    // tracked_h5 becomes /<root>/expanded.h5
     let mut tracked_h5 = PathBuf::from(&tracked_dir);
     tracked_h5.set_extension("h5");
 
@@ -347,7 +346,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         ))
         .unwrap();
 
-    std::fs::remove_file(tracked_h5).unwrap();
+    // All temporary files are cleaned up as output_root is dropped.
 }
 
 #[tokio::test]

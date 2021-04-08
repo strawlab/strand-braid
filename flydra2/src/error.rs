@@ -98,6 +98,11 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("output filename must end with '.braidz'")]
+    OutputFilenameMustEndInBraidz {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
