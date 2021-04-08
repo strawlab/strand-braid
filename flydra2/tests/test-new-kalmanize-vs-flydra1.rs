@@ -173,6 +173,7 @@ fn run_command(arg: &str) -> std::process::Output {
     }
 }
 
+/// Convert `src` to `dest`. This will delete `src`.
 fn convert_csvdir_to_flydra1_mainbrain_h5<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
 where
     P: AsRef<Path>,
@@ -194,6 +195,8 @@ where
 
     let script = "../strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
+
+    // This will run the command, which will delete `src`.
     let output = run_command(&arg);
 
     if out_loc != dest.as_ref() {
@@ -219,6 +222,10 @@ where
         println!("{}", String::from_utf8_lossy(&output.stdout));
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         return Err(failure::err_msg("python script failed"));
+    }
+
+    if src.as_ref().exists() {
+        failure::bail!("src still exists after successful conversion.")
     }
 
     Ok(())
@@ -290,7 +297,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         ))
         .unwrap();
 
-    let tracked_dir = tempfile::tempdir().unwrap().into_path();
+    let tracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
     let expected_fps = None;
 
@@ -324,7 +331,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     .unwrap();
     println!("done tracking");
 
-    unzip_into(tracked_dir.with_extension("braidz"), &tracked_dir).expect("unzip");
+    unzip_into(tracked_dir.with_extension("braidz"), &tracked_dir).unwrap();
 
     let mut tracked_h5 = PathBuf::from(&tracked_dir);
     tracked_h5.set_extension("h5");
@@ -344,6 +351,8 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
             tracked_h5.display()
         ))
         .unwrap();
+
+    std::fs::remove_file(tracked_h5).unwrap();
 }
 
 #[tokio::test]
@@ -352,13 +361,14 @@ async fn do_test() {
 
     let src = "../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28.h5";
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path();
+    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
-    run_test(src, untracked_dir).await;
+    run_test(src, untracked_dir.clone()).await;
 
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
+    std::fs::remove_dir_all(untracked_dir).unwrap();
 }
 
 #[tokio::test]
@@ -375,10 +385,12 @@ async fn do_water_test() {
     )
     .unwrap();
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path();
+    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
-    run_test(FNAME, untracked_dir).await;
+    run_test(FNAME, untracked_dir.clone()).await;
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
+
+    std::fs::remove_dir_all(untracked_dir).unwrap();
 }
