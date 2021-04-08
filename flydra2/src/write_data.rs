@@ -167,7 +167,7 @@ impl WritingState {
             for row in textlog.iter() {
                 textlog_wtr.serialize(row)?;
             }
-            // Flush to disk. In case braid crashes, at least we want to recover this row.
+            // Flush to disk. In case braid crashes, at least we want to recover this info.
             textlog_wtr.flush()?;
             textlog_wtr
         };
