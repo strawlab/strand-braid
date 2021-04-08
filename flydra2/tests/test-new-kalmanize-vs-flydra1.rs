@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use failure::ResultExt;
+use anyhow::Context;
 
 use flydra2::KALMAN_ESTIMATES_FNAME;
 
-fn unzip_into<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn unzip_into<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -34,20 +34,20 @@ where
     Ok(())
 }
 
-fn move_path<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn move_path<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
     if !src.as_ref().exists() {
-        return Err(failure::err_msg(format!("source does not exist")));
+        return Err(anyhow::anyhow!("source does not exist"));
     }
     if src.as_ref().is_dir() {
         let mut options = fs_extra::dir::CopyOptions::new();
         options.overwrite = true;
         options.copy_inside = true;
         fs_extra::dir::move_dir(src, dest, &options)
-            .map_err(|e| failure::err_msg(format!("move dir failed: {} {:?}", e, e)))?;
+            .map_err(|e| anyhow::anyhow!("move dir failed: {} {:?}", e, e))?;
         Ok(())
     } else {
         match std::fs::rename(&src, &dest) {
@@ -55,18 +55,13 @@ where
             Err(e) => {
                 if e.raw_os_error() == Some(18) {
                     // "Invalid cross-device link"
-                    std::fs::copy(&src, &dest).map_err(|e| {
-                        failure::err_msg(format!("copy file failed: {} {:?}", e, e))
-                    })?;
-                    std::fs::remove_file(&src).map_err(|e| {
-                        failure::err_msg(format!("remove file failed: {} {:?}", e, e))
-                    })?;
+                    std::fs::copy(&src, &dest)
+                        .map_err(|e| anyhow::anyhow!("copy file failed: {} {:?}", e, e))?;
+                    std::fs::remove_file(&src)
+                        .map_err(|e| anyhow::anyhow!("remove file failed: {} {:?}", e, e))?;
                     Ok(())
                 } else {
-                    Err(failure::err_msg(format!(
-                        "rename file failed: {} {:?}",
-                        e, e
-                    )))
+                    Err(anyhow::anyhow!("rename file failed: {} {:?}", e, e))
                 }
             }
         }
@@ -78,7 +73,7 @@ fn sanity_checks_csvdir<P>(
     src: P,
     expected_num_obj_ids: usize,
     expected_num_rows: usize,
-) -> Result<(), failure::Error>
+) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
 {
@@ -128,7 +123,7 @@ where
                             inter-frame interval is {}, not 1.",
                             kest_row.obj_id, kest_row.frame, diff
                         );
-                        return Err(failure::err_msg(e));
+                        return Err(anyhow::anyhow!(e));
                     }
                     *cur_frame = kest_row.frame;
                 }
@@ -174,7 +169,7 @@ fn run_command(arg: &str) -> std::process::Output {
 }
 
 /// Convert `src` to `dest`. This will delete `src`.
-fn convert_csvdir_to_flydra1_mainbrain_h5<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn convert_csvdir_to_flydra1_mainbrain_h5<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -221,17 +216,17 @@ where
     if !output.status.success() {
         println!("{}", String::from_utf8_lossy(&output.stdout));
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        return Err(failure::err_msg("python script failed"));
+        return Err(anyhow::anyhow!("python script failed"));
     }
 
     if src.as_ref().exists() {
-        failure::bail!("src still exists after successful conversion.")
+        anyhow::bail!("src still exists after successful conversion.")
     }
 
     Ok(())
 }
 
-fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -240,11 +235,11 @@ where
     let stem = src
         .as_ref()
         .file_stem()
-        .ok_or_else(|| failure::err_msg("no file stem"))?;
+        .ok_or_else(|| anyhow::anyhow!("no file stem"))?;
     let parent = src
         .as_ref()
         .parent()
-        .ok_or_else(|| failure::err_msg("no file parent"))?;
+        .ok_or_else(|| anyhow::anyhow!("no file parent"))?;
 
     let mut out_loc = PathBuf::from(parent);
     out_loc.push(stem);
@@ -281,7 +276,7 @@ where
     if !output.status.success() {
         println!("{}", String::from_utf8_lossy(&output.stdout));
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        return Err(failure::err_msg("python script failed"));
+        return Err(anyhow::anyhow!("python script failed"));
     }
 
     Ok(())
