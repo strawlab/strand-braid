@@ -21,8 +21,10 @@ async fn test_min_two_rays_needed() {
         .with_context(|| format!("Parsing file {}", FNAME))
         .unwrap();
 
-    let output = tempfile::tempdir().unwrap().into_path();
-    // let output = std::path::PathBuf::from("test-output");
+    let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
+    let output_braidz = output_root.path().join("output.braidz");
+
+    // let output_root = std::path::PathBuf::from("test-output");
 
     let tracking_params_parsed: &flydra_types::TrackingParams = &archive
         .kalman_estimates_info
@@ -42,7 +44,7 @@ async fn test_min_two_rays_needed() {
 
     flydra2::kalmanize(
         data_src,
-        output,
+        output_braidz,
         None,
         tracking_params,
         opts,

@@ -1,5 +1,5 @@
-use std::convert::TryInto;
 use anyhow::Context;
+use std::convert::TryInto;
 
 use log::info;
 use structopt::StructOpt;
@@ -75,30 +75,21 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
     // a .braid directory. We here ensure the user's name had ".braidz"
     // extension and then calculate the name of the new output directory.
     let output_braidz = opt.output;
-    let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
-        let mut output_dirname: std::path::PathBuf = output_braidz.clone();
-        output_dirname.set_extension("braid");
-        output_dirname
-    } else {
-        return Err(anyhow::format_err!("output file must end in '.braidz'").into());
-    };
 
     // Raise an error if outputs exist.
-    for test_path in &[&output_braidz, &output_dirname] {
-        if test_path.exists() {
-            return Err(anyhow::format_err!(
-                "Path {} exists. Will not overwrite.",
-                test_path.display()
-            )
-            .into());
-        }
+    if output_braidz.exists() {
+        return Err(anyhow::format_err!(
+            "Path {} exists. Will not overwrite.",
+            output_braidz.display()
+        )
+        .into());
     }
 
     let save_performance_histograms = true;
 
     flydra2::kalmanize(
         data_src,
-        output_dirname,
+        output_braidz,
         opt.fps,
         tracking_params,
         opts,

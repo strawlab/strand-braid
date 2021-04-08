@@ -39,9 +39,9 @@ struct Opt {
     /// Input CSV file with 2D detections
     #[structopt(long = "csv", short = "c", parse(from_os_str))]
     point_detection_csv: std::path::PathBuf,
-    /// Output file
+    /// Output file, must end with '.braidz'
     #[structopt(long = "output", short = "o", parse(from_os_str))]
-    output: Option<std::path::PathBuf>,
+    output_braidz: Option<std::path::PathBuf>,
     /// Tracking parameters TOML file. (Includes `motion_noise_scale`, amongst others.)
     #[structopt(long = "tracking-params", short = "t", parse(from_os_str))]
     tracking_params: Option<std::path::PathBuf>,
@@ -106,12 +106,12 @@ fn open_files_and_run() -> anyhow::Result<()> {
         flydra_csv_temp_dir.as_ref().display()
     );
 
-    let output_dirname = match opt.output {
+    let output_braidz = match opt.output_braidz {
         Some(op) => op,
         None => opt
             .point_detection_csv
             .to_path_buf()
-            .with_extension("braid"), // replace '.csv' -> '.braid'
+            .with_extension("braidz"), // replace '.csv' -> '.braidz'
     };
 
     let data_file = std::fs::File::open(&opt.point_detection_csv)
@@ -132,7 +132,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
     parse_configs_and_run(
         point_detection_csv_reader,
         Some(&flydra_csv_temp_dir),
-        &output_dirname,
+        &output_braidz,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,

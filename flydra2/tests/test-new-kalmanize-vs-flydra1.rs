@@ -1,11 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use failure::ResultExt;
+use anyhow::Context;
 
 use flydra2::KALMAN_ESTIMATES_FNAME;
 
-fn unzip_into<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+/// unzip the zip archive `src` into the destination `dest`.
+///
+/// The destination is created if it does not already exist.
+fn unzip_into<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -34,20 +37,20 @@ where
     Ok(())
 }
 
-fn move_path<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn move_path<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
     if !src.as_ref().exists() {
-        return Err(failure::err_msg(format!("source does not exist")));
+        return Err(anyhow::anyhow!("source does not exist"));
     }
     if src.as_ref().is_dir() {
         let mut options = fs_extra::dir::CopyOptions::new();
         options.overwrite = true;
         options.copy_inside = true;
         fs_extra::dir::move_dir(src, dest, &options)
-            .map_err(|e| failure::err_msg(format!("move dir failed: {} {:?}", e, e)))?;
+            .map_err(|e| anyhow::anyhow!("move dir failed: {} {:?}", e, e))?;
         Ok(())
     } else {
         match std::fs::rename(&src, &dest) {
@@ -55,18 +58,13 @@ where
             Err(e) => {
                 if e.raw_os_error() == Some(18) {
                     // "Invalid cross-device link"
-                    std::fs::copy(&src, &dest).map_err(|e| {
-                        failure::err_msg(format!("copy file failed: {} {:?}", e, e))
-                    })?;
-                    std::fs::remove_file(&src).map_err(|e| {
-                        failure::err_msg(format!("remove file failed: {} {:?}", e, e))
-                    })?;
+                    std::fs::copy(&src, &dest)
+                        .map_err(|e| anyhow::anyhow!("copy file failed: {} {:?}", e, e))?;
+                    std::fs::remove_file(&src)
+                        .map_err(|e| anyhow::anyhow!("remove file failed: {} {:?}", e, e))?;
                     Ok(())
                 } else {
-                    Err(failure::err_msg(format!(
-                        "rename file failed: {} {:?}",
-                        e, e
-                    )))
+                    Err(anyhow::anyhow!("rename file failed: {} {:?}", e, e))
                 }
             }
         }
@@ -78,7 +76,7 @@ fn sanity_checks_csvdir<P>(
     src: P,
     expected_num_obj_ids: usize,
     expected_num_rows: usize,
-) -> Result<(), failure::Error>
+) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
 {
@@ -128,7 +126,7 @@ where
                             inter-frame interval is {}, not 1.",
                             kest_row.obj_id, kest_row.frame, diff
                         );
-                        return Err(failure::err_msg(e));
+                        return Err(anyhow::anyhow!(e));
                     }
                     *cur_frame = kest_row.frame;
                 }
@@ -173,7 +171,8 @@ fn run_command(arg: &str) -> std::process::Output {
     }
 }
 
-fn convert_csvdir_to_flydra1_mainbrain_h5<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+/// Convert `src` to `dest`. This will delete `src`.
+fn convert_csvdir_to_flydra1_mainbrain_h5<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -194,6 +193,8 @@ where
 
     let script = "../strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
+
+    // This will run the command, which will delete `src`.
     let output = run_command(&arg);
 
     if out_loc != dest.as_ref() {
@@ -218,13 +219,17 @@ where
     if !output.status.success() {
         println!("{}", String::from_utf8_lossy(&output.stdout));
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        return Err(failure::err_msg("python script failed"));
+        return Err(anyhow::anyhow!("python script failed"));
+    }
+
+    if src.as_ref().exists() {
+        anyhow::bail!("src still exists after successful conversion.")
     }
 
     Ok(())
 }
 
-fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), failure::Error>
+fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -233,11 +238,11 @@ where
     let stem = src
         .as_ref()
         .file_stem()
-        .ok_or_else(|| failure::err_msg("no file stem"))?;
+        .ok_or_else(|| anyhow::anyhow!("no file stem"))?;
     let parent = src
         .as_ref()
         .parent()
-        .ok_or_else(|| failure::err_msg("no file parent"))?;
+        .ok_or_else(|| anyhow::anyhow!("no file parent"))?;
 
     let mut out_loc = PathBuf::from(parent);
     out_loc.push(stem);
@@ -274,7 +279,7 @@ where
     if !output.status.success() {
         println!("{}", String::from_utf8_lossy(&output.stdout));
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        return Err(failure::err_msg("python script failed"));
+        return Err(anyhow::anyhow!("python script failed"));
     }
 
     Ok(())
@@ -290,17 +295,10 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         ))
         .unwrap();
 
-    let tracked_dir = tempfile::tempdir().unwrap().into_path();
+    let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
+    let output_braidz = output_root.path().join("output.braidz");
 
     let expected_fps = None;
-
-    if tracked_dir.exists() {
-        println!(
-            "deleting pre-existing destination {}",
-            tracked_dir.display()
-        );
-        std::fs::remove_dir_all(&tracked_dir).unwrap();
-    }
 
     let tracking_params = flydra2::TrackingParams::default();
     println!("tracking with default parameters");
@@ -313,7 +311,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     flydra2::kalmanize(
         data_src,
-        &tracked_dir,
+        &output_braidz,
         expected_fps,
         tracking_params,
         flydra2::KalmanizeOptions::default(),
@@ -324,8 +322,11 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     .unwrap();
     println!("done tracking");
 
-    unzip_into(tracked_dir.with_extension("braidz"), &tracked_dir).expect("unzip");
+    // expand .braidz file into /<root>/expanded.braid directory
+    let tracked_dir = output_root.path().join("expanded.braid");
+    unzip_into(output_braidz, &tracked_dir).unwrap();
 
+    // tracked_h5 becomes /<root>/expanded.h5
     let mut tracked_h5 = PathBuf::from(&tracked_dir);
     tracked_h5.set_extension("h5");
 
@@ -344,6 +345,8 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
             tracked_h5.display()
         ))
         .unwrap();
+
+    // All temporary files are cleaned up as output_root is dropped.
 }
 
 #[tokio::test]
@@ -352,13 +355,14 @@ async fn do_test() {
 
     let src = "../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28.h5";
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path();
+    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
-    run_test(src, untracked_dir).await;
+    run_test(src, untracked_dir.clone()).await;
 
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
+    std::fs::remove_dir_all(untracked_dir).unwrap();
 }
 
 #[tokio::test]
@@ -375,10 +379,12 @@ async fn do_water_test() {
     )
     .unwrap();
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path();
+    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
-    run_test(FNAME, untracked_dir).await;
+    run_test(FNAME, untracked_dir.clone()).await;
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
+
+    std::fs::remove_dir_all(untracked_dir).unwrap();
 }

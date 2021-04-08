@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 use std::{
-    io::{BufReader, Read, Seek},
+    io::{BufReader, Read, Seek, Write},
     path::{Component, Path, PathBuf},
 };
 
@@ -350,10 +350,87 @@ impl SlashJoin for PathBuf {
     }
 }
 
+/// Copy source `src` (dir or zip) to a new zip at `dest`.
+///
+/// This is a high level utility that will open an existing source, which can be
+/// either a directory or a .zip file, and copy the contents into a newly
+/// created zip file. The contents of the source are walked recursively to copy
+/// it entirely.
+pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Result<()> {
+    let mut src_archive = ZipDirArchive::auto_from_path(src.as_ref().to_path_buf()).unwrap();
+    let mut zipfile = std::fs::File::create(dest)?;
+    copy_archive_to_zipfile(&mut src_archive, &mut zipfile)
+}
+
+/// Copy `src`, an already open archive, to `dest`, an already open file.
+///
+/// This utility takes an already open source archive and copies the contents
+/// into an already created destination file. The contents of the source are
+/// walked recursively to copy it entirely. The destination file is written to
+/// but remains open with the file cursor position unmodified after finishing
+/// writing the zip archive into the file.
+pub fn copy_archive_to_zipfile<R: Read+Seek>(mut src: &mut ZipDirArchive<R>, dest: &mut std::fs::File) -> Result<()> {
+    let mut zip_writer = zip::ZipWriter::new(dest);
+    copy_dir(&mut src, None, &mut zip_writer, 0)?;
+    zip_writer.finish()?;
+    Ok(())
+}
+
+/// copy from src into zip file
+fn copy_dir<R: Read+Seek>(
+    src: &mut ZipDirArchive<R>,
+    relname: Option<&Path>,
+    zip_writer: &mut zip::ZipWriter<&mut std::fs::File>,
+    depth: usize,
+) -> zip::result::ZipResult<()> {
+    let parent = match relname {
+        None => PathBuf::new(),
+        Some(parent) => PathBuf::from(parent),
+    };
+
+    // get paths in this dir
+    let paths = src
+        .list_paths::<PathBuf>(relname.map(PathBuf::from))
+        .unwrap();
+
+    // iterate over entries
+    for entry in paths.iter() {
+        let full_entry = parent.join(entry);
+        // create PathLike for entry
+        let mut ep = src.path_starter();
+        ep.push(full_entry.as_os_str().to_str().unwrap());
+
+        // copy contents if it is a file
+        if ep.is_file() {
+            let mut fd = ep.open().unwrap();
+            let mut buf = vec![];
+            fd.read_to_end(&mut buf).unwrap();
+
+            zip_writer
+                .start_file(
+                    full_entry.to_str().unwrap(),
+                    zip::write::FileOptions::default(),
+                )
+                .unwrap();
+            zip_writer.write(&buf).unwrap();
+        } else {
+            // if not a file, it is a subdir
+            let subpath: PathBuf = match relname {
+                None => PathBuf::from(full_entry),
+                // Some(parent) => PathBuf::from(parent).join(entry),
+                Some(_) => full_entry, //PathBuf::from(parent).join(entry),
+            };
+
+            copy_dir(src, Some(&subpath), zip_writer, depth + 1)?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::io::Write;
 
     fn create_files(fnames: &[&str], basepath: &Path) -> std::io::Result<()> {
         for fname in fnames {
@@ -431,7 +508,7 @@ mod tests {
 
         // create tmp dir
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.into_path();
+        let root = tempdir.into_path(); // must manually cleanup now
 
         // // create dir in known location
         // let root = PathBuf::from("sourcetmp");
@@ -474,11 +551,7 @@ mod tests {
         // let zipfilename = root.with_extension("zip");
         // let mut zipfile = std::fs::File::create(&zipfilename).unwrap();
 
-        {
-            let mut zip_writer = zip::ZipWriter::new(&mut zipfile);
-            copy_dir(&mut dirarchive, None, &mut zip_writer, 0).unwrap();
-            zip_writer.finish().unwrap();
-        }
+        copy_archive_to_zipfile( &mut dirarchive, &mut zipfile ).unwrap();
         zipfile.seek(std::io::SeekFrom::Start(0)).unwrap();
 
         let mut ziparchive = ZipDirArchive::from_zip(&mut zipfile, "archive.zip".into()).unwrap();
@@ -488,6 +561,8 @@ mod tests {
 
         println!("checking dirs");
         check_archive(&mut dirarchive).unwrap();
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     fn check_archive<R: Read + Seek>(archive: &mut ZipDirArchive<R>) -> Result<()> {
@@ -515,58 +590,6 @@ mod tests {
                 _ => {
                     panic!("returned wrong error. Should return NotDirectory");
                 }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// copy from dirarchive into zip file
-    fn copy_dir(
-        diracrhive: &mut ZipDirArchive<BufReader<std::fs::File>>,
-        relname: Option<&Path>,
-        zip_writer: &mut zip::ZipWriter<&mut std::fs::File>,
-        depth: usize,
-    ) -> zip::result::ZipResult<()> {
-        let parent = match relname {
-            None => PathBuf::new(),
-            Some(parent) => PathBuf::from(parent),
-        };
-
-        // get paths in this dir
-        let paths = diracrhive
-            .list_paths::<PathBuf>(relname.map(PathBuf::from))
-            .unwrap();
-
-        // iterate over entries
-        for entry in paths.iter() {
-            let full_entry = parent.join(entry);
-            // create PathLike for entry
-            let mut ep = diracrhive.path_starter();
-            ep.push(full_entry.as_os_str().to_str().unwrap());
-
-            // copy contents if it is a file
-            if ep.is_file() {
-                let mut fd = ep.open().unwrap();
-                let mut buf = vec![];
-                fd.read_to_end(&mut buf).unwrap();
-
-                zip_writer
-                    .start_file(
-                        full_entry.to_str().unwrap(),
-                        zip::write::FileOptions::default(),
-                    )
-                    .unwrap();
-                zip_writer.write(&buf).unwrap();
-            } else {
-                // if not a file, it is a subdir
-                let subpath: PathBuf = match relname {
-                    None => PathBuf::from(full_entry),
-                    // Some(parent) => PathBuf::from(parent).join(entry),
-                    Some(_) => full_entry, //PathBuf::from(parent).join(entry),
-                };
-
-                copy_dir(diracrhive, Some(&subpath), zip_writer, depth + 1)?;
             }
         }
 
