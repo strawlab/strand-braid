@@ -615,3 +615,57 @@ pub(crate) fn writer_thread_main(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_save_braidz_on_drop() {
+        // create temporary dir to hold everything here.
+        let root = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+
+        let braid_root = root.join("test.braid");
+        let braidz_name = root.join("test.braidz");
+
+        {
+            let cfg = StartSavingCsvConfig {
+                out_dir: braid_root.clone(),
+                local: None,
+                git_rev: "<impossible git rev>".into(),
+                fps: None,
+                images: std::collections::BTreeMap::new(),
+                print_stats: false,
+                save_performance_histograms: false,
+            };
+
+            let cam_manager = ConnectedCamerasManager::new(&None);
+            let tracking_params = Arc::new(TrackingParams::default());
+            let save_empty_data2d = false;
+
+            let ws = WritingState::new(
+                cfg,
+                cam_manager.sample(),
+                &None,
+                tracking_params,
+                save_empty_data2d,
+            )
+            .unwrap();
+
+            // Check that original directory exists.
+            assert!(braid_root.exists());
+            // Ensure .braidz not present.
+            assert!(!braidz_name.exists());
+
+            std::mem::drop(ws);
+        }
+
+        // Check that original directory is gone.
+        assert!(!braid_root.exists());
+
+        // Check that .braidz is present.
+        assert!(braidz_name.exists());
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
