@@ -508,7 +508,7 @@ mod tests {
 
         // create tmp dir
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.into_path();
+        let root = tempdir.into_path(); // must manually cleanup now
 
         // // create dir in known location
         // let root = PathBuf::from("sourcetmp");
@@ -561,6 +561,8 @@ mod tests {
 
         println!("checking dirs");
         check_archive(&mut dirarchive).unwrap();
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     fn check_archive<R: Read + Seek>(archive: &mut ZipDirArchive<R>) -> Result<()> {
