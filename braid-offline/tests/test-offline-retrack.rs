@@ -21,7 +21,8 @@ async fn test_min_two_rays_needed() {
         .with_context(|| format!("Parsing file {}", FNAME))
         .unwrap();
 
-    let output = tempfile::tempdir().unwrap().into_path();
+    let output = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+
     // let output = std::path::PathBuf::from("test-output");
 
     let tracking_params_parsed: &flydra_types::TrackingParams = &archive
@@ -40,6 +41,7 @@ async fn test_min_two_rays_needed() {
 
     let save_performance_histograms = true;
 
+    // This will delete `output` directory after converting to .braidz.
     flydra2::kalmanize(
         data_src,
         output,
