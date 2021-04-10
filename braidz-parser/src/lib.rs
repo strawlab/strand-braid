@@ -1,3 +1,8 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use std::{
     collections::BTreeMap,
     convert::TryInto,
@@ -23,40 +28,108 @@ pub mod incremental_parser;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    #[error("{0}")]
-    Zip(#[from] zip::result::ZipError),
-    #[error("{0}")]
-    Yaml(#[from] serde_yaml::Error),
-    #[error("{0}")]
-    Json(#[from] serde_json::Error),
-    #[error("{0}")]
-    Csv(#[from] csv::Error),
-    #[error("HDR Histogram log iterator error {0:?}")]
-    HdrHistogram(hdrhistogram::serialization::interval_log::LogIteratorError),
+    #[error("{source}")]
+    Mvg {
+        #[from]
+        source: mvg::MvgError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Zip {
+        #[from]
+        source: zip::result::ZipError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Yaml {
+        #[from]
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Json {
+        #[from]
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Csv {
+        #[from]
+        source: csv::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    // #[error("HDR Histogram log iterator error {source:?}")]
+    // HdrHistogram{source: hdrhistogram::serialization::interval_log::LogIteratorError, #[cfg(feature = "backtrace")]
+    // backtrace: Backtrace,},
     // Xml(serde_xml_rs::Error),
     #[error("XML error")]
     Xml,
-    #[error("{0}")]
-    ZipOrDir(#[from] zip_or_dir::Error),
-    #[error("{0}")]
-    ParseFloat(#[from] std::num::ParseFloatError),
+    #[error("{source}")]
+    ZipOrDir {
+        #[from]
+        source: zip_or_dir::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    ParseFloat {
+        #[from]
+        source: std::num::ParseFloatError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
     #[error("Missing tracking parameters")]
     MissingTrackingParameters,
+    #[error("Error opening {filename}: {source}")]
+    FileError {
+        what: &'static str,
+        filename: String,
+        source: Box<dyn std::error::Error + Sync + Send>,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
-impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
-    fn from(orig: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
-        Error::HdrHistogram(orig)
+// impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
+//     fn from(source: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
+//         Error::HdrHistogram{
+//             source,
+//             #[cfg(feature = "backtrace")]
+//             backtrace: Backtrace::capture(),
+//         }
+//     }
+// }
+
+impl From<serde_xml_rs::Error> for Error {
+    fn from(_source: serde_xml_rs::Error) -> Error {
+        Error::Xml
     }
 }
 
-impl From<serde_xml_rs::Error> for Error {
-    fn from(_orig: serde_xml_rs::Error) -> Error {
-        Error::Xml
+pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
+where
+    E: 'static + std::error::Error + Sync + Send,
+{
+    Error::FileError {
+        what,
+        filename,
+        source: Box::new(source),
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace::capture(),
     }
 }
 
@@ -200,7 +273,7 @@ pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
 pub fn braidz_parse<R: Read + Seek>(
     archive: zip_or_dir::ZipDirArchive<R>,
 ) -> Result<BraidzArchive<R>, Error> {
-    let ip = incremental_parser::IncrementalParser::new(archive);
+    let ip = incremental_parser::IncrementalParser::from_archive(archive);
     let ip = ip.parse_everything()?;
     let state = ip.state;
     let archive = ip.archive;

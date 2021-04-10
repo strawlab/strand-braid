@@ -10,6 +10,17 @@ pub trait ParseState {}
 /// The archive has just been opened.
 pub struct ArchiveOpened {}
 
+/// The archive has basic information parsed.
+pub struct BasicInfoParsed {
+    pub metadata: BraidMetadata,
+    pub expected_fps: f64,
+    pub tracking_params: Option<TrackingParams>,
+    pub calibration_info: Option<CalibrationInfo>,
+    pub reconstruction_latency_hlog: Option<HistogramLog>,
+    pub reprojection_distance_hlog: Option<HistogramLog>,
+    pub cam_info: CamInfo,
+}
+
 /// The archive been completely parsed.
 pub struct FullyParsed {
     pub metadata: BraidMetadata,
@@ -23,6 +34,7 @@ pub struct FullyParsed {
 }
 
 impl ParseState for ArchiveOpened {}
+impl ParseState for BasicInfoParsed {}
 impl ParseState for FullyParsed {}
 
 /// An incremental parser for braid archives.
@@ -36,11 +48,41 @@ pub struct IncrementalParser<R: Read + Seek, S: ParseState> {
     pub(crate) state: S,
 }
 
+impl IncrementalParser<BufReader<std::fs::File>, ArchiveOpened> {
+    /// Open an archive from a path.
+    ///
+    /// The archive may be a .braidz zip file for a .braid directory.
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self, Error> {
+        let archive = zip_or_dir::ZipDirArchive::auto_from_path(path)?;
+        Ok(Self::from_archive(archive))
+    }
+
+    /// Open an archive from a directory.
+    ///
+    /// The archive must be a .braid directory.
+    pub fn open_dir<P: AsRef<std::path::Path>>(path: P) -> Result<Self, Error> {
+        let archive = zip_or_dir::ZipDirArchive::from_dir(path.as_ref().to_path_buf())?;
+        Ok(Self::from_archive(archive))
+    }
+
+    /// Open an archive from a .braidz zip file.
+    ///
+    /// The archive must be a .braidz zip file.
+    pub fn open_braidz_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, Error> {
+        let reader = BufReader::new(std::fs::File::open(&path)?);
+        let archive = zip_or_dir::ZipDirArchive::from_zip(
+            reader,
+            path.as_ref().as_os_str().to_str().unwrap().to_string(),
+        )?;
+        Ok(Self::from_archive(archive))
+    }
+}
+
 impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
     /// Open an archive.
     ///
     /// The archive may be a .braidz zip file for a .braid directory.
-    pub fn new(archive: zip_or_dir::ZipDirArchive<R>) -> Self {
+    pub fn from_archive(archive: zip_or_dir::ZipDirArchive<R>) -> Self {
         IncrementalParser {
             archive,
             state: ArchiveOpened {},
@@ -48,7 +90,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
     }
 
     /// Parse the entire archive.
-    pub fn parse_everything(mut self) -> Result<IncrementalParser<R, FullyParsed>, Error> {
+    pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
         let metadata = {
             let file = self.archive.open("braid_metadata.yml")?;
             serde_yaml::from_reader(file)?
@@ -65,7 +107,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                     for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
                         let row: TextlogRow = row?;
 
-                        // TODO: combine with `flydra2::offline_kalmanize::calc_fps_from_data()`.
+                        // TODO: fix DRY in `calc_fps_from_data()`.
                         let line1_start = "MainBrain running at ";
 
                         if row.message.starts_with(line1_start) {
@@ -110,6 +152,22 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             }
         };
 
+        let calibration_info = match self.archive.open("calibration.xml") {
+            Ok(xml_reader) => {
+                let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
+                    serde_xml_rs::from_reader(xml_reader)?;
+
+                let system =
+                    flydra_mvg::FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)?;
+                Some(CalibrationInfo {
+                    water: recon.water,
+                    cameras: system.to_system(),
+                })
+            }
+            Err(zip_or_dir::Error::FileNotFound) => None,
+            Err(e) => return Err(e.into()),
+        };
+
         let cam_info = {
             match self.archive.open("cam_info.csv.gz") {
                 Ok(encoded) => {
@@ -131,8 +189,49 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             }
         };
 
+        let reconstruction_latency_hlog = match self.archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
+            Ok(rdr) => get_hlog(rdr).unwrap(),
+            Err(zip_or_dir::Error::FileNotFound) => None,
+            Err(e) => return Err(e.into()),
+        };
+
+        let reprojection_distance_hlog = match self.archive.open(REPROJECTION_DIST_LOG_FNAME) {
+            Ok(rdr) => get_hlog(rdr).unwrap(),
+            Err(zip_or_dir::Error::FileNotFound) => None,
+            Err(e) => return Err(e.into()),
+        };
+
+        let state = BasicInfoParsed {
+            metadata,
+            expected_fps,
+            tracking_params: tracking_parameters,
+            calibration_info,
+            reconstruction_latency_hlog,
+            reprojection_distance_hlog,
+            cam_info,
+        };
+
+        Ok(IncrementalParser {
+            archive: self.archive,
+            state,
+        })
+    }
+
+    /// Parse the entire archive.
+    pub fn parse_everything(self) -> Result<IncrementalParser<R, FullyParsed>, Error> {
+        let basics = self.parse_basics()?;
+        basics.parse_rest()
+    }
+}
+
+impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
+    /// Parse the remaining aspects of the archive.
+    pub fn parse_rest(mut self) -> Result<IncrementalParser<R, FullyParsed>, Error> {
+        let basics = self.state;
+
         let mut num_rows = 0;
         let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;
+        // Open main 2D data.
         let qz = match self.archive.open("data2d_distorted.csv.gz") {
             Ok(encoded) => {
                 let decoder = libflate::gzip::Decoder::new(encoded)?;
@@ -169,20 +268,10 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             }
         });
 
-        let calibration_info = match self.archive.open("calibration.xml") {
-            Ok(xml_reader) => {
-                let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
-                    serde_xml_rs::from_reader(xml_reader)?;
-                Some(CalibrationInfo { water: recon.water })
-            }
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
-        };
-
         let kalman_estimates_info = match self.archive.open("kalman_estimates.csv.gz") {
             Ok(encoded) => {
                 let decoder = libflate::gzip::Decoder::new(encoded)?;
-                let tracking_parameters = match tracking_parameters {
+                let tracking_parameters = match basics.tracking_params {
                     Some(tp) => tp,
                     None => {
                         return Err(Error::MissingTrackingParameters);
@@ -252,31 +341,23 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             Err(e) => return Err(e.into()),
         };
 
-        let reconstruction_latency_hlog = match self.archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
-            Ok(rdr) => get_hlog(rdr).unwrap(),
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
-        };
-
-        let reprojection_distance_hlog = match self.archive.open(REPROJECTION_DIST_LOG_FNAME) {
-            Ok(rdr) => get_hlog(rdr).unwrap(),
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
-        };
-
         Ok(IncrementalParser {
             archive: self.archive,
             state: FullyParsed {
-                metadata,
-                expected_fps,
-                calibration_info,
-                cam_info,
+                metadata: basics.metadata,
+                expected_fps: basics.expected_fps,
+                calibration_info: basics.calibration_info,
+                cam_info: basics.cam_info,
                 kalman_estimates_info,
                 data2d_distorted,
-                reconstruction_latency_hlog,
-                reprojection_distance_hlog,
+                reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
+                reprojection_distance_hlog: basics.reprojection_distance_hlog,
             },
         })
+    }
+
+    pub fn basic_info(&self) -> &BasicInfoParsed {
+        &self.state
     }
 }
 
@@ -284,5 +365,19 @@ impl<R: Read + Seek, S: ParseState> IncrementalParser<R, S> {
     /// Consume and return the raw storage archive.
     pub fn zip_struct(self) -> zip_or_dir::ZipDirArchive<R> {
         self.archive
+    }
+
+    /// Display the path of the archive.
+    pub fn display(&self) -> std::path::Display {
+        self.archive.display()
+    }
+
+    /// Get a path-like instance for direct read access to the archive.
+    ///
+    /// You should prefer to use information already parsed from the archive
+    /// rather than resorting to this low-level function. Consider expanding the
+    /// parser to provide this information if it is not already implemented.
+    pub fn path_starter(&mut self) -> zip_or_dir::PathLike<R> {
+        self.archive.path_starter()
     }
 }
