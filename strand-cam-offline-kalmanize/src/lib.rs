@@ -184,7 +184,9 @@ where
 
     info!("    {} detected points converted.", num_points_converted);
 
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.path().into())?;
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open_dir(flydra_csv_temp_dir.path())?;
+    let data_src = data_src.parse_basics()?;
 
     let save_performance_histograms = false;
 
