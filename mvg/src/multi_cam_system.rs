@@ -7,7 +7,8 @@ use std::io::Read;
 use nalgebra as na;
 
 use na::RealField;
-use serde::de::DeserializeOwned;
+#[allow(unused_imports)]
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use cam_geom::{coordinate_system::WorldFrame, Ray};
 
@@ -17,14 +18,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct MultiCameraSystem<R: RealField + serde::Serialize> {
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+pub struct MultiCameraSystem<R: RealField + Serialize> {
     cams_by_name: BTreeMap<String, Camera<R>>,
     comment: Option<String>,
 }
 
 impl<R> MultiCameraSystem<R>
 where
-    R: RealField + serde::Serialize + DeserializeOwned + Default,
+    R: RealField + Serialize + DeserializeOwned + Default,
 {
     // This is disabled because nalgebra and serde write incompatible json.
     // pub fn to_pymvg_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
@@ -39,7 +41,7 @@ where
     }
 }
 
-impl<R: RealField + Default + serde::Serialize> MultiCameraSystem<R> {
+impl<R: RealField + Default + Serialize> MultiCameraSystem<R> {
     pub fn new(cams_by_name: BTreeMap<String, Camera<R>>) -> Self {
         Self::new_inner(cams_by_name, None)
     }
