@@ -514,7 +514,7 @@ pub enum SaveToDiskMsg {
 }
 
 /// Load .csv or .csv.gz file
-#[deprecated = "use the zip-or-dir crate and pick_csvgz_or_csv2"]
+#[deprecated = "use the zip-or-dir crate and braidz_parser::pick_csvgz_or_csv2"]
 pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::Read>> {
     let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
 
@@ -531,27 +531,6 @@ pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::
             .map_err(|e| file_error("opening", format!("opening {}", gz_fname.display()), e))?;
         let decoder = libflate::gzip::Decoder::new(gz_fd)?;
         Ok(Box::new(decoder))
-    }
-}
-
-/// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
-///
-/// Note, use caution if using `csv_fname` after this, as it may be the original
-/// (`.csv`) or new (`.csv.gz`).
-pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
-    csv_fname: &'a mut zip_or_dir::PathLike<R>,
-) -> Result<Box<dyn Read + 'a>> {
-    if csv_fname.exists() {
-        Ok(Box::new(csv_fname.open()?))
-    } else {
-        csv_fname.set_extension("csv.gz");
-
-        let displayname = format!("{}", csv_fname.display());
-
-        let gz_fd = csv_fname
-            .open()
-            .map_err(|e| file_error("opening", displayname, e))?;
-        Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
     }
 }
 

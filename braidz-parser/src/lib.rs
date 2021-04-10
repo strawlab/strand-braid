@@ -381,3 +381,24 @@ fn max(a: f64, b: f64) -> f64 {
         a
     }
 }
+
+/// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
+///
+/// Note, use caution if using `csv_fname` after this, as it may be the original
+/// (`.csv`) or new (`.csv.gz`).
+pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
+    csv_fname: &'a mut zip_or_dir::PathLike<R>,
+) -> Result<Box<dyn Read + 'a>, Error> {
+    if csv_fname.exists() {
+        Ok(Box::new(csv_fname.open()?))
+    } else {
+        csv_fname.set_extension("csv.gz");
+
+        let displayname = format!("{}", csv_fname.display());
+
+        let gz_fd = csv_fname
+            .open()
+            .map_err(|e| file_error("opening", displayname, e))?;
+        Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
+    }
+}
