@@ -53,13 +53,6 @@ pub enum Error {
         backtrace: Backtrace,
     },
     #[error("{source}")]
-    FuturesSendError {
-        #[from]
-        source: futures::channel::mpsc::SendError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
-    #[error("{source}")]
     TomlSerError {
         #[from]
         source: toml::ser::Error,
@@ -77,13 +70,6 @@ pub enum Error {
     InvalidHypothesisTestingParameters,
     #[error("insufficient data to calculate FPS")]
     InsufficientDataToCalculateFps,
-    #[error("{source}")]
-    ZipDir {
-        #[from]
-        source: zip_or_dir::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
     #[error("Error opening {filename}: {source}")]
     FileError {
         what: &'static str,
@@ -95,11 +81,6 @@ pub enum Error {
     #[error("{source}")]
     WrappedError {
         source: Box<dyn std::error::Error + Sync + Send>,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
-    #[error("output filename must end with '.braidz'")]
-    OutputFilenameMustEndInBraidz {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },

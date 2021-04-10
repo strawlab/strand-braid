@@ -59,7 +59,6 @@ iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
-zip-or-dir = {path="../zip-or-dir"}
 
 [dev-dependencies]
 tempfile = "3"
@@ -79,4 +78,4 @@ serve_files = []
 
 braid = []
 
-backtrace = ["zip-or-dir/backtrace"]
+backtrace = []
