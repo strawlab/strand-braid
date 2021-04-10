@@ -953,14 +953,13 @@ impl CoordProcessor {
 
 /// run a function returning Result<()> and handle errors.
 // see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-pub fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
+pub fn run_func<F: FnOnce() -> std::result::Result<(), E>, E: std::error::Error>(real_func: F) {
     // Decide which command to run, and run it, and print any errors.
     if let Err(err) = real_func() {
         let mut stderr = std::io::stderr();
         writeln!(stderr, "In {}:{}: Error: {}", file!(), line!(), err)
             .expect("unable to write error to stderr");
 
-        use std::error::Error;
         let mut source_err = err.source();
 
         while let Some(source) = source_err {
