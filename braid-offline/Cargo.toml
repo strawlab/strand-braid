@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
 structopt = "0.3"
+thiserror = "1.0"
 anyhow = "1.0"
 csv = "1.1"
 serde = {version="^1.0", features=["derive"]}
@@ -27,10 +28,10 @@ groupby = {path="../groupby"}
 tokio = {version="0.2", default-features=false, features=["macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
+braidz-parser = {path="../braidz-parser"}
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}
-braidz-parser = {path="../braidz-parser"}
 tempfile = "3"
 zip = { version = "0.5", default-features = false, features=["time"] }
 approx = "0.4"

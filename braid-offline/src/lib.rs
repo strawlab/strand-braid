@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 use log::{debug, info, warn};
 
 use std::{
@@ -7,14 +9,72 @@ use std::{
 
 use flydra_types::CamInfoRow;
 
+use braidz_parser::pick_csvgz_or_csv2;
+
 use flydra2::{
-    pick_csvgz_or_csv2, run_func, CoordProcessor, Data2dDistortedRow, FrameData,
-    FrameDataAndPoints, MyFloat, NumberedRawUdpPoint, Result, StreamItem, TrackingParams,
-    CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME, DATA2D_DISTORTED_CSV_FNAME,
+    run_func, CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints,
+    NumberedRawUdpPoint, StreamItem, TrackingParams, CAM_INFO_CSV_FNAME,
+    DATA2D_DISTORTED_CSV_FNAME,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
 use flydra_types::{RawCamName, RosCamName, SyncFno};
+
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Flydra2 {
+        #[from]
+        source: flydra2::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    BraidzParser {
+        #[from]
+        source: braidz_parser::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("output filename must end with '.braidz'")]
+    OutputFilenameMustEndInBraidz {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("No calibration found")]
+    NoCalibrationFound,
+    #[error("{source}")]
+    ZipDir {
+        #[from]
+        source: zip_or_dir::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    FuturesSendError {
+        #[from]
+        source: futures::channel::mpsc::SendError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Csv {
+        #[from]
+        source: csv::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+}
 
 fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
     let maybe_slope_eccentricty = if row.area.is_nan() {
@@ -54,7 +114,8 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_iter().map(|(_k, v)| v).collect()
 }
 
-fn calc_fps_from_data<R: Read>(data_file: R) -> Result<f64> {
+// TODO fix DRY with incremental_parser
+fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
     let row0: Option<std::result::Result<Data2dDistortedRow, _>> = data_iter.next();
@@ -135,14 +196,17 @@ impl Default for KalmanizeOptions {
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
 pub async fn kalmanize<Q, R>(
-    mut data_src: zip_or_dir::ZipDirArchive<R>,
+    mut data_src: braidz_parser::incremental_parser::IncrementalParser<
+        R,
+        braidz_parser::incremental_parser::BasicInfoParsed,
+    >,
     output_braidz: Q,
     expected_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
-) -> flydra2::Result<()>
+) -> Result<(), Error>
 where
     Q: AsRef<std::path::Path>,
     R: 'static + Read + Seek + Send,
@@ -153,7 +217,7 @@ where
         output_dirname.set_extension("braid");
         output_dirname
     } else {
-        return Err(flydra2::Error::OutputFilenameMustEndInBraidz {
+        return Err(Error::OutputFilenameMustEndInBraidz {
             #[cfg(feature = "backtrace")]
             backtrace: std::backtrace::Backtrace::capture(),
         });
@@ -162,17 +226,15 @@ where
     info!("tracking:");
     info!("  {} -> {}", data_src.display(), output_dirname.display());
 
-    let mut cal_fname = data_src.path_starter();
-    cal_fname.push(CALIBRATION_XML_FNAME);
-    cal_fname.set_extension("xml");
+    let src_info = data_src.basic_info();
 
-    let displayname = format!("{}", cal_fname.display());
-
-    // read the calibration
-    let cal_file = cal_fname
-        .open()
-        .map_err(|e| flydra2::file_error("Could not open calibration file", displayname, e))?;
-    let recon = flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?;
+    let recon = if let Some(ci) = &src_info.calibration_info {
+        let cams = ci.cameras.clone();
+        let water = ci.water;
+        flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
+    } else {
+        return Err(Error::NoCalibrationFound);
+    };
 
     let mut cam_manager = flydra2::ConnectedCamerasManager::new(&Some(recon.clone()));
 
@@ -219,6 +281,7 @@ where
     let fps = match expected_fps {
         Some(fps) => fps,
         None => {
+            // TODO: replace with implementation in braidz-parser.
             let data_file = pick_csvgz_or_csv2(&mut data_fname)?;
 
             // TODO: first choice parse "MainBrain running at {}" string (as in
@@ -294,7 +357,7 @@ where
     // send file to another thread because we want to read this into a stream
     // See https://github.com/alexcrichton/futures-rs/issues/49
     let reader_jh = std::thread::spawn(move || {
-        run_func(move || -> Result<()> {
+        run_func(move || -> Result<(), crate::Error> {
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
             data_fname.push(DATA2D_DISTORTED_CSV_FNAME);
@@ -426,7 +489,7 @@ where
 }
 
 /// Copy from `reader` to path `dest`.
-fn copy_to<R, P>(mut reader: R, dest: P) -> Result<()>
+fn copy_to<R, P>(mut reader: R, dest: P) -> flydra2::Result<()>
 where
     R: Read,
     P: AsRef<std::path::Path>,

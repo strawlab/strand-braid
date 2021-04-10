@@ -72,7 +72,9 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
     let mut opts = braid_offline::KalmanizeOptions::default();
     opts.start_frame = opt.start_frame;
     opts.stop_frame = opt.stop_frame;
-    let data_src = zip_or_dir::ZipDirArchive::auto_from_path(opt.data_src.as_path())?;
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
+    let data_src = data_src.parse_basics()?;
 
     // The user specifies an output .braidz file. But we will save initially to
     // a .braid directory. We here ensure the user's name had ".braidz"

@@ -17,25 +17,21 @@ async fn test_min_two_rays_needed() {
     )
     .unwrap();
 
-    let archive = braidz_parser::braidz_parse_path(FNAME)
-        .with_context(|| format!("Parsing file {}", FNAME))
-        .unwrap();
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(FNAME).unwrap();
+    let data_src = data_src.parse_basics().unwrap();
 
     let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
     let output_braidz = output_root.path().join("output.braidz");
 
     // let output_root = std::path::PathBuf::from("test-output");
 
-    let tracking_params_parsed: &flydra_types::TrackingParams = &archive
-        .kalman_estimates_info
-        .as_ref()
-        .unwrap()
-        .tracking_parameters;
+    let tracking_params_parsed = data_src.basic_info().tracking_params.as_ref();
 
-    let tracking_params: flydra_types::TrackingParamsInner3D =
-        tracking_params_parsed.try_into().unwrap();
+    let tracking_params: flydra_types::TrackingParamsInner3D = tracking_params_parsed
+        .map(|p| p.try_into().unwrap())
+        .unwrap();
 
-    let data_src = archive.zip_struct();
     let opts = braid_offline::KalmanizeOptions::default();
 
     let rt_handle = tokio::runtime::Handle::try_current().unwrap();
