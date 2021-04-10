@@ -36,13 +36,13 @@ async fn test_min_two_rays_needed() {
         tracking_params_parsed.try_into().unwrap();
 
     let data_src = archive.zip_struct();
-    let opts = flydra2::KalmanizeOptions::default();
+    let opts = braid_offline::KalmanizeOptions::default();
 
     let rt_handle = tokio::runtime::Handle::try_current().unwrap();
 
     let save_performance_histograms = true;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
         output_braidz,
         None,

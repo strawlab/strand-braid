@@ -70,9 +70,6 @@ mod tracking_core;
 
 mod zip_dir;
 
-mod offline_kalmanize;
-pub use crate::offline_kalmanize::{kalmanize, KalmanizeOptions};
-
 mod model_server;
 pub use crate::model_server::{GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType};
 
@@ -541,7 +538,7 @@ pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::
 ///
 /// Note, use caution if using `csv_fname` after this, as it may be the original
 /// (`.csv`) or new (`.csv.gz`).
-fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
+pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
     csv_fname: &'a mut zip_or_dir::PathLike<R>,
 ) -> Result<Box<dyn Read + 'a>> {
     if csv_fname.exists() {

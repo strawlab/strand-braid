@@ -188,12 +188,12 @@ where
 
     let save_performance_histograms = false;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
         output_braidz,
         None,
         tracking_params,
-        flydra2::KalmanizeOptions::default(),
+        braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
     )

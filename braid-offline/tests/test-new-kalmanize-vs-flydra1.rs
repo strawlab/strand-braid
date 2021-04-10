@@ -309,12 +309,12 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     let save_performance_histograms = true;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
         &output_braidz,
         expected_fps,
         tracking_params,
-        flydra2::KalmanizeOptions::default(),
+        braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
     )

@@ -64,9 +64,12 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
             tracking_params.try_into()?
         }
-        None => flydra2::TrackingParams::default(),
+        None => {
+            // TODO: check if parameters are in textlog of input file and re-use those if present.
+            flydra2::TrackingParams::default()
+        }
     };
-    let mut opts = flydra2::KalmanizeOptions::default();
+    let mut opts = braid_offline::KalmanizeOptions::default();
     opts.start_frame = opt.start_frame;
     opts.stop_frame = opt.stop_frame;
     let data_src = zip_or_dir::ZipDirArchive::auto_from_path(opt.data_src.as_path())?;
@@ -87,7 +90,7 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
 
     let save_performance_histograms = true;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
         output_braidz,
         opt.fps,
