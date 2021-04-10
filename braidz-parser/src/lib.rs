@@ -19,111 +19,42 @@ use braidz_types::{
 
 use csv_eof::EarlyEofOk;
 
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
-
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Io(std::io::Error),
-    Zip(zip::result::ZipError),
-    Yaml(serde_yaml::Error),
-    Json(serde_json::Error),
-    Csv(csv::Error),
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+    #[error("{0}")]
+    Zip(#[from] zip::result::ZipError),
+    #[error("{0}")]
+    Yaml(#[from] serde_yaml::Error),
+    #[error("{0}")]
+    Json(#[from] serde_json::Error),
+    #[error("{0}")]
+    Csv(#[from] csv::Error),
+    #[error("HDR Histogram log iterator error {0:?}")]
     HdrHistogram(hdrhistogram::serialization::interval_log::LogIteratorError),
     // Xml(serde_xml_rs::Error),
+    #[error("XML error")]
     Xml,
-    ZipOrDir(zip_or_dir::Error),
-    ParseFloat(std::num::ParseFloatError),
+    #[error("{0}")]
+    ZipOrDir(#[from] zip_or_dir::Error),
+    #[error("{0}")]
+    ParseFloat(#[from] std::num::ParseFloatError),
+    #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
+    #[error("Missing tracking parameters")]
     MissingTrackingParameters,
-}
-
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error {
-            kind: ErrorKind::Io(orig),
-        }
-    }
-}
-
-impl From<zip::result::ZipError> for Error {
-    fn from(orig: zip::result::ZipError) -> Error {
-        Error {
-            kind: ErrorKind::Zip(orig),
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for Error {
-    fn from(orig: serde_yaml::Error) -> Error {
-        Error {
-            kind: ErrorKind::Yaml(orig),
-        }
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(orig: serde_json::Error) -> Error {
-        Error {
-            kind: ErrorKind::Json(orig),
-        }
-    }
-}
-
-impl From<csv::Error> for Error {
-    fn from(orig: csv::Error) -> Error {
-        Error {
-            kind: ErrorKind::Csv(orig),
-        }
-    }
 }
 
 impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
     fn from(orig: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
-        Error {
-            kind: ErrorKind::HdrHistogram(orig),
-        }
+        Error::HdrHistogram(orig)
     }
 }
 
 impl From<serde_xml_rs::Error> for Error {
     fn from(_orig: serde_xml_rs::Error) -> Error {
-        Error {
-            // kind: ErrorKind::Xml(orig),
-            kind: ErrorKind::Xml,
-        }
-    }
-}
-
-impl From<zip_or_dir::Error> for Error {
-    fn from(orig: zip_or_dir::Error) -> Error {
-        Error {
-            kind: ErrorKind::ZipOrDir(orig),
-        }
-    }
-}
-
-impl From<std::num::ParseFloatError> for Error {
-    fn from(orig: std::num::ParseFloatError) -> Error {
-        Error {
-            kind: ErrorKind::ParseFloat(orig),
-        }
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error { kind }
+        Error::Xml
     }
 }
 
@@ -309,7 +240,7 @@ pub fn braidz_parse<R: Read + Seek>(
                                 let params_js_value = js_value["tracking_params"].take();
                                 let tp: TrackingParams = serde_json::from_value(params_js_value)?;
                                 if tracking_parameters.is_some() {
-                                    return Err(ErrorKind::MultipleTrackingParameters.into());
+                                    return Err(Error::MultipleTrackingParameters);
                                 }
                                 tracking_parameters = Some(tp);
                             }
@@ -400,7 +331,7 @@ pub fn braidz_parse<R: Read + Seek>(
             let tracking_parameters = match tracking_parameters {
                 Some(tp) => tp,
                 None => {
-                    return Err(ErrorKind::MissingTrackingParameters.into());
+                    return Err(Error::MissingTrackingParameters);
                 }
             };
             let decoder = libflate::gzip::Decoder::new(encoded)?;
