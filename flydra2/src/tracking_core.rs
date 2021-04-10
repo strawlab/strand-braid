@@ -782,6 +782,14 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                                 adskalman::CoverianceUpdateMethod::OptimalKalmanForcedSymmetric;
                             let posterior = obs_model
                                 .update(&estimate.estimate, &observation_undistorted, form)
+                                .map_err(|e| {
+                                    format!(
+                                        "While computing posterior for frame {}, camera {}: {}.",
+                                        frame_cam_points.frame_data.synced_frame,
+                                        frame_cam_points.frame_data.cam_name,
+                                        e
+                                    )
+                                })
                                 .unwrap();
 
                             trace!("previous estimate {:?}", estimate.estimate.state());
