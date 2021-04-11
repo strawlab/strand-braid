@@ -167,9 +167,10 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let reconstruction_latency_hlog = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::RECONSTRUCT_LATENCY_HLOG_FNAME);
-            let reconstruction_latency_hlog = match fname.open() {
+            let reconstruction_latency_hlog = match self
+                .archive
+                .open(flydra_types::RECONSTRUCT_LATENCY_HLOG_FNAME)
+            {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
                 Err(e) => return Err(e.into()),
@@ -178,9 +179,10 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let reprojection_distance_hlog = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::REPROJECTION_DIST_HLOG_FNAME);
-            let reprojection_distance_hlog = match fname.open() {
+            let reprojection_distance_hlog = match self
+                .archive
+                .open(flydra_types::REPROJECTION_DIST_HLOG_FNAME)
+            {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
                 Err(e) => return Err(e.into()),
@@ -215,9 +217,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let basics = self.state;
 
         let metadata = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::BRAID_METADATA_YML_FNAME);
-            let rdr = fname.open()?;
+            let rdr = self.archive.open(flydra_types::BRAID_METADATA_YML_FNAME)?;
             serde_yaml::from_reader(rdr)?
         };
 
