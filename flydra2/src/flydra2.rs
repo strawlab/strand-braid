@@ -510,7 +510,7 @@ pub enum SaveToDiskMsg {
 }
 
 /// Load .csv or .csv.gz file
-#[deprecated = "use the zip-or-dir crate and braidz_parser::pick_csvgz_or_csv2"]
+#[deprecated = "use the zip-or-dir crate and braidz_parser::open_maybe_gzipped"]
 pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::Read>> {
     let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
 

@@ -311,6 +311,11 @@ fn test_implements_send() {
     implements_send::<PathLike<std::fs::File>>();
 }
 
+/// A representation of a path within the archive.
+///
+/// Caution: do not attempt to push directory components manually but use
+/// `PathLike::push()` instead. The reason is that on Windows, backslash would
+/// be used to separate directories, but in a zip file, slashes are always used.
 #[derive(Debug)]
 pub struct PathLike<'a, R: Read + Seek> {
     parent: &'a mut ZipDirArchive<R>,
@@ -323,6 +328,12 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
             Some(_) => self.relname.slash_push(p),
             None => self.relname.push(p),
         }
+    }
+    pub fn path(&mut self) -> &std::path::Path {
+        &self.relname
+    }
+    pub fn replace(&mut self, relname: PathBuf) -> PathBuf {
+        std::mem::replace(&mut self.relname, relname)
     }
     pub fn extension(&mut self) -> Option<&std::ffi::OsStr> {
         self.relname.extension()

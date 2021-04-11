@@ -83,6 +83,8 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("Compressed and uncompressed data copies exist simultaneously")]
+    DualData,
     #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
     #[error("Missing tracking parameters")]
@@ -363,23 +365,48 @@ fn max(a: f64, b: f64) -> f64 {
     }
 }
 
+/// Append a suffix to a path.
+fn append_to_path(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
+    let mut s1: std::ffi::OsString = path.to_path_buf().into_os_string(); // copy data
+    s1.push(suffix);
+    s1.into()
+}
+
+#[test]
+fn test_append_to_path() {
+    let foo = std::path::Path::new("foo");
+    assert!(&append_to_path(&foo, ".gz") == std::path::Path::new("foo.gz"));
+
+    let foo_csv = std::path::Path::new("foo.csv");
+    assert!(&append_to_path(&foo_csv, ".gz") == std::path::Path::new("foo.csv.gz"));
+}
+
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
 ///
 /// Note, use caution if using `csv_fname` after this, as it may be the original
 /// (`.csv`) or new (`.csv.gz`).
-pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
-    csv_fname: &'a mut zip_or_dir::PathLike<R>,
+pub fn open_maybe_gzipped<'a, R: Read + Seek>(
+    path_like: &'a mut zip_or_dir::PathLike<R>,
 ) -> Result<Box<dyn Read + 'a>, Error> {
-    // TODO: remove limitation to apply only to CSV files.
-    if csv_fname.exists() {
-        Ok(Box::new(csv_fname.open()?))
+    let compressed_relname = append_to_path(path_like.path(), ".gz");
+
+    if path_like.exists() {
+        const CHECK_NO_DUAL_DATA: bool = true;
+        if CHECK_NO_DUAL_DATA {
+            // Check the compressed variant does not exist. Due to reasons, we
+            // have replace, but not clone, so we replace the original with the
+            // new and then back again.
+            let uncompressed_relname = path_like.replace(compressed_relname);
+            if path_like.exists() {
+                return Err(Error::DualData);
+            }
+            path_like.replace(uncompressed_relname);
+        }
+        Ok(Box::new(path_like.open()?))
     } else {
-        csv_fname.set_extension("csv.gz");
-
-        // let displayname = format!("{}", csv_fname.display());
-
-        let gz_fd = csv_fname.open()?;
-        // .map_err(|e| file_error("opening", displayname, e))?;
+        // Use the compressed variant.
+        path_like.replace(compressed_relname);
+        let gz_fd = path_like.open()?;
         Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
     }
 }
