@@ -11,14 +11,15 @@ pub trait ParseState {}
 pub struct ArchiveOpened {}
 
 /// The archive has basic information parsed.
+// The Result<> types store an error indicating why the field was not loaded.
 pub struct BasicInfoParsed {
-    pub metadata: BraidMetadata,
+    pub metadata: Result<BraidMetadata, Error>,
     pub expected_fps: f64,
     pub tracking_params: Option<TrackingParams>,
     pub calibration_info: Option<CalibrationInfo>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
-    pub cam_info: CamInfo,
+    pub cam_info: Result<CamInfo, Error>,
 }
 
 /// The archive been completely parsed.
@@ -92,8 +93,10 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
     /// Parse the entire archive.
     pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
         let metadata = {
-            let file = self.archive.open("braid_metadata.yml")?;
-            serde_yaml::from_reader(file)?
+            self.archive
+                .open("braid_metadata.yml")
+                .map_err(Error::from)
+                .and_then(|file| serde_yaml::from_reader(file).map_err(Error::from))
         };
 
         let mut expected_fps = std::f64::NAN;
@@ -180,15 +183,14 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         camn2camid.insert(row.camn, row.cam_id.clone());
                         camid2camn.insert(row.cam_id, row.camn);
                     }
-                    CamInfo {
+                    Ok(CamInfo {
                         camn2camid,
                         camid2camn,
-                    }
+                    })
                 }
-                Err(e) => return Err(e.into()),
+                Err(e) => Err(e.into()),
             }
         };
-
         let reconstruction_latency_hlog = match self.archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
             Ok(rdr) => get_hlog(rdr).unwrap(),
             Err(zip_or_dir::Error::FileNotFound) => None,
@@ -344,10 +346,10 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         Ok(IncrementalParser {
             archive: self.archive,
             state: FullyParsed {
-                metadata: basics.metadata,
+                metadata: basics.metadata?,
                 expected_fps: basics.expected_fps,
                 calibration_info: basics.calibration_info,
-                cam_info: basics.cam_info,
+                cam_info: basics.cam_info?,
                 kalman_estimates_info,
                 data2d_distorted,
                 reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
