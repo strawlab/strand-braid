@@ -1,4 +1,3 @@
-use anyhow::Context;
 use std::convert::TryInto;
 
 // See https://gitlab.strawlab.org/straw/rust-cam/issues/99
