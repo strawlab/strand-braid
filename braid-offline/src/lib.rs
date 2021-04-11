@@ -13,7 +13,7 @@ use braidz_parser::pick_csvgz_or_csv2;
 
 use flydra2::{
     run_func, CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem, TrackingParams, CAM_INFO_CSV_FNAME,
+    NumberedRawUdpPoint, StreamItem, SwitchingTrackingParams, CAM_INFO_CSV_FNAME,
     DATA2D_DISTORTED_CSV_FNAME,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
@@ -202,7 +202,7 @@ pub async fn kalmanize<Q, R>(
     >,
     output_braidz: Q,
     expected_fps: Option<f64>,
-    tracking_params: TrackingParams,
+    tracking_params: SwitchingTrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
@@ -382,8 +382,7 @@ where
                 // let pos = rdr.position();
 
                 // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
-                let data_frame_rows = data_frame_rows
-                    .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+                let data_frame_rows = data_frame_rows?;
 
                 let rows = data_frame_rows.rows;
                 let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));

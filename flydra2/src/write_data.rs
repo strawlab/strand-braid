@@ -35,7 +35,7 @@ impl WritingState {
         cfg: StartSavingCsvConfig,
         cam_info_rows: Vec<CamInfoRow>,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: Arc<TrackingParams>,
+        tracking_params: Arc<SwitchingTrackingParams>,
         save_empty_data2d: bool,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
@@ -444,7 +444,7 @@ pub(crate) fn writer_thread_main(
     save_data_rx: crossbeam_channel::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-    tracking_params: Arc<TrackingParams>,
+    tracking_params: Arc<SwitchingTrackingParams>,
     save_empty_data2d: bool,
     ignore_latency: bool,
 ) -> Result<()> {
@@ -644,7 +644,7 @@ mod test {
             };
 
             let cam_manager = ConnectedCamerasManager::new(&None);
-            let tracking_params = Arc::new(TrackingParams::default());
+            let tracking_params = Arc::new(SwitchingTrackingParams::default());
             let save_empty_data2d = false;
 
             let ws = WritingState::new(

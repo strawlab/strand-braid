@@ -7,7 +7,7 @@ use std::{convert::TryInto, io::BufRead};
 use serde::{Deserialize, Serialize};
 
 use flydra2::{
-    Data2dDistortedRow, MyFloat, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
+    Data2dDistortedRow, MyFloat, SwitchingTrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
     DATA2D_DISTORTED_CSV_FNAME,
 };
 use flydra_types::CamInfoRow;
@@ -150,7 +150,7 @@ async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_braidz: &std::path::Path,
-    tracking_params: TrackingParams,
+    tracking_params: SwitchingTrackingParams,
     to_recon_func: fn(
         serde_yaml::Value,
         &PseudoCalParams,
@@ -494,7 +494,7 @@ where
                 toml::from_str(&buf).map_err(|e| anyhow::Error::from(e))?;
             tracking_params
         }
-        None => flydra2::TrackingParams::default().into(),
+        None => flydra2::SwitchingTrackingParams::default().into(),
     };
 
     let calibration_params =

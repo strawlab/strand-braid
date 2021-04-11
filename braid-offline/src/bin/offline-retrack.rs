@@ -50,9 +50,11 @@ fn main() -> anyhow::Result<()> {
 async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
     let opt = Opt::from_args();
 
-    // TODO: open data_src with braidz_parser here?
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
+    let data_src = data_src.parse_basics()?;
 
-    let tracking_params: flydra2::TrackingParams = match opt.tracking_params {
+    let tracking_params: flydra2::SwitchingTrackingParams = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
@@ -65,16 +67,16 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
             tracking_params.try_into()?
         }
         None => {
-            // TODO: check if parameters are in textlog of input file and re-use those if present.
-            flydra2::TrackingParams::default()
+            let parsed = data_src.basic_info();
+            match parsed.tracking_params.clone() {
+                Some(tp) => tp.try_into().unwrap(),
+                None => flydra2::SwitchingTrackingParams::default(),
+            }
         }
     };
     let mut opts = braid_offline::KalmanizeOptions::default();
     opts.start_frame = opt.start_frame;
     opts.stop_frame = opt.stop_frame;
-    let data_src =
-        braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
-    let data_src = data_src.parse_basics()?;
 
     // The user specifies an output .braidz file. But we will save initially to
     // a .braid directory. We here ensure the user's name had ".braidz"

@@ -16,7 +16,7 @@ pub struct BraidMetadata {
     // pub saving_program_name: String, // TODO: add when we bump BraidMetadataSchemaTag
 }
 
-/// A summary of a braidz file.
+/// A summary of a braidz file (or braid directory).
 ///
 /// Even for a many-gigabyte braidz file, this is expected to allocate
 /// megabytes, but not gigabytes, of memory and will contain a summary of the
@@ -24,7 +24,9 @@ pub struct BraidMetadata {
 /// and so on. It will not load the entire braidz file to memory.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BraidzSummary {
+    /// The filename of the braidz file or braid directory.
     pub filename: String,
+    /// Number of bytes in a braidz file. (This is meaningless for braid directories.)
     pub filesize: u64,
     pub metadata: BraidMetadata,
     pub cam_info: CamInfo,

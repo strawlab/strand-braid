@@ -300,7 +300,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     let expected_fps = None;
 
-    let tracking_params = flydra2::TrackingParams::default();
+    let tracking_params = flydra2::SwitchingTrackingParams::default();
     println!("tracking with default parameters");
 
     let rt_handle = tokio::runtime::Handle::current();

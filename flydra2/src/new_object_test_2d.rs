@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use nalgebra::Vector3;
 use ncollide3d::shape::Plane;
 
-use crate::{CamAndDist, HypothesisTestResult, MyFloat, TrackingParams};
+use crate::{CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams};
 use flydra_types::RosCamName;
 
 pub(crate) struct NewObjectTest {
@@ -13,7 +13,7 @@ pub(crate) struct NewObjectTest {
 impl NewObjectTest {
     pub(crate) fn new(
         recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-        _params: Arc<TrackingParams>,
+        _params: Arc<SwitchingTrackingParams>,
     ) -> Self {
         // `_params` is unused but required to have the same type signature as
         // the 3d version.

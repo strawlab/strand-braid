@@ -88,16 +88,18 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         }
     }
 
-    /// Parse the entire archive.
+    /// Parse the basic data which can be quickly read from the archive.
     pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
+        // Parse fps and tracking parameters from textlog.
         let mut expected_fps = std::f64::NAN;
-
         let tracking_parameters: Option<TrackingParams> = {
-            match self.archive.open("textlog.csv.gz") {
-                Ok(encoded) => {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::TEXTLOG);
+            fname.set_extension("csv"); // below will also look for .csv.gz
+            let tracking_parameters = match pick_csvgz_or_csv2(&mut fname) {
+                Ok(rdr) => {
                     let mut tracking_parameters = None;
-                    let decoder = libflate::gzip::Decoder::new(encoded)?;
-                    let kest_reader = csv::Reader::from_reader(decoder);
+                    let kest_reader = csv::Reader::from_reader(rdr);
                     for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
                         let row: TextlogRow = row?;
 
@@ -143,35 +145,52 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                     tracking_parameters
                 }
                 Err(_e) => None,
-            }
+            };
+            tracking_parameters
         };
 
-        let calibration_info = match self.archive.open("calibration.xml") {
-            Ok(xml_reader) => {
-                let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
-                    serde_xml_rs::from_reader(xml_reader)?;
+        let calibration_info = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::CALIBRATION_XML_FNAME);
+            fname.set_extension("xml");
+            let calibration_info = match fname.open() {
+                Ok(rdr) => {
+                    let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
+                        serde_xml_rs::from_reader(rdr)?;
 
-                let system =
-                    flydra_mvg::FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)?;
-                Some(CalibrationInfo {
-                    water: recon.water,
-                    cameras: system.to_system(),
-                })
-            }
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
+                    let system =
+                        flydra_mvg::FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)?;
+                    Some(CalibrationInfo {
+                        water: recon.water,
+                        cameras: system.to_system(),
+                    })
+                }
+                Err(zip_or_dir::Error::FileNotFound) => None,
+                Err(e) => return Err(e.into()),
+            };
+            calibration_info
         };
 
-        let reconstruction_latency_hlog = match self.archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
-            Ok(rdr) => get_hlog(rdr).unwrap(),
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
+        let reconstruction_latency_hlog = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::RECONSTRUCT_LATENCY_LOG_FNAME);
+            let reconstruction_latency_hlog = match fname.open() {
+                Ok(rdr) => get_hlog(rdr).unwrap(),
+                Err(zip_or_dir::Error::FileNotFound) => None,
+                Err(e) => return Err(e.into()),
+            };
+            reconstruction_latency_hlog
         };
 
-        let reprojection_distance_hlog = match self.archive.open(REPROJECTION_DIST_LOG_FNAME) {
-            Ok(rdr) => get_hlog(rdr).unwrap(),
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
+        let reprojection_distance_hlog = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::REPROJECTION_DIST_LOG_FNAME);
+            let reprojection_distance_hlog = match fname.open() {
+                Ok(rdr) => get_hlog(rdr).unwrap(),
+                Err(zip_or_dir::Error::FileNotFound) => None,
+                Err(e) => return Err(e.into()),
+            };
+            reprojection_distance_hlog
         };
 
         let state = BasicInfoParsed {
@@ -201,18 +220,22 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let basics = self.state;
 
         let metadata = {
-            let file = self.archive
-                .open("braid_metadata.yml")?;
-                serde_yaml::from_reader(file)?
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::BRAID_METADATA_YML_FNAME);
+            fname.set_extension("yml");
+            let rdr = fname.open()?;
+            serde_yaml::from_reader(rdr)?
         };
 
         let cam_info = {
-            let encoded = self.archive.open("cam_info.csv.gz")?;
-            let decoder = libflate::gzip::Decoder::new(encoded)?;
-            let kest_reader = csv::Reader::from_reader(decoder);
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
+            fname.set_extension("csv"); // below will also look for .csv.gz
+            let rdr = pick_csvgz_or_csv2(&mut fname)?;
+            let caminfo_rdr = csv::Reader::from_reader(rdr);
             let mut camn2camid = BTreeMap::new();
             let mut camid2camn = BTreeMap::new();
-            for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
+            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
                 let row: CamInfoRow = row?;
                 camn2camid.insert(row.camn, row.cam_id.clone());
                 camid2camn.insert(row.cam_id, row.camn);
@@ -225,31 +248,33 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
 
         let mut num_rows = 0;
         let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;
-        // Open main 2D data.
-        let qz = match self.archive.open("data2d_distorted.csv.gz") {
-            Ok(encoded) => {
-                let decoder = libflate::gzip::Decoder::new(encoded)?;
-                let d2d_reader = csv::Reader::from_reader(decoder);
-                let mut qz = BTreeMap::new();
-                for row in d2d_reader.into_deserialize().early_eof_ok().into_iter() {
-                    num_rows += 1;
-                    let row: Data2dDistortedRow = row?;
-                    let entry = qz.entry(row.camn).or_insert_with(|| Seq2d::new());
-                    entry.push(row.frame, row.x, row.y);
-                    let this_frame: u64 = row.frame.try_into().unwrap();
-                    let this_time = row.cam_received_timestamp;
-                    if let Some((ref mut f_lim, ref mut time_lim)) = limits {
-                        f_lim[0] = std::cmp::min(f_lim[0], this_frame);
-                        f_lim[1] = std::cmp::max(f_lim[1], this_frame);
-                        time_lim[1] = this_time;
-                    } else {
-                        // Initialize with the first row of data.
-                        limits = Some(([this_frame, this_frame], [this_time.clone(), this_time]));
-                    }
+
+        let qz = {
+            // Open main 2D data.
+            let mut data_fname = self.archive.path_starter();
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            data_fname.set_extension("csv"); // below will also look for .csv.gz
+            let rdr = pick_csvgz_or_csv2(&mut data_fname)?;
+            let d2d_reader = csv::Reader::from_reader(rdr);
+            let mut qz = BTreeMap::new();
+
+            for row in d2d_reader.into_deserialize().early_eof_ok().into_iter() {
+                num_rows += 1;
+                let row: Data2dDistortedRow = row?;
+                let entry = qz.entry(row.camn).or_insert_with(|| Seq2d::new());
+                entry.push(row.frame, row.x, row.y);
+                let this_frame: u64 = row.frame.try_into().unwrap();
+                let this_time = row.cam_received_timestamp;
+                if let Some((ref mut f_lim, ref mut time_lim)) = limits {
+                    f_lim[0] = std::cmp::min(f_lim[0], this_frame);
+                    f_lim[1] = std::cmp::max(f_lim[1], this_frame);
+                    time_lim[1] = this_time;
+                } else {
+                    // Initialize with the first row of data.
+                    limits = Some(([this_frame, this_frame], [this_time.clone(), this_time]));
                 }
-                qz
             }
-            Err(e) => return Err(e.into()),
+            qz
         };
 
         let data2d_distorted = limits.map(|(frame_lim, tlims)| {
@@ -262,77 +287,96 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             }
         });
 
-        let kalman_estimates_info = match self.archive.open("kalman_estimates.csv.gz") {
-            Ok(encoded) => {
-                let decoder = libflate::gzip::Decoder::new(encoded)?;
-                let tracking_parameters = match basics.tracking_params {
-                    Some(tp) => tp,
-                    None => {
-                        return Err(Error::MissingTrackingParameters);
+        let kalman_estimates_info = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::KALMAN_ESTIMATES_FNAME);
+            fname.set_extension("csv"); // below will also look for .csv.gz
+            let kalman_estimates_info = match pick_csvgz_or_csv2(&mut fname) {
+                Ok(rdr) => {
+                    let kest_reader = csv::Reader::from_reader(rdr);
+                    let mut trajectories = BTreeMap::new();
+                    let inf = 1.0 / 0.0;
+                    let mut xlim = [inf, -inf];
+                    let mut ylim = [inf, -inf];
+                    let mut zlim = [inf, -inf];
+                    let mut num_rows = 0;
+
+                    for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
+                        let row: KalmanEstimatesRow = row?;
+                        let entry =
+                            trajectories
+                                .entry(row.obj_id)
+                                .or_insert_with(|| TrajectoryData {
+                                    // Initialize the structure with empty position vector
+                                    // and zero distance.
+                                    position: Vec::new(),
+                                    start_frame: row.frame.0,
+                                    distance: 0.0,
+                                });
+                        entry
+                            .position
+                            .push([row.x as f32, row.y as f32, row.z as f32]);
+
+                        xlim[0] = min(xlim[0], row.x);
+                        xlim[1] = max(xlim[1], row.x);
+                        ylim[0] = min(ylim[0], row.y);
+                        ylim[1] = max(ylim[1], row.y);
+                        zlim[0] = min(zlim[0], row.z);
+                        zlim[1] = max(zlim[1], row.z);
+                        num_rows += 1;
                     }
-                };
-                let kest_reader = csv::Reader::from_reader(decoder);
-                let mut trajectories = BTreeMap::new();
-                let inf = 1.0 / 0.0;
-                let mut xlim = [inf, -inf];
-                let mut ylim = [inf, -inf];
-                let mut zlim = [inf, -inf];
-                let mut num_rows = 0;
 
-                for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
-                    let row: KalmanEstimatesRow = row?;
-                    let entry = trajectories
-                        .entry(row.obj_id)
-                        .or_insert_with(|| TrajectoryData {
-                            // Initialize the structure with empty position vector
-                            // and zero distance.
-                            position: Vec::new(),
-                            start_frame: row.frame.0,
-                            distance: 0.0,
-                        });
-                    entry
-                        .position
-                        .push([row.x as f32, row.y as f32, row.z as f32]);
-
-                    xlim[0] = min(xlim[0], row.x);
-                    xlim[1] = max(xlim[1], row.x);
-                    ylim[0] = min(ylim[0], row.y);
-                    ylim[1] = max(ylim[1], row.y);
-                    zlim[0] = min(zlim[0], row.z);
-                    zlim[1] = max(zlim[1], row.z);
-                    num_rows += 1;
-                }
-
-                let mut total_distance: f64 = 0.0;
-                // Loop through all individual trajectories and calculate the
-                // distance per trajectory.
-                for (_obj_id, mut traj_data) in trajectories.iter_mut() {
-                    let mut previous: Option<&[f32; 3]> = None;
-                    for current in traj_data.position.iter() {
-                        if let Some(previous) = previous {
-                            let dx: f64 = (current[0] - previous[0]).into();
-                            let dy: f64 = (current[1] - previous[1]).into();
-                            let dz: f64 = (current[2] - previous[2]).into();
-                            traj_data.distance += (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt();
+                    let mut total_distance: f64 = 0.0;
+                    // Loop through all individual trajectories and calculate the
+                    // distance per trajectory.
+                    for (_obj_id, mut traj_data) in trajectories.iter_mut() {
+                        let mut previous: Option<&[f32; 3]> = None;
+                        for current in traj_data.position.iter() {
+                            if let Some(previous) = previous {
+                                let dx: f64 = (current[0] - previous[0]).into();
+                                let dy: f64 = (current[1] - previous[1]).into();
+                                let dz: f64 = (current[2] - previous[2]).into();
+                                traj_data.distance += (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt();
+                            }
+                            previous = Some(current);
                         }
-                        previous = Some(current);
+                        // Accumulate total distance of all trajectories.
+                        total_distance += traj_data.distance;
                     }
-                    // Accumulate total distance of all trajectories.
-                    total_distance += traj_data.distance;
-                }
 
-                Some(KalmanEstimatesInfo {
-                    xlim,
-                    ylim,
-                    zlim,
-                    trajectories,
-                    num_rows,
-                    tracking_parameters,
-                    total_distance,
-                })
-            }
-            Err(zip_or_dir::Error::FileNotFound) => None,
-            Err(e) => return Err(e.into()),
+                    let tracking_parameters = match basics.tracking_params {
+                        Some(tp) => tp,
+                        None => {
+                            return Err(Error::MissingTrackingParameters);
+                        }
+                    };
+
+                    Some(KalmanEstimatesInfo {
+                        xlim,
+                        ylim,
+                        zlim,
+                        trajectories,
+                        num_rows,
+                        tracking_parameters,
+                        total_distance,
+                    })
+                }
+                Err(e) => {
+                    println!("error {} {:?}", e, e);
+                    match e {
+                        Error::ZipOrDir { ref source } => match &source {
+                            zip_or_dir::Error::FileNotFound => None,
+                            _ => {
+                                return Err(e.into());
+                            }
+                        },
+                        _ => {
+                            return Err(e.into());
+                        }
+                    }
+                }
+            };
+            kalman_estimates_info
         };
 
         Ok(IncrementalParser {

@@ -21,7 +21,7 @@ lazy_static! {
         };
         let cal_buf = toml::to_string(&example).unwrap();
 
-        let tparams1 = flydra2::TrackingParams::default();
+        let tparams1 = flydra2::SwitchingTrackingParams::default();
         let tracking_example: flydra_types::TrackingParams = tparams1.into();
         let tracking_buf_buf = toml::to_string(&tracking_example).unwrap();
 

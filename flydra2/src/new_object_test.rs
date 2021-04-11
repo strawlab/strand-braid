@@ -5,7 +5,7 @@ use flydra_types::RosCamName;
 
 use mvg::PointWorldFrameWithSumReprojError;
 
-use crate::{safe_u8, set_of_subsets, CamAndDist, HypothesisTestResult, MyFloat, TrackingParams};
+use crate::{safe_u8, set_of_subsets, CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams};
 
 const HTEST_MAX_N_CAMS: u8 = 3;
 
@@ -15,13 +15,13 @@ type CamComboList = Vec<Vec<RosCamName>>;
 pub(crate) struct NewObjectTest {
     cam_combinations_by_size: BTreeMap<u8, CamComboList>,
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-    params: Arc<TrackingParams>,
+    params: Arc<SwitchingTrackingParams>,
 }
 
 impl NewObjectTest {
     pub(crate) fn new(
         recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-        params: Arc<TrackingParams>,
+        params: Arc<SwitchingTrackingParams>,
     ) -> Self {
         {
             let mut cam_combinations_by_size = BTreeMap::new();

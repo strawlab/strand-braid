@@ -12,10 +12,7 @@ use std::{
 
 use hdrhistogram::serialization::interval_log;
 
-use flydra_types::{
-    FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams,
-    RECONSTRUCT_LATENCY_LOG_FNAME, REPROJECTION_DIST_LOG_FNAME,
-};
+use flydra_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams};
 
 use braidz_types::{
     BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, CamInfoRow, CamNum, Data2dDistortedRow,
@@ -70,10 +67,6 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
-    // #[error("HDR Histogram log iterator error {source:?}")]
-    // HdrHistogram{source: hdrhistogram::serialization::interval_log::LogIteratorError, #[cfg(feature = "backtrace")]
-    // backtrace: Backtrace,},
-    // Xml(serde_xml_rs::Error),
     #[error("XML error")]
     Xml,
     #[error("{source}")]
@@ -104,34 +97,24 @@ pub enum Error {
     },
 }
 
-// impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
-//     fn from(source: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
-//         Error::HdrHistogram{
-//             source,
-//             #[cfg(feature = "backtrace")]
-//             backtrace: Backtrace::capture(),
-//         }
-//     }
-// }
-
 impl From<serde_xml_rs::Error> for Error {
     fn from(_source: serde_xml_rs::Error) -> Error {
         Error::Xml
     }
 }
 
-pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
-where
-    E: 'static + std::error::Error + Sync + Send,
-{
-    Error::FileError {
-        what,
-        filename,
-        source: Box::new(source),
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace::capture(),
-    }
-}
+// pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
+// where
+//     E: 'static + std::error::Error + Sync + Send,
+// {
+//     Error::FileError {
+//         what,
+//         filename,
+//         source: Box::new(source),
+//         #[cfg(feature = "backtrace")]
+//         backtrace: Backtrace::capture(),
+//     }
+// }
 
 /// The entire file contents, loaded to memory.
 ///
@@ -263,10 +246,8 @@ pub fn summarize_braidz<R: Read + Seek>(
 pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<BraidzArchive<BufReader<File>>, Error> {
-    let reader = BufReader::new(std::fs::File::open(&path)?);
-    let zs = zip_or_dir::ZipDirArchive::from_zip(reader, path.as_ref().display().to_string())?;
+    let zs = zip_or_dir::ZipDirArchive::auto_from_path(path)?;
     let parsed = braidz_parse(zs)?;
-
     Ok(parsed)
 }
 
@@ -389,16 +370,16 @@ fn max(a: f64, b: f64) -> f64 {
 pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
     csv_fname: &'a mut zip_or_dir::PathLike<R>,
 ) -> Result<Box<dyn Read + 'a>, Error> {
+    // TODO: remove limitation to apply only to CSV files.
     if csv_fname.exists() {
         Ok(Box::new(csv_fname.open()?))
     } else {
         csv_fname.set_extension("csv.gz");
 
-        let displayname = format!("{}", csv_fname.display());
+        // let displayname = format!("{}", csv_fname.display());
 
-        let gz_fd = csv_fname
-            .open()
-            .map_err(|e| file_error("opening", displayname, e))?;
+        let gz_fd = csv_fname.open()?;
+        // .map_err(|e| file_error("opening", displayname, e))?;
         Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
     }
 }

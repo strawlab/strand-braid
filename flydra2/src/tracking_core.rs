@@ -26,7 +26,7 @@ use flydra_types::{
 use crate::{
     to_world_point, CameraObservationModel, ConnectedCamerasManager, DataAssocRow,
     FrameDataAndPoints, KalmanEstimateRecord, MyFloat, SaveToDiskMsg, TimeDataPassthrough,
-    TrackingParams,
+    SwitchingTrackingParams,
 };
 use crossbeam_ok::CrossbeamOk;
 
@@ -499,7 +499,7 @@ impl CollectionState for CollectionFrameWithObservationLikes {}
 impl CollectionState for CollectionFramePosteriors {}
 
 pub(crate) fn initialize_model_collection(
-    params: Arc<TrackingParams>,
+    params: Arc<SwitchingTrackingParams>,
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     fps: f32,
     cam_manager: ConnectedCamerasManager,
@@ -539,7 +539,7 @@ pub(crate) struct ModelCollection<S: CollectionState> {
 }
 
 pub(crate) struct MCInner {
-    params: Arc<TrackingParams>,
+    params: Arc<SwitchingTrackingParams>,
     pub(crate) recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     new_obj: NewObjectTest,
     motion_model: MotionModel3DFixedDt<MyFloat>,
@@ -872,7 +872,7 @@ fn arg_max_col(a: &Vec<f64>) -> Option<(usize, f64)> {
 
 fn to_bayesian_estimate(
     coords: Point3<MyFloat>,
-    params: &TrackingParams,
+    params: &SwitchingTrackingParams,
 ) -> StateAndCovariance<MyFloat, U6> {
     // initial state estimate
     let state = Vector6::new(coords.x, coords.y, coords.z, 0.0, 0.0, 0.0);
