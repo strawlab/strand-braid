@@ -55,6 +55,8 @@ pub struct HistogramSummary {
 pub struct CalibrationInfo {
     /// If `Some(n)`, material with refractive index `n` at z<0.
     pub water: Option<f64>,
+    /// All the cameras in this system.
+    pub cameras: mvg::MultiCameraSystem<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -304,17 +304,18 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     println!("tracking with default parameters");
 
     let rt_handle = tokio::runtime::Handle::current();
-
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(untracked_dir).unwrap();
+    let data_src = braidz_parser::incremental_parser::IncrementalParser::open_dir(&untracked_dir)
+        .expect(&format!("While opening dir {}", untracked_dir.display()));
+    let data_src = data_src.parse_basics().unwrap();
 
     let save_performance_histograms = true;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
         &output_braidz,
         expected_fps,
         tracking_params,
-        flydra2::KalmanizeOptions::default(),
+        braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
     )

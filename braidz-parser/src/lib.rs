@@ -1,3 +1,8 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use std::{
     collections::BTreeMap,
     convert::TryInto,
@@ -19,111 +24,112 @@ use braidz_types::{
 
 use csv_eof::EarlyEofOk;
 
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-}
+pub mod incremental_parser;
 
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Io(std::io::Error),
-    Zip(zip::result::ZipError),
-    Yaml(serde_yaml::Error),
-    Json(serde_json::Error),
-    Csv(csv::Error),
-    HdrHistogram(hdrhistogram::serialization::interval_log::LogIteratorError),
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("{source}")]
+    Mvg {
+        #[from]
+        source: mvg::MvgError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Zip {
+        #[from]
+        source: zip::result::ZipError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Yaml {
+        #[from]
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Json {
+        #[from]
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    Csv {
+        #[from]
+        source: csv::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    // #[error("HDR Histogram log iterator error {source:?}")]
+    // HdrHistogram{source: hdrhistogram::serialization::interval_log::LogIteratorError, #[cfg(feature = "backtrace")]
+    // backtrace: Backtrace,},
     // Xml(serde_xml_rs::Error),
+    #[error("XML error")]
     Xml,
-    ZipOrDir(zip_or_dir::Error),
-    ParseFloat(std::num::ParseFloatError),
+    #[error("{source}")]
+    ZipOrDir {
+        #[from]
+        source: zip_or_dir::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
+    ParseFloat {
+        #[from]
+        source: std::num::ParseFloatError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
+    #[error("Missing tracking parameters")]
     MissingTrackingParameters,
+    #[error("Error opening {filename}: {source}")]
+    FileError {
+        what: &'static str,
+        filename: String,
+        source: Box<dyn std::error::Error + Sync + Send>,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error {
-            kind: ErrorKind::Io(orig),
-        }
-    }
-}
-
-impl From<zip::result::ZipError> for Error {
-    fn from(orig: zip::result::ZipError) -> Error {
-        Error {
-            kind: ErrorKind::Zip(orig),
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for Error {
-    fn from(orig: serde_yaml::Error) -> Error {
-        Error {
-            kind: ErrorKind::Yaml(orig),
-        }
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(orig: serde_json::Error) -> Error {
-        Error {
-            kind: ErrorKind::Json(orig),
-        }
-    }
-}
-
-impl From<csv::Error> for Error {
-    fn from(orig: csv::Error) -> Error {
-        Error {
-            kind: ErrorKind::Csv(orig),
-        }
-    }
-}
-
-impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
-    fn from(orig: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
-        Error {
-            kind: ErrorKind::HdrHistogram(orig),
-        }
-    }
-}
+// impl From<hdrhistogram::serialization::interval_log::LogIteratorError> for Error {
+//     fn from(source: hdrhistogram::serialization::interval_log::LogIteratorError) -> Error {
+//         Error::HdrHistogram{
+//             source,
+//             #[cfg(feature = "backtrace")]
+//             backtrace: Backtrace::capture(),
+//         }
+//     }
+// }
 
 impl From<serde_xml_rs::Error> for Error {
-    fn from(_orig: serde_xml_rs::Error) -> Error {
-        Error {
-            // kind: ErrorKind::Xml(orig),
-            kind: ErrorKind::Xml,
-        }
+    fn from(_source: serde_xml_rs::Error) -> Error {
+        Error::Xml
     }
 }
 
-impl From<zip_or_dir::Error> for Error {
-    fn from(orig: zip_or_dir::Error) -> Error {
-        Error {
-            kind: ErrorKind::ZipOrDir(orig),
-        }
-    }
-}
-
-impl From<std::num::ParseFloatError> for Error {
-    fn from(orig: std::num::ParseFloatError) -> Error {
-        Error {
-            kind: ErrorKind::ParseFloat(orig),
-        }
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error { kind }
+pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
+where
+    E: 'static + std::error::Error + Sync + Send,
+{
+    Error::FileError {
+        what,
+        filename,
+        source: Box::new(source),
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace::capture(),
     }
 }
 
@@ -134,7 +140,7 @@ impl From<ErrorKind> for Error {
 /// `BraidzSummary` type. Currently, a summary can only be made by loading the
 /// entire archive first, but more efficient path can be made later.
 pub struct BraidzArchive<R: Read + Seek> {
-    archive: zip_or_dir::ZipDirArchive<R>,
+    archive: zip_or_dir::ZipDirArchive<R>, //incremental_parser::IncrementalParser<R, incremental_parser::FullyParsed>,
     pub metadata: BraidMetadata,
     pub expected_fps: f64,
     pub calibration_info: Option<CalibrationInfo>,
@@ -161,6 +167,7 @@ impl From<&HistogramLog> for HistogramSummary {
 }
 
 impl<R: Read + Seek> BraidzArchive<R> {
+    /// Consume and return the raw storage archive.
     pub fn zip_struct(self) -> zip_or_dir::ZipDirArchive<R> {
         self.archive
     }
@@ -264,232 +271,23 @@ pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
 }
 
 pub fn braidz_parse<R: Read + Seek>(
-    mut archive: zip_or_dir::ZipDirArchive<R>,
+    archive: zip_or_dir::ZipDirArchive<R>,
 ) -> Result<BraidzArchive<R>, Error> {
-    let metadata = {
-        let file = archive.open("braid_metadata.yml")?;
-        serde_yaml::from_reader(file)?
-    };
-
-    let mut expected_fps = std::f64::NAN;
-
-    let tracking_parameters: Option<TrackingParams> = {
-        match archive.open("textlog.csv.gz") {
-            Ok(encoded) => {
-                let mut tracking_parameters = None;
-                let decoder = libflate::gzip::Decoder::new(encoded)?;
-                let kest_reader = csv::Reader::from_reader(decoder);
-                for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
-                    let row: TextlogRow = row?;
-
-                    // TODO: combine with `flydra2::offline_kalmanize::calc_fps_from_data()`.
-                    let line1_start = "MainBrain running at ";
-
-                    if row.message.starts_with(line1_start) {
-                        let line = row.message.replace(line1_start, "");
-                        let fps_str = line.split(" ").next().unwrap();
-                        if fps_str != "unknown" {
-                            expected_fps = fps_str.parse()?;
-                        }
-                    }
-
-                    // parse to unstructured json
-                    let js_value_res: Result<serde_json::Value, _> =
-                        serde_json::from_str(&row.message);
-
-                    match js_value_res {
-                        Ok(mut js_value) => {
-                            if js_value
-                                .as_object_mut()
-                                .unwrap()
-                                .contains_key("tracking_params")
-                            {
-                                // If we have this key, we return an error if we
-                                // cannot parse it.
-                                let params_js_value = js_value["tracking_params"].take();
-                                let tp: TrackingParams = serde_json::from_value(params_js_value)?;
-                                if tracking_parameters.is_some() {
-                                    return Err(ErrorKind::MultipleTrackingParameters.into());
-                                }
-                                tracking_parameters = Some(tp);
-                            }
-                        }
-                        Err(_e) => {
-                            // Cannot parse as JSON, but this is not a fatal problem.
-                            log::warn!("cannot parse message in textlog as JSON");
-                        }
-                    }
-                }
-                tracking_parameters
-            }
-            Err(_e) => None,
-        }
-    };
-
-    let cam_info = {
-        match archive.open("cam_info.csv.gz") {
-            Ok(encoded) => {
-                let decoder = libflate::gzip::Decoder::new(encoded)?;
-                let kest_reader = csv::Reader::from_reader(decoder);
-                let mut camn2camid = BTreeMap::new();
-                let mut camid2camn = BTreeMap::new();
-                for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
-                    let row: CamInfoRow = row?;
-                    camn2camid.insert(row.camn, row.cam_id.clone());
-                    camid2camn.insert(row.cam_id, row.camn);
-                }
-                CamInfo {
-                    camn2camid,
-                    camid2camn,
-                }
-            }
-            Err(e) => return Err(e.into()),
-        }
-    };
-
-    let mut num_rows = 0;
-    let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;
-    let qz = match archive.open("data2d_distorted.csv.gz") {
-        Ok(encoded) => {
-            let decoder = libflate::gzip::Decoder::new(encoded)?;
-            let d2d_reader = csv::Reader::from_reader(decoder);
-            let mut qz = BTreeMap::new();
-            for row in d2d_reader.into_deserialize().early_eof_ok().into_iter() {
-                num_rows += 1;
-                let row: Data2dDistortedRow = row?;
-                let entry = qz.entry(row.camn).or_insert_with(|| Seq2d::new());
-                entry.push(row.frame, row.x, row.y);
-                let this_frame: u64 = row.frame.try_into().unwrap();
-                let this_time = row.cam_received_timestamp;
-                if let Some((ref mut f_lim, ref mut time_lim)) = limits {
-                    f_lim[0] = std::cmp::min(f_lim[0], this_frame);
-                    f_lim[1] = std::cmp::max(f_lim[1], this_frame);
-                    time_lim[1] = this_time;
-                } else {
-                    // Initialize with the first row of data.
-                    limits = Some(([this_frame, this_frame], [this_time.clone(), this_time]));
-                }
-            }
-            qz
-        }
-        Err(e) => return Err(e.into()),
-    };
-
-    let data2d_distorted = limits.map(|(frame_lim, tlims)| {
-        let time_limits = [(&tlims[0]).into(), (&tlims[1]).into()];
-        D2DInfo {
-            qz,
-            frame_lim,
-            time_limits,
-            num_rows,
-        }
-    });
-
-    let calibration_info = match archive.open("calibration.xml") {
-        Ok(xml_reader) => {
-            let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
-                serde_xml_rs::from_reader(xml_reader)?;
-            Some(CalibrationInfo { water: recon.water })
-        }
-        Err(zip_or_dir::Error::FileNotFound) => None,
-        Err(e) => return Err(e.into()),
-    };
-
-    let kalman_estimates_info = match archive.open("kalman_estimates.csv.gz") {
-        Ok(encoded) => {
-            let tracking_parameters = match tracking_parameters {
-                Some(tp) => tp,
-                None => {
-                    return Err(ErrorKind::MissingTrackingParameters.into());
-                }
-            };
-            let decoder = libflate::gzip::Decoder::new(encoded)?;
-            let kest_reader = csv::Reader::from_reader(decoder);
-            let mut trajectories = BTreeMap::new();
-            let inf = 1.0 / 0.0;
-            let mut xlim = [inf, -inf];
-            let mut ylim = [inf, -inf];
-            let mut zlim = [inf, -inf];
-            let mut num_rows = 0;
-
-            for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
-                let row: KalmanEstimatesRow = row?;
-                let entry = trajectories
-                    .entry(row.obj_id)
-                    .or_insert_with(|| TrajectoryData {
-                        // Initialize the structure with empty position vector
-                        // and zero distance.
-                        position: Vec::new(),
-                        start_frame: row.frame.0,
-                        distance: 0.0,
-                    });
-                entry
-                    .position
-                    .push([row.x as f32, row.y as f32, row.z as f32]);
-
-                xlim[0] = min(xlim[0], row.x);
-                xlim[1] = max(xlim[1], row.x);
-                ylim[0] = min(ylim[0], row.y);
-                ylim[1] = max(ylim[1], row.y);
-                zlim[0] = min(zlim[0], row.z);
-                zlim[1] = max(zlim[1], row.z);
-                num_rows += 1;
-            }
-
-            let mut total_distance: f64 = 0.0;
-            // Loop through all individual trajectories and calculate the
-            // distance per trajectory.
-            for (_obj_id, mut traj_data) in trajectories.iter_mut() {
-                let mut previous: Option<&[f32; 3]> = None;
-                for current in traj_data.position.iter() {
-                    if let Some(previous) = previous {
-                        let dx: f64 = (current[0] - previous[0]).into();
-                        let dy: f64 = (current[1] - previous[1]).into();
-                        let dz: f64 = (current[2] - previous[2]).into();
-                        traj_data.distance += (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt();
-                    }
-                    previous = Some(current);
-                }
-                // Accumulate total distance of all trajectories.
-                total_distance += traj_data.distance;
-            }
-
-            Some(KalmanEstimatesInfo {
-                xlim,
-                ylim,
-                zlim,
-                trajectories,
-                num_rows,
-                tracking_parameters,
-                total_distance,
-            })
-        }
-        Err(zip_or_dir::Error::FileNotFound) => None,
-        Err(e) => return Err(e.into()),
-    };
-
-    let reconstruction_latency_hlog = match archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
-        Ok(rdr) => get_hlog(rdr).unwrap(),
-        Err(zip_or_dir::Error::FileNotFound) => None,
-        Err(e) => return Err(e.into()),
-    };
-
-    let reprojection_distance_hlog = match archive.open(REPROJECTION_DIST_LOG_FNAME) {
-        Ok(rdr) => get_hlog(rdr).unwrap(),
-        Err(zip_or_dir::Error::FileNotFound) => None,
-        Err(e) => return Err(e.into()),
-    };
+    let ip = incremental_parser::IncrementalParser::from_archive(archive);
+    let ip = ip.parse_everything()?;
+    let state = ip.state;
+    let archive = ip.archive;
 
     Ok(BraidzArchive {
         archive,
-        metadata,
-        expected_fps,
-        calibration_info,
-        cam_info,
-        kalman_estimates_info,
-        data2d_distorted,
-        reconstruction_latency_hlog,
-        reprojection_distance_hlog,
+        metadata: state.metadata,
+        expected_fps: state.expected_fps,
+        calibration_info: state.calibration_info,
+        cam_info: state.cam_info,
+        kalman_estimates_info: state.kalman_estimates_info,
+        data2d_distorted: state.data2d_distorted,
+        reconstruction_latency_hlog: state.reconstruction_latency_hlog,
+        reprojection_distance_hlog: state.reprojection_distance_hlog,
     })
 }
 
@@ -581,5 +379,26 @@ fn max(a: f64, b: f64) -> f64 {
         b
     } else {
         a
+    }
+}
+
+/// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
+///
+/// Note, use caution if using `csv_fname` after this, as it may be the original
+/// (`.csv`) or new (`.csv.gz`).
+pub fn pick_csvgz_or_csv2<'a, R: Read + Seek>(
+    csv_fname: &'a mut zip_or_dir::PathLike<R>,
+) -> Result<Box<dyn Read + 'a>, Error> {
+    if csv_fname.exists() {
+        Ok(Box::new(csv_fname.open()?))
+    } else {
+        csv_fname.set_extension("csv.gz");
+
+        let displayname = format!("{}", csv_fname.display());
+
+        let gz_fd = csv_fname
+            .open()
+            .map_err(|e| file_error("opening", displayname, e))?;
+        Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
     }
 }

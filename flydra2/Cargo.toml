@@ -59,14 +59,11 @@ iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
-zip-or-dir = {path="../zip-or-dir"}
 
 [dev-dependencies]
 tempfile = "3"
-fs_extra = "1.1"
 approx = "0.4"
 download-verify = {path="../download-verify"}
-anyhow = "1.0"
 
 [features]
 default = ["full-3d", "bundle_files"]
@@ -81,4 +78,4 @@ serve_files = []
 
 braid = []
 
-backtrace = ["zip-or-dir/backtrace"]
+backtrace = []

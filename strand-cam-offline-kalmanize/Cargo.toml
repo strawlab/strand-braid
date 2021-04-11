@@ -46,3 +46,4 @@ strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal"}
 flydra2 = {path="../flydra2", default-features = false, features=["flat-3d", "bundle_files"]}
 braidz-parser = {path="../braidz-parser"}
 zip-or-dir = {path="../zip-or-dir"}
+braid-offline = {path="../braid-offline", default-features = false, features=["flat-3d"]}

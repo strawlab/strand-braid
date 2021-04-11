@@ -21,7 +21,7 @@ fn to_pascal_string(s: &str, buflen: usize) -> Result<Vec<u8>> {
     let sz = bytes.len() as u8;
     let mut result = vec![0; buflen];
     result[0] = sz;
-    (&mut result[1..(1+bytes.len())]).copy_from_slice(&bytes);
+    (&mut result[1..(1 + bytes.len())]).copy_from_slice(&bytes);
     Ok(result)
 }
 
