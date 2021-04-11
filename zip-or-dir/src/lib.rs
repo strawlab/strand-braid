@@ -389,7 +389,10 @@ pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Resul
 /// walked recursively to copy it entirely. The destination file is written to
 /// but remains open with the file cursor position unmodified after finishing
 /// writing the zip archive into the file.
-pub fn copy_archive_to_zipfile<R: Read+Seek>(mut src: &mut ZipDirArchive<R>, dest: &mut std::fs::File) -> Result<()> {
+pub fn copy_archive_to_zipfile<R: Read + Seek>(
+    mut src: &mut ZipDirArchive<R>,
+    dest: &mut std::fs::File,
+) -> Result<()> {
     let mut zip_writer = zip::ZipWriter::new(dest);
     copy_dir(&mut src, None, &mut zip_writer, 0)?;
     zip_writer.finish()?;
@@ -397,7 +400,7 @@ pub fn copy_archive_to_zipfile<R: Read+Seek>(mut src: &mut ZipDirArchive<R>, des
 }
 
 /// copy from src into zip file
-fn copy_dir<R: Read+Seek>(
+fn copy_dir<R: Read + Seek>(
     src: &mut ZipDirArchive<R>,
     relname: Option<&Path>,
     zip_writer: &mut zip::ZipWriter<&mut std::fs::File>,
@@ -571,7 +574,7 @@ mod tests {
         // let zipfilename = root.with_extension("zip");
         // let mut zipfile = std::fs::File::create(&zipfilename).unwrap();
 
-        copy_archive_to_zipfile( &mut dirarchive, &mut zipfile ).unwrap();
+        copy_archive_to_zipfile(&mut dirarchive, &mut zipfile).unwrap();
         zipfile.seek(std::io::SeekFrom::Start(0)).unwrap();
 
         let mut ziparchive = ZipDirArchive::from_zip(&mut zipfile, "archive.zip".into()).unwrap();
