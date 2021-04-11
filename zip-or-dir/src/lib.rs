@@ -14,13 +14,16 @@ pub type Result<M> = std::result::Result<M, Error>;
 pub enum Error {
     #[error("{source}")]
     Io {
-        #[from]
         source: std::io::Error,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
     #[error("{source}")]
-    Zip { source: zip::result::ZipError },
+    Zip {
+        source: zip::result::ZipError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("file not found")]
     FileNotFound,
     #[error("filename not utf8")]
@@ -37,7 +40,24 @@ impl From<zip::result::ZipError> for Error {
     fn from(source: zip::result::ZipError) -> Self {
         match source {
             zip::result::ZipError::FileNotFound => Error::FileNotFound,
-            source => Error::Zip { source },
+            source => Error::Zip {
+                source,
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            },
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(source: std::io::Error) -> Self {
+        match source.kind() {
+            std::io::ErrorKind::NotFound => Error::FileNotFound,
+            _ => Error::Io {
+                source,
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            },
         }
     }
 }
