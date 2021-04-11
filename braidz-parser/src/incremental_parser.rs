@@ -13,13 +13,11 @@ pub struct ArchiveOpened {}
 /// The archive has basic information parsed.
 // The Result<> types store an error indicating why the field was not loaded.
 pub struct BasicInfoParsed {
-    pub metadata: Result<BraidMetadata, Error>,
     pub expected_fps: f64,
     pub tracking_params: Option<TrackingParams>,
     pub calibration_info: Option<CalibrationInfo>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
-    pub cam_info: Result<CamInfo, Error>,
 }
 
 /// The archive been completely parsed.
@@ -92,13 +90,6 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
     /// Parse the entire archive.
     pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
-        let metadata = {
-            self.archive
-                .open("braid_metadata.yml")
-                .map_err(Error::from)
-                .and_then(|file| serde_yaml::from_reader(file).map_err(Error::from))
-        };
-
         let mut expected_fps = std::f64::NAN;
 
         let tracking_parameters: Option<TrackingParams> = {
@@ -171,26 +162,6 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             Err(e) => return Err(e.into()),
         };
 
-        let cam_info = {
-            match self.archive.open("cam_info.csv.gz") {
-                Ok(encoded) => {
-                    let decoder = libflate::gzip::Decoder::new(encoded)?;
-                    let kest_reader = csv::Reader::from_reader(decoder);
-                    let mut camn2camid = BTreeMap::new();
-                    let mut camid2camn = BTreeMap::new();
-                    for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
-                        let row: CamInfoRow = row?;
-                        camn2camid.insert(row.camn, row.cam_id.clone());
-                        camid2camn.insert(row.cam_id, row.camn);
-                    }
-                    Ok(CamInfo {
-                        camn2camid,
-                        camid2camn,
-                    })
-                }
-                Err(e) => Err(e.into()),
-            }
-        };
         let reconstruction_latency_hlog = match self.archive.open(RECONSTRUCT_LATENCY_LOG_FNAME) {
             Ok(rdr) => get_hlog(rdr).unwrap(),
             Err(zip_or_dir::Error::FileNotFound) => None,
@@ -204,13 +175,11 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let state = BasicInfoParsed {
-            metadata,
             expected_fps,
             tracking_params: tracking_parameters,
             calibration_info,
             reconstruction_latency_hlog,
             reprojection_distance_hlog,
-            cam_info,
         };
 
         Ok(IncrementalParser {
@@ -230,6 +199,29 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
     /// Parse the remaining aspects of the archive.
     pub fn parse_rest(mut self) -> Result<IncrementalParser<R, FullyParsed>, Error> {
         let basics = self.state;
+
+        let metadata = {
+            let file = self.archive
+                .open("braid_metadata.yml")?;
+                serde_yaml::from_reader(file)?
+        };
+
+        let cam_info = {
+            let encoded = self.archive.open("cam_info.csv.gz")?;
+            let decoder = libflate::gzip::Decoder::new(encoded)?;
+            let kest_reader = csv::Reader::from_reader(decoder);
+            let mut camn2camid = BTreeMap::new();
+            let mut camid2camn = BTreeMap::new();
+            for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
+                let row: CamInfoRow = row?;
+                camn2camid.insert(row.camn, row.cam_id.clone());
+                camid2camn.insert(row.cam_id, row.camn);
+            }
+            CamInfo {
+                camn2camid,
+                camid2camn,
+            }
+        };
 
         let mut num_rows = 0;
         let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;
@@ -346,10 +338,10 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         Ok(IncrementalParser {
             archive: self.archive,
             state: FullyParsed {
-                metadata: basics.metadata?,
+                metadata,
                 expected_fps: basics.expected_fps,
                 calibration_info: basics.calibration_info,
-                cam_info: basics.cam_info?,
+                cam_info,
                 kalman_estimates_info,
                 data2d_distorted,
                 reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
