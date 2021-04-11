@@ -201,10 +201,10 @@ pub struct NumberedRawUdpPoint {
 }
 
 #[cfg(feature = "full-3d")]
-pub type TrackingParams = flydra_types::TrackingParamsInner3D;
+pub type SwitchingTrackingParams = flydra_types::TrackingParamsInner3D;
 
 #[cfg(feature = "flat-3d")]
-pub type TrackingParams = flydra_types::TrackingParamsInnerFlat3D;
+pub type SwitchingTrackingParams = flydra_types::TrackingParamsInnerFlat3D;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrackingParamsSaver {
@@ -772,7 +772,7 @@ pub struct CoordProcessor {
     pub save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
     pub writer_thread_handle: Option<std::thread::JoinHandle<()>>,
     model_servers: Vec<Box<dyn GetsUpdates>>,
-    tracking_params: Arc<TrackingParams>,
+    tracking_params: Arc<SwitchingTrackingParams>,
     mc2: Option<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>>,
 }
 
@@ -790,7 +790,7 @@ impl CoordProcessor {
     pub fn new(
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: TrackingParams,
+        tracking_params: SwitchingTrackingParams,
         save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
         save_data_rx: crossbeam_channel::Receiver<SaveToDiskMsg>,
         save_empty_data2d: bool,
@@ -800,7 +800,7 @@ impl CoordProcessor {
 
         let recon2 = recon.clone();
 
-        info!("using TrackingParams {:?}", tracking_params);
+        info!("using SwitchingTrackingParams {:?}", tracking_params);
 
         let tracking_params = Arc::new(tracking_params);
         let tracking_params2 = tracking_params.clone();

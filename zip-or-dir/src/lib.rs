@@ -324,6 +324,9 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
             None => self.relname.push(p),
         }
     }
+    pub fn extension(&mut self) -> Option<&std::ffi::OsStr> {
+        self.relname.extension()
+    }
     pub fn set_extension(&mut self, e: &str) -> bool {
         self.relname.set_extension(e)
     }
