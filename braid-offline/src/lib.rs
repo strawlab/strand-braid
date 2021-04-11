@@ -13,8 +13,7 @@ use braidz_parser::pick_csvgz_or_csv2;
 
 use flydra2::{
     run_func, CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem, SwitchingTrackingParams, CAM_INFO_CSV_FNAME,
-    DATA2D_DISTORTED_CSV_FNAME,
+    NumberedRawUdpPoint, StreamItem, SwitchingTrackingParams,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
@@ -275,8 +274,7 @@ where
 
     // open the data2d CSV file
     let mut data_fname = data_src.path_starter();
-    data_fname.push(DATA2D_DISTORTED_CSV_FNAME);
-    data_fname.set_extension("csv"); // below will also look for .csv.gz
+    data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
     let fps = match expected_fps {
         Some(fps) => fps,
@@ -322,8 +320,7 @@ where
 
     // read the cam_info CSV file
     let mut cam_info_fname = data_src.path_starter();
-    cam_info_fname.push(CAM_INFO_CSV_FNAME);
-    cam_info_fname.set_extension("csv"); // below will also look for .csv.gz
+    cam_info_fname.push(flydra_types::CAM_INFO_CSV_FNAME);
     let cam_info_file = pick_csvgz_or_csv2(&mut cam_info_fname)?;
     let mut orig_camn_to_cam_name: BTreeMap<flydra_types::CamNum, RosCamName> = BTreeMap::new();
     let rdr = csv::Reader::from_reader(cam_info_file);
@@ -360,8 +357,7 @@ where
         run_func(move || -> Result<(), crate::Error> {
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
-            data_fname.push(DATA2D_DISTORTED_CSV_FNAME);
-            data_fname.set_extension("csv"); // below will also look for .csv.gz
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
             log::trace!("loading data from {}", data_fname.display());
 

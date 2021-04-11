@@ -5,7 +5,9 @@ use flydra_types::RosCamName;
 
 use mvg::PointWorldFrameWithSumReprojError;
 
-use crate::{safe_u8, set_of_subsets, CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams};
+use crate::{
+    safe_u8, set_of_subsets, CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams,
+};
 
 const HTEST_MAX_N_CAMS: u8 = 3;
 

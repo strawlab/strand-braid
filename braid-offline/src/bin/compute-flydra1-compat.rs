@@ -7,9 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use structopt::StructOpt;
 
-use flydra2::{
-    pick_csvgz_or_csv, DataAssocRow, Result, DATA_ASSOCIATE_FNAME, KALMAN_ESTIMATES_FNAME,
-};
+use flydra2::{pick_csvgz_or_csv, DataAssocRow, Result};
 use groupby::AscendingGroupIter;
 
 use flydra_types::{KalmanEstimatesRow, SyncFno};
@@ -69,7 +67,7 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
     );
 
     let kalman_estimates_reader = {
-        let csv_path = dirpath.join(KALMAN_ESTIMATES_FNAME).with_extension("csv");
+        let csv_path = dirpath.join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
@@ -378,13 +376,13 @@ fn add_ml_estimates_tables(dirname: &std::path::Path) -> Result<()> {
     );
 
     let data_assoc_reader = {
-        let csv_path = dirpath.join(DATA_ASSOCIATE_FNAME).with_extension("csv");
+        let csv_path = dirpath.join(flydra_types::DATA_ASSOCIATE_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
 
     let kalman_estimates_reader = {
-        let csv_path = dirpath.join(KALMAN_ESTIMATES_FNAME).with_extension("csv");
+        let csv_path = dirpath.join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };

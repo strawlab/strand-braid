@@ -3,8 +3,6 @@ use std::process::Command;
 
 use anyhow::Context;
 
-use flydra2::KALMAN_ESTIMATES_FNAME;
-
 /// unzip the zip archive `src` into the destination `dest`.
 ///
 /// The destination is created if it does not already exist.
@@ -90,10 +88,7 @@ where
     use flydra_types::{KalmanEstimatesRow, SyncFno};
 
     let kest_reader = {
-        let csv_path = src
-            .as_ref()
-            .join(KALMAN_ESTIMATES_FNAME)
-            .with_extension("csv");
+        let csv_path = src.as_ref().join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = flydra2::pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };

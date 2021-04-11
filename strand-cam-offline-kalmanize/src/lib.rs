@@ -6,10 +6,7 @@ use std::{convert::TryInto, io::BufRead};
 
 use serde::{Deserialize, Serialize};
 
-use flydra2::{
-    Data2dDistortedRow, MyFloat, SwitchingTrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
-    DATA2D_DISTORTED_CSV_FNAME,
-};
+use flydra2::{Data2dDistortedRow, MyFloat, SwitchingTrackingParams};
 use flydra_types::CamInfoRow;
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
@@ -242,8 +239,7 @@ where
 
     // -------------------------------------------------
     let mut cal_path: std::path::PathBuf = flydra_csv_temp_dir.as_ref().to_path_buf();
-    cal_path.push(CALIBRATION_XML_FNAME);
-    cal_path.set_extension("xml");
+    cal_path.push(flydra_types::CALIBRATION_XML_FNAME);
 
     // let cam_name: String = recon.cams().keys().next().unwrap().clone();
 
@@ -255,8 +251,7 @@ where
     // save cam_info.csv
 
     let mut csv_path = flydra_csv_temp_dir.as_ref().to_path_buf();
-    csv_path.push(CAM_INFO_CSV_FNAME);
-    csv_path.set_extension("csv");
+    csv_path.push(flydra_types::CAM_INFO_CSV_FNAME);
     let fd = std::fs::File::create(&csv_path)?;
     let mut cam_info_wtr = csv::Writer::from_writer(fd);
 
@@ -278,8 +273,7 @@ where
         .from_reader(point_detection_csv_reader);
 
     let mut d2d_path = flydra_csv_temp_dir.as_ref().to_path_buf();
-    d2d_path.push(DATA2D_DISTORTED_CSV_FNAME);
-    d2d_path.set_extension("csv");
+    d2d_path.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
     let fd = std::fs::File::create(&d2d_path)?;
     let mut writer = csv::Writer::from_writer(fd);
     let mut row_state = RowState::new();

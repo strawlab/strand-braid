@@ -53,7 +53,7 @@ impl WritingState {
         // condition where another process could also open this directory.
 
         let readme_fd = {
-            let readme_path = output_dirname.join(README_WITH_EXT);
+            let readme_path = output_dirname.join(flydra_types::README_MD_FNAME);
 
             let mut fd = std::fs::File::create(&readme_path)?;
 
@@ -69,9 +69,7 @@ impl WritingState {
         };
 
         {
-            let braid_metadata_path = output_dirname
-                .join(BRAID_METADATA_YML_FNAME)
-                .with_extension("yml");
+            let braid_metadata_path = output_dirname.join(flydra_types::BRAID_METADATA_YML_FNAME);
 
             let metadata = BraidMetadata {
                 schema: BRAID_SCHEMA, // BraidMetadataSchemaTag
@@ -102,8 +100,7 @@ impl WritingState {
         // write cam info (pairs of CamNum and cam name)
         {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(CAM_INFO_CSV_FNAME);
-            csv_path.set_extension("csv.gz");
+            csv_path.push(format!("{}.gz", flydra_types::CAM_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             let mut cam_info_wtr = csv::Writer::from_writer(fd);
@@ -115,8 +112,7 @@ impl WritingState {
         // write calibration
         if let Some(ref recon) = recon {
             let mut cal_path = output_dirname.clone();
-            cal_path.push(CALIBRATION_XML_FNAME);
-            cal_path.set_extension("xml");
+            cal_path.push(flydra_types::CALIBRATION_XML_FNAME);
             let fd = std::fs::File::create(&cal_path)?;
             recon.to_flydra_xml(fd)?;
         }
@@ -161,8 +157,7 @@ impl WritingState {
             // We do not stream this to .gz because we want to maximize chances
             // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
-            csv_path.push(TEXTLOG);
-            csv_path.set_extension("csv");
+            csv_path.push(flydra_types::TEXTLOG_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
             let mut textlog_wtr = csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>);
             for row in textlog.iter() {
@@ -176,8 +171,7 @@ impl WritingState {
         // kalman estimates
         let kalman_estimates_wtr = if let Some(ref _recon) = recon {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(KALMAN_ESTIMATES_FNAME);
-            csv_path.set_extension("csv.gz");
+            csv_path.push(format!("{}.gz", flydra_types::KALMAN_ESTIMATES_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             Some(OrderingWriter::new(csv::Writer::from_writer(fd)))
@@ -187,8 +181,7 @@ impl WritingState {
 
         let trigger_clock_info_wtr = {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(TRIGGER_CLOCK_INFO);
-            csv_path.set_extension("csv.gz");
+            csv_path.push(format!("{}.gz", flydra_types::TRIGGER_CLOCK_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             csv::Writer::from_writer(fd)
@@ -198,16 +191,14 @@ impl WritingState {
             // We do not stream this to .gz because we want to maximize chances
             // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
-            csv_path.push(EXPERIMENT_INFO);
-            csv_path.set_extension("csv");
+            csv_path.push(flydra_types::EXPERIMENT_INFO_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
             csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>)
         };
 
         let data_assoc_wtr = if let Some(ref _recon) = recon {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(DATA_ASSOCIATE_FNAME);
-            csv_path.set_extension("csv.gz");
+            csv_path.push(format!("{}.gz", flydra_types::DATA_ASSOCIATE_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             Some(csv::Writer::from_writer(fd))
@@ -217,8 +208,7 @@ impl WritingState {
 
         let data_2d_wtr = {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(DATA2D_DISTORTED_CSV_FNAME);
-            csv_path.set_extension("csv.gz");
+            csv_path.push(format!("{}.gz", flydra_types::DATA2D_DISTORTED_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             csv::Writer::from_writer(fd)
@@ -338,7 +328,7 @@ impl Drop for WritingState {
 
                 save_hlog(
                     &output_dirname,
-                    RECONSTRUCT_LATENCY_LOG_FNAME,
+                    RECONSTRUCT_LATENCY_HLOG_FNAME,
                     &mut reconstruction_latency_usec.histograms,
                     self.file_start_time,
                 );
@@ -355,7 +345,7 @@ impl Drop for WritingState {
 
                 save_hlog(
                     &output_dirname,
-                    REPROJECTION_DIST_LOG_FNAME,
+                    REPROJECTION_DIST_HLOG_FNAME,
                     &mut reproj_dist_pixels.histograms,
                     self.file_start_time,
                 );
@@ -396,7 +386,7 @@ impl Drop for WritingState {
 
                 let walkdir = walkdir::WalkDir::new(&output_dirname);
 
-                // Reorder the results to save the README_WITH_EXT file first
+                // Reorder the results to save the README_MD_FNAME file first
                 // so that the first bytes of the file have it. This is why we
                 // special-case the file here.
                 let mut readme_entry: Option<walkdir::DirEntry> = None;
@@ -404,7 +394,7 @@ impl Drop for WritingState {
                     walkdir.into_iter().filter_map(|e| e.ok()).collect();
                 let mut files = Vec::new();
                 for entry in files1.into_iter() {
-                    if entry.file_name() == README_WITH_EXT {
+                    if entry.file_name() == flydra_types::README_MD_FNAME {
                         readme_entry = Some(entry);
                     } else {
                         files.push(entry);

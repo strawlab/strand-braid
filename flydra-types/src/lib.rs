@@ -21,22 +21,22 @@ pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
 // BraidMetadataSchemaTag.
 pub const BRAID_SCHEMA: u16 = 2; // BraidMetadataSchemaTag
 
-// CSV files
-pub const KALMAN_ESTIMATES_FNAME: &str = "kalman_estimates";
-pub const DATA_ASSOCIATE_FNAME: &str = "data_association";
-pub const CALIBRATION_XML_FNAME: &str = "calibration";
-pub const DATA2D_DISTORTED_CSV_FNAME: &str = "data2d_distorted";
-pub const CAM_INFO_CSV_FNAME: &str = "cam_info";
-pub const TRIGGER_CLOCK_INFO: &str = "trigger_clock_info";
-pub const EXPERIMENT_INFO: &str = "experiment_info";
-pub const TEXTLOG: &str = "textlog";
+// CSV files. (These may also exist as .csv.gz)
+pub const KALMAN_ESTIMATES_CSV_FNAME: &str = "kalman_estimates.csv";
+pub const DATA_ASSOCIATE_CSV_FNAME: &str = "data_association.csv";
+pub const DATA2D_DISTORTED_CSV_FNAME: &str = "data2d_distorted.csv";
+pub const CAM_INFO_CSV_FNAME: &str = "cam_info.csv";
+pub const TRIGGER_CLOCK_INFO_CSV_FNAME: &str = "trigger_clock_info.csv";
+pub const EXPERIMENT_INFO_CSV_FNAME: &str = "experiment_info.csv";
+pub const TEXTLOG_CSV_FNAME: &str = "textlog.csv";
 
 // Other files
-pub const BRAID_METADATA_YML_FNAME: &str = "braid_metadata";
-pub const README_WITH_EXT: &str = "README.md";
+pub const CALIBRATION_XML_FNAME: &str = "calibration.xml";
+pub const BRAID_METADATA_YML_FNAME: &str = "braid_metadata.yml";
+pub const README_MD_FNAME: &str = "README.md";
 pub const IMAGES_DIRNAME: &str = "images";
-pub const RECONSTRUCT_LATENCY_LOG_FNAME: &str = "reconstruct_latency_usec.hlog";
-pub const REPROJECTION_DIST_LOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
+pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
+pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
 
 // --------------------------------------------------------------------
 

@@ -94,8 +94,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let mut expected_fps = std::f64::NAN;
         let tracking_parameters: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::TEXTLOG);
-            fname.set_extension("csv"); // below will also look for .csv.gz
+            fname.push(flydra_types::TEXTLOG_CSV_FNAME);
             let tracking_parameters = match pick_csvgz_or_csv2(&mut fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
@@ -150,10 +149,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let calibration_info = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::CALIBRATION_XML_FNAME);
-            fname.set_extension("xml");
-            let calibration_info = match fname.open() {
+            match self.archive.open(flydra_types::CALIBRATION_XML_FNAME) {
                 Ok(rdr) => {
                     let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
                         serde_xml_rs::from_reader(rdr)?;
@@ -167,13 +163,12 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                 }
                 Err(zip_or_dir::Error::FileNotFound) => None,
                 Err(e) => return Err(e.into()),
-            };
-            calibration_info
+            }
         };
 
         let reconstruction_latency_hlog = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::RECONSTRUCT_LATENCY_LOG_FNAME);
+            fname.push(flydra_types::RECONSTRUCT_LATENCY_HLOG_FNAME);
             let reconstruction_latency_hlog = match fname.open() {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
@@ -184,7 +179,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
         let reprojection_distance_hlog = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::REPROJECTION_DIST_LOG_FNAME);
+            fname.push(flydra_types::REPROJECTION_DIST_HLOG_FNAME);
             let reprojection_distance_hlog = match fname.open() {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
@@ -222,7 +217,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let metadata = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::BRAID_METADATA_YML_FNAME);
-            fname.set_extension("yml");
             let rdr = fname.open()?;
             serde_yaml::from_reader(rdr)?
         };
@@ -230,7 +224,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let cam_info = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::CAM_INFO_CSV_FNAME);
-            fname.set_extension("csv"); // below will also look for .csv.gz
             let rdr = pick_csvgz_or_csv2(&mut fname)?;
             let caminfo_rdr = csv::Reader::from_reader(rdr);
             let mut camn2camid = BTreeMap::new();
@@ -253,7 +246,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             // Open main 2D data.
             let mut data_fname = self.archive.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
-            data_fname.set_extension("csv"); // below will also look for .csv.gz
             let rdr = pick_csvgz_or_csv2(&mut data_fname)?;
             let d2d_reader = csv::Reader::from_reader(rdr);
             let mut qz = BTreeMap::new();
@@ -289,8 +281,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
 
         let kalman_estimates_info = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::KALMAN_ESTIMATES_FNAME);
-            fname.set_extension("csv"); // below will also look for .csv.gz
+            fname.push(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
             let kalman_estimates_info = match pick_csvgz_or_csv2(&mut fname) {
                 Ok(rdr) => {
                     let kest_reader = csv::Reader::from_reader(rdr);
