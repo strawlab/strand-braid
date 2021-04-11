@@ -158,12 +158,13 @@ impl WritingState {
                 },
             ];
 
+            // We do not stream this to .gz because we want to maximize chances
+            // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
             csv_path.push(TEXTLOG);
-            csv_path.set_extension("csv.gz");
+            csv_path.set_extension("csv");
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
-            let mut textlog_wtr = csv::Writer::from_writer(fd);
+            let mut textlog_wtr = csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>);
             for row in textlog.iter() {
                 textlog_wtr.serialize(row)?;
             }
@@ -194,12 +195,13 @@ impl WritingState {
         };
 
         let experiment_info_wtr = {
+            // We do not stream this to .gz because we want to maximize chances
+            // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
             csv_path.push(EXPERIMENT_INFO);
-            csv_path.set_extension("csv.gz");
+            csv_path.set_extension("csv");
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
-            csv::Writer::from_writer(fd)
+            csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>)
         };
 
         let data_assoc_wtr = if let Some(ref _recon) = recon {
