@@ -1,0 +1,314 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>BRAIDZ files - User's Guide for Braid and Strand Camera</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html" class="active"><strong aria-hidden="true">2.</strong> BRAIDZ files</a></li><li class="chapter-item expanded "><a href="calibration.html"><strong aria-hidden="true">3.</strong> Calibration</a></li><li class="chapter-item expanded "><a href="scripting-strand-cam.html"><strong aria-hidden="true">4.</strong> Scripting Strand Cam</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">User's Guide for Braid and Strand Camera</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#braidz-files" id="braidz-files"><code>.braidz</code> files</a></h1>
+<p>A <code>.braidz</code> file contains the results of realtime tracking, the tracking
+parameters, and so on.</p>
+<h2><a class="header" href="#online-viewer" id="online-viewer">Online viewer</a></h2>
+<p>An online viewer for <code>.braidz</code> files is at <a href="https://braidz.strawlab.org/">braidz.strawlab.org</a>.</p>
+<h2><a class="header" href="#analysis-scripts" id="analysis-scripts">Analysis scripts</a></h2>
+<p>The following plots were made with the file
+<a href="http://strawlab-cdn.com/assets/20201112_133722.braidz">20201112_133722.braidz</a>.
+The scripts can be accessed at
+https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis.</p>
+<h3><a class="header" href="#braid-analysis-plot-data2d-timeseriespy" id="braid-analysis-plot-data2d-timeseriespy"><code>braid-analysis-plot-data2d-timeseries.py</code></a></h3>
+<p><img src="braid-analysis-plot-data2d-timeseries.png" alt="braid-analysis-plot-data2d-timeseries.png" /></p>
+<h3><a class="header" href="#braid-analysis-plot-kalman-estimates-timeseriespy" id="braid-analysis-plot-kalman-estimates-timeseriespy"><code>braid-analysis-plot-kalman-estimates-timeseries.py</code></a></h3>
+<p><img src="braid-analysis-plot-kalman-estimates-timeseries.png" alt="braid-analysis-plot-kalman-estimates-timeseries.png" /></p>
+<h3><a class="header" href="#braid-analysis-plot3dpy" id="braid-analysis-plot3dpy"><code>braid-analysis-plot3d.py</code></a></h3>
+<p><img src="braid-analysis-plot3d.png" alt="braid-analysis-plot3d.png" /></p>
+<h2><a class="header" href="#file-format" id="file-format">File Format</a></h2>
+<p>A <code>.braidz</code> file is actually a ZIP file with specific contents. It can be
+helpful to know about these specifics when problems arise.</p>
+<h3><a class="header" href="#showing-the-contents-of-a-braidz-file" id="showing-the-contents-of-a-braidz-file">Showing the contents of a <code>.braidz</code> file</a></h3>
+<p>You can show the filenames inside a .braidz file with
+<code>unzip -l FILENAME.braidz</code>.</p>
+<h3><a class="header" href="#extracting-a-braidz-file" id="extracting-a-braidz-file">Extracting a <code>.braidz</code> file</a></h3>
+<p>You can extract a <code>.braidz</code> file to its contents with <code>unzip FILENAME.braidz</code>.</p>
+<h3><a class="header" href="#creating-a-braidz-file" id="creating-a-braidz-file">Creating a <code>.braidz</code> file</a></h3>
+<p>You can create a new <code>.braidz</code> file with:</p>
+<pre><code>cd BRAID_DIR
+zip ../FILENAME.braidz *
+</code></pre>
+<p>Note, your <code>.braidz</code> file should look like this - with no directories other than
+<code>images/</code>.</p>
+<pre><code>$ unzip -l 20191125_093257.braidz
+Archive:  20191125_093257.braidz
+zip-rs
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+       97  2019-11-25 09:33   README.md
+      155  2019-11-25 09:33   braid_metadata.yml
+        0  2019-11-25 09:33   images/
+   308114  2019-11-25 09:33   images/Basler_22005677.png
+   233516  2019-11-25 09:33   images/Basler_22139107.png
+   283260  2019-11-25 09:33   images/Basler_22139109.png
+   338040  2019-11-25 09:33   images/Basler_22139110.png
+       78  2019-11-25 09:33   cam_info.csv.gz
+     2469  2019-11-25 09:33   calibration.xml
+      397  2019-11-25 09:33   textlog.csv.gz
+   108136  2019-11-25 09:33   kalman_estimates.csv.gz
+      192  2019-11-25 09:33   trigger_clock_info.csv.gz
+       30  2019-11-25 09:33   experiment_info.csv.gz
+     2966  2019-11-25 09:33   data_association.csv.gz
+   138783  2019-11-25 09:33   data2d_distorted.csv.gz
+---------                     -------
+  1416233                     15 files
+</code></pre>
+<p>Note that the following is NOT a valid <code>.braidz</code> file because it has a leading
+directory name for each entry.</p>
+<pre><code>$ unzip -l 20191119_114103.NOT-A-VALID-BRAIDZ
+Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  2019-11-19 11:41   20191119_114103.braid/
+       97  2019-11-19 11:41   20191119_114103.braid/README.md
+      155  2019-11-19 11:41   20191119_114103.braid/braid_metadata.yml
+        0  2019-11-19 11:41   20191119_114103.braid/images/
+   320906  2019-11-19 11:41   20191119_114103.braid/images/Basler_22005677.png
+   268847  2019-11-19 11:41   20191119_114103.braid/images/Basler_22139107.png
+   308281  2019-11-19 11:41   20191119_114103.braid/images/Basler_22139109.png
+   346232  2019-11-19 11:41   20191119_114103.braid/images/Basler_22139110.png
+   225153  2019-11-19 11:41   20191119_114103.braid/images/Basler_40019416.png
+       86  2019-11-19 11:41   20191119_114103.braid/cam_info.csv.gz
+     2469  2019-11-19 11:41   20191119_114103.braid/calibration.xml
+       10  2019-11-19 11:41   20191119_114103.braid/textlog.csv.gz
+       10  2019-11-19 11:41   20191119_114103.braid/kalman_estimates.csv.gz
+       10  2019-11-19 11:41   20191119_114103.braid/trigger_clock_info.csv.gz
+       10  2019-11-19 11:41   20191119_114103.braid/experiment_info.csv.gz
+       10  2019-11-19 11:41   20191119_114103.braid/data_association.csv.gz
+ 20961850  2019-11-19 12:17   20191119_114103.braid/data2d_distorted.csv.gz
+---------                     -------
+ 22434126                     17 files
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="calibration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="calibration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
