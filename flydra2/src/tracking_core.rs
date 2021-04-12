@@ -778,8 +778,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
 
                             let estimate = &next_model.state.posterior;
 
-                            let form =
-                                adskalman::CoverianceUpdateMethod::OptimalKalmanForcedSymmetric;
+                            let form = adskalman::CoverianceUpdateMethod::JosephForm;
                             let posterior = obs_model
                                 .update(&estimate.estimate, &observation_undistorted, form)
                                 .map_err(|e| {
