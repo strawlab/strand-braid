@@ -276,7 +276,7 @@ pub async fn pre_run(
     handle: &tokio::runtime::Handle,
     cal_fname: Option<std::path::PathBuf>,
     output_base_dirname: std::path::PathBuf,
-    opt_tracking_params: Option<flydra2::TrackingParams>,
+    opt_tracking_params: Option<flydra2::SwitchingTrackingParams>,
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
     camdata_addr: &str,
@@ -335,7 +335,7 @@ pub async fn pre_run(
 
     let tracking_params = opt_tracking_params.unwrap_or_else(|| {
         info!("no tracking parameters file given, using default tracking parameters");
-        flydra2::TrackingParams::default()
+        flydra2::SwitchingTrackingParams::default()
     });
 
     if show_tracking_params {

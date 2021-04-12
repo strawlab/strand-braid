@@ -16,7 +16,6 @@ thiserror = "1.0"
 log = "0.4.8"
 structopt = "0.3"
 hdrhistogram = "7.1.0"
-failure = "0.1.2"
 parking_lot = "0.11"
 crossbeam-channel = "0.5"
 futures = "0.3"
@@ -60,11 +59,9 @@ iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
-zip-or-dir = {path="../zip-or-dir"}
 
 [dev-dependencies]
 tempfile = "3"
-fs_extra = "1.1"
 approx = "0.4"
 download-verify = {path="../download-verify"}
 
@@ -81,4 +78,4 @@ serve_files = []
 
 braid = []
 
-backtrace = ["zip-or-dir/backtrace"]
+backtrace = []

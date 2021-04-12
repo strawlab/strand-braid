@@ -6,10 +6,7 @@ use std::{convert::TryInto, io::BufRead};
 
 use serde::{Deserialize, Serialize};
 
-use flydra2::{
-    Data2dDistortedRow, MyFloat, TrackingParams, CALIBRATION_XML_FNAME, CAM_INFO_CSV_FNAME,
-    DATA2D_DISTORTED_CSV_FNAME,
-};
+use flydra2::{Data2dDistortedRow, MyFloat, SwitchingTrackingParams};
 use flydra_types::CamInfoRow;
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
@@ -149,8 +146,8 @@ impl StrandCamConfig {
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
-    output_dirname: &std::path::Path,
-    tracking_params: TrackingParams,
+    output_braidz: &std::path::Path,
+    tracking_params: SwitchingTrackingParams,
     to_recon_func: fn(
         serde_yaml::Value,
         &PseudoCalParams,
@@ -184,16 +181,18 @@ where
 
     info!("    {} detected points converted.", num_points_converted);
 
-    let data_src = zip_or_dir::ZipDirArchive::from_dir(flydra_csv_temp_dir.path().into())?;
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open_dir(flydra_csv_temp_dir.path())?;
+    let data_src = data_src.parse_basics()?;
 
     let save_performance_histograms = false;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
-        output_dirname,
+        output_braidz,
         None,
         tracking_params,
-        flydra2::KalmanizeOptions::default(),
+        braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
     )
@@ -240,8 +239,7 @@ where
 
     // -------------------------------------------------
     let mut cal_path: std::path::PathBuf = flydra_csv_temp_dir.as_ref().to_path_buf();
-    cal_path.push(CALIBRATION_XML_FNAME);
-    cal_path.set_extension("xml");
+    cal_path.push(flydra_types::CALIBRATION_XML_FNAME);
 
     // let cam_name: String = recon.cams().keys().next().unwrap().clone();
 
@@ -253,8 +251,7 @@ where
     // save cam_info.csv
 
     let mut csv_path = flydra_csv_temp_dir.as_ref().to_path_buf();
-    csv_path.push(CAM_INFO_CSV_FNAME);
-    csv_path.set_extension("csv");
+    csv_path.push(flydra_types::CAM_INFO_CSV_FNAME);
     let fd = std::fs::File::create(&csv_path)?;
     let mut cam_info_wtr = csv::Writer::from_writer(fd);
 
@@ -276,8 +273,7 @@ where
         .from_reader(point_detection_csv_reader);
 
     let mut d2d_path = flydra_csv_temp_dir.as_ref().to_path_buf();
-    d2d_path.push(DATA2D_DISTORTED_CSV_FNAME);
-    d2d_path.set_extension("csv");
+    d2d_path.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
     let fd = std::fs::File::create(&d2d_path)?;
     let mut writer = csv::Writer::from_writer(fd);
     let mut row_state = RowState::new();
@@ -470,7 +466,7 @@ pub struct PseudoCalParams {
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
-    output_dirname: &std::path::Path,
+    output_braidz: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
     row_filters: &Vec<RowFilter>,
@@ -490,7 +486,7 @@ where
                 toml::from_str(&buf).map_err(|e| anyhow::Error::from(e))?;
             tracking_params
         }
-        None => flydra2::TrackingParams::default().into(),
+        None => flydra2::SwitchingTrackingParams::default().into(),
     };
 
     let calibration_params =
@@ -499,7 +495,7 @@ where
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
         flydra_csv_temp_dir,
-        output_dirname,
+        output_braidz,
         tracking_params.try_into()?,
         to_recon_func,
         to_ts0,

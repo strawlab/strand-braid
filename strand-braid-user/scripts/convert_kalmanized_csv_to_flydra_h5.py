@@ -41,11 +41,16 @@ dest_filename = data_src + ".h5"
 d2d_r0 = None
 d2d_r1 = None
 
+# Convert input directory to .zip file. Deletes original
 def zipdir(dirname):
     zipname = dirname + ".zip"
     assert(not os.path.exists(zipname))
-    cmd = ["zip","-r",os.path.join("..",zipname),"."]
-    subprocess.check_call(cmd, cwd=dirname)
+    ziph = zipfile.ZipFile(zipname, 'w', zipfile.ZIP_DEFLATED)
+    for root, dirs, files in os.walk(dirname):
+        for file in files:
+            ziph.write(os.path.join(root, file),
+                        os.path.relpath(os.path.join(root, file),
+                                        os.path.join(dirname, '..')))
     shutil.rmtree(dirname)
 
 def convert_pd_to_np(df):

@@ -1,5 +1,5 @@
-use std::convert::TryInto;
 use anyhow::Context;
+use std::convert::TryInto;
 
 use log::info;
 use structopt::StructOpt;
@@ -39,9 +39,11 @@ async fn main() -> anyhow::Result<()> {
     env_tracing_logger::init();
     let opt = Opt::from_args();
 
-    // TODO: open data_src with braidz_parser here?
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
+    let data_src = data_src.parse_basics()?;
 
-    let tracking_params: flydra2::TrackingParams = match opt.tracking_params {
+    let tracking_params: flydra2::SwitchingTrackingParams = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
@@ -53,43 +55,39 @@ async fn main() -> anyhow::Result<()> {
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
             tracking_params.try_into()?
         }
-        None => flydra2::TrackingParams::default(),
+        None => {
+            let parsed = data_src.basic_info();
+            match parsed.tracking_params.clone() {
+                Some(tp) => tp.try_into().unwrap(),
+                None => flydra2::SwitchingTrackingParams::default(),
+            }
+        }
     };
-    let mut opts = flydra2::KalmanizeOptions::default();
+    let mut opts = braid_offline::KalmanizeOptions::default();
     opts.start_frame = opt.start_frame;
     opts.stop_frame = opt.stop_frame;
-    let data_src = zip_or_dir::ZipDirArchive::auto_from_path(opt.data_src.as_path())?;
 
     // The user specifies an output .braidz file. But we will save initially to
     // a .braid directory. We here ensure the user's name had ".braidz"
     // extension and then calculate the name of the new output directory.
     let output_braidz = opt.output;
-    let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
-        let mut output_dirname: std::path::PathBuf = output_braidz.clone();
-        output_dirname.set_extension("braid");
-        output_dirname
-    } else {
-        return Err(anyhow::format_err!("output file must end in '.braidz'").into());
-    };
 
     // Raise an error if outputs exist.
-    for test_path in &[&output_braidz, &output_dirname] {
-        if test_path.exists() {
-            return Err(anyhow::format_err!(
-                "Path {} exists. Will not overwrite.",
-                test_path.display()
-            )
-            .into());
-        }
+    if output_braidz.exists() {
+        return Err(anyhow::format_err!(
+            "Path {} exists. Will not overwrite.",
+            output_braidz.display()
+        )
+        .into());
     }
 
     let rt_handle = tokio::runtime::Handle::current();
 
     let save_performance_histograms = true;
 
-    flydra2::kalmanize(
+    braid_offline::kalmanize(
         data_src,
-        output_dirname,
+        output_braidz,
         opt.fps,
         tracking_params,
         opts,

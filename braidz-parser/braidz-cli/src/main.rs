@@ -16,9 +16,6 @@ fn main() -> anyhow::Result<()> {
     let attr = std::fs::metadata(&opt.input)
         .with_context(|| format!("Getting file metadata for {}", opt.input.display()))?;
 
-    if attr.is_dir() {
-        anyhow::bail!("{} is a directory, not a file.", &opt.input.display())
-    }
     let archive = braidz_parser::braidz_parse_path(&opt.input)
         .with_context(|| format!("Parsing file {}", opt.input.display()))?;
 

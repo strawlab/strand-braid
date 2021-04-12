@@ -320,6 +320,10 @@ impl<R: RealField + Default + serde::Serialize> FlydraMultiCameraSystem<R> {
         FlydraMultiCameraSystem { system, water }
     }
 
+    pub fn to_system(self) -> MultiCameraSystem<R> {
+        self.system
+    }
+
     pub fn new(cams_by_name: BTreeMap<String, Camera<R>>, water: Option<R>) -> Self {
         let system = MultiCameraSystem::new(cams_by_name);
 
@@ -606,7 +610,7 @@ where
 
 // FlydraCamera ----------------------------------------------
 
-/// A helper trait to implement convertsions to and from `mvg::Camera`
+/// A helper trait to implement conversions to and from `mvg::Camera`
 pub trait FlydraCamera<R: RealField + serde::Serialize> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>>;
     fn from_flydra(cam: &SingleCameraCalibration<R>) -> Result<(String, Camera<R>)>;
