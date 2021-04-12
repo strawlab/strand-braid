@@ -405,6 +405,14 @@ impl Drop for WritingState {
                 }
 
                 let zipw = zip::ZipWriter::new(file);
+                // Since most of our files are already compressed as .gz files,
+                // we do not bother attempting to compress again. This would
+                // cost significant computation but wouldn't save much space.
+                // (The compressed files should all end with .gz so we could
+                // theoretically compress the uncompressed files by a simple
+                // file name filter. However, the README.md file should ideally
+                // remain uncompressed and as the first file so that inspecting
+                // the braidz file will show this.)
                 let options = zip::write::FileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
                     .unix_permissions(0o755);
