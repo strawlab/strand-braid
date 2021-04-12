@@ -1,6 +1,17 @@
 [book]
+title = "User's Guide for Braid and Strand Camera"
+description = "Low latency image processing and tracking"
 authors = ["Andrew Straw"]
 language = "en"
-multilingual = false
 src = "src"
-title = "User's Guide for Braid and Strand Camera"
+
+[rust]
+edition = "2018"
+
+[build]
+create-missing = false
+
+[output.html]
+# This is used for the 404 page
+site-url = "https://strawlab.github.io/strand-braid/"
+git-repository-url = "https://github.com/strawlab/strand-braid"
