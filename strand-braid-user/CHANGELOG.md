@@ -1,12 +1,16 @@
 ## 0.10.0 - unreleased
 
-### Breaking
+### Changed
 
 * For the `strand-cam-offline-kalmanize` program, the `--output` (or `-o`)
   command line argument now MUST be a filename ending with `.braidz`.
   (Previously, it was a `.braid` directory name which would implicitly get
   converted to the corresponding `.braidz` file. For example, `foo.braid` was
   given on the command line and `foo.braidz` was saved. Now, use `foo.braidz`.)
+
+* The Kalman filter implementation used for tracking in Braid now uses a
+  different method to calculate covariance. This improves robustness. See
+  https://github.com/strawlab/strand-braid/issues/3.
 
 ### Fixed
 
@@ -16,7 +20,7 @@
   which, if the program crashes due to a panic, some data scheduled to be
   written to a .gz file is lost.
 
-### Changed
+### Added
 
 * Error handling is now performed by the `anyhow` and `thiserror` crates in
   place of the `failure` crate.
