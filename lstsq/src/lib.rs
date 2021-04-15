@@ -1,5 +1,5 @@
 use nalgebra::allocator::Allocator;
-use nalgebra::core::{MatrixMN, VectorN};
+use nalgebra::core::{OMatrix, VectorN};
 use nalgebra::dimension::{Dim, DimDiff, DimMin, DimMinimum, DimSub, U1};
 use nalgebra::{DefaultAllocator, RealField};
 
@@ -16,7 +16,7 @@ where
 ///
 /// Usage is maximally compatible with Python's `numpy.linalg.lstsq`.
 pub fn lstsq<R, M, N>(
-    a: &MatrixMN<R, M, N>,
+    a: &OMatrix<R, M, N>,
     b: &VectorN<R, M>,
     epsilon: R,
 ) -> Result<Lstsq<R, N>, &'static str>
@@ -56,7 +56,7 @@ where
 mod tests {
     use crate::lstsq;
 
-    use na::{MatrixMN, RealField, VectorN, U2};
+    use na::{OMatrix, RealField, VectorN, U2};
     use nalgebra as na;
 
     fn check_residuals<R: RealField>(epsilon: R) {
@@ -71,7 +71,7 @@ mod tests {
             .map(na::convert)
             .collect();
 
-        let a = MatrixMN::<R, na::Dynamic, U2>::from_row_slice(&a);
+        let a = OMatrix::<R, na::Dynamic, U2>::from_row_slice(&a);
 
         let b_data: Vec<R> = vec![2.5, 4.4, 6.6, 8.5]
             .into_iter()

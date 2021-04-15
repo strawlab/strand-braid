@@ -2,8 +2,7 @@ use num_traits::{One, Zero};
 
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::U6;
-use nalgebra::core::MatrixN;
-use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField};
 
 use crate::motion_model_3d_fixed_dt::MotionModel3D;
 use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
@@ -48,13 +47,13 @@ where
         // This is "A" in most Kalman filter descriptions.
         #[rustfmt::skip]
         let transition_model = {
-            MatrixN::<R,U6>::new(
-                          one, zero, zero,   dt, zero, zero,
+            OMatrix::<R,U6,U6>::from_row_slice(
+                        &[one, zero, zero,   dt, zero, zero,
                          zero,  one, zero, zero,   dt, zero,
                          zero, zero, zero, zero, zero, zero,
                          zero, zero, zero,  one, zero, zero,
                          zero, zero, zero, zero,  one, zero,
-                         zero, zero, zero, zero, zero, zero)
+                         zero, zero, zero, zero, zero, zero])
             };
         let transition_model_transpose = transition_model.transpose();
 
@@ -64,13 +63,13 @@ where
         // This is "Q" in most Kalman filter descriptions.
         #[rustfmt::skip]
         let transition_noise_covariance = {
-            MatrixN::<R,U6>::new(
-                        t33,  zero, zero, t22, zero,  zero,
+            OMatrix::<R,U6,U6>::from_row_slice(
+                       &[t33,  zero, zero, t22, zero,  zero,
                         zero,  t33, zero, zero,  t22, zero,
                         zero, zero, zero, zero, zero, zero,
                         t22,  zero, zero,   dt, zero, zero,
                         zero,  t22, zero, zero,   dt, zero,
-                        zero, zero, zero, zero, zero, zero) * self.motion_noise_scale
+                        zero, zero, zero, zero, zero, zero]) * self.motion_noise_scale
             };
         MotionModel3DFixedDt {
             transition_model,
@@ -89,9 +88,9 @@ mod test {
     fn test_fix_z() {
         let model = FlatZZero3DModel::new(1.0);
         let m2 = model.calc_for_dt(1.0);
-        let matrix = m2.transition_model();
+        let matrix = m2.F();
 
-        let pos1 = na::Vector6::new(0.1, 0.2, 0.3, 0.4, 0.5, 0.6);
+        let pos1 = na::OVector::<_, U6>::from_row_slice(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]);
         let pos2 = matrix * pos1;
 
         // Check the z position is zero after update.

@@ -2,8 +2,7 @@ use num_traits::{One, Zero};
 
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::U6;
-use nalgebra::core::MatrixN;
-use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField};
 
 use crate::motion_model_3d_fixed_dt::MotionModel3D;
 use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
@@ -47,13 +46,13 @@ where
         // Create transition model. 3D position and 3D velocity.
         // This is "A" in most Kalman filter descriptions.
         #[rustfmt::skip]
-        let transition_model = MatrixN::<R,U6>::new(
-                          one, zero, zero,   dt, zero, zero,
+        let transition_model = OMatrix::<R,U6,U6>::from_row_slice(
+                          &[one, zero, zero,   dt, zero, zero,
                          zero,  one, zero, zero,   dt, zero,
                          zero, zero,  one, zero, zero,   dt,
                          zero, zero, zero,  one, zero, zero,
                          zero, zero, zero, zero,  one, zero,
-                         zero, zero, zero, zero, zero,  one);
+                         zero, zero, zero, zero, zero,  one]);
         let transition_model_transpose = transition_model.transpose();
 
         let t33 = (dt * dt * dt) / three;
@@ -61,13 +60,13 @@ where
 
         // This is "Q" in most Kalman filter descriptions.
         #[rustfmt::skip]
-        let transition_noise_covariance = MatrixN::<R,U6>::new(
-                        t33,  zero, zero, t22, zero,  zero,
+        let transition_noise_covariance = OMatrix::<R,U6,U6>::from_row_slice(
+                        &[t33,  zero, zero, t22, zero,  zero,
                         zero,  t33, zero, zero,  t22, zero,
                         zero, zero,  t33, zero, zero,  t22,
                         t22,  zero, zero,   dt, zero, zero,
                         zero,  t22, zero, zero,   dt, zero,
-                        zero, zero,  t22, zero, zero,   dt) * self.motion_noise_scale;
+                        zero, zero,  t22, zero, zero,   dt]) * self.motion_noise_scale;
         MotionModel3DFixedDt {
             transition_model,
             transition_model_transpose,
