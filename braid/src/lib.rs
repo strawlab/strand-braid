@@ -26,6 +26,7 @@ fn default_3d_tracking_params() -> flydra_types::TrackingParams {
 }
 
 pub fn braid_start(name: &str) -> Result<()> {
+    human_panic::setup_panic!();
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
