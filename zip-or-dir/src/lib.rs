@@ -1,4 +1,39 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
+//! An archive of "files", either in a filesystem directory or zip archive.
+//!
+//! The primary object of interest in this crate is the struct
+//! [ZipDirArchive](struct.ZipDirArchive.html), which provides a read-only
+//! wrapper over a directory within a filesystem or a zip archive. The wrapper
+//! allows introspection of the archive and reading contents. To write a zip
+//! archive, you may save contents to a directory and then use the
+//! [copy_archive_to_zipfile](fn.copy_archive_to_zipfile.html) function.
+//! (Because any valid zip archive should be supported by `ZipDirArchive`, as an
+//! alternative to using this function to create a zip archive, you may create
+//! the zip file via any other means.)
+//!
+//! When reading zip archives, the zip file need not be a local file on the
+//! filesystem. Instead,
+//! [Self::from_zip](struct.ZipDirArchive.html#method.from_zip) takes any reader
+//! that implements the `std::io::Read + std::io::Seek` traits. Therefore, one
+//! could open files over e.g. HTTP using a reader that implements these traits.
+//!
+//! The development use case was to implement the
+//! [`.braidz`](https://strawlab.github.io/strand-braid/braidz-files.html)
+//! storage format for the [Braid](https://strawlab.org/braid) program. Braid
+//! saves data during acquisition by streaming to `.csv` files (or compressed
+//! `.csv.gz` files) but then, when finished, will copy these files from a plain
+//! directory on disk into a `.zip` archive.
+//!
+//! Zip archives may be created in a custom manner to allow features such as
+//! having initial data in the file which identifies the file type as something
+//! beyond a plain zip file and storing files in the zip archive without
+//! compression from the zip container (e.g. because the original file is
+//! already compressed). Both of these features are used in the `.braidz`
+//! format.
+//!
+//! For related ideas, see
+//! [Zarr](https://zarr.readthedocs.io/en/stable/spec/v2.html) and
+//! [N5](https://github.com/saalfeldlab/n5).
 
 use std::{
     io::{BufReader, Read, Seek, Write},
@@ -8,8 +43,10 @@ use std::{
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
+/// A type alias to wrap return types.
 pub type Result<M> = std::result::Result<M, Error>;
 
+/// The possible error types.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{source}")]
@@ -63,7 +100,11 @@ impl From<std::io::Error> for Error {
 }
 
 #[derive(Debug)]
-/// Either a single zip file or an directory.
+/// Read-access to either a single zip file or an directory.
+///
+/// This provides a uniform API for accessing files in a directory in a
+/// conventional filesystem or accessing entries in a zip archive. See the
+/// crate-level documentation for more information.
 pub struct ZipDirArchive<R: Read + Seek> {
     /// The path to the archive (either zip file or dir)
     path: PathBuf,
@@ -72,6 +113,12 @@ pub struct ZipDirArchive<R: Read + Seek> {
 }
 
 impl ZipDirArchive<BufReader<std::fs::File>> {
+    /// Automatically open a path on the filesystem as a ZipDirArchive
+    ///
+    /// If the path is a directory, it will be opened with
+    /// [Self::from_dir](struct.ZipDirArchive.html#method.from_dir). If not, it
+    /// will be opened as a file and passed to
+    /// [Self::from_zip](struct.ZipDirArchive.html#method.from_zip).
     pub fn auto_from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         if path.as_ref().exists() {
             if path.as_ref().is_dir() {
@@ -88,6 +135,7 @@ impl ZipDirArchive<BufReader<std::fs::File>> {
         }
     }
 
+    /// Open a filesystem directory as a ZipDirArchive.
     pub fn from_dir(path: PathBuf) -> Result<Self> {
         Ok(ZipDirArchive {
             path,
@@ -97,6 +145,7 @@ impl ZipDirArchive<BufReader<std::fs::File>> {
 }
 
 impl<R: Read + Seek> ZipDirArchive<R> {
+    /// Open a reader of a zip archive as a ZipDirArchive.
     pub fn from_zip(reader: R, display_name: String) -> Result<Self> {
         let zip_archive = Some(zip::ZipArchive::new(reader)?);
         Ok(ZipDirArchive {
@@ -402,7 +451,14 @@ pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Resul
 /// into an already created destination file. The contents of the source are
 /// walked recursively to copy it entirely. The destination file is written to
 /// but remains open with the file cursor position unmodified after finishing
-/// writing the zip archive into the file.
+/// writing the zip archive into the file. In other words, the file cursor
+/// remains at the end of the open file object.
+///
+/// Note that it is not necessary to use this function to create a zip archive
+/// which can be to opened later as a
+/// [ZipDirArchive](struct.ZipDirArchive.html). This is because any zip file
+/// should also be readable by
+/// [ZipDirArchive::from_zip()](struct.ZipDirArchive.html#method.from_zip).
 pub fn copy_archive_to_zipfile<R: Read + Seek>(
     mut src: &mut ZipDirArchive<R>,
     dest: &mut std::fs::File,
