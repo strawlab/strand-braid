@@ -19,14 +19,13 @@ use hdrhistogram::{
 use libflate::finish::AutoFinishUnchecked;
 use libflate::gzip::Encoder;
 
-use nalgebra::core::dimension::{U2, U3, U6};
-use nalgebra::{MatrixMN, MatrixN, Point3, Vector2, Vector6, VectorN};
+use nalgebra::core::dimension::{U1, U2, U3, U6};
+use nalgebra::{OMatrix, OVector, Point3, Vector6};
 
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::DimMin;
 use nalgebra::{DefaultAllocator, RealField};
 
-use adskalman::ObservationModelLinear;
 #[allow(unused_imports)]
 use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
@@ -108,9 +107,9 @@ where
     R: RealField + Default + serde::Serialize,
 {
     cam: flydra_mvg::MultiCamera<R>,
-    observation_matrix: MatrixMN<R, U2, U6>,
-    observation_matrix_transpose: MatrixMN<R, U6, U2>,
-    observation_noise_covariance: MatrixN<R, U2>,
+    observation_matrix: OMatrix<R, U2, U6>,
+    observation_matrix_transpose: OMatrix<R, U6, U2>,
+    observation_noise_covariance: OMatrix<R, U2, U2>,
 }
 
 impl<R> CameraObservationModel<R>
@@ -119,19 +118,19 @@ where
 {
     fn new(
         cam: flydra_mvg::MultiCamera<R>,
-        a: MatrixMN<R, U2, U3>,
+        a: OMatrix<R, U2, U3>,
         ekf_observation_covariance_pixels: f32,
     ) -> Self {
         let observation_matrix = {
-            let mut o = MatrixMN::<R, U2, U6>::zeros();
-            o.fixed_columns_mut::<U3>(0).copy_from(&a);
+            let mut o = OMatrix::<R, U2, U6>::zeros();
+            o.fixed_columns_mut::<3>(0).copy_from(&a);
             o
         };
         let observation_matrix_transpose = observation_matrix.transpose();
 
         let r = nalgebra::convert(ekf_observation_covariance_pixels as f64);
         let zero = nalgebra::convert(0.0);
-        let observation_noise_covariance = MatrixN::<R, U2>::new(r, zero, zero, r);
+        let observation_noise_covariance = OMatrix::<R, U2, U2>::new(r, zero, zero, r);
         Self {
             cam,
             observation_matrix,
@@ -141,7 +140,7 @@ where
     }
 }
 
-impl<R> ObservationModelLinear<R, U6, U2> for CameraObservationModel<R>
+impl<R> adskalman::ObservationModel<R, U6, U2> for CameraObservationModel<R>
 where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
@@ -153,20 +152,22 @@ where
     U2: DimMin<U2, Output = U2>,
     R: RealField + Default + serde::Serialize,
 {
-    fn observation_matrix(&self) -> &MatrixMN<R, U2, U6> {
+    fn H(&self) -> &OMatrix<R, U2, U6> {
         &self.observation_matrix
     }
-    fn observation_matrix_transpose(&self) -> &MatrixMN<R, U6, U2> {
+    fn HT(&self) -> &OMatrix<R, U6, U2> {
         &self.observation_matrix_transpose
     }
-    fn observation_noise_covariance(&self) -> &MatrixN<R, U2> {
+    fn R(&self) -> &OMatrix<R, U2, U2> {
         &self.observation_noise_covariance
     }
-    fn evaluate(&self, state: &VectorN<R, U6>) -> VectorN<R, U2> {
+    fn predict_observation(&self, state: &OVector<R, U6>) -> OVector<R, U2> {
         // TODO: update to handle water here. See tag "laksdfjasl".
         let pt = to_world_point(&state);
         let undistored = self.cam.project_3d_to_pixel(&pt);
-        Vector2::<R>::new(undistored.coords[0], undistored.coords[1])
+        OMatrix::<R, U1, U2>::new(undistored.coords[0], undistored.coords[1]).transpose()
+        // This doesn't compile for some reason:
+        // OMatrix::<R, U2, U1>::new(undistored.coords[0], undistored.coords[1])
     }
 }
 
@@ -323,7 +324,7 @@ impl std::cmp::PartialEq for TimeDataPassthrough {
     }
 }
 
-fn to_world_point<R: nalgebra::RealField>(vec6: &Vector6<R>) -> PointWorldFrame<R> {
+fn to_world_point<R: nalgebra::RealField>(vec6: &OVector<R, U6>) -> PointWorldFrame<R> {
     // TODO could we just borrow a pointer to data instead of copying it?
     PointWorldFrame {
         coords: Point3::new(vec6.x, vec6.y, vec6.z),

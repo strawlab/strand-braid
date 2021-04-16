@@ -144,7 +144,7 @@ where
 {
     fn into(self) -> cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>> {
         cam_geom::Pixels {
-            data: na::MatrixMN::<R, U1, U2>::new(self.coords[0], self.coords[1]),
+            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[self.coords[0], self.coords[1]]),
         }
     }
 }
@@ -197,7 +197,7 @@ where
 {
     fn into(self) -> opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>> {
         opencv_ros_camera::UndistortedPixels {
-            data: na::MatrixMN::<R, U1, U2>::new(self.coords[0], self.coords[1]),
+            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[self.coords[0], self.coords[1]]),
         }
     }
 }
@@ -253,7 +253,7 @@ where
         U1,
         na::storage::Owned<R, U1, U3>,
     > {
-        cam_geom::Points::new(na::MatrixMN::<R, U1, U3>::new(
+        cam_geom::Points::new(na::OMatrix::<R, U1, U3>::new(
             self.coords[0],
             self.coords[1],
             self.coords[2],
@@ -312,7 +312,7 @@ where
         U1,
         na::storage::Owned<R, U1, U3>,
     > {
-        cam_geom::Points::new(na::MatrixMN::<R, U1, U3>::new(
+        cam_geom::Points::new(na::OMatrix::<R, U1, U3>::new(
             self.coords[0],
             self.coords[1],
             self.coords[2],
@@ -442,10 +442,10 @@ mod tests {
         let mut result = Vec::new();
 
         use na::core::dimension::U4;
-        use na::core::MatrixMN;
+        use na::core::OMatrix;
 
         #[rustfmt::skip]
-        let pmat = MatrixMN::<f64,U3,U4>::new(100.0, 0.0, 0.0, 0.01,
+        let pmat = OMatrix::<f64,U3,U4>::new(100.0, 0.0, 0.0, 0.01,
             0.0, 100.0, 0.0, 0.01,
             320.0, 240.0, 1.0, 0.01);
         let cam = crate::Camera::from_pmat(640, 480, &pmat).expect("generate test cam from pmat");

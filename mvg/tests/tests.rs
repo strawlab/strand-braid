@@ -101,7 +101,7 @@ fn test_project_3d_roundtrip() {
 
 #[test]
 fn test_dlt_mvg() {
-    use nalgebra::{Dynamic, MatrixMN, U2, U3};
+    use nalgebra::{Dynamic, OMatrix, U2, U3};
 
     let cam = mvg::Camera::<f64>::default();
 
@@ -129,8 +129,8 @@ fn test_dlt_mvg() {
         }
     }
 
-    let x3d = MatrixMN::<_, Dynamic, U3>::from_row_slice(&x3d_data);
-    let x2d = MatrixMN::<_, Dynamic, U2>::from_row_slice(&x2d_data);
+    let x3d = OMatrix::<_, Dynamic, U3>::from_row_slice(&x3d_data);
+    let x2d = OMatrix::<_, Dynamic, U2>::from_row_slice(&x2d_data);
 
     // perform DLT
     let dlt_results = dlt::dlt(&x3d, &x2d, 1e-10).unwrap();

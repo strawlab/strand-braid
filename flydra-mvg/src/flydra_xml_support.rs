@@ -3,7 +3,7 @@ use ::serde_xml_rs;
 use ::std;
 use nalgebra as na;
 use nalgebra::core::dimension::{U3, U4};
-use nalgebra::core::MatrixMN;
+use nalgebra::core::OMatrix;
 use nalgebra::RealField;
 
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub struct SingleCameraCalibration<R: RealField + serde::Serialize> {
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix"
     )]
-    pub calibration_matrix: MatrixMN<R, U3, U4>,
+    pub calibration_matrix: OMatrix<R, U3, U4>,
     #[serde(
         serialize_with = "serialize_two_ints",
         deserialize_with = "deserialize_two_ints"
@@ -118,7 +118,7 @@ where
 }
 
 #[rustfmt::skip]
-fn serialize_matrix<S, R>(m: &MatrixMN<R,U3,U4>, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_matrix<S, R>(m: &OMatrix<R,U3,U4>, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer,
          R: RealField + Serialize,
 {
@@ -129,7 +129,7 @@ fn serialize_matrix<S, R>(m: &MatrixMN<R,U3,U4>, serializer: S) -> Result<S::Ok,
     serializer.serialize_str(&buf)
 }
 
-fn deserialize_matrix<'de, D, R>(deserializer: D) -> Result<MatrixMN<R, U3, U4>, D::Error>
+fn deserialize_matrix<'de, D, R>(deserializer: D) -> Result<OMatrix<R, U3, U4>, D::Error>
 where
     D: serde::Deserializer<'de>,
     R: RealField,
@@ -152,7 +152,7 @@ where
             elements.push(na::convert(element));
         }
     }
-    Ok(MatrixMN::<R, U3, U4>::from_row_slice(elements.as_slice()))
+    Ok(OMatrix::<R, U3, U4>::from_row_slice(elements.as_slice()))
 }
 
 fn serialize_two_ints<S>(two_ints: &(usize, usize), serializer: S) -> Result<S::Ok, S::Error>

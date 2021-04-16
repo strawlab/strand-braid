@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-nalgebra = "0.25"
+nalgebra = "0.26"
 
 [dev-dependencies]
 approx = "0.4"

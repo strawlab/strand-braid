@@ -58,13 +58,13 @@ mod tests {
         DefaultAllocator: Allocator<f64, U7, U3>,
     {
         use cam_geom::{IntrinsicParameters, Points};
-        use nalgebra::{MatrixMN, U3, U7};
+        use nalgebra::{OMatrix, U3, U7};
 
         use crate::intrinsics::{mirror, MirrorAxis::*};
 
         #[rustfmt::skip]
         let pts = Points::new(
-            MatrixMN::<f64, U7, U3>::from_row_slice(
+            OMatrix::<f64, U7, U3>::from_row_slice(
                 &[0.0,  0.0, 1.0,
                 1.0,  0.0, 1.0,
                 0.0,  1.0, 1.0,

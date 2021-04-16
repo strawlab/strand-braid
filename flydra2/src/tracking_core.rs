@@ -2,7 +2,7 @@ use log::{log_enabled, trace, Level::Trace};
 use std::{collections::BTreeMap, sync::Arc};
 
 use nalgebra::core::dimension::{U2, U6};
-use nalgebra::{Matrix6, MatrixN, Point3, RealField, Vector2, Vector6};
+use nalgebra::{Matrix6, OMatrix, OVector, Point3, RealField, Vector6};
 
 use nalgebra_mvn::MultivariateNormal;
 
@@ -17,7 +17,9 @@ use tracking::motion_model_3d::ConstantVelocity3DModel;
 #[cfg(not(any(feature = "full-3d", feature = "flat-3d")))]
 compile_error!("must either have feature full-3d or flat-3d");
 
-use adskalman::{ObservationModelLinear, StateAndCovariance, TransitionModelLinearNoControl};
+use adskalman::ObservationModel as ObservationModelTrait;
+use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
+
 use flydra_types::{
     CamNum, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow, RosCamName, SyncFno,
     Triggerbox,
@@ -100,7 +102,7 @@ impl ModelFramePosteriors {
     }
 }
 
-fn covariance_size<R: RealField>(mat: &MatrixN<R, U6>) -> R {
+fn covariance_size<R: RealField>(mat: &OMatrix<R, U6, U6>) -> R {
     // XXX should probably use trace/N (mean of variances) or determinant (volume of variance)
     let v1 = vec![mat[(0, 0)], mat[(1, 1)], mat[(2, 2)]];
     v1.iter()
@@ -167,6 +169,8 @@ impl LivingModel<ModelFrameStarted> {
         CameraObservationModel<MyFloat>,
         Option<MultivariateNormal<MyFloat, U2>>,
     ) {
+        use adskalman::ObservationModel;
+
         let prior = &self.state.prior;
 
         // TODO: update to handle water here. See tag "laksdfjasl".
@@ -182,8 +186,8 @@ impl LivingModel<ModelFrameStarted> {
 
         //  - compute expected observation through `frame_data.camera` given prior
         let projected_covariance = {
-            let h = obs_model.observation_matrix();
-            let ht = obs_model.observation_matrix_transpose();
+            let h = obs_model.H();
+            let ht = obs_model.HT();
             let p = prior.covariance();
             (h * p) * ht
         };
@@ -252,7 +256,7 @@ impl LivingModel<ModelFrameStarted> {
                                 // the point index.
 
                                 // Put our observation into an nalgebra::Vector2 type.
-                                let obs = Vector2::new(pt.x, pt.y);
+                                let obs = OVector::<_, U2>::new(pt.x, pt.y);
 
                                 // Compute the likelihood of this observation given our model.
                                 let likelihood = expected_observation.pdf(&obs.transpose())[0];
@@ -718,7 +722,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 // debug!("wantedness1 {:?}", wantedness);
 
                 let mut wantedness =
-                    nalgebra::MatrixMN::<f64, nalgebra::Dynamic, nalgebra::Dynamic>::from_rows(
+                    nalgebra::OMatrix::<f64, nalgebra::Dynamic, nalgebra::Dynamic>::from_rows(
                         wantedness.as_slice(),
                     );
 
@@ -763,7 +767,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                                 undist_pt
                             );
 
-                            let observation_undistorted = Vector2::new(undist_pt.x, undist_pt.y);
+                            let observation_undistorted =
+                                OVector::<_, U2>::new(undist_pt.x, undist_pt.y);
 
                             let model = &self.state.models_with_obs_likes[row_idx];
                             let obs_model = match &model.state.obs_models_and_likelihoods[cam_idx] {
@@ -795,7 +800,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             trace!(" updated estimate {:?}", posterior.state());
 
                             // Compute the coords of the estimated state.
-                            let reproj_undistorted = obs_model.evaluate(posterior.state());
+                            let reproj_undistorted =
+                                obs_model.predict_observation(posterior.state());
                             let reproj_dist = ((reproj_undistorted.x - undist_pt.x).powi(2)
                                 + (reproj_undistorted.y - undist_pt.y).powi(2))
                             .sqrt();

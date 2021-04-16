@@ -2,8 +2,7 @@ use num_traits::{One, Zero};
 
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::U4;
-use nalgebra::core::MatrixN;
-use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField};
 
 use adskalman::TransitionModelLinearNoControl;
 
@@ -41,11 +40,11 @@ where
         // Create transition model. 2D position and 2D velocity.
         // This is "A" in most Kalman filter descriptions.
         #[rustfmt::skip]
-        let transition_model = MatrixN::<R,U4>::new(
-                          one, zero,   dt, zero,
+        let transition_model = OMatrix::<R,U4,U4>::from_row_slice(
+                          &[one, zero,   dt, zero,
                          zero,  one, zero,   dt,
                          zero, zero,  one, zero,
-                         zero, zero, zero,  one);
+                         zero, zero, zero,  one]);
         let transition_model_transpose = transition_model.transpose();
 
         let t33 = (dt * dt * dt) / three;
@@ -59,11 +58,11 @@ where
 
         // This is "Q" in most Kalman filter descriptions.
         #[rustfmt::skip]
-        let transition_noise_covariance = MatrixN::<R,U4>::new(
-                        t33,  zero,  t22, zero,
+        let transition_noise_covariance = OMatrix::<R,U4,U4>::from_row_slice(
+                        &[t33,  zero,  t22, zero,
                         zero,  t33, zero,  t22,
                         t22,  zero,   dt, zero,
-                        zero,  t22, zero,   dt) * self.motion_noise_scale;
+                        zero,  t22, zero,   dt]) * self.motion_noise_scale;
         MotionModel2DFixedDt {
             transition_model,
             transition_model_transpose,
@@ -81,9 +80,9 @@ where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
 {
-    transition_model: MatrixN<R, U4>,
-    transition_model_transpose: MatrixN<R, U4>,
-    transition_noise_covariance: MatrixN<R, U4>,
+    transition_model: OMatrix<R, U4, U4>,
+    transition_model_transpose: OMatrix<R, U4, U4>,
+    transition_noise_covariance: OMatrix<R, U4, U4>,
 }
 
 impl<R: RealField> TransitionModelLinearNoControl<R, U4> for MotionModel2DFixedDt<R>
@@ -91,13 +90,13 @@ where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
 {
-    fn transition_model(&self) -> &MatrixN<R, U4> {
+    fn F(&self) -> &OMatrix<R, U4, U4> {
         &self.transition_model
     }
-    fn transition_model_transpose(&self) -> &MatrixN<R, U4> {
+    fn FT(&self) -> &OMatrix<R, U4, U4> {
         &self.transition_model_transpose
     }
-    fn transition_noise_covariance(&self) -> &MatrixN<R, U4> {
+    fn Q(&self) -> &OMatrix<R, U4, U4> {
         &self.transition_noise_covariance
     }
 }

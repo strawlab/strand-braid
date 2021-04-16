@@ -1,5 +1,7 @@
 # Strand-Braid
 
+[![User's Guide](https://img.shields.io/badge/docs-User's%20Guide-blue.svg?logo=Gitbook)](https://strawlab.github.io/strand-braid/)
+
 ## Description
 
 [Strand Camera](https://strawlab.org/strand-cam/) is low-latency camera
@@ -20,6 +22,10 @@ Users, as opposed to developers, of this software should refer to the
 [strand-braid-user directory](strand-braid-user) which contains user
 documentation and scripts for interacting with the software and performing data
 analysis.
+
+## Documentation
+
+* [User's Guide](https://strawlab.github.io/strand-braid/)
 
 ## License
 

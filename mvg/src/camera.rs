@@ -4,7 +4,7 @@
 use serde::Deserialize;
 
 use na::core::dimension::{U1, U2, U3, U4};
-use na::core::{Matrix3, MatrixMN, Vector3, Vector5};
+use na::core::{Matrix3, OMatrix, Vector3, Vector5};
 use na::geometry::{Point2, Point3, Rotation3, UnitQuaternion};
 use na::{allocator::Allocator, DefaultAllocator, RealField};
 use nalgebra as na;
@@ -170,8 +170,8 @@ fn _test_camera_is_deserialize() {
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct CameraCache<R: RealField> {
-    pub(crate) m: MatrixMN<R, U3, U4>,
-    pub(crate) pinv: MatrixMN<R, U4, U3>,
+    pub(crate) m: OMatrix<R, U3, U4>,
+    pub(crate) pinv: OMatrix<R, U4, U3>,
 }
 
 impl<R: RealField> std::fmt::Debug for CameraCache<R> {
@@ -181,7 +181,7 @@ impl<R: RealField> std::fmt::Debug for CameraCache<R> {
     }
 }
 
-fn my_pinv<R: RealField>(m: &MatrixMN<R, U3, U4>) -> Result<MatrixMN<R, U4, U3>> {
+fn my_pinv<R: RealField>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
     na::linalg::SVD::try_new(m.clone(), true, true, na::convert(1e-7), 100)
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
@@ -198,7 +198,7 @@ impl<R: RealField> Camera<R> {
         intrinsics: RosOpenCvIntrinsics<R>,
     ) -> Result<Self> {
         let m = {
-            let p33 = intrinsics.p.fixed_slice::<U3, U3>(0, 0);
+            let p33 = intrinsics.p.fixed_slice::<3, 3>(0, 0);
             p33 * extrinsics.matrix()
         };
 
@@ -218,7 +218,7 @@ impl<R: RealField> Camera<R> {
         })
     }
 
-    pub fn from_pmat(width: usize, height: usize, pmat: &MatrixMN<R, U3, U4>) -> Result<Self> {
+    pub fn from_pmat(width: usize, height: usize, pmat: &OMatrix<R, U3, U4>) -> Result<Self> {
         let m = pmat.clone().remove_column(3);
         let (rquat, k) = rq_decomposition(m)?;
 
@@ -241,7 +241,7 @@ impl<R: RealField> Camera<R> {
     }
 
     /// convert, if possible, into a 3x4 matrix
-    pub fn as_pmat(&self) -> Option<&MatrixMN<R, U3, U4>> {
+    pub fn as_pmat(&self) -> Option<&OMatrix<R, U3, U4>> {
         let d = &self.intrinsics().distortion;
         if d.is_linear() {
             Some(&self.cache.m)
@@ -250,7 +250,7 @@ impl<R: RealField> Camera<R> {
         }
     }
 
-    pub fn linear_part_as_pmat(&self) -> &MatrixMN<R, U3, U4> {
+    pub fn linear_part_as_pmat(&self) -> &OMatrix<R, U3, U4> {
         // TODO: remove this function?
         &self.cache.m
     }
@@ -354,7 +354,7 @@ impl<R: RealField> Camera<R> {
     pub fn project_3d_to_distorted_pixel(&self, pt3d: &PointWorldFrame<R>) -> DistortedPixel<R> {
         let undistorted = self.project_3d_to_pixel(pt3d);
         let ud = UndistortedPixels {
-            data: MatrixMN::<R, U1, U2>::new(undistorted.coords[0], undistorted.coords[1]),
+            data: OMatrix::<R, U1, U2>::new(undistorted.coords[0], undistorted.coords[1]),
         };
         self.intrinsics().distort(&ud).into()
     }
@@ -393,7 +393,7 @@ impl<R: RealField> std::default::Default for Camera<R> {
     }
 }
 
-fn pmat2cam_center<R: RealField>(p: &MatrixMN<R, U3, U4>) -> Point3<R> {
+fn pmat2cam_center<R: RealField>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = p.clone().remove_column(0).determinant();
     let y = -p.clone().remove_column(1).determinant();
     let z = p.clone().remove_column(2).determinant();
@@ -488,11 +488,11 @@ pub fn rq_decomposition<R: RealField>(orig: Matrix3<R>) -> Result<(UnitQuaternio
 mod tests {
     use crate::{DistortedPixel, PointWorldFrame};
     use na::core::dimension::{U3, U4};
-    use na::core::{MatrixMN, Vector4};
+    use na::core::{OMatrix, Vector4};
     use na::geometry::{Point2, Point3};
     use nalgebra as na;
 
-    fn is_pmat_same(cam: &crate::Camera<f64>, pmat: &MatrixMN<f64, U3, U4>) -> bool {
+    fn is_pmat_same(cam: &crate::Camera<f64>, pmat: &OMatrix<f64, U3, U4>) -> bool {
         let world_pts = [
             PointWorldFrame {
                 coords: Point3::new(1.23, 4.56, 7.89),

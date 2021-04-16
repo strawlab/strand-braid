@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use num_traits::{One, Zero};
 
 use na::core::dimension::{U2, U3, U4};
-use na::core::{Matrix3, MatrixMN, Vector3, Vector5};
+use na::core::{Matrix3, OMatrix, Vector3, Vector5};
 use na::geometry::Point3;
 use na::RealField;
 use na::{allocator::Allocator, DefaultAllocator, U1};
@@ -214,7 +214,7 @@ impl<R: RealField + Default + serde::Serialize> MultiCamera<R> {
         &self,
         center: &PointWorldFrame<R>,
         delta: R,
-    ) -> Result<MatrixMN<R, U2, U3>> {
+    ) -> Result<OMatrix<R, U2, U3>> {
         let zero = na::convert(0.0);
 
         let dx = Vector3::<R>::new(delta, zero, zero);
@@ -240,7 +240,7 @@ impl<R: RealField + Default + serde::Serialize> MultiCamera<R> {
         let dF_dy = (Fy - F) / delta;
         let dF_dz = (Fz - F) / delta;
 
-        Ok(MatrixMN::<R, U2, U3>::new(
+        Ok(OMatrix::<R, U2, U3>::new(
             dF_dx[0], dF_dy[0], dF_dz[0], dF_dx[1], dF_dy[1], dF_dz[1],
         ))
     }
@@ -662,7 +662,7 @@ impl<R: RealField + serde::Serialize> FlydraCamera<R> for Camera<R> {
 
         let k22: R = k[(2, 2)];
         let k = k * (one / k22); // normalize
-        let p = MatrixMN::<R, U3, U4>::new(
+        let p = OMatrix::<R, U3, U4>::new(
             k[(0, 0)],
             k[(0, 1)],
             k[(0, 2)],
@@ -755,7 +755,7 @@ impl<R: RealField + serde::Serialize> FlydraCamera<R> for Camera<R> {
 }
 
 /// helper function (duplicated from mvg)
-fn pmat2cam_center<R: RealField>(p: &MatrixMN<R, U3, U4>) -> Point3<R> {
+fn pmat2cam_center<R: RealField>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = p.clone().remove_column(0).determinant();
     let y = -p.clone().remove_column(1).determinant();
     let z = p.clone().remove_column(2).determinant();

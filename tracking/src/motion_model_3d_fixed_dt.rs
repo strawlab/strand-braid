@@ -1,8 +1,7 @@
 use nalgebra as na;
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::U6;
-use nalgebra::core::MatrixN;
-use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField};
 
 use adskalman::TransitionModelLinearNoControl;
 
@@ -15,9 +14,9 @@ where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
 {
-    pub transition_model: MatrixN<R, U6>,
-    pub transition_model_transpose: MatrixN<R, U6>,
-    pub transition_noise_covariance: MatrixN<R, U6>,
+    pub transition_model: OMatrix<R, U6, U6>,
+    pub transition_model_transpose: OMatrix<R, U6, U6>,
+    pub transition_noise_covariance: OMatrix<R, U6, U6>,
 }
 
 impl<R: RealField> TransitionModelLinearNoControl<R, U6> for MotionModel3DFixedDt<R>
@@ -25,13 +24,13 @@ where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
 {
-    fn transition_model(&self) -> &MatrixN<R, U6> {
+    fn F(&self) -> &OMatrix<R, U6, U6> {
         &self.transition_model
     }
-    fn transition_model_transpose(&self) -> &MatrixN<R, U6> {
+    fn FT(&self) -> &OMatrix<R, U6, U6> {
         &self.transition_model_transpose
     }
-    fn transition_noise_covariance(&self) -> &MatrixN<R, U6> {
+    fn Q(&self) -> &OMatrix<R, U6, U6> {
         &self.transition_noise_covariance
     }
 }
