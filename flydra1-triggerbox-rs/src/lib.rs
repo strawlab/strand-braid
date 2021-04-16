@@ -332,7 +332,7 @@ impl SerialThread {
                 ));
 
                 if self.past_data.len() >= 5 {
-                    use na::{OMatrix, VectorN, U2};
+                    use na::{OMatrix, OVector, U2};
 
                     // fit time model
                     let mut a: Vec<f64> = Vec::with_capacity(self.past_data.len() * 2);
@@ -344,7 +344,7 @@ impl SerialThread {
                         b.push(row.1);
                     }
                     let a = OMatrix::<f64, na::Dynamic, U2>::from_row_slice(&a);
-                    let b = VectorN::<f64, na::Dynamic>::from_row_slice(&b);
+                    let b = OVector::<f64, na::Dynamic>::from_row_slice(&b);
 
                     let epsilon = 1e-10;
                     let results = lstsq::lstsq(&a, &b, epsilon)

@@ -1,5 +1,5 @@
 use nalgebra::allocator::Allocator;
-use nalgebra::core::{OMatrix, VectorN};
+use nalgebra::core::{OMatrix, OVector};
 use nalgebra::dimension::{Dim, DimDiff, DimMin, DimMinimum, DimSub, U1};
 use nalgebra::{DefaultAllocator, RealField};
 
@@ -7,7 +7,7 @@ pub struct Lstsq<R: RealField, N: Dim>
 where
     DefaultAllocator: Allocator<R, N>,
 {
-    pub solution: VectorN<R, N>,
+    pub solution: OVector<R, N>,
     pub residuals: R,
     pub rank: usize,
 }
@@ -17,7 +17,7 @@ where
 /// Usage is maximally compatible with Python's `numpy.linalg.lstsq`.
 pub fn lstsq<R, M, N>(
     a: &OMatrix<R, M, N>,
-    b: &VectorN<R, M>,
+    b: &OVector<R, M>,
     epsilon: R,
 ) -> Result<Lstsq<R, N>, &'static str>
 where
@@ -38,8 +38,8 @@ where
     let solution = svd.solve(&b, epsilon)?;
 
     // calculate residuals
-    let model: VectorN<R, M> = a * &solution;
-    let l1: VectorN<R, M> = model - b;
+    let model: OVector<R, M> = a * &solution;
+    let l1: OVector<R, M> = model - b;
     let residuals: R = l1.dot(&l1);
 
     // calculate rank with epsilon
@@ -56,7 +56,7 @@ where
 mod tests {
     use crate::lstsq;
 
-    use na::{OMatrix, RealField, VectorN, U2};
+    use na::{OMatrix, OVector, RealField, U2};
     use nalgebra as na;
 
     fn check_residuals<R: RealField>(epsilon: R) {
@@ -77,7 +77,7 @@ mod tests {
             .into_iter()
             .map(na::convert)
             .collect();
-        let b = VectorN::<R, na::Dynamic>::from_row_slice(&b_data);
+        let b = OVector::<R, na::Dynamic>::from_row_slice(&b_data);
 
         let results = lstsq(&a, &b, R::default_epsilon()).unwrap();
         assert_eq!(results.solution.nrows(), 2);

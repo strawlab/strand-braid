@@ -20,6 +20,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
 }
 
 fn main() -> std::result::Result<(), anyhow::Error> {
+    human_panic::setup_panic!();
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {

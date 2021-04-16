@@ -14,6 +14,7 @@ anyhow = "1.0"
 dotenv = "0.13"
 shellexpand = "2.0"
 chrono = "0.4"
+human-panic = "1.0.3"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 flydra-types = {path="../flydra-types"}
