@@ -4,5 +4,5 @@
 - [Installation](./installation.md)
 - [BRAIDZ files](./braidz-files.md)
 - [Calibration](./calibration.md)
-- [Scripting Strand Cam](./scripting-strand-cam.md)
+- [Scripting with Python](./scripting-with-python.md)
 - [Troubleshooting](./troubleshooting.md)
