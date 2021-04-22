@@ -1000,10 +1000,11 @@ fn frame_process_thread(
                 #[cfg(not(feature="checkercal"))]
                 let checkercal_tmp: Option<()> = None;
 
-                let (mut found_points, valid_display) = if let Some((checkerboard_data,checkerboard_save_debug)) = checkercal_tmp {
+                let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
                     let mut results = Vec::new();
                     #[cfg(feature="checkercal")]
                     {
+                        let (checkerboard_data,checkerboard_save_debug) = inner;
 
                         // do not do this too often
                         if last_checkerboard_detection.elapsed() > checkerboard_loop_dur {
