@@ -41,6 +41,6 @@ dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 curl --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
 tar xzf /tmp/opencv-3.2-static.tar.gz -C /
 
-mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.25-amd64.exe > $CARGO_HOME/bin/cargo-web
+mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.26-amd64.exe > $CARGO_HOME/bin/cargo-web
 
 cd $ORIG_DIR
