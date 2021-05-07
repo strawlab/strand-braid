@@ -22,6 +22,10 @@ submit an issue or, better, pull request for any additions needed.
 We could also address the question of how endian-ness and packed-ness are
 handled. Currently, these are not specified.
 
+## See also
+
+* [rust-cv/ndarray-image](https://github.com/rust-cv/ndarray-image)
+
 ### Test compilation with all feature variants
 
     cargo build
