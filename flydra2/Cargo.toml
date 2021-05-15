@@ -50,7 +50,7 @@ mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 flydra-types = {path="../flydra-types"}
-adskalman = "0.8"
+adskalman = "0.9"
 tracking = {path="../tracking"}
 groupby = {path="../groupby"}
 pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="142f427bfe9d2230b0dae0a5f7527703f43ae899"}
