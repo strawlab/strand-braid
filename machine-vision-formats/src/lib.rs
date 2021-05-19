@@ -3,7 +3,6 @@
 //! This crate aims to be a lowest common denominator for working with images
 //! from machine vision cameras from companies such as Basler, FLIR, and AVT.
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "alloc", feature(alloc))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
