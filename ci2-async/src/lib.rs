@@ -1,32 +1,33 @@
-/// This crate defines a trait, `AsyncCamera`, whose `frames` method returns a
-/// `futures::Stream` for asynchronous usage.
-///
-/// It also provides a struct, `ThreadedAsyncCameraModule` which will take a
-/// camera module implementing the `ci2::CameraModule` trait and wrap it into a
-/// new struct that also implements the `ci2::CameraModule` in addition to
-/// returning a `ThreadedAsyncCamera` which implements the `AsyncCamera` trait.
-///
-/// For `ThreadedAsyncCameraModule` to work, it requires that the wrapped camera
-/// type `C` implements the `ci2::Camera` and `Send` traits. It operates by
-/// serializing access to the camera by wrapping `Arc<Mutex<C>>`. The `frames`
-/// method spawns a thread on on which an infinite loop is used to grab frames
-/// from the camera. Therefore other camera access happens only between acquired
-/// frames. When image exposure times are on the order of 10 msec, this means
-/// calls to access the camera may take 10 msec.
-///
-/// The structs `ThreadedAsyncCameraModule` and `ThreadedAsyncCamera` here are a
-/// generic implementation that can be used at the cost of spawning a new
-/// thread.
-///
-/// It would be possible for an upstream camera backend module to directly
-/// implement the `AsyncCamera` trait. Such a camera-specific backend could
-/// implement `AsyncCamera` without serializing access to the camera
-/// but rather by taking advantage of functionality in most camera drivers.
+//! This crate defines a trait, [AsyncCamera], whose [AsyncCamera::frames]
+//! method returns a [futures::Stream] for asynchronous usage.
+//!
+//! It also provides a struct, [ThreadedAsyncCameraModule] which will take a
+//! camera module implementing the [ci2::CameraModule] trait and wrap it into a
+//! new struct that also implements the [ci2::CameraModule] in addition to
+//! returning a [ThreadedAsyncCamera] which implements the [AsyncCamera] trait.
+//!
+//! For [ThreadedAsyncCameraModule] to work, it requires that the wrapped camera
+//! type `C` implements the [ci2::Camera] and [Send] traits. It operates by
+//! serializing access to the camera by wrapping `Arc<Mutex<C>>`. The
+//! [AsyncCamera::frames] method spawns a thread on on which an infinite loop is
+//! used to grab frames from the camera. Therefore other camera access happens
+//! only between frame acquisitions. Thus, when image exposure times are on the
+//! order of 10 msec, this calls to access the camera (e.g. to chance exposure
+//! time) may block for about 10 msec.
+//!
+//! The structs [ThreadedAsyncCameraModule] and [ThreadedAsyncCamera] here are a
+//! generic implementation that can be used at the cost of spawning a new
+//! thread.
+//!
+//! It would be possible for an upstream camera backend module to directly
+//! implement the [AsyncCamera] trait. Such a camera-specific backend could
+//! implement [AsyncCamera] without serializing access to the camera but rather
+//! by taking advantage of functionality in most camera drivers.
 
 #[macro_use]
 extern crate log;
 
-use futures::stream::Stream;
+use futures::Stream;
 
 use machine_vision_formats as formats;
 
@@ -34,12 +35,16 @@ use ci2::Result;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
+/// An acquired frame or an error.
 #[derive(Debug)]
 pub enum FrameResult<T> {
+    /// The frame that was acquired.
     Frame(T),
+    /// An error pertaining to this attempted acquisition.
     SingleFrameError(String),
 }
 
+/// Defines a method to return a stream of frames.
 pub trait AsyncCamera {
     type FrameType: timestamped_frame::FrameTrait + Send;
     /// asynchronous frame acquisition, get an infinite stream of frames
@@ -52,6 +57,9 @@ pub trait AsyncCamera {
         F: Fn() + Send + 'static;
 }
 
+/// Wrap a [ci2::Camera] with an implementation of [AsyncCamera].
+///
+/// See the module-level documentation for more details.
 pub struct ThreadedAsyncCamera<C, T> {
     camera: Arc<Mutex<C>>,
     frame_type: std::marker::PhantomData<T>,
@@ -69,6 +77,7 @@ fn _test_camera_is_send() {
     implements::<ThreadedAsyncCamera<i8, u8>>();
 }
 
+/// Wraps a [ci2::CameraModule] to return [ThreadedAsyncCamera] instances.
 pub struct ThreadedAsyncCameraModule<M, C, T> {
     cam_module: M,
     name: String,
@@ -194,6 +203,7 @@ where
     }
 }
 
+/// Convert a generic [ci2::CameraModule] into a [ThreadedAsyncCameraModule].
 pub fn into_threaded_async<M, C, T>(cam_module: M) -> ThreadedAsyncCameraModule<M, C, T>
 where
     M: ci2::CameraModule<FrameType = T, CameraType = C>,
