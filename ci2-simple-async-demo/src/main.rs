@@ -1,4 +1,5 @@
 use futures::stream::StreamExt;
+use std::convert::TryInto;
 
 use ci2::{Camera, CameraModule};
 use ci2_async::AsyncCamera;
@@ -11,28 +12,35 @@ where
     T: 'static + timestamped_frame::FrameTrait + Send + std::fmt::Debug,
     Vec<u8>: From<T>,
 {
-    let mut stream = cam.frames(10, || {})?.take(10);
+    let mut stream = cam.frames(10, || {})?;
+    let mut previous: Option<(i64, std::time::Instant)> = None;
+    let start = std::time::Instant::now();
+    let mut count: usize = 0;
+    println!("count,device_timestamp,host_timestamp,dur_device,dur_host,diff");
     while let Some(frame) = stream.next().await {
         match frame {
             ci2_async::FrameResult::Frame(frame) => {
-                println!(
-                    "  got frame {}: {}x{}",
-                    frame.host_framenumber(),
-                    frame.width(),
-                    frame.height()
-                );
                 let frame_any = &frame as &dyn std::any::Any;
 
                 let frame = frame_any.downcast_ref::<backend::Frame>().unwrap();
-                println!(
-                    "    Pylon device_timestamp: {}, block_id: {}",
-                    frame.device_timestamp, frame.block_id
-                );
+                let device_timestamp: i64 = frame.device_timestamp.try_into().unwrap();
+                if let Some((previous_device_timestamp, previous_instant)) = previous {
+                    let dur_host: i64 = previous_instant.elapsed().as_nanos().try_into().unwrap();
+                    let dur_device = device_timestamp - previous_device_timestamp;
+                    let diff = dur_device - dur_host;
+                    let host_timestamp = start.elapsed().as_nanos();
+                    println!(
+                        "{},{},{},{},{},{}",
+                        count, device_timestamp, host_timestamp, dur_device, dur_host, diff
+                    );
+                }
+                previous = Some((device_timestamp, std::time::Instant::now()));
             }
-            m => {
-                println!("  got FrameResult: {:?}", m);
+            ci2_async::FrameResult::SingleFrameError(e) => {
+                println!("  got FrameResult::SingleFrameError: {}", e);
             }
         };
+        count += 1;
     }
     Ok(())
 }
@@ -49,9 +57,7 @@ fn main() -> ci2::Result<()> {
     }
 
     for info in infos.iter() {
-        println!("opening camera {}", info.name());
         let mut cam = async_mod.threaded_async_camera(info.name())?;
-        println!("got camera");
         cam.acquisition_start()?;
         let stream_future = do_capture(&mut cam);
         futures::executor::block_on(stream_future)?;
