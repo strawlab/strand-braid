@@ -1,32 +1,33 @@
 use futures::stream::StreamExt;
 
-use ci2::{CameraModule, Camera};
+use ci2::{Camera, CameraModule};
 use ci2_async::AsyncCamera;
 
 use ci2_pyloncxx as backend;
 
-use machine_vision_formats as formats;
-
-pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(frame: &F) {
-    let frame_any = frame as &dyn std::any::Any;
-
-    let frame = frame_any.downcast_ref::<backend::Frame>().unwrap();
-    println!("    Pylon device_timestamp: {}, block_id: {}", frame.device_timestamp, frame.block_id);
-}
-
-
-async fn do_capture<C,T>(cam: &mut ci2_async::ThreadedAsyncCamera<C,T>) -> Result<(), ci2::Error>
-    where
-        C: 'static + ci2::Camera<FrameType=T> + Send,
-        T: 'static + timestamped_frame::FrameTrait + Send + std::fmt::Debug,
-        Vec<u8>: From<T>,
+async fn do_capture<C, T>(cam: &mut ci2_async::ThreadedAsyncCamera<C, T>) -> Result<(), ci2::Error>
+where
+    C: 'static + ci2::Camera<FrameType = T> + Send,
+    T: 'static + timestamped_frame::FrameTrait + Send + std::fmt::Debug,
+    Vec<u8>: From<T>,
 {
     let mut stream = cam.frames(10, || {})?.take(10);
     while let Some(frame) = stream.next().await {
         match frame {
             ci2_async::FrameResult::Frame(frame) => {
-                println!("  got frame {}: {}x{}", frame.host_framenumber(), frame.width(), frame.height());
-                print_backend_specific_metadata(&frame);
+                println!(
+                    "  got frame {}: {}x{}",
+                    frame.host_framenumber(),
+                    frame.width(),
+                    frame.height()
+                );
+                let frame_any = &frame as &dyn std::any::Any;
+
+                let frame = frame_any.downcast_ref::<backend::Frame>().unwrap();
+                println!(
+                    "    Pylon device_timestamp: {}, block_id: {}",
+                    frame.device_timestamp, frame.block_id
+                );
             }
             m => {
                 println!("  got FrameResult: {:?}", m);
