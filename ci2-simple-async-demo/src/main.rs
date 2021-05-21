@@ -3,18 +3,10 @@ use futures::stream::StreamExt;
 use ci2::{CameraModule, Camera};
 use ci2_async::AsyncCamera;
 
-#[cfg(feature = "backend_aravis")]
-use ci2_aravis as backend;
-#[cfg(feature = "backend_dc1394")]
-use ci2_dc1394 as backend;
-#[cfg(feature = "backend_flycap2")]
-use ci2_flycap2 as backend;
-#[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
 
 use machine_vision_formats as formats;
 
-#[cfg(feature = "backend_pyloncxx")]
 pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(frame: &F) {
     let frame_any = frame as &dyn std::any::Any;
 
@@ -22,18 +14,6 @@ pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(
     println!("    Pylon device_timestamp: {}, block_id: {}", frame.device_timestamp, frame.block_id);
 }
 
-#[cfg(feature = "backend_flycap2")]
-pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(frame: &F) {
-    let frame_any = frame as &dyn std::any::Any;
-
-    let frame = frame_any.downcast_ref::<ci2_flycap2::Frame>().unwrap();
-    println!("    flycap2 device_timestamp: {:?}", frame.device_timestamp());
-}
-
-#[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_flycap2")))]
-pub fn print_backend_specific_metadata<F: formats::ImageStride>(_frame: &F) {
-    // do nothing
-}
 
 async fn do_capture<C,T>(cam: &mut ci2_async::ThreadedAsyncCamera<C,T>) -> Result<(), ci2::Error>
     where
