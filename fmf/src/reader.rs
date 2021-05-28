@@ -5,14 +5,52 @@ use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt};
 
+use basic_frame::{BasicExtra, BasicFrame, DynamicFrame};
 use datetime_conversion::f64_to_datetime;
-use formats::PixelFormat;
+use formats::PixFmt;
 
-use crate::{get_pixel_format, FMFError, FMFFrame, FMFResult};
+use crate::{pixel_formats, FMFError, FMFResult};
+
+macro_rules! bf {
+    ($width:expr, $height:expr, $stride:expr, $image_data:expr, $extra:expr) => {{
+        BasicFrame {
+            width: $width,
+            height: $height,
+            stride: $stride,
+            image_data: $image_data,
+            extra: $extra,
+            pixel_format: std::marker::PhantomData,
+        }
+    }};
+}
+
+/// Return an DynamicFrame variant according to $pixfmt.
+#[macro_export]
+macro_rules! to_dynamic {
+    ($pixfmt:expr, $w:expr, $h:expr, $s:expr, $data:expr, $ex:expr) => {{
+        Ok(match $pixfmt {
+            PixFmt::Mono8 => DynamicFrame::Mono8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::Mono32f => DynamicFrame::Mono32f(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::RGB8 => DynamicFrame::RGB8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerRG8 => DynamicFrame::BayerRG8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerRG32f => DynamicFrame::BayerRG32f(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerBG8 => DynamicFrame::BayerBG8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerBG32f => DynamicFrame::BayerBG32f(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerGB8 => DynamicFrame::BayerGB8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerGB32f => DynamicFrame::BayerGB32f(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerGR8 => DynamicFrame::BayerGR8(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::BayerGR32f => DynamicFrame::BayerGR32f(bf!($w, $h, $s, $data, $ex)),
+            PixFmt::YUV422 => DynamicFrame::YUV422(bf!($w, $h, $s, $data, $ex)),
+            _ => {
+                panic!("unsupported pixel format {}", $pixfmt);
+            }
+        })
+    }};
+}
 
 pub struct FMFReader {
     f: File,
-    pixel_format: PixelFormat,
+    pixel_format: PixFmt,
     height: u32,
     width: u32,
     chunksize: u64,
@@ -46,7 +84,7 @@ impl FMFReader {
         if expected_format_len != actual_format_len {
             return Err(FMFError::PrematureFileEnd);
         }
-        let pixel_format = get_pixel_format(&format)?;
+        let pixel_format = pixel_formats::get_pixel_format(&format)?;
 
         let _bpp = f.read_u32::<LittleEndian>()?;
         pos += 4;
@@ -82,11 +120,11 @@ impl FMFReader {
     }
 
     #[inline]
-    pub fn format(&self) -> PixelFormat {
+    pub fn format(&self) -> PixFmt {
         self.pixel_format
     }
 
-    fn next_frame(&mut self) -> FMFResult<FMFFrame> {
+    fn next_frame(&mut self) -> FMFResult<DynamicFrame> {
         let f = &mut self.f;
 
         let timestamp_f64 = f.read_f64::<LittleEndian>()?;
@@ -103,33 +141,23 @@ impl FMFReader {
         let width = self.width;
         let height = self.height;
         let pixel_format = self.pixel_format;
-        let bpp = match self.pixel_format.bits_per_pixel() {
-            None => {
-                return Err(FMFError::UnimplementedPixelFormat(pixel_format));
-            }
-            Some(bpp) => bpp.get() as u32,
-        };
+        let bpp = self.pixel_format.bits_per_pixel() as u32;
         let stride = (width * bpp) / 8;
         let host_framenumber = self.count;
         self.count += 1;
 
         // TODO XXX FIXME: check this timezone code is actually reasonable.
-        let host_timestamp = host_timestamp_local.with_timezone(&chrono::Utc);
-
-        Ok(FMFFrame {
-            width,
-            height,
-            stride,
-            image_data,
-            host_timestamp,
+        let extra = Box::new(BasicExtra {
+            host_timestamp: host_timestamp_local.with_timezone(&chrono::Utc),
             host_framenumber,
-            pixel_format,
-        })
+        });
+
+        to_dynamic!(pixel_format, width, height, stride, image_data, extra)
     }
 }
 
 impl Iterator for FMFReader {
-    type Item = FMFFrame;
+    type Item = DynamicFrame;
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_frame() {
             Ok(f) => Some(f),

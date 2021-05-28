@@ -10,3 +10,5 @@ anyhow = "1.0"
 
 machine-vision-formats = { path = "../machine-vision-formats" }
 ci2-types = {path="ci2-types"}
+basic-frame = { path = "../basic-frame" }
+timestamped-frame = { path = "../timestamped-frame" }

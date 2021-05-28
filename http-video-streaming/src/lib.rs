@@ -11,7 +11,7 @@ use parking_lot::RwLock;
 use bui_backend::lowlevel::EventChunkSender;
 use bui_backend_types::{ConnectionKey, SessionKey};
 
-use machine_vision_formats as formats;
+use basic_frame::DynamicFrame;
 
 pub use http_video_streaming_types::{
     CircleParams, DrawableShape, FirehoseCallbackInner, Point, Shape, ToClient,
@@ -47,8 +47,8 @@ impl From<crossbeam_channel::RecvError> for Error {
 
 // future: use MediaSource API? https://w3c.github.io/media-source
 
-pub struct AnnotatedFrame<F: formats::ImageData + Send> {
-    pub frame: F,
+pub struct AnnotatedFrame {
+    pub frame: DynamicFrame,
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
     pub name: Option<String>,
@@ -60,10 +60,10 @@ pub struct FirehoseCallback {
     pub inner: FirehoseCallbackInner,
 }
 
-struct PerSender<F: formats::ImageData + Send> {
+struct PerSender {
     name_selector: NameSelector,
     out: EventChunkSender,
-    frame_lifo: Option<Rc<AnnotatedFrame<F>>>,
+    frame_lifo: Option<Rc<AnnotatedFrame>>,
     ready_to_send: bool,
     conn_key: ConnectionKey,
     fno: u64,
@@ -76,15 +76,12 @@ pub enum NameSelector {
     Name(String),
 }
 
-impl<F> PerSender<F>
-where
-    F: formats::ImageData + formats::Stride + Send,
-{
+impl PerSender {
     fn new(
         out: EventChunkSender,
         conn_key: ConnectionKey,
         name_selector: NameSelector,
-    ) -> PerSender<F> {
+    ) -> PerSender {
         PerSender {
             name_selector,
             out,
@@ -94,7 +91,7 @@ where
             fno: 0,
         }
     }
-    fn push(&mut self, frame: Rc<AnnotatedFrame<F>>) {
+    fn push(&mut self, frame: Rc<AnnotatedFrame>) {
         let use_frame = match self.name_selector {
             NameSelector::All => true,
             NameSelector::None => false,
@@ -139,9 +136,10 @@ where
                 if self.ready_to_send {
                     // sent_time computed early so that latency includes duration to encode, etc.
                     let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    let bytes = ::convert_image::frame_to_image(
+                    let bytes = basic_frame::match_all_dynamic_fmts!(
                         &most_recent_frame_data.frame,
-                        convert_image::ImageOptions::Jpeg(80),
+                        x,
+                        convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
                     )?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
@@ -185,19 +183,16 @@ where
     }
 }
 
-pub fn firehose_thread<F>(
+pub fn firehose_thread(
     sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
-    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame<F>>,
+    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame>,
     firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
     use_frame_selector: bool,
     events_prefix: &str,
     flag: thread_control::Flag,
-) -> Result<()>
-where
-    F: formats::ImageData + formats::Stride + Send,
-{
+) -> Result<()> {
     // TODO switch this to a tokio core reactor based event loop and async processing.
-    let mut per_sender_map: HashMap<ConnectionKey, PerSender<F>> = HashMap::new();
+    let mut per_sender_map: HashMap<ConnectionKey, PerSender> = HashMap::new();
     let zero_dur = std::time::Duration::from_millis(0);
     while flag.is_alive() {
         // We have a timeout here in order to poll the `flag` variable above.

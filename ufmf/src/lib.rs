@@ -13,8 +13,9 @@ use std::collections::BTreeMap;
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
-use formats::PixelFormat;
-use timestamped_frame::ImageStrideTime;
+use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
+use timestamped_frame::{ExtraTimeData, ImageStrideTime};
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
@@ -23,12 +24,13 @@ mod save_indices;
 #[derive(Debug, thiserror::Error)]
 pub enum UFMFError {
     #[error("unimplemented pixel_format {0}")]
-    UnimplementedPixelFormat(PixelFormat),
+    UnimplementedPixelFormat(PixFmt),
 
     #[error("already closed")]
     AlreadyClosed,
-    #[error("mismatched pixel_format")]
-    MismatchedEncoding,
+
+    #[error("the pixel format changed")]
+    FormatChanged,
 
     #[error("{0}")]
     Io(#[from] std::io::Error),
@@ -49,7 +51,7 @@ fn write_header<F: Write + Seek>(
     index_loc: usize,
     max_width: u16,
     max_height: u16,
-    pixel_format: PixelFormat,
+    pixel_format: PixFmt,
 ) -> UFMFResult<usize> {
     let coding = get_format(pixel_format)?;
 
@@ -67,9 +69,9 @@ fn write_header<F: Write + Seek>(
     Ok(pos)
 }
 
-fn write_image<F: Write + Seek>(
+fn write_image<F: Write + Seek, FMT>(
     f: &mut F,
-    frame: &dyn ImageStrideTime,
+    frame: &dyn ImageStride<FMT>,
     bytes_per_pixel: u8,
     rect: &RectFromCorner,
 ) -> UFMFResult<usize> {
@@ -87,29 +89,31 @@ fn write_image<F: Write + Seek>(
     Ok(pos)
 }
 
-fn get_format(pixel_format: PixelFormat) -> UFMFResult<Vec<u8>> {
+fn get_format(pixel_format: PixFmt) -> UFMFResult<Vec<u8>> {
+    use PixFmt::*;
     let r = match pixel_format {
-        PixelFormat::MONO8 => b"MONO8".to_vec(),
-        PixelFormat::BayerRG8 => b"RAW8:RGGB".to_vec(),
-        PixelFormat::BayerGB8 => b"RAW8:GBRG".to_vec(),
-        PixelFormat::BayerGR8 => b"RAW8:GRBG".to_vec(),
-        PixelFormat::BayerBG8 => b"RAW8:BGGR".to_vec(),
-        PixelFormat::YUV422 => b"YUV422".to_vec(),
-        PixelFormat::RGB8 => b"RGB8".to_vec(),
-        e => {
-            return Err(UFMFError::UnimplementedPixelFormat(e));
+        Mono8 => b"MONO8".to_vec(),
+        // Mono32f => b"MONO32f".to_vec(),
+        BayerRG8 => b"RAW8:RGGB".to_vec(),
+        BayerGB8 => b"RAW8:GBRG".to_vec(),
+        BayerGR8 => b"RAW8:GRBG".to_vec(),
+        BayerBG8 => b"RAW8:BGGR".to_vec(),
+        YUV422 => b"YUV422".to_vec(),
+        RGB8 => b"RGB8".to_vec(),
+        f => {
+            return Err(UFMFError::UnimplementedPixelFormat(f));
         }
     };
     Ok(r)
 }
 
-fn get_dtype(pixel_format: PixelFormat) -> UFMFResult<u8> {
-    use crate::PixelFormat::*;
+fn get_dtype(pixel_format: formats::pixel_format::PixFmt) -> UFMFResult<u8> {
+    use formats::pixel_format::PixFmt::*;
     let r = match pixel_format {
-        MONO8 | BayerRG8 | BayerGB8 | BayerGR8 | BayerBG8 | YUV422 | RGB8 => b'B',
-        MONO32f | BayerRG32f | BayerGB32f | BayerGR32f | BayerBG32f => b'f',
-        e => {
-            return Err(UFMFError::UnimplementedPixelFormat(e));
+        Mono8 | BayerRG8 | BayerGB8 | BayerGR8 | BayerBG8 | YUV422 | RGB8 => b'B',
+        Mono32f | BayerRG32f | BayerGB32f | BayerGR32f | BayerBG32f => b'f',
+        x => {
+            return Err(UFMFError::UnimplementedPixelFormat(x));
         }
     };
     Ok(r)
@@ -122,10 +126,10 @@ pub struct UFMFWriter<F: Write + Seek> {
     max_height: u16,
     xinc: u8,
     yinc: u8,
-    pixel_format: PixelFormat,
     index_frame: Vec<TimestampLoc>,
     index_keyframes: BTreeMap<Vec<u8>, Vec<TimestampLoc>>,
     bytes_per_pixel: u8,
+    pixel_format: formats::pixel_format::PixFmt,
 }
 
 impl<F: Write + Seek> std::fmt::Debug for UFMFWriter<F> {
@@ -170,7 +174,7 @@ pub struct RectFromCorner {
 }
 
 struct Region<'a> {
-    origframe: &'a dyn ImageStrideTime,
+    origframe: &'a DynamicFrame,
     rect: &'a RectFromCorner,
 }
 
@@ -187,34 +191,34 @@ fn do_size(x: u16, mut w: u16, xinc: u16, max_width: u16) -> (u16, u16) {
     (xmin, w)
 }
 
-impl<F: Write + Seek> UFMFWriter<F> {
+impl<F> UFMFWriter<F>
+where
+    F: Write + Seek,
+{
     pub fn new(
         mut f: F,
         max_width: u16,
         max_height: u16,
-        pixel_format: PixelFormat,
-        frame0: Option<&dyn ImageStrideTime>,
+        pixel_format: PixFmt,
+        frame0: Option<&DynamicFrame>,
     ) -> UFMFResult<Self> {
+        if let Some(frame0) = frame0.as_ref() {
+            if frame0.pixel_format() != pixel_format {
+                return Err(UFMFError::FormatChanged);
+            }
+        }
         let pos = write_header(&mut f, 0, max_width, max_height, pixel_format)?;
 
+        use PixFmt::*;
         let (xinc, yinc) = match pixel_format {
-            PixelFormat::MONO8
-            | PixelFormat::BayerRG8
-            | PixelFormat::BayerGB8
-            | PixelFormat::BayerGR8
-            | PixelFormat::BayerBG8 => (2, 2),
-            PixelFormat::YUV422 => (4, 1),
+            Mono8 | BayerRG8 | BayerGB8 | BayerGR8 | BayerBG8 => (2, 2),
+            YUV422 => (4, 1),
             e => {
                 return Err(UFMFError::UnimplementedPixelFormat(e));
             }
         };
 
-        let bytes_per_pixel = match pixel_format.bits_per_pixel() {
-            Some(bit_per_pixel) => bit_per_pixel.get() / 8,
-            None => {
-                return Err(UFMFError::UnimplementedPixelFormat(pixel_format));
-            }
-        };
+        let bytes_per_pixel = pixel_format.bits_per_pixel() / 8;
 
         let f = Some(f);
 
@@ -225,14 +229,14 @@ impl<F: Write + Seek> UFMFWriter<F> {
             max_height,
             xinc,
             yinc,
-            pixel_format,
             index_frame: Vec::new(),
             index_keyframes: BTreeMap::new(),
             bytes_per_pixel,
+            pixel_format,
         };
 
         if let Some(frame0) = frame0 {
-            result.add_keyframe(b"frame0", frame0)?;
+            match_all_dynamic_fmts!(frame0, x, { result.add_keyframe(b"frame0", x)? });
         }
 
         Ok(result)
@@ -240,14 +244,13 @@ impl<F: Write + Seek> UFMFWriter<F> {
 
     pub fn add_frame(
         &mut self,
-        origframe: &dyn ImageStrideTime,
+        origframe: &DynamicFrame,
         point_data: &Vec<RectFromCenter>,
     ) -> UFMFResult<Vec<RectFromCorner>> {
-        if self.pixel_format != origframe.pixel_format() {
-            return Err(UFMFError::MismatchedEncoding.into());
+        if origframe.pixel_format() != self.pixel_format {
+            return Err(UFMFError::FormatChanged);
         }
-
-        let timestamp = datetime_conversion::datetime_to_f64(&origframe.host_timestamp());
+        let timestamp = datetime_conversion::datetime_to_f64(&origframe.extra().host_timestamp());
 
         let rects: Vec<RectFromCorner> = point_data
             .iter()
@@ -283,6 +286,7 @@ impl<F: Write + Seek> UFMFWriter<F> {
         });
 
         let n_pts = cast::u16(regions.len())?;
+        let bytes_per_pixel = self.bytes_per_pixel;
 
         let buf0 = vec![FRAME_CHUNK];
         let buf1 = structure!("<dH").pack(timestamp, n_pts)?;
@@ -298,21 +302,22 @@ impl<F: Write + Seek> UFMFWriter<F> {
                 region.rect.h,
             )?;
             self.pos += self_f.write(&this_str_head)?;
-            self.pos += write_image(
-                &mut self_f,
-                region.origframe,
-                self.bytes_per_pixel,
-                &region.rect,
-            )?;
+            self.pos += match_all_dynamic_fmts!(region.origframe, frame, {
+                write_image(&mut self_f, frame, bytes_per_pixel, &region.rect)?
+            });
         }
         Ok(())
     }
 
-    pub fn add_keyframe(
+    pub fn add_keyframe<FRAME, FMT>(
         &mut self,
         keyframe_type: &[u8],
-        frame: &dyn ImageStrideTime,
-    ) -> UFMFResult<()> {
+        frame: &FRAME,
+    ) -> UFMFResult<()>
+    where
+        FRAME: ImageStrideTime<FMT>,
+        FMT: PixelFormat,
+    {
         let mut self_f = match self.f {
             Some(ref mut f) => f,
             None => {
@@ -320,17 +325,15 @@ impl<F: Write + Seek> UFMFWriter<F> {
             }
         };
 
-        let dtl = frame.host_timestamp();
+        let dtl = frame.extra().host_timestamp();
 
-        let bytes_per_pixel = match frame.pixel_format().bits_per_pixel() {
-            Some(bit_per_pixel) => bit_per_pixel.get() / 8,
-            None => {
-                return Err(UFMFError::UnimplementedPixelFormat(frame.pixel_format()));
-            }
-        };
+        let bytes_per_pixel = machine_vision_formats::pixel_format::pixfmt::<FMT>()
+            .unwrap()
+            .bits_per_pixel()
+            / 8;
 
         let timestamp = datetime_conversion::datetime_to_f64(&dtl);
-        let dtype = get_dtype(frame.pixel_format())?;
+        let dtype = get_dtype(machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap())?;
         let width = cast::u16(frame.width())?;
         let height = cast::u16(frame.height())?;
 
@@ -358,10 +361,25 @@ impl<F: Write + Seek> UFMFWriter<F> {
             h: height,
         };
         self.pos += self_f.write(&buf)?;
-        self.pos += write_image(&mut self_f, frame, bytes_per_pixel, &rect)?;
+        // let frame: &dyn ImageStrideTime<FMT> = frame;
+        // let frame = AsImageStrideTime::as_image_stride_time(frame);
+        // let frame: &dyn ImageStride<FMT> = frame.as_image_stride();
+        self.pos += write_image(
+            &mut self_f,
+            frame,
+            // AsImageStride::as_image_stride(frame),
+            // frame.as_image_stride(),
+            bytes_per_pixel,
+            &rect,
+        )?;
         Ok(())
     }
+}
 
+impl<F> UFMFWriter<F>
+where
+    F: Write + Seek,
+{
     /// Close the writer.
     ///
     /// Ideally, this is called prior to dropping to prevent the possibility of
@@ -404,12 +422,10 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use basic_frame::BasicFrame;
+    use basic_frame::{BasicExtra, BasicFrame, DynamicFrame};
     use byteorder::WriteBytesExt;
 
-    use timestamped_frame::AsImageStrideTime;
-
-    fn arange(start: u8, timestamp: f64) -> BasicFrame {
+    fn arange(start: u8, timestamp: f64) -> DynamicFrame {
         let w = 10;
         let h = 10;
         let mut image_data = Vec::new();
@@ -425,19 +441,22 @@ mod tests {
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-
                                           // by-byte comparison in the test will succeed.
+        let extra = Box::new(BasicExtra {
+            host_timestamp,
+            host_framenumber: 0,
+        });
 
-        BasicFrame {
+        DynamicFrame::Mono8(BasicFrame {
             width: w,
             height: h,
             stride: w,
             image_data,
-            pixel_format: PixelFormat::MONO8,
-            host_timestamp,
-            host_framenumber: 0,
-        }
+            pixel_format: std::marker::PhantomData,
+            extra,
+        })
     }
 
-    fn arange_float(start: f32, timestamp: f64) -> BasicFrame {
+    fn arange_float(start: f32, timestamp: f64) -> DynamicFrame {
         let w = 10;
         let h = 10;
 
@@ -456,16 +475,19 @@ mod tests {
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-
                                           // by-byte comparison in the test will succeed.
+        let extra = Box::new(BasicExtra {
+            host_timestamp,
+            host_framenumber: 0,
+        });
 
-        BasicFrame {
+        DynamicFrame::Mono32f(BasicFrame {
             width: w,
             height: h,
             stride: w * 4,
             image_data,
-            pixel_format: PixelFormat::MONO32f,
-            host_timestamp,
-            host_framenumber: 0,
-        }
+            pixel_format: std::marker::PhantomData,
+            extra,
+        })
     }
 
     #[test]
@@ -481,7 +503,7 @@ mod tests {
     fn test_empty_file() {
         let w = 320;
         let h = 240;
-        let pixel_format = crate::formats::PixelFormat::MONO8;
+        let pixel_format = formats::pixel_format::PixFmt::Mono8;
         let f = std::io::Cursor::new(Vec::new());
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, None).unwrap();
         let f = writer.close().unwrap();
@@ -498,15 +520,15 @@ mod tests {
         // The expected values are from this Python program:
 
         /*
-import ufmf
+        import ufmf
 
-fname = 'empty.ufmf'
-saver = ufmf.UfmfSaverV3(fname,max_width=320,max_height=240,coding='MONO8')
-saver.close()
+        fname = 'empty.ufmf'
+        saver = ufmf.UfmfSaverV3(fname,max_width=320,max_height=240,coding='MONO8')
+        saver.close()
 
-buf = open(fname,mode='r').read()
-print(', '.join(['0x%x'%ord(c) for c in buf]))
-*/
+        buf = open(fname,mode='r').read()
+        print(', '.join(['0x%x'%ord(c) for c in buf]))
+        */
         let expected: &[u8] = &[
             0x75, 0x66, 0x6d, 0x66, 0x3, 0x0, 0x0, 0x0, 0x1b, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
             0x40, 0x1, 0xf0, 0x0, 0x5, 0x4d, 0x4f, 0x4e, 0x4f, 0x38, 0x2, 0x64, 0x2, 0x5, 0x0,
@@ -519,22 +541,21 @@ print(', '.join(['0x%x'%ord(c) for c in buf]))
     #[test]
     fn test_saving_regions() {
         let arr = arange(0, 123.456);
-        let frame0 = Some(arr.as_image_stride_time());
+        let frame0 = Some(&arr);
         let w = 10;
         let h = 10;
-        let pixel_format = crate::formats::PixelFormat::MONO8;
+        let pixel_format = formats::pixel_format::PixFmt::Mono8;
         let f = std::io::Cursor::new(Vec::new());
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, frame0).unwrap();
 
         let arr2 = arange(100, 42.42);
-        let origframe = arr2.as_image_stride_time();
         let point_data = vec![
             RectFromCenter::from_xy_wh(0, 0, 4, 4),
             RectFromCenter::from_xy_wh(4, 4, 4, 4),
             RectFromCenter::from_xy_wh(9, 9, 4, 4),
         ];
 
-        writer.add_frame(origframe, &point_data).unwrap();
+        writer.add_frame(&arr2, &point_data).unwrap();
 
         let f = writer.close().unwrap();
 
@@ -551,43 +572,43 @@ print(', '.join(['0x%x'%ord(c) for c in buf]))
 
         /*
 
-from __future__ import print_function
-import ufmf
-import numpy as np
+        from __future__ import print_function
+        import ufmf
+        import numpy as np
 
-frame0 = np.arange(100, dtype=np.uint8)
-frame0.shape = (10,10)
+        frame0 = np.arange(100, dtype=np.uint8)
+        frame0.shape = (10,10)
 
-print(frame0)
+        print(frame0)
 
-timestamp0 = 123.456
+        timestamp0 = 123.456
 
-fname = 'small.ufmf'
-saver = ufmf.UfmfSaverV3(fname,max_width=10,max_height=10,coding='MONO8',
-    frame0=frame0,timestamp0=timestamp0)
+        fname = 'small.ufmf'
+        saver = ufmf.UfmfSaverV3(fname,max_width=10,max_height=10,coding='MONO8',
+            frame0=frame0,timestamp0=timestamp0)
 
-print('---')
-frame1 = np.arange(100, dtype=np.uint8) + 100
-frame1.shape = frame0.shape
-print(frame1)
+        print('---')
+        frame1 = np.arange(100, dtype=np.uint8) + 100
+        frame1.shape = frame0.shape
+        print(frame1)
 
-point_data = [
-    # xidx, yidx, w, h
-    (0, 0, 4, 4),
-    (4, 4, 4, 4),
-    (9, 9, 4, 4),
-]
+        point_data = [
+            # xidx, yidx, w, h
+            (0, 0, 4, 4),
+            (4, 4, 4, 4),
+            (9, 9, 4, 4),
+        ]
 
-saver.add_frame(frame1,timestamp=42.42,point_data=point_data)
+        saver.add_frame(frame1,timestamp=42.42,point_data=point_data)
 
-saver.close()
+        saver.close()
 
-print('---')
+        print('---')
 
-buf = open(fname,mode='r').read()
-print(', '.join(['0x%x'%ord(c) for c in buf]))
+        buf = open(fname,mode='r').read()
+        print(', '.join(['0x%x'%ord(c) for c in buf]))
 
-*/
+        */
 
         let expected: &[u8] = &[
             0x75, 0x66, 0x6d, 0x66, 0x3, 0x0, 0x0, 0x0, 0xe7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -620,15 +641,17 @@ print(', '.join(['0x%x'%ord(c) for c in buf]))
 
     #[test]
     fn test_float_keyframe() {
+        use machine_vision_formats::pixel_format::Mono32f;
         let w = 10;
         let h = 10;
-        let pixel_format = crate::formats::PixelFormat::MONO8;
+        let pixel_format = formats::pixel_format::PixFmt::Mono8;
         let f = std::io::Cursor::new(Vec::new());
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, None).unwrap();
         let running_mean = arange_float(0.1, 123.456);
-        writer
-            .add_keyframe(b"mean", running_mean.as_image_stride_time())
-            .unwrap();
+
+        let running_mean = running_mean.into_basic::<Mono32f>().unwrap();
+
+        writer.add_keyframe(b"mean", &running_mean).unwrap();
         let f = writer.close().unwrap();
 
         // check that we cannot close again
@@ -643,26 +666,26 @@ print(', '.join(['0x%x'%ord(c) for c in buf]))
         // The expected values are from this Python program:
 
         /*
-from __future__ import print_function
-import ufmf
-import numpy as np
+        from __future__ import print_function
+        import ufmf
+        import numpy as np
 
-running_mean_im = np.arange(100, dtype=np.float32) + 0.1
-running_mean_im.shape = (10,10)
+        running_mean_im = np.arange(100, dtype=np.float32) + 0.1
+        running_mean_im.shape = (10,10)
 
-print(running_mean_im)
+        print(running_mean_im)
 
-fname = 'with_mean.ufmf'
-saver = ufmf.UfmfSaverV3(fname,max_width=10,max_height=10,coding='MONO8')
-saver.add_keyframe('mean',running_mean_im,timestamp=123.456)
-saver.close()
+        fname = 'with_mean.ufmf'
+        saver = ufmf.UfmfSaverV3(fname,max_width=10,max_height=10,coding='MONO8')
+        saver.add_keyframe('mean',running_mean_im,timestamp=123.456)
+        saver.close()
 
-print('---')
+        print('---')
 
-buf = open(fname,mode='r').read()
-print(', '.join(['0x%x'%ord(c) for c in buf]))
+        buf = open(fname,mode='r').read()
+        print(', '.join(['0x%x'%ord(c) for c in buf]))
 
-*/
+        */
 
         let expected: &[u8] = &[
             0x75, 0x66, 0x6d, 0x66, 0x3, 0x0, 0x0, 0x0, 0xbe, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,

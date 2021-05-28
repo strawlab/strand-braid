@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate log;
 
+use borrow_fastimage::BorrowedFrame;
 use futures::{channel::mpsc, stream::StreamExt};
 
 use machine_vision_formats as formats;
@@ -21,9 +22,10 @@ use fastimage::{
 };
 use rust_cam_bui_types::ClockModel;
 
-use formats::PixelFormat;
-use timestamped_frame::{HostTimeData, ImageStrideTime};
+use formats::{pixel_format::Mono32f, ImageBuffer, ImageBufferRef, Stride};
+use timestamped_frame::{ExtraTimeData, HostTimeData};
 
+use basic_frame::DynamicFrame;
 use flydra_types::{
     serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
     ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
@@ -166,7 +168,7 @@ impl TrackingState {
         running_mean: FastImageData<Chan1, f32>,
         mean_squared_im: FastImageData<Chan1, f32>,
         cfg: &ImPtDetectCfg,
-        pixel_format: formats::PixelFormat,
+        pixel_format: formats::PixFmt,
         complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
     ) -> Result<Self>
     where
@@ -526,18 +528,8 @@ fn save_bg_data(
     state_background: &background_model::BackgroundModel,
 ) -> Result<()> {
     let (ts, fno) = state_background.complete_stamp;
-    let mean = borrow_fi(
-        &state_background.mean_background,
-        ts,
-        fno,
-        state_background.f32_encoding,
-    )?;
-    let sumsq = borrow_fi(
-        &state_background.mean_squared_im,
-        ts,
-        fno,
-        state_background.f32_encoding,
-    )?;
+    let mean: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_background, ts, fno)?;
+    let sumsq: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_squared_im, ts, fno)?;
     ufmf_writer.add_keyframe(b"mean", &mean)?;
     ufmf_writer.add_keyframe(b"sumsq", &sumsq)?;
     Ok(())
@@ -911,15 +903,16 @@ impl FlyTracker {
 
     pub fn process_new_frame(
         &mut self,
-        frame: &dyn ImageStrideTime,
+        frame: &DynamicFrame,
         ufmf_state: UfmfState,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
+        let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
         let q1 = std::time::Instant::now();
         let mut sample_vec = Vec::new();
-        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.host_timestamp());
-        let opt_trigger_stamp = self.get_start_ts(frame.host_framenumber() as u64);
+        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
+        let opt_trigger_stamp = self.get_start_ts(frame.extra().host_framenumber() as u64);
         let acquire_duration = match opt_trigger_stamp {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside
@@ -930,7 +923,7 @@ impl FlyTracker {
         };
 
         self.acquisition_histogram
-            .push_new_sample(acquire_duration, frame.host_framenumber() as u64);
+            .push_new_sample(acquire_duration, frame.extra().host_framenumber() as u64);
 
         if self.acquisition_histogram.is_old() {
             self.acquisition_histogram.show_stats();
@@ -948,13 +941,12 @@ impl FlyTracker {
                 let path = std::path::Path::new(&dest);
                 info!("saving UFMF to path {}", path.display());
                 let f = std::fs::File::create(&path)?;
-                let frame0 = Some(frame);
                 let ufmf_writer = UFMFWriter::new(
                     f,
                     cast::u16(frame.width())?,
                     cast::u16(frame.height())?,
                     frame.pixel_format(),
-                    frame0,
+                    Some(frame),
                 )?;
                 // save current background state when starting ufmf save.
                 do_save_ufmf_bg = true;
@@ -968,7 +960,7 @@ impl FlyTracker {
         };
 
         let raw_im_full = FastImageView::view_raw(
-            &frame.image_data(),
+            frame.image_data_without_format(),
             frame.stride() as ipp_ctypes::c_int,
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
@@ -992,7 +984,7 @@ impl FlyTracker {
             cam_name: self.ros_cam_name.as_str().to_string(),
             timestamp: opt_trigger_stamp.clone(),
             cam_received_time: acquire_stamp,
-            framenumber: frame.host_framenumber() as i32,
+            framenumber: frame.extra().host_framenumber() as i32,
             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
             done_camnode_processing: 0.0,
             preprocess_stamp,
@@ -1044,7 +1036,10 @@ impl FlyTracker {
 
                 startup_state.n_frames += 1;
                 packet.image_processing_steps |= ImageProcessingSteps::BGSTARTUP;
-                let complete_stamp = (frame.host_timestamp(), frame.host_framenumber());
+                let complete_stamp = (
+                    frame.extra().host_timestamp(),
+                    frame.extra().host_framenumber(),
+                );
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
                     let state = TrackingState::new(
@@ -1052,7 +1047,7 @@ impl FlyTracker {
                         startup_state.running_mean,
                         startup_state.mean_squared_im,
                         &self.cfg,
-                        frame.pixel_format(),
+                        pixel_format,
                         complete_stamp,
                     )?;
                     (packet, BackgroundAcquisitionState::NormalUpdates(state))
@@ -1074,14 +1069,17 @@ impl FlyTracker {
                     FastImageData::<Chan1, f32>::copy_from_32f_c1(&running_mean)?;
                 ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
 
-                let complete_stamp = (frame.host_timestamp(), frame.host_framenumber());
+                let complete_stamp = (
+                    frame.extra().host_timestamp(),
+                    frame.extra().host_framenumber(),
+                );
 
                 let state = TrackingState::new(
                     &raw_im_full,
                     running_mean,
                     mean_squared_im,
                     &self.cfg,
-                    frame.pixel_format(),
+                    pixel_format,
                     complete_stamp,
                 )?;
                 debug!("cleared background model to value {}", value);
@@ -1135,7 +1133,7 @@ impl FlyTracker {
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();
                 if let UfmfState::Saving(ref mut ufmf_writer) = new_ufmf_state {
-                    ufmf_writer.add_frame(frame, &point_data)?;
+                    ufmf_writer.add_frame(&frame, &point_data)?;
                     if do_save_ufmf_bg || got_new_bg_data {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }

@@ -1,7 +1,8 @@
 use futures::stream::StreamExt;
 
-use ci2::{CameraModule, Camera};
+use ci2::{Camera, CameraModule};
 use ci2_async::AsyncCamera;
+use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[cfg(feature = "backend_aravis")]
 use ci2_aravis as backend;
@@ -12,44 +13,47 @@ use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
 
-use machine_vision_formats as formats;
-
 #[cfg(feature = "backend_pyloncxx")]
-pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(frame: &F) {
-    let frame_any = frame as &dyn std::any::Any;
-
-    let frame = frame_any.downcast_ref::<backend::Frame>().unwrap();
-    println!("    Pylon device_timestamp: {}, block_id: {}", frame.device_timestamp, frame.block_id);
+pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
+    // Downcast to pylon specific type.
+    let pylon_extra = extra
+        .as_any()
+        .downcast_ref::<backend::PylonExtra>()
+        .unwrap();
+    println!(
+        "    device_timestamp: {}, block_id: {}",
+        pylon_extra.device_timestamp, pylon_extra.block_id
+    );
 }
 
 #[cfg(feature = "backend_flycap2")]
-pub fn print_backend_specific_metadata<F: formats::ImageStride + std::any::Any>(frame: &F) {
-    let frame_any = frame as &dyn std::any::Any;
-
-    let frame = frame_any.downcast_ref::<ci2_flycap2::Frame>().unwrap();
-    println!("    flycap2 device_timestamp: {:?}", frame.device_timestamp());
+pub fn print_backend_specific_data(frame: &DynamicFrame) {
+    // do nothing for now.
 }
 
 #[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_flycap2")))]
-pub fn print_backend_specific_metadata<F: formats::ImageStride>(_frame: &F) {
+pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
     // do nothing
 }
 
-async fn do_capture<C,T>(cam: &mut ci2_async::ThreadedAsyncCamera<C,T>) -> Result<(), ci2::Error>
-    where
-        C: 'static + ci2::Camera<FrameType=T> + Send,
-        T: 'static + timestamped_frame::FrameTrait + Send + std::fmt::Debug,
-        Vec<u8>: From<T>,
+async fn do_capture<C>(cam: &mut ci2_async::ThreadedAsyncCamera<C>) -> Result<(), ci2::Error>
+where
+    C: 'static + ci2::Camera + Send,
 {
     let mut stream = cam.frames(10, || {})?.take(10);
     while let Some(frame) = stream.next().await {
         match frame {
             ci2_async::FrameResult::Frame(frame) => {
-                println!("  got frame {}: {}x{}", frame.host_framenumber(), frame.width(), frame.height());
-                print_backend_specific_metadata(&frame);
+                println!(
+                    "  got frame {}: {}x{}",
+                    frame.extra().host_framenumber(),
+                    frame.width(),
+                    frame.height()
+                );
+                print_backend_specific_data(frame.extra());
             }
-            m => {
-                println!("  got FrameResult: {:?}", m);
+            ci2_async::FrameResult::SingleFrameError(e) => {
+                println!("  got SingleFrameError: {:?}", e);
             }
         };
     }
