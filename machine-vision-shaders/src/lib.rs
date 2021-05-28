@@ -27,33 +27,49 @@ pub enum UniformType {
 
 /// Internal format of the OpenGL texture expected
 #[derive(Debug)]
-pub enum InternalFormat{
+pub enum InternalFormat {
     Raw8,
     Rgb8,
 }
 
-pub fn get_programs(width: u32,
-                    height: u32,
-                    pixel_format: PixelFormat)
-                    -> (UniformType, &'static str, &'static str, InternalFormat) {
+pub fn get_programs(
+    width: u32,
+    height: u32,
+    pixel_format: PixelFormat,
+) -> (UniformType, &'static str, &'static str, InternalFormat) {
     let w = width as f32;
     let h = height as f32;
     let source_size = [w, h, 1.0 / w, 1.0 / h];
     let (uni_ty, vert_src, frag_src, ifmt) = match pixel_format {
-        PixelFormat::MONO8 => (UniformType::Mono8, MONO8_VERTEX_SRC, MONO8_FRAGMENT_SRC, InternalFormat::Raw8),
+        PixelFormat::MONO8 => (
+            UniformType::Mono8,
+            MONO8_VERTEX_SRC,
+            MONO8_FRAGMENT_SRC,
+            InternalFormat::Raw8,
+        ),
         PixelFormat::BayerBG8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [0.0, 0.0],
             };
-            (UniformType::Bayer(di), DEMOSAIC_VERTEX_SRC, DEMOSAIC_FRAGMENT_SRC, InternalFormat::Raw8)
+            (
+                UniformType::Bayer(di),
+                DEMOSAIC_VERTEX_SRC,
+                DEMOSAIC_FRAGMENT_SRC,
+                InternalFormat::Raw8,
+            )
         }
         PixelFormat::BayerRG8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [1.0, 1.0],
             };
-            (UniformType::Bayer(di), DEMOSAIC_VERTEX_SRC, DEMOSAIC_FRAGMENT_SRC, InternalFormat::Raw8)
+            (
+                UniformType::Bayer(di),
+                DEMOSAIC_VERTEX_SRC,
+                DEMOSAIC_FRAGMENT_SRC,
+                InternalFormat::Raw8,
+            )
         }
 
         PixelFormat::BayerGR8 => {
@@ -61,19 +77,39 @@ pub fn get_programs(width: u32,
                 source_size: source_size,
                 first_red: [0.0, 1.0],
             };
-            (UniformType::Bayer(di), DEMOSAIC_VERTEX_SRC, DEMOSAIC_FRAGMENT_SRC, InternalFormat::Raw8)
+            (
+                UniformType::Bayer(di),
+                DEMOSAIC_VERTEX_SRC,
+                DEMOSAIC_FRAGMENT_SRC,
+                InternalFormat::Raw8,
+            )
         }
         PixelFormat::BayerGB8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [1.0, 0.0],
             };
-            (UniformType::Bayer(di), DEMOSAIC_VERTEX_SRC, DEMOSAIC_FRAGMENT_SRC, InternalFormat::Raw8)
+            (
+                UniformType::Bayer(di),
+                DEMOSAIC_VERTEX_SRC,
+                DEMOSAIC_FRAGMENT_SRC,
+                InternalFormat::Raw8,
+            )
         }
-        PixelFormat::RGB8 => (UniformType::Rgb8, RGB8_VERTEX_SRC, RGB8_FRAGMENT_SRC, InternalFormat::Rgb8),
+        PixelFormat::RGB8 => (
+            UniformType::Rgb8,
+            RGB8_VERTEX_SRC,
+            RGB8_FRAGMENT_SRC,
+            InternalFormat::Rgb8,
+        ),
         ref e => {
             error!("do not know how to decode {:?}, using MONO8 decoder", e);
-            (UniformType::Mono8, MONO8_VERTEX_SRC, MONO8_FRAGMENT_SRC, InternalFormat::Raw8)
+            (
+                UniformType::Mono8,
+                MONO8_VERTEX_SRC,
+                MONO8_FRAGMENT_SRC,
+                InternalFormat::Raw8,
+            )
         }
     };
     (uni_ty, vert_src, frag_src, ifmt)
