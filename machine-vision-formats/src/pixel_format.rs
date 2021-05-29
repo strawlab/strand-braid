@@ -216,7 +216,7 @@ pub trait PixelFormat: std::any::Any + Clone {}
 macro_rules! define_pixel_format {
     ($name:ident, $comment:literal) => {
         #[doc = $comment]
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         pub struct $name {}
         impl PixelFormat for $name {}
     };
@@ -244,3 +244,8 @@ define_pixel_format!(BayerGR8, "Bayer Green Red pattern, 1 byte per pixel.");
 define_pixel_format!(BayerGR32f, "Bayer Green Red pattern, 4 bytes per pixel.");
 define_pixel_format!(YUV422, "YUV 4:2:2 8-bit, total 2 bytes per pixel.");
 define_pixel_format!(NV12, "NV12 format, average 12 bits per pixel");
+
+#[test]
+fn test_debug_types() {
+    format!("{:?}", BayerRG8 {});
+}
