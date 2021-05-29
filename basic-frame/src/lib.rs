@@ -1,4 +1,6 @@
-use machine_vision_formats::{ImageBuffer, ImageBufferRef, ImageData, Stride};
+use machine_vision_formats::{
+    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageMutData, Stride,
+};
 use timestamped_frame::{ExtraTimeData, FrameTrait, HostTimeData, ImageStrideTime};
 
 mod dynamic_frame;
@@ -165,6 +167,12 @@ impl<F> ImageData<F> for BasicFrame<F> {
     }
     fn buffer(self) -> ImageBuffer<F> {
         ImageBuffer::new(self.image_data)
+    }
+}
+
+impl<F> ImageMutData<F> for BasicFrame<F> {
+    fn buffer_mut_ref(&mut self) -> ImageBufferMutRef<'_, F> {
+        ImageBufferMutRef::new(&mut self.image_data)
     }
 }
 

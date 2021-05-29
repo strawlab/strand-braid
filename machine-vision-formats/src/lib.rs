@@ -142,6 +142,16 @@ pub trait ImageData<F> {
     fn buffer(self) -> ImageBuffer<F>;
 }
 
+/// A mutable image.
+///
+/// The pixel format is specified as the type `F`.
+pub trait ImageMutData<F>: ImageData<F> {
+    /// Returns the image mutable buffer specified by pixel format `F`.
+    ///
+    /// This does not copy the data but returns a mutable view of it.
+    fn buffer_mut_ref(&mut self) -> ImageBufferMutRef<'_, F>;
+}
+
 /// An image whose data is stored such that successive rows are a stride apart.
 ///
 /// This is sometimes also called "pitch".

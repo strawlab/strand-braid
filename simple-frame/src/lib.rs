@@ -1,5 +1,6 @@
 use machine_vision_formats::{
-    ImageBuffer, ImageBufferRef, ImageData, ImageStride, OwnedImageStride, Stride,
+    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageMutData, ImageStride,
+    OwnedImageStride, Stride,
 };
 
 pub struct SimpleFrame<F> {
@@ -75,6 +76,12 @@ impl<F> ImageData<F> for SimpleFrame<F> {
     }
     fn buffer(self) -> ImageBuffer<F> {
         ImageBuffer::new(self.image_data)
+    }
+}
+
+impl<F> ImageMutData<F> for SimpleFrame<F> {
+    fn buffer_mut_ref(&mut self) -> ImageBufferMutRef<'_, F> {
+        ImageBufferMutRef::new(&mut self.image_data)
     }
 }
 
