@@ -22,7 +22,7 @@ pub use pixel_format::{PixFmt, PixelFormat};
 
 // ------------------------------- ImageBufferRef ----------------------
 
-/// A concrete type which contains a view of image data with pixel format `F`.
+/// A concrete type with view of image data with pixel format `F`.
 ///
 /// This is a zero-size wrapper around a slice of bytes parameterized by the
 /// type `F`. It should cause no additional overhead above passing the raw byte
@@ -38,6 +38,36 @@ pub struct ImageBufferRef<'a, F> {
 impl<'a, F> ImageBufferRef<'a, F> {
     #[inline]
     pub fn new(data: &'a [u8]) -> Self {
+        Self {
+            pixel_format: std::marker::PhantomData,
+            data,
+        }
+    }
+    /// Copy the data to make a new buffer.
+    #[cfg(any(feature = "std", feature = "alloc"))]
+    #[inline]
+    pub fn to_buffer(&self) -> ImageBuffer<F> {
+        ImageBuffer::new(self.data.to_vec())
+    }
+}
+
+// ------------------------------- ImageBufferMutRef ----------------------
+
+/// A concrete type with view of mutable image data with pixel format `F`.
+///
+/// This is a zero-size wrapper around a slice of bytes parameterized by the
+/// type `F`. It should cause no additional overhead above passing the raw byte
+/// slice but maintains a compile-time guarantee of the image format.
+pub struct ImageBufferMutRef<'a, F> {
+    /// The pixel format
+    pub pixel_format: std::marker::PhantomData<F>,
+    /// The raw bytes of the image buffer.
+    pub data: &'a mut [u8],
+}
+
+impl<'a, F> ImageBufferMutRef<'a, F> {
+    #[inline]
+    pub fn new(data: &'a mut [u8]) -> Self {
         Self {
             pixel_format: std::marker::PhantomData,
             data,
@@ -113,8 +143,12 @@ pub trait ImageData<F> {
 }
 
 /// An image whose data is stored such that successive rows are a stride apart.
+///
+/// This is sometimes also called "pitch".
 pub trait Stride {
     /// the width (in bytes) of each row of image data
+    ///
+    /// This is sometimes also called "pitch".
     fn stride(&self) -> usize;
 }
 
