@@ -6,8 +6,9 @@ use bayer as wang_debayer;
 use machine_vision_formats as formats;
 
 use formats::{
-    pixel_format::NV12, ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride,
-    OwnedImageStride, PixFmt, PixelFormat, Stride,
+    pixel_format::{Mono8, NV12},
+    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride, OwnedImageStride,
+    PixFmt, PixelFormat, Stride,
 };
 use simple_frame::SimpleFrame;
 
@@ -994,9 +995,9 @@ where
 }
 
 /// Copy any type implementing `ImageStride<FMT>` to a "gray8" ("mono8") buffer.
-pub fn encode_into_gray8<FMT>(
+pub fn encode_into_mono8<FMT>(
     frame: &dyn ImageStride<FMT>,
-    gray8_data: &mut [u8],
+    dest: &mut ImageBufferMutRef<Mono8>,
     dest_stride: usize,
 ) -> Result<()>
 where
@@ -1006,15 +1007,15 @@ where
     let frame = convert::<FMT, formats::pixel_format::Mono8>(frame)?;
 
     let luma_size = frame.height() as usize * dest_stride;
-    if gray8_data.len() != luma_size {
+    if dest.data.len() != luma_size {
         return Err(Error::InvalidAllocatedBufferSize);
     }
 
     let w = frame.width() as usize;
     for y in 0..frame.height() as usize {
-        let dest = dest_stride * y;
+        let start = dest_stride * y;
         let src = frame.stride() * y;
-        gray8_data[dest..(dest + w)].copy_from_slice(&frame.image_data()[src..(src + w)]);
+        dest.data[start..(start + w)].copy_from_slice(&frame.image_data()[src..(src + w)]);
     }
     Ok(())
 }

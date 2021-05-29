@@ -1,5 +1,5 @@
 use ads_apriltag as apriltag;
-use machine_vision_formats::ImageData;
+use machine_vision_formats::{ImageBufferMutRef, ImageData};
 
 #[test]
 fn test_detect_standard_41h12() {
@@ -22,7 +22,8 @@ fn test_detect_standard_41h12() {
     let height = rgb.height() as usize;
     let stride = rgb.width() as usize;
     let mut im_data = vec![0; height * stride];
-    convert_image::encode_into_gray8(&rgb, &mut im_data[..], stride).unwrap();
+    let mut dest = ImageBufferMutRef::new(&mut im_data[..]);
+    convert_image::encode_into_mono8(&rgb, &mut dest, stride).unwrap();
 
     let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
@@ -62,7 +63,8 @@ fn test_detect_standard_36h11() {
     let height = rgb.height() as usize;
     let stride = rgb.width() as usize;
     let mut im_data = vec![0; height * stride];
-    convert_image::encode_into_gray8(&rgb, &mut im_data[..], stride).unwrap();
+    let mut dest = ImageBufferMutRef::new(&mut im_data[..]);
+    convert_image::encode_into_mono8(&rgb, &mut dest, stride).unwrap();
 
     let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
