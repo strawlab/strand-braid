@@ -29,6 +29,7 @@ pub enum PixFmt {
     BayerGR8,
     BayerGR32f,
     YUV422,
+    NV12,
 }
 
 impl PixFmt {
@@ -57,6 +58,7 @@ impl PixFmt {
             BayerGR8 => 8,
             BayerGR32f => 32,
             YUV422 => 16,
+            NV12 => 12,
         }
     }
     /// The name of the pixel format.
@@ -75,6 +77,7 @@ impl PixFmt {
             BayerGR8 => "BayerGR8",
             BayerGR32f => "BayerGR32f",
             YUV422 => "YUV422",
+            NV12 => "NV12",
         }
     }
 }
@@ -113,6 +116,8 @@ impl std::str::FromStr for PixFmt {
             Ok(BayerGR32f)
         } else if instr == "YUV422" {
             Ok(YUV422)
+        } else if instr == "NV12" {
+            Ok(NV12)
         } else {
             Err("Cannot parse string")
         }
@@ -124,7 +129,7 @@ fn test_pixfmt_roundtrip() {
     use PixFmt::*;
     let fmts = [
         Mono8, Mono32f, RGB8, BayerRG8, BayerRG32f, BayerBG8, BayerBG32f, BayerGB8, BayerGB32f,
-        BayerGR8, BayerGR32f, YUV422,
+        BayerGR8, BayerGR32f, YUV422, NV12,
     ];
     for fmt in &fmts {
         let fmt_str = fmt.as_str();
@@ -162,6 +167,7 @@ where
         try_downcast!(BayerGR8, &orig);
         try_downcast!(BayerGR32f, &orig);
         try_downcast!(YUV422, &orig);
+        try_downcast!(NV12, &orig);
         Err("unknown PixelFormat implementation could not be converted to PixFmt")
     }
 }
@@ -196,6 +202,7 @@ fn test_compile_runtime_roundtrip() {
     gen_test!(BayerGR8);
     gen_test!(BayerGR32f);
     gen_test!(YUV422);
+    gen_test!(NV12);
 }
 
 /// Implementations of this trait describe the format of raw image data.
@@ -236,3 +243,4 @@ define_pixel_format!(BayerGB32f, "Bayer Green Blue pattern, 4 bytes per pixel.")
 define_pixel_format!(BayerGR8, "Bayer Green Red pattern, 1 byte per pixel.");
 define_pixel_format!(BayerGR32f, "Bayer Green Red pattern, 4 bytes per pixel.");
 define_pixel_format!(YUV422, "YUV 4:2:2 8-bit, total 2 bytes per pixel.");
+define_pixel_format!(NV12, "NV12 format, average 12 bits per pixel");
