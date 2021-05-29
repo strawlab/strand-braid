@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use basic_frame::{BasicExtra, DynamicFrame};
+use basic_frame::{match_all_dynamic_fmts, BasicExtra, DynamicFrame};
 use ci2_remote_control::MkvRecordingConfig;
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
 use machine_vision_formats::{
@@ -372,44 +372,7 @@ fn export_fmf(
             None => frame.pixel_format(),
         };
 
-        match frame {
-            DynamicFrame::Mono8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::Mono32f(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::RGB8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerRG8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerRG32f(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerGB8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerGB32f(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerGR8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerGR32f(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerBG8(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::BayerBG32f(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-            DynamicFrame::YUV422(x) => {
-                convert_and_write_fmf!(fmt, writer, &x, fts)
-            }
-        }
+        match_all_dynamic_fmts!(frame, x, convert_and_write_fmf!(fmt, writer, &x, fts));
     }
     Ok(())
 }
@@ -453,28 +416,8 @@ fn import_webm(x: ImportWebm) -> Result<(), failure::Error> {
 fn convert_to_rgb8(
     frame: &DynamicFrame,
 ) -> Result<Box<dyn ImageStride<pixel_format::RGB8> + '_>, convert_image::Error> {
-    let f: Box<dyn ImageStride<pixel_format::RGB8>> = match frame {
-        DynamicFrame::Mono8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::Mono32f(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::RGB8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::BayerRG8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::BayerRG32f(x) => {
-            Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?)
-        }
-        DynamicFrame::BayerGB8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::BayerGB32f(x) => {
-            Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?)
-        }
-        DynamicFrame::BayerGR8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::BayerGR32f(x) => {
-            Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?)
-        }
-        DynamicFrame::BayerBG8(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-        DynamicFrame::BayerBG32f(x) => {
-            Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?)
-        }
-        DynamicFrame::YUV422(x) => Box::new(convert_image::convert::<_, pixel_format::RGB8>(x)?),
-    };
+    let f: Box<dyn ImageStride<_>> =
+        match_all_dynamic_fmts!(frame, x, Box::new(convert_image::convert(x)?));
     Ok(f)
 }
 

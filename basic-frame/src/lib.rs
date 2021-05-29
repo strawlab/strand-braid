@@ -38,6 +38,9 @@ macro_rules! convert_to_dynamic {
             PixFmt::BayerBG8 => DynamicFrame::BayerBG8(new_basic_frame!($x)),
             PixFmt::BayerBG32f => DynamicFrame::BayerBG32f(new_basic_frame!($x)),
             PixFmt::YUV422 => DynamicFrame::YUV422(new_basic_frame!($x)),
+
+            PixFmt::NV12 => DynamicFrame::NV12(new_basic_frame!($x)),
+            PixFmt::YUV444 => DynamicFrame::YUV444(new_basic_frame!($x)),
             _ => {
                 panic!("unsupported pixel format {}", $pixfmt);
             }
@@ -60,7 +63,9 @@ macro_rules! match_all_dynamic_fmts {
             DynamicFrame::BayerGR32f($x) => $block,
             DynamicFrame::BayerBG8($x) => $block,
             DynamicFrame::BayerBG32f($x) => $block,
+            DynamicFrame::YUV444($x) => $block,
             DynamicFrame::YUV422($x) => $block,
+            DynamicFrame::NV12($x) => $block,
         }
     };
 }

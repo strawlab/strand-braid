@@ -88,7 +88,9 @@ pub enum DynamicFrame {
     BayerGR32f(BasicFrame<formats::pixel_format::BayerGR32f>),
     BayerBG8(BasicFrame<formats::pixel_format::BayerBG8>),
     BayerBG32f(BasicFrame<formats::pixel_format::BayerBG32f>),
+    YUV444(BasicFrame<formats::pixel_format::YUV444>),
     YUV422(BasicFrame<formats::pixel_format::YUV422>),
+    NV12(BasicFrame<formats::pixel_format::NV12>),
 }
 
 impl DynamicFrame {
@@ -171,7 +173,9 @@ impl DynamicFrame {
             BayerGR32f(_) => PixFmt::BayerGR32f,
             BayerBG8(_) => PixFmt::BayerBG8,
             BayerBG32f(_) => PixFmt::BayerBG32f,
+            YUV444(_) => PixFmt::YUV444,
             YUV422(_) => PixFmt::YUV422,
+            NV12(_) => PixFmt::NV12,
         }
     }
     /// Force the frame into a new pixel format without altering the data.
@@ -188,21 +192,7 @@ impl DynamicFrame {
     ///
     /// Note that this discards any type information about the pixel format.
     pub fn image_data_without_format(&self) -> &[u8] {
-        use DynamicFrame::*;
-        match self {
-            Mono8(x) => &x.image_data,
-            Mono32f(x) => &x.image_data,
-            RGB8(x) => &x.image_data,
-            BayerRG8(x) => &x.image_data,
-            BayerRG32f(x) => &x.image_data,
-            BayerGB8(x) => &x.image_data,
-            BayerGB32f(x) => &x.image_data,
-            BayerGR8(x) => &x.image_data,
-            BayerGR32f(x) => &x.image_data,
-            BayerBG8(x) => &x.image_data,
-            BayerBG32f(x) => &x.image_data,
-            YUV422(x) => &x.image_data,
-        }
+        match_all_dynamic_fmts!(self, x, &x.image_data)
     }
     pub fn into_data_extra(self) -> (Vec<u8>, Box<dyn HostTimeData>) {
         match_all_dynamic_fmts!(self, x, { (x.image_data, x.extra) })
