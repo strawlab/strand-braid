@@ -272,19 +272,22 @@ pub fn mono_to_rgb(
     })
 }
 
-/// Copy RGB8 image to a new Mono8 image.
-pub fn rgb8_to_mono8(
+/// Convert RGB8 image data into pre-allocated Mono8 buffer.
+pub fn rgb8_into_mono8(
     frame: &dyn ImageStride<formats::pixel_format::RGB8>,
-) -> Result<SimpleFrame<formats::pixel_format::Mono8>> {
-    let dest_stride = frame.width() as usize;
+    dest: &mut ImageBufferMutRef<Mono8>,
+    dest_stride: usize,
+) -> Result<()> {
     let luma_size = frame.height() as usize * dest_stride;
-    let mut gray8_data = vec![0; luma_size];
+    if dest.data.len() != luma_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
 
     use itertools::izip;
     let w = frame.width() as usize;
     for (src_row, dest_row) in izip![
         frame.image_data().chunks_exact(frame.stride()),
-        gray8_data.chunks_exact_mut(dest_stride),
+        dest.data.chunks_exact_mut(dest_stride),
     ] {
         let y_iter = src_row[..w * 3]
             .chunks_exact(3)
@@ -292,16 +295,31 @@ pub fn rgb8_to_mono8(
 
         let dest_iter = dest_row[0..w].iter_mut();
 
-        for (dest, y) in izip![dest_iter, y_iter] {
-            *dest = y;
+        for (ydest, y) in izip![dest_iter, y_iter] {
+            *ydest = y;
         }
+    }
+
+    Ok(())
+}
+
+/// Convert RGB8 image to a new Mono8 image.
+pub fn rgb8_to_mono8(
+    frame: &dyn ImageStride<formats::pixel_format::RGB8>,
+) -> Result<SimpleFrame<formats::pixel_format::Mono8>> {
+    let dest_stride = frame.width() as usize;
+    let luma_size = frame.height() as usize * dest_stride;
+    let mut image_data = vec![0; luma_size];
+    {
+        let mut dest = ImageBufferMutRef::new(&mut image_data[..]);
+        rgb8_into_mono8(frame, &mut dest, dest_stride)?;
     }
 
     Ok(SimpleFrame {
         width: frame.width(),
         height: frame.height(),
         stride: dest_stride as u32,
-        image_data: gray8_data,
+        image_data,
         fmt: std::marker::PhantomData,
     })
 }
