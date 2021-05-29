@@ -6,7 +6,7 @@ use bayer as wang_debayer;
 use machine_vision_formats as formats;
 
 use formats::{
-    pixel_format::{Mono8, NV12, RGB8},
+    pixel_format::{self, Mono8, NV12, RGB8},
     ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride, OwnedImageStride,
     PixFmt, PixelFormat, Stride,
 };
@@ -199,6 +199,75 @@ fn yuv422_into_rgb(
             result_chunk[5] = tmp_rgb2.B;
         }
     }
+    Ok(())
+}
+
+fn into_yuv444<FMT>(
+    frame: &dyn ImageStride<FMT>,
+    dest: &mut ImageBufferMutRef<YUV444>,
+    dest_stride: usize,
+) -> Result<()>
+where
+    FMT: PixelFormat,
+{
+    let w = frame.width() as usize;
+    // The destination must be at least this large per row.
+    let min_stride = w * 3;
+    if dest_stride < min_stride {
+        return Err(Error::InvalidAllocatedBufferStride);
+    }
+
+    let expected_size = dest_stride * frame.height() as usize;
+    if dest.data.len() != expected_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
+
+    // Convert to Mono8 or RGB8 TODO: if input encoding is YUV already, do
+    // something better than this. We can assume that it won't be YUV444 because
+    // we check for such no-op calls in `convert_into()`. But other YUV
+    // encodings won't be caught there and we should avoid a round-trip through
+    // RGB.
+    let frame = to_rgb8_or_mono8(frame)?;
+
+    match &frame {
+        SupportedEncoding::Mono(mono) => {
+            for (dest_row, src_row) in dest
+                .data
+                .chunks_exact_mut(dest_stride)
+                .zip(mono.image_data().chunks_exact(mono.stride()))
+            {
+                for (dest_pixel, src_pixel) in
+                    dest_row[..(w * 3)].chunks_exact_mut(3).zip(&src_row[..w])
+                {
+                    let yuv = YUV444 {
+                        Y: *src_pixel,
+                        U: 128,
+                        V: 128,
+                    };
+                    dest_pixel[0] = yuv.Y;
+                    dest_pixel[1] = yuv.U;
+                    dest_pixel[2] = yuv.V;
+                }
+            }
+        }
+        SupportedEncoding::Rgb(rgb) => {
+            for (dest_row, src_row) in dest
+                .data
+                .chunks_exact_mut(dest_stride)
+                .zip(rgb.image_data().chunks_exact(rgb.stride()))
+            {
+                for (dest_pixel, src_pixel) in dest_row[..(w * 3)]
+                    .chunks_exact_mut(3)
+                    .zip(src_row[..(w * 3)].chunks_exact(3))
+                {
+                    let yuv = RGB888toYUV444(src_pixel[0], src_pixel[1], src_pixel[2]);
+                    dest_pixel[0] = yuv.Y;
+                    dest_pixel[1] = yuv.U;
+                    dest_pixel[2] = yuv.V;
+                }
+            }
+        }
+    };
     Ok(())
 }
 
@@ -582,11 +651,16 @@ where
                 _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
             }
         }
+        formats::pixel_format::PixFmt::YUV444 => {
+            // Convert to YUV444.
+            let mut dest2 = force_buffer_pixel_format_ref(dest);
+            into_yuv444(frame, &mut dest2, dest_stride)?;
+            Ok(())
+        }
         formats::pixel_format::PixFmt::NV12 => {
-            {
-                let mut dest2 = force_buffer_pixel_format_ref(dest);
-                encode_into_nv12_inner(frame, &mut dest2, dest_stride)?;
-            }
+            // Convert to NV12.
+            let mut dest2 = force_buffer_pixel_format_ref(dest);
+            encode_into_nv12_inner(frame, &mut dest2, dest_stride)?;
             Ok(())
         }
         _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
@@ -890,98 +964,68 @@ pub fn encode_y4m_frame<FMT>(
 where
     FMT: PixelFormat,
 {
-    let frame = to_rgb8_or_mono8(frame)?;
-
-    match &frame {
-        SupportedEncoding::Mono(frame) => {
-            match colorspace {
-                Y4MColorspace::CMono => {
-                    if frame.width() as usize != frame.stride() {
-                        panic!(); // TODO: convert to error, not panic
-                    }
-                    Ok(frame.image_data().to_vec())
+    match colorspace {
+        Y4MColorspace::CMono => {
+            let frame = convert::<_, Mono8>(frame)?;
+            if frame.width() as usize != frame.stride() {
+                // Copy into new buffer with no padding.
+                let mut buf = vec![0u8; frame.height() as usize * frame.width() as usize];
+                for (dest_row, src_row) in buf
+                    .chunks_exact_mut(frame.width() as usize)
+                    .zip(frame.image_data().chunks_exact(frame.stride()))
+                {
+                    dest_row.copy_from_slice(&src_row[..frame.width() as usize]);
                 }
-                Y4MColorspace::C420paldv => {
-                    // Convert pure luminance data (mono8) into YCbCr. First
-                    // plane is lumance data, next two planes are color
-                    // chrominance.
-
-                    let h = frame.height() as usize;
-                    let w = frame.width() as usize;
-                    let nh = h * 3 / 2;
-                    // Set everything to 128 initially for no chrominance.
-                    let mut buf = vec![128u8; nh * w];
-                    let src = frame.image_data();
-                    // Copy the luminance plane row-by-row
-                    for i in 0..h {
-                        let src_idx_start = i * frame.stride();
-                        let src_row = &src[src_idx_start..(src_idx_start + w)];
-                        buf[(i * w)..((i + 1) * w)].copy_from_slice(src_row);
-                    }
-                    Ok(buf)
-                } // Y4MColorspace::C444 => {
-                  //     // Convert pure luminance data (mono8) into YCbCr.
-                  //     let h = frame.height() as usize;
-                  //     let w = frame.width() as usize;
-                  //     let mut buf = Vec::with_capacity(3*h*w);
-                  //     for byte in frame.image_data() {
-                  //         buf.push(*byte);
-                  //         buf.push(128u8);
-                  //         buf.push(128u8);
-                  //     }
-                  //     Ok(buf)
-                  // }
+                return Ok(buf);
+            } else {
+                Ok(frame.image_data().to_vec())
             }
         }
-        SupportedEncoding::Rgb(frame) => {
+        Y4MColorspace::C420paldv => {
+            // Convert to YUV444.
+            // TODO: convert to YUV422 instead of YUV444 for efficiency.
+            let frame = convert::<_, pixel_format::YUV444>(frame)?;
+
+            // Convert to planar data.
+
+            // TODO: allocate final buffer first and write directly into that. Here we make
+            // intermediate copies.
             let h = frame.height() as usize;
             let width = frame.width() as usize;
 
-            let yuv_iter = frame
-                .image_data()
-                .chunks_exact(3)
-                .map(|rgb| RGB888toYUV444(rgb[0], rgb[1], rgb[2]));
+            let yuv_iter = frame.image_data().chunks_exact(3).map(|yuv| YUV444 {
+                Y: yuv[0],
+                U: yuv[1],
+                V: yuv[2],
+            });
+            // intermediate copy 1
+            let yuv_vec: Vec<YUV444> = yuv_iter.collect();
 
-            match colorspace {
-                // Y4MColorspace::C444 => {
-                //     let mut buf = Vec::with_capacity(3*h*width);
-                //     for el in yuv_iter {
-                //         buf.push(el.Y);
-                //         buf.push(el.U);
-                //         buf.push(el.V);
-                //     }
-                //     Ok(buf)
-                // }
-                Y4MColorspace::C420paldv => {
-                    // Can we make this more efficient by not converting to
-                    // intermediate vector and looping through it multiple
-                    // times?
-                    let yuv_vec: Vec<crate::YUV444> = yuv_iter.collect();
-                    let y_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.Y).collect();
-                    let y_size = y_plane.len();
+            // intermediate copy 2a
+            let y_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.Y).collect();
+            let y_size = y_plane.len();
 
-                    let full_u_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.U).collect();
-                    let full_v_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.V).collect();
+            // intermediate copy 2b
+            let full_u_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.U).collect();
+            // intermediate copy 2c
+            let full_v_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.V).collect();
 
-                    let u_plane = downsample_plane(&full_u_plane, h, width);
-                    let v_plane = downsample_plane(&full_v_plane, h, width);
+            // intermediate copy 3a
+            let u_plane = downsample_plane(&full_u_plane, h, width);
+            // intermediate copy 3b
+            let v_plane = downsample_plane(&full_v_plane, h, width);
 
-                    let u_size = u_plane.len();
-                    let v_size = v_plane.len();
-                    debug_assert!(y_size == 4 * u_size);
-                    debug_assert!(u_size == v_size);
+            let u_size = u_plane.len();
+            let v_size = v_plane.len();
+            debug_assert!(y_size == 4 * u_size);
+            debug_assert!(u_size == v_size);
 
-                    let mut final_buf = vec![0u8; y_size + u_size + v_size];
-                    final_buf[..y_size].copy_from_slice(&y_plane);
-                    final_buf[y_size..(y_size + u_size)].copy_from_slice(&u_plane);
-                    final_buf[(y_size + u_size)..].copy_from_slice(&v_plane);
-                    Ok(final_buf)
-                }
-                Y4MColorspace::CMono => {
-                    let y_plane = yuv_iter.map(|yuv| yuv.Y).collect();
-                    Ok(y_plane)
-                }
-            }
+            // final copy
+            let mut final_buf = vec![0u8; y_size + u_size + v_size];
+            final_buf[..y_size].copy_from_slice(&y_plane);
+            final_buf[y_size..(y_size + u_size)].copy_from_slice(&u_plane);
+            final_buf[(y_size + u_size)..].copy_from_slice(&v_plane);
+            Ok(final_buf)
         }
     }
 }
