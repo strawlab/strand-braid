@@ -6,14 +6,11 @@ use bayer as wang_debayer;
 use machine_vision_formats as formats;
 
 use formats::{
-    pixel_format::{Mono8, NV12},
+    pixel_format::{Mono8, NV12, RGB8},
     ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride, OwnedImageStride,
     PixFmt, PixelFormat, Stride,
 };
 use simple_frame::SimpleFrame;
-
-mod repeat_elements;
-use repeat_elements::RepeatElement;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -25,6 +22,8 @@ pub enum Error {
     UnimplementedRoiWidthConversion,
     #[error("invalid allocated buffer size")]
     InvalidAllocatedBufferSize,
+    #[error("invalid allocated buffer stride")]
+    InvalidAllocatedBufferStride,
     #[error("{0:?}")]
     Bayer(wang_debayer::BayerError),
     #[error("{0}")]
@@ -99,7 +98,7 @@ fn clamp(i: i32) -> u8 {
 }
 
 #[allow(non_snake_case)]
-pub fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
+fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
     // see http://en.wikipedia.org/wiki/YUV
     let C: i32 = Y as i32 - 16;
     let D: i32 = U as i32 - 128;
@@ -114,7 +113,7 @@ pub fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
 
 #[allow(non_snake_case)]
 #[inline]
-pub fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
+fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
     let Y = RGB888toY4(R, G, B);
     let R = R as i32;
     let G = G as i32;
@@ -130,7 +129,7 @@ pub fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
 
 #[allow(non_snake_case)]
 #[inline]
-pub fn RGB888toY4(R: u8, G: u8, B: u8) -> u8 {
+fn RGB888toY4(R: u8, G: u8, B: u8) -> u8 {
     let R = R as i32;
     let G = G as i32;
     let B = B as i32;
@@ -156,59 +155,75 @@ pub fn piston_to_frame(
     })
 }
 
-/// Copy an input image to a new RGB8 image.
-pub fn yuv422_to_rgb(
+/// Copy an input image to a pre-allocated RGB8 buffer.
+fn yuv422_into_rgb(
     frame: &dyn ImageStride<formats::pixel_format::YUV422>,
-) -> Result<SimpleFrame<formats::pixel_format::RGB8>> {
-    if frame.stride() != frame.width() as usize {
-        return Err(Error::UnimplementedRoiWidthConversion);
+    dest: &mut ImageBufferMutRef<RGB8>,
+    dest_stride: usize,
+) -> Result<()> {
+    // The destination must be at least this large per row.
+    let min_stride = frame.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
+    if dest_stride < min_stride {
+        return Err(Error::InvalidAllocatedBufferStride);
     }
 
-    let width = frame.width() as usize;
-    let height = frame.height() as usize;
-
-    let mut result = vec![0u8; width * height * 3];
-
-    for (yuv422_pixpair, result_chunk) in frame
-        .image_data()
-        .chunks(4)
-        .zip(result.as_mut_slice().chunks_mut(6))
-    {
-        let u = yuv422_pixpair[0];
-        let y1 = yuv422_pixpair[1];
-        let v = yuv422_pixpair[2];
-        let y2 = yuv422_pixpair[3];
-
-        let tmp_rgb1 = YUV444toRGB888(y1, u, v);
-        let tmp_rgb2 = YUV444toRGB888(y2, u, v);
-
-        result_chunk[0] = tmp_rgb1.R;
-        result_chunk[1] = tmp_rgb1.G;
-        result_chunk[2] = tmp_rgb1.B;
-
-        result_chunk[3] = tmp_rgb2.R;
-        result_chunk[4] = tmp_rgb2.G;
-        result_chunk[5] = tmp_rgb2.B;
+    let expected_size = dest_stride * frame.height() as usize;
+    if dest.data.len() != expected_size {
+        return Err(Error::InvalidAllocatedBufferSize);
     }
 
-    Ok(SimpleFrame {
-        image_data: result,
-        width: frame.width(),
-        height: frame.height(),
-        stride: width as u32 * 3,
-        fmt: std::marker::PhantomData,
-    })
+    use itertools::izip;
+    let w = frame.width() as usize;
+    for (src_row, dest_row) in izip![
+        frame.image_data().chunks_exact(frame.stride()),
+        dest.data.chunks_exact_mut(dest_stride),
+    ] {
+        for (result_chunk, yuv422_pixpair) in dest_row[..(w * 3)]
+            .chunks_exact_mut(6)
+            .zip(src_row[..w * 2].chunks_exact(4))
+        {
+            let u = yuv422_pixpair[0];
+            let y1 = yuv422_pixpair[1];
+            let v = yuv422_pixpair[2];
+            let y2 = yuv422_pixpair[3];
+
+            let tmp_rgb1 = YUV444toRGB888(y1, u, v);
+            let tmp_rgb2 = YUV444toRGB888(y2, u, v);
+
+            result_chunk[0] = tmp_rgb1.R;
+            result_chunk[1] = tmp_rgb1.G;
+            result_chunk[2] = tmp_rgb1.B;
+
+            result_chunk[3] = tmp_rgb2.R;
+            result_chunk[4] = tmp_rgb2.G;
+            result_chunk[5] = tmp_rgb2.B;
+        }
+    }
+    Ok(())
 }
 
-/// Copy an input bayer image to a new RGB8 image.
-pub fn bayer_to_rgb<FMT>(
+/// Copy an input bayer image to a pre-allocated RGB8 buffer.
+fn bayer_into_rgb<FMT>(
     frame: &dyn ImageStride<FMT>,
-) -> Result<SimpleFrame<formats::pixel_format::RGB8>>
+    dest: &mut ImageBufferMutRef<RGB8>,
+    dest_stride: usize,
+) -> Result<()>
 where
     FMT: formats::PixelFormat,
 {
     if frame.stride() != frame.width() as usize {
         return Err(Error::UnimplementedRoiWidthConversion);
+    }
+
+    // The debayer code expects exactly this stride.
+    let expected_stride = frame.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
+    if dest_stride != expected_stride {
+        return Err(Error::InvalidAllocatedBufferStride);
+    }
+
+    let expected_size = frame.width() as usize * frame.height() as usize * 3;
+    if dest.data.len() != expected_size {
+        return Err(Error::InvalidAllocatedBufferSize);
     }
 
     let src_fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
@@ -225,14 +240,12 @@ where
 
     use std::io::Cursor;
 
-    let mut buf = vec![0; frame.width() as usize * frame.height() as usize * 3];
-
     {
         let mut dst = wang_debayer::RasterMut::new(
             frame.width() as usize,
             frame.height() as usize,
             wang_debayer::RasterDepth::Depth8,
-            &mut buf,
+            &mut dest.data,
         );
 
         wang_debayer::run_demosaic(
@@ -243,37 +256,43 @@ where
             &mut dst,
         )?;
     }
-
-    Ok(SimpleFrame {
-        width: frame.width(),
-        height: frame.height(),
-        stride: frame.stride() as u32 * 3,
-        image_data: buf,
-        fmt: std::marker::PhantomData,
-    })
+    Ok(())
 }
 
-/// Copy an input Mono8 image to a new RGB8 image.
-pub fn mono_to_rgb(
+/// Copy an input mono8 image to a pre-allocated RGB8 buffer.
+fn mono_into_rgb(
     frame: &dyn ImageStride<formats::pixel_format::Mono8>,
-) -> Result<SimpleFrame<formats::pixel_format::RGB8>> {
-    if frame.stride() != frame.width() as usize {
-        return Err(Error::UnimplementedRoiWidthConversion);
+    dest: &mut ImageBufferMutRef<RGB8>,
+    dest_stride: usize,
+) -> Result<()> {
+    // The destination must be at least this large per row.
+    let min_stride = frame.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
+    if dest_stride < min_stride {
+        return Err(Error::InvalidAllocatedBufferStride);
     }
 
-    let buf: Vec<u8> = frame.image_data().iter().repeat_elements(3).collect();
+    let expected_size = dest_stride * frame.height() as usize;
+    if dest.data.len() != expected_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
 
-    Ok(SimpleFrame {
-        width: frame.width(),
-        height: frame.height(),
-        stride: frame.stride() as u32,
-        image_data: buf,
-        fmt: std::marker::PhantomData,
-    })
+    use itertools::izip;
+    let w = frame.width() as usize;
+    for (src_row, dest_row) in izip![
+        frame.image_data().chunks_exact(frame.stride()),
+        dest.data.chunks_exact_mut(dest_stride),
+    ] {
+        for (dest_pix, src_pix) in dest_row[..(w * 3)].chunks_exact_mut(3).zip(&src_row[..w]) {
+            dest_pix[0] = *src_pix;
+            dest_pix[1] = *src_pix;
+            dest_pix[2] = *src_pix;
+        }
+    }
+    Ok(())
 }
 
 /// Convert RGB8 image data into pre-allocated Mono8 buffer.
-pub fn rgb8_into_mono8(
+fn rgb8_into_mono8(
     frame: &dyn ImageStride<formats::pixel_format::RGB8>,
     dest: &mut ImageBufferMutRef<Mono8>,
     dest_stride: usize,
@@ -301,27 +320,6 @@ pub fn rgb8_into_mono8(
     }
 
     Ok(())
-}
-
-/// Convert RGB8 image to a new Mono8 image.
-pub fn rgb8_to_mono8(
-    frame: &dyn ImageStride<formats::pixel_format::RGB8>,
-) -> Result<SimpleFrame<formats::pixel_format::Mono8>> {
-    let dest_stride = frame.width() as usize;
-    let luma_size = frame.height() as usize * dest_stride;
-    let mut image_data = vec![0; luma_size];
-    {
-        let mut dest = ImageBufferMutRef::new(&mut image_data[..]);
-        rgb8_into_mono8(frame, &mut dest, dest_stride)?;
-    }
-
-    Ok(SimpleFrame {
-        width: frame.width(),
-        height: frame.height(),
-        stride: dest_stride as u32,
-        image_data,
-        fmt: std::marker::PhantomData,
-    })
 }
 
 /// A view of image to have pixel format `FMT2`.
@@ -454,6 +452,17 @@ where
     }
 }
 
+/// Force interpretation of data from frame into another pixel_format.
+fn force_buffer_pixel_format_ref<'a, 'b, FMT1, FMT2>(
+    orig: &'b mut ImageBufferMutRef<'a, FMT1>,
+) -> ImageBufferMutRef<'b, FMT2>
+where
+    FMT1: 'a,
+    FMT2: 'b,
+{
+    ImageBufferMutRef::new(orig.data)
+}
+
 /// Convert input frame with pixel_format `SRC` into pixel_format `DEST`
 ///
 /// This is a general purpose function which should be able to convert between
@@ -469,9 +478,63 @@ where
     let src_fmt = machine_vision_formats::pixel_format::pixfmt::<SRC>().unwrap();
     let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<DEST>().unwrap();
 
-    // If format does not change
+    // If format does not change, return reference to original image without copy.
     if src_fmt == dest_fmt {
-        return Ok(CowImage::from(force_pixel_format_ref(frame)));
+        return Ok(CowImage::Reinterpreted(force_pixel_format_ref(frame)));
+    }
+
+    // Allocate buffer for new image.
+    let dest_stride = dest_fmt.bits_per_pixel() as usize * frame.width() as usize / 8;
+    let dest_size = frame.height() as usize * dest_stride;
+    let mut dest_buf = vec![0u8; dest_size];
+    {
+        let mut dest: ImageBufferMutRef<DEST> = ImageBufferMutRef::new(&mut dest_buf);
+        // Fill the new buffer.
+        convert_into(frame, &mut dest, dest_stride)?;
+    }
+
+    // Return the new buffer as a new image.
+    Ok(CowImage::Owned(SimpleFrame {
+        width: frame.width(),
+        height: frame.height(),
+        stride: dest_stride as u32,
+        image_data: dest_buf,
+        fmt: std::marker::PhantomData,
+    }))
+}
+
+/// Convert input frame with pixel_format `SRC` into pixel_format `DEST`
+///
+/// This is a general purpose function which should be able to convert between
+/// many types as efficiently as possible.
+pub fn convert_into<SRC, DEST>(
+    frame: &dyn ImageStride<SRC>,
+    dest: &mut ImageBufferMutRef<DEST>,
+    dest_stride: usize,
+) -> Result<()>
+where
+    SRC: PixelFormat,
+    DEST: PixelFormat,
+{
+    let src_fmt = machine_vision_formats::pixel_format::pixfmt::<SRC>().unwrap();
+    let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<DEST>().unwrap();
+
+    // If format does not change, copy the data row-by-row to respect strides.
+    if src_fmt == dest_fmt {
+        let dest_size = frame.height() as usize * dest_stride;
+        if dest.data.len() != dest_size {
+            return Err(Error::InvalidAllocatedBufferSize);
+        }
+
+        use itertools::izip;
+        let w = frame.width() as usize;
+        let nbytes = dest_fmt.bits_per_pixel() as usize * w / 8;
+        for (src_row, dest_row) in izip![
+            frame.image_data().chunks_exact(frame.stride()),
+            dest.data.chunks_exact_mut(dest_stride),
+        ] {
+            dest_row[..nbytes].copy_from_slice(&src_row[..nbytes]);
+        }
     }
 
     match dest_fmt {
@@ -483,19 +546,23 @@ where
                 | formats::pixel_format::PixFmt::BayerGR8
                 | formats::pixel_format::PixFmt::BayerBG8 => {
                     // .. from bayer.
-                    Ok(CowImage::from(force_pixel_format(bayer_to_rgb(frame)?)))
+                    let mut rgb = force_buffer_pixel_format_ref(dest);
+                    bayer_into_rgb(frame, &mut rgb, dest_stride)?;
+                    Ok(())
                 }
                 formats::pixel_format::PixFmt::Mono8 => {
                     // .. from mono8.
-                    let tmp = force_pixel_format_ref(frame);
-                    let owned = mono_to_rgb(&tmp)?;
-                    Ok(CowImage::from(force_pixel_format(owned)))
+                    let mono8 = force_pixel_format_ref(frame);
+                    let mut rgb = force_buffer_pixel_format_ref(dest);
+                    mono_into_rgb(&mono8, &mut rgb, dest_stride)?;
+                    Ok(())
                 }
                 formats::pixel_format::PixFmt::YUV422 => {
                     // .. from YUV422.
-                    let tmp = force_pixel_format_ref(frame);
-                    let owned = yuv422_to_rgb(&tmp)?;
-                    Ok(CowImage::from(force_pixel_format(owned)))
+                    let yuv422 = force_pixel_format_ref(frame);
+                    let mut rgb = force_buffer_pixel_format_ref(dest);
+                    yuv422_into_rgb(&yuv422, &mut rgb, dest_stride)?;
+                    Ok(())
                 }
                 _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
             }
@@ -506,11 +573,21 @@ where
                 formats::pixel_format::PixFmt::RGB8 => {
                     // .. from RGB8.
                     let tmp = force_pixel_format_ref(frame);
-                    let owned = rgb8_to_mono8(&tmp)?;
-                    Ok(CowImage::from(force_pixel_format(owned)))
+                    {
+                        let mut dest2 = force_buffer_pixel_format_ref(dest);
+                        rgb8_into_mono8(&tmp, &mut dest2, dest_stride)?;
+                    }
+                    Ok(())
                 }
                 _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
             }
+        }
+        formats::pixel_format::PixFmt::NV12 => {
+            {
+                let mut dest2 = force_buffer_pixel_format_ref(dest);
+                encode_into_nv12_inner(frame, &mut dest2, dest_stride)?;
+            }
+            Ok(())
         }
         _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
     }
@@ -937,6 +1014,17 @@ pub fn encode_into_nv12<FMT>(
 where
     FMT: PixelFormat,
 {
+    convert_into(frame, dest, dest_stride)
+}
+
+fn encode_into_nv12_inner<FMT>(
+    frame: &dyn ImageStride<FMT>,
+    dest: &mut ImageBufferMutRef<NV12>,
+    dest_stride: usize,
+) -> Result<()>
+where
+    FMT: PixelFormat,
+{
     use itertools::izip;
 
     let frame = to_rgb8_or_mono8(frame)?;
@@ -1021,19 +1109,5 @@ pub fn encode_into_mono8<FMT>(
 where
     FMT: PixelFormat,
 {
-    // TODO: use allocated memory slice as destination for conversion.
-    let frame = convert::<FMT, formats::pixel_format::Mono8>(frame)?;
-
-    let luma_size = frame.height() as usize * dest_stride;
-    if dest.data.len() != luma_size {
-        return Err(Error::InvalidAllocatedBufferSize);
-    }
-
-    let w = frame.width() as usize;
-    for y in 0..frame.height() as usize {
-        let start = dest_stride * y;
-        let src = frame.stride() * y;
-        dest.data[start..(start + w)].copy_from_slice(&frame.image_data()[src..(src + w)]);
-    }
-    Ok(())
+    convert_into(frame, dest, dest_stride)
 }
