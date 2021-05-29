@@ -29,7 +29,7 @@ http-video-streaming-types = {path = "../http-video-streaming/http-video-streami
 fastimage = {path = "../fastimage"}
 log = "0.4"
 
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 simple-frame = { path = "../simple-frame" }
 lazy_static = "1.4"
 rt-image-viewer-storetype = { path = "storetype" }

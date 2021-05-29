@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 chrono = "0.4"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"

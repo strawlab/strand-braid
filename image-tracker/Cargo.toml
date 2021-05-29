@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }
 thiserror = "1.0"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = {path="../timestamped-frame"}
 basic-frame = {path="../basic-frame"}
 num-traits = "0.2"

@@ -18,7 +18,7 @@ chrono = "0.4"
 
 basic-frame = { path = "../basic-frame" }
 convert-image = { path = "../convert-image" }
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 machine-vision-shaders = { path = "../machine-vision-shaders" }
 crossbeam-ok = {path="../crossbeam-ok"}
 ci2 = { path = "../ci2" }

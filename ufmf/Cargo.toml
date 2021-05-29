@@ -12,7 +12,7 @@ structure = "0.1.2"
 cast = "0.2.2"
 
 basic-frame = { path = "../basic-frame" }
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 datetime-conversion = {path="../datetime-conversion"}
 

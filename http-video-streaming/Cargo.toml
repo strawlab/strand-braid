@@ -17,7 +17,7 @@ parking_lot = "0.11"
 crossbeam-channel = "0.5"
 convert-image = {path = "../convert-image"}
 log = "0.4"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 http-video-streaming-types = {path = "http-video-streaming-types"}
 thread-control = "0.1.2"
 

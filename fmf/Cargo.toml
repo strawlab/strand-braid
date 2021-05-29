@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 basic-frame = { path = "../basic-frame" }
 byteorder = "1.1"
 chrono = "0.4"

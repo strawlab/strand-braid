@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 chrono = "0.4"

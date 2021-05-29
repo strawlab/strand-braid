@@ -59,7 +59,6 @@ members = [
     "imagesrc",
     "imagesrc-gst",
     "lstsq",
-    "machine-vision-formats",
     "machine-vision-shaders",
     "mvg",
     "mvg/mvg-util",

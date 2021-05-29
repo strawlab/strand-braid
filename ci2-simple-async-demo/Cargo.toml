@@ -11,7 +11,7 @@ env_logger = "0.8"
 futures = "0.3"
 
 basic-frame = { path = "../basic-frame" }
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }

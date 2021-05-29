@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 parking_lot = "0.11"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 basic-frame = { path = "../basic-frame" }
 ci2 = { path = "../ci2" }
 dc1394 = { path = "../dc1394" }

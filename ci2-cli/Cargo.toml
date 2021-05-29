@@ -15,7 +15,7 @@ chrono = "0.4"
 failure = "0.1"
 failure_derive = "0.1"
 
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 

@@ -47,7 +47,7 @@ ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-remote-control = { path = "../ci2-remote-control" }
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }
 fmf = {path = "../fmf"}

@@ -10,12 +10,12 @@ chrono = "0.4.6"
 webm = "1"
 vpx-encode = {version="0.4.1", features=["vp9"]}
 thiserror = "1.0"
+machine-vision-formats = "0.1"
 
 nvenc = {path="../nvenc"}
 dynlink-cuda = {path="../nvenc/dynlink-cuda"}
 dynlink-nvidia-encode = {path="../nvenc/dynlink-nvidia-encode"}
 
-machine-vision-formats = { path = "../machine-vision-formats" }
 ci2-remote-control = { path = "../ci2-remote-control"}
 convert-image = { path = "../convert-image" }
 simple-frame = { path = "../simple-frame" }

@@ -6,4 +6,4 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 [dependencies]
 log = "0.4"
 
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
