@@ -222,7 +222,10 @@ macro_rules! define_pixel_format {
     };
 }
 
-define_pixel_format!(Mono8, "Luminance, 1 byte per pixel.");
+define_pixel_format!(
+    Mono8,
+    "Luminance, 1 byte per pixel. Sometimes also called Gray8."
+);
 define_pixel_format!(
     Mono32f,
     "Luminance, 32 bytes per pixel, Little-Endian, IEEE-754"
