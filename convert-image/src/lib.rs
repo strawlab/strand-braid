@@ -408,7 +408,7 @@ impl<'a, FMT1, FMT2> ImageData<FMT2> for ReinterpretedImage<'a, FMT1, FMT2> {
         self.orig.image_data()
     }
     fn buffer_ref(&self) -> ImageBufferRef<'_, FMT2> {
-        ImageBufferRef::new(&self.image_data())
+        ImageBufferRef::new(&self.orig.image_data())
     }
     fn buffer(self) -> ImageBuffer<FMT2> {
         // copy the data
