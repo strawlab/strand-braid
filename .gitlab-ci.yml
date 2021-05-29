@@ -20,6 +20,10 @@ test_crates_linux_ubuntu_focal:
     - source $CARGO_HOME/env
     - cargo --version
     - apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    # Test apriltag
+    - cd apriltag
+    - cargo test --release
+    - cd ..
     # Test gstreamer apriltag detector
     - cd gst-plugin-apriltag
     - cargo test --release
