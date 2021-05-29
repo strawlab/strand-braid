@@ -6,7 +6,7 @@ extern crate log;
 use ci2_remote_control::MkvRecordingConfig;
 use convert_image::{encode_into_nv12, encode_y4m_frame, Y4MColorspace};
 
-use machine_vision_formats::{ImageStride, PixelFormat};
+use machine_vision_formats::{ImageBufferMutRef, ImageStride, PixelFormat};
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
@@ -411,10 +411,12 @@ where
             let pitch = {
                 // Scope for locked input buffer.
                 let mut inbuf = vram_buf.in_buf.lock()?;
-                let pitch = inbuf.pitch();
+                let dest_stride = inbuf.pitch();
                 let dptr = inbuf.mem_mut();
-                encode_into_nv12(raw_frame, dptr, pitch)?;
-                pitch
+                let mut dest = ImageBufferMutRef::new(dptr);
+                encode_into_nv12(raw_frame, &mut dest, dest_stride)?;
+                // Now vram_buf.in_buf has the nv12 encoded data.
+                dest_stride
             };
 
             h264_encoder.encoder.encode_picture(

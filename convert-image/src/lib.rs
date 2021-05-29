@@ -6,8 +6,8 @@ use bayer as wang_debayer;
 use machine_vision_formats as formats;
 
 use formats::{
-    ImageBuffer, ImageBufferRef, ImageData, ImageStride, OwnedImageStride, PixFmt, PixelFormat,
-    Stride,
+    pixel_format::NV12, ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride,
+    OwnedImageStride, PixFmt, PixelFormat, Stride,
 };
 use simple_frame::SimpleFrame;
 
@@ -912,7 +912,7 @@ fn downsample_plane(arr: &[u8], h: usize, w: usize) -> Vec<u8> {
 /// will have stride `dest_stride`.
 pub fn encode_into_nv12<FMT>(
     frame: &dyn ImageStride<FMT>,
-    dest: &mut [u8],
+    dest: &mut ImageBufferMutRef<NV12>,
     dest_stride: usize,
 ) -> Result<()>
 where
@@ -924,7 +924,7 @@ where
 
     let luma_size = frame.height() as usize * dest_stride;
 
-    let (nv12_luma, nv12_chroma) = dest.split_at_mut(luma_size);
+    let (nv12_luma, nv12_chroma) = dest.data.split_at_mut(luma_size);
 
     match &frame {
         SupportedEncoding::Mono(frame) => {
