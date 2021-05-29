@@ -62,9 +62,6 @@ impl<F> SimpleFrame<F> {
 }
 
 impl<F> ImageData<F> for SimpleFrame<F> {
-    fn image_data(&self) -> &[u8] {
-        &self.image_data
-    }
     fn width(&self) -> u32 {
         self.width
     }

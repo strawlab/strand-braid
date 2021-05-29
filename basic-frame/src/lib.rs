@@ -153,9 +153,6 @@ impl HostTimeData for BasicExtra {
 }
 
 impl<F> ImageData<F> for BasicFrame<F> {
-    fn image_data(&self) -> &[u8] {
-        &self.image_data
-    }
     fn width(&self) -> u32 {
         self.width
     }

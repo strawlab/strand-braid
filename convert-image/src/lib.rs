@@ -404,9 +404,6 @@ impl<'a, FMT1, FMT2> ImageData<FMT2> for ReinterpretedImage<'a, FMT1, FMT2> {
     fn height(&self) -> u32 {
         self.orig.height()
     }
-    fn image_data(&self) -> &[u8] {
-        self.orig.image_data()
-    }
     fn buffer_ref(&self) -> ImageBufferRef<'_, FMT2> {
         ImageBufferRef::new(&self.orig.image_data())
     }
@@ -459,12 +456,6 @@ impl<'a, F, FORIG> ImageData<F> for CowImage<'a, F, FORIG> {
         match self {
             CowImage::Reinterpreted(im) => im.height(),
             CowImage::Owned(im) => im.height(),
-        }
-    }
-    fn image_data(&self) -> &[u8] {
-        match self {
-            CowImage::Reinterpreted(im) => im.image_data(),
-            CowImage::Owned(im) => im.image_data(),
         }
     }
     fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
