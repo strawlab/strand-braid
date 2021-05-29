@@ -8,6 +8,7 @@ pub struct Vert {
 // This depends on a macro from the `glium` crate.
 implement_vertex!(Vert, position, tex_coords);
 
+#[rustfmt::skip]
 pub static VERTEX_DATA: [Vert; 9632] = [
     // Vertex 0
     Vert {
@@ -57803,6 +57804,7 @@ pub static VERTEX_DATA: [Vert; 9632] = [
 
 ];
 
+#[rustfmt::skip]
 pub const INDEX_DATA: [u16; 24702] = [    // Triangle 0
     0, 1, 2,
     // Triangle 1

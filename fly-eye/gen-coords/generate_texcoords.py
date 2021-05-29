@@ -170,6 +170,7 @@ pub struct Vert {{
 // This depends on a macro from the `glium` crate.
 implement_vertex!(Vert, position, tex_coords);
 
+#[rustfmt::skip]
 pub static VERTEX_DATA: [Vert; {n_verts}] = [\n""".format(n_verts=len(hex_verts_x)))
 
         for i in range(len(hex_verts_x)):
@@ -189,6 +190,8 @@ pub static VERTEX_DATA: [Vert; {n_verts}] = [\n""".format(n_verts=len(hex_verts_
         fd.write("];\n")
 
         fd.write("""
+
+#[rustfmt::skip]
 pub const INDEX_DATA: [u16; %d] = [""" % (len(hex_idxs)*3,))
 
         for tri_enum, tri_i in enumerate(hex_idxs):

@@ -29,6 +29,7 @@ pub static VERTEX_DATA: [Vert; 4] = [
     },
 ];
 
+#[rustfmt::skip]
 pub const INDEX_DATA: [u16; 6] = [
         0, 1, 2,
         0, 2, 3,
