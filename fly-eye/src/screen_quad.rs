@@ -12,17 +12,14 @@ pub static VERTEX_DATA: [Vert; 4] = [
         position: [-1.0, -1.0],
         tex_coords: [0.0, 0.0],
     },
-
     Vert {
         position: [-1.0, 1.0],
         tex_coords: [0.0, 1.0],
     },
-
     Vert {
         position: [1.0, 1.0],
         tex_coords: [1.0, 1.0],
     },
-
     Vert {
         position: [1.0, -1.0],
         tex_coords: [1.0, 0.0],
