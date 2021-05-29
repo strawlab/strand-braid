@@ -36,9 +36,7 @@ impl<T: ArrayDealloc> Zarray<T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             let ptr = *self.inner;
-            std::slice::from_raw_parts(
-                ptr.data as *mut T,
-                self.len())
+            std::slice::from_raw_parts(ptr.data as *mut T, self.len())
         }
     }
 }
@@ -81,7 +79,7 @@ pub struct ImageU8Owned {
 
 impl ImageU8Owned {
     pub fn new(width: i32, height: i32, stride: i32, mut data: Vec<u8>) -> Self {
-        debug_assert!((height*stride) as usize == data.len());
+        debug_assert!((height * stride) as usize == data.len());
         let inner = apriltag_sys::image_u8 {
             width,
             height,
@@ -89,10 +87,7 @@ impl ImageU8Owned {
             buf: data.as_mut_ptr(),
         };
 
-        Self {
-            inner,
-            data
-        }
+        Self { inner, data }
     }
 }
 
@@ -118,7 +113,6 @@ impl ImageU8 for ImageU8Owned {
     fn data_mut(&mut self) -> &mut [u8] {
         &mut self.data
     }
-
 }
 
 pub struct ImageU8Borrowed<'a> {
@@ -128,7 +122,7 @@ pub struct ImageU8Borrowed<'a> {
 
 impl<'a> ImageU8Borrowed<'a> {
     pub fn new(width: i32, height: i32, stride: i32, data: &'a [u8]) -> Self {
-        debug_assert!((height*stride) as usize == data.len());
+        debug_assert!((height * stride) as usize == data.len());
         let inner = apriltag_sys::image_u8 {
             width,
             height,
@@ -161,7 +155,6 @@ impl<'a> ImageU8 for ImageU8Borrowed<'a> {
         let len = self.inner.height as usize * self.inner.stride as usize;
         unsafe { std::slice::from_raw_parts_mut(self.inner.buf, len) }
     }
-
 }
 
 /// The main type for detecting tags
@@ -176,8 +169,9 @@ unsafe impl Send for Detector {}
 impl Detector {
     /// Constructor
     pub fn new() -> Self {
-        let td: *mut apriltag_sys::apriltag_detector = unsafe{ apriltag_sys::apriltag_detector_create() };
-        Self{
+        let td: *mut apriltag_sys::apriltag_detector =
+            unsafe { apriltag_sys::apriltag_detector_create() };
+        Self {
             td,
             families: vec![],
         }
@@ -198,13 +192,13 @@ impl Detector {
     ///
     /// We take ownership of the family to keep its lifetime.
     pub fn add_family_bits(&mut self, family: Family, bits: i32) {
-        unsafe { apriltag_sys::apriltag_detector_add_family_bits(self.td, family.0, bits ) } ;
+        unsafe { apriltag_sys::apriltag_detector_add_family_bits(self.td, family.0, bits) };
         self.families.push(family)
     }
 
     /// Remove all tag families
     pub fn clear_families(&mut self) {
-        unsafe { apriltag_sys::apriltag_detector_clear_families(self.td ) } ;
+        unsafe { apriltag_sys::apriltag_detector_clear_families(self.td) };
         self.families.clear()
     }
 
@@ -212,7 +206,7 @@ impl Detector {
     pub fn detect(&self, im: &apriltag_sys::image_u8) -> Zarray<Detection> {
         let detections: *mut apriltag_sys::zarray_t = unsafe {
             let ptr = &*im as *const apriltag_sys::image_u8;
-            apriltag_sys::apriltag_detector_detect(self.td,ptr as *mut _)
+            apriltag_sys::apriltag_detector_detect(self.td, ptr as *mut _)
         };
         unsafe { Zarray::from_raw(detections) }
     }
@@ -221,7 +215,7 @@ impl Detector {
 impl Drop for Detector {
     fn drop(&mut self) {
         if !self.td.is_null() {
-            unsafe{ apriltag_sys::apriltag_detector_destroy(self.td) };
+            unsafe { apriltag_sys::apriltag_detector_destroy(self.td) };
             self.td = std::ptr::null::<apriltag_sys::apriltag_detector>() as *mut _;
         }
     }
@@ -229,61 +223,65 @@ impl Drop for Detector {
 
 impl std::convert::AsMut<apriltag_sys::apriltag_detector> for Detector {
     fn as_mut(&mut self) -> &mut apriltag_sys::apriltag_detector {
-        unsafe{ &mut *self.td }
+        unsafe { &mut *self.td }
     }
 }
 
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct Family( *mut apriltag_sys::apriltag_family_t );
+pub struct Family(*mut apriltag_sys::apriltag_family_t);
 
 impl Family {
-
     /// Create a new detector family for 16h5 tags.
     pub fn new_tag_16h5() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tag16h5_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t = unsafe { apriltag_sys::tag16h5_create() };
         Self(tf)
     }
 
     /// Create a new detector family for 25h9 tags.
     pub fn new_tag_25h9() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tag25h9_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t = unsafe { apriltag_sys::tag25h9_create() };
         Self(tf)
     }
 
     /// Create a new detector family for 36h11 tags.
     pub fn new_tag_36h11() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tag36h11_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t = unsafe { apriltag_sys::tag36h11_create() };
         Self(tf)
     }
 
     /// Create a new detector family for Circle21h7 tags.
     pub fn new_tag_circle_21h7() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tagCircle21h7_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t =
+            unsafe { apriltag_sys::tagCircle21h7_create() };
         Self(tf)
     }
 
     /// Create a new detector family for Circle49h12 tags.
     pub fn new_tag_circle_49h12() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tagCircle49h12_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t =
+            unsafe { apriltag_sys::tagCircle49h12_create() };
         Self(tf)
     }
 
     /// Create a new detector family for Custom48h12 tags.
     pub fn new_tag_custom_48h12() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tagCustom48h12_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t =
+            unsafe { apriltag_sys::tagCustom48h12_create() };
         Self(tf)
     }
 
     /// Create a new detector family for standard 41h12 tags.
     pub fn new_tag_standard_41h12() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tagStandard41h12_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t =
+            unsafe { apriltag_sys::tagStandard41h12_create() };
         Self(tf)
     }
 
     /// Create a new detector family for standard 52h13 tags.
     pub fn new_tag_standard_52h13() -> Self {
-        let tf: *mut apriltag_sys::apriltag_family_t = unsafe{ apriltag_sys::tagStandard52h13_create() };
+        let tf: *mut apriltag_sys::apriltag_family_t =
+            unsafe { apriltag_sys::tagStandard52h13_create() };
         Self(tf)
     }
 
@@ -291,7 +289,6 @@ impl Family {
         let name = unsafe { (*self.0).name };
         FamilyType::from_name(name)
     }
-
 }
 
 impl Drop for Family {
@@ -299,14 +296,14 @@ impl Drop for Family {
         if !self.0.is_null() {
             use FamilyType::*;
             match self.family_type() {
-                Family16H5 => unsafe{ apriltag_sys::tag16h5_destroy(self.0) },
-                Family25H9 => unsafe{ apriltag_sys::tag25h9_destroy(self.0) },
-                Family36H11 => unsafe{ apriltag_sys::tag36h11_destroy(self.0) },
-                FamilyCircle21h7 => unsafe{ apriltag_sys::tagCircle21h7_destroy(self.0) },
-                FamilyCircle49H12 => unsafe{ apriltag_sys::tagCircle49h12_destroy(self.0) },
-                FamilyCustom48h12 => unsafe{ apriltag_sys::tagCustom48h12_destroy(self.0) },
-                Family41H12 => unsafe{ apriltag_sys::tagStandard41h12_destroy(self.0) },
-                Family52H13 => unsafe{ apriltag_sys::tagStandard52h13_destroy(self.0) },
+                Family16H5 => unsafe { apriltag_sys::tag16h5_destroy(self.0) },
+                Family25H9 => unsafe { apriltag_sys::tag25h9_destroy(self.0) },
+                Family36H11 => unsafe { apriltag_sys::tag36h11_destroy(self.0) },
+                FamilyCircle21h7 => unsafe { apriltag_sys::tagCircle21h7_destroy(self.0) },
+                FamilyCircle49H12 => unsafe { apriltag_sys::tagCircle49h12_destroy(self.0) },
+                FamilyCustom48h12 => unsafe { apriltag_sys::tagCustom48h12_destroy(self.0) },
+                Family41H12 => unsafe { apriltag_sys::tagStandard41h12_destroy(self.0) },
+                Family52H13 => unsafe { apriltag_sys::tagStandard52h13_destroy(self.0) },
             }
             self.0 = std::ptr::null::<apriltag_sys::apriltag_family_t>() as *mut _;
         }
@@ -339,12 +336,10 @@ impl FamilyType {
             b"tagCustom48h12" => FamilyCustom48h12,
             b"tagStandard41h12" => Family41H12,
             b"tagStandard52h13" => Family52H13,
-            other => {
-                match std::str::from_utf8(other) {
-                    Ok(name) => panic!("unknown tag: {}", name),
-                    Err(_) => panic!("unknown non-utf8 tag: {:?}", other),
-                }
-            }
+            other => match std::str::from_utf8(other) {
+                Ok(name) => panic!("unknown tag: {}", name),
+                Err(_) => panic!("unknown non-utf8 tag: {:?}", other),
+            },
         }
     }
 
@@ -364,7 +359,7 @@ impl FamilyType {
 }
 
 #[repr(transparent)]
-pub struct Detection( *mut apriltag_sys::apriltag_detection_t );
+pub struct Detection(*mut apriltag_sys::apriltag_detection_t);
 
 impl Detection {
     pub fn id(&self) -> i32 {
@@ -372,7 +367,7 @@ impl Detection {
     }
     pub fn family_type(&self) -> FamilyType {
         let fam_ptr = unsafe { (*self.0).family };
-        let name = unsafe { (*fam_ptr).name};
+        let name = unsafe { (*fam_ptr).name };
         FamilyType::from_name(name)
     }
     pub fn hamming(&self) -> i32 {
@@ -391,9 +386,12 @@ impl Detection {
 
 impl std::fmt::Debug for Detection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let d = unsafe {*self.0};
-        write!(f, "Detection{{id: {}, hamming: {}, decision_margin: {}, c: {:?}, p: {:?}}}",
-            d.id, d.hamming, d.decision_margin, d.c, d.p)
+        let d = unsafe { *self.0 };
+        write!(
+            f,
+            "Detection{{id: {}, hamming: {}, decision_margin: {}, c: {:?}, p: {:?}}}",
+            d.id, d.hamming, d.decision_margin, d.c, d.p
+        )
     }
 }
 
