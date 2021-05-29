@@ -28,6 +28,7 @@ pub enum PixFmt {
     BayerGB32f,
     BayerGR8,
     BayerGR32f,
+    YUV444,
     YUV422,
     NV12,
 }
@@ -57,6 +58,7 @@ impl PixFmt {
             BayerGB32f => 32,
             BayerGR8 => 8,
             BayerGR32f => 32,
+            YUV444 => 24,
             YUV422 => 16,
             NV12 => 12,
         }
@@ -76,6 +78,7 @@ impl PixFmt {
             BayerGB32f => "BayerGB32f",
             BayerGR8 => "BayerGR8",
             BayerGR32f => "BayerGR32f",
+            YUV444 => "YUV444",
             YUV422 => "YUV422",
             NV12 => "NV12",
         }
@@ -114,6 +117,8 @@ impl std::str::FromStr for PixFmt {
             Ok(BayerGR8)
         } else if instr == "BayerGR32f" {
             Ok(BayerGR32f)
+        } else if instr == "YUV444" {
+            Ok(YUV444)
         } else if instr == "YUV422" {
             Ok(YUV422)
         } else if instr == "NV12" {
@@ -129,7 +134,7 @@ fn test_pixfmt_roundtrip() {
     use PixFmt::*;
     let fmts = [
         Mono8, Mono32f, RGB8, BayerRG8, BayerRG32f, BayerBG8, BayerBG32f, BayerGB8, BayerGB32f,
-        BayerGR8, BayerGR32f, YUV422, NV12,
+        BayerGR8, BayerGR32f, YUV444, YUV422, NV12,
     ];
     for fmt in &fmts {
         let fmt_str = fmt.as_str();
@@ -166,6 +171,7 @@ where
         try_downcast!(BayerGB32f, &orig);
         try_downcast!(BayerGR8, &orig);
         try_downcast!(BayerGR32f, &orig);
+        try_downcast!(YUV444, &orig);
         try_downcast!(YUV422, &orig);
         try_downcast!(NV12, &orig);
         Err("unknown PixelFormat implementation could not be converted to PixFmt")
@@ -201,6 +207,7 @@ fn test_compile_runtime_roundtrip() {
     gen_test!(BayerGB32f);
     gen_test!(BayerGR8);
     gen_test!(BayerGR32f);
+    gen_test!(YUV444);
     gen_test!(YUV422);
     gen_test!(NV12);
 }
@@ -245,6 +252,7 @@ define_pixel_format!(BayerGB8, "Bayer Green Blue pattern, 1 byte per pixel.");
 define_pixel_format!(BayerGB32f, "Bayer Green Blue pattern, 4 bytes per pixel.");
 define_pixel_format!(BayerGR8, "Bayer Green Red pattern, 1 byte per pixel.");
 define_pixel_format!(BayerGR32f, "Bayer Green Red pattern, 4 bytes per pixel.");
+define_pixel_format!(YUV444, "YUV 4:4:4 8-bit, total 3 bytes per pixel.");
 define_pixel_format!(YUV422, "YUV 4:2:2 8-bit, total 2 bytes per pixel.");
 define_pixel_format!(NV12, "NV12 format, average 12 bits per pixel");
 
