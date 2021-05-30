@@ -228,6 +228,9 @@ where
                     nanoseconds, timestamp
                 );
                 mkv_segment.set_date_utc(nanoseconds);
+                mkv_segment.set_app_name(
+                    format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).as_str(),
+                );
 
                 let mut state = RecordingState {
                     mkv_segment,
