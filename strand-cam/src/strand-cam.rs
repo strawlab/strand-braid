@@ -31,6 +31,7 @@ use machine_vision_formats as formats;
 #[cfg(feature = "flydratrax")]
 use nalgebra as na;
 
+#[allow(unused_imports)]
 use std::convert::TryInto;
 
 #[cfg(feature = "fiducial")]
@@ -49,9 +50,9 @@ use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 
 use async_change_tracker::ChangeTracker;
-use basic_frame::BasicFrame;
-use formats::ImageData;
-use timestamped_frame::HostTimeData;
+use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use formats::PixFmt;
+use timestamped_frame::ExtraTimeData;
 
 use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner, ConnectionEventType};
 use bui_backend::lowlevel::EventChunkSender;
@@ -65,8 +66,6 @@ use http_video_streaming_types::StrokeStyle;
 use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
 use std::path::Path;
-
-use crate::formats::PixelFormat;
 
 #[cfg(feature = "image_tracker")]
 use ci2_remote_control::CsvSaveConfig;
@@ -102,8 +101,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
-
-mod clipped_frame;
 
 pub const DEBUG_ADDR_DEFAULT: &'static str = "127.0.0.1:8877";
 
@@ -314,7 +311,7 @@ pub(crate) enum Msg {
     SetTracking(bool),
     PostTriggerStartMkv((String, MkvRecordingConfig)),
     SetPostTriggerBufferSize(usize),
-    Mframe(BasicFrame),
+    Mframe(DynamicFrame),
     #[cfg(feature = "image_tracker")]
     SetIsSavingObjDetectionCsv(CsvSaveConfig),
     #[cfg(feature = "image_tracker")]
@@ -556,14 +553,14 @@ fn frame_process_thread(
     camera_cfg: CameraCfgFview2_0_26,
     width: u32,
     height: u32,
-    pixel_format: PixelFormat,
+    pixel_format: PixFmt,
     rx: crossbeam_channel::Receiver<Msg>,
     cam_args_tx: mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
     cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
-    firehose_tx: crossbeam_channel::Sender<AnnotatedFrame<BasicFrame>>,
-    plugin_handler_thread_tx: crossbeam_channel::Sender<BasicFrame>,
+    firehose_tx: crossbeam_channel::Sender<AnnotatedFrame>,
+    plugin_handler_thread_tx: crossbeam_channel::Sender<DynamicFrame>,
     plugin_result_rx:  crossbeam_channel::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
     camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
@@ -636,7 +633,7 @@ fn frame_process_thread(
     let mut apriltag_writer: Option<_> = None;
     #[cfg(not(feature="fiducial"))]
     let mut apriltag_writer: Option<()> = None;
-    let mut mkv_writer: Option<bg_movie_writer::BgMovieWriter<_>> = None;
+    let mut mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
     #[cfg(feature="image_tracker")]
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
@@ -937,11 +934,13 @@ fn frame_process_thread(
             Msg::PostTriggerStartMkv((format_str_mkv,mkv_recording_config)) => {
                 let frames = post_trig_buffer.get_and_clear();
                 let mut raw = bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, frames.len()+100);
-                for frame in frames.into_iter() {
-                    use clipped_frame::ClipFrame;
+                for mut frame in frames.into_iter() {
                     // Force frame width to be power of 2.
-                    let clipped_frame = frame.clip_to_power_of_2(2);
-                    let ts = frame.host_timestamp();
+                    let val = 2;
+                    let clipped_width = (frame.width() / val as u32) * val as u32;
+                    match_all_dynamic_fmts!(&mut frame, x, {x.width = clipped_width});
+                    // frame.width = clipped_width;
+                    let ts = frame.extra().host_timestamp();
                     raw.write(frame, ts)?;
                 }
                 mkv_writer = Some(raw);
@@ -972,8 +971,9 @@ fn frame_process_thread(
                 }
             }
             Msg::Mframe(frame) => {
+                let extra = frame.extra();
                 if let Some(new_fps) = fps_calc
-                    .update(frame.host_framenumber(), frame.host_timestamp()) {
+                    .update(extra.host_framenumber(), extra.host_timestamp()) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write();
                         tracker.modify(|tracker| {
@@ -1014,7 +1014,9 @@ fn frame_process_thread(
                                 let format_str = format!("input_{}_{}_%Y%m%d_%H%M%S.png",
                                     checkerboard_data.width, checkerboard_data.height);
                                 let stamped = debug_image_stamp.format(&format_str).to_string();
-                                let png_buf = convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png).unwrap();
+                                let png_buf = match_all_dynamic_fmts!(&frame, x, {
+                                    convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
+                                });
 
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let image_path = debug_path.join(stamped);
@@ -1026,16 +1028,22 @@ fn frame_process_thread(
                             }
 
                             let start_time = std::time::Instant::now();
-                            let rgb = convert_image::convert(&frame, formats::PixelFormat::RGB8)?;
 
                             info!("Attempting to find {}x{} chessboard.",
-                                checkerboard_data.width, checkerboard_data.height);
+                            checkerboard_data.width, checkerboard_data.height);
 
-                            let corners = opencv_calibrate::find_chessboard_corners(
-                                rgb.image_data(),
-                                rgb.width(), rgb.height(),
-                                checkerboard_data.width as usize, checkerboard_data.height as usize,
-                                )?;
+                            let corners = basic_frame::match_all_dynamic_fmts!(&frame, x, {
+                                let rgb: Box<dyn formats::ImageStride<formats::pixel_format::RGB8>> =
+                                Box::new(convert_image::convert::<_,formats::pixel_format::RGB8>(x)?);
+                                let corners = opencv_calibrate::find_chessboard_corners(
+                                    rgb.image_data(),
+                                    rgb.width(), rgb.height(),
+                                    checkerboard_data.width as usize, checkerboard_data.height as usize,
+                                    )?;
+                                corners
+                            });
+
+
                             let work_duration = start_time.elapsed();
                             if work_duration > checkerboard_loop_dur {
                                 checkerboard_loop_dur = work_duration + std::time::Duration::from_millis(5);
@@ -1121,16 +1129,16 @@ fn frame_process_thread(
                                         april_td.add_family(april_tf);
                                     }
 
-                                    let mut im = frame2april(&frame);
-                                    let detections = april_td.detect(im.inner_mut());
+                                    if let Some(mut im) = frame2april(&frame) {
+                                        let detections = april_td.detect(im.inner_mut());
 
-                                    if let Some(ref mut wtr) = apriltag_writer {
-                                        wtr.save(&detections, frame.host_framenumber(), frame.host_timestamp())?;
+                                        if let Some(ref mut wtr) = apriltag_writer {
+                                            wtr.save(&detections, frame.extra().host_framenumber(), frame.extra().host_timestamp())?;
+                                        }
+
+                                        let tag_points = detections.as_slice().iter().map(det2display);
+                                        all_points.extend(tag_points);
                                     }
-
-                                    let tag_points = detections.as_slice().iter().map(det2display);
-                                    all_points.extend(tag_points);
-
                                 }
                             }
                         }
@@ -1158,7 +1166,7 @@ fn frame_process_thread(
                                     }).collect();
 
                                 let cam_received_timestamp = datetime_conversion::datetime_to_f64(
-                                    &frame.host_timestamp());
+                                    &frame.extra().host_timestamp());
 
                                 // TODO FIXME XXX It is a lie that this timesource is Triggerbox.
                                 let trigger_timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(
@@ -1172,7 +1180,7 @@ fn frame_process_thread(
                                 let frame_data = flydra2::FrameData::new(
                                     ros_cam_name.clone(),
                                     cam_num,
-                                    SyncFno(frame.host_framenumber() as u64),
+                                    SyncFno(frame.extra().host_framenumber() as u64),
                                     trigger_timestamp,
                                     cam_received_timestamp,
                                 );
@@ -1202,7 +1210,7 @@ fn frame_process_thread(
 
                                 // start saving tracking
                                 let base_template = "flytrax%Y%m%d_%H%M%S";
-                                let now = frame.host_timestamp();
+                                let now = frame.extra().host_timestamp();
                                 let local = now.with_timezone(&chrono::Local);
                                 let base = local.format(base_template).to_string();
 
@@ -1212,10 +1220,8 @@ fn frame_process_thread(
                                     image_path.push(base.clone());
                                     image_path.set_extension("jpg");
 
-                                    let bytes = convert_image::frame_to_image(&frame,
-                                        convert_image::ImageOptions::Jpeg(99)).expect(
-                                        "jpeg convert",
-                                    );
+                                    let bytes = match_all_dynamic_fmts!(&frame,x, {convert_image::frame_to_image(x,
+                                        convert_image::ImageOptions::Jpeg(99))?});
                                     File::create(image_path)?
                                         .write_all(&bytes)?;
                                 }
@@ -1285,10 +1291,10 @@ fn frame_process_thread(
 
                             }
                             SavingState::Saving(ref mut inner) => {
-                                let interval = frame.host_timestamp().signed_duration_since(inner.last_save);
+                                let interval = frame.extra().host_timestamp().signed_duration_since(inner.last_save);
                                 // save found points
                                 if interval >= inner.min_interval && points.len() >= 1 {
-                                    let time_microseconds = frame.host_timestamp()
+                                    let time_microseconds = frame.extra().host_timestamp()
                                         .signed_duration_since(inner.t0)
                                         .num_microseconds().unwrap();
 
@@ -1315,12 +1321,12 @@ fn frame_process_thread(
                                         };
                                         writeln!(inner.fd,
                                             "{},{},{:.1},{:.1},{},{},{},{},{}",
-                                            time_microseconds, frame.host_framenumber(),
+                                            time_microseconds, frame.extra().host_framenumber(),
                                             pt.x0_abs, pt.y0_abs, orientation_mod_pi,
                                             pt.area, led1, led2, led3)?;
                                         inner.fd.flush()?;
                                     }
-                                    inner.last_save = frame.host_timestamp();
+                                    inner.last_save = frame.extra().host_timestamp();
                                 }
                             }
                         }
@@ -1349,7 +1355,7 @@ fn frame_process_thread(
 
                 if let Some(ref mut inner) = mkv_writer {
                     let data = frame.clone(); // copy entire frame data
-                    inner.write(data, frame.host_timestamp())?;
+                    inner.write(data, frame.extra().host_timestamp())?;
                 }
 
                 if let Some(ref mut inner) = fmf_writer {
@@ -1358,7 +1364,9 @@ fn frame_process_thread(
                         Some(stamp) => stamp.elapsed() >= inner.recording_framerate.interval(),
                     };
                     if do_save {
-                        inner.writer.write(&frame, frame.host_timestamp())?;
+                        match_all_dynamic_fmts!(&frame, x, {
+                            inner.writer.write(x, frame.extra().host_timestamp())?
+                        });
                         inner.last_saved_stamp = Some(std::time::Instant::now());
                     }
                 }
@@ -1414,9 +1422,10 @@ fn frame_process_thread(
 
                         *timer = std::time::Instant::now();
                         // encode frame to png buf
-                        let buf = convert_image::frame_to_image(
-                            &frame,
-                            convert_image::ImageOptions::Png).expect("convert to png");
+
+                        let buf = match_all_dynamic_fmts!(&frame, x, {
+                            convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
+                        });
 
                         // send to UpdateCurrentImage
                         match transmit_current_image_tx.try_send(buf) {
@@ -1779,14 +1788,17 @@ fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
 }
 
 #[cfg(feature = "fiducial")]
-fn frame2april(frame: &BasicFrame) -> apriltag::ImageU8Borrowed {
-    use machine_vision_formats::Stride;
-    apriltag::ImageU8Borrowed::new(
-        frame.width().try_into().unwrap(),
-        frame.height().try_into().unwrap(),
-        frame.stride().try_into().unwrap(),
-        &frame.image_data,
-    )
+fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
+    use machine_vision_formats::{ImageData, Stride};
+    match frame {
+        DynamicFrame::Mono8(frame) => Some(apriltag::ImageU8Borrowed::new(
+            frame.width().try_into().unwrap(),
+            frame.height().try_into().unwrap(),
+            frame.stride().try_into().unwrap(),
+            frame.image_data(),
+        )),
+        _ => None,
+    }
 }
 
 #[cfg(feature = "with_camtrig")]
@@ -2301,7 +2313,7 @@ pub fn setup_app(
 
     if let Some(ref pixfmt_str) = args.pixel_format {
         use std::str::FromStr;
-        let pixfmt = formats::PixelFormat::from_str(&pixfmt_str)
+        let pixfmt = PixFmt::from_str(&pixfmt_str)
             .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
         info!("  setting pixel format: {}", pixfmt);
         cam.set_pixel_format(pixfmt)?;
@@ -2352,7 +2364,7 @@ pub fn setup_app(
     info!("  acquired first frame: {}x{}", frame.width(), frame.height());
 
     #[allow(unused_variables)]
-    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = crossbeam_channel::bounded::<BasicFrame>(500);
+    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = crossbeam_channel::bounded::<DynamicFrame>(500);
     #[allow(unused_variables)]
     let (plugin_result_tx, plugin_result_rx) = crossbeam_channel::bounded::<_>(500);
 
@@ -2362,7 +2374,7 @@ pub fn setup_app(
     #[cfg(not(feature="plugin-process-frame"))]
     let plugin_wait_dur = std::time::Duration::from_millis(5);
 
-    let (firehose_tx, firehose_rx) = crossbeam_channel::bounded::<AnnotatedFrame<BasicFrame>>(5);
+    let (firehose_tx, firehose_rx) = crossbeam_channel::bounded::<AnnotatedFrame>(5);
 
     let image_width = frame.width();
     let image_height = frame.height();
@@ -2819,10 +2831,10 @@ pub fn setup_app(
         while let Some(frame_msg) = frame_valved.next().await {
             match frame_msg {
                 ci2_async::FrameResult::Frame(frame) => {
-                    let frame: BasicFrame = Box::new(frame).into();
+                    let frame: DynamicFrame = frame;
                     trace!(
                         "  got frame {}: {}x{}",
-                        frame.host_framenumber(),
+                        frame.extra().host_framenumber(),
                         frame.width(),
                         frame.height()
                     );
@@ -3726,28 +3738,28 @@ fn ffi_to_points(
 }
 
 #[cfg(feature = "plugin-process-frame")]
-fn get_pixfmt(pixfmt: &formats::PixelFormat) -> plugin_defs::EisvogelPixelFormat {
+fn get_pixfmt(pixfmt: &PixFmt) -> plugin_defs::EisvogelPixelFormat {
     match pixfmt {
-        formats::PixelFormat::MONO8 => plugin_defs::EisvogelPixelFormat::MONO8,
-        formats::PixelFormat::BayerRG8 => plugin_defs::EisvogelPixelFormat::BayerRG8,
+        PixFmt::Mono8 => plugin_defs::EisvogelPixelFormat::MONO8,
+        PixFmt::BayerRG8 => plugin_defs::EisvogelPixelFormat::BayerRG8,
         other => panic!("unsupported pixel format: {}", other),
     }
 }
 
 #[cfg(feature = "plugin-process-frame")]
-fn get_c_timestamp<'a>(frame: &'a BasicFrame) -> f64 {
-    let ts = frame.host_timestamp();
+fn get_c_timestamp<'a>(frame: &'a DynamicFrame) -> f64 {
+    let ts = frame.extra().host_timestamp();
     datetime_conversion::datetime_to_f64(&ts)
 }
 
 #[cfg(feature = "plugin-process-frame")]
-fn view_as_c_frame<'a>(frame: &'a BasicFrame) -> plugin_defs::FrameData {
+fn view_as_c_frame<'a>(frame: &'a DynamicFrame) -> plugin_defs::FrameData {
     use formats::Stride;
 
-    let pixel_format = get_pixfmt(&frame.pixel_format);
+    let pixel_format = get_pixfmt(&frame.pixel_format());
 
     let result = plugin_defs::FrameData {
-        data: frame.image_data().as_ptr() as *const i8,
+        data: frame.image_data_without_format().as_ptr() as *const i8,
         stride: frame.stride() as u64,
         rows: frame.height(),
         cols: frame.width(),

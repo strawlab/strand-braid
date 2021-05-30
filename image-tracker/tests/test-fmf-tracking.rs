@@ -1,6 +1,6 @@
 use flydra_types::{CamHttpServerInfo, RawCamName};
 use image_tracker::{FlyTracker, UfmfState};
-use timestamped_frame::HostTimeData;
+use timestamped_frame::ExtraTimeData;
 
 const FNAME: &str = "movie20190115_221756.fmf";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
@@ -51,8 +51,8 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
     for frame in reader {
         println!(
             "frame {:?}: {:?}",
-            frame.host_framenumber(),
-            frame.host_timestamp()
+            frame.extra().host_framenumber(),
+            frame.extra().host_timestamp()
         );
         let ufmf_state = UfmfState::Stopped;
         let maybe_found = ft

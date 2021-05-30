@@ -7,7 +7,7 @@ use libdc1394_sys as ffi;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-use basic_frame::BasicFrame;
+use basic_frame::{BasicExtra, DynamicFrame};
 
 use std::os::unix::io::{AsRawFd, RawFd};
 
@@ -109,7 +109,6 @@ pub fn new_module() -> ci2::Result<WrappedModule> {
 }
 
 impl ci2::CameraModule for WrappedModule {
-    type FrameType = BasicFrame;
     type CameraType = WrappedCamera;
 
     fn name(&self) -> &str {
@@ -143,20 +142,20 @@ fn get_coding(
     coding: ffi::dc1394color_coding_t::Type,
     filter: ffi::dc1394color_filter_t::Type,
     _order: ffi::dc1394byte_order_t::Type,
-) -> ci2::Result<formats::PixelFormat> {
+) -> ci2::Result<formats::PixFmt> {
     let result = match coding {
-        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_MONO8 => formats::PixelFormat::MONO8,
+        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_MONO8 => formats::PixFmt::Mono8,
         ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW8 => match filter {
-            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_RGGB => formats::PixelFormat::BayerRG8,
-            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GBRG => formats::PixelFormat::BayerGB8,
-            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GRBG => formats::PixelFormat::BayerGR8,
-            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_BGGR => formats::PixelFormat::BayerBG8,
+            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_RGGB => formats::PixFmt::BayerRG8,
+            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GBRG => formats::PixFmt::BayerGB8,
+            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GRBG => formats::PixFmt::BayerGR8,
+            ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_BGGR => formats::PixFmt::BayerBG8,
             filter => panic!("unimplemented conversion for filter {:?}", filter),
         },
-        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV411 => formats::PixelFormat::YUV411,
-        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV422 => formats::PixelFormat::YUV422,
-        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV444 => formats::PixelFormat::YUV444,
-        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RGB8 => formats::PixelFormat::RGB8,
+        // ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV411 => formats::PixFmt::YUV411,
+        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV422 => formats::PixFmt::YUV422,
+        // ffi::dc1394color_coding_t::DC1394_COLOR_CODING_YUV444 => formats::PixFmt::YUV444,
+        ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RGB8 => formats::PixFmt::RGB8,
         ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW16 => {
             let e = "unimplemented conversion for DC1394_COLOR_CODING_RAW16".to_string();
             return Err(ci2::Error::CI2Error(e));
@@ -220,12 +219,6 @@ impl InnerCam {
             started: false,
         }
     }
-
-    fn max_image_size(&self) -> ci2::Result<(u32, u32)> {
-        let modinner = self.modinner.lock();
-        let i = self.idx;
-        modinner.cams[i].max_image_size().map_dc1394_err()
-    }
     fn width(&self) -> ci2::Result<u32> {
         let modinner = self.modinner.lock();
         let i = self.idx;
@@ -238,25 +231,7 @@ impl InnerCam {
         let (_w, h) = modinner.cams[i].image_size().map_dc1394_err()?;
         Ok(h)
     }
-    fn roi(&self) -> ci2::Result<ci2::FrameROI> {
-        let modinner = self.modinner.lock();
-        let i = self.idx;
-        let (w, h) = modinner.cams[i].image_size().map_dc1394_err()?;
-        let (xmin, ymin) = modinner.cams[i].image_position().map_dc1394_err()?;
-        Ok(ci2::FrameROI {
-            xmin: xmin,
-            ymin: ymin,
-            width: w,
-            height: h,
-        })
-    }
-    fn set_roi(&mut self, roi: &ci2::FrameROI) -> ci2::Result<()> {
-        let modinner = self.modinner.lock();
-        modinner.cams[self.idx]
-            .set_roi(roi.xmin, roi.ymin, roi.width, roi.height)
-            .map_dc1394_err()
-    }
-    fn pixel_format(&self) -> ci2::Result<formats::PixelFormat> {
+    fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
         let modinner = self.modinner.lock();
         let coding = modinner.cams[self.idx].color_coding().map_dc1394_err()?;
         let filter = modinner.cams[self.idx].color_filter().map_dc1394_err()?;
@@ -266,7 +241,7 @@ impl InnerCam {
 
         get_coding(coding, filter, fake_byte_order)
     }
-    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixelFormat>> {
+    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
         let modinner = self.modinner.lock();
         let codings = modinner.cams[self.idx]
             .possible_color_codings()
@@ -286,24 +261,24 @@ impl InnerCam {
 
         Ok(encodings)
     }
-    fn set_pixel_format(&mut self, pixel_format: formats::PixelFormat) -> ci2::Result<()> {
+    fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
         let modinner = self.modinner.lock();
         let filter = modinner.cams[self.idx].color_filter().map_dc1394_err()?;
         let coding = match pixel_format {
-            formats::PixelFormat::MONO8 => ffi::dc1394color_coding_t::DC1394_COLOR_CODING_MONO8,
-            formats::PixelFormat::BayerRG8 => {
+            formats::PixFmt::Mono8 => ffi::dc1394color_coding_t::DC1394_COLOR_CODING_MONO8,
+            formats::PixFmt::BayerRG8 => {
                 check_filter!(filter, ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_RGGB);
                 ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW8
             }
-            formats::PixelFormat::BayerGB8 => {
+            formats::PixFmt::BayerGB8 => {
                 check_filter!(filter, ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GBRG);
                 ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW8
             }
-            formats::PixelFormat::BayerGR8 => {
+            formats::PixFmt::BayerGR8 => {
                 check_filter!(filter, ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_GRBG);
                 ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW8
             }
-            formats::PixelFormat::BayerBG8 => {
+            formats::PixFmt::BayerBG8 => {
                 check_filter!(filter, ffi::dc1394color_filter_t::DC1394_COLOR_FILTER_BGGR);
                 ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW8
             }
@@ -480,7 +455,7 @@ impl InnerCam {
     /// synchronous frame acquisition
     /// timeout with duration of zero for non-blocking behavior.
     /// timeout with duration None to block.
-    fn my_frame(&mut self, timeout_ms: Option<u32>) -> ci2::Result<BasicFrame> {
+    fn my_frame(&mut self, timeout_ms: Option<u32>) -> ci2::Result<DynamicFrame> {
         let dequeue_policy = ffi::dc1394capture_policy_t::DC1394_CAPTURE_POLICY_WAIT;
 
         let result = {
@@ -502,21 +477,19 @@ impl InnerCam {
 
             let width = im.size()[0];
             let height = im.size()[1];
+            let stride = im.stride();
+            let image_data = im.data_view().to_vec(); // copy data
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
 
-            let frame = BasicFrame {
-                width,
-                height,
-                stride: im.stride(),
-                image_data: im.data_view().to_vec(), // copy data
+            let pixel_format =
+                get_coding(im.color_coding(), im.color_filter(), im.yuv_byte_order())?;
+
+            let extra = Box::new(BasicExtra {
                 host_timestamp: now,
                 host_framenumber: self.fno,
-                pixel_format: get_coding(
-                    im.color_coding(),
-                    im.color_filter(),
-                    im.yuv_byte_order(),
-                )?,
-            };
+            });
+            let frame = DynamicFrame::new(width, height, stride, extra, image_data, pixel_format);
+
             self.fno += 1;
             frame
         };
@@ -570,34 +543,20 @@ impl ci2::CameraInfo for WrappedCamera {
     }
 }
 
-impl WrappedCamera {
-    fn max_image_size(&self) -> ci2::Result<(u32, u32)> {
-        self.caminner.lock().max_image_size()
-    }
-    fn roi(&self) -> ci2::Result<ci2::FrameROI> {
-        self.caminner.lock().roi()
-    }
-    fn set_roi(&mut self, roi: &ci2::FrameROI) -> ci2::Result<()> {
-        self.caminner.lock().set_roi(roi)
-    }
-}
-
 impl ci2::Camera for WrappedCamera {
-    type FrameType = BasicFrame;
-
     fn width(&self) -> ci2::Result<u32> {
         self.caminner.lock().width()
     }
     fn height(&self) -> ci2::Result<u32> {
         self.caminner.lock().height()
     }
-    fn pixel_format(&self) -> ci2::Result<formats::PixelFormat> {
+    fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
         self.caminner.lock().pixel_format()
     }
-    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixelFormat>> {
+    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
         self.caminner.lock().possible_pixel_formats()
     }
-    fn set_pixel_format(&mut self, pixel_format: formats::PixelFormat) -> ci2::Result<()> {
+    fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
         self.caminner.lock().set_pixel_format(pixel_format)
     }
 
@@ -680,7 +639,7 @@ impl ci2::Camera for WrappedCamera {
         self.caminner.lock().acquisition_stop()
     }
 
-    fn next_frame(&mut self) -> ci2::Result<Self::FrameType> {
+    fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
         self.caminner.lock().my_frame(None)
     }
 }

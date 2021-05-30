@@ -1,6 +1,6 @@
 use crossbeam_channel::TryRecvError;
 
-use machine_vision_formats::ImageStride;
+use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 // TODO: generalize also to FMF writer
 
@@ -22,11 +22,8 @@ pub enum Error {
     Disconnected,
 }
 
-impl<IM> From<crossbeam_channel::SendError<Msg<IM>>> for Error
-where
-    IM: ImageStride + Send,
-{
-    fn from(_orig: crossbeam_channel::SendError<Msg<IM>>) -> Error {
+impl From<crossbeam_channel::SendError<Msg>> for Error {
+    fn from(_orig: crossbeam_channel::SendError<Msg>) -> Error {
         Error::SendError
     }
 }
@@ -53,19 +50,13 @@ macro_rules! async_err {
     };
 }
 
-pub struct BgMovieWriter<IM>
-where
-    IM: ImageStride,
-{
-    tx: crossbeam_channel::Sender<Msg<IM>>,
+pub struct BgMovieWriter {
+    tx: crossbeam_channel::Sender<Msg>,
     is_done: bool,
     err_rx: crossbeam_channel::Receiver<Error>,
 }
 
-impl<IM> BgMovieWriter<IM>
-where
-    IM: 'static + ImageStride + Send,
-{
+impl BgMovieWriter {
     pub fn new_webm_writer(
         format_str_mkv: String,
         mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
@@ -80,7 +71,11 @@ where
         }
     }
 
-    pub fn write(&mut self, frame: IM, timestamp: chrono::DateTime<chrono::Utc>) -> Result<()> {
+    pub fn write(
+        &mut self,
+        frame: DynamicFrame,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
         async_err!(self.err_rx);
         if self.is_done {
             return Err(Error::AlreadyDone);
@@ -95,17 +90,14 @@ where
         self.send(Msg::Finish)
     }
 
-    fn send(&mut self, msg: Msg<IM>) -> Result<()> {
+    fn send(&mut self, msg: Msg) -> Result<()> {
         self.tx.send(msg)?;
         Ok(())
     }
 }
 
-enum Msg<IM>
-where
-    IM: ImageStride,
-{
-    Write((IM, chrono::DateTime<chrono::Utc>)),
+enum Msg {
+    Write((DynamicFrame, chrono::DateTime<chrono::Utc>)),
     Finish,
 }
 
@@ -122,16 +114,13 @@ macro_rules! thread_try {
     };
 }
 
-fn launch_runner<IM>(
+fn launch_runner(
     format_str_mkv: String,
     mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
     size: usize,
     err_tx: crossbeam_channel::Sender<Error>,
-) -> crossbeam_channel::Sender<Msg<IM>>
-where
-    IM: 'static + ImageStride + Send,
-{
-    let (tx, rx) = crossbeam_channel::bounded::<Msg<IM>>(size);
+) -> crossbeam_channel::Sender<Msg> {
+    let (tx, rx) = crossbeam_channel::bounded::<Msg>(size);
     std::thread::spawn(move || {
         // Load CUDA and nvidia-encode shared libs, but do not return error
         // (yet).
@@ -196,7 +185,8 @@ where
                         ));
                     }
                     if let Some((_h264_path, ref mut r)) = &mut raw {
-                        thread_try!(err_tx, r.write(&frame, stamp));
+                        let result = match_all_dynamic_fmts!(&frame, x, r.write(x, stamp));
+                        thread_try!(err_tx, result);
                     }
                 }
                 Msg::Finish => {

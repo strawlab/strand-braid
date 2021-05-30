@@ -6,17 +6,20 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
+chrono = "0.4"
+env_logger = "0.8"
+futures = "0.3"
+
+basic-frame = { path = "../basic-frame" }
 machine-vision-formats = { path = "../machine-vision-formats" }
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
-chrono = "0.4"
-env_logger = "0.8"
+
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
 ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
-futures = "0.3"
 
 [features]
 default = []

@@ -3,50 +3,43 @@ extern crate log;
 
 use chrono::{DateTime, Utc};
 
-use basic_frame::BasicFrame;
+use basic_frame::{BasicExtra, BasicFrame};
 use ci2_remote_control::MkvRecordingConfig;
 
-use machine_vision_formats::ImageData;
+use machine_vision_formats::{pixel_format::RGB8, ImageData};
 use rusttype::{point, Font, Scale};
 
 struct Rgba(pub [u8; 4]);
 
-fn put_pixel(self_: &mut BasicFrame, x: u32, y: u32, incoming: Rgba) {
-    match self_.pixel_format {
-        machine_vision_formats::PixelFormat::RGB8 => {
-            let row_start = self_.stride as usize * y as usize;
-            let pix_start = row_start + x as usize * 3;
+fn put_pixel(self_: &mut BasicFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
+    let row_start = self_.stride as usize * y as usize;
+    let pix_start = row_start + x as usize * 3;
 
-            let alpha = incoming.0[3] as f64 / 255.0;
-            let p = 1.0 - alpha;
-            let q = alpha;
+    let alpha = incoming.0[3] as f64 / 255.0;
+    let p = 1.0 - alpha;
+    let q = alpha;
 
-            use std::convert::TryInto;
-            let old: [u8; 3] = self_.image_data[pix_start..pix_start + 3]
-                .try_into()
-                .unwrap();
-            let new: [u8; 3] = [
-                (old[0] as f64 * p + incoming.0[0] as f64 * q).round() as u8,
-                (old[1] as f64 * p + incoming.0[1] as f64 * q).round() as u8,
-                (old[2] as f64 * p + incoming.0[2] as f64 * q).round() as u8,
-            ];
+    use std::convert::TryInto;
+    let old: [u8; 3] = self_.image_data[pix_start..pix_start + 3]
+        .try_into()
+        .unwrap();
+    let new: [u8; 3] = [
+        (old[0] as f64 * p + incoming.0[0] as f64 * q).round() as u8,
+        (old[1] as f64 * p + incoming.0[1] as f64 * q).round() as u8,
+        (old[2] as f64 * p + incoming.0[2] as f64 * q).round() as u8,
+    ];
 
-            self_.image_data[pix_start] = new[0];
-            self_.image_data[pix_start + 1] = new[1];
-            self_.image_data[pix_start + 2] = new[2];
-        }
-        _ => {
-            panic!("unsupported image format: {}", self_.pixel_format);
-        }
-    }
+    self_.image_data[pix_start] = new[0];
+    self_.image_data[pix_start + 1] = new[1];
+    self_.image_data[pix_start + 2] = new[2];
 }
 
 fn stamp_frame<'a>(
-    rgb: &convert_image::ConvertImageFrame,
+    rgb: &simple_frame::SimpleFrame<RGB8>,
     font: &rusttype::Font<'a>,
     count: usize,
     start: &DateTime<Utc>,
-) -> Result<(basic_frame::BasicFrame, DateTime<Utc>), failure::Error> {
+) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), failure::Error> {
     let dt_msec = 5;
     let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
 
@@ -56,14 +49,17 @@ fn stamp_frame<'a>(
     let height = rgb.height();
     let image_data = rgb.image_data().to_vec(); // copy data
 
-    let mut image = BasicFrame {
+    let extra = Box::new(BasicExtra {
+        host_timestamp: ts,
+        host_framenumber: count,
+    });
+    let mut image: BasicFrame<RGB8> = BasicFrame {
         width: width as u32,
         height: height as u32,
         stride: (width * 3) as u32,
         image_data,
-        host_timestamp: ts,
-        host_framenumber: count,
-        pixel_format: machine_vision_formats::PixelFormat::RGB8,
+        extra,
+        pixel_format: std::marker::PhantomData,
     };
 
     // from https://gitlab.redox-os.org/redox-os/rusttype/blob/master/dev/examples/image.rs

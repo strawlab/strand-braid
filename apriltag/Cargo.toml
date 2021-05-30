@@ -11,4 +11,4 @@ apriltag-sys = "0.1.3"
 [dev-dependencies]
 machine-vision-formats = { path = "../machine-vision-formats" }
 convert-image = { path = "../convert-image" }
-image = "0.22"
+image = "0.23"

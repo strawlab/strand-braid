@@ -8,25 +8,27 @@ extern crate datetime_conversion;
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
-use crate::formats::{ImageStride, PixelFormat};
 use byteorder::{LittleEndian, WriteBytesExt};
+use formats::{ImageStride, PixFmt, PixelFormat};
 
 pub type FMFResult<M> = std::result::Result<M, FMFError>;
+
+pub(crate) mod pixel_formats;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FMFError {
     #[error("unexpected size")]
     UnexpectedSize,
     #[error("unexpected pixel_format {0} (expected {1})")]
-    UnexpectedEncoding(PixelFormat, PixelFormat),
+    UnexpectedEncoding(PixFmt, PixFmt),
     #[error("unimplemented pixel_format {0}")]
-    UnimplementedPixelFormat(PixelFormat),
+    UnimplementedPixelFormat(PixFmt),
 
     #[error("unimplemented version")]
     UnimplementedVersion,
     #[error("premature file end")]
     PrematureFileEnd,
-    #[error("unknown format {0}")] // TODO render utf-8 component?
+    #[error("unknown format {0}")]
     UnknownFormat(String),
     #[error("inconsistent state")]
     InconsistentState,
@@ -59,9 +61,7 @@ impl From<std::cell::BorrowMutError> for FMFError {
     }
 }
 
-pub type FMFFrame = basic_frame::BasicFrame;
-
-mod reader;
+pub mod reader;
 pub use crate::reader::FMFReader;
 
 /// Writes FMF (fly movie format) movie files.
@@ -83,7 +83,7 @@ struct FMFWriterInner<F: Write + Seek> {
     f: Option<F>,
     w: u32,
     h: u32,
-    e: PixelFormat,
+    e: PixFmt,
     row_bytes: usize,
     n_frames_pos_bytes: u64,
     n_frames: u64,
@@ -109,9 +109,14 @@ impl<F: Write + Seek> FMFWriter<F> {
     }
 
     /// Write a frame.
-    pub fn write<TZ>(&mut self, frame: &dyn ImageStride, dtl: chrono::DateTime<TZ>) -> FMFResult<()>
+    pub fn write<TZ, FMT>(
+        &mut self,
+        frame: &dyn ImageStride<FMT>,
+        dtl: chrono::DateTime<TZ>,
+    ) -> FMFResult<()>
     where
         TZ: chrono::TimeZone,
+        FMT: PixelFormat,
     {
         let timestamp = datetime_conversion::datetime_to_f64(&dtl);
 
@@ -120,8 +125,12 @@ impl<F: Write + Seek> FMFWriter<F> {
         let state = std::mem::replace(&mut self.state, WriterState::InconsistentState);
         let new_state = match state {
             WriterState::FileOpened(f) => {
-                let inner =
-                    FMFWriterInner::new(f, frame.width(), frame.height(), frame.pixel_format())?;
+                let inner = FMFWriterInner::new(
+                    f,
+                    frame.width(),
+                    frame.height(),
+                    machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap(),
+                )?;
                 WriterState::Writing(inner)
             }
             WriterState::Writing(inner) => WriterState::Writing(inner),
@@ -137,8 +146,11 @@ impl<F: Write + Seek> FMFWriter<F> {
                 {
                     return Err(FMFError::UnexpectedSize);
                 }
-                if frame.pixel_format() != inner.e {
-                    return Err(FMFError::UnexpectedEncoding(frame.pixel_format(), inner.e));
+                if machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap() != inner.e {
+                    return Err(FMFError::UnexpectedEncoding(
+                        machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap(),
+                        inner.e,
+                    ));
                 }
                 inner.write_inner(frame, timestamp)?;
             }
@@ -163,15 +175,10 @@ impl<F: Write + Seek> FMFWriter<F> {
 }
 
 impl<F: Write + Seek> FMFWriterInner<F> {
-    fn new(mut f: F, w: u32, h: u32, pixel_format: PixelFormat) -> FMFResult<Self> {
-        let format = get_format(pixel_format)?;
+    fn new(mut f: F, w: u32, h: u32, pixel_format: PixFmt) -> FMFResult<Self> {
+        let format = pixel_formats::get_format(pixel_format)?;
 
-        let bytes_per_pixel = match pixel_format.bits_per_pixel() {
-            Some(bit_per_pixel) => bit_per_pixel.get() / 8,
-            None => {
-                return Err(FMFError::UnimplementedPixelFormat(pixel_format));
-            }
-        };
+        let bytes_per_pixel = pixel_format.bits_per_pixel() / 8;
 
         let row_bytes = w as usize * bytes_per_pixel as usize;
         let chunksize = (row_bytes * h as usize + 8) as usize;
@@ -206,7 +213,10 @@ impl<F: Write + Seek> FMFWriterInner<F> {
         })
     }
 
-    fn write_inner(&mut self, frame: &dyn ImageStride, timestamp: f64) -> FMFResult<()> {
+    fn write_inner<FMT>(&mut self, frame: &dyn ImageStride<FMT>, timestamp: f64) -> FMFResult<()>
+    where
+        FMT: PixelFormat,
+    {
         let self_f = match self.f {
             Some(ref mut f) => f,
             None => {
@@ -220,13 +230,8 @@ impl<F: Write + Seek> FMFWriterInner<F> {
         // want to write all these bytes.
 
         let image_data = frame.image_data();
-        let e = frame.pixel_format();
-        let bpp = match e.bits_per_pixel() {
-            Some(nz) => nz.get(),
-            None => {
-                return Err(FMFError::UnimplementedPixelFormat(e));
-            }
-        };
+        let e = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+        let bpp = e.bits_per_pixel();
         let n_bytes_per_row = self.w as usize * (bpp / 8) as usize;
         let mut ptr = 0;
         for _ in 0..self.h {
@@ -274,61 +279,34 @@ impl<F: Write + Seek> Drop for FMFWriterInner<F> {
     }
 }
 
-fn get_format(pixel_format: PixelFormat) -> FMFResult<Vec<u8>> {
-    let r = match pixel_format {
-        PixelFormat::MONO8 => b"MONO8".to_vec(),
-        PixelFormat::BayerRG8 => b"RAW8:RGGB".to_vec(),
-        PixelFormat::BayerGB8 => b"RAW8:GBRG".to_vec(),
-        PixelFormat::BayerGR8 => b"RAW8:GRBG".to_vec(),
-        PixelFormat::BayerBG8 => b"RAW8:BGGR".to_vec(),
-        PixelFormat::YUV422 => b"YUV422".to_vec(),
-        PixelFormat::RGB8 => b"RGB8".to_vec(),
-        e => {
-            return Err(FMFError::UnimplementedPixelFormat(e));
-        }
-    };
-    Ok(r)
-}
-
-fn get_pixel_format(format: &[u8]) -> FMFResult<PixelFormat> {
-    match format {
-        b"MONO8" => Ok(PixelFormat::MONO8),
-        b"RAW8:RGGB" | b"MONO8:RGGB" => Ok(PixelFormat::BayerRG8),
-        b"RAW8:GBRG" | b"MONO8:GBRG" => Ok(PixelFormat::BayerGB8),
-        b"RAW8:GRBG" | b"MONO8:GRBG" => Ok(PixelFormat::BayerGR8),
-        b"RAW8:BGGR" | b"MONO8:BGGR" => Ok(PixelFormat::BayerBG8),
-        b"YUV422" => Ok(PixelFormat::YUV422),
-        b"RGB8" => Ok(PixelFormat::RGB8),
-        f => Err(FMFError::UnknownFormat(
-            String::from_utf8_lossy(&f).into_owned(),
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{FMFFrame, FMFWriter};
+    use super::FMFWriter;
+    use basic_frame::{BasicExtra, BasicFrame};
 
-    use timestamped_frame::HostTimeData;
+    use timestamped_frame::ExtraTimeData;
 
-    use crate::formats::PixelFormat;
     use chrono;
     use chrono::{DateTime, Local};
+    use machine_vision_formats::pixel_format::Mono8;
 
-    fn zeros(w: u32, h: u32) -> FMFFrame {
+    fn zeros(w: u32, h: u32) -> BasicFrame<Mono8> {
         let mut image_data = Vec::new();
         image_data.resize((w * h) as usize, 0);
         let local: DateTime<Local> = Local::now();
         let host_timestamp = local.with_timezone(&chrono::Utc);
+        let extra = Box::new(BasicExtra {
+            host_timestamp,
+            host_framenumber: 0,
+        });
 
-        FMFFrame {
+        BasicFrame {
             width: w,
             height: h,
             stride: w,
             image_data,
-            pixel_format: PixelFormat::MONO8,
-            host_timestamp,
-            host_framenumber: 0,
+            extra,
+            pixel_format: std::marker::PhantomData,
         }
     }
 
@@ -342,13 +320,13 @@ mod tests {
 
         // write some frames
         let f1 = zeros(w, h);
-        writer.write(&f1, f1.host_timestamp()).unwrap();
+        writer.write(&f1, f1.extra().host_timestamp()).unwrap();
 
         let f2 = zeros(w, h);
-        writer.write(&f2, f2.host_timestamp()).unwrap();
+        writer.write(&f2, f2.extra().host_timestamp()).unwrap();
 
         let f3 = zeros(w, h);
-        writer.write(&f3, f3.host_timestamp()).unwrap();
+        writer.write(&f3, f3.extra().host_timestamp()).unwrap();
 
         let f = writer.close().unwrap();
 

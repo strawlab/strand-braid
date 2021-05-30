@@ -20,3 +20,5 @@ log = "0.4"
 machine-vision-formats = { path = "../machine-vision-formats" }
 http-video-streaming-types = {path = "http-video-streaming-types"}
 thread-control = "0.1.2"
+
+basic-frame = {path="../basic-frame"}

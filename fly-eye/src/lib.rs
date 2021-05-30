@@ -8,6 +8,9 @@ extern crate machine_vision_formats as formats;
 extern crate machine_vision_shaders as shaders;
 extern crate time;
 
+use basic_frame::DynamicFrame;
+use formats::Stride;
+
 #[macro_use]
 extern crate glium;
 
@@ -24,12 +27,8 @@ use fly_eye as coords;
 #[cfg(feature = "screen-quad")]
 use screen_quad as coords;
 
-pub struct App<F>
-where
-    F: formats::ImageStride,
-    Vec<u8>: From<Box<F>>,
-{
-    pub rx: Receiver<Box<F>>,
+pub struct App {
+    pub rx: Receiver<DynamicFrame>,
 }
 
 struct Inner {
@@ -39,11 +38,7 @@ struct Inner {
     uniform_type: shaders::UniformType,
 }
 
-impl<F> App<F>
-where
-    F: formats::ImageStride,
-    Vec<u8>: From<Box<F>>,
-{
+impl App {
     pub fn mainloop(&mut self) -> Result<(), failure::Error> {
         let mut events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new().with_title("Fly Eye");
@@ -92,7 +87,7 @@ where
                     };
 
                     let opengl_texture = match pixel_format {
-                        formats::PixelFormat::RGB8 => {
+                        formats::pixel_format::PixFmt::RGB8 => {
                             let texdata = glium::texture::RawImage2d::from_raw_rgb(
                                 imdata.clone(),
                                 (width, height),
@@ -126,7 +121,7 @@ where
                 }
 
                 if let Some(ref inner) = inner {
-                    if pixel_format == formats::PixelFormat::RGB8 {
+                    if pixel_format == formats::pixel_format::PixFmt::RGB8 {
                         unimplemented!("RGB data not coverted to pbuffer");
                     }
                     inner.p_buffer.write(&imdata);
@@ -207,9 +202,9 @@ where
 }
 
 /// check if a frame is available. if yes, get it and keep getting until most recent.
-fn get_most_recent_frame<F>(
-    receiver: &Receiver<Box<F>>,
-) -> Result<Box<F>, crossbeam_channel::TryRecvError> {
+fn get_most_recent_frame(
+    receiver: &Receiver<DynamicFrame>,
+) -> Result<DynamicFrame, crossbeam_channel::TryRecvError> {
     let mut result = Err(crossbeam_channel::TryRecvError::Empty);
     loop {
         match receiver.try_recv() {

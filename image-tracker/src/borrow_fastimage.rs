@@ -1,54 +1,77 @@
 use crate::*;
 
-pub(crate) struct BorrowedFrame<'a> {
-    data: &'a [u8],
+use basic_frame::BasicExtra;
+use timestamped_frame::ExtraTimeData;
+
+#[derive(Clone)]
+pub(crate) struct BorrowedFrame<'a, FMT>
+where
+    FMT: Clone,
+{
+    buffer_ref: ImageBufferRef<'a, FMT>,
     width: u32,
     height: u32,
     stride: usize,
-    host_timestamp: chrono::DateTime<chrono::Utc>,
-    host_framenumber: usize,
-    pixel_format: formats::PixelFormat,
+    extra: BasicExtra,
 }
 
-impl<'a> formats::Stride for BorrowedFrame<'a> {
+impl<'a, FMT> formats::Stride for BorrowedFrame<'a, FMT>
+where
+    FMT: Clone,
+{
     fn stride(&self) -> usize {
         self.stride
     }
 }
 
-impl<'a> formats::ImageData for BorrowedFrame<'a> {
-    fn image_data(&self) -> &[u8] {
-        self.data
-    }
+impl<'a, FMT> formats::ImageData<FMT> for BorrowedFrame<'a, FMT>
+where
+    FMT: Clone,
+{
     fn width(&self) -> u32 {
         self.width
     }
     fn height(&self) -> u32 {
         self.height
     }
-    fn pixel_format(&self) -> formats::PixelFormat {
-        self.pixel_format
+    fn buffer_ref(&self) -> ImageBufferRef<FMT> {
+        self.buffer_ref.clone()
+    }
+    fn buffer(self) -> ImageBuffer<FMT> {
+        ImageBuffer {
+            data: self.buffer_ref.data.to_vec(),
+            pixel_format: self.buffer_ref().pixel_format,
+        }
     }
 }
 
-impl<'a> HostTimeData for BorrowedFrame<'a> {
-    fn host_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-        self.host_timestamp
-    }
-    fn host_framenumber(&self) -> usize {
-        self.host_framenumber
+impl<'a, FMT: Clone> ExtraTimeData for BorrowedFrame<'a, FMT> {
+    fn extra<'b>(&'b self) -> &'b dyn HostTimeData {
+        &self.extra
     }
 }
 
-pub(crate) fn borrow_fi<'a, C, D>(
+// impl<'a, FMT> HostTimeData for BorrowedFrame<'a, FMT>
+// where
+//     FMT: Clone + Send,
+// {
+//     fn host_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+//         self.host_timestamp
+//     }
+//     fn host_framenumber(&self) -> usize {
+//         self.host_framenumber
+//     }
+// }
+
+pub(crate) fn borrow_fi<'a, C, D, FMT>(
     fid: &'a fastimage::FastImageData<C, D>,
     host_timestamp: chrono::DateTime<chrono::Utc>,
     host_framenumber: usize,
-    pixel_format: formats::PixelFormat,
-) -> Result<BorrowedFrame<'a>>
+) -> Result<BorrowedFrame<'a, FMT>>
 where
     C: fastimage::ChanTrait,
     D: Copy + num_traits::Zero + PartialEq,
+    FMT: Clone,
 {
     let stride = fid.stride() as usize;
     let sz = fid.size();
@@ -63,14 +86,18 @@ where
         let ptr: *const D = fid.raw_ptr();
         std::slice::from_raw_parts(ptr as *const u8, stride * height as usize)
     };
-
+    let extra = BasicExtra {
+        host_timestamp,
+        host_framenumber,
+    };
     Ok(BorrowedFrame {
-        data,
+        buffer_ref: ImageBufferRef {
+            data,
+            pixel_format: std::marker::PhantomData,
+        },
         width,
         height,
         stride,
-        host_timestamp,
-        host_framenumber,
-        pixel_format,
+        extra,
     })
 }

@@ -29,40 +29,32 @@ extern crate log;
 
 use futures::Stream;
 
+use basic_frame::DynamicFrame;
 use machine_vision_formats as formats;
 
 use ci2::Result;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-/// An acquired frame or an error.
-#[derive(Debug)]
-pub enum FrameResult<T> {
-    /// The frame that was acquired.
-    Frame(T),
-    /// An error pertaining to this attempted acquisition.
+pub enum FrameResult {
+    Frame(DynamicFrame),
     SingleFrameError(String),
 }
 
 /// Defines a method to return a stream of frames.
 pub trait AsyncCamera {
-    type FrameType: timestamped_frame::FrameTrait + Send;
     /// asynchronous frame acquisition, get an infinite stream of frames
-    fn frames<F>(
+    fn frames<FN>(
         &mut self,
         bufsize: usize,
-        on_start: F,
-    ) -> Result<Box<dyn Stream<Item = FrameResult<Self::FrameType>> + Send + Unpin>>
+        on_start: FN,
+    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>>
     where
-        F: Fn() + Send + 'static;
+        FN: Fn() + Send + 'static;
 }
 
-/// Wrap a [ci2::Camera] with an implementation of [AsyncCamera].
-///
-/// See the module-level documentation for more details.
-pub struct ThreadedAsyncCamera<C, T> {
+pub struct ThreadedAsyncCamera<C> {
     camera: Arc<Mutex<C>>,
-    frame_type: std::marker::PhantomData<T>,
     name: String,
     serial: String,
     model: String,
@@ -74,22 +66,18 @@ pub struct ThreadedAsyncCamera<C, T> {
 fn _test_camera_is_send() {
     // Compile-time test to ensure WrappedCamera implements Send trait.
     fn implements<T: Send>() {}
-    implements::<ThreadedAsyncCamera<i8, u8>>();
+    implements::<ThreadedAsyncCamera<i8>>();
 }
 
-/// Wraps a [ci2::CameraModule] to return [ThreadedAsyncCamera] instances.
-pub struct ThreadedAsyncCameraModule<M, C, T> {
+pub struct ThreadedAsyncCameraModule<M, C> {
     cam_module: M,
     name: String,
     camera_type: std::marker::PhantomData<C>,
-    frame_type: std::marker::PhantomData<T>,
 }
 
-impl<C: 'static, T: 'static> ThreadedAsyncCamera<C, T>
+impl<C: 'static> ThreadedAsyncCamera<C>
 where
-    C: ci2::Camera<FrameType = T> + Send,
-    T: timestamped_frame::FrameTrait + Send,
-    Vec<u8>: From<T>,
+    C: ci2::Camera + Send,
 {
     pub fn control_and_join_handle(
         self,
@@ -98,21 +86,17 @@ where
     }
 }
 
-impl<C: 'static, T: 'static> AsyncCamera for ThreadedAsyncCamera<C, T>
+impl<C> AsyncCamera for ThreadedAsyncCamera<C>
 where
-    C: ci2::Camera<FrameType = T> + Send,
-    T: timestamped_frame::FrameTrait + Send,
-    Vec<u8>: From<T>,
+    C: 'static + ci2::Camera + Send,
 {
-    type FrameType = T;
-
-    fn frames<F>(
+    fn frames<FN>(
         &mut self,
         bufsize: usize,
-        on_start: F,
-    ) -> Result<Box<dyn Stream<Item = FrameResult<T>> + Send + Unpin>>
+        on_start: FN,
+    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>>
     where
-        F: Fn() + Send + 'static,
+        FN: Fn() + Send + 'static,
     {
         if self.control_and_join_handle.is_some() {
             return Err(ci2::Error::CI2Error("already launched thread".to_string()));
@@ -177,14 +161,12 @@ where
     }
 }
 
-impl<M, C, T> ThreadedAsyncCameraModule<M, C, T>
+impl<M, C> ThreadedAsyncCameraModule<M, C>
 where
-    M: ci2::CameraModule<FrameType = T, CameraType = C>,
-    C: ci2::Camera<FrameType = T>,
-    T: timestamped_frame::FrameTrait,
-    Vec<u8>: From<T>,
+    M: ci2::CameraModule<CameraType = C>,
+    C: ci2::Camera,
 {
-    pub fn threaded_async_camera(&mut self, name: &str) -> Result<ThreadedAsyncCamera<C, T>> {
+    pub fn threaded_async_camera(&mut self, name: &str) -> Result<ThreadedAsyncCamera<C>> {
         let camera = self.cam_module.camera(name)?;
         let name = camera.name().into();
         let model = camera.name().into();
@@ -193,7 +175,6 @@ where
 
         Ok(ThreadedAsyncCamera {
             camera: Arc::new(Mutex::new(camera)),
-            frame_type: std::marker::PhantomData,
             name,
             model,
             vendor,
@@ -203,26 +184,22 @@ where
     }
 }
 
-/// Convert a generic [ci2::CameraModule] into a [ThreadedAsyncCameraModule].
-pub fn into_threaded_async<M, C, T>(cam_module: M) -> ThreadedAsyncCameraModule<M, C, T>
+pub fn into_threaded_async<M, C>(cam_module: M) -> ThreadedAsyncCameraModule<M, C>
 where
-    M: ci2::CameraModule<FrameType = T, CameraType = C>,
-    C: ci2::Camera<FrameType = T>,
-    T: timestamped_frame::FrameTrait,
-    Vec<u8>: From<T>,
+    M: ci2::CameraModule<CameraType = C>,
+    C: ci2::Camera,
 {
     let name = format!("async-{}", cam_module.name());
     ThreadedAsyncCameraModule {
         cam_module,
         name,
         camera_type: std::marker::PhantomData,
-        frame_type: std::marker::PhantomData,
     }
 }
 
 // ----
 
-impl<C, T> ci2::CameraInfo for ThreadedAsyncCamera<C, T>
+impl<C> ci2::CameraInfo for ThreadedAsyncCamera<C>
 where
     C: ci2::CameraInfo,
 {
@@ -240,14 +217,10 @@ where
     }
 }
 
-impl<C, T> ci2::Camera for ThreadedAsyncCamera<C, T>
+impl<C> ci2::Camera for ThreadedAsyncCamera<C>
 where
-    C: ci2::Camera<FrameType = T>,
-    T: timestamped_frame::FrameTrait,
-    Vec<u8>: From<T>,
+    C: ci2::Camera,
 {
-    type FrameType = T;
-
     fn width(&self) -> ci2::Result<u32> {
         let c = self.camera.lock();
         c.width()
@@ -256,15 +229,15 @@ where
         let c = self.camera.lock();
         c.height()
     }
-    fn pixel_format(&self) -> ci2::Result<formats::PixelFormat> {
+    fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
         let c = self.camera.lock();
         c.pixel_format()
     }
-    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixelFormat>> {
+    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
         let c = self.camera.lock();
         c.possible_pixel_formats()
     }
-    fn set_pixel_format(&mut self, pixel_format: formats::PixelFormat) -> ci2::Result<()> {
+    fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
         let mut c = self.camera.lock();
         c.set_pixel_format(pixel_format)
     }
@@ -368,20 +341,17 @@ where
     }
 
     /// blocks forever.
-    fn next_frame(&mut self) -> ci2::Result<Self::FrameType> {
+    fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
         let mut c = self.camera.lock();
         c.next_frame()
     }
 }
 
-impl<M, C, T> ci2::CameraModule for ThreadedAsyncCameraModule<M, C, T>
+impl<M, C> ci2::CameraModule for ThreadedAsyncCameraModule<M, C>
 where
-    M: ci2::CameraModule<FrameType = T, CameraType = C>,
-    C: ci2::Camera<FrameType = T>,
-    T: timestamped_frame::FrameTrait,
-    Vec<u8>: From<T>,
+    M: ci2::CameraModule<CameraType = C>,
+    C: ci2::Camera,
 {
-    type FrameType = T;
     type CameraType = C;
 
     fn name(&self) -> &str {

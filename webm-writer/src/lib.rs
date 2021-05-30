@@ -4,9 +4,9 @@ use std::rc::Rc;
 extern crate log;
 
 use ci2_remote_control::MkvRecordingConfig;
-use convert_image::{encode_into_nv12, encode_y4m_frame, Colorspace};
+use convert_image::{encode_into_nv12, encode_y4m_frame, Y4MColorspace};
 
-use machine_vision_formats::ImageStride;
+use machine_vision_formats::{ImageBufferMutRef, ImageStride, PixelFormat};
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
@@ -71,13 +71,14 @@ where
         })
     }
 
-    pub fn write<'a, IM>(
+    pub fn write<'a, IM, FMT>(
         &'a mut self,
         frame: &IM,
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<()>
     where
-        IM: ImageStride,
+        IM: ImageStride<FMT>,
+        FMT: PixelFormat,
     {
         let inner = self.inner.take();
 
@@ -359,13 +360,15 @@ fn nanos(dur: &std::time::Duration) -> u64 {
     (as_secs_f64(dur) * 1e9).round() as u64
 }
 
-fn write_frame<'lib, T>(
+fn write_frame<'lib, T, FRAME, FMT>(
     state: &mut RecordingState<'lib, T>,
-    raw_frame: &dyn ImageStride,
+    raw_frame: &FRAME,
     timestamp: chrono::DateTime<chrono::Utc>,
 ) -> Result<()>
 where
     T: std::io::Write + std::io::Seek,
+    FRAME: ImageStride<FMT>,
+    FMT: PixelFormat,
 {
     use webm::mux::Track;
 
@@ -373,7 +376,7 @@ where
 
     match &mut state.my_encoder {
         MyEcoder::Vpx(ref mut vpx_encoder) => {
-            let yuv = encode_y4m_frame(raw_frame, Colorspace::C420paldv)?;
+            let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
             trace!("got yuv data for frame. {} bytes.", yuv.len());
 
             let milliseconds = elapsed.num_milliseconds();
@@ -408,10 +411,12 @@ where
             let pitch = {
                 // Scope for locked input buffer.
                 let mut inbuf = vram_buf.in_buf.lock()?;
-                let pitch = inbuf.pitch();
+                let dest_stride = inbuf.pitch();
                 let dptr = inbuf.mem_mut();
-                encode_into_nv12(raw_frame, dptr, pitch)?;
-                pitch
+                let mut dest = ImageBufferMutRef::new(dptr);
+                encode_into_nv12(raw_frame, &mut dest, dest_stride)?;
+                // Now vram_buf.in_buf has the nv12 encoded data.
+                dest_stride
             };
 
             h264_encoder.encoder.encode_picture(

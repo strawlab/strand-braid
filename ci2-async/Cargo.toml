@@ -5,10 +5,12 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-ci2 = {path="../ci2"}
 futures = "0.3"
-machine-vision-formats = { path = "../machine-vision-formats" }
-timestamped-frame = { path = "../timestamped-frame" }
 log = "0.4"
 parking_lot = "0.11"
 thread-control = "0.1.2"
+
+ci2 = {path="../ci2"}
+machine-vision-formats = { path = "../machine-vision-formats" }
+timestamped-frame = { path = "../timestamped-frame" }
+basic-frame = { path = "../basic-frame" }

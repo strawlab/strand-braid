@@ -2,7 +2,7 @@
 extern crate log;
 extern crate machine_vision_formats as formats;
 
-use formats::PixelFormat;
+use formats::PixFmt;
 
 pub static MONO8_VERTEX_SRC: &'static str = include_str!("mono8_vertex.glsl");
 pub static MONO8_FRAGMENT_SRC: &'static str = include_str!("mono8_fragment.glsl");
@@ -35,19 +35,19 @@ pub enum InternalFormat {
 pub fn get_programs(
     width: u32,
     height: u32,
-    pixel_format: PixelFormat,
+    pixel_format: PixFmt,
 ) -> (UniformType, &'static str, &'static str, InternalFormat) {
     let w = width as f32;
     let h = height as f32;
     let source_size = [w, h, 1.0 / w, 1.0 / h];
     let (uni_ty, vert_src, frag_src, ifmt) = match pixel_format {
-        PixelFormat::MONO8 => (
+        PixFmt::Mono8 => (
             UniformType::Mono8,
             MONO8_VERTEX_SRC,
             MONO8_FRAGMENT_SRC,
             InternalFormat::Raw8,
         ),
-        PixelFormat::BayerBG8 => {
+        PixFmt::BayerBG8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [0.0, 0.0],
@@ -59,7 +59,7 @@ pub fn get_programs(
                 InternalFormat::Raw8,
             )
         }
-        PixelFormat::BayerRG8 => {
+        PixFmt::BayerRG8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [1.0, 1.0],
@@ -72,7 +72,7 @@ pub fn get_programs(
             )
         }
 
-        PixelFormat::BayerGR8 => {
+        PixFmt::BayerGR8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [0.0, 1.0],
@@ -84,7 +84,7 @@ pub fn get_programs(
                 InternalFormat::Raw8,
             )
         }
-        PixelFormat::BayerGB8 => {
+        PixFmt::BayerGB8 => {
             let di = DemosaicInfo {
                 source_size: source_size,
                 first_red: [1.0, 0.0],
@@ -96,7 +96,7 @@ pub fn get_programs(
                 InternalFormat::Raw8,
             )
         }
-        PixelFormat::RGB8 => (
+        PixFmt::RGB8 => (
             UniformType::Rgb8,
             RGB8_VERTEX_SRC,
             RGB8_FRAGMENT_SRC,

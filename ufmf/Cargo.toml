@@ -11,6 +11,7 @@ thiserror = "1.0"
 structure = "0.1.2"
 cast = "0.2.2"
 
+basic-frame = { path = "../basic-frame" }
 machine-vision-formats = { path = "../machine-vision-formats" }
 timestamped-frame = { path = "../timestamped-frame" }
 datetime-conversion = {path="../datetime-conversion"}
