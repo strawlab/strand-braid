@@ -21,7 +21,7 @@ convert-image = { path = "../convert-image" }
 simple-frame = { path = "../simple-frame" }
 
 [dev-dependencies]
-failure = "0.1"
+anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 basic-frame = { path = "../basic-frame" }
 rusttype = "0.8.1"

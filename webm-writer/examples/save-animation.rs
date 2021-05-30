@@ -39,7 +39,7 @@ fn stamp_frame<'a>(
     font: &rusttype::Font<'a>,
     count: usize,
     start: &DateTime<Utc>,
-) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), failure::Error> {
+) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), anyhow::Error> {
     let dt_msec = 5;
     let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
 
@@ -99,16 +99,16 @@ fn stamp_frame<'a>(
     Ok((image, ts))
 }
 
-fn usage_exit() -> Result<(), failure::Error> {
+fn usage_exit() -> Result<(), anyhow::Error> {
     println!(
         "Usage:
 
     save-animation nv-h264|vp8"
     );
-    Err(failure::format_err!("invalid usage"))
+    Err(anyhow::format_err!("invalid usage"))
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), anyhow::Error> {
     let start = Utc::now();
     let output_fname = "animation.mkv";
 
