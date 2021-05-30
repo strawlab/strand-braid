@@ -48,7 +48,7 @@ enum MyEcoder<'lib> {
     H264(H264Encoder<'lib>),
 }
 
-pub struct WebmWriter<'lib, T>
+pub struct MkvWriter<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
@@ -56,7 +56,7 @@ where
     nv_enc: Option<nvenc::NvEnc<'lib>>,
 }
 
-impl<'lib, T> WebmWriter<'lib, T>
+impl<'lib, T> MkvWriter<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
@@ -89,7 +89,7 @@ where
                 let width = frame.width();
                 let height = frame.height();
 
-                let mut webm_segment =
+                let mut mkv_segment =
                     mux::Segment::new(mux::Writer::new(fd)).expect("mux::Segment::new");
 
                 let mut opt_h264_encoder = None;
@@ -194,10 +194,10 @@ where
                     }
                 };
 
-                let vt = webm_segment.add_video_track(width, height, None, mux_codec);
+                let vt = mkv_segment.add_video_track(width, height, None, mux_codec);
 
                 let my_encoder = if let Some((vpx_codec, bitrate)) = vpx_tup {
-                    debug!("Using codec {:?} in webm file.", vpx_codec);
+                    debug!("Using codec {:?} in mkv file.", vpx_codec);
                     // Setup the encoder.
                     let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
                         width: width,
@@ -224,13 +224,13 @@ where
 
                 // Also see http://ffmpeg.org/doxygen/3.2/matroskaenc_8c_source.html
                 debug!(
-                    "saving DateUTC with value in webm file: {} (from initial timestamp {})",
+                    "saving DateUTC with value in mkv file: {} (from initial timestamp {})",
                     nanoseconds, timestamp
                 );
-                webm_segment.set_date_utc(nanoseconds);
+                mkv_segment.set_date_utc(nanoseconds);
 
                 let mut state = RecordingState {
-                    webm_segment,
+                    mkv_segment,
                     vt,
                     my_encoder,
                     first_timestamp: timestamp,
@@ -317,9 +317,9 @@ where
 
                 // If duration is set to `None`, libwebm will set it
                 // automatically.
-                let _ = state.webm_segment.finalize(None);
+                let _ = state.mkv_segment.finalize(None);
 
-                trace!("Finalized webm.");
+                trace!("Finalized mkv.");
                 self.inner = Some(WriteState::Finished);
                 Ok(())
             }
@@ -443,7 +443,7 @@ struct RecordingState<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
-    webm_segment: webm::mux::Segment<webm::mux::Writer<T>>,
+    mkv_segment: webm::mux::Segment<webm::mux::Writer<T>>,
     vt: webm::mux::VideoTrack,
     my_encoder: MyEcoder<'lib>,
     first_timestamp: chrono::DateTime<chrono::Utc>,

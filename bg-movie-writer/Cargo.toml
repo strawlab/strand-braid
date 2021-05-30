@@ -10,7 +10,7 @@ chrono = "0.4"
 crossbeam-channel = "0.5"
 thiserror = "1.0"
 
-webm-writer = {path="../webm-writer"}
+mkv-writer = {path="../mkv-writer"}
 machine-vision-formats = "0.1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 nvenc = {path="../nvenc"}

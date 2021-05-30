@@ -181,7 +181,7 @@ pub enum StrandCamError {
     #[error("MVG error: {0}")]
     MvgError(#[from] mvg::MvgError),
     #[error("{0}")]
-    WebmWriterError(#[from] webm_writer::Error),
+    MkvWriterError(#[from] mkv_writer::Error),
     #[error("{0}")]
     AddrParseError(#[from] std::net::AddrParseError),
     #[error("background movie writer error: {0}")]
@@ -633,7 +633,7 @@ fn frame_process_thread(
     let mut apriltag_writer: Option<_> = None;
     #[cfg(not(feature="fiducial"))]
     let mut apriltag_writer: Option<()> = None;
-    let mut mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
+    let mut my_mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
     #[cfg(feature="image_tracker")]
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
@@ -925,7 +925,7 @@ fn frame_process_thread(
                 fmf_writer = Some(FmfWriteInfo::new(FMFWriter::new(f)?, recording_framerate));
             }
             Msg::StartMkv((format_str_mkv,mkv_recording_config)) => {
-                mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, 100));
+                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, 100));
             }
             #[cfg(feature="image_tracker")]
             Msg::StartUFMF(dest) => {
@@ -943,7 +943,7 @@ fn frame_process_thread(
                     let ts = frame.extra().host_timestamp();
                     raw.write(frame, ts)?;
                 }
-                mkv_writer = Some(raw);
+                my_mkv_writer = Some(raw);
             }
             Msg::StartAprilTagRec(format_str_apriltags_csv) => {
                 #[cfg(feature="fiducial")]
@@ -1353,7 +1353,7 @@ fn frame_process_thread(
                     (all_points, blkajdsfads)
                 };
 
-                if let Some(ref mut inner) = mkv_writer {
+                if let Some(ref mut inner) = my_mkv_writer {
                     let data = frame.clone(); // copy entire frame data
                     inner.write(data, frame.extra().host_timestamp())?;
                 }
@@ -1563,7 +1563,7 @@ fn frame_process_thread(
                 im_tracker.set_clock_model(cm);
             }
             Msg::StopMkv => {
-                if let Some(mut inner) = mkv_writer.take() {
+                if let Some(mut inner) = my_mkv_writer.take() {
                     inner.finish()?;
                 }
             }

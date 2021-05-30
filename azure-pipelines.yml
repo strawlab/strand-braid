@@ -19,8 +19,8 @@ jobs:
       - script: |
           export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
           cargo run --example save-animation --release -- vp8
-        workingDirectory: webm-writer
-        displayName: build and test webm-writer
+        workingDirectory: mkv-writer
+        displayName: build and test mkv-writer
 
   - job: vpx_Mac
     pool:
@@ -43,8 +43,8 @@ jobs:
           export VPX_LIB_DIR="/opt/libvpx/1.8.0/lib"
           export VPX_INCLUDE_DIR="/opt/libvpx/1.8.0/include"
           cargo run --example save-animation --release -- vp8
-        workingDirectory: webm-writer
-        displayName: build and test webm-writer
+        workingDirectory: mkv-writer
+        displayName: build and test mkv-writer
 
   - job: vpx_Windows
     pool:
@@ -74,8 +74,8 @@ jobs:
           set VPX_LIB_DIR=C:/unzipped/lib/x64
           set VPX_INCLUDE_DIR=C:/unzipped/include
           cargo run --example save-animation --release -- vp8
-        workingDirectory: webm-writer
-        displayName: build and test webm-writer
+        workingDirectory: mkv-writer
+        displayName: build and test mkv-writer
       - task: CopyFiles@2
         inputs:
           sourceFolder: '$(Build.SourcesDirectory)/target/release/examples'
@@ -84,7 +84,7 @@ jobs:
       - task: PublishBuildArtifacts@1
         inputs:
           pathToPublish: '$(Build.ArtifactStagingDirectory)'
-          artifactName: 'WebmWriterSaveAnimationWindows'
+          artifactName: 'MkvWriterSaveAnimationWindows'
 
   - job: fastimage_macOS
     pool:

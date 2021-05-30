@@ -150,7 +150,7 @@ fn main() -> Result<(), anyhow::Error> {
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
     };
 
-    let mut mkv_writer = webm_writer::WebmWriter::new(out_fd, cfg, libs_and_nv_enc)?;
+    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, libs_and_nv_enc)?;
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
     let rgb = convert_image::piston_to_frame(image)?;
@@ -175,9 +175,9 @@ fn main() -> Result<(), anyhow::Error> {
         }
         let (frame, ts) = stamp_frame(&rgb, &font, count, &start)?;
         count += 1;
-        mkv_writer.write(&frame, ts)?;
+        my_mkv_writer.write(&frame, ts)?;
     }
 
-    mkv_writer.finish()?;
+    my_mkv_writer.finish()?;
     Ok(())
 }

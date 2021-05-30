@@ -592,7 +592,7 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
     let nv_enc = None;
 
     debug!("opening file {}", output_fname.unwrap().display());
-    let mut mkv_writer = webm_writer::WebmWriter::new(out_fd, cfg, nv_enc)?;
+    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, nv_enc)?;
 
     for (fno, fmf_frame) in reader.enumerate() {
         debug!("saving frame {}", fno);
@@ -601,7 +601,7 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
             DynamicFrame::Mono8(mono_frame) => {
                 let fmf_frame_clipped =
                     mono_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-                mkv_writer.write(&fmf_frame_clipped, ts)?;
+                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
             }
             other_frame => {
                 let host_framenumber = other_frame.extra().host_framenumber();
@@ -627,13 +627,13 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
                 };
                 let fmf_frame_clipped =
                     rgb_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-                mkv_writer.write(&fmf_frame_clipped, ts)?;
+                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
             }
         }
     }
 
     debug!("finishing file");
-    mkv_writer.finish()?;
+    my_mkv_writer.finish()?;
     Ok(())
 }
 

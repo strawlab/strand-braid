@@ -9,7 +9,7 @@ pub enum Error {
     #[error("io error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("webm writer error: {0}")]
-    WebmWriterError(#[from] webm_writer::Error),
+    MkvWriterError(#[from] mkv_writer::Error),
     #[error("mkvfix error: {0}")]
     MkvFix(#[from] strand_cam_mkvfix::Error),
     #[error("send error")]
@@ -176,7 +176,7 @@ fn launch_runner(
                             h264_path,
                             thread_try!(
                                 err_tx,
-                                webm_writer::WebmWriter::new(
+                                mkv_writer::MkvWriter::new(
                                     f,
                                     mkv_recording_config.clone(),
                                     nv_enc
@@ -191,8 +191,8 @@ fn launch_runner(
                 }
                 Msg::Finish => {
                     if raw.is_some() {
-                        let (h264_path, mut webm_writer) = raw.unwrap();
-                        thread_try!(err_tx, webm_writer.finish());
+                        let (h264_path, mut mkv_writer) = raw.unwrap();
+                        thread_try!(err_tx, mkv_writer.finish());
 
                         if let Some(path) = h264_path {
                             if strand_cam_mkvfix::is_ffmpeg_available() {

@@ -87,7 +87,7 @@ members = [
     "timestamped-frame",
     "tracking",
     "ufmf",
-    "webm-writer",
+    "mkv-writer",
     "withkey",
     "zip-or-dir",
 ]
