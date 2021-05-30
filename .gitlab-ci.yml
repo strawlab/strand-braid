@@ -989,7 +989,7 @@ build-fmf-cli-ubuntu1604:
     - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
     # test webm-writer start
     - cd webm-writer
-    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release
+    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release -- vp8
     - cd ..
     # test webm-writer stop
     - cd fmf/fmf-cli

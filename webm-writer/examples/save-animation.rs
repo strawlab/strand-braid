@@ -99,6 +99,15 @@ fn stamp_frame<'a>(
     Ok((image, ts))
 }
 
+fn usage_exit() -> Result<(), failure::Error> {
+    println!(
+        "Usage:
+
+    save-animation nv-h264|vp8"
+    );
+    Err(failure::format_err!("invalid usage"))
+}
+
 fn main() -> Result<(), failure::Error> {
     let start = Utc::now();
     let output_fname = "animation.mkv";
@@ -107,21 +116,33 @@ fn main() -> Result<(), failure::Error> {
 
     let out_fd = std::fs::File::create(&output_fname)?;
 
-    #[cfg(feature = "example-nv-h264")]
-    let libs = nvenc::Dynlibs::new()?;
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 {
+        usage_exit()?;
+    }
 
-    #[cfg(feature = "example-nv-h264")]
-    let (codec, libs_and_nv_enc) = {
-        let codec = ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
-        (codec, Some(nvenc::NvEnc::new(&libs)?))
-    };
+    #[allow(unused_assignments)]
+    let mut nvenc_libs = None;
 
-    #[cfg(feature = "example-vp8")]
-    let (codec, libs_and_nv_enc) = {
-        let mut opts = ci2_remote_control::VP8Options::default();
-        opts.bitrate = 1000;
-        let codec = ci2_remote_control::MkvCodec::VP8(opts);
-        (codec, None)
+    let (codec, libs_and_nv_enc) = match args[1].as_str() {
+        "nv-h264" => {
+            nvenc_libs = Some(nvenc::Dynlibs::new()?);
+            let codec =
+                ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
+            (
+                codec,
+                Some(nvenc::NvEnc::new(&nvenc_libs.as_ref().unwrap())?),
+            )
+        }
+        "vp8" => {
+            let mut opts = ci2_remote_control::VP8Options::default();
+            opts.bitrate = 1000;
+            let codec = ci2_remote_control::MkvCodec::VP8(opts);
+            (codec, None)
+        }
+        _ => {
+            return usage_exit();
+        }
     };
 
     let cfg = MkvRecordingConfig {

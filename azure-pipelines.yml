@@ -18,7 +18,7 @@ jobs:
         displayName: install rustup
       - script: |
           export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
-          cargo run --example save-animation --release
+          cargo run --example save-animation --release -- vp8
         workingDirectory: webm-writer
         displayName: build and test webm-writer
 
@@ -42,7 +42,7 @@ jobs:
           export VPX_STATIC=1
           export VPX_LIB_DIR="/opt/libvpx/1.8.0/lib"
           export VPX_INCLUDE_DIR="/opt/libvpx/1.8.0/include"
-          cargo run --example save-animation --release
+          cargo run --example save-animation --release -- vp8
         workingDirectory: webm-writer
         displayName: build and test webm-writer
 
@@ -73,7 +73,7 @@ jobs:
           set VPX_STATIC=1
           set VPX_LIB_DIR=C:/unzipped/lib/x64
           set VPX_INCLUDE_DIR=C:/unzipped/include
-          cargo run --example save-animation --release
+          cargo run --example save-animation --release -- vp8
         workingDirectory: webm-writer
         displayName: build and test webm-writer
       - task: CopyFiles@2
