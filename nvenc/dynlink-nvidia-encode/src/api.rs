@@ -437,7 +437,11 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
         &self.pts
     }
     pub fn is_keyframe(&self) -> bool {
-        self.picture_type == crate::ffi::_NV_ENC_PIC_TYPE::NV_ENC_PIC_TYPE_I
+        use crate::ffi::_NV_ENC_PIC_TYPE::*;
+        match self.picture_type {
+            NV_ENC_PIC_TYPE_I | NV_ENC_PIC_TYPE_IDR => true,
+            _ => false,
+        }
     }
 }
 
@@ -588,7 +592,7 @@ impl InitParamsBuilder {
     ///
     /// Note: "The frame rate has no meaning in NVENC other than deciding rate
     /// control parameters." https://devtalk.nvidia.com/default/topic/1023473
-    pub fn framerate(mut self, num: u32, den: u32) -> Self {
+    pub fn set_framerate(mut self, num: u32, den: u32) -> Self {
         self.0.init_params.frameRateNum = num;
         self.0.init_params.frameRateDen = den;
         self

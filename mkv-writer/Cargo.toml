@@ -1,5 +1,5 @@
 [package]
-name = "webm-writer"
+name = "mkv-writer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
@@ -18,17 +18,12 @@ dynlink-nvidia-encode = {path="../nvenc/dynlink-nvidia-encode"}
 
 ci2-remote-control = { path = "../ci2-remote-control"}
 convert-image = { path = "../convert-image" }
-simple-frame = { path = "../simple-frame" }
 
 [dev-dependencies]
-failure = "0.1"
+anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 basic-frame = { path = "../basic-frame" }
 rusttype = "0.8.1"
 image = "0.23"
 ttf-firacode = "0.1"
-
-[features]
-default = ["example-vp8"]
-example-nv-h264 = []
-example-vp8 = []
+simple-frame = { path = "../simple-frame" }

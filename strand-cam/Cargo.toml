@@ -88,7 +88,7 @@ camcal = {path="../camcal", optional=true}
 posix-scheduler = { path = "../posix-scheduler", optional=true}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 crossbeam-ok = {path="../crossbeam-ok"}
-webm-writer = { path = "../webm-writer" }
+mkv-writer = { path = "../mkv-writer" }
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 plugin-defs = {path="../plugin-defs", optional=true}
 bg-movie-writer = {path="../bg-movie-writer"}

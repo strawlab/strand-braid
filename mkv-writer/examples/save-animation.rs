@@ -39,7 +39,7 @@ fn stamp_frame<'a>(
     font: &rusttype::Font<'a>,
     count: usize,
     start: &DateTime<Utc>,
-) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), failure::Error> {
+) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), anyhow::Error> {
     let dt_msec = 5;
     let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
 
@@ -99,7 +99,16 @@ fn stamp_frame<'a>(
     Ok((image, ts))
 }
 
-fn main() -> Result<(), failure::Error> {
+fn usage_exit() -> Result<(), anyhow::Error> {
+    println!(
+        "Usage:
+
+    save-animation nv-h264|vp8"
+    );
+    Err(anyhow::format_err!("invalid usage"))
+}
+
+fn main() -> Result<(), anyhow::Error> {
     let start = Utc::now();
     let output_fname = "animation.mkv";
 
@@ -107,21 +116,33 @@ fn main() -> Result<(), failure::Error> {
 
     let out_fd = std::fs::File::create(&output_fname)?;
 
-    #[cfg(feature = "example-nv-h264")]
-    let libs = nvenc::Dynlibs::new()?;
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 {
+        usage_exit()?;
+    }
 
-    #[cfg(feature = "example-nv-h264")]
-    let (codec, libs_and_nv_enc) = {
-        let codec = ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
-        (codec, Some(nvenc::NvEnc::new(&libs)?))
-    };
+    #[allow(unused_assignments)]
+    let mut nvenc_libs = None;
 
-    #[cfg(feature = "example-vp8")]
-    let (codec, libs_and_nv_enc) = {
-        let mut opts = ci2_remote_control::VP8Options::default();
-        opts.bitrate = 1000;
-        let codec = ci2_remote_control::MkvCodec::VP8(opts);
-        (codec, None)
+    let (codec, libs_and_nv_enc) = match args[1].as_str() {
+        "nv-h264" => {
+            nvenc_libs = Some(nvenc::Dynlibs::new()?);
+            let codec =
+                ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
+            (
+                codec,
+                Some(nvenc::NvEnc::new(&nvenc_libs.as_ref().unwrap())?),
+            )
+        }
+        "vp8" => {
+            let mut opts = ci2_remote_control::VP8Options::default();
+            opts.bitrate = 1000;
+            let codec = ci2_remote_control::MkvCodec::VP8(opts);
+            (codec, None)
+        }
+        _ => {
+            return usage_exit();
+        }
     };
 
     let cfg = MkvRecordingConfig {
@@ -129,7 +150,7 @@ fn main() -> Result<(), failure::Error> {
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
     };
 
-    let mut mkv_writer = webm_writer::WebmWriter::new(out_fd, cfg, libs_and_nv_enc)?;
+    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, libs_and_nv_enc)?;
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
     let rgb = convert_image::piston_to_frame(image)?;
@@ -154,9 +175,9 @@ fn main() -> Result<(), failure::Error> {
         }
         let (frame, ts) = stamp_frame(&rgb, &font, count, &start)?;
         count += 1;
-        mkv_writer.write(&frame, ts)?;
+        my_mkv_writer.write(&frame, ts)?;
     }
 
-    mkv_writer.finish()?;
+    my_mkv_writer.finish()?;
     Ok(())
 }

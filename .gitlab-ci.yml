@@ -987,11 +987,11 @@ build-fmf-cli-ubuntu1604:
   script:
     - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
     - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    # test webm-writer start
-    - cd webm-writer
-    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release
+    # test mkv-writer start
+    - cd mkv-writer
+    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release -- vp8
     - cd ..
-    # test webm-writer stop
+    # test mkv-writer stop
     - cd fmf/fmf-cli
     - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo build --release
     - mkdir -p $CI_PROJECT_DIR/fmf-cli-xenial

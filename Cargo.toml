@@ -87,7 +87,7 @@ members = [
     "timestamped-frame",
     "tracking",
     "ufmf",
-    "webm-writer",
+    "mkv-writer",
     "withkey",
     "zip-or-dir",
 ]
@@ -105,6 +105,6 @@ debug = true
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
 
 [patch.crates-io]
-webm = { git = "https://bare-git.strawlab.org/rust-webm.git", rev="9f9d158031bd5bc465ff6b40103575fb8ed742aa"}
+webm = { git = "https://github.com/strawlab/rust-webm", rev="652e1c16e6feccfe967087d6ae681bf969f30028"}
 cbindgen = {git="https://github.com/astraw/cbindgen", rev="7279a4faceec28593bd8a6b0192fd3ac3ee25b53"} # until https://github.com/eqrion/cbindgen/pull/304
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
