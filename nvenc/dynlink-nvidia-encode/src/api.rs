@@ -437,7 +437,11 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
         &self.pts
     }
     pub fn is_keyframe(&self) -> bool {
-        self.picture_type == crate::ffi::_NV_ENC_PIC_TYPE::NV_ENC_PIC_TYPE_I
+        use crate::ffi::_NV_ENC_PIC_TYPE::*;
+        match self.picture_type {
+            NV_ENC_PIC_TYPE_I | NV_ENC_PIC_TYPE_IDR => true,
+            _ => false,
+        }
     }
 }
 
