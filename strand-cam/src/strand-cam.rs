@@ -84,7 +84,9 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-use strand_cam_storetype::{CallbackType, RangedValue, StoreType, ToCamtrigDevice};
+use strand_cam_storetype::{
+    CallbackType, ImOpsState, RangedValue, StoreType, ToCamtrigDevice,
+};
 #[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
@@ -724,6 +726,8 @@ fn frame_process_thread(
 
     let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
+    let mut im_ops_socket: Option<std::net::UdpSocket> = None;
+
     while flag.alive() {
         #[cfg(feature="image_tracker")]
         {
@@ -1111,6 +1115,77 @@ fn frame_process_thread(
 
                     let mut all_points = Vec::new();
                     let mut blkajdsfads = None;
+
+                    {
+                        if let Some(ref store_cache_ref) = store_cache {
+                            if store_cache_ref.im_ops_state.do_detection {
+
+                                let thresholded = if let DynamicFrame::Mono8(mono8) = &frame {
+                                    imops::threshold(
+                                        mono8.clone(),
+                                        imops::CmpOp::LessThan,
+                                        store_cache_ref.im_ops_state.threshold,
+                                        0,
+                                        255)
+                                } else {
+                                    panic!("imops only implemented for Mono8 pixel format");
+                                };
+                                let mu00 = imops::spatial_moment_00(&thresholded);
+                                let mu01 = imops::spatial_moment_01(&thresholded);
+                                let mu10 = imops::spatial_moment_10(&thresholded);
+                                let mc = if mu00 != 0.0 {
+
+                                    let x = mu01 / mu00;
+                                    let y = mu10 / mu00;
+
+                                    // If mu00 is 0.0, these will be NaN. CBOR explicitly can represent NaNs.
+
+                                    let mc = ToDevice::Centroid(MomentCentroid {
+                                        x,
+                                        y,
+                                        center_x: store_cache_ref.im_ops_state.center_x,
+                                        center_y: store_cache_ref.im_ops_state.center_y,
+                                    });
+                                    all_points.push(video_streaming::Point {x, y, area: None, theta: None});
+
+                                    Some(mc)
+                                } else {
+                                    None
+                                };
+
+
+                                let need_new_socket = if let Some(socket) = &im_ops_socket {
+                                    if socket.local_addr().unwrap().ip() == store_cache_ref.im_ops_state.source {
+                                        // Source IP remained constant.
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                } else {
+                                    true
+                                };
+
+                                if need_new_socket {
+                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(store_cache_ref.im_ops_state.source, 0u16)).unwrap();
+                                    let sockaddr = iter.next().unwrap();
+
+                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr).map_err(|e| {error!("failed opening socket: {}", e); ()}).ok();
+                                }
+
+                                if let Some(socket) = &mut im_ops_socket {
+                                    if let Some(mc) = mc {
+                                        let buf = serde_cbor::to_vec(&mc).unwrap();
+                                        match socket.send_to(&buf, &store_cache_ref.im_ops_state.destination) {
+                                            Ok(_n_bytes) => {},
+                                            Err(e) => {
+                                                log::error!("Unable to send image moment data. {}", e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     #[cfg(feature="fiducial")]
                     {
@@ -2120,6 +2195,19 @@ unsafe impl Send for ProcessFrameCbData {}
 #[cfg(not(feature = "plugin-process-frame"))]
 struct ProcessFrameCbData {}
 
+#[derive(Debug, Serialize, Deserialize)]
+struct MomentCentroid {
+    x: f32,
+    y: f32,
+    center_x: u32,
+    center_y: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+enum ToDevice {
+    Centroid(MomentCentroid),
+}
+
 pub struct StrandCamArgs {
     pub secret: Option<Vec<u8>>,
     pub camera_name: Option<String>,
@@ -2555,6 +2643,8 @@ pub fn setup_app(
     #[cfg(feature="fiducial")]
     let apriltag_state = Some(ApriltagState::default());
 
+    let im_ops_state = ImOpsState::default();
+
     #[cfg(not(feature="fiducial"))]
     let format_str_apriltag_csv = "".into();
 
@@ -2614,6 +2704,7 @@ pub fn setup_app(
         post_trigger_buffer_size: 0,
         cuda_devices,
         apriltag_state,
+        im_ops_state,
         had_frame_processing_error: false,
     });
 
@@ -3156,7 +3247,42 @@ pub fn setup_app(
                         }
                     });
                 }
-
+                CamArg::ToggleImOpsDetection(do_detection) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.do_detection = do_detection;
+                    });
+                }
+                CamArg::SetImOpsDestination(v) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.destination = v;
+                    });
+                }
+                CamArg::SetImOpsSource(v) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.source = v;
+                    });
+                }
+                CamArg::SetImOpsCenterX(v) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.center_x = v;
+                    });
+                }
+                CamArg::SetImOpsCenterY(v) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.center_y = v;
+                    });
+                }
+                CamArg::SetImOpsThreshold(v) => {
+                    let mut tracker = shared_store_arc.write();
+                    tracker.modify(|shared| {
+                        shared.im_ops_state.threshold = v;
+                    });
+                }
                 CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|shared| {
