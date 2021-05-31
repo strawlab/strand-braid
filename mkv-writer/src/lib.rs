@@ -43,9 +43,9 @@ impl From<dynlink_cuda::CudaError> for Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-enum MyEcoder<'lib> {
+enum MyEncoder<'lib> {
     Vpx(vpx_encode::Encoder),
-    H264(H264Encoder<'lib>),
+    Nvidia(NvEncoder<'lib>),
 }
 
 pub struct MkvWriter<'lib, T>
@@ -107,7 +107,7 @@ where
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
                             Some(ref nv_enc) => {
-                                debug!("Using codec H264 in webm file.");
+                                debug!("Using codec H264 in mkv file.");
 
                                 // Setup the encoder.
                                 let cuda_version = nv_enc.cuda_version()?;
@@ -183,7 +183,7 @@ where
 
                                 let vram_queue = nvenc::Queue::new(vram_buffers);
 
-                                opt_h264_encoder = Some(H264Encoder {
+                                opt_h264_encoder = Some(NvEncoder {
                                     encoder,
                                     vram_queue,
                                 });
@@ -207,10 +207,10 @@ where
                         codec: vpx_codec,
                     })?;
 
-                    MyEcoder::Vpx(vpx_encoder)
+                    MyEncoder::Vpx(vpx_encoder)
                 } else {
                     let enc = opt_h264_encoder.unwrap();
-                    MyEcoder::H264(enc)
+                    MyEncoder::Nvidia(enc)
                 };
 
                 // Set DateUTC metadata
@@ -286,7 +286,7 @@ where
             }
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
-                    MyEcoder::Vpx(vpx_encoder) => {
+                    MyEncoder::Vpx(vpx_encoder) => {
                         let mut frames = vpx_encoder.finish().unwrap();
                         trace!("Finishing vpx encoding.");
                         while let Some(frame) = frames.next().unwrap() {
@@ -299,10 +299,10 @@ where
                             );
                         }
                     }
-                    MyEcoder::H264(mut h264_encoder) => {
+                    MyEncoder::Nvidia(mut nv_encoder) => {
                         // Now done with all frames, drain the pending data.
                         loop {
-                            match h264_encoder.vram_queue.get_pending() {
+                            match nv_encoder.vram_queue.get_pending() {
                                 None => break,
                                 Some(iobuf) => {
                                     // scope for locked output buffer
@@ -378,7 +378,7 @@ where
     let elapsed = timestamp.signed_duration_since(state.first_timestamp);
 
     match &mut state.my_encoder {
-        MyEcoder::Vpx(ref mut vpx_encoder) => {
+        MyEncoder::Vpx(ref mut vpx_encoder) => {
             let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
             trace!("got yuv data for frame. {} bytes.", yuv.len());
 
@@ -390,11 +390,11 @@ where
                     .add_frame(frame.data, nanos(&frame.pts_dur()), frame.key);
             }
         }
-        MyEcoder::H264(ref mut h264_encoder) => {
-            let vram_buf: &mut IOBuffer<_, _> = match h264_encoder.vram_queue.get_available() {
+        MyEncoder::Nvidia(ref mut nv_encoder) => {
+            let vram_buf: &mut IOBuffer<_, _> = match nv_encoder.vram_queue.get_available() {
                 Some(iobuf) => iobuf,
                 None => {
-                    let iobuf = h264_encoder.vram_queue.get_pending().expect("get pending");
+                    let iobuf = nv_encoder.vram_queue.get_pending().expect("get pending");
                     {
                         // scope for locked output buffer
                         let outbuf = iobuf.out_buf.lock()?;
@@ -402,7 +402,7 @@ where
                             .vt
                             .add_frame(outbuf.mem(), nanos(outbuf.pts()), outbuf.is_keyframe());
                     }
-                    h264_encoder
+                    nv_encoder
                         .vram_queue
                         .get_available()
                         .expect("get available")
@@ -422,7 +422,7 @@ where
                 dest_stride
             };
 
-            h264_encoder.encoder.encode_picture(
+            nv_encoder.encoder.encode_picture(
                 &vram_buf.in_buf,
                 &vram_buf.out_buf,
                 pitch,
@@ -448,13 +448,13 @@ where
 {
     mkv_segment: webm::mux::Segment<webm::mux::Writer<T>>,
     vt: webm::mux::VideoTrack,
-    my_encoder: MyEcoder<'lib>,
+    my_encoder: MyEncoder<'lib>,
     first_timestamp: chrono::DateTime<chrono::Utc>,
     previous_timestamp: chrono::DateTime<chrono::Utc>,
     target_interval: chrono::Duration,
 }
 
-struct H264Encoder<'lib> {
+struct NvEncoder<'lib> {
     encoder: Rc<nvenc::Encoder<'lib>>,
     vram_queue: nvenc::Queue<IOBuffer<InputBuffer<'lib>, OutputBuffer<'lib>>>,
 }
