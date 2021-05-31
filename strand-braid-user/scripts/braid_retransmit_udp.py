@@ -37,10 +37,10 @@ class Flydra2Proxy:
             data = parse_chunk(chunk)
             # print('chunk value: %r'%data)
             version = data.get("v", 1)  # default because missing in first release
-            assert version == 1  # check the data version
+            assert version == 2  # check the data version
 
             try:
-                update_dict = data["Update"]
+                update_dict = data["msg"]["Update"]
             except KeyError:
                 continue
             msg = "%s, %s, %s" % (update_dict["x"], update_dict["y"], update_dict["z"])
@@ -51,7 +51,7 @@ class Flydra2Proxy:
 def parse_chunk(chunk):
     lines = chunk.strip().split("\n")
     assert len(lines) == 2
-    assert lines[0] == "event: flydra2"
+    assert lines[0] == "event: braid"
     assert lines[1].startswith(DATA_PREFIX)
     buf = lines[1][len(DATA_PREFIX) :]
     data = json.loads(buf)
