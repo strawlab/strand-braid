@@ -135,7 +135,9 @@ where
                                     nv_enc.functions.new_encoder(ctx)?;
 
                                 let encode = nvenc::NV_ENC_CODEC_H264_GUID;
+                                // let encode = nvenc::NV_ENC_CODEC_HEVC_GUID;
                                 let preset = nvenc::NV_ENC_PRESET_HP_GUID;
+                                // let preset = nvenc::NV_ENC_PRESET_DEFAULT_GUID;
                                 let format = nvenc::BufferFormat::NV12;
 
                                 let param_builder =
@@ -145,7 +147,7 @@ where
 
                                 let param_builder =
                                     match cfg.max_framerate.as_numerator_denominator() {
-                                        Some((num, den)) => param_builder.framerate(num, den),
+                                        Some((num, den)) => param_builder.set_framerate(num, den),
                                         None => param_builder,
                                     };
 
