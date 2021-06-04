@@ -11,5 +11,5 @@ tracker](https://github.com/strawlab/strand-braid/issues).
 ### About this book
 
 The source code for this documentation is at
-https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide.
+[github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide).
 This book is made with [mdBook](https://rust-lang.github.io/mdBook/).

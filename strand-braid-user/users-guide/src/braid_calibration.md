@@ -1,4 +1,4 @@
-# Calibration
+# Calibration in Braid
 
 ## What is a calibration?
 
@@ -15,6 +15,12 @@ pixels. In Braid, the camera model is a pinhole model with warping distortion.
 The intrinsic parameters include focal length, the pixel coordinates of the
 optical axis, and the radial and tangential parameters of a "plumb bob"
 distortion model.
+
+## XML calibration files in Braid
+
+The XML calibration files used in Braid are backwards-compatible with those from
+Braid's predecessor, Flydra. Several of the steps described here also use tools
+from Flydra.
 
 ## Step 1: setup cameras (zoom, focus, aperture, gain) and lights
 
@@ -189,7 +195,16 @@ for Braid. Specify the filename of your new XML file as `cal_fname` in the
 
 ### With the new calibration, perform offline tracking the data used to calibrate.
 
-Using this calibration, you can perform 3D tracking of the data with:
+Now you have a working calibration, which is NOT aligned or scaled to any
+coordinate system, but an (undefined) coordinate system that from MCSC code
+picked. We can use this calibration to do tracking, although in general having
+correct scaling is important for good tracking. The reason correct scaling is
+important for good quality tracking is because Braid tracks using a dynamic
+model of movement in which maneuverability is parameterized and tracking
+performance is best when the actual maneuverability statistics match the
+expected statistic.
+
+So, using the calibration from above, perform 3D tracking of the data with:
 
     flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
 
@@ -198,22 +213,51 @@ You can view these results with:
     DATAFILE_RETRACKED=`python -c "print('${DATAFILE}'[:-3])"`.kalmanized.h5
     flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
 
-Now you have a working calibration, which is NOT aligned or scaled to the
-flycube coordinate system, but is able to track. Scaling can be quite important
-for good tracking.
+### Align your new calibration using a GUI
 
-### Align your new calibration
+Now we will take our existing "unaligned" calibration, and despite the scaling
+and alignment issue, track some points so that we have 3D coordinates. We will
+use these 3D coordinates to "align" our calibration -- to adjust its scaling,
+rotation, and translation to arrive at a final calibration which outputs
+coordinates in the desired frame.
 
-Next, using this new calibration, collect a dataset which outlines the geometry
-of your arena. We will use this to align and scale the unaligned calibration to
-an aligned calibration. Easiest is to acquire this dataset directly by running
-Braid with the new calibration. Alternatively, one can use a pre-existing 2D dataset
-and re-track it with `flydra_kalmanize` as above. We will call this dataset
-for alignment `${NEW_TRACKED_DATA}`.
+Now, using the unaligned calibration from above, collect a dataset which
+outlines the geometry of your arena or other key 3D points which we serve as
+reference 3D points used to discover the correct alignment. We will use these
+unaligned 3D points output from the unaligned calibration to determine an
+alignment and scaling used to transform these 3D points to the correct,
+"aligned" 3D points. These alignment parameters will be used to update the original unaligned calibration into the final aligned calibration.
 
-Finally, with this new dataset for alignment, we render the 3D tracks with a 3D
-model and adjust the alignement parameters by hand in a GUI. Here we align
-our newly tracked data in file `${NEW_TRACKED_DATA}` against the `sample_bowl.xml` file from
-[here](https://github.com/strawlab/flydra/blob/master/flydra_analysis/flydra_analysis/a2/sample_bowl.xml).
+The easiest way to acquire unaligned 3D points is to acquire a new dataset
+directly by running Braid with the new unaligned calibration. Alternatively, one
+can use a pre-existing 2D dataset and re-track it with `flydra_kalmanize` as
+above. We will call this dataset for alignment `${NEW_TRACKED_DATA}`.
+
+With this new dataset for alignment, we render the 3D tracks with a 3D model of
+some pre-specified geometry in the correct coordinate frame. We then adjust the
+alignment parameters by hand in a GUI. Here we align our newly tracked data in
+file `${NEW_TRACKED_DATA}` against the `sample_bowl.xml` file from
+[here](https://github.com/strawlab/flydra/blob/main/flydra_analysis/flydra_analysis/a2/sample_bowl.xml).
+In this example, the `sample_bowl.xml` file outlines a circle with diameter 0.33
+meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
+of diameter 0.33 meters and on the plane which will be Z=0 in our final
+coordinate frame. Here is how to run the GUI program for running the alignment:
 
     flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+
+### Automatic alignment of calibrations
+
+As an alternative to using the GUI to perform alignment, it is possible to find
+the correct alignment automatically. The flydra program
+`flydra_analysis_align_calibration` does this. The major mathematical operations
+are performed in the `estsimt` function in
+[`flydra_core.align`](https://github.com/strawlab/flydra/blob/main/flydra_core/flydra_core/align.py).
+
+(TODO: Write an example doing this.)
+
+### Calibration with water
+
+As described
+[here](braid_3d_tracking.md#tracking-in-water-with-cameras-out-of-water), Braid
+can track objects in water. To enable this, place the string
+`<water>1.333</water>` in the XML camera calibration file.
