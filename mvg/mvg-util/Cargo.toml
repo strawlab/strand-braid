@@ -7,6 +7,6 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 mvg = {path=".."}
 flydra-mvg = {path="../../flydra-mvg"}
 structopt = "0.3"
-nalgebra = "0.26"
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="142f427bfe9d2230b0dae0a5f7527703f43ae899"}
+nalgebra = "0.27"
+pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
 itertools = "0.8"

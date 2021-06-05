@@ -26,8 +26,8 @@ serde = {version="^1.0", features=["derive"]}
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
 toml = "0.5"
-nalgebra = {version="0.26", features=["serde-serialize"]}
-ncollide3d = "0.29"
+nalgebra = {version="0.27", features=["serde-serialize"]}
+ncollide3d = "0.30"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
@@ -50,11 +50,11 @@ mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 flydra-types = {path="../flydra-types"}
-adskalman = "0.9"
+adskalman = "0.10"
 tracking = {path="../tracking"}
 groupby = {path="../groupby"}
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="142f427bfe9d2230b0dae0a5f7527703f43ae899"}
-nalgebra-mvn = "0.8"
+pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
+nalgebra-mvn = "0.9"
 iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
@@ -62,7 +62,7 @@ strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 
 [dev-dependencies]
 tempfile = "3"
-approx = "0.4"
+approx = "0.5"
 download-verify = {path="../download-verify"}
 
 [features]

@@ -34,7 +34,7 @@ braidz-parser = {path="../braidz-parser"}
 download-verify = {path="../download-verify"}
 tempfile = "3"
 zip = { version = "0.5", default-features = false, features=["time"] }
-approx = "0.4"
+approx = "0.5"
 env_logger = "0.8"
 fs_extra = "1.1"
 

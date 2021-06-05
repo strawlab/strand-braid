@@ -7,17 +7,18 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 num-traits = "0.2"
-nalgebra = {version="0.26", features=["serde-serialize"]}
-ncollide3d = "0.29"
+# simba = "0.5"
+nalgebra = {version="0.27", features=["serde-serialize"]}
+ncollide3d = "0.30"
 alga = "0.9"
 serde = {version="1.0", features=["derive"]}
 serde-xml-rs = "0.3.0"
-cam-geom = {version = "0.8", features=["serde-serialize"]}
-opencv-ros-camera = {version = "0.8", features=["serde-serialize"]}
+cam-geom = {version = "0.9", features=["serde-serialize"]}
+opencv-ros-camera = {version = "0.9", features=["serde-serialize"]}
 
 mvg = {path="../mvg"}
 refraction = {path="../refraction"}
 
 [dev-dependencies]
 num-iter = "0.1"
-approx = "0.4"
+approx = "0.5"
