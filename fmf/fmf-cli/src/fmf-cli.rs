@@ -68,7 +68,7 @@ macro_rules! convert_and_write_fmf {
             PixFmt::BayerBG32f => write_converted!(BayerBG32f, $writer, $x, $timestamp),
             PixFmt::YUV422 => write_converted!(YUV422, $writer, $x, $timestamp),
             _ => {
-                failure::bail!("unsupported pixel format {}", $new_pixel_format);
+                anyhow::bail!("unsupported pixel format {}", $new_pixel_format);
             }
         }
     }};
@@ -311,7 +311,7 @@ fn display_filename(p: &Option<PathBuf>, default: &str) -> PathBuf {
     }
 }
 
-fn info(path: PathBuf) -> Result<(), failure::Error> {
+fn info(path: PathBuf) -> Result<(), anyhow::Error> {
     #[derive(Debug)]
     struct Info {
         width: u32,
@@ -345,7 +345,7 @@ fn export_fmf(
     new_pixel_format: Option<PixFmt>,
     output: Option<PathBuf>,
     forced_input_pixel_format: Option<PixFmt>,
-) -> Result<(), failure::Error> {
+) -> Result<(), anyhow::Error> {
     let output_fname = default_filename(&path, output, "fmf");
 
     info!(
@@ -377,7 +377,7 @@ fn export_fmf(
     Ok(())
 }
 
-fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), failure::Error> {
+fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), anyhow::Error> {
     let opts = glob::MatchOptions::new();
     let paths = glob::glob_with(&pattern, opts)?;
     let f = std::fs::File::create(&output_fname)?;
@@ -392,7 +392,7 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), failure::Er
 }
 
 #[cfg(feature = "import-webm")]
-fn import_webm(x: ImportWebm) -> Result<(), failure::Error> {
+fn import_webm(x: ImportWebm) -> Result<(), anyhow::Error> {
     let output_fname = default_filename(&x.input, x.output, "fmf");
 
     info!(
@@ -421,7 +421,7 @@ fn convert_to_rgb8(
     Ok(f)
 }
 
-fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error> {
+fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), anyhow::Error> {
     use std::io::Write;
 
     let stem = path.file_stem().unwrap().to_os_string(); // strip extension
@@ -511,7 +511,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
 //     }
 // }
 
-// fn export_bgr24(x: ExportBgr24) -> Result<(), failure::Error> {
+// fn export_bgr24(x: ExportBgr24) -> Result<(), anyhow::Error> {
 //     use std::io::Write;
 
 //     let output_fname = default_filename(&x.input, x.output, "bgr24");
@@ -535,7 +535,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
 //     Ok(())
 // }
 
-fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
+fn export_mkv(x: ExportMkv) -> Result<(), anyhow::Error> {
     // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
     // also this https://www.webmproject.org/docs/webm-sdk/example_vp9_lossless_encoder.html
 
@@ -549,7 +549,7 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
 
     let out_fd = match &output_fname {
         None => {
-            failure::bail!("Cannot export mkv to stdout."); // Seek required
+            anyhow::bail!("Cannot export mkv to stdout."); // Seek required
         }
         Some(path) => std::fs::File::create(&path)?,
     };
@@ -676,7 +676,7 @@ impl<FMT> ClipFrame<FMT> for basic_frame::BasicFrame<FMT> {
     }
 }
 
-fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
+fn export_y4m(x: ExportY4m) -> Result<(), anyhow::Error> {
     use std::io::Write;
 
     let output_fname = default_filename(&x.input, x.output, "y4m");
@@ -737,7 +737,7 @@ fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), anyhow::Error> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "fmf=info,error");
     }
