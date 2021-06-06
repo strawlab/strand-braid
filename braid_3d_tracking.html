@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Troubleshooting - User's Guide for Braid and Strand Camera</title>
+        <title>Braid: 3D Tracking - User's Guide for Braid and Strand Camera</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">3.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">4.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">5.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="troubleshooting.html" class="active"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html" class="active"><strong aria-hidden="true">3.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">4.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">5.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,23 +167,74 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
-<h2><a class="header" href="#synchronization-problems" id="synchronization-problems">synchronization problems</a></h2>
-<h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">any other problem or question</a></h2>
-<p>Please <a href="https://github.com/strawlab/strand-braid/issues">report any issues you
-face</a> or <a href="https://groups.google.com/forum/#!forum/multicams">ask any questions you
-may have</a>.</p>
+                        <h1><a class="header" href="#3d-tracking-in-braid" id="3d-tracking-in-braid">3D Tracking in Braid</a></h1>
+<h2><a class="header" href="#principle-of-operation" id="principle-of-operation">Principle of operation</a></h2>
+<p>This page describes the basic principles of how tracking in 3D is implemented by
+Braid. A more detailed and more mathematical description can be found in the
+paper describing Braid's predecessor, Straw et al. (2011). Please refer to this
+for more details.</p>
+<p>Straw et al. 2011: Straw AD, Branson K, Neumann TR, Dickinson MH (2011) Multicamera
+Realtime 3D Tracking of Multiple Flying Animals. <em>Journal of The Royal Society
+Interface 8</em>(11), 395-409.
+<a href="http://dx.doi.org/10.1098/rsif.2010.0230">doi:10.1098/rsif.2010.0230</a></p>
+<p><img src="rsif20100230f02.jpg" alt="rsif20100230f02.jpg" />.</p>
+<p><strong>Figure 1: Principles of 3D Tracking in Braid.</strong> References in blue refer to
+parts of <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw et al. (2011)</a>. (a)
+Flowchart of operations. (b) Schematic of a two-dimensional camera view showing
+the raw images (brown), feature extraction (blue), state estimation (black), and
+data association (red). (c) Three-dimensional reconstruction using the EKF uses
+prior state estimates (open circle) and observations (blue lines) to construct a
+posterior state estimate (filled circle) and covariance ellipsoid (dotted
+ellipse). This figure and some caption text reproduced from Figure 2 of <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw
+et al. (2011)</a> under the Creative
+Commons Attribution License.</p>
+<p>(TODO: walkthrough of figure above.)</p>
+<h2><a class="header" href="#tracking-in-water-with-cameras-out-of-water" id="tracking-in-water-with-cameras-out-of-water">Tracking in water with cameras out of water</a></h2>
+<p>One important aspect of Braid not covered in <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw et al.
+(2011)</a> is the the capability of
+tracking fish (or other objects in water) from cameras placed above the water
+surface.</p>
+<h3><a class="header" href="#refraction" id="refraction">Refraction</a></h3>
+<p>When looking through the air-water interface (or any refractive boundary),
+objects on the other side appear from a different direction than the direct path
+to the object due to <a href="https://en.wikipedia.org/wiki/Refraction">refraction</a>.
+Mathematically, refraction is described by <a href="https://en.wikipedia.org/wiki/Fermat%27s_principle">Fermat's principle of least
+time</a>, and this forms the
+basis of Braid's tracking in water.</p>
+<h3><a class="header" href="#principle-of-operation-for-tracking-in-water" id="principle-of-operation-for-tracking-in-water">Principle of operation for tracking in water</a></h3>
+<p>When considering the principle of operation of 3D tracking described above, the
+primary addition to Braid required for tracking in water is the ability to model
+the rays coming from the animal to the camera not as straight lines but rather
+having a bend due to refraction. To implement this, the observation model of the
+extended Kalman filter is extended to incorporate the air-water boundary so that
+it consists of both a 3D camera model and air-water surface model. Thus, during
+the update step of the Kalman filter, this non-linear model is linearized about
+the expected (<em>a priori</em>) position of the tracked object.</p>
+<p>Currently, Braid has a simplification that the model of the air-water boundary
+is always fixed at z=0. Thus, anything with z&lt;0 is under water and anything with
+z&gt;0 is above water. This implies that the coordinate frame for tracking with an
+air-water boundary must have this boundary at z=0 for correct tracking.</p>
+<h3><a class="header" href="#how-to-enable-tracking-in-water" id="how-to-enable-tracking-in-water">How to enable tracking in water.</a></h3>
+<p>Practically speaking, tracking using the model of an air-water boundary is
+enabled by placing the string <code>&lt;water&gt;1.333&lt;/water&gt;</code> the XML camera calibration
+file. This will automatically utilize the refractive boundary model described
+above with a value for the refractive index of 1.333 for the medium at z&lt;0. As
+1.333 is the refractive index of water, it is a model of refraction in water.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="scripting-with-python.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braidz-files.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
+                        
+                            <a rel="next" href="braid_calibration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -193,11 +244,15 @@ may have</a>.</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="scripting-with-python.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braidz-files.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
+                
+                    <a rel="next" href="braid_calibration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

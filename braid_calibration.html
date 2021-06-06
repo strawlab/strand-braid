@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Calibration - User's Guide for Braid and Strand Camera</title>
+        <title>Braid: 3D Calibration - User's Guide for Braid and Strand Camera</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files</a></li><li class="chapter-item expanded "><a href="calibration.html" class="active"><strong aria-hidden="true">3.</strong> Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">4.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">3.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html" class="active"><strong aria-hidden="true">4.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">5.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,7 +167,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#calibration" id="calibration">Calibration</a></h1>
+                        <h1><a class="header" href="#calibration-in-braid" id="calibration-in-braid">Calibration in Braid</a></h1>
 <h2><a class="header" href="#what-is-a-calibration" id="what-is-a-calibration">What is a calibration?</a></h2>
 <p>In our usage here, we refer to a calibration as a model of a camera which allows
 us to compute the 2D image location of a given 3D point. Braid can use
@@ -181,6 +181,10 @@ pixels. In Braid, the camera model is a pinhole model with warping distortion.
 The intrinsic parameters include focal length, the pixel coordinates of the
 optical axis, and the radial and tangential parameters of a &quot;plumb bob&quot;
 distortion model.</p>
+<h2><a class="header" href="#xml-calibration-files-in-braid" id="xml-calibration-files-in-braid">XML calibration files in Braid</a></h2>
+<p>The XML calibration files used in Braid are backwards-compatible with those from
+Braid's predecessor, Flydra. Several of the steps described here also use tools
+from Flydra.</p>
 <h2><a class="header" href="#step-1-setup-cameras-zoom-focus-aperture-gain-and-lights" id="step-1-setup-cameras-zoom-focus-aperture-gain-and-lights">Step 1: setup cameras (zoom, focus, aperture, gain) and lights</a></h2>
 <p>Setup camera position, zoom, focus (using an object in the tracking volume) and
 aperture (slightly stopped down from wide-open). Exposure times and gains are
@@ -329,36 +333,67 @@ finished: result in  /home/strawlab/20190924_161153.braidz.h5.recal/result
 for Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
 <code>[mainbrain]</code> section of your Braid configuration <code>.toml</code> file.</p>
 <h3><a class="header" href="#with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate" id="with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate">With the new calibration, perform offline tracking the data used to calibrate.</a></h3>
-<p>Using this calibration, you can perform 3D tracking of the data with:</p>
+<p>Now you have a working calibration, which is NOT aligned or scaled to any
+coordinate system, but an (undefined) coordinate system that from MCSC code
+picked. We can use this calibration to do tracking, although in general having
+correct scaling is important for good tracking. The reason correct scaling is
+important for good quality tracking is because Braid tracks using a dynamic
+model of movement in which maneuverability is parameterized and tracking
+performance is best when the actual maneuverability statistics match the
+expected statistic.</p>
+<p>So, using the calibration from above, perform 3D tracking of the data with:</p>
 <pre><code>flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
 </code></pre>
 <p>You can view these results with:</p>
 <pre><code>DATAFILE_RETRACKED=`python -c &quot;print('${DATAFILE}'[:-3])&quot;`.kalmanized.h5
 flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
 </code></pre>
-<p>Now you have a working calibration, which is NOT aligned or scaled to the
-flycube coordinate system, but is able to track. Scaling can be quite important
-for good tracking.</p>
-<h3><a class="header" href="#align-your-new-calibration" id="align-your-new-calibration">Align your new calibration</a></h3>
-<p>Next, using this new calibration, collect a dataset which outlines the geometry
-of your arena. We will use this to align and scale the unaligned calibration to
-an aligned calibration. Easiest is to acquire this dataset directly by running
-Braid with the new calibration. Alternatively, one can use a pre-existing 2D dataset
-and re-track it with <code>flydra_kalmanize</code> as above. We will call this dataset
-for alignment <code>${NEW_TRACKED_DATA}</code>.</p>
-<p>Finally, with this new dataset for alignment, we render the 3D tracks with a 3D
-model and adjust the alignement parameters by hand in a GUI. Here we align
-our newly tracked data in file <code>${NEW_TRACKED_DATA}</code> against the <code>sample_bowl.xml</code> file from
-<a href="https://github.com/strawlab/flydra/blob/master/flydra_analysis/flydra_analysis/a2/sample_bowl.xml">here</a>.</p>
+<h3><a class="header" href="#align-your-new-calibration-using-a-gui" id="align-your-new-calibration-using-a-gui">Align your new calibration using a GUI</a></h3>
+<p>Now we will take our existing &quot;unaligned&quot; calibration, and despite the scaling
+and alignment issue, track some points so that we have 3D coordinates. We will
+use these 3D coordinates to &quot;align&quot; our calibration -- to adjust its scaling,
+rotation, and translation to arrive at a final calibration which outputs
+coordinates in the desired frame.</p>
+<p>Now, using the unaligned calibration from above, collect a dataset which
+outlines the geometry of your arena or other key 3D points which we serve as
+reference 3D points used to discover the correct alignment. We will use these
+unaligned 3D points output from the unaligned calibration to determine an
+alignment and scaling used to transform these 3D points to the correct,
+&quot;aligned&quot; 3D points. These alignment parameters will be used to update the original unaligned calibration into the final aligned calibration.</p>
+<p>The easiest way to acquire unaligned 3D points is to acquire a new dataset
+directly by running Braid with the new unaligned calibration. Alternatively, one
+can use a pre-existing 2D dataset and re-track it with <code>flydra_kalmanize</code> as
+above. We will call this dataset for alignment <code>${NEW_TRACKED_DATA}</code>.</p>
+<p>With this new dataset for alignment, we render the 3D tracks with a 3D model of
+some pre-specified geometry in the correct coordinate frame. We then adjust the
+alignment parameters by hand in a GUI. Here we align our newly tracked data in
+file <code>${NEW_TRACKED_DATA}</code> against the <code>sample_bowl.xml</code> file from
+<a href="https://github.com/strawlab/flydra/blob/main/flydra_analysis/flydra_analysis/a2/sample_bowl.xml">here</a>.
+In this example, the <code>sample_bowl.xml</code> file outlines a circle with diameter 0.33
+meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
+of diameter 0.33 meters and on the plane which will be Z=0 in our final
+coordinate frame. Here is how to run the GUI program for running the alignment:</p>
 <pre><code>flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
 </code></pre>
+<h3><a class="header" href="#automatic-alignment-of-calibrations" id="automatic-alignment-of-calibrations">Automatic alignment of calibrations</a></h3>
+<p>As an alternative to using the GUI to perform alignment, it is possible to find
+the correct alignment automatically. The flydra program
+<code>flydra_analysis_align_calibration</code> does this. The major mathematical operations
+are performed in the <code>estsimt</code> function in
+<a href="https://github.com/strawlab/flydra/blob/main/flydra_core/flydra_core/align.py"><code>flydra_core.align</code></a>.</p>
+<p>(TODO: Write an example doing this.)</p>
+<h3><a class="header" href="#calibration-with-water" id="calibration-with-water">Calibration with water</a></h3>
+<p>As described
+<a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid
+can track objects in water. To enable this, place the string
+<code>&lt;water&gt;1.333&lt;/water&gt;</code> in the XML camera calibration file.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="braidz-files.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braid_3d_tracking.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -376,7 +411,7 @@ our newly tracked data in file <code>${NEW_TRACKED_DATA}</code> against the <cod
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="braidz-files.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braid_3d_tracking.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
