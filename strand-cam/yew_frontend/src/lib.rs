@@ -1,5 +1,7 @@
 #![recursion_limit = "1000"]
 
+use std::net::{IpAddr, SocketAddr};
+
 use ci2_remote_control::CamArg;
 
 #[cfg(feature = "with_camtrig")]
@@ -81,6 +83,13 @@ enum Msg {
     ToggleAprilTagDetection(bool),
     ToggleAprilTagDetectionSaveCsv(bool),
 
+    ToggleImOpsDetection(bool),
+    SetImOpsDestination(SocketAddr),
+    SetImOpsSource(IpAddr),
+    SetImOpsCenterX(u32),
+    SetImOpsCenterY(u32),
+    SetImOpsTheshold(u8),
+
     #[cfg(feature = "flydratrax")]
     CamArgSetKalmanTrackingConfig(String),
     #[cfg(feature = "flydratrax")]
@@ -145,6 +154,12 @@ struct Model {
     checkerboard_height: TypedInputStorage<u32>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
 
+    im_ops_destination_local: TypedInputStorage<SocketAddr>,
+    im_ops_source_local: TypedInputStorage<IpAddr>,
+    im_ops_center_x: TypedInputStorage<u32>,
+    im_ops_center_y: TypedInputStorage<u32>,
+    im_ops_threshold: TypedInputStorage<u8>,
+
     ignore_all_future_frame_processing_errors: bool,
 }
 
@@ -204,6 +219,12 @@ impl Component for Model {
             checkerboard_height: TypedInputStorage::empty(),
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
 
+            im_ops_destination_local: TypedInputStorage::empty(),
+            im_ops_source_local: TypedInputStorage::empty(),
+            im_ops_center_x: TypedInputStorage::empty(),
+            im_ops_center_y: TypedInputStorage::empty(),
+            im_ops_threshold: TypedInputStorage::empty(),
+
             ignore_all_future_frame_processing_errors: false,
         }
     }
@@ -242,8 +263,24 @@ impl Component for Model {
                     self.checkerboard_height
                         .set_if_not_focused(response.checkerboard_data.height);
                 }
+
                 self.post_trigger_buffer_size_local
                     .set_if_not_focused(response.post_trigger_buffer_size);
+
+                self.im_ops_destination_local
+                    .set_if_not_focused(response.im_ops_state.destination);
+
+                self.im_ops_source_local
+                    .set_if_not_focused(response.im_ops_state.source);
+
+                self.im_ops_center_x
+                    .set_if_not_focused(response.im_ops_state.center_x);
+
+                self.im_ops_center_y
+                    .set_if_not_focused(response.im_ops_state.center_y);
+
+                self.im_ops_threshold
+                    .set_if_not_focused(response.im_ops_state.threshold);
 
                 // Update our cache of the server state
                 self.server_state = Some(response);
@@ -340,7 +377,30 @@ impl Component for Model {
                 self.ft = send_cam_message(CamArg::SetIsRecordingAprilTagCsv(v), self);
                 return false; // don't update DOM, do that on return
             }
-
+            Msg::ToggleImOpsDetection(v) => {
+                self.ft = send_cam_message(CamArg::ToggleImOpsDetection(v), self);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::SetImOpsDestination(v) => {
+                self.ft = send_cam_message(CamArg::SetImOpsDestination(v), self);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::SetImOpsSource(v) => {
+                self.ft = send_cam_message(CamArg::SetImOpsSource(v), self);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::SetImOpsCenterX(v) => {
+                self.ft = send_cam_message(CamArg::SetImOpsCenterX(v), self);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::SetImOpsCenterY(v) => {
+                self.ft = send_cam_message(CamArg::SetImOpsCenterY(v), self);
+                return false; // don't update DOM, do that on return
+            }
+            Msg::SetImOpsTheshold(v) => {
+                self.ft = send_cam_message(CamArg::SetImOpsThreshold(v), self);
+                return false; // don't update DOM, do that on return
+            }
             Msg::ToggleFmfRecordingFrameRate(v) => {
                 self.ft = send_cam_message(CamArg::SetRecordingFps(v), self);
                 return false; // don't update DOM, do that on return
@@ -498,6 +558,7 @@ impl Component for Model {
                     { self.view_post_trigger_options() }
                     { self.point_detection_ui() }
                     { self.apriltag_detection_ui() }
+                    { self.im_ops_ui() }
                     { self.checkerboard_calibration_ui() }
 
                     <div class="wrap-collapsible",>
@@ -840,6 +901,79 @@ impl Model {
             }
         } else {
             no_tag_result
+        }
+    }
+
+    fn im_ops_ui(&self) -> Html {
+        let empty = html! {
+            <div>
+            </div>
+        };
+        if let Some(ref shared) = self.server_state {
+            html! {
+                <div class="wrap-collapsible",>
+                    <CheckboxLabel: label="ImOps Detection", initially_checked=true, />
+                    <div>
+                        <div>
+                            <Toggle:
+                                label="Enable detection",
+                                value=shared.im_ops_state.do_detection,
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleImOpsDetection(checked)}),
+                                />
+                        </div>
+
+                        <div>
+                            <label>{"Destination (IP:Port)"}
+                                <TypedInput<SocketAddr>:
+                                    storage=&self.im_ops_destination_local,
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsDestination(v)),
+                                    />
+                            </label>
+                        </div>
+
+
+                        <div>
+                            <label>{"Source (IP)"}
+                                <TypedInput<IpAddr>:
+                                    storage=&self.im_ops_source_local,
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsSource(v)),
+                                    />
+                            </label>
+                        </div>
+
+
+                        <div>
+                            <label>{"Center X"}
+                                <TypedInput<u32>:
+                                    storage=&self.im_ops_center_x,
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterX(v)),
+                                    />
+                            </label>
+                        </div>
+
+                        <div>
+                            <label>{"Center Y"}
+                                <TypedInput<u32>:
+                                    storage=&self.im_ops_center_y,
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterY(v)),
+                                    />
+                            </label>
+                        </div>
+
+                        <div>
+                            <label>{"Threshold"}
+                                <TypedInput<u8>:
+                                    storage=&self.im_ops_threshold,
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsTheshold(v)),
+                                    />
+                            </label>
+                        </div>
+
+                    </div>
+                </div>
+            }
+        } else {
+            empty
         }
     }
 

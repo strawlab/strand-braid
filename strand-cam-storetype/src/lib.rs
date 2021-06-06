@@ -1,3 +1,5 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+
 use rust_cam_bui_types::RecordingPath;
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +91,7 @@ pub struct StoreType {
     pub cuda_devices: Vec<String>,
     /// This is None if no apriltag support is compiled in. Otherwise Some(_).
     pub apriltag_state: Option<ApriltagState>,
+    pub im_ops_state: ImOpsState,
     pub format_str_apriltag_csv: String,
     pub had_frame_processing_error: bool,
 }
@@ -106,6 +109,30 @@ impl Default for ApriltagState {
             do_detection: false,
             april_family: TagFamily::default(),
             is_recording_csv: None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct ImOpsState {
+    pub do_detection: bool,
+    pub destination: SocketAddr,
+    /// The IP address of the socket interface from which the data is sent.
+    pub source: IpAddr,
+    pub center_x: u32,
+    pub center_y: u32,
+    pub threshold: u8,
+}
+
+impl Default for ImOpsState {
+    fn default() -> Self {
+        Self {
+            do_detection: false,
+            destination: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            source: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            center_x: 0,
+            center_y: 0,
+            threshold: 0,
         }
     }
 }

@@ -28,6 +28,7 @@ serde = "1.0.79"
 serde_derive = "1.0.79"
 serde_json = "1.0.29"
 serde_yaml = "0.8.4"
+serde_cbor = "0.11"
 webbrowser = "0.5.2"
 clap = "2.32.0"
 preferences = {git="https://github.com/Eh2406/preferences-rs", rev="4f426cf52da97d3b8914e10d4492f953d4304238"}
@@ -69,6 +70,7 @@ http-video-streaming = {path = "../http-video-streaming"}
 hyper-tls = "0.4.0"
 semver = { version = "0.11.0", features = ["serde"] }
 shellexpand = "2"
+imops = {path="../imops"}
 camtrig = {path="../camtrig", optional=true}
 camtrig-comms = {path="../camtrig-comms", optional=true}
 flydra-types = {path="../flydra-types", features=["with-dns"]}

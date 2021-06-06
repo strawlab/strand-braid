@@ -38,6 +38,8 @@ test_crates:
     - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
     - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
 
+    - rustup target add thumbv7em-none-eabihf
+
     # Install pylon 6
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
@@ -46,6 +48,14 @@ test_crates:
     - apt-get install -y libgstreamer-plugins-base1.0-dev
     - cd gst-plugin-nvargustime
     - cargo test --release
+    - cd ..
+
+    # Test imops
+    - cd imops
+    - cargo test
+    - cargo test --no-default-features --features std,packed_simd
+    - cargo test --no-default-features --features std
+    - cargo build --no-default-features --target thumbv7em-none-eabihf
     - cd ..
 
     # Test braidz-parser

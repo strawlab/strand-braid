@@ -58,6 +58,7 @@ members = [
     "image-tracker/im-pt-detect-config",
     "imagesrc",
     "imagesrc-gst",
+    "imops",
     "lstsq",
     "machine-vision-shaders",
     "mvg",

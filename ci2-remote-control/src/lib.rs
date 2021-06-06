@@ -264,4 +264,10 @@ pub enum CamArg {
     ToggleAprilTagFamily(TagFamily),
     ToggleAprilTagDetection(bool),
     SetIsRecordingAprilTagCsv(bool),
+    ToggleImOpsDetection(bool),
+    SetImOpsDestination(std::net::SocketAddr),
+    SetImOpsSource(std::net::IpAddr),
+    SetImOpsCenterX(u32),
+    SetImOpsCenterY(u32),
+    SetImOpsThreshold(u8),
 }
