@@ -27,3 +27,6 @@ rusttype = "0.8.1"
 image = "0.23"
 ttf-firacode = "0.1"
 simple-frame = { path = "../simple-frame" }
+
+[features]
+backtrace = ["vpx-encode/backtrace"]

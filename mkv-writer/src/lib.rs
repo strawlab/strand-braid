@@ -1,3 +1,7 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
 use std::rc::Rc;
 
 #[macro_use]
@@ -21,8 +25,13 @@ pub enum Error {
     InconsistentState,
     #[error("convert image error")]
     ConvertImageError(#[from] convert_image::Error),
-    #[error("vpx encoder error")]
-    VpxEncoderError(#[from] vpx_encode::Error),
+    #[error("VPX Encoder Error")]
+    VpxEncoderError {
+        #[from]
+        inner: vpx_encode::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("nvenc error")]
     NvencError(#[from] nvenc::NvEncError),
     #[error("nvenc libraries not loaded")]
