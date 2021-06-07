@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate log;
 
+use anyhow::Result;
+
 use basic_frame::{match_all_dynamic_fmts, BasicExtra, DynamicFrame};
 use ci2_remote_control::MkvRecordingConfig;
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
@@ -264,7 +266,7 @@ enum Autocrop {
 
 impl std::str::FromStr for Autocrop {
     type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "None" | "none" => Ok(Autocrop::None),
             "Even" | "even" => Ok(Autocrop::Even),
@@ -311,7 +313,7 @@ fn display_filename(p: &Option<PathBuf>, default: &str) -> PathBuf {
     }
 }
 
-fn info(path: PathBuf) -> Result<(), anyhow::Error> {
+fn info(path: PathBuf) -> Result<()> {
     #[derive(Debug)]
     struct Info {
         width: u32,
@@ -345,7 +347,7 @@ fn export_fmf(
     new_pixel_format: Option<PixFmt>,
     output: Option<PathBuf>,
     forced_input_pixel_format: Option<PixFmt>,
-) -> Result<(), anyhow::Error> {
+) -> Result<()> {
     let output_fname = default_filename(&path, output, "fmf");
 
     info!(
@@ -377,7 +379,7 @@ fn export_fmf(
     Ok(())
 }
 
-fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), anyhow::Error> {
+fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
     let opts = glob::MatchOptions::new();
     let paths = glob::glob_with(&pattern, opts)?;
     let f = std::fs::File::create(&output_fname)?;
@@ -392,7 +394,7 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), anyhow::Err
 }
 
 #[cfg(feature = "import-webm")]
-fn import_webm(x: ImportWebm) -> Result<(), anyhow::Error> {
+fn import_webm(x: ImportWebm) -> Result<()> {
     let output_fname = default_filename(&x.input, x.output, "fmf");
 
     info!(
@@ -415,13 +417,13 @@ fn import_webm(x: ImportWebm) -> Result<(), anyhow::Error> {
 
 fn convert_to_rgb8(
     frame: &DynamicFrame,
-) -> Result<Box<dyn ImageStride<pixel_format::RGB8> + '_>, convert_image::Error> {
+) -> std::result::Result<Box<dyn ImageStride<pixel_format::RGB8> + '_>, convert_image::Error> {
     let f: Box<dyn ImageStride<_>> =
         match_all_dynamic_fmts!(frame, x, Box::new(convert_image::convert(x)?));
     Ok(f)
 }
 
-fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), anyhow::Error> {
+fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
     use std::io::Write;
 
     let stem = path.file_stem().unwrap().to_os_string(); // strip extension
@@ -511,7 +513,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), anyhow::Error>
 //     }
 // }
 
-// fn export_bgr24(x: ExportBgr24) -> Result<(), anyhow::Error> {
+// fn export_bgr24(x: ExportBgr24) -> Result<()> {
 //     use std::io::Write;
 
 //     let output_fname = default_filename(&x.input, x.output, "bgr24");
@@ -535,7 +537,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), anyhow::Error>
 //     Ok(())
 // }
 
-fn export_mkv(x: ExportMkv) -> Result<(), anyhow::Error> {
+fn export_mkv(x: ExportMkv) -> Result<()> {
     // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
     // also this https://www.webmproject.org/docs/webm-sdk/example_vp9_lossless_encoder.html
 
@@ -579,8 +581,6 @@ fn export_mkv(x: ExportMkv) -> Result<(), anyhow::Error> {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
     };
-
-    // pub fn new(fd: T, config: MkvRecordingConfig, nv_enc: Option<nvenc::NvEnc<'f,'lib>>) -> Result<Self> {
 
     #[cfg(feature = "nv-h264")]
     let libs = nvenc::Dynlibs::new()?;
@@ -676,7 +676,7 @@ impl<FMT> ClipFrame<FMT> for basic_frame::BasicFrame<FMT> {
     }
 }
 
-fn export_y4m(x: ExportY4m) -> Result<(), anyhow::Error> {
+fn export_y4m(x: ExportY4m) -> Result<()> {
     use std::io::Write;
 
     let output_fname = default_filename(&x.input, x.output, "y4m");
@@ -737,7 +737,7 @@ fn export_y4m(x: ExportY4m) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "fmf=info,error");
     }
