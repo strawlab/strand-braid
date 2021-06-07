@@ -8,7 +8,7 @@ edition = "2018"
 log = "0.4"
 chrono = "0.4.6"
 webm = "1"
-vpx-encode = {version="0.4.1", features=["vp9"]}
+vpx-encode = {version="0.5", features=["vp9"]}
 thiserror = "1.0"
 machine-vision-formats = "0.1"
 
