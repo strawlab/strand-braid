@@ -64,7 +64,7 @@ fn launch_strand_cam(
         software_limit_framerate,
     };
 
-    let (_, _, fut) = strand_cam::setup_app(handle, args).expect("setup_app");
+    let (_, _, fut) = strand_cam::setup_app(handle, args)?;
     tokio::spawn(fut);
     Ok(StrandCamInstance {})
 }
