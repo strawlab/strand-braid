@@ -1,18 +1,43 @@
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use crate::NvInt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum NvencError {
-    #[error("dynamic library `{0}` could not be loaded: `{1}`")]
-    DynLibLoadError(String, std::io::Error),
-    #[error("NvEnc returned code `{0}`: {1}")]
-    ErrCode(NvInt, &'static str),
-    #[error("Name `{0}` could not be opened")]
-    NameFFIError(String),
-    #[error("Name `{0}` could not be opened: `{1}`")]
-    NameFFIError2(String, std::io::Error),
+    #[error("dynamic library `{dynlib}` could not be loaded: `{source}`")]
+    DynLibLoadError {
+        dynlib: String,
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("NvEnc returned code `{status}`: {message}")]
+    ErrCode {
+        status: NvInt,
+        message: &'static str,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("Name `{name}` could not be opened")]
+    NameFFIError {
+        name: String,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("Name `{name}` could not be opened: `{source}`")]
+    NameFFIError2 {
+        name: String,
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("Unable to compute image size")]
-    UnableToComputeSize,
+    UnableToComputeSize {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 pub fn code_to_string(code: crate::ffi::_NVENCSTATUS::Type) -> &'static str {

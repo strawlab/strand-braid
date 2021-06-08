@@ -4,6 +4,8 @@
 //     cd gen-nvenc-bindings
 //     cargo run > ../src/ffi.rs
 
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 pub mod api;
 mod error;
 mod ffi;
