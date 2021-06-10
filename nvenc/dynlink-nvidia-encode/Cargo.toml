@@ -10,4 +10,4 @@ dynlink-cuda = {path="../dynlink-cuda"}
 thiserror = "1.0"
 
 [features]
-backtrace = []
+backtrace = ["dynlink-cuda/backtrace"]
