@@ -9,6 +9,7 @@ log = "0.4"
 chrono = "0.4"
 env_logger = "0.8"
 futures = "0.3"
+anyhow = "1.0"
 
 basic-frame = { path = "../basic-frame" }
 machine-vision-formats = "0.1"

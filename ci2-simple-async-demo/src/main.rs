@@ -60,7 +60,7 @@ where
     Ok(())
 }
 
-fn main() -> ci2::Result<()> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let sync_mod = backend::new_module()?;
@@ -68,7 +68,7 @@ fn main() -> ci2::Result<()> {
     let infos = async_mod.camera_infos()?;
 
     if infos.len() == 0 {
-        return Err("no cameras detected".into());
+        anyhow::bail!("no cameras detected");
     }
 
     for info in infos.iter() {
