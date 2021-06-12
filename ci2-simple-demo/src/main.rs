@@ -15,13 +15,13 @@ extern crate machine_vision_formats as formats;
 use ci2::{Camera, CameraModule};
 use timestamped_frame::ExtraTimeData;
 
-fn main() -> ci2::Result<()> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let mut mymod = backend::new_module()?;
     let infos = mymod.camera_infos()?;
     if infos.len() == 0 {
-        return Err("no cameras detected".into());
+        anyhow::bail!("no cameras detected");
     }
     for info in infos.iter() {
         println!("opening camera {}", info.name());
@@ -43,7 +43,7 @@ fn main() -> ci2::Result<()> {
                     println!("  ignoring singleFrameError({})", s);
                 }
                 Err(e) => {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }
