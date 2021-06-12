@@ -147,7 +147,7 @@ start-object-detection = ["image_tracker"]
 initially-unsychronized = []
 
 # build with the image-tracker, which also requires IPP, fastimage, etc.
-image_tracker = ["image-tracker"]
+image_tracker = ["image-tracker", "image-tracker/backtrace"]
 
 debug-images = ["image-tracker/debug-images", "rt-image-viewer"]
 
