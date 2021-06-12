@@ -1,7 +1,5 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 use std::rc::Rc;
 
 #[macro_use]
@@ -18,22 +16,33 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("i/o error")]
-    IoError(#[from] std::io::Error),
+    IoError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
     #[error("file already closed")]
     FileAlreadyClosed,
     #[error("inconsistent state")]
     InconsistentState,
     #[error("convert image error")]
-    ConvertImageError(#[from] convert_image::Error),
+    ConvertImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        convert_image::Error,
+    ),
     #[error("VPX Encoder Error")]
     VpxEncoderError {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         inner: vpx_encode::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("nvenc error")]
-    NvencError(#[from] nvenc::NvEncError),
+    NvencError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        nvenc::NvEncError,
+    ),
     #[error("nvenc libraries not loaded")]
     NvencLibsNotLoaded,
 }

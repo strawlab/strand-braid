@@ -106,7 +106,7 @@ default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "check
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = ["ci2/backtrace", "ci2-pyloncxx/backtrace"]
+backtrace = ["ci2/backtrace", "ci2-pyloncxx/backtrace", "mkv-writer/backtrace"]
 
 send-bg-images-to-mainbrain = []
 
