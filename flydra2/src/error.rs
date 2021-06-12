@@ -89,6 +89,7 @@ impl std::fmt::Display for FileErrorInner {
 }
 
 impl std::error::Error for FileErrorInner {
+    #[cfg(feature = "backtrace")]
     fn backtrace(&self) -> Option<&Backtrace> {
         self.source.backtrace()
     }
@@ -106,6 +107,7 @@ impl std::fmt::Display for WrappedErrorInner {
 }
 
 impl std::error::Error for WrappedErrorInner {
+    #[cfg(feature = "backtrace")]
     fn backtrace(&self) -> Option<&Backtrace> {
         self.source.backtrace()
     }

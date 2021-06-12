@@ -28,7 +28,7 @@ rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 [features]
 default = ["stand-cam-posix-sched-fifo", "fiducial", "jemalloc"]
 
-backtrace = ["strand-cam/backtrace"]
+backtrace = ["flydra2/backtrace", "strand-cam/backtrace"]
 
 jemalloc = ["jemallocator"]
 

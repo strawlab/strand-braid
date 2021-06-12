@@ -141,7 +141,7 @@ with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/
 
 flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal",
     "approx", "strand-cam-storetype/flydratrax", "alga",
-    "flydra2", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
+    "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
 
 start-object-detection = ["image_tracker"]
 initially-unsychronized = []
