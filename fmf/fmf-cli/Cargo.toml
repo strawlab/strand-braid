@@ -34,4 +34,4 @@ nvenc = {path="../../nvenc",optional=true}
 [features]
 import-webm = ["webm"]
 nv-h264 = ["nvenc"]
-backtrace = ["anyhow/backtrace", "mkv-writer/backtrace"]
+backtrace = ["anyhow/backtrace", "mkv-writer/backtrace", "convert-image/backtrace"]

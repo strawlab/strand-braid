@@ -1,4 +1,5 @@
 #![recursion_limit = "512"]
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 // TODO: Add support for Reversible Color Transform (RCT) YUV types
 
@@ -24,26 +25,26 @@ pub enum Error {
     InvalidAllocatedBufferSize,
     #[error("invalid allocated buffer stride")]
     InvalidAllocatedBufferStride,
-    #[error("{0:?}")]
-    Bayer(wang_debayer::BayerError),
-    #[error("{0}")]
-    Io(std::io::Error),
-    #[error("{0}")]
-    Image(#[from] image::ImageError),
+    #[error(transparent)]
+    Bayer(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        wang_debayer::BayerError,
+    ),
+    #[error(transparent)]
+    Io(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
+    #[error(transparent)]
+    Image(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        image::ImageError,
+    ),
     #[error("unimplemented conversion {0} -> {1}")]
     UnimplementedConversion(PixFmt, PixFmt),
-}
-
-impl From<wang_debayer::BayerError> for Error {
-    fn from(orig: wang_debayer::BayerError) -> Error {
-        Error::Bayer(orig)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(orig: std::io::Error) -> Error {
-        Error::Io(orig)
-    }
 }
 
 #[allow(non_camel_case_types)]

@@ -22,3 +22,6 @@ http-video-streaming-types = {path = "http-video-streaming-types"}
 thread-control = "0.1.2"
 
 basic-frame = {path="../basic-frame"}
+
+[features]
+backtrace = ["convert-image/backtrace"]

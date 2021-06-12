@@ -29,4 +29,4 @@ ttf-firacode = "0.1"
 simple-frame = { path = "../simple-frame" }
 
 [features]
-backtrace = ["vpx-encode/backtrace", "nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace"]
+backtrace = ["vpx-encode/backtrace", "nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace"]
