@@ -33,7 +33,6 @@ webbrowser = "0.5.2"
 clap = "2.32.0"
 preferences = {git="https://github.com/Eh2406/preferences-rs", rev="4f426cf52da97d3b8914e10d4492f953d4304238"}
 app_dirs = "1.2"
-failure = "0.1.6"
 anyhow = "1.0"
 thiserror = "1.0"
 parking_lot = "0.11"
