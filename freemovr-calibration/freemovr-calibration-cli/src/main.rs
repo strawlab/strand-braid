@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate log;
 
+use anyhow::Context;
+
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -117,7 +119,7 @@ struct MultiDisplayExr {
 }
 
 #[cfg(feature = "opencv")]
-fn with_checkerboards(c: WithCheckerboards) -> Result<(), freemovr_calibration::Error> {
+fn with_checkerboards(c: WithCheckerboards) -> anyhow::Result<()> {
     let src_dir = c
         .input_yaml
         .parent()
@@ -136,8 +138,7 @@ fn with_checkerboards(c: WithCheckerboards) -> Result<(), freemovr_calibration::
     unimplemented!(); // TODO: save to EXR
 }
 
-fn generate_csv(c: GenerateCsv) -> Result<(), freemovr_calibration::Error> {
-    use failure::ResultExt;
+fn generate_csv(c: GenerateCsv) -> anyhow::Result<()> {
     use freemovr_calibration::PinholeCal;
 
     let src_dir = c
@@ -161,8 +162,7 @@ fn generate_csv(c: GenerateCsv) -> Result<(), freemovr_calibration::Error> {
     Ok(())
 }
 
-fn debug_obj2csv(c: DebugObj2Csv) -> Result<(), freemovr_calibration::Error> {
-    use failure::ResultExt;
+fn debug_obj2csv(c: DebugObj2Csv) -> anyhow::Result<()> {
     use nalgebra::Vector3;
 
     // load OBJ file with display surface
@@ -205,8 +205,7 @@ fn debug_obj2csv(c: DebugObj2Csv) -> Result<(), freemovr_calibration::Error> {
     Ok(())
 }
 
-fn csv2exr(c: Csv2Exr) -> Result<(), freemovr_calibration::Error> {
-    use failure::ResultExt;
+fn csv2exr(c: Csv2Exr) -> anyhow::Result<()> {
     let out_fname = "out.exr";
     let mut exr_file = std::fs::File::create(out_fname)?;
     let csv_file = std::fs::File::open(&c.corresponding_points_csv).context(format!(
@@ -218,9 +217,7 @@ fn csv2exr(c: Csv2Exr) -> Result<(), freemovr_calibration::Error> {
     Ok(())
 }
 
-fn no_distortion(c: GenerateExr) -> Result<(), freemovr_calibration::Error> {
-    use failure::ResultExt;
-
+fn no_distortion(c: GenerateExr) -> anyhow::Result<()> {
     if !c.save_debug_images && c.show_mask {
         error!("cannot show mask unless saving debug images.");
     }
@@ -246,9 +243,7 @@ fn no_distortion(c: GenerateExr) -> Result<(), freemovr_calibration::Error> {
     Ok(())
 }
 
-fn multi_display(c: MultiDisplayExr) -> Result<(), freemovr_calibration::Error> {
-    use failure::ResultExt;
-
+fn multi_display(c: MultiDisplayExr) -> anyhow::Result<()> {
     let src_dir = c
         .input_yaml
         .parent()
@@ -265,7 +260,7 @@ fn multi_display(c: MultiDisplayExr) -> Result<(), freemovr_calibration::Error> 
     Ok(())
 }
 
-fn main() -> Result<(), freemovr_calibration::Error> {
+fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
