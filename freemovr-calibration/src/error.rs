@@ -40,10 +40,6 @@ pub enum Error {
         opencv_calibrate::Error,
     ),
     #[error("...")]
-    Other(failure::Error),
-    #[error("...")]
-    OtherBox(Box<dyn failure::Fail>),
-    #[error("...")]
     RequiredTriMesh,
     #[error("...")]
     InvalidTriMesh,
@@ -67,16 +63,10 @@ pub enum Error {
     ),
     #[error("...")]
     SvdError(&'static str),
-}
-
-impl From<failure::Error> for Error {
-    fn from(orig: failure::Error) -> Error {
-        Error::Other(orig)
-    }
-}
-
-impl<C: std::fmt::Display + Send + Sync + 'static> From<failure::Context<C>> for Error {
-    fn from(orig: failure::Context<C>) -> Error {
-        Error::OtherBox(Box::new(orig))
-    }
+    #[error("...")]
+    Other(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        anyhow::Error,
+    ),
 }

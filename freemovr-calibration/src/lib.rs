@@ -6,6 +6,8 @@ extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
+use anyhow::Context;
+
 use nalgebra::geometry::{Point2, Point3};
 
 mod error;
@@ -146,8 +148,6 @@ pub fn do_multi_display<R: std::io::Read, P: AsRef<Path>>(
     epsilon: f64,
     src_dir: P,
 ) -> Result<FloatImage> {
-    use failure::ResultExt;
-
     let data = parse_multi_display_yaml(fd)?;
     println!("loaded file {:?}", data);
 

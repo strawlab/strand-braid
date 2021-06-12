@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 use crate::{
     error::Error,
     types::{
@@ -203,7 +205,6 @@ impl Geom {
         match self {
             Geom::Sphere(_) => Err(Error::RequiredTriMesh),
             Geom::FromFile(ff) => {
-                use failure::ResultExt;
                 let mut obj_fname = yaml_dir.as_ref().to_path_buf();
                 obj_fname.push(&ff.filename);
 
