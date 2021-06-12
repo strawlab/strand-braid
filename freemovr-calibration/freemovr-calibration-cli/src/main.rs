@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate log;
 
-use std::path::PathBuf;
 use std::io::Write;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 const EXR_COMMENT: Option<&str> = Some("Created by freemovr-calibration-cli.");
@@ -10,7 +10,7 @@ const EXR_COMMENT: Option<&str> = Some("Created by freemovr-calibration-cli.");
 #[derive(Debug, StructOpt)]
 #[structopt(name = "freemovr-calibration")]
 enum Opt {
-    #[cfg(feature="opencv")]
+    #[cfg(feature = "opencv")]
     #[structopt(name = "with-checkerboards")]
     WithCheckerboards(WithCheckerboards),
 
@@ -24,7 +24,6 @@ enum Opt {
 
     // TODO implement a command that lists licenses (based on `cargo lichking
     // bundle`).
-
     /// (Advanced) Convert a pinhole wizard .yaml file into a corresponding points .csv file.
     #[structopt(name = "generate-csv")]
     GenerateCsv(GenerateCsv),
@@ -38,112 +37,120 @@ enum Opt {
     DebugObj2Csv(DebugObj2Csv),
 }
 
-#[cfg(feature="opencv")]
+#[cfg(feature = "opencv")]
 #[derive(Debug, StructOpt)]
 struct WithCheckerboards {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name="INPUT-YAML")]
+    #[structopt(parse(from_os_str), name = "INPUT-YAML")]
     input_yaml: PathBuf,
 }
 
 #[derive(Debug, StructOpt)]
 struct GenerateExr {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name="SINGLE-DISPLAY-YAML")]
+    #[structopt(parse(from_os_str), name = "SINGLE-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long="epsilon", default_value="1e-10")]
+    #[structopt(long = "epsilon", default_value = "1e-10")]
     epsilon: f64,
 
     /// Draw debug jpeg images
-    #[structopt(long="--save-debug-images")]
+    #[structopt(long = "--save-debug-images")]
     save_debug_images: bool,
 
     /// Show the viewport mask in the debug jpeg images
-    #[structopt(long="--show-mask")]
+    #[structopt(long = "--show-mask")]
     show_mask: bool,
-
 }
 
 #[derive(Debug, StructOpt)]
 struct GenerateCsv {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name="SINGLE-DISPLAY-YAML")]
+    #[structopt(parse(from_os_str), name = "SINGLE-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long="epsilon", default_value="1e-10")]
+    #[structopt(long = "epsilon", default_value = "1e-10")]
     epsilon: f64,
 }
 
 #[derive(Debug, StructOpt)]
 struct DebugObj2Csv {
     /// Filename of input obj file with display surface model
-    #[structopt(parse(from_os_str), name="DISPLAY-SURFACE-OBJ")]
+    #[structopt(parse(from_os_str), name = "DISPLAY-SURFACE-OBJ")]
     display_surface_obj: PathBuf,
 
     /// World coordinates position of camera
-    #[structopt(long="cam-x", default_value="-4.0")]
+    #[structopt(long = "cam-x", default_value = "-4.0")]
     cam_x: f64,
 
     /// World coordinates position of camera
-    #[structopt(long="cam-y", default_value="4.0")]
+    #[structopt(long = "cam-y", default_value = "4.0")]
     cam_y: f64,
 
     /// World coordinates position of camera
-    #[structopt(long="cam-z", default_value="1.0")]
+    #[structopt(long = "cam-z", default_value = "1.0")]
     cam_z: f64,
 }
 
 #[derive(Debug, StructOpt)]
 struct Csv2Exr {
     /// Filename of input csv file
-    #[structopt(parse(from_os_str), name="CORRESPONDING-POINTS-CSV")]
+    #[structopt(parse(from_os_str), name = "CORRESPONDING-POINTS-CSV")]
     corresponding_points_csv: PathBuf,
 
     /// Draw debug jpeg images
-    #[structopt(long="--save-debug-images")]
+    #[structopt(long = "--save-debug-images")]
     save_debug_images: bool,
 }
 
 #[derive(Debug, StructOpt)]
 struct MultiDisplayExr {
     /// Filename of input yaml file in multi display schema
-    #[structopt(parse(from_os_str), name="MULTI-DISPLAY-YAML")]
+    #[structopt(parse(from_os_str), name = "MULTI-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long="epsilon", default_value="1e-10")]
+    #[structopt(long = "epsilon", default_value = "1e-10")]
     epsilon: f64,
 }
 
-#[cfg(feature="opencv")]
-fn with_checkerboards(c: WithCheckerboards) -> Result<(),freemovr_calibration::Error> {
-    let src_dir = c.input_yaml.parent().expect("cannot get input directory name");
+#[cfg(feature = "opencv")]
+fn with_checkerboards(c: WithCheckerboards) -> Result<(), freemovr_calibration::Error> {
+    let src_dir = c
+        .input_yaml
+        .parent()
+        .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)?;
 
     let data = freemovr_calibration::parse_pinhole_yaml(fd, &src_dir)?;
     use freemovr_calibration::pinhole_wizard_yaml_support::PinholeCalib;
     let (width, height) = (data.loaded.width(), data.loaded.height());
     let intrinsics = freemovr_calibration::intrinsics_from_checkerboards(
-        data.loaded.checkerboards().unwrap(), width, height)?;
+        data.loaded.checkerboards().unwrap(),
+        width,
+        height,
+    )?;
     info!("computed camera intrinsics for display: {:?}", intrinsics);
     unimplemented!(); // TODO: save to EXR
 }
 
-fn generate_csv(c: GenerateCsv) -> Result<(),freemovr_calibration::Error> {
+fn generate_csv(c: GenerateCsv) -> Result<(), freemovr_calibration::Error> {
     use failure::ResultExt;
     use freemovr_calibration::PinholeCal;
 
-    let src_dir = c.input_yaml.parent().expect("cannot get input directory name");
+    let src_dir = c
+        .input_yaml
+        .parent()
+        .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
-        .context(format!("opening file: {}",c.input_yaml.display()))?;
+        .context(format!("opening file: {}", c.input_yaml.display()))?;
     let src_data = freemovr_calibration::ActualFiles::new(fd, &src_dir, c.epsilon)?;
     let trimesh = src_data.geom_as_trimesh().unwrap();
 
     let pinhole_fits = src_data.pinhole_fits();
-    assert!(pinhole_fits.len()==1);
+    assert!(pinhole_fits.len() == 1);
     let (_name, cam) = &pinhole_fits[0];
 
     let out_fname = "out.csv";
@@ -154,24 +161,29 @@ fn generate_csv(c: GenerateCsv) -> Result<(),freemovr_calibration::Error> {
     Ok(())
 }
 
-fn debug_obj2csv(c: DebugObj2Csv) -> Result<(),freemovr_calibration::Error> {
+fn debug_obj2csv(c: DebugObj2Csv) -> Result<(), freemovr_calibration::Error> {
     use failure::ResultExt;
     use nalgebra::Vector3;
 
     // load OBJ file with display surface
-    let file = std::fs::File::open(&c.display_surface_obj)
-        .context(format!("loading geometry from file: {}",
-            c.display_surface_obj.display()))?;
-    let trimesh = freemovr_calibration::parse_obj_from_reader(file, c.display_surface_obj.to_str())?;
+    let file = std::fs::File::open(&c.display_surface_obj).context(format!(
+        "loading geometry from file: {}",
+        c.display_surface_obj.display()
+    ))?;
+    let trimesh =
+        freemovr_calibration::parse_obj_from_reader(file, c.display_surface_obj.to_str())?;
 
-    let sum_vec = trimesh.worldcoords().points().iter()
-        .fold( Vector3::new(0.0, 0.0, 0.0), |acc, v| acc + v.coords );
-    let mean_vec = sum_vec/ (trimesh.worldcoords().points().len() as f64);
+    let sum_vec = trimesh
+        .worldcoords()
+        .points()
+        .iter()
+        .fold(Vector3::new(0.0, 0.0, 0.0), |acc, v| acc + v.coords);
+    let mean_vec = sum_vec / (trimesh.worldcoords().points().len() as f64);
     let obj_center = mean_vec;
 
     // create a camera viewing display surface
-    let camcenter = Vector3::new( c.cam_x, c.cam_y, c.cam_z);
-    let up = nalgebra::core::Unit::new_normalize(Vector3::new( 0.0, 0.0, 1.0));
+    let camcenter = Vector3::new(c.cam_x, c.cam_y, c.cam_z);
+    let up = nalgebra::core::Unit::new_normalize(Vector3::new(0.0, 0.0, 1.0));
     let extrinsics = cam_geom::ExtrinsicParameters::from_view(&camcenter, &obj_center, &up);
 
     let params = cam_geom::PerspectiveParams {
@@ -193,31 +205,38 @@ fn debug_obj2csv(c: DebugObj2Csv) -> Result<(),freemovr_calibration::Error> {
     Ok(())
 }
 
-fn csv2exr(c: Csv2Exr) -> Result<(),freemovr_calibration::Error> {
+fn csv2exr(c: Csv2Exr) -> Result<(), freemovr_calibration::Error> {
     use failure::ResultExt;
     let out_fname = "out.exr";
     let mut exr_file = std::fs::File::create(out_fname)?;
-    let csv_file = std::fs::File::open(&c.corresponding_points_csv).context(
-        format!("Could not open point corresponding points csv file: {}",
-        c.corresponding_points_csv.display()))?;
+    let csv_file = std::fs::File::open(&c.corresponding_points_csv).context(format!(
+        "Could not open point corresponding points csv file: {}",
+        c.corresponding_points_csv.display()
+    ))?;
 
     freemovr_calibration::csv2exr(&csv_file, &mut exr_file, c.save_debug_images, EXR_COMMENT)?;
     Ok(())
 }
 
-fn no_distortion(c: GenerateExr) -> Result<(),freemovr_calibration::Error> {
+fn no_distortion(c: GenerateExr) -> Result<(), freemovr_calibration::Error> {
     use failure::ResultExt;
 
     if !c.save_debug_images && c.show_mask {
         error!("cannot show mask unless saving debug images.");
     }
 
-    let src_dir = c.input_yaml.parent().expect("cannot get input directory name");
+    let src_dir = c
+        .input_yaml
+        .parent()
+        .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
-        .context(format!("opening file: {}",c.input_yaml.display()))?;
+        .context(format!("opening file: {}", c.input_yaml.display()))?;
     let src_data = freemovr_calibration::ActualFiles::new(fd, &src_dir, c.epsilon)?;
-    let float_image = freemovr_calibration::fit_pinholes_compute_cal_image(&src_data,
-        c.save_debug_images, c.show_mask)?;
+    let float_image = freemovr_calibration::fit_pinholes_compute_cal_image(
+        &src_data,
+        c.save_debug_images,
+        c.show_mask,
+    )?;
     let out_fname = "out.exr";
     let mut file = std::fs::File::create(out_fname)?;
     let mut exr_writer = freemovr_calibration::ExrWriter::new();
@@ -227,12 +246,15 @@ fn no_distortion(c: GenerateExr) -> Result<(),freemovr_calibration::Error> {
     Ok(())
 }
 
-fn multi_display(c: MultiDisplayExr) -> Result<(),freemovr_calibration::Error> {
+fn multi_display(c: MultiDisplayExr) -> Result<(), freemovr_calibration::Error> {
     use failure::ResultExt;
 
-    let src_dir = c.input_yaml.parent().expect("cannot get input directory name");
+    let src_dir = c
+        .input_yaml
+        .parent()
+        .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
-        .context(format!("opening file: {}",c.input_yaml.display()))?;
+        .context(format!("opening file: {}", c.input_yaml.display()))?;
     let float_image = freemovr_calibration::do_multi_display(fd, c.epsilon, &src_dir)?;
     let out_fname = "multi.exr";
     let mut file = std::fs::File::create(out_fname)?;
@@ -243,17 +265,19 @@ fn multi_display(c: MultiDisplayExr) -> Result<(),freemovr_calibration::Error> {
     Ok(())
 }
 
-
-fn main() -> Result<(),freemovr_calibration::Error> {
+fn main() -> Result<(), freemovr_calibration::Error> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "freemovr_calibration=info,freemovr_calibration_cli=info,error");
+        std::env::set_var(
+            "RUST_LOG",
+            "freemovr_calibration=info,freemovr_calibration_cli=info,error",
+        );
     }
 
     env_logger::init();
     let opt = Opt::from_args();
 
     match opt {
-        #[cfg(feature="opencv")]
+        #[cfg(feature = "opencv")]
         Opt::WithCheckerboards(c) => with_checkerboards(c),
         Opt::GenerateExr(c) => no_distortion(c),
         Opt::MultiDisplayExr(c) => multi_display(c),
