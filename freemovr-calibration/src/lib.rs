@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 #[macro_use]
 extern crate log;
 
@@ -14,13 +16,13 @@ use trimesh_ext::FaceIndices;
 
 use std::path::Path;
 
-pub use crate::error::Error;
 pub use crate::exr::ExrWriter;
 pub use crate::pinhole_wizard_yaml_support::{
     compute_mask, merge_vdisps, parse_obj_from_reader, solve_no_distortion_display_camera,
     FromFileGeom, Geom, LoadedPinholeInputFile, MultiDisplayInputFile, PinholeInputFile,
     SimplePinholeInputFile, SphereGeom, TriMeshGeom,
 };
+pub use error::Error;
 pub mod types;
 pub use types::VDispInfo;
 
@@ -83,9 +85,7 @@ fn parse_multi_display_yaml<R: std::io::Read>(
         match serde_yaml::from_str(&buf) {
             Ok(result) => result,
             Err(e1) => {
-                use crate::error::ErrorKind::FailedParse1;
-                let kind = FailedParse1(e1);
-                return Err(Error::new(kind));
+                return Err(Error::FailedParse1(e1));
             }
         };
     Ok(result)
@@ -105,9 +105,7 @@ pub fn parse_pinhole_yaml<R: std::io::Read, P: AsRef<Path>>(
             ) {
                 Ok(simple) => simple.to_orig(),
                 Err(e2) => {
-                    use crate::error::ErrorKind::FailedParse;
-                    let kind = FailedParse((e1, e2));
-                    return Err(Error::new(kind));
+                    return Err(Error::FailedParse((e1, e2)));
                 }
             }
         }
@@ -581,12 +579,8 @@ where
     }
     buf_reader.seek(std::io::SeekFrom::Start(0))?;
 
-    let width = width.ok_or(crate::error::Error::new(
-        crate::error::ErrorKind::DisplaySizeNotFound,
-    ))?;
-    let height = height.ok_or(crate::error::Error::new(
-        crate::error::ErrorKind::DisplaySizeNotFound,
-    ))?;
+    let width = width.ok_or(Error::DisplaySizeNotFound)?;
+    let height = height.ok_or(Error::DisplaySizeNotFound)?;
 
     // Step 2 - read the CSV file into 3 `Vec<Point3>`: texcoords, world coords, and display.
     let mut rdr = csv::ReaderBuilder::new()
@@ -603,11 +597,11 @@ where
         let expected_vert = row_num.wrapping_rem(3);
 
         if expected_triangle != row.triangle_index {
-            return Err(error::Error::new(crate::error::ErrorKind::InvalidTriMesh));
+            return Err(Error::InvalidTriMesh);
         }
 
         if expected_vert != row.triangle_vertex_index {
-            return Err(error::Error::new(crate::error::ErrorKind::InvalidTriMesh));
+            return Err(Error::InvalidTriMesh);
         }
 
         let texcoord = Point3::new(row.texture_u, row.texture_v, 0.0);
@@ -625,9 +619,7 @@ where
     let indices: Vec<usize> = (0..(csv_worldcoords.len())).collect();
 
     if indices.len() % 3 != 0 {
-        return Err(crate::error::Error::new(
-            crate::error::ErrorKind::RequiredTriMesh,
-        ));
+        return Err(Error::RequiredTriMesh);
     }
     let indices: Vec<Point3<usize>> = indices
         .chunks(3)

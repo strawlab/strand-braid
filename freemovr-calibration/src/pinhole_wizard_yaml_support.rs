@@ -1,8 +1,11 @@
-use crate::types::{
-    Display, SimpleDisplay, SimpleUVCorrespondance, UVCorrespondance, VDispInfo, VirtualDisplay,
-    VirtualDisplayName,
+use crate::{
+    error::Error,
+    types::{
+        Display, SimpleDisplay, SimpleUVCorrespondance, UVCorrespondance, VDispInfo,
+        VirtualDisplay, VirtualDisplayName,
+    },
+    {DisplayGeometry, Result},
 };
-use crate::{DisplayGeometry, Result};
 use nalgebra::geometry::{Point2, Point3};
 use ncollide_geom::{mask_from_points, Mask};
 use std::path::Path;
@@ -198,9 +201,7 @@ impl Geom {
 
     pub(crate) fn as_trimesh<P: AsRef<Path>>(&self, yaml_dir: P) -> Result<TriMeshGeom> {
         match self {
-            Geom::Sphere(_) => Err(crate::error::Error::new(
-                crate::error::ErrorKind::RequiredTriMesh,
-            )),
+            Geom::Sphere(_) => Err(Error::RequiredTriMesh),
             Geom::FromFile(ff) => {
                 use failure::ResultExt;
                 let mut obj_fname = yaml_dir.as_ref().to_path_buf();
@@ -226,10 +227,7 @@ pub fn parse_obj_from_reader<R: std::io::Read>(
 
     let mut objects = simple_obj_parse::obj_parse(&buf)?;
     if objects.len() != 1 {
-        use crate::error::ErrorKind::ObjMustHaveExactlyOneObject;
-        return Err(crate::error::Error::new(ObjMustHaveExactlyOneObject(
-            objects.len(),
-        )));
+        return Err(Error::ObjMustHaveExactlyOneObject(objects.len()));
     }
 
     let obj = objects.remove(0);
@@ -352,8 +350,7 @@ impl TriMeshGeom {
         let uvs = match get_uvs_trimesh(&mesh) {
             Some(uvs) => uvs,
             None => {
-                use crate::error::ErrorKind::ObjHasNoTextureCoords;
-                return Err(crate::Error::new(ObjHasNoTextureCoords));
+                return Err(Error::ObjHasNoTextureCoords);
             }
         };
         Ok(Self {
@@ -467,9 +464,9 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
         let this_vdisp_corr: Result<Vec<dlt::CorrespondingPoint<f64>>> = this_vdisp_points
             .map(|row| {
                 let tc = Point2::new(row.texture_u, row.texture_v);
-                let wc = geom.texcoord2worldcoord(&tc).ok_or_else(|| {
-                    crate::error::Error::new(crate::error::ErrorKind::InvalidTexCoord)
-                })?;
+                let wc = geom
+                    .texcoord2worldcoord(&tc)
+                    .ok_or_else(|| Error::InvalidTexCoord)?;
                 let ic = [row.display_x, row.display_y];
 
                 let corr = dlt::CorrespondingPoint {
@@ -489,10 +486,8 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
             this_vdisp_corr.len()
         );
 
-        use crate::error::ErrorKind::SvdError;
-
-        let dlt_pmat = dlt::dlt_corresponding(&this_vdisp_corr, epsilon)
-            .map_err(|e| crate::error::Error::new(SvdError(e)))?;
+        let dlt_pmat =
+            dlt::dlt_corresponding(&this_vdisp_corr, epsilon).map_err(|e| Error::SvdError(e))?;
 
         // println!("pmat: {}", pretty_print_nalgebra::pretty_print!(&dlt_pmat));
 
@@ -540,8 +535,7 @@ pub fn compute_mask<D: PinholeCalib>(data: &D, id: &VirtualDisplayName) -> Resul
             return Ok(compound);
         }
     }
-    use crate::error::ErrorKind::VirtualDisplayNotFound;
-    Err(crate::error::Error::new(VirtualDisplayNotFound))
+    Err(Error::VirtualDisplayNotFound)
 }
 
 pub fn merge_vdisps<D: PinholeCalib>(
