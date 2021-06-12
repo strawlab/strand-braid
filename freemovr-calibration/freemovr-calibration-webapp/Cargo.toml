@@ -22,7 +22,6 @@ http = "0.2"
 itertools = "0.7.8"
 chrono = {version="0.4", features=["serde"]}
 ncollide3d = {version="0.30", features=["serde-serialize"]}
-backtrace = "0.3.40" # here only to require this high version number, not used directly
 
 mvg = {path="../../mvg", features=["serde-serialize"]}
 enum-iter = {path="../../enum-iter"}
@@ -31,7 +30,7 @@ ads-webasm = {path="../../ads-webasm", features=["obj","csv-widget"]}
 freemovr-calibration = {path=".."}
 
 [features]
-backtrace = ["mvg/backtrace"]
+backtrace = ["mvg/backtrace", "freemovr-calibration/backtrace"]
 
 # Bypass (for now) build errors when this is in the workspace below me.
 [workspace]

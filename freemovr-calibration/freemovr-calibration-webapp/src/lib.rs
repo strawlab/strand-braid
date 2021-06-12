@@ -526,7 +526,7 @@ impl yew::worker::Agent for MyWorker {
                     .respond(who, MyWorkerResponse::ExrData(Ok(exr_buf)));
             }
             MyWorkerRequest::CalcCsv(src_data) => {
-                use freemovr_calibration::PinholeCal;;
+                use freemovr_calibration::PinholeCal;
                 let trimesh = src_data.geom_as_trimesh().unwrap();
 
                 let pinhole_fits = src_data.pinhole_fits();
