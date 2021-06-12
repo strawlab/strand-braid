@@ -138,8 +138,6 @@ pub type Result<M> = std::result::Result<M, StrandCamError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StrandCamError {
-    #[error("setting scheduler priority error")]
-    SetSchedPriorityError,
     // #[error("other error")]
     // OtherError,
     #[error("string error: {0}")]
