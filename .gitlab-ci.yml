@@ -887,7 +887,12 @@ test_simple_pylon:
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
     - cd ci2-simple-demo
-    - NUM_JOBS=2 cargo build --features backend_pyloncxx
+    - NUM_JOBS=2 cargo test --features backend_pyloncxx
+    - cd ..
+
+    - cd ci2-cli
+    - NUM_JOBS=2 cargo test --features backend_pyloncxx
+    - cd ..
 
 test_simple_dc1394:
   stage: test
