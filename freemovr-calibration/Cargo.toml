@@ -39,3 +39,4 @@ opencv-calibrate = {path="../opencv-calibrate"}
 default = []
 
 opencv = ["camcal", "opencv-calibrate"]
+backtrace = ["mvg/backtrace"]
