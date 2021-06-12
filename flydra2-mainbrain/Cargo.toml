@@ -60,4 +60,4 @@ deadlock_detection = ["parking_lot/deadlock_detection"]
 bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf"]
 serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "bui-backend-codegen/serve_files"]
 
-backtrace = ["flydra2/backtrace"]
+backtrace = ["flydra2/backtrace", "mvg/backtrace"]

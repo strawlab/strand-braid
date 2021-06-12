@@ -29,3 +29,6 @@ zip-or-dir = {path="../zip-or-dir"}
 [dev-dependencies]
 env_logger = "0.8"
 download-verify = {path="../download-verify"}
+
+[features]
+backtrace = ["mvg/backtrace"]

@@ -26,3 +26,4 @@ mvg = {path="../../mvg"}
 default = []
 
 opencv = ["freemovr-calibration/opencv"]
+backtrace = ["mvg/backtrace"]

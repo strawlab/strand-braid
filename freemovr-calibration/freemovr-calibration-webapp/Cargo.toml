@@ -30,6 +30,9 @@ ads-webasm = {path="../../ads-webasm", features=["obj","csv-widget"]}
 
 freemovr-calibration = {path=".."}
 
+[features]
+backtrace = ["mvg/backtrace"]
+
 # Bypass (for now) build errors when this is in the workspace below me.
 [workspace]
 members = []

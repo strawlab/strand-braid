@@ -12,3 +12,6 @@ chrono = {version="0.4", features=["serde"]}
 
 flydra-types = {path="../flydra-types"}
 mvg = {path="../mvg", features=["serde-serialize"]}
+
+[features]
+backtrace = ["mvg/backtrace"]

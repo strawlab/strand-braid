@@ -139,7 +139,7 @@ imtrack-absdiff = []
 # Other features
 with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/with_camtrig"]
 
-flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal",
+flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal",
     "approx", "strand-cam-storetype/flydratrax", "alga",
     "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
 

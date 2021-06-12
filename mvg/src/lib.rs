@@ -1,4 +1,5 @@
 #![deny(rust_2018_idioms)]
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 use thiserror::Error;
 
@@ -42,16 +43,19 @@ pub enum MvgError {
     #[error("IO error: {}", error)]
     Io {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         error: std::io::Error,
     },
     #[error("serde_yaml error: {}", error)]
     SerdeYaml {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         error: serde_yaml::Error,
     },
     #[error("serde_json error: {}", error)]
     SerdeJson {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         error: serde_json::Error,
     },
     #[error("SvgError: {}", error)]
@@ -61,11 +65,13 @@ pub enum MvgError {
     #[error("cam_geom::Error: {}", error)]
     CamGeomError {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         error: cam_geom::Error,
     },
     #[error("opencv_ros_camera::Error: {}", error)]
     OpencvRosError {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         error: opencv_ros_camera::Error,
     },
 }
