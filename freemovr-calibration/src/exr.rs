@@ -31,8 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
-use byteorder::{ByteOrder, LittleEndian, WriteBytesExt};
 use crate::FloatImage;
+use byteorder::{ByteOrder, LittleEndian, WriteBytesExt};
 
 const MAGIC_NUMBER: i32 = 20000630;
 const VERSION: i32 = 2;
@@ -75,15 +75,16 @@ impl ExrWriter {
         self.write_str("channels");
         self.write_str("chlist");
 
-        let size: i32 =
-                2 * 3 +  // Three channels named B, G, R, plus a null-terminator for each.
+        let size: i32 = 2 * 3 +  // Three channels named B, G, R, plus a null-terminator for each.
                 16 * 3 + // Four ints (16 bytes) of data per channel.
-                1;       // One extra null byte.
+                1; // One extra null byte.
         self.buffer.write_i32::<LittleEndian>(size).unwrap();
 
         for channel in ["B", "G", "R"].iter() {
             self.write_str(channel);
-            self.buffer.write_i32::<LittleEndian>(PIXEL_TYPE_FLOAT).unwrap();
+            self.buffer
+                .write_i32::<LittleEndian>(PIXEL_TYPE_FLOAT)
+                .unwrap();
             self.buffer.write_i32::<LittleEndian>(0).unwrap(); // pLinear and reserved
             self.buffer.write_i32::<LittleEndian>(1).unwrap(); // xSampling
             self.buffer.write_i32::<LittleEndian>(1).unwrap(); // ySampling
@@ -149,7 +150,9 @@ impl ExrWriter {
     fn write_comments(&mut self, comment: &str) {
         self.write_str("comments");
         self.write_str("string");
-        self.buffer.write_i32::<LittleEndian>(comment.as_bytes().len() as i32).unwrap();
+        self.buffer
+            .write_i32::<LittleEndian>(comment.as_bytes().len() as i32)
+            .unwrap();
         self.buffer.extend_from_slice(comment.as_bytes());
     }
 
@@ -162,7 +165,9 @@ impl ExrWriter {
 
         for y in 0..film.height {
             let line_offset = data_offset + y * line_size;
-            self.buffer.write_u64::<LittleEndian>(line_offset as u64).unwrap();
+            self.buffer
+                .write_u64::<LittleEndian>(line_offset as u64)
+                .unwrap();
         }
 
         debug_assert!(self.buffer.len() == data_offset);
@@ -176,27 +181,25 @@ impl ExrWriter {
         self.buffer.resize(self.data_offset + data_size, 0);
         let data = &mut self.buffer[self.data_offset..(self.data_offset + data_size)];
 
-        data.chunks_mut(line_size).enumerate().for_each(|(y, line)| {
-            LittleEndian::write_i32(&mut line[0..4], y as i32); // Scan line number.
-            LittleEndian::write_u32(&mut line[4..8], line_size as u32 - 8); // Bytes in line.
+        data.chunks_mut(line_size)
+            .enumerate()
+            .for_each(|(y, line)| {
+                LittleEndian::write_i32(&mut line[0..4], y as i32); // Scan line number.
+                LittleEndian::write_u32(&mut line[4..8], line_size as u32 - 8); // Bytes in line.
 
-            // let first_pixel = index(film.height - y - 1, 0, film.width);
-            let first_pixel = index(y, 0, film.width);
-            for i in 0..film.width {
-                let pixel = &film.pixels[first_pixel + i];
-                let val = [
-                    pixel.0 as f32,
-                    pixel.1 as f32,
-                    pixel.2 as f32,
-                ];
-                let z = 8 + (0 * film.width + i) * 4;
-                let y = 8 + (1 * film.width + i) * 4;
-                let x = 8 + (2 * film.width + i) * 4;
-                LittleEndian::write_f32(&mut line[z..(z + 4)], val[2]);
-                LittleEndian::write_f32(&mut line[y..(y + 4)], val[1]);
-                LittleEndian::write_f32(&mut line[x..(x + 4)], val[0]);
-            }
-        });
+                // let first_pixel = index(film.height - y - 1, 0, film.width);
+                let first_pixel = index(y, 0, film.width);
+                for i in 0..film.width {
+                    let pixel = &film.pixels[first_pixel + i];
+                    let val = [pixel.0 as f32, pixel.1 as f32, pixel.2 as f32];
+                    let z = 8 + (0 * film.width + i) * 4;
+                    let y = 8 + (1 * film.width + i) * 4;
+                    let x = 8 + (2 * film.width + i) * 4;
+                    LittleEndian::write_f32(&mut line[z..(z + 4)], val[2]);
+                    LittleEndian::write_f32(&mut line[y..(y + 4)], val[1]);
+                    LittleEndian::write_f32(&mut line[x..(x + 4)], val[0]);
+                }
+            });
     }
 
     pub fn update(&mut self, film: &FloatImage, comment: Option<&str>) {
