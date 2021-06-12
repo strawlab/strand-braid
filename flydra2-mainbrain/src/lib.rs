@@ -42,13 +42,8 @@ use anyhow::Result;
 
 const SYNCHRONIZE_DURATION_SEC: u8 = 3;
 
-#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 enum MainbrainError {
-    #[error("Quit Error")]
-    QuitError,
-    #[error("setting scheduler priority error")]
-    SetSchedPriorityError(String),
     #[error("The --jwt-secret argument must be passed or the JWT_SECRET environment variable must be set.")]
     JwtError,
 }
