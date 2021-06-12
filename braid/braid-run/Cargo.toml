@@ -25,6 +25,8 @@ flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
 flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 
+ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
+
 [features]
 default = ["stand-cam-posix-sched-fifo", "fiducial", "jemalloc"]
 
