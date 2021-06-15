@@ -58,3 +58,5 @@ flydra-uds=["unix_socket"]
 debug-images = ["rt-image-viewer"]
 
 linux = ["posix-scheduler","posix-scheduler/linux"]
+
+backtrace = ["ci2/backtrace", "mvg/backtrace"]

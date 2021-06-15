@@ -11,3 +11,6 @@ image = "0.23"
 thiserror = "1.0"
 bayer = "0.1"
 itertools = "0.8"
+
+[features]
+backtrace=[]

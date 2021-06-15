@@ -42,26 +42,11 @@ use anyhow::Result;
 
 const SYNCHRONIZE_DURATION_SEC: u8 = 3;
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 enum MainbrainError {
-    // #[fail(display = "Quit Error")]
-    QuitError,
-    #[allow(dead_code)]
-    // #[fail(display = "setting scheduler priority error")]
-    SetSchedPriorityError(String),
-    // #[fail(display = "The --jwt-secret argument must be passed or the JWT_SECRET environment \
-    //               variable must be set.")]
+    #[error("The --jwt-secret argument must be passed or the JWT_SECRET environment variable must be set.")]
     JwtError,
 }
-
-impl std::fmt::Display for MainbrainError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
-impl std::error::Error for MainbrainError {}
 
 /// The structure that holds our app data
 struct HttpApiApp {

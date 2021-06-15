@@ -1,14 +1,6 @@
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 
-extern crate failure;
-extern crate structopt;
-
-extern crate machine_vision_formats;
-extern crate timestamped_frame;
-
-extern crate ci2;
 #[cfg(feature = "backend_aravis")]
 extern crate ci2_aravis as backend;
 #[cfg(feature = "backend_dc1394")]
@@ -17,12 +9,10 @@ extern crate ci2_dc1394 as backend;
 extern crate ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
-extern crate machine_vision_formats as formats;
 
 use structopt::StructOpt;
 
 use ci2::{Camera, CameraModule};
-use timestamped_frame::HostTimeData;
 
 #[derive(Debug, StructOpt)]
 struct Record {
@@ -84,7 +74,11 @@ fn record(mut mymod: backend::WrappedModule, recargs: Record) -> ci2::Result<()>
 
         match cam.next_frame() {
             Ok(frame) => {
-                info!("got frame {}: {:?}", frame.host_framenumber(), frame);
+                info!(
+                    "got frame: {}x{}",
+                    frame.width(),
+                    frame.height(),
+                );
             }
             Err(ci2::Error::SingleFrameError(s)) => {
                 error!("SingleFrameError({})", s);
@@ -99,7 +93,7 @@ fn record(mut mymod: backend::WrappedModule, recargs: Record) -> ci2::Result<()>
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "ci2=info,error");
     }

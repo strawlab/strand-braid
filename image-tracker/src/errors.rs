@@ -38,31 +38,71 @@ pub enum Error {
     #[error("ParseYAMLError({})", _0)]
     ParseYAMLError(serde_yaml::Error),
     #[error("ParseCBORError({})", _0)]
-    ParseCBORError(#[from] serde_cbor::error::Error),
+    ParseCBORError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        serde_cbor::error::Error,
+    ),
     #[error("CastError({})", _0)]
-    CastError(#[from] cast::Error),
+    CastError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        cast::Error,
+    ),
     #[error("UFMFError({})", _0)]
-    UFMFError(#[from] ufmf::UFMFError),
+    UFMFError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        ufmf::UFMFError,
+    ),
     #[error("SendError({})", _0)]
     SendError(String),
     #[error("other error: {0}")]
     OtherError(String),
 
     #[error("FastImageError({0})")]
-    FastImageError(#[from] fastimage::Error),
+    FastImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        fastimage::Error,
+    ),
     #[error("{0}")]
-    FlydraTypesError(#[from] flydra_types::FlydraTypesError),
+    FlydraTypesError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        flydra_types::FlydraTypesError,
+    ),
 
     #[error("{0}")]
-    IoError(#[from] std::io::Error),
+    IoError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
     #[error("{0}")]
-    JsonError(#[from] serde_json::Error),
+    JsonError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        serde_json::Error,
+    ),
     #[error("TryRecvError")]
     TryRecvError,
     #[error("{0}")]
-    RecvTimeoutError(#[from] std::sync::mpsc::RecvTimeoutError),
+    RecvTimeoutError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::sync::mpsc::RecvTimeoutError,
+    ),
     #[error("{0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
+    ParseIntError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::num::ParseIntError,
+    ),
     #[error("{0}")]
-    HyperError(#[from] hyper::Error),
+    HyperError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        hyper::Error,
+    ),
 }

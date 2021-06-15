@@ -22,3 +22,6 @@ refraction = {path="../refraction"}
 [dev-dependencies]
 num-iter = "0.1"
 approx = "0.5"
+
+[features]
+backtrace = ["mvg/backtrace"]

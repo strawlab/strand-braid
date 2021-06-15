@@ -8,6 +8,7 @@ edition = "2018"
 log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.8"
 configure = "0.1.1"
+thiserror = "1"
 anyhow = "1.0"
 parking_lot = "0.11"
 crossbeam-channel = "0.5"
@@ -58,3 +59,5 @@ deadlock_detection = ["parking_lot/deadlock_detection"]
 
 bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf"]
 serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "bui-backend-codegen/serve_files"]
+
+backtrace = ["flydra2/backtrace", "mvg/backtrace"]

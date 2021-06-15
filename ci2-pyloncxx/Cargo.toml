@@ -17,3 +17,6 @@ pylon-cxx = "0.1.0"
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = {path="../basic-frame"}
+
+[features]
+backtrace = ["ci2/backtrace"]

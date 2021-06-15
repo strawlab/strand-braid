@@ -84,9 +84,7 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-use strand_cam_storetype::{
-    CallbackType, ImOpsState, RangedValue, StoreType, ToCamtrigDevice,
-};
+use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType, ToCamtrigDevice};
 #[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
@@ -140,8 +138,6 @@ pub type Result<M> = std::result::Result<M, StrandCamError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StrandCamError {
-    #[error("setting scheduler priority error")]
-    SetSchedPriorityError,
     // #[error("other error")]
     // OtherError,
     #[error("string error: {0}")]
@@ -150,30 +146,70 @@ pub enum StrandCamError {
     NoCamerasFound,
     // #[cfg(feature = "image_tracker")]
     // #[error("ImageTrackerError: {0}")]
-    // ImageTrackerError(#[from] image_tracker::Error),
+    // ImageTrackerError(
+    //     #[from]
+    //     #[cfg_attr(feature = "backtrace", backtrace)]
+    //     image_tracker::Error,
+    // ),
     #[error("ConvertImageError: {0}")]
-    ConvertImageError(#[from] convert_image::Error),
+    ConvertImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        convert_image::Error,
+    ),
     // #[cfg(feature = "checkercal")]
     // #[error("OpenCvCalibrateError: {0}")]
-    // OpenCvCalibrateError(#[from] opencv_calibrate::Error),
+    // OpenCvCalibrateError(
+    //     #[from]
+    //     #[cfg_attr(feature = "backtrace", backtrace)]
+    //     opencv_calibrate::Error,
+    // ),
     #[error("receiving on an empty and disconnected channel: {0}")]
-    CrossbeamChannelRecvError(#[from] crossbeam_channel::RecvError),
+    CrossbeamChannelRecvError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        crossbeam_channel::RecvError,
+    ),
     #[error("FMF error: {0}")]
-    FMFError(#[from] fmf::FMFError),
+    FMFError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        fmf::FMFError,
+    ),
     #[error("UFMF error: {0}")]
-    UFMFError(#[from] ufmf::UFMFError),
+    UFMFError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        ufmf::UFMFError,
+    ),
     #[error("io error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
     #[error("try send error")]
     TrySendError,
     #[error("BUI backend error: {0}")]
-    BuiBackendError(#[from] bui_backend::Error),
+    BuiBackendError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        bui_backend::Error,
+    ),
     #[error("ci2 error: {0}")]
-    Ci2Error(#[from] ci2::Error),
+    Ci2Error(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        ci2::Error,
+    ),
     #[error("plugin disconnected")]
     PluginDisconnected,
     #[error("video streaming error")]
-    VideoStreamingError(#[from] video_streaming::Error),
+    VideoStreamingError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        video_streaming::Error,
+    ),
     #[error(
         "The --jwt-secret argument must be passed or the JWT_SECRET environment \
                   variable must be set."
@@ -181,32 +217,68 @@ pub enum StrandCamError {
     JwtError,
     #[cfg(feature = "flydratrax")]
     #[error("MVG error: {0}")]
-    MvgError(#[from] mvg::MvgError),
+    MvgError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        mvg::MvgError,
+    ),
     #[error("{0}")]
-    MkvWriterError(#[from] mkv_writer::Error),
+    MkvWriterError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        mkv_writer::Error,
+    ),
     #[error("{0}")]
-    AddrParseError(#[from] std::net::AddrParseError),
+    AddrParseError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::net::AddrParseError,
+    ),
     #[error("background movie writer error: {0}")]
-    BgMovieWriterError(#[from] bg_movie_writer::Error),
+    BgMovieWriterError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        bg_movie_writer::Error,
+    ),
     #[error("Braid update image listener disconnected")]
     BraidUpdateImageListenerDisconnected,
     #[error("{0}")]
-    NvEncError(#[from] nvenc::NvEncError),
+    NvEncError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        nvenc::NvEncError,
+    ),
     #[cfg(feature = "flydratrax")]
     #[error("flydra2 error: {0}")]
-    Flydra2Error(#[from] flydra2::Error),
+    Flydra2Error(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        flydra2::Error,
+    ),
     #[cfg(feature = "flydratrax")]
     #[error("futures mpsc send error: {0}")]
-    FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
+    FuturesChannelMpscSend(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        futures::channel::mpsc::SendError,
+    ),
     #[cfg(feature = "fiducial")]
     #[error("{0}")]
-    CsvError(#[from] csv::Error),
+    CsvError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        csv::Error,
+    ),
     #[error("thread done")]
     ThreadDone,
 
     #[cfg(feature = "with_camtrig")]
     #[error("{0}")]
-    SerialportError(#[from] serialport::Error),
+    SerialportError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        serialport::Error,
+    ),
 }
 
 pub struct CloseAppOnThreadExit {

@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 use crossbeam_channel::TryRecvError;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
@@ -7,11 +9,23 @@ use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("io error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
     #[error("webm writer error: {0}")]
-    MkvWriterError(#[from] mkv_writer::Error),
+    MkvWriterError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        mkv_writer::Error,
+    ),
     #[error("mkvfix error: {0}")]
-    MkvFix(#[from] strand_cam_mkvfix::Error),
+    MkvFix(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        strand_cam_mkvfix::Error,
+    ),
     #[error("send error")]
     SendError,
     #[error("receive error")]
@@ -176,11 +190,7 @@ fn launch_runner(
                             h264_path,
                             thread_try!(
                                 err_tx,
-                                mkv_writer::MkvWriter::new(
-                                    f,
-                                    mkv_recording_config.clone(),
-                                    nv_enc
-                                )
+                                mkv_writer::MkvWriter::new(f, mkv_recording_config.clone(), nv_enc)
                             ),
                         ));
                     }

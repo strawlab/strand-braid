@@ -6,4 +6,4 @@ set OPENCV_LIB_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\lib
 set OPENCV_INCLUDE_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\include
 
 copy %OPENCV_LIB_DIR%\..\bin\opencv_world320.dll .
-cargo test --release
+cargo test --release --features backtrace

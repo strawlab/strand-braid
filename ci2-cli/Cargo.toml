@@ -2,6 +2,7 @@
 name = "ci2-cli"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [[bin]]
 name = "ci2"
@@ -12,11 +13,8 @@ log = "0.4"
 env_logger = "0.8"
 structopt = "0.3"
 chrono = "0.4"
-failure = "0.1"
-failure_derive = "0.1"
+anyhow = "1"
 
-machine-vision-formats = "0.1"
-timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
@@ -32,3 +30,5 @@ default = []
 backend_dc1394 = ["ci2-dc1394"]
 backend_flycap2 = ["ci2-flycap2"]
 backend_pyloncxx = ["ci2-pyloncxx"]
+
+backtrace = ["ci2/backtrace"]

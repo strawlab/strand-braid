@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 extern crate machine_vision_formats as formats;
 
 use anyhow::Context;
@@ -27,9 +29,17 @@ pub type Result<M> = std::result::Result<M, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
-    PylonError(#[from] pylon_cxx::PylonError),
+    PylonError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        pylon_cxx::PylonError,
+    ),
     #[error("{0}")]
-    IntParseError(#[from] std::num::ParseIntError),
+    IntParseError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::num::ParseIntError,
+    ),
     #[error("OtherError {0}")]
     OtherError(String),
 }

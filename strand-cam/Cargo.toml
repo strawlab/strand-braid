@@ -33,7 +33,6 @@ webbrowser = "0.5.2"
 clap = "2.32.0"
 preferences = {git="https://github.com/Eh2406/preferences-rs", rev="4f426cf52da97d3b8914e10d4492f953d4304238"}
 app_dirs = "1.2"
-failure = "0.1.6"
 anyhow = "1.0"
 thiserror = "1.0"
 parking_lot = "0.11"
@@ -106,7 +105,7 @@ default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "check
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = []
+backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace", "convert-image/backtrace"]
 
 send-bg-images-to-mainbrain = []
 
@@ -139,15 +138,15 @@ imtrack-absdiff = []
 # Other features
 with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/with_camtrig"]
 
-flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal",
+flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal",
     "approx", "strand-cam-storetype/flydratrax", "alga",
-    "flydra2", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
+    "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
 
 start-object-detection = ["image_tracker"]
 initially-unsychronized = []
 
 # build with the image-tracker, which also requires IPP, fastimage, etc.
-image_tracker = ["image-tracker"]
+image_tracker = ["image-tracker", "image-tracker/backtrace"]
 
 debug-images = ["image-tracker/debug-images", "rt-image-viewer"]
 

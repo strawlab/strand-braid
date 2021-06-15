@@ -9,9 +9,9 @@ name = "freemovr-calibration"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
 log = "0.4"
 env_logger = "0.8"
-failure = "0.1"
 structopt="0.3"
 nalgebra = "0.27"
 ncollide2d = "0.30"
@@ -26,3 +26,4 @@ mvg = {path="../../mvg"}
 default = []
 
 opencv = ["freemovr-calibration/opencv"]
+backtrace = ["mvg/backtrace", "freemovr-calibration/backtrace"]

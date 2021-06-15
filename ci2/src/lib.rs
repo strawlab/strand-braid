@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 use basic_frame::DynamicFrame;
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
@@ -20,14 +22,30 @@ pub enum Error {
     #[error("feature not present")]
     FeatureNotPresent,
     #[error("BackendError({0})")]
-    BackendError(#[from] anyhow::Error),
+    BackendError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        anyhow::Error,
+    ),
 
     #[error("{0}")]
-    IoError(#[from] std::io::Error),
+    IoError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::io::Error,
+    ),
     #[error("{0}")]
-    Utf8Error(#[from] std::str::Utf8Error),
+    Utf8Error(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::str::Utf8Error,
+    ),
     #[error("{0}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
+    TryFromIntError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        std::num::TryFromIntError,
+    ),
 }
 
 fn _test_error_is_send() {
