@@ -499,13 +499,16 @@ fn copy_dir<R: Read + Seek>(
             let mut buf = vec![];
             fd.read_to_end(&mut buf).unwrap();
 
+            let mut options = zip::write::FileOptions::default();
+            if buf.len() >= 0xFFFFFFFF {
+                println!("setting large file to true");
+                options = options.large_file(true);
+            }
+
             zip_writer
-                .start_file(
-                    full_entry.to_str().unwrap(),
-                    zip::write::FileOptions::default(),
-                )
+                .start_file(full_entry.to_str().unwrap(), options)
                 .unwrap();
-            zip_writer.write(&buf).unwrap();
+            zip_writer.write_all(&buf).unwrap();
         } else {
             // if not a file, it is a subdir
             let subpath: PathBuf = match relname {
@@ -530,7 +533,7 @@ mod tests {
             let f = basepath.join(fname);
             let mut fd = std::fs::File::create(&f).unwrap();
             // write!(&fd, "This is file {}.", fname);
-            fd.write(fname.as_bytes())?;
+            fd.write_all(fname.as_bytes())?;
         }
         Ok(())
     }

@@ -415,6 +415,7 @@ impl Drop for WritingState {
                 // the braidz file will show this.)
                 let options = zip::write::FileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
+                    .large_file(true)
                     .unix_permissions(0o755);
 
                 zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, zipw, options)
