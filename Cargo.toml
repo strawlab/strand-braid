@@ -91,6 +91,7 @@ members = [
     "mkv-writer",
     "withkey",
     "zip-or-dir",
+    "zip-or-dir/dir2zip",
 ]
 
 exclude = [
