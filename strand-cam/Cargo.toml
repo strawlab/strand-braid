@@ -75,6 +75,7 @@ camtrig-comms = {path="../camtrig-comms", optional=true}
 flydra-types = {path="../flydra-types", features=["with-dns"]}
 flydra2 = {path="../flydra2", default-features = false, optional=true}
 mvg = {path="../mvg", optional=true}
+flydra-mvg = {path="../flydra-mvg", optional=true}
 serialport = { version = "3.0.0", optional = true }
 bytes = "0.5"
 nalgebra = {version="0.27", optional = true }
@@ -138,7 +139,7 @@ imtrack-absdiff = []
 # Other features
 with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/with_camtrig"]
 
-flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal",
+flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
     "approx", "strand-cam-storetype/flydratrax", "alga",
     "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
 

@@ -133,6 +133,10 @@ pub struct MultiCamera<R: RealField + Default + serde::Serialize> {
 }
 
 impl<R: RealField + Default + serde::Serialize> MultiCamera<R> {
+    pub fn to_cam(self) -> Camera<R> {
+        self.cam
+    }
+
     #[inline]
     pub fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> Ray<R> {
         self.cam.project_pixel_to_ray(pt)

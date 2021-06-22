@@ -4,7 +4,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use clap::Arg;
 
-use strand_cam::{run_app, StrandCamArgs};
+use strand_cam::{run_app, CalSource, StrandCamArgs};
 
 #[cfg(feature = "cfg-pt-detect-src-prefs")]
 use strand_cam::APP_INFO;
@@ -233,6 +233,18 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         {
             parser = parser
                 .arg(
+                    Arg::with_name("camera_xml_calibration")
+                        .long("camera-xml-calibration")
+                        .help("Filename of flydra .xml camera calibration.")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("camera_pymvg_calibration")
+                        .long("camera-pymvg-calibration")
+                        .help("Filename of pymvg json camera calibration.")
+                        .takes_value(true),
+                )
+                .arg(
                     Arg::with_name("no_save_empty_data2d")
                         .long("no-save-empty-data2d")
                         .help("do not save data2d_distoted also when no detections found"),
@@ -267,6 +279,35 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         .to_string();
 
     let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    let camera_xml_calibration = matches
+        .value_of("camera_xml_calibration")
+        .map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    let camera_pymvg_calibration = matches
+        .value_of("camera_pymvg_calibration")
+        .map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    if camera_pymvg_calibration.is_some() {
+        if camera_xml_calibration.is_some() {
+            anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
+        }
+    }
+
+    #[cfg(feature = "flydratrax")]
+    let flydratrax_calibration_source = match camera_xml_calibration {
+        None => CalSource::PseudoCal,
+        Some(fname) => CalSource::XmlFile(std::path::PathBuf::from(fname)),
+    };
+
+    #[cfg(feature = "flydratrax")]
+    let flydratrax_calibration_source = match camera_pymvg_calibration {
+        None => CalSource::PseudoCal,
+        Some(fname) => CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
+    };
 
     let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
 
@@ -368,6 +409,8 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         mainbrain_internal_addr,
         camdata_addr,
         show_url,
+        #[cfg(feature = "flydratrax")]
+        flydratrax_calibration_source,
         #[cfg(feature = "flydratrax")]
         save_empty_data2d,
         #[cfg(feature = "flydratrax")]

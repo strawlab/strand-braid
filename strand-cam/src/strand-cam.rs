@@ -624,6 +624,8 @@ fn frame_process_thread(
     handle: tokio::runtime::Handle,
     #[cfg(feature="flydratrax")]
     model_server: flydra2::ModelServer,
+    #[cfg(feature="flydratrax")]
+    flydratrax_calibration_source: CalSource,
     cam_name: RawCamName,
     camera_cfg: CameraCfgFview2_0_26,
     width: u32,
@@ -858,14 +860,27 @@ fn frame_process_thread(
                                 unimplemented!();
                             }
                             video_streaming::Shape::Circle(circ) => {
-                                let cal_data = PseudoCameraCalibrationData {
-                                    cam_name: cam_name.clone(),
-                                    width,
-                                    height,
-                                    physical_diameter_meters: kalman_tracking_config.arena_diameter_meters,
-                                    image_circle: circ,
+                                let recon = match &flydratrax_calibration_source {
+                                    CalSource::PseudoCal => {
+                                        let cal_data = PseudoCameraCalibrationData {
+                                            cam_name: cam_name.clone(),
+                                            width,
+                                            height,
+                                            physical_diameter_meters: kalman_tracking_config.arena_diameter_meters,
+                                            image_circle: circ,
+                                        };
+                                        cal_data.to_camera_system()?
+                                    }
+                                    CalSource::XmlFile(cal_fname) => {
+                                        let rdr = std::fs::File::open(&cal_fname)?;
+                                        flydra_mvg::FlydraMultiCameraSystem::from_flydra_xml(rdr)?
+                                    }
+                                    CalSource::PymvgJsonFile(cal_fname) => {
+                                        let rdr = std::fs::File::open(&cal_fname)?;
+                                        let sys = mvg::MultiCameraSystem::from_pymvg_file_json(rdr)?;
+                                        flydra_mvg::FlydraMultiCameraSystem::from_system(sys, None)
+                                    }
                                 };
-                                let recon = cal_data.to_camera_system()?;
 
                                 let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
                                 maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
@@ -877,11 +892,15 @@ fn frame_process_thread(
                                 let camtrig_tx_std2 = camtrig_tx_std.clone();
                                 let ssa2 = ssa.clone();
                                 let cam_args_tx2 = cam_args_tx.clone();
+
+                                assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
+                                let cam_cal = recon.cameras().next().unwrap().to_cam();
+
                                 // TODO: add flag and control to kill thread on shutdown
                                 // TODO: convert this to a future on our runtime?
                                 std::thread::Builder::new().name("flydratrax_handle_msg".to_string()).spawn(move || { // flydratrax ignore for now
                                     let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-                                    let cam_cal = thread_closer.check(cal_data.to_cam().map_err(|e| anyhow::Error::new(Box::new(e)))); // camera calibration
+                                    // let cam_cal = thread_closer.check(cal_data.to_cam().map_err(|e| anyhow::Error::new(Box::new(e)))); // camera calibration
                                     let kalman_tracking_config = kalman_tracking_config2.clone();
                                     thread_closer.maybe_err(flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
                                             model_receiver,
@@ -2312,6 +2331,8 @@ pub struct StrandCamArgs {
     pub save_empty_data2d: SaveEmptyData2dType,
     #[cfg(feature = "flydratrax")]
     pub model_server_addr: std::net::SocketAddr,
+    #[cfg(feature = "flydratrax")]
+    pub flydratrax_calibration_source: CalSource,
     #[cfg(feature = "fiducial")]
     pub apriltag_csv_filename_template: String,
 
@@ -2323,6 +2344,15 @@ pub struct StrandCamArgs {
 }
 
 pub type SaveEmptyData2dType = bool;
+
+pub enum CalSource {
+    /// Use circular tracking region to create calibration
+    PseudoCal,
+    /// Use flydra .xml file with single camera for calibration
+    XmlFile(std::path::PathBuf),
+    /// Use pymvg .json file with single camera for calibration
+    PymvgJsonFile(std::path::PathBuf),
+}
 
 #[derive(Clone)]
 pub enum StartSoftwareFrameRateLimit {
@@ -2368,6 +2398,8 @@ impl Default for StrandCamArgs {
             plugin_wait_dur: std::time::Duration::from_millis(5),
             force_camera_sync_mode: false,
             software_limit_framerate: StartSoftwareFrameRateLimit::NoChange,
+            #[cfg(feature = "flydratrax")]
+            flydratrax_calibration_source: CalSource::PseudoCal,
             #[cfg(feature = "flydratrax")]
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
@@ -2873,7 +2905,7 @@ pub fn setup_app(
         #[cfg(feature="flydratrax")]
         let handle2 = handle.clone();
         #[cfg(feature="flydratrax")]
-        let model_server = {
+        let (model_server, flydratrax_calibration_source) = {
 
             let model_server_shutdown_rx = Some(model_server_shutdown_rx);
 
@@ -2884,7 +2916,9 @@ pub fn setup_app(
             };
 
             // we need the tokio reactor already by here
-            flydra2::ModelServer::new(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2)?
+            let model_server = flydra2::ModelServer::new(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2)?;
+            let flydratrax_calibration_source = args.flydratrax_calibration_source;
+            (model_server, flydratrax_calibration_source)
         };
 
         let valve2 = valve.clone();
@@ -2894,6 +2928,8 @@ pub fn setup_app(
                     handle,
                     #[cfg(feature="flydratrax")]
                     model_server,
+                    #[cfg(feature="flydratrax")]
+                    flydratrax_calibration_source,
                     cam_name,
                     camera_cfg,
                     image_width,
