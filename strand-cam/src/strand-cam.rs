@@ -310,7 +310,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
+    #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
     fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
     where
         E: std::convert::Into<anyhow::Error>,
@@ -321,7 +321,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "flydratrax", feature = "plugin-process-frame"))]
+    #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
         display_err(e, self.file, self.line, self.thread_handle.name());
         panic!(
