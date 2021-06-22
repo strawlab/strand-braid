@@ -13,6 +13,10 @@ pub(crate) trait HasCameraList {
     fn camera_list(&self) -> CameraList;
 }
 
+/// A set of cameras (stored by their CamNum) which is currently connected.
+///
+/// This struct implements PartialEq so multiple sets of cameras can be checked
+/// to see if both groups are identical.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CameraList {
     pub(crate) inner: std::collections::BTreeSet<u8>,

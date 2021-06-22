@@ -880,10 +880,15 @@ impl CoordProcessor {
             si
         });
 
-        // Bundle the camera-by-camera data into all-cam data. Note that this
-        // can drop data that is out-of-order, which is why we must save the
-        // incoming data before here.
-        let bundled = bundle_frames(stream1, self.cam_manager.clone());
+        // This clones the `Arc` but the inner camera manager remains not
+        // cloned.
+        let ccm = self.cam_manager.clone();
+
+        // This function takes a stream and returns a stream. In the returned
+        // stream, it has bundled the camera-by-camera data into all-cam data.
+        // Note that this can drop data that is out-of-order, which is why we
+        // must save the incoming data before here.
+        let bundled = bundle_frames(stream1, ccm);
 
         // Ensure that there are no skipped frames.
         let mut contiguous_stream = make_contiguous(bundled);
