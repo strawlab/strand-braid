@@ -12,4 +12,4 @@ pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra"
 itertools = "0.8"
 
 [features]
-backtrace = ["mvg/backtrace"]
+backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

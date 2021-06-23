@@ -183,20 +183,17 @@ pub enum StrandCamError {
         #[cfg_attr(feature = "backtrace", backtrace)]
         ufmf::UFMFError,
     ),
-    #[error("io error: {0}")]
-    IoError(
+    #[error("io error: {source}")]
+    IoError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("try send error")]
     TrySendError,
     #[error("BUI backend error: {0}")]
-    BuiBackendError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        bui_backend::Error,
-    ),
+    BuiBackendError(#[from] bui_backend::Error),
     #[error("ci2 error: {0}")]
     Ci2Error(
         #[from]
@@ -206,11 +203,7 @@ pub enum StrandCamError {
     #[error("plugin disconnected")]
     PluginDisconnected,
     #[error("video streaming error")]
-    VideoStreamingError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        video_streaming::Error,
-    ),
+    VideoStreamingError(#[from] video_streaming::Error),
     #[error(
         "The --jwt-secret argument must be passed or the JWT_SECRET environment \
                   variable must be set."
@@ -230,11 +223,7 @@ pub enum StrandCamError {
         mkv_writer::Error,
     ),
     #[error("{0}")]
-    AddrParseError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::net::AddrParseError,
-    ),
+    AddrParseError(#[from] std::net::AddrParseError),
     #[error("background movie writer error: {0}")]
     BgMovieWriterError(
         #[from]
@@ -258,28 +247,16 @@ pub enum StrandCamError {
     ),
     #[cfg(feature = "flydratrax")]
     #[error("futures mpsc send error: {0}")]
-    FuturesChannelMpscSend(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        futures::channel::mpsc::SendError,
-    ),
+    FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
     #[cfg(feature = "fiducial")]
     #[error("{0}")]
-    CsvError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        csv::Error,
-    ),
+    CsvError(#[from] csv::Error),
     #[error("thread done")]
     ThreadDone,
 
     #[cfg(feature = "with_camtrig")]
     #[error("{0}")]
-    SerialportError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        serialport::Error,
-    ),
+    SerialportError(#[from] serialport::Error),
 }
 
 pub struct CloseAppOnThreadExit {

@@ -31,4 +31,4 @@ env_logger = "0.8"
 download-verify = {path="../download-verify"}
 
 [features]
-backtrace = ["mvg/backtrace"]
+backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

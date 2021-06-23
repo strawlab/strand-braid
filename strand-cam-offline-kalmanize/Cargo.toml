@@ -49,4 +49,4 @@ zip-or-dir = {path="../zip-or-dir"}
 braid-offline = {path="../braid-offline", default-features = false, features=["flat-3d"]}
 
 [features]
-backtrace = ["flydra2/backtrace", "mvg/backtrace"]
+backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]
