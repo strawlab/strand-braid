@@ -313,21 +313,11 @@ impl CloseAppOnThreadExit {
 }
 
 fn display_err(err: anyhow::Error, file: &str, line: u32, name: Option<&str>) {
-    let mut stderr = std::io::stderr();
-    writeln!(
-        stderr,
-        "Error ({}:{} {:?}): {} {:?}",
-        file, line, name, err, err
-    )
-    .expect("unable to write error to stderr");
-    for cause in err.chain() {
-        writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
-    }
-
-    #[cfg(feature = "backtrace")]
-    {
-        writeln!(stderr, "{}", err.backtrace()).expect("unable to write backtrace to stderr");
-    }
+    eprintln!("Error ({}:{} {:?}): {}", file, line, name, err,);
+    eprintln!("Alternate view of error:",);
+    eprintln!("{:#?}", err,);
+    eprintln!("Debug view of error:",);
+    eprintln!("{:?}", err,);
 }
 
 impl Drop for CloseAppOnThreadExit {
