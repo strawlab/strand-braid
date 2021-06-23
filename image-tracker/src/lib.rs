@@ -1233,7 +1233,7 @@ async fn register_node_and_update_image(
             .update_image(ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
-    info!("done listening for background images from {}", ros_cam_name.0);
+    info!("done listening for background images from {}", ros_cam_name.as_str());
     Ok(())
 }
 
