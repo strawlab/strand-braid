@@ -40,7 +40,7 @@ impl<T> ResultExt<T> for flycap2::Result<T> {
     fn ci2err(self) -> std::result::Result<T, ci2::Error> {
         self.map_err(|orig: flycap2::Error| {
             let msg = format!("flycap2 error {:?}", orig);
-            ci2::Error::CI2Error(msg)
+            ci2::Error::from(msg)
         })
     }
 }
@@ -162,7 +162,7 @@ impl WrappedCamera {
         match found_idx {
             None => {
                 let guid_str = String::from(guid);
-                Err(ci2::Error::CI2Error(format!("camera {} not found", name)))
+                Err(ci2::Error::from(format!("camera {} not found", name)))
             }
             Some(idx) => {
                 let info = {
@@ -295,7 +295,7 @@ impl ci2::Camera for WrappedCamera {
     }
     fn set_acquisition_mode(&mut self, value: ci2::AcquisitionMode) -> ci2::Result<()> {
         if value != ci2::AcquisitionMode::Continuous {
-            return Err(ci2::Error::CI2Error(format!(
+            return Err(ci2::Error::from(format!(
                 "unsupported acquisition mode: {:?}",
                 value
             )));
@@ -361,7 +361,7 @@ fn get_coding(
         }
 
         (f, b) => {
-            return Err(ci2::Error::CI2Error(format!(
+            return Err(ci2::Error::from(format!(
                 "unimplemented conversion for {:?} {:?}",
                 f, b
             )));

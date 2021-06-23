@@ -545,7 +545,7 @@ impl ci2::Camera for WrappedCamera {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
             s => {
-                return Err(ci2error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerMode enum string: {}",
                     s
                 )));
@@ -623,7 +623,7 @@ impl ci2::Camera for WrappedCamera {
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
             s => {
-                return Err(ci2error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector enum string: {}",
                     s
                 )));
@@ -637,7 +637,10 @@ impl ci2::Camera for WrappedCamera {
             ci2::TriggerSelector::FrameStart => "FrameStart",
             ci2::TriggerSelector::ExposureActive => "ExposureActive",
             s => {
-                return Err(ci2error(format!("unexpected TriggerSelector: {:?}", s)));
+                return Err(ci2::Error::from(format!(
+                    "unexpected TriggerSelector: {:?}",
+                    s
+                )));
             }
         };
         let camera = self.inner.lock();
@@ -662,7 +665,10 @@ impl ci2::Camera for WrappedCamera {
             "SingleFrame" => ci2::AcquisitionMode::SingleFrame,
             "MultiFrame" => ci2::AcquisitionMode::MultiFrame,
             s => {
-                return Err(ci2error(format!("unexpected AcquisitionMode: {:?}", s)));
+                return Err(ci2::Error::from(format!(
+                    "unexpected AcquisitionMode: {:?}",
+                    s
+                )));
             }
         })
     }
@@ -717,7 +723,7 @@ impl ci2::Camera for WrappedCamera {
                     if block_id < 30000 && i.previous_block_id > 30000 {
                         // check nothing crazy is going on
                         if (i.store_fno - i.last_rollover) < 30000 {
-                            return Err(ci2error(format!(
+                            return Err(ci2::Error::from(format!(
                                 "Cannot recover frame count with \
                                 Basler GigE camera {}. Did many \
                                 frames get dropped?",
@@ -791,10 +797,10 @@ pub fn convert_pixel_format(pixel_format: formats::PixFmt) -> ci2::Result<&'stat
         BayerBG8 => "BayerBG8",
         BayerGB8 => "BayerGB8",
         // e => {
-        //     return Err(ci2error(format!("Unknown PixelFormat {:?}", e)));
+        //     return Err(ci2::Error::from(format!("Unknown PixelFormat {:?}", e)));
         // }
         unknown => {
-            return Err(ci2error(format!("Unsuppored PixFmt {}", unknown)));
+            return Err(ci2::Error::from(format!("Unsuppored PixFmt {}", unknown)));
         }
     };
     Ok(pixfmt)
@@ -818,7 +824,10 @@ pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
         "BayerBG8" => BayerBG8,
 
         e => {
-            return Err(ci2error(format!("Unknown pixel format string: {:?}", e)));
+            return Err(ci2::Error::from(format!(
+                "Unknown pixel format string: {:?}",
+                e
+            )));
         }
     };
     Ok(pixfmt)
@@ -838,21 +847,16 @@ fn gain_db_to_raw(db: f64) -> ci2::Result<i64> {
     Ok((db / 0.0359) as i64)
 }
 
-fn ci2error(msg: String) -> ci2::Error {
-    ci2::Error::CI2Error {
-        msg,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace::capture(),
-    }
-}
-
 fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
     match val {
         "Off" => Ok(ci2::AutoMode::Off),
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
         s => {
-            return Err(ci2error(format!("unexpected AutoMode enum string: {}", s)));
+            return Err(ci2::Error::from(format!(
+                "unexpected AutoMode enum string: {}",
+                s
+            )));
         }
     }
 }

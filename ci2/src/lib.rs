@@ -73,6 +73,16 @@ impl<'a> From<&'a str> for Error {
     }
 }
 
+impl From<String> for Error {
+    fn from(msg: String) -> Error {
+        Error::CI2Error {
+            msg,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+}
+
 // ---------------------------
 // CameraModule
 
