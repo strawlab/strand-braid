@@ -1,5 +1,8 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use crossbeam_channel::TryRecvError;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
@@ -8,12 +11,13 @@ use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("io error: {0}")]
-    IoError(
+    #[error("io error: {source}")]
+    IoError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("webm writer error: {0}")]
     MkvWriterError(
         #[from]
@@ -21,30 +25,32 @@ pub enum Error {
         mkv_writer::Error,
     ),
     #[error("mkvfix error: {0}")]
-    MkvFix(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        strand_cam_mkvfix::Error,
-    ),
+    MkvFix(#[from] strand_cam_mkvfix::Error),
     #[error("send error")]
-    SendError,
+    SendError(#[cfg(feature = "backtrace")] Backtrace),
     #[error("receive error")]
-    RecvError,
+    RecvError(#[cfg(feature = "backtrace")] Backtrace),
     #[error("already done")]
-    AlreadyDone,
+    AlreadyDone(#[cfg(feature = "backtrace")] Backtrace),
     #[error("disconnected")]
-    Disconnected,
+    Disconnected(#[cfg(feature = "backtrace")] Backtrace),
 }
 
 impl From<crossbeam_channel::SendError<Msg>> for Error {
     fn from(_orig: crossbeam_channel::SendError<Msg>) -> Error {
-        Error::SendError
+        Error::SendError(
+            #[cfg(feature = "backtrace")]
+            Backtrace::capture(),
+        )
     }
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
     fn from(_orig: crossbeam_channel::RecvError) -> Error {
-        Error::RecvError
+        Error::RecvError(
+            #[cfg(feature = "backtrace")]
+            Backtrace::capture(),
+        )
     }
 }
 
@@ -58,7 +64,10 @@ macro_rules! async_err {
             }
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {
-                return Err(Error::Disconnected);
+                return Err(Error::Disconnected(
+                    #[cfg(feature = "backtrace")]
+                    Backtrace::capture(),
+                ));
             }
         }
     };
@@ -92,7 +101,10 @@ impl BgMovieWriter {
     ) -> Result<()> {
         async_err!(self.err_rx);
         if self.is_done {
-            return Err(Error::AlreadyDone);
+            return Err(Error::AlreadyDone(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ));
         }
         let msg = Msg::Write((frame, timestamp));
         self.send(msg)
