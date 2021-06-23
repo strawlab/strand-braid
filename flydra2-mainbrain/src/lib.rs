@@ -621,6 +621,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         }
         TriggerType::FakeSync(cfg) => {
             info!("No triggerbox configuration. Using fake synchronization.");
+
+            let mut expected_framerate = expected_framerate_arc.write();
+            *expected_framerate = Some(cfg.fps as f32);
+
             let gain = 1.0 / cfg.fps as f64;
 
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
