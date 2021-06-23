@@ -7,11 +7,12 @@ pub enum Error {
         mvg::MvgError,
     ),
     #[error("...")]
-    IoError(
+    IoError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("...")]
     FailedParse1(serde_yaml::Error),
     #[error("...")]

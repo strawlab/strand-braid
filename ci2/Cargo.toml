@@ -14,4 +14,4 @@ basic-frame = { path = "../basic-frame" }
 timestamped-frame = { path = "../timestamped-frame" }
 
 [features]
-backtrace = []
+backtrace = ["anyhow/backtrace"]
