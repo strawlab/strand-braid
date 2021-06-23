@@ -31,4 +31,4 @@ backend_dc1394 = ["ci2-dc1394"]
 backend_flycap2 = ["ci2-flycap2"]
 backend_pyloncxx = ["ci2-pyloncxx"]
 
-backtrace = ["ci2/backtrace", "ci2-async/backtrace"]
+backtrace = ["ci2/backtrace"]

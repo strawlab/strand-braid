@@ -24,8 +24,6 @@
 //! implement [AsyncCamera] without serializing access to the camera but rather
 //! by taking advantage of functionality in most camera drivers.
 
-#![cfg_attr(feature = "backtrace", feature(backtrace))]
-
 #[macro_use]
 extern crate log;
 
@@ -101,11 +99,7 @@ where
         FN: Fn() + Send + 'static,
     {
         if self.control_and_join_handle.is_some() {
-            return Err(ci2::Error::CI2Error {
-                msg: "already launched thread".to_string(),
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            });
+            return Err(ci2::Error::from("already launched thread"));
         }
 
         let (mut tx, rx) = futures::channel::mpsc::channel(bufsize);
