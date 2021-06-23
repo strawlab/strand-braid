@@ -15,12 +15,13 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("i/o error")]
-    IoError(
+    #[error("IO error: {source}")]
+    IoError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("file already closed")]
     FileAlreadyClosed,
     #[error("inconsistent state")]
