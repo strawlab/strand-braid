@@ -4,6 +4,9 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use borrow_fastimage::BorrowedFrame;
 use futures::{channel::mpsc, stream::StreamExt};
 
@@ -60,7 +63,10 @@ thread_local!(
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(Error::DivideByZero);
+        return Err(Error::DivideByZero(
+            #[cfg(feature = "backtrace")]
+            Backtrace::capture(),
+        ));
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -487,7 +493,10 @@ macro_rules! do_send {
         match $sock.send(&$data) {
             Ok(sz) => {
                 if sz != $data.len() {
-                    return Err(Error::IncompleteSend);
+                    return Err(Error::IncompleteSend(
+                        #[cfg(feature = "backtrace")]
+                        Backtrace::capture(),
+                    ));
                 }
             }
             Err(err) => {
@@ -702,14 +711,20 @@ impl FlyTracker {
                     hack_binning = Some(bins);
                 }
                 Err(e) => {
-                    return Err(
-                        Error::OtherError(format!("could not parse to bins: {:?}", e)).into(),
-                    );
+                    return Err(Error::OtherError {
+                        msg: format!("could not parse to bins: {:?}", e),
+                        #[cfg(feature = "backtrace")]
+                        backtrace: std::backtrace::Backtrace::capture(),
+                    });
                 }
             },
             Err(std::env::VarError::NotPresent) => {}
             Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(Error::OtherError(format!("received not unicode env var")).into());
+                return Err(Error::OtherError {
+                    msg: format!("received not unicode env var"),
+                    #[cfg(feature = "backtrace")]
+                    backtrace: std::backtrace::Backtrace::capture(),
+                });
             }
         };
 
@@ -829,7 +844,10 @@ impl FlyTracker {
                     }
                     #[cfg(not(feature = "flydra-uds"))]
                     &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                        return Err(Error::UnixDomainSocketsNotSupported.into());
+                        return Err(Error::UnixDomainSocketsNotSupported(
+                            #[cfg(feature = "backtrace")]
+                            Backtrace::capture(),
+                        ));
                     }
                     &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
                         let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
@@ -971,7 +989,10 @@ impl FlyTracker {
         sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(Error::ImageSizeChanged);
+            return Err(Error::ImageSizeChanged(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ));
         }
 
         // move state into local variable so we can move it into next state
