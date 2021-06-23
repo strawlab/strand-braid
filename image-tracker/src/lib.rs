@@ -688,7 +688,7 @@ impl FlyTracker {
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         mainbrain_internal_addr: Option<MainbrainBuiLocation>,
         camdata_addr: Option<RealtimePointsDestAddr>,
-        async_rx: mpsc::Receiver<Vec<u8>>,
+        transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
         valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
@@ -762,7 +762,7 @@ impl FlyTracker {
                 orig_cam_name,
                 http_camserver_info,
                 ros_cam_name,
-                async_rx,
+                transmit_current_image_rx,
             );
 
             let f2 = async {
@@ -1222,17 +1222,18 @@ async fn register_node_and_update_image(
     orig_cam_name: flydra_types::RawCamName,
     http_camserver_info: flydra_types::CamHttpServerInfo,
     ros_cam_name: RosCamName,
-    mut async_rx: mpsc::Receiver<Vec<u8>>,
+    mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<()> {
     let mut mainbrain_session = mainbrain_future_session(api_http_address).await?;
     mainbrain_session
         .register_flydra_camnode(orig_cam_name, http_camserver_info, ros_cam_name.clone())
         .await?;
-    while let Some(image_png_vecu8) = async_rx.next().await {
+    while let Some(image_png_vecu8) = transmit_current_image_rx.next().await {
         mainbrain_session
             .update_image(ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
+    info!("done listening for background images from {}", ros_cam_name.0);
     Ok(())
 }
 
