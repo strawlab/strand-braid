@@ -14,3 +14,6 @@ ci2 = {path="../ci2"}
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }
+
+[features]
+backtrace = []
