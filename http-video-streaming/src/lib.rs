@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 #[macro_use]
 extern crate log;
 
@@ -19,29 +21,30 @@ pub use http_video_streaming_types::{
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error, Clone, Eq, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("unknown path")]
-    UnknownPath,
-    #[error("convert image")]
-    ConvertImageError,
+    UnknownPath(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
+    #[error(transparent)]
+    ConvertImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        convert_image::Error,
+    ),
     #[error("receive error")]
-    RecvError,
+    RecvError(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
     #[error("try receive error")]
-    TryRecvError,
+    TryRecvError(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
     #[error("callback sender disconnected")]
-    CallbackSenderDisconnected,
-}
-
-impl From<convert_image::Error> for Error {
-    fn from(_: convert_image::Error) -> Error {
-        Error::ConvertImageError
-    }
+    CallbackSenderDisconnected(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
     fn from(_: crossbeam_channel::RecvError) -> Error {
-        Error::RecvError
+        Error::RecvError(
+            #[cfg(feature = "backtrace")]
+            std::backtrace::Backtrace::capture(),
+        )
     }
 }
 
@@ -235,7 +238,10 @@ pub fn firehose_thread(
                             }
                         } else {
                             if !path.starts_with(events_prefix) {
-                                return Err(Error::UnknownPath);
+                                return Err(Error::UnknownPath(
+                                    #[cfg(feature = "backtrace")]
+                                    std::backtrace::Backtrace::capture(),
+                                ));
                             }
                             let slash_idx = events_prefix.len() + 1; // get location of '/' separator
                             let use_name = path[slash_idx..].to_string();
@@ -271,7 +277,10 @@ pub fn firehose_thread(
                 }
                 Err(crossbeam_channel::TryRecvError::Empty) => break,
                 Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    return Err(Error::CallbackSenderDisconnected);
+                    return Err(Error::CallbackSenderDisconnected(
+                        #[cfg(feature = "backtrace")]
+                        std::backtrace::Backtrace::capture(),
+                    ));
                 }
             };
         }
