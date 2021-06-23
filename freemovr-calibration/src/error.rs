@@ -1,70 +1,68 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("...")]
+    #[error("mvg error: {0}")]
     Mvg(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         mvg::MvgError,
     ),
-    #[error("...")]
+    #[error("{source}")]
     IoError {
         #[from]
         source: std::io::Error,
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
-    #[error("...")]
+    #[error("failed parse 1: {0}")]
     FailedParse1(serde_yaml::Error),
-    #[error("...")]
-    FailedParse((serde_yaml::Error, serde_yaml::Error)),
-    #[error("...")]
+    #[error("failed parse: {err1}, {err2}")]
+    FailedParse {
+        err1: serde_yaml::Error,
+        err2: serde_yaml::Error,
+    },
+    #[error("obj has no texture coords")]
     ObjHasNoTextureCoords,
-    #[error("...")]
+    #[error("invalid tex coord")]
     InvalidTexCoord,
-    #[error("...")]
-    SerdeYaml(
+    #[error("{source}")]
+    SerdeYaml {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        serde_yaml::Error,
-    ),
-    #[error("...")]
-    SerdeJson(
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("{source}")]
+    SerdeJson {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        serde_json::Error,
-    ),
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[cfg(feature = "opencv")]
-    #[error("...")]
-    OpenCvCalibrate(
+    #[error("{source}")]
+    OpenCvCalibrate {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        opencv_calibrate::Error,
-    ),
-    #[error("...")]
+        source: opencv_calibrate::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("required tri mesh")]
     RequiredTriMesh,
-    #[error("...")]
+    #[error("inavlid tri mesh")]
     InvalidTriMesh,
-    #[error("...")]
+    #[error("virtual display not found")]
     VirtualDisplayNotFound,
-    #[error("...")]
+    #[error("display size not found")]
     DisplaySizeNotFound,
-    #[error("...")]
-    SimpleObjParse(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        simple_obj_parse::Error,
-    ),
-    #[error("...")]
+    #[error("simple obj parse error: {0}")]
+    SimpleObjParse(#[from] simple_obj_parse::Error),
+    #[error("must have exactle one object")]
     ObjMustHaveExactlyOneObject(usize),
-    #[error("...")]
-    Csv(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        csv::Error,
-    ),
-    #[error("...")]
+    #[error("csv error {0}")]
+    Csv(#[from] csv::Error),
+    #[error("svd error: {0}")]
     SvdError(&'static str),
-    #[error("...")]
+    #[error(transparent)]
     Other(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
