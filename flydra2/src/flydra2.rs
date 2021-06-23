@@ -884,51 +884,69 @@ impl CoordProcessor {
         // This clones the `Arc` but the inner camera manager remains not
         // cloned.
         let ccm = self.cam_manager.clone();
+        let mut opt_stream = Some(stream1);
 
-        // This function takes a stream and returns a stream. In the returned
-        // stream, it has bundled the camera-by-camera data into all-cam data.
-        // Note that this can drop data that is out-of-order, which is why we
-        // must save the incoming data before here.
-        let bundled = bundle_frames(stream1, ccm);
+        loop {
+            let stream1 = match opt_stream.take() {
+                Some(stream1) => stream1,
+                None => break,
+            };
 
-        // Ensure that there are no skipped frames.
-        let mut contiguous_stream = make_contiguous(bundled);
+            info!("Starting model collection and frame bundler.");
 
-        if let Some(ref recon) = self.recon {
-            let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps))
-        }
+            // Restart the model collection.
 
-        let writer_thread_handle = self.writer_thread_handle.take();
-
-        while let Some(bundle) = contiguous_stream.next().await {
-            if bundle.frame() < prev_frame {
-                info!("resynchronized cameras, restarting ModelCollection");
-                if let Some(ref recon) = self.recon {
-                    let fps = expected_framerate.expect("expected_framerate must be set");
-                    self.mc2 = Some(self.new_model_collection(recon, fps))
-                }
+            if let Some(ref recon) = self.recon {
+                let fps = expected_framerate.expect("expected_framerate must be set");
+                self.mc2 = Some(self.new_model_collection(recon, fps))
             }
-            prev_frame = bundle.frame();
 
-            if let Some(model_collection) = self.mc2.take() {
-                // undistort all observations
-                let undistorted = bundle.undistort(&model_collection.mcinner.recon);
-                // calculate priors (update estimates to current frame)
-                let model_collection = model_collection.predict_motion();
-                // calculate likelihood of each observation
-                let model_collection = model_collection.compute_observation_likes(undistorted);
-                // perform data association
-                let (model_collection, unused) =
-                    model_collection.solve_data_association_and_update();
-                // create new and delete old objects
-                let model_collection =
-                    model_collection.births_and_deaths(unused, &self.model_servers);
-                self.mc2 = Some(model_collection);
+            // Restart the frame bundler.
+
+            // This function takes a stream and returns a stream. In the returned
+            // stream, it has bundled the camera-by-camera data into all-cam data.
+            // Note that this can drop data that is out-of-order, which is why we
+            // must save the incoming data before here.
+            let bundled = bundle_frames(stream1, ccm.clone());
+
+            // Ensure that there are no skipped frames.
+            let mut contiguous_stream = make_contiguous(bundled);
+
+            if let Some(ref recon) = self.recon {
+                let fps = expected_framerate.expect("expected_framerate must be set");
+                self.mc2 = Some(self.new_model_collection(recon, fps))
+            }
+
+            while let Some(bundle) = contiguous_stream.next().await {
+                if bundle.frame() < prev_frame {
+                    info!("Resynchronized cameras detected.");
+                    let bundled = contiguous_stream.end();
+                    let stream1 = bundled.end();
+                    opt_stream = Some(stream1);
+                    break;
+                }
+                prev_frame = bundle.frame();
+
+                if let Some(model_collection) = self.mc2.take() {
+                    // undistort all observations
+                    let undistorted = bundle.undistort(&model_collection.mcinner.recon);
+                    // calculate priors (update estimates to current frame)
+                    let model_collection = model_collection.predict_motion();
+                    // calculate likelihood of each observation
+                    let model_collection = model_collection.compute_observation_likes(undistorted);
+                    // perform data association
+                    let (model_collection, unused) =
+                        model_collection.solve_data_association_and_update();
+                    // create new and delete old objects
+                    let model_collection =
+                        model_collection.births_and_deaths(unused, &self.model_servers);
+                    self.mc2 = Some(model_collection);
+                }
             }
         }
 
         debug!("consume_stream future done");
+        let writer_thread_handle = self.writer_thread_handle.take();
         writer_thread_handle
     }
 }
