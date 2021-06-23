@@ -40,39 +40,44 @@ pub enum MvgError {
     NotImplemented,
     #[error("cannot convert to flydra xml")]
     CannotConvertToFlydraXml,
-    #[error("IO error: {}", error)]
+    #[error("IO error: {source}")]
     Io {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        error: std::io::Error,
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
-    #[error("serde_yaml error: {}", error)]
+    #[error("serde_yaml error: {source}")]
     SerdeYaml {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        error: serde_yaml::Error,
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
-    #[error("serde_json error: {}", error)]
+    #[error("serde_json error: {source}")]
     SerdeJson {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        error: serde_json::Error,
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
     #[error("SvgError: {}", error)]
     SvgError { error: &'static str },
     #[error("PinvError: {}", error)]
     PinvError { error: String },
-    #[error("cam_geom::Error: {}", error)]
+    #[error("cam_geom::Error: {source}")]
     CamGeomError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        error: cam_geom::Error,
+        source: cam_geom::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
-    #[error("opencv_ros_camera::Error: {}", error)]
+    #[error("opencv_ros_camera::Error: {source}")]
     OpencvRosError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        error: opencv_ros_camera::Error,
+        source: opencv_ros_camera::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
 }
 
