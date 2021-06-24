@@ -31,10 +31,10 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
-    #[error("receive error: {source}")]
-    RecvError {
+    #[error("crossbeam receive error: {source}")]
+    CrossbeamRecvError {
         #[from]
-        source: crossbeam_channel::RecvError,
+        source: channellib::RecvError,
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
@@ -182,8 +182,8 @@ impl PerSender {
 
 pub fn firehose_thread(
     sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
-    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame>,
-    firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
+    firehose_rx: channellib::Receiver<AnnotatedFrame>,
+    firehose_callback_rx: channellib::Receiver<FirehoseCallback>,
     use_frame_selector: bool,
     events_prefix: &str,
     flag: thread_control::Flag,
@@ -269,8 +269,8 @@ pub fn firehose_thread(
                         }
                     };
                 }
-                Err(crossbeam_channel::TryRecvError::Empty) => break,
-                Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                Err(channellib::TryRecvError::Empty) => break,
+                Err(channellib::TryRecvError::Disconnected) => {
                     return Err(Error::CallbackSenderDisconnected(
                         #[cfg(feature = "backtrace")]
                         std::backtrace::Backtrace::capture(),

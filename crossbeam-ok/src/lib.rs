@@ -9,14 +9,14 @@ pub trait CrossbeamOk<T> {
     fn cb_ok(self) -> Option<T>;
 }
 
-impl<T,E> CrossbeamOk<T> for std::result::Result<T,crossbeam_channel::SendError<E>> {
+impl<T, E> CrossbeamOk<T> for std::result::Result<T, channellib::SendError<E>> {
     fn cb_ok(self) -> Option<T> {
         match self {
             Ok(val) => Some(val),
             Err(e) => {
                 warn!("ignoring {}", e);
                 None
-            },
+            }
         }
     }
 }

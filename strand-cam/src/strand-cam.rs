@@ -598,16 +598,16 @@ fn frame_process_thread(
     width: u32,
     height: u32,
     pixel_format: PixFmt,
-    rx: crossbeam_channel::Receiver<Msg>,
+    rx: channellib::Receiver<Msg>,
     cam_args_tx: mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
     cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
-    firehose_tx: crossbeam_channel::Sender<AnnotatedFrame>,
-    plugin_handler_thread_tx: crossbeam_channel::Sender<DynamicFrame>,
-    plugin_result_rx:  crossbeam_channel::Receiver<Vec<http_video_streaming_types::Point>>,
+    firehose_tx: channellib::Sender<AnnotatedFrame>,
+    plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
+    plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
-    camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
+    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
@@ -849,11 +849,11 @@ fn frame_process_thread(
                                     }
                                 };
 
-                                let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
+                                let (save_data_tx, save_data_rx) = channellib::unbounded();
                                 maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
                                 let (flydra2_tx, flydra2_rx) = futures::channel::mpsc::channel(100);
 
-                                let (model_sender, model_receiver) = crossbeam_channel::unbounded();
+                                let (model_sender, model_receiver) = channellib::unbounded();
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let camtrig_tx_std2 = camtrig_tx_std.clone();
@@ -1519,10 +1519,10 @@ fn frame_process_thread(
                                 }
                                 Err(e) => {
                                     match e {
-                                        crossbeam_channel::RecvTimeoutError::Timeout => {
+                                        channellib::RecvTimeoutError::Timeout => {
                                             error!("Not displaying annotation because the plugin took too long.");
                                         },
-                                        crossbeam_channel::RecvTimeoutError::Disconnected => {
+                                        channellib::RecvTimeoutError::Disconnected => {
                                             // The tx channel was discconected.
                                             error!("The plugin disconnected.");
                                             return Err(StrandCamError::PluginDisconnected.into());
@@ -1748,12 +1748,11 @@ impl MyApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-        tx_frame: crossbeam_channel::Sender<Msg>,
+        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> std::result::Result<(crossbeam_channel::Receiver<FirehoseCallback>, Self), StrandCamError>
-    {
+    ) -> std::result::Result<(channellib::Receiver<FirehoseCallback>, Self), StrandCamError> {
         let chan_size = 10;
 
         let addr: std::net::SocketAddr = http_server_addr.parse().unwrap();
@@ -1779,7 +1778,7 @@ impl MyApp {
 
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
-        let (firehose_callback_tx, firehose_callback_rx) = crossbeam_channel::unbounded();
+        let (firehose_callback_tx, firehose_callback_rx) = channellib::unbounded();
 
         debug!("created firehose_callback_tx");
 
@@ -1849,8 +1848,8 @@ impl MyApp {
     #[allow(unused_variables)]
     fn pre_run(
         self,
-        camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-        camtrig_rx: crossbeam_channel::Receiver<ToCamtrigDevice>,
+        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
         camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
@@ -1938,8 +1937,8 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
 #[cfg(feature = "with_camtrig")]
 fn run_camtrig(
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
-    camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-    camtrig_rx: crossbeam_channel::Receiver<ToCamtrigDevice>,
+    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+    camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
     camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     tx_cam_arg: mpsc::Sender<CamArg>,
 ) -> Result<SerialJoinHandles> {
@@ -2066,7 +2065,7 @@ fn run_camtrig(
                     match camtrig_rx.try_recv() {
                         Ok(msg) => msgs.push(msg),
                         Err(e) => match e {
-                            crossbeam_channel::TryRecvError::Empty => break,
+                            channellib::TryRecvError::Empty => break,
                             _ => {
                                 thread_closer.fail(e.into());
                             }
@@ -2514,7 +2513,7 @@ pub fn setup_app(
     cam.set_acquisition_mode(ci2::AcquisitionMode::Continuous)?;
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
-    let (tx_frame, rx_frame) = crossbeam_channel::bounded::<Msg>(20);
+    let (tx_frame, rx_frame) = channellib::bounded::<Msg>(20);
     let tx_frame2 = tx_frame.clone();
     let tx_frame3 = tx_frame.clone();
 
@@ -2524,9 +2523,9 @@ pub fn setup_app(
     info!("  acquired first frame: {}x{}", frame.width(), frame.height());
 
     #[allow(unused_variables)]
-    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = crossbeam_channel::bounded::<DynamicFrame>(500);
+    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = channellib::bounded::<DynamicFrame>(500);
     #[allow(unused_variables)]
-    let (plugin_result_tx, plugin_result_rx) = crossbeam_channel::bounded::<_>(500);
+    let (plugin_result_tx, plugin_result_rx) = channellib::bounded::<_>(500);
 
     #[cfg(feature="plugin-process-frame")]
     let plugin_wait_dur = args.plugin_wait_dur;
@@ -2534,7 +2533,7 @@ pub fn setup_app(
     #[cfg(not(feature="plugin-process-frame"))]
     let plugin_wait_dur = std::time::Duration::from_millis(5);
 
-    let (firehose_tx, firehose_rx) = crossbeam_channel::bounded::<AnnotatedFrame>(5);
+    let (firehose_tx, firehose_rx) = channellib::bounded::<AnnotatedFrame>(5);
 
     let image_width = frame.width();
     let image_height = frame.height();
@@ -2583,7 +2582,7 @@ pub fn setup_app(
     let mainbrain_internal_addr = args.mainbrain_internal_addr.clone();
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
-    let (camtrig_tx_std, camtrig_rx) = crossbeam_channel::unbounded();
+    let (camtrig_tx_std, camtrig_rx) = channellib::unbounded();
 
     let camtrig_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
