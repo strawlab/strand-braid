@@ -247,6 +247,7 @@ impl ConnectedCamerasManager {
 
     pub fn remove(&mut self, ros_cam_name: &RosCamName) {
         self.inner.write().ccis.remove(ros_cam_name);
+        self.notify_cam_changed_listeners();
     }
 
     /// This is called to register a camera when it connects to the mainbrain.
