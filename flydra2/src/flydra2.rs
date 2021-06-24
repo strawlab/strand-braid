@@ -867,8 +867,11 @@ impl CoordProcessor {
 
         use futures::stream::StreamExt;
 
-        // Save raw incoming data as first step.
-        // This consumes the stream frame_data_rx.
+        // Save raw incoming data as first step by cloning it and sending to the
+        // receiver.
+        //
+        // This consumes the stream `frame_data_rx` and creates a new stream of
+        // `StreamItem`.
         let stream1 = frame_data_rx.map(move |si: StreamItem| {
             match &si {
                 StreamItem::EOF => {}
