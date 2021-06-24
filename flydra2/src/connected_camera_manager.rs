@@ -266,23 +266,17 @@ impl ConnectedCamerasManager {
             // This scope is for the write lock on self.inner. Keep it minimal.
             let mut inner = self.inner.write();
 
-            let mut cam_num = None;
-
-            {
-                if let Some(ref cci) = inner.ccis.get(&ros_cam_name) {
-                    panic!("camera {} already connected", ros_cam_name);
-                    // info!("camera connected again: {}", ros_cam_name);
-                    // cam_num = Some(cci.cam_num.clone());
-                }
+            if inner.ccis.contains_key(&ros_cam_name) {
+                panic!("camera {} already connected", ros_cam_name);
             }
 
-            // if cam_num.is_none() {
-            if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name) {
+            let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name)
+            {
                 debug!(
                     "registering camera {}, which is in existing calibration",
                     ros_cam_name.as_str()
                 );
-                cam_num = Some(pre_existing);
+                pre_existing
             } else {
                 debug!(
                     "registering camera {}, which is not in existing calibration",
@@ -291,11 +285,8 @@ impl ConnectedCamerasManager {
                 // unknown (and thus un-calibrated) camera
                 let cam_num_inner = inner.next_cam_num.clone();
                 inner.next_cam_num.0 += 1;
-                cam_num = Some(cam_num_inner);
-            }
-            // };
-
-            let cam_num = cam_num.unwrap();
+                cam_num_inner
+            };
 
             inner.ccis.insert(
                 ros_cam_name.clone(),
