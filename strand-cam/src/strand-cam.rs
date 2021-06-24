@@ -164,13 +164,13 @@ pub enum StrandCamError {
     //     #[cfg_attr(feature = "backtrace", backtrace)]
     //     opencv_calibrate::Error,
     // ),
-    #[error("receiving on an empty and disconnected channel: {source}")]
-    CrossbeamChannelRecvError {
-        #[from]
-        source: crossbeam_channel::RecvError,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    // #[error("receiving on an empty and disconnected channel: {source}")]
+    // CrossbeamChannelRecvError {
+    //     #[from]
+    //     source: crossbeam_channel::RecvError,
+    //     #[cfg(feature = "backtrace")]
+    //     backtrace: std::backtrace::Backtrace,
+    // },
     #[error("FMF error: {0}")]
     FMFError(
         #[from]
