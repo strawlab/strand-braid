@@ -269,13 +269,15 @@ pub fn firehose_thread(
                         }
                     };
                 }
-                Err(channellib::TryRecvError::Empty) => break,
-                Err(channellib::TryRecvError::Disconnected) => {
-                    return Err(Error::CallbackSenderDisconnected(
-                        #[cfg(feature = "backtrace")]
-                        std::backtrace::Backtrace::capture(),
-                    ));
-                }
+                Err(e) => match e.source {
+                    crossbeam_channel::TryRecvError::Empty => break,
+                    crossbeam_channel::TryRecvError::Disconnected => {
+                        return Err(Error::CallbackSenderDisconnected(
+                            #[cfg(feature = "backtrace")]
+                            e.backtrace,
+                        ));
+                    }
+                },
             };
         }
 

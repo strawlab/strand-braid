@@ -107,7 +107,7 @@ default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "check
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
-    "convert-image/backtrace", "http-video-streaming/backtrace"]
+    "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
 
 send-bg-images-to-mainbrain = []
 
