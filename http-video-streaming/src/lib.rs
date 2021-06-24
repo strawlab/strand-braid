@@ -31,21 +31,15 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
-    #[error("receive error")]
-    RecvError(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
-    #[error("try receive error")]
-    TryRecvError(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
+    #[error("receive error: {source}")]
+    RecvError {
+        #[from]
+        source: crossbeam_channel::RecvError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("callback sender disconnected")]
     CallbackSenderDisconnected(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
-}
-
-impl From<crossbeam_channel::RecvError> for Error {
-    fn from(_: crossbeam_channel::RecvError) -> Error {
-        Error::RecvError(
-            #[cfg(feature = "backtrace")]
-            std::backtrace::Backtrace::capture(),
-        )
-    }
 }
 
 // future: use MediaSource API? https://w3c.github.io/media-source
