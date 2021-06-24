@@ -957,7 +957,7 @@ fn toggle_saving_csv_tables(
 fn synchronize_cameras(
     triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
-    cam_manager: flydra2::ConnectedCamerasManager,
+    mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
 ) {
     info!("preparing to synchronize cameras");

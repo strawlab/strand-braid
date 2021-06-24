@@ -118,16 +118,7 @@ impl ConnectedCamerasManager {
     }
 
     /// The cameras are being (re)synchronized. Clear all inner data and reset camera numbers.
-    pub fn reset_sync_data(&self) {
-        // {
-        //     // This scope is for the write lock on self.inner. Keep it minimal.
-        //     let mut inner = self.inner.write();
-        //     for cci in inner.ccis.values_mut() {
-        //         cci.sync_state = ConnectedCameraSyncState::Unsynchronized;
-        //         cci.frames_during_sync = 0;
-        //     }
-        // }
-
+    pub fn reset_sync_data(&mut self) {
         info!("Camera manager dropping old cameras and expecting new cameras");
 
         let mut next_cam_num = { self.inner.read().next_cam_num.0 };
@@ -144,14 +135,22 @@ impl ConnectedCamerasManager {
             }
         }
 
-        {
+        let old_ccis = {
             let mut inner = self.inner.write();
             inner.next_cam_num = next_cam_num.into();
-            inner.ccis = BTreeMap::new();
+            let old_ccis = std::mem::replace(&mut inner.ccis, BTreeMap::new());
             inner.not_yet_connected = not_yet_connected;
-        }
+            old_ccis
+        };
 
-        self.notify_cam_changed_listeners();
+        for cam_info in old_ccis.values() {
+            // This calls self.notify_cam_changed_listeners():
+            self.register_new_camera(
+                &cam_info.orig_cam_name,
+                &cam_info.http_camserver_info,
+                &cam_info.ros_cam_name,
+            );
+        }
     }
 
     /// Set callback to be called when connected cameras or their state changes
@@ -271,29 +270,30 @@ impl ConnectedCamerasManager {
 
             {
                 if let Some(ref cci) = inner.ccis.get(&ros_cam_name) {
-                    info!("camera connected again: {}", ros_cam_name);
-                    cam_num = Some(cci.cam_num.clone());
+                    panic!("camera {} already connected", ros_cam_name);
+                    // info!("camera connected again: {}", ros_cam_name);
+                    // cam_num = Some(cci.cam_num.clone());
                 }
             }
 
-            if cam_num.is_none() {
-                if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name) {
-                    debug!(
-                        "registering camera {}, which is in existing calibration",
-                        ros_cam_name.as_str()
-                    );
-                    cam_num = Some(pre_existing);
-                } else {
-                    debug!(
-                        "registering camera {}, which is not in existing calibration",
-                        ros_cam_name.as_str()
-                    );
-                    // unknown (and thus un-calibrated) camera
-                    let cam_num_inner = inner.next_cam_num.clone();
-                    inner.next_cam_num.0 += 1;
-                    cam_num = Some(cam_num_inner);
-                }
-            };
+            // if cam_num.is_none() {
+            if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name) {
+                debug!(
+                    "registering camera {}, which is in existing calibration",
+                    ros_cam_name.as_str()
+                );
+                cam_num = Some(pre_existing);
+            } else {
+                debug!(
+                    "registering camera {}, which is not in existing calibration",
+                    ros_cam_name.as_str()
+                );
+                // unknown (and thus un-calibrated) camera
+                let cam_num_inner = inner.next_cam_num.clone();
+                inner.next_cam_num.0 += 1;
+                cam_num = Some(cam_num_inner);
+            }
+            // };
 
             let cam_num = cam_num.unwrap();
 
@@ -364,7 +364,7 @@ impl ConnectedCamerasManager {
             } else {
                 // This is a new camera to us, but we should already know it.
                 panic!(
-                    "register_new_camera() not called for camera {}",
+                    "register_new_camera() has not been called for camera {}",
                     ros_cam_name.as_str()
                 );
             }
