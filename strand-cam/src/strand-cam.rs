@@ -144,33 +144,12 @@ pub enum StrandCamError {
     StringError(String),
     #[error("no cameras found")]
     NoCamerasFound,
-    // #[cfg(feature = "image_tracker")]
-    // #[error("ImageTrackerError: {0}")]
-    // ImageTrackerError(
-    //     #[from]
-    //     #[cfg_attr(feature = "backtrace", backtrace)]
-    //     image_tracker::Error,
-    // ),
     #[error("ConvertImageError: {0}")]
     ConvertImageError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
-    // #[cfg(feature = "checkercal")]
-    // #[error("OpenCvCalibrateError: {0}")]
-    // OpenCvCalibrateError(
-    //     #[from]
-    //     #[cfg_attr(feature = "backtrace", backtrace)]
-    //     opencv_calibrate::Error,
-    // ),
-    // #[error("receiving on an empty and disconnected channel: {source}")]
-    // CrossbeamChannelRecvError {
-    //     #[from]
-    //     source: crossbeam_channel::RecvError,
-    //     #[cfg(feature = "backtrace")]
-    //     backtrace: std::backtrace::Backtrace,
-    // },
     #[error("FMF error: {0}")]
     FMFError(
         #[from]
