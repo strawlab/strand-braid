@@ -74,6 +74,7 @@ pub trait ConnectedCamCallback: Send {
 pub struct ConnectedCamerasManager {
     inner: Arc<RwLock<ConnectedCamerasManagerInner>>,
     on_cam_change_func: Arc<Mutex<Option<Box<dyn ConnectedCamCallback>>>>,
+    recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
 }
 
 impl HasCameraList for ConnectedCamerasManager {
@@ -112,7 +113,45 @@ impl ConnectedCamerasManager {
                 not_yet_connected,
             })),
             on_cam_change_func: Arc::new(Mutex::new(None)),
+            recon: recon.clone(),
         }
+    }
+
+    /// The cameras are being (re)synchronized. Clear all inner data and reset camera numbers.
+    pub fn reset_sync_data(&self) {
+        // {
+        //     // This scope is for the write lock on self.inner. Keep it minimal.
+        //     let mut inner = self.inner.write();
+        //     for cci in inner.ccis.values_mut() {
+        //         cci.sync_state = ConnectedCameraSyncState::Unsynchronized;
+        //         cci.frames_during_sync = 0;
+        //     }
+        // }
+
+        info!("Camera manager dropping old cameras and expecting new cameras");
+
+        let mut next_cam_num = { self.inner.read().next_cam_num.0 };
+        let mut not_yet_connected = BTreeMap::new();
+
+        // pre-reserve cam numbers for cameras in calibration
+        if let Some(ref recon) = &self.recon {
+            for cam_name in recon.cam_names() {
+                let cam_num = next_cam_num;
+                next_cam_num = safe_u8(next_cam_num as usize + 1);
+                let ros_cam_name = RosCamName::new(cam_name.to_string());
+                let cam_num: CamNum = cam_num.into();
+                not_yet_connected.insert(ros_cam_name, cam_num);
+            }
+        }
+
+        {
+            let mut inner = self.inner.write();
+            inner.next_cam_num = next_cam_num.into();
+            inner.ccis = BTreeMap::new();
+            inner.not_yet_connected = not_yet_connected;
+        }
+
+        self.notify_cam_changed_listeners();
     }
 
     /// Set callback to be called when connected cameras or their state changes
@@ -429,18 +468,6 @@ impl ConnectedCamerasManager {
 
     pub fn len(&self) -> usize {
         self.inner.read().ccis.len()
-    }
-
-    pub fn reset_sync_data(&self) {
-        {
-            // This scope is for the write lock on self.inner. Keep it minimal.
-            let mut inner = self.inner.write();
-            for cci in inner.ccis.values_mut() {
-                cci.sync_state = ConnectedCameraSyncState::Unsynchronized;
-                cci.frames_during_sync = 0;
-            }
-        }
-        self.notify_cam_changed_listeners();
     }
 }
 
