@@ -13,7 +13,6 @@ phf = "0.8"
 failure = "0.1.2"
 failure_derive = "0.1"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 serde = {version="1.0",features=["derive"]}
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -34,6 +33,7 @@ simple-frame = { path = "../simple-frame" }
 lazy_static = "1.4"
 rt-image-viewer-storetype = { path = "storetype" }
 crossbeam-ok = {path="../crossbeam-ok"}
+channellib = {path="../channellib"}
 
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}

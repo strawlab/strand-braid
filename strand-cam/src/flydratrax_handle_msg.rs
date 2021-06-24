@@ -1,4 +1,4 @@
-use crossbeam_channel::Sender;
+use channellib::Sender;
 
 use crate::*;
 
@@ -32,10 +32,10 @@ impl flydra2::GetsUpdates for FlydraTraxServer {
 
 pub fn flydratrax_handle_msg(
     cam_cal: mvg::Camera<MyFloat>,
-    model_receiver: crossbeam_channel::Receiver<flydra2::SendType>,
+    model_receiver: channellib::Receiver<flydra2::SendType>,
     #[allow(unused_variables)] led_state: &mut bool,
     #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    #[allow(unused_variables)] camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
+    #[allow(unused_variables)] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
@@ -47,7 +47,7 @@ pub fn flydratrax_handle_msg(
     loop {
         let msg = match model_receiver.recv() {
             Ok(msg) => msg,
-            Err(crossbeam_channel::RecvError) => return Ok(()), // sender hung up - we are done.
+            Err(channellib::RecvError { .. }) => return Ok(()), // sender hung up - we are done.
         };
         debug!("got model msg: {:?}", msg);
 

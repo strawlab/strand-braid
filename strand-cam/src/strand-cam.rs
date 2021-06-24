@@ -2064,12 +2064,13 @@ fn run_camtrig(
                 loop {
                     match camtrig_rx.try_recv() {
                         Ok(msg) => msgs.push(msg),
-                        Err(e) => match e {
-                            channellib::TryRecvError::Empty => break,
-                            _ => {
+                        Err(e) => {
+                            if e.is_empty() {
+                                break;
+                            } else {
                                 thread_closer.fail(e.into());
                             }
-                        },
+                        }
                     }
                 }
 

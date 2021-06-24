@@ -439,7 +439,7 @@ impl Drop for WritingState {
 }
 
 pub(crate) fn writer_thread_main(
-    save_data_rx: crossbeam_channel::Receiver<SaveToDiskMsg>,
+    save_data_rx: channellib::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<SwitchingTrackingParams>,
@@ -599,7 +599,7 @@ pub(crate) fn writer_thread_main(
                 };
             }
             Err(e) => {
-                let _: crossbeam_channel::RecvError = e;
+                let _: channellib::RecvError = e;
                 // sender disconnected. we can quit too.
                 break;
             }

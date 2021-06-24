@@ -52,7 +52,7 @@ enum MainbrainError {
 struct HttpApiApp {
     inner: BuiAppInner<HttpApiShared, HttpApiCallback>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
@@ -67,7 +67,7 @@ impl HttpApiApp {
         shared: HttpApiShared,
         config: Config,
         time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-        triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
+        triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
         sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
         expected_framerate_arc: Arc<RwLock<Option<f32>>>,
         output_base_dirname: std::path::PathBuf,
@@ -253,7 +253,7 @@ pub struct StartupPhase1 {
     handle: tokio::runtime::Handle,
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
-    triggerbox_rx: Option<crossbeam_channel::Receiver<flydra1_triggerbox::Cmd>>,
+    triggerbox_rx: Option<channellib::Receiver<flydra1_triggerbox::Cmd>>,
     flydra1: bool,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
@@ -319,7 +319,7 @@ pub async fn pre_run(
     let cam_manager = flydra2::ConnectedCamerasManager::new(&recon);
     let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
 
-    let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
+    let (save_data_tx, save_data_rx) = channellib::unbounded();
 
     let tracking_params = opt_tracking_params.unwrap_or_else(|| {
         info!("no tracking parameters file given, using default tracking parameters");
@@ -394,7 +394,7 @@ pub async fn pre_run(
 
     let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
         TriggerType::TriggerboxV1(_) => {
-            let (tx, rx) = crossbeam_channel::unbounded();
+            let (tx, rx) = channellib::unbounded();
             (Some(tx), Some(rx), false)
         }
         TriggerType::FakeSync(_) => (None, None, true),
@@ -535,7 +535,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         version: env!("CARGO_PKG_VERSION").into(),
     };
 
-    let (triggerbox_data_tx, triggerbox_data_rx) = crossbeam_channel::unbounded();
+    let (triggerbox_data_tx, triggerbox_data_rx) = channellib::unbounded();
 
     let write_controller_arc2 = write_controller_arc.clone();
     let triggerbox_data_thread_builder =
@@ -548,7 +548,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     write_controller.append_trigger_clock_info_message(msg);
                 }
                 Err(e) => {
-                    let _: crossbeam_channel::RecvError = e;
+                    let _: channellib::RecvError = e;
                     break;
                 }
             };
@@ -955,7 +955,7 @@ fn toggle_saving_csv_tables(
 }
 
 fn synchronize_cameras(
-    triggerbox_cmd: Option<crossbeam_channel::Sender<flydra1_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
@@ -983,7 +983,7 @@ fn synchronize_cameras(
     }
 }
 
-fn begin_cam_sync_triggerbox_in_process(tx: crossbeam_channel::Sender<flydra1_triggerbox::Cmd>) {
+fn begin_cam_sync_triggerbox_in_process(tx: channellib::Sender<flydra1_triggerbox::Cmd>) {
     // This is the case when the triggerbox is within this process.
     info!("preparing for triggerbox to temporarily stop sending pulses");
 

@@ -269,15 +269,16 @@ pub fn firehose_thread(
                         }
                     };
                 }
-                Err(e) => match e.source {
-                    crossbeam_channel::TryRecvError::Empty => break,
-                    crossbeam_channel::TryRecvError::Disconnected => {
+                Err(e) => {
+                    if e.is_empty() {
+                        break;
+                    } else {
                         return Err(Error::CallbackSenderDisconnected(
                             #[cfg(feature = "backtrace")]
                             e.backtrace,
                         ));
                     }
-                },
+                }
             };
         }
 

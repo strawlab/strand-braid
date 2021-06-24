@@ -11,7 +11,6 @@ configure = "0.1.1"
 thiserror = "1"
 anyhow = "1.0"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
@@ -47,6 +46,7 @@ image-tracker-types = {path = "../image-tracker/image-tracker-types", default-fe
 ci2-remote-control = {path = "../ci2-remote-control"}
 datetime-conversion = {path = "../datetime-conversion"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
+channellib = {path="../channellib"}
 crossbeam-ok = {path="../crossbeam-ok"}
 
 [build-dependencies]

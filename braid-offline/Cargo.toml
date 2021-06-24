@@ -17,7 +17,6 @@ toml = "0.5"
 itertools = "0.8"
 chrono = "0.4"
 futures = "0.3"
-crossbeam-channel = "0.5"
 stream-cancel = "0.6"
 
 env-tracing-logger = {path="../env-tracing-logger"}
@@ -29,6 +28,7 @@ tokio = {version="0.2", default-features=false, features=["macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}
+channellib = {path="../channellib"}
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}

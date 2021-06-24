@@ -725,14 +725,14 @@ pub struct StartSavingCsvConfig {
 /// A struct which implements `std::marker::Send` to control coord processing.
 #[derive(Clone)]
 pub struct CoordProcessorControl {
-    save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
+    save_data_tx: channellib::Sender<SaveToDiskMsg>,
 }
 
 // TODO: also include a timestamp?
 pub type ImageDictType = BTreeMap<String, Vec<u8>>;
 
 impl CoordProcessorControl {
-    pub fn new(save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>) -> Self {
+    pub fn new(save_data_tx: channellib::Sender<SaveToDiskMsg>) -> Self {
         Self { save_data_tx }
     }
 
@@ -766,7 +766,7 @@ impl CoordProcessorControl {
 pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
-    pub save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
+    pub save_data_tx: channellib::Sender<SaveToDiskMsg>,
     pub writer_thread_handle: Option<std::thread::JoinHandle<()>>,
     model_servers: Vec<Box<dyn GetsUpdates>>,
     tracking_params: Arc<SwitchingTrackingParams>,
@@ -788,8 +788,8 @@ impl CoordProcessor {
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         tracking_params: SwitchingTrackingParams,
-        save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
-        save_data_rx: crossbeam_channel::Receiver<SaveToDiskMsg>,
+        save_data_tx: channellib::Sender<SaveToDiskMsg>,
+        save_data_rx: channellib::Receiver<SaveToDiskMsg>,
         save_empty_data2d: bool,
         ignore_latency: bool,
     ) -> Result<Self> {

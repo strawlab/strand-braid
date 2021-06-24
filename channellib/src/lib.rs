@@ -7,7 +7,7 @@ use std::backtrace::Backtrace;
 #[error("chanellib receive error")]
 pub struct RecvError {
     #[from]
-    pub source: crossbeam_channel::RecvError,
+    source: crossbeam_channel::RecvError,
     #[cfg(feature = "backtrace")]
     pub backtrace: Backtrace,
 }
@@ -16,7 +16,7 @@ pub struct RecvError {
 #[error("chanellib receive timeout error")]
 pub struct RecvTimeoutError {
     #[from]
-    pub source: crossbeam_channel::RecvTimeoutError,
+    source: crossbeam_channel::RecvTimeoutError,
     #[cfg(feature = "backtrace")]
     pub backtrace: Backtrace,
 }
@@ -32,7 +32,7 @@ impl RecvTimeoutError {
 #[error("chanellib try receive error")]
 pub struct TryRecvError {
     #[from]
-    pub source: crossbeam_channel::TryRecvError,
+    source: crossbeam_channel::TryRecvError,
     #[cfg(feature = "backtrace")]
     pub backtrace: Backtrace,
 }
@@ -41,12 +41,28 @@ impl TryRecvError {
     pub fn inner(self) -> crossbeam_channel::TryRecvError {
         self.source
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self.source {
+            crossbeam_channel::TryRecvError::Empty => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_disconnected(&self) -> bool {
+        match self.source {
+            crossbeam_channel::TryRecvError::Disconnected => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(thiserror::Error)]
 #[error("chanellib send error")]
 pub struct SendError<T> {
     inner: crossbeam_channel::SendError<T>,
+    #[cfg(feature = "backtrace")]
+    pub backtrace: Backtrace,
 }
 
 impl<T> std::fmt::Debug for SendError<T> {
@@ -81,7 +97,11 @@ pub struct Sender<T>(crossbeam_channel::Sender<T>);
 impl<T> Sender<T> {
     #[inline(always)]
     pub fn send(&self, msg: T) -> Result<(), SendError<T>> {
-        self.0.send(msg).map_err(|e| SendError { inner: e })
+        self.0.send(msg).map_err(|e| SendError {
+            inner: e,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        })
     }
 
     #[inline(always)]

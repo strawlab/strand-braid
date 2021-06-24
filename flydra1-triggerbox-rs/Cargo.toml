@@ -9,7 +9,6 @@ anyhow = "1.0"
 serialport = "3"
 log = "0.4"
 byteorder = "1"
-crossbeam-channel = "0.5"
 thread-control = "0.1"
 serde = "1.0"
 nalgebra = "0.27"
@@ -21,3 +20,4 @@ env_logger = "0.8"
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 flydra-types = {path="../flydra-types"}
 crossbeam-ok = {path="../crossbeam-ok"}
+channellib = {path="../channellib"}
