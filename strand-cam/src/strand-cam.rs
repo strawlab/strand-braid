@@ -2398,7 +2398,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 pub fn setup_app(
     handle: tokio::runtime::Handle,
     args: StrandCamArgs)
-    -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>), StrandCamError>
+    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>)>
 {
     debug!("CLI request for camera {:?}", args.camera_name);
 
@@ -2411,7 +2411,7 @@ pub fn setup_app(
 
     let cam_infos = mymod.camera_infos()?;
     if cam_infos.len() == 0 {
-        return Err(StrandCamError::NoCamerasFound);
+        return Err(StrandCamError::NoCamerasFound.into());
     }
 
     for cam_info in cam_infos.iter() {
@@ -2922,7 +2922,7 @@ pub fn setup_app(
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         if control.is_done() {
-            return Err(StrandCamError::ThreadDone);
+            return Err(StrandCamError::ThreadDone.into());
         }
         ControlledJoinHandle {
             control,
