@@ -72,6 +72,7 @@ pub trait ConnectedCamCallback: Send {
 /// manager via `Arc<Mutex<_>>`.
 #[derive(Clone)]
 pub struct ConnectedCamerasManager {
+    all_expected_cameras: Vec<RawCamName>,
     inner: Arc<RwLock<ConnectedCamerasManagerInner>>,
     on_cam_change_func: Arc<Mutex<Option<Box<dyn ConnectedCamCallback>>>>,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
@@ -91,7 +92,10 @@ impl HasCameraList for ConnectedCamerasManager {
 }
 
 impl ConnectedCamerasManager {
-    pub fn new(recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>) -> Self {
+    pub fn new(
+        recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
+        all_expected_cameras: Vec<RawCamName>,
+    ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
@@ -107,6 +111,7 @@ impl ConnectedCamerasManager {
         };
 
         Self {
+            all_expected_cameras,
             inner: Arc::new(RwLock::new(ConnectedCamerasManagerInner {
                 next_cam_num: next_cam_num.into(),
                 ccis: BTreeMap::new(),
@@ -200,7 +205,8 @@ impl ConnectedCamerasManager {
         http_camserver_info: &CamHttpServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     ) -> Self {
-        let this = Self::new(recon);
+        let all_expected_cameras = vec![orig_cam_name.clone()];
+        let this = Self::new(recon, all_expected_cameras);
         {
             let orig_cam_name = orig_cam_name.clone();
             let ros_cam_name = orig_cam_name.to_ros();

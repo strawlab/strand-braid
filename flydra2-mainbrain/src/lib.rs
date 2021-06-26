@@ -21,8 +21,8 @@ use bui_backend_types::CallbackDataAndSession;
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, FlydraPacketCodec,
-    FlydraRawUdpPacket, HttpApiCallback, HttpApiShared, RosCamName, SyncFno, TriggerType,
-    Triggerbox,
+    FlydraRawUdpPacket, HttpApiCallback, HttpApiShared, RawCamName, RosCamName, SyncFno,
+    TriggerType, Triggerbox,
 };
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
@@ -275,6 +275,7 @@ pub async fn pre_run(
     model_pose_server_addr: std::net::SocketAddr,
     save_empty_data2d: bool,
     jwt_secret: Option<Vec<u8>>,
+    all_expected_cameras: Vec<RawCamName>,
 ) -> Result<StartupPhase1> {
     info!("saving to directory: {}", output_base_dirname.display());
 
@@ -316,7 +317,7 @@ pub async fn pre_run(
         None
     };
 
-    let cam_manager = flydra2::ConnectedCamerasManager::new(&recon);
+    let cam_manager = flydra2::ConnectedCamerasManager::new(&recon, all_expected_cameras);
     let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
 
     let (save_data_tx, save_data_rx) = channellib::unbounded();
