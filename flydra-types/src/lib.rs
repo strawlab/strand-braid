@@ -107,6 +107,9 @@ impl RawCamName {
         let ros_name: String = ros_name.replace(" ", "_");
         RosCamName::new(ros_name)
     }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 /// Name that works as a ROS node name (i.e. no '-' or ' ' chars).

@@ -853,7 +853,13 @@ impl CoordProcessor {
 
     /// Consume the CoordProcessor and the input stream.
     ///
-    /// Returns a future that completes when done.
+    /// Returns a future that completes when done. The vast majority
+    /// of the runtime is done without returning from this function.
+    /// It is async, though, and yields many times throughout this
+    /// execution.
+    ///
+    /// Upon completion, returns a thread handle so that data being
+    /// saved to disk can be completely saved before ending the process.
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
@@ -889,6 +895,10 @@ impl CoordProcessor {
         let ccm = self.cam_manager.clone();
         let mut opt_stream = Some(stream1);
 
+        // We need to re-start the model collection and frame bundler when
+        // cameras are resynchronized. This loop starts by creating a new
+        // model collection and frame bundler. If the cameras are only
+        // synchronized once, we do not loop here.
         loop {
             let stream1 = match opt_stream.take() {
                 Some(stream1) => stream1,
@@ -920,11 +930,13 @@ impl CoordProcessor {
                 self.mc2 = Some(self.new_model_collection(recon, fps))
             }
 
+            // In this inner loop, we handle each incoming datum. We spend the vast majority
+            // of the runtime in this loop.
             while let Some(bundle) = contiguous_stream.next().await {
                 if bundle.frame() < prev_frame {
-                    info!("Resynchronized cameras detected.");
-                    let bundled = contiguous_stream.end();
-                    let stream1 = bundled.end();
+                    info!("Resynchronized cameras detected. Extracting original stream.");
+                    let bundled = contiguous_stream.inner();
+                    let stream1 = bundled.inner();
                     opt_stream = Some(stream1);
                     break;
                 }
@@ -946,6 +958,7 @@ impl CoordProcessor {
                     self.mc2 = Some(model_collection);
                 }
             }
+            info!("contiguous_stream is done.");
         }
 
         debug!("consume_stream future done");

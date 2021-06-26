@@ -682,20 +682,27 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let live_stats_collector2 = live_stats_collector.clone();
 
     let flydra2_stream = futures::stream::StreamExt::filter_map(raw_cam_data_stream, move |r| {
+        // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+        // Start of closure for on each incoming packet.
+
+        // We run this closure for each incoming packet.
+
+        // TODO: evaluate if we can reduce or eliminate cloning of http
+        // session handler below. That seems not necessary.
+
+        // Let's be sure about the type of our input.
         let r: std::result::Result<
             (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
             std::io::Error,
         > = r;
 
-        match r {
-            Ok(_) => {}
+        let (packet, _addr) = match r {
+            Ok(r) => r,
             Err(e) => {
                 error!("{}", e);
                 return futures::future::ready(Some(StreamItem::EOF));
             }
-        }
-
-        let (packet, _addr): (FlydraRawUdpPacket, std::net::SocketAddr) = r.unwrap();
+        };
 
         let ros_cam_name = RosCamName::new(packet.cam_name.clone());
         live_stats_collector2.register_new_frame_data(&ros_cam_name, packet.points.len());
@@ -772,6 +779,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
         let fdp = FrameDataAndPoints { frame_data, points };
         futures::future::ready(Some(StreamItem::Packet(fdp)))
+        // This is the end of closure for each incoming packet.
+        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     });
 
     let ms = flydra2::ModelServer::new(
@@ -794,6 +803,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let consume_future =
         coord_processor.consume_stream(valve.wrap(flydra2_stream), expected_framerate);
 
+    // We block (in an async way) here for the entire runtime of the program.
     let opt_jh = consume_future.await;
 
     // Allow writer thread time to finish writing.

@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub(crate) fn end(self) -> St {
+    pub(crate) fn inner(self) -> St {
         self.stream
     }
 }

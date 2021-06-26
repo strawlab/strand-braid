@@ -260,7 +260,13 @@ impl CloseAppOnThreadExit {
         match result {
             Ok(()) => self.success(),
             Err(e) => {
-                display_err(e, self.file, self.line, self.thread_handle.name());
+                display_err(
+                    e,
+                    self.file,
+                    self.line,
+                    self.thread_handle.name(),
+                    self.thread_handle.id(),
+                );
                 // The drop handler will close everything.
             }
         }
@@ -279,7 +285,13 @@ impl CloseAppOnThreadExit {
 
     #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
-        display_err(e, self.file, self.line, self.thread_handle.name());
+        display_err(
+            e,
+            self.file,
+            self.line,
+            self.thread_handle.name(),
+            self.thread_handle.id(),
+        );
         panic!(
             "panicing thread {:?} due to error",
             self.thread_handle.name()
@@ -291,8 +303,17 @@ impl CloseAppOnThreadExit {
     }
 }
 
-fn display_err(err: anyhow::Error, file: &str, line: u32, name: Option<&str>) {
-    eprintln!("Error ({}:{} {:?}): {}", file, line, name, err,);
+fn display_err(
+    err: anyhow::Error,
+    file: &str,
+    line: u32,
+    thread_name: Option<&str>,
+    thread_id: std::thread::ThreadId,
+) {
+    eprintln!(
+        "Error {}:{} ({:?} Thread name {:?}): {}",
+        file, line, thread_id, thread_name, err
+    );
     eprintln!("Alternate view of error:",);
     eprintln!("{:#?}", err,);
     eprintln!("Debug view of error:",);
@@ -577,7 +598,7 @@ fn frame_process_thread(
     width: u32,
     height: u32,
     pixel_format: PixFmt,
-    rx: channellib::Receiver<Msg>,
+    incoming_frame_rx: channellib::Receiver<Msg>,
     cam_args_tx: mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
     cfg: ImPtDetectCfg,
@@ -915,7 +936,13 @@ fn frame_process_thread(
 
         }
 
-        let msg = rx.recv()?;
+        let msg = match incoming_frame_rx.recv() {
+            Ok(msg) => msg,
+            Err(channellib::RecvError{..}) => {
+                info!("incoming frame channel closed for '{}'", cam_name.as_str());
+                break;
+            },
+        };
         let store_cache = if let Some(ref ssa) = shared_store_arc {
             let mut tracker = ssa.read();
             Some(tracker.as_ref().clone())
@@ -1696,6 +1723,7 @@ fn frame_process_thread(
             }
         };
     }
+    info!("frame process thread done for camera '{}'",cam_name.as_str());
     Ok(())
 }
 
@@ -1714,7 +1742,50 @@ fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16
     }
 }
 
-struct MyApp {
+pub struct NoisyDrop<T> {
+    inner: T,
+    name: String,
+    file: String,
+    line: u32,
+}
+
+impl<T> NoisyDrop<T> {
+    fn new(inner: T, name: String, file: &str, line: u32) -> Self {
+        debug!("Creating {} at {}:{}", name, file, line);
+        Self {
+            inner,
+            name,
+            file: file.into(),
+            line,
+        }
+    }
+}
+
+impl<T> std::ops::Deref for NoisyDrop<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> Drop for NoisyDrop<T> {
+    fn drop(&mut self) {
+        debug!(
+            "Dropping {} originally from {}:{}",
+            self.name, self.file, self.line
+        );
+        #[cfg(feature = "backtrace")]
+        error!("{}", std::backtrace::Backtrace::capture());
+    }
+}
+
+macro_rules! noisy_drop {
+    ($name:ident) => {
+        NoisyDrop::new($name, stringify!($name).to_string(), file!(), line!())
+    };
+}
+
+pub struct MyApp {
     inner: BuiAppInner<StoreType, CallbackType>,
     txers: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
 }
@@ -1758,6 +1829,7 @@ impl MyApp {
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
         let (firehose_callback_tx, firehose_callback_rx) = channellib::unbounded();
+        let firehose_callback_tx = noisy_drop!(firehose_callback_tx);
 
         debug!("created firehose_callback_tx");
 
@@ -1824,20 +1896,22 @@ impl MyApp {
         Ok((firehose_callback_rx, my_app))
     }
 
-    #[allow(unused_variables)]
-    fn pre_run(
-        self,
+    /// Spawn the camtrig thread (if compiled to do so).
+    ///
+    /// In the case of #[cfg(feature="with-camtrig")], this will spawn
+    /// the serial thread that communicates with the camtrig device.
+    /// Otherwise, does very little and `sjh` is essentially empty.
+    fn maybe_spawn_camtrig_thread(
+        &self,
         camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
         camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
         camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
-        let shared_store_arc = self.inner.shared_arc().clone();
-
         #[cfg(feature = "with_camtrig")]
         let sjh = {
             run_camtrig(
-                shared_store_arc,
+                self.inner.shared_arc().clone(), // shared_store_arc
                 camtrig_tx_std,
                 camtrig_rx,
                 camtrig_heartbeat_update_arc,
@@ -1849,6 +1923,13 @@ impl MyApp {
         let sjh = SerialJoinHandles {};
         Ok(sjh)
     }
+
+    fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
+        &self.inner
+    }
+    // fn inner_mut(&mut self) -> &mut BuiAppInner<StoreType, CallbackType> {
+    //     &mut self.inner
+    // }
 }
 
 #[cfg(feature = "with_camtrig")]
@@ -2365,7 +2446,8 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
         .expect("runtime");
 
     let handle = runtime.handle().clone();
-    let (_bui_server_info, tx_cam_arg2, fut) = runtime.enter(move || setup_app(handle, args))?;
+    let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
+        runtime.enter(move || setup_app(handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2398,7 +2480,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 pub fn setup_app(
     handle: tokio::runtime::Handle,
     args: StrandCamArgs)
-    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>)>
+    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, NoisyDrop<MyApp>)>
 {
     debug!("CLI request for camera {:?}", args.camera_name);
 
@@ -2795,14 +2877,16 @@ pub fn setup_app(
         shutdown_rx,
     )?;
 
+    let my_app = noisy_drop!(my_app);
+
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0
     // with the actual open port number.
 
     let (is_loopback, http_camserver_info) = {
-        let local_addr = my_app.inner.local_addr().clone();
+        let local_addr = my_app.inner().local_addr().clone();
         let is_loopback = local_addr.ip().is_loopback();
-        let token = my_app.inner.token();
+        let token = my_app.inner().token();
         (is_loopback, BuiServerInfo::new(local_addr, token))
     };
 
@@ -3813,7 +3897,11 @@ pub fn setup_app(
     };
 
     debug!("  running forever");
-    let sjh = my_app.pre_run(camtrig_tx_std, camtrig_rx,
+
+    // In the case of #[cfg(feature="with-camtrig")], this will spawn
+    // the serial thread that communicates with the camtrig device.
+    // Otherwise, does very little and `sjh` is essentially empty.
+    let sjh = my_app.maybe_spawn_camtrig_thread(camtrig_tx_std, camtrig_rx,
         camtrig_heartbeat_update_arc, cam_args_tx.clone())?;
 
     let ajh = AllJoinHandles {
@@ -3839,7 +3927,7 @@ pub fn setup_app(
 
     };
 
-    Ok((http_camserver_info, cam_args_tx, cam_arg_future2))
+    Ok((http_camserver_info, cam_args_tx, cam_arg_future2, my_app))
 }
 
 pub struct ControlledJoinHandle<T> {

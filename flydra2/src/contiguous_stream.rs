@@ -52,7 +52,7 @@ where
     St: Stream<Item = T>,
     T: Numbered,
 {
-    pub(crate) fn end(self) -> St {
+    pub(crate) fn inner(self) -> St {
         self.stream
     }
 }

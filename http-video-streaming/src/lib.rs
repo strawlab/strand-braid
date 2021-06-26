@@ -190,7 +190,6 @@ pub fn firehose_thread(
 ) -> Result<()> {
     // TODO switch this to a tokio core reactor based event loop and async processing.
     let mut per_sender_map: HashMap<ConnectionKey, PerSender> = HashMap::new();
-    let zero_dur = std::time::Duration::from_millis(0);
     while flag.is_alive() {
         // We have a timeout here in order to poll the `flag` variable above.
         let mut msg = match firehose_rx.recv_timeout(std::time::Duration::from_millis(100)) {
@@ -206,7 +205,7 @@ pub fn firehose_thread(
         };
 
         // Now pump the queue for any remaining messages, but do not wait for them.
-        while let Ok(msg_last) = firehose_rx.recv_timeout(zero_dur) {
+        while let Ok(msg_last) = firehose_rx.try_recv() {
             msg = msg_last;
         }
         let frame = Rc::new(msg);
@@ -256,6 +255,7 @@ pub fn firehose_thread(
             ps.push(frame.clone());
         }
 
+        // Loop through firehose callback messages to process them all.
         loop {
             match firehose_callback_rx.try_recv() {
                 Ok(msg) => {
