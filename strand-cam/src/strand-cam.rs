@@ -1758,6 +1758,7 @@ impl<T> NoisyDrop<T> {
 
 impl<T> std::ops::Deref for NoisyDrop<T> {
     type Target = T;
+    #[inline(always)]
     fn deref(&self) -> &T {
         &self.inner
     }
