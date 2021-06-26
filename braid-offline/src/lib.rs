@@ -238,7 +238,7 @@ where
     let mut cam_manager = flydra2::ConnectedCamerasManager::new(&Some(recon.clone()));
 
     let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);
-    let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
+    let (save_data_tx, save_data_rx) = channellib::unbounded();
     let save_empty_data2d = true;
     let ignore_latency = true;
     let mut coord_processor = CoordProcessor::new(
