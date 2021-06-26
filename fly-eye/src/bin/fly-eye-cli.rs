@@ -1,18 +1,10 @@
-extern crate convert_image;
-extern crate crossbeam_channel;
-extern crate crossbeam_ok;
-extern crate env_logger;
-extern crate failure;
-extern crate fly_eye;
-extern crate image;
-extern crate machine_vision_formats as formats;
-extern crate structopt;
+use machine_vision_formats as formats;
 
 use basic_frame::BasicExtra;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crossbeam_channel::unbounded;
+use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
 use fly_eye::App;
 
