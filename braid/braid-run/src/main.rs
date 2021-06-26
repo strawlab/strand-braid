@@ -106,7 +106,7 @@ fn main() -> Result<()> {
     let all_expected_cameras = cfg
         .cameras
         .iter()
-        .map(|x| RawCamName::new(x.name.clone()))
+        .map(|x| RawCamName::new(x.name.clone()).to_ros())
         .collect();
     let phase1 = runtime.block_on(flydra2_mainbrain::pre_run(
         &handle,

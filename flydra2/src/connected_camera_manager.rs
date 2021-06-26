@@ -1,6 +1,6 @@
 use log::{debug, error, info};
 use parking_lot::{Mutex, RwLock};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
@@ -19,7 +19,7 @@ pub(crate) trait HasCameraList {
 /// to see if both groups are identical.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CameraList {
-    pub(crate) inner: std::collections::BTreeSet<u8>,
+    pub(crate) inner: BTreeSet<u8>,
 }
 
 impl CameraList {
@@ -56,9 +56,12 @@ impl ConnectedCameraInfo {
 
 #[derive(Debug)]
 struct ConnectedCamerasManagerInner {
+    all_expected_cameras: BTreeSet<RosCamName>,
     next_cam_num: CamNum,
     ccis: BTreeMap<RosCamName, ConnectedCameraInfo>,
     not_yet_connected: BTreeMap<RosCamName, CamNum>,
+    all_expected_cameras_are_present: bool,
+    first_frame_arrived: BTreeSet<RosCamName>,
 }
 
 pub trait ConnectedCamCallback: Send {
@@ -72,7 +75,6 @@ pub trait ConnectedCamCallback: Send {
 /// manager via `Arc<Mutex<_>>`.
 #[derive(Clone)]
 pub struct ConnectedCamerasManager {
-    all_expected_cameras: Vec<RawCamName>,
     inner: Arc<RwLock<ConnectedCamerasManagerInner>>,
     on_cam_change_func: Arc<Mutex<Option<Box<dyn ConnectedCamCallback>>>>,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
@@ -80,7 +82,7 @@ pub struct ConnectedCamerasManager {
 
 impl HasCameraList for ConnectedCamerasManager {
     fn camera_list(&self) -> CameraList {
-        let inner: std::collections::BTreeSet<u8> = self
+        let inner: BTreeSet<u8> = self
             .inner
             .read()
             .ccis
@@ -94,7 +96,7 @@ impl HasCameraList for ConnectedCamerasManager {
 impl ConnectedCamerasManager {
     pub fn new(
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        all_expected_cameras: Vec<RawCamName>,
+        all_expected_cameras: BTreeSet<RosCamName>,
     ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
@@ -111,11 +113,13 @@ impl ConnectedCamerasManager {
         };
 
         Self {
-            all_expected_cameras,
             inner: Arc::new(RwLock::new(ConnectedCamerasManagerInner {
+                all_expected_cameras,
                 next_cam_num: next_cam_num.into(),
                 ccis: BTreeMap::new(),
                 not_yet_connected,
+                all_expected_cameras_are_present: false,
+                first_frame_arrived: BTreeSet::new(),
             })),
             on_cam_change_func: Arc::new(Mutex::new(None)),
             recon: recon.clone(),
@@ -205,11 +209,14 @@ impl ConnectedCamerasManager {
         http_camserver_info: &CamHttpServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     ) -> Self {
-        let all_expected_cameras = vec![orig_cam_name.clone()];
+        let ros_cam_name = orig_cam_name.to_ros();
+
+        let mut all_expected_cameras = BTreeSet::new();
+        all_expected_cameras.insert(ros_cam_name.clone());
+
         let this = Self::new(recon, all_expected_cameras);
         {
             let orig_cam_name = orig_cam_name.clone();
-            let ros_cam_name = orig_cam_name.to_ros();
 
             let mut inner = this.inner.write();
 
@@ -331,6 +338,7 @@ impl ConnectedCamerasManager {
         let mut synced_frame = None;
         let mut new_frame0 = None;
         let mut got_frame_during_sync_time = false;
+        let mut do_check_if_all_cameras_present = false;
         {
             let inner = self.inner.read();
             if let Some(cci) = inner.ccis.get(&ros_cam_name) {
@@ -338,6 +346,7 @@ impl ConnectedCamerasManager {
                 use crate::ConnectedCameraSyncState::*;
                 match cci.sync_state {
                     Unsynchronized => {
+                        do_check_if_all_cameras_present = true;
                         let sync_pulse_pause_started = sync_pulse_pause_started_arc.read();
                         if let Some(pulse_time) = *sync_pulse_pause_started {
                             let elapsed = pulse_time.elapsed();
@@ -416,6 +425,22 @@ impl ConnectedCamerasManager {
                 ros_cam_name.as_str(),
                 cam_frame
             );
+        }
+
+        if do_check_if_all_cameras_present {
+            if !self.inner.read().all_expected_cameras_are_present {
+                let mut inner = self.inner.write();
+                let i2: &mut ConnectedCamerasManagerInner = &mut inner;
+                if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
+                    info!("first frame from camera {} arrived.", ros_cam_name);
+                    if i2.first_frame_arrived == i2.all_expected_cameras {
+                        inner.all_expected_cameras_are_present = true;
+                        info!("All expected cameras connected.");
+                    } else {
+                        info!("All expected cameras NOT connected.");
+                    }
+                }
+            }
         }
 
         synced_frame.map(|x| SyncFno(x))

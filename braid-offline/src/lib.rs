@@ -235,7 +235,13 @@ where
         return Err(Error::NoCalibrationFound);
     };
 
-    let mut cam_manager = flydra2::ConnectedCamerasManager::new(&Some(recon.clone()));
+    let all_expected_cameras = recon
+        .cam_names()
+        .map(|x| RosCamName::new(x.to_string()))
+        .collect();
+
+    let mut cam_manager =
+        flydra2::ConnectedCamerasManager::new(&Some(recon.clone()), all_expected_cameras);
 
     let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);
     let (save_data_tx, save_data_rx) = channellib::unbounded();
