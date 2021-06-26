@@ -1524,18 +1524,13 @@ fn frame_process_thread(
                                     found_points.extend(results);
                                 }
                                 Err(e) => {
-                                    match e {
-                                        channellib::RecvTimeoutError::Timeout => {
-                                            error!("Not displaying annotation because the plugin took too long.");
-                                        },
-                                        channellib::RecvTimeoutError::Disconnected => {
-                                            // The tx channel was discconected.
-                                            error!("The plugin disconnected.");
-                                            return Err(StrandCamError::PluginDisconnected.into());
-                                        }
+                                    if e.is_timeout() {
+                                        error!("Not displaying annotation because the plugin took too long.");
+                                    } else {
+                                        error!("The plugin disconnected.");
+                                        return Err(StrandCamError::PluginDisconnected.into());
                                     }
                                 }
-
                             }
                         }
                     }
