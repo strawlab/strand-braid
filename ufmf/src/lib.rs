@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 extern crate byteorder;
 extern crate cast;
 extern crate chrono;
@@ -32,8 +34,13 @@ pub enum UFMFError {
     #[error("the pixel format changed")]
     FormatChanged,
 
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("{0}")]
     Cast(#[from] cast::Error),
 }

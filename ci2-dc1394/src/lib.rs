@@ -30,10 +30,10 @@ impl<T> ExtendedError<T> for std::result::Result<T, dc1394::Error> {
 
 macro_rules! bail {
     ($e: expr) => {
-        return Err(ci2::Error::CI2Error(format!($e)).into());
+        return Err(ci2::Error::from(format!($e)));
     };
     ($fmt:expr, $($arg:tt)+) => {
-        return Err(ci2::Error::CI2Error(format!($fmt, $($arg)+)).into());
+        return Err(ci2::Error::from(format!($fmt, $($arg)+)));
     };
 }
 
@@ -158,11 +158,11 @@ fn get_coding(
         ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RGB8 => formats::PixFmt::RGB8,
         ffi::dc1394color_coding_t::DC1394_COLOR_CODING_RAW16 => {
             let e = "unimplemented conversion for DC1394_COLOR_CODING_RAW16".to_string();
-            return Err(ci2::Error::CI2Error(e));
+            return Err(ci2::Error::from(e));
         }
         coding => {
             let e = format!("unimplemented conversion for coding {:?}", coding);
-            return Err(ci2::Error::CI2Error(e));
+            return Err(ci2::Error::from(e));
         }
     };
     Ok(result)
@@ -409,7 +409,7 @@ impl InnerCam {
             ci2::TriggerSelector::FrameStart => dc1394::TriggerSelector::FrameStart,
             selector => {
                 let e = format!("unimplemented trigger selector: {:?}", selector);
-                return Err(ci2::Error::CI2Error(e));
+                return Err(ci2::Error::from(e));
             }
         };
         modinner.cams[i].set_trigger_selector(v2).map_dc1394_err()?;

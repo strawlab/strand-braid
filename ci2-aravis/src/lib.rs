@@ -23,7 +23,7 @@ impl<T> ErrorOption<T> for Option<T> {
     fn none_err(self) -> Result<T, ci2::Error> {
         match self {
             Some(val) => Ok(val),
-            None => Err(ci2::Error::CI2Error("unexpected None".to_string())),
+            None => Err(ci2::Error::from("unexpected None".to_string())),
         }
     }
 }
@@ -134,7 +134,7 @@ impl WrappedCamera {
         let idx = match found {
             Some(idx) => idx,
             None => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "device_id {} not found",
                     device_id
                 )));
@@ -147,7 +147,7 @@ impl WrappedCamera {
         let cam = match aravis::Camera::new2(device_id) {
             Some(camera) => camera,
             None => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "camera {} found but not opened",
                     device_id
                 )));
@@ -194,7 +194,7 @@ fn convert_fmt(fmt: &str) -> ci2::Result<formats::PixelFormat> {
         "Mono8" => Ok(formats::PixelFormat::MONO8),
         "Mono10" => Ok(formats::PixelFormat::MONO10),
         f => {
-            return Err(ci2::Error::CI2Error(format!(
+            return Err(ci2::Error::from(format!(
                 "unimplemented pixel format {}",
                 f
             )))
@@ -221,9 +221,7 @@ impl ci2::Camera for WrappedCamera {
         let fmt = self.inner.lock().get_pixel_format_as_string();
         match fmt {
             Some(fmt) => Ok(convert_fmt(&fmt)?),
-            None => Err(ci2::Error::CI2Error(
-                "failed getting pixel_format".to_string(),
-            )),
+            None => Err(ci2::Error::from("failed getting pixel_format".to_string())),
         }
     }
     fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixelFormat>> {
@@ -248,7 +246,7 @@ impl ci2::Camera for WrappedCamera {
             formats::PixelFormat::MONO8 => "Mono8",
             formats::PixelFormat::MONO10 => "Mono10",
             e => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unimplemented pixel_format {:?}",
                     e
                 )))

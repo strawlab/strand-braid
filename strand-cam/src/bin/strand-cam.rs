@@ -4,7 +4,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use clap::Arg;
 
-use strand_cam::{run_app, CalSource, StrandCamArgs};
+use strand_cam::{run_app, StrandCamArgs};
 
 #[cfg(feature = "cfg-pt-detect-src-prefs")]
 use strand_cam::APP_INFO;
@@ -299,14 +299,14 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
 
     #[cfg(feature = "flydratrax")]
     let flydratrax_calibration_source = match camera_xml_calibration {
-        None => CalSource::PseudoCal,
-        Some(fname) => CalSource::XmlFile(std::path::PathBuf::from(fname)),
+        None => strand_cam::CalSource::PseudoCal,
+        Some(fname) => strand_cam::CalSource::XmlFile(std::path::PathBuf::from(fname)),
     };
 
     #[cfg(feature = "flydratrax")]
     let flydratrax_calibration_source = match camera_pymvg_calibration {
-        None => CalSource::PseudoCal,
-        Some(fname) => CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
+        None => strand_cam::CalSource::PseudoCal,
+        Some(fname) => strand_cam::CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
     };
 
     let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());

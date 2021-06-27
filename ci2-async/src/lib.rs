@@ -99,7 +99,7 @@ where
         FN: Fn() + Send + 'static,
     {
         if self.control_and_join_handle.is_some() {
-            return Err(ci2::Error::CI2Error("already launched thread".to_string()));
+            return Err(ci2::Error::from("already launched thread"));
         }
 
         let (mut tx, rx) = futures::channel::mpsc::channel(bufsize);

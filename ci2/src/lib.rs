@@ -1,5 +1,8 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use basic_frame::DynamicFrame;
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
@@ -17,35 +20,41 @@ pub enum Error {
     SingleFrameError(String),
     #[error("Timeout")]
     Timeout,
-    #[error("CI2Error({0})")]
-    CI2Error(String),
+    #[error("CI2Error({msg})")]
+    CI2Error {
+        msg: String,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("feature not present")]
-    FeatureNotPresent,
+    FeatureNotPresent(#[cfg(feature = "backtrace")] Backtrace),
     #[error("BackendError({0})")]
     BackendError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         anyhow::Error,
     ),
-
-    #[error("{0}")]
-    IoError(
+    #[error("io error: {source}")]
+    IoError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
-    #[error("{0}")]
-    Utf8Error(
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("utf8 error: {source}")]
+    Utf8Error {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::str::Utf8Error,
-    ),
-    #[error("{0}")]
-    TryFromIntError(
+        source: std::str::Utf8Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("try from int error: {source}")]
+    TryFromIntError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::num::TryFromIntError,
-    ),
+        source: std::num::TryFromIntError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 fn _test_error_is_send() {
@@ -56,7 +65,21 @@ fn _test_error_is_send() {
 
 impl<'a> From<&'a str> for Error {
     fn from(orig: &'a str) -> Error {
-        Error::CI2Error(orig.to_string())
+        Error::CI2Error {
+            msg: orig.to_string(),
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Error {
+        Error::CI2Error {
+            msg,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 

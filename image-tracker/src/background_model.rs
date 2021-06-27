@@ -150,10 +150,11 @@ impl BackgroundModel {
                 BayerGB8 => BayerGB32f,
                 BayerGR8 => BayerGR32f,
                 pixel_format => {
-                    return Err(Error::OtherError(format!(
-                        "unimplemented pixel_format {}",
-                        pixel_format
-                    ))
+                    return Err(Error::OtherError {
+                        msg: format!("unimplemented pixel_format {}", pixel_format),
+                        #[cfg(feature = "backtrace")]
+                        backtrace: std::backtrace::Backtrace::capture(),
+                    }
                     .into());
                 }
             }

@@ -101,13 +101,13 @@ pub fn parse_pinhole_yaml<R: std::io::Read, P: AsRef<Path>>(
     reader.read_to_string(&mut buf)?;
     let result: pinhole_wizard_yaml_support::PinholeInputFile = match serde_yaml::from_str(&buf) {
         Ok(result) => result,
-        Err(e1) => {
+        Err(err1) => {
             match serde_yaml::from_str::<crate::pinhole_wizard_yaml_support::SimplePinholeInputFile>(
                 &buf,
             ) {
                 Ok(simple) => simple.to_orig(),
-                Err(e2) => {
-                    return Err(Error::FailedParse((e1, e2)));
+                Err(err2) => {
+                    return Err(Error::FailedParse { err1, err2 });
                 }
             }
         }

@@ -65,6 +65,8 @@ impl FMFReader {
         let mut f = File::open(&path).map_err(|e| FMFError::IoPath {
             source: e,
             path: path.as_ref().display().to_string(),
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
         })?;
 
         // version

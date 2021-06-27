@@ -106,7 +106,8 @@ default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "check
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace", "convert-image/backtrace"]
+backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
+    "convert-image/backtrace", "http-video-streaming/backtrace"]
 
 send-bg-images-to-mainbrain = []
 
@@ -139,7 +140,7 @@ imtrack-absdiff = []
 # Other features
 with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/with_camtrig"]
 
-flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
+flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg", "flydra-mvg/backtrace",
     "approx", "strand-cam-storetype/flydratrax", "alga",
     "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
 

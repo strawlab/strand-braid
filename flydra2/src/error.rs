@@ -6,7 +6,6 @@ pub enum Error {
     #[error("{source}")]
     FlydraTypes {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: flydra_types::FlydraTypesError,
     },
     #[error("{source}")]
@@ -18,44 +17,51 @@ pub enum Error {
     #[error("{source}")]
     Io {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     Csv {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: csv::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     GetTimezone {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: iana_time_zone::GetTimezoneError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     SerdeJson {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     SerdeYaml {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     TomlSerError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: toml::ser::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("{source}")]
     TomlDeError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: toml::de::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
     },
     #[error("invalid hypothesis testing parameters")]
     InvalidHypothesisTestingParameters,

@@ -2,6 +2,9 @@
 
 extern crate machine_vision_formats as formats;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
@@ -28,20 +31,26 @@ pub type Result<M> = std::result::Result<M, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("{0}")]
-    PylonError(
+    #[error("Pylon error: {source}")]
+    PylonError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        pylon_cxx::PylonError,
-    ),
-    #[error("{0}")]
-    IntParseError(
+        source: pylon_cxx::PylonError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("int parse error: {source}")]
+    IntParseError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::num::ParseIntError,
-    ),
-    #[error("OtherError {0}")]
-    OtherError(String),
+        source: std::num::ParseIntError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("other error: {msg}")]
+    OtherError {
+        msg: String,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 impl From<Error> for ci2::Error {
@@ -295,7 +304,12 @@ impl WrappedCamera {
                 });
             }
         }
-        return Err(Error::OtherError(format!("requested camera '{}' was not found", name)).into());
+        return Err(Error::OtherError {
+            msg: format!("requested camera '{}' was not found", name),
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
+        }
+        .into());
     }
 
     fn exposure_time_param_name(&self) -> &'static str {
@@ -531,7 +545,7 @@ impl ci2::Camera for WrappedCamera {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerMode enum string: {}",
                     s
                 )));
@@ -609,7 +623,7 @@ impl ci2::Camera for WrappedCamera {
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector enum string: {}",
                     s
                 )));
@@ -623,7 +637,7 @@ impl ci2::Camera for WrappedCamera {
             ci2::TriggerSelector::FrameStart => "FrameStart",
             ci2::TriggerSelector::ExposureActive => "ExposureActive",
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector: {:?}",
                     s
                 )));
@@ -651,10 +665,10 @@ impl ci2::Camera for WrappedCamera {
             "SingleFrame" => ci2::AcquisitionMode::SingleFrame,
             "MultiFrame" => ci2::AcquisitionMode::MultiFrame,
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected AcquisitionMode: {:?}",
                     s
-                )))
+                )));
             }
         })
     }
@@ -709,7 +723,7 @@ impl ci2::Camera for WrappedCamera {
                     if block_id < 30000 && i.previous_block_id > 30000 {
                         // check nothing crazy is going on
                         if (i.store_fno - i.last_rollover) < 30000 {
-                            return Err(ci2::Error::CI2Error(format!(
+                            return Err(ci2::Error::from(format!(
                                 "Cannot recover frame count with \
                                 Basler GigE camera {}. Did many \
                                 frames get dropped?",
@@ -783,20 +797,16 @@ pub fn convert_pixel_format(pixel_format: formats::PixFmt) -> ci2::Result<&'stat
         BayerBG8 => "BayerBG8",
         BayerGB8 => "BayerGB8",
         // e => {
-        //     return Err(ci2::Error::CI2Error(format!("Unknown PixelFormat {:?}", e)));
+        //     return Err(ci2::Error::from(format!("Unknown PixelFormat {:?}", e)));
         // }
         unknown => {
-            return Err(ci2::Error::CI2Error(format!(
-                "Unsuppored PixFmt {}",
-                unknown
-            )));
+            return Err(ci2::Error::from(format!("Unsuppored PixFmt {}", unknown)));
         }
     };
     Ok(pixfmt)
 }
 
 pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
-    use ci2::Error::CI2Error;
     use formats::PixFmt::*;
     let pixfmt = match orig {
         "Mono8" => Mono8,
@@ -814,7 +824,10 @@ pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
         "BayerBG8" => BayerBG8,
 
         e => {
-            return Err(CI2Error(format!("Unknown pixel format string: {:?}", e)));
+            return Err(ci2::Error::from(format!(
+                "Unknown pixel format string: {:?}",
+                e
+            )));
         }
     };
     Ok(pixfmt)
@@ -840,7 +853,7 @@ fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
         s => {
-            return Err(ci2::Error::CI2Error(format!(
+            return Err(ci2::Error::from(format!(
                 "unexpected AutoMode enum string: {}",
                 s
             )));

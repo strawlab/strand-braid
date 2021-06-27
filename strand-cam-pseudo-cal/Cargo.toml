@@ -19,4 +19,4 @@ flydra-types = {path="../flydra-types"}
 approx = "0.5"
 
 [features]
-backtrace = ["mvg/backtrace"]
+backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

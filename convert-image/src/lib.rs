@@ -25,24 +25,27 @@ pub enum Error {
     InvalidAllocatedBufferSize,
     #[error("invalid allocated buffer stride")]
     InvalidAllocatedBufferStride,
-    #[error(transparent)]
-    Bayer(
+    #[error("{source}")]
+    Bayer {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        wang_debayer::BayerError,
-    ),
-    #[error(transparent)]
-    Io(
+        source: wang_debayer::BayerError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("io error: {source}")]
+    Io {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        std::io::Error,
-    ),
-    #[error(transparent)]
-    Image(
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("{source}")]
+    Image {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        image::ImageError,
-    ),
+        source: image::ImageError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("unimplemented conversion {0} -> {1}")]
     UnimplementedConversion(PixFmt, PixFmt),
 }

@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 extern crate basic_frame;
 extern crate byteorder;
 extern crate chrono;
@@ -43,6 +45,8 @@ pub enum FMFError {
         path: String,
         #[source]
         source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
 
     #[error("{0}")]

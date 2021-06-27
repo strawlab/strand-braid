@@ -4,6 +4,9 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use borrow_fastimage::BorrowedFrame;
 use futures::{channel::mpsc, stream::StreamExt};
 
@@ -60,7 +63,10 @@ thread_local!(
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(Error::DivideByZero);
+        return Err(Error::DivideByZero(
+            #[cfg(feature = "backtrace")]
+            Backtrace::capture(),
+        ));
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -487,7 +493,10 @@ macro_rules! do_send {
         match $sock.send(&$data) {
             Ok(sz) => {
                 if sz != $data.len() {
-                    return Err(Error::IncompleteSend);
+                    return Err(Error::IncompleteSend(
+                        #[cfg(feature = "backtrace")]
+                        Backtrace::capture(),
+                    ));
                 }
             }
             Err(err) => {
@@ -679,7 +688,7 @@ impl FlyTracker {
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         mainbrain_internal_addr: Option<MainbrainBuiLocation>,
         camdata_addr: Option<RealtimePointsDestAddr>,
-        async_rx: mpsc::Receiver<Vec<u8>>,
+        transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
         valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
@@ -702,14 +711,20 @@ impl FlyTracker {
                     hack_binning = Some(bins);
                 }
                 Err(e) => {
-                    return Err(
-                        Error::OtherError(format!("could not parse to bins: {:?}", e)).into(),
-                    );
+                    return Err(Error::OtherError {
+                        msg: format!("could not parse to bins: {:?}", e),
+                        #[cfg(feature = "backtrace")]
+                        backtrace: std::backtrace::Backtrace::capture(),
+                    });
                 }
             },
             Err(std::env::VarError::NotPresent) => {}
             Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(Error::OtherError(format!("received not unicode env var")).into());
+                return Err(Error::OtherError {
+                    msg: format!("received not unicode env var"),
+                    #[cfg(feature = "backtrace")]
+                    backtrace: std::backtrace::Backtrace::capture(),
+                });
             }
         };
 
@@ -747,7 +762,7 @@ impl FlyTracker {
                 orig_cam_name,
                 http_camserver_info,
                 ros_cam_name,
-                async_rx,
+                transmit_current_image_rx,
             );
 
             let f2 = async {
@@ -829,7 +844,10 @@ impl FlyTracker {
                     }
                     #[cfg(not(feature = "flydra-uds"))]
                     &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                        return Err(Error::UnixDomainSocketsNotSupported.into());
+                        return Err(Error::UnixDomainSocketsNotSupported(
+                            #[cfg(feature = "backtrace")]
+                            Backtrace::capture(),
+                        ));
                     }
                     &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
                         let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
@@ -971,7 +989,10 @@ impl FlyTracker {
         sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(Error::ImageSizeChanged);
+            return Err(Error::ImageSizeChanged(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ));
         }
 
         // move state into local variable so we can move it into next state
@@ -1201,17 +1222,18 @@ async fn register_node_and_update_image(
     orig_cam_name: flydra_types::RawCamName,
     http_camserver_info: flydra_types::CamHttpServerInfo,
     ros_cam_name: RosCamName,
-    mut async_rx: mpsc::Receiver<Vec<u8>>,
+    mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<()> {
     let mut mainbrain_session = mainbrain_future_session(api_http_address).await?;
     mainbrain_session
         .register_flydra_camnode(orig_cam_name, http_camserver_info, ros_cam_name.clone())
         .await?;
-    while let Some(image_png_vecu8) = async_rx.next().await {
+    while let Some(image_png_vecu8) = transmit_current_image_rx.next().await {
         mainbrain_session
             .update_image(ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
+    info!("done listening for background images from {}", ros_cam_name.as_str());
     Ok(())
 }
 

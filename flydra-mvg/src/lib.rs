@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
@@ -398,9 +400,7 @@ impl<R: RealField + Default + serde::Serialize> FlydraMultiCameraSystem<R> {
                 // based calculation? This would seem problematic...
                 let opt_water_3d_pt = match self.find3d_water(&points, n2) {
                     Ok(water_3d_pt) => Some(water_3d_pt),
-                    Err(MvgError::CamGeomError {
-                        error: cam_geom::Error::MinimumTwoRaysNeeded,
-                    }) => None,
+                    Err(MvgError::CamGeomError { .. }) => None,
                     Err(e) => {
                         return Err(e.into());
                     }
@@ -597,7 +597,9 @@ where
     pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
         let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)
             .map_err(|_e| MvgError::Io {
-            error: std::io::ErrorKind::Other.into(),
+            source: std::io::ErrorKind::Other.into(),
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
         })?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
@@ -605,7 +607,9 @@ where
     pub fn to_flydra_xml<W: Write>(&self, mut writer: W) -> Result<()> {
         let recon = self.to_flydra_reconstructor()?;
         let buf = flydra_xml_support::serialize_recon(&recon).map_err(|_e| MvgError::Io {
-            error: std::io::ErrorKind::Other.into(),
+            source: std::io::ErrorKind::Other.into(),
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
         })?;
         writer.write(buf.as_bytes())?;
         Ok(())

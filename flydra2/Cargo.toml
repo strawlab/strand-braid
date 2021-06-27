@@ -78,4 +78,4 @@ serve_files = []
 
 braid = []
 
-backtrace = ["mvg/backtrace"]
+backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]
