@@ -1,12 +1,5 @@
 #[macro_use]
 extern crate log;
-extern crate env_logger;
-
-extern crate crossbeam_channel;
-extern crate structopt;
-
-extern crate crossbeam_ok;
-extern crate flydra1_triggerbox;
 
 use crossbeam_ok::CrossbeamOk;
 use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
@@ -28,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     info!("flydra1_triggerbox starting");
     let opt = Opt::from_args();
 
-    let (tx, rx) = crossbeam_channel::unbounded();
+    let (tx, rx) = channellib::unbounded();
 
     tx.send(Cmd::StopPulsesAndReset).cb_ok();
     tx.send(make_trig_fps_cmd(opt.fps)).cb_ok();
