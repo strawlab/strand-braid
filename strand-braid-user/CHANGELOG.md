@@ -1,5 +1,17 @@
 ## 0.10.0 - unreleased
 
+### Added
+
+* Cameras automatically synchronize in `braid`.
+
+* Braidz parsing is done by a single implementation in the `braidz-parsing`
+  crate. This transparently handles `.braidz` files or `.braid` directories as
+  well as uncompressed `.csv` files or compressed `.csv.gz` files.
+
+* In `strand-cam` a camera calibration can be loaded with the
+  `--camera-xml-calibration` or `--camera-pymvg-calibration` command-line
+  arguments.
+
 ### Changed
 
 * For the `strand-cam-offline-kalmanize` program, the `--output` (or `-o`)
@@ -8,9 +20,14 @@
   converted to the corresponding `.braidz` file. For example, `foo.braid` was
   given on the command line and `foo.braidz` was saved. Now, use `foo.braidz`.)
 
-* The Kalman filter implementation used for tracking in Braid now uses a
-  different method to calculate covariance. This improves robustness. See
+* The Kalman filter implementation used for tracking in Braid now uses the
+  Joseph form method to calculate covariance. This improves robustness. See
   https://github.com/strawlab/strand-braid/issues/3.
+
+* Error handling is now performed by the `anyhow` and `thiserror` crates in
+  place of the `failure` crate.
+
+* Asynchronous task handlingn was updated to `tokio` 1.0 from 0.2.
 
 ### Fixed
 
@@ -19,15 +36,6 @@
   data is stored in memory as the program runs. This works around a bug in
   which, if the program crashes due to a panic, some data scheduled to be
   written to a .gz file is lost.
-
-### Added
-
-* Error handling is now performed by the `anyhow` and `thiserror` crates in
-  place of the `failure` crate.
-
-* Braidz parsing is done by a single implementation in the `braidz-parsing`
-  crate. This transparently handles `.braidz` files or `.braid` directories as
-  well as uncompressed `.csv` files or compressed `.csv.gz` files.
 
 ## 0.9.1 - 2021-06-22
 
