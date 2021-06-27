@@ -158,6 +158,15 @@ pub enum ConnectedCameraSyncState {
     Synchronized(u64),
 }
 
+impl ConnectedCameraSyncState {
+    pub fn is_synchronized(&self) -> bool {
+        match self {
+            ConnectedCameraSyncState::Unsynchronized => false,
+            ConnectedCameraSyncState::Synchronized(_) => true,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct HttpApiShared {
     pub fake_sync: bool,
@@ -167,6 +176,7 @@ pub struct HttpApiShared {
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
     pub model_server_addr: Option<std::net::SocketAddr>,
     pub flydra_app_name: String,
+    pub all_expected_cameras_are_synced: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

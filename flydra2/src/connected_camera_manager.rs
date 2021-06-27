@@ -62,6 +62,7 @@ struct ConnectedCamerasManagerInner {
     ccis: BTreeMap<RosCamName, ConnectedCameraInfo>,
     not_yet_connected: BTreeMap<RosCamName, CamNum>,
     all_expected_cameras_are_present: bool,
+    all_expected_cameras_are_synced: bool,
     first_frame_arrived: BTreeSet<RosCamName>,
 }
 
@@ -80,6 +81,7 @@ pub struct ConnectedCamerasManager {
     on_cam_change_func: Arc<Mutex<Option<Box<dyn ConnectedCamCallback>>>>,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     signal_all_cams_present: Arc<AtomicBool>,
+    signal_all_cams_synced: Arc<AtomicBool>,
 }
 
 impl HasCameraList for ConnectedCamerasManager {
@@ -100,6 +102,7 @@ impl ConnectedCamerasManager {
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         all_expected_cameras: BTreeSet<RosCamName>,
         signal_all_cams_present: Arc<AtomicBool>,
+        signal_all_cams_synced: Arc<AtomicBool>,
     ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
@@ -117,12 +120,14 @@ impl ConnectedCamerasManager {
 
         Self {
             signal_all_cams_present,
+            signal_all_cams_synced,
             inner: Arc::new(RwLock::new(ConnectedCamerasManagerInner {
                 all_expected_cameras,
                 next_cam_num: next_cam_num.into(),
                 ccis: BTreeMap::new(),
                 not_yet_connected,
                 all_expected_cameras_are_present: false,
+                all_expected_cameras_are_synced: false,
                 first_frame_arrived: BTreeSet::new(),
             })),
             on_cam_change_func: Arc::new(Mutex::new(None)),
@@ -216,11 +221,17 @@ impl ConnectedCamerasManager {
         let ros_cam_name = orig_cam_name.to_ros();
 
         let signal_all_cams_present = Arc::new(AtomicBool::new(false));
+        let signal_all_cams_synced = Arc::new(AtomicBool::new(false));
 
         let mut all_expected_cameras = BTreeSet::new();
         all_expected_cameras.insert(ros_cam_name.clone());
 
-        let this = Self::new(recon, all_expected_cameras, signal_all_cams_present);
+        let this = Self::new(
+            recon,
+            all_expected_cameras,
+            signal_all_cams_present,
+            signal_all_cams_synced,
+        );
         {
             let orig_cam_name = orig_cam_name.clone();
 
@@ -345,6 +356,7 @@ impl ConnectedCamerasManager {
         let mut new_frame0 = None;
         let mut got_frame_during_sync_time = false;
         let mut do_check_if_all_cameras_present = false;
+        let mut do_check_if_all_cameras_synchronized = false;
         {
             let inner = self.inner.read();
             if let Some(cci) = inner.ccis.get(&ros_cam_name) {
@@ -431,6 +443,7 @@ impl ConnectedCamerasManager {
                 ros_cam_name.as_str(),
                 cam_frame
             );
+            do_check_if_all_cameras_synchronized = true;
         }
 
         if do_check_if_all_cameras_present {
@@ -446,6 +459,34 @@ impl ConnectedCamerasManager {
                     } else {
                         info!("All expected cameras NOT connected.");
                     }
+                }
+            }
+        }
+
+        if do_check_if_all_cameras_synchronized {
+            if !self.inner.read().all_expected_cameras_are_synced {
+                let mut inner = self.inner.write();
+                let i2: &mut ConnectedCamerasManagerInner = &mut inner;
+                // if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
+                //     info!("first frame from camera {} arrived.", ros_cam_name);
+                let mut all_synced = true;
+                for ros_cam_name in i2.all_expected_cameras.iter() {
+                    let this_sync = i2
+                        .ccis
+                        .get(ros_cam_name)
+                        .map(|cci| cci.sync_state.is_synchronized())
+                        .unwrap_or(false);
+                    if !this_sync {
+                        all_synced = false;
+                        break;
+                    }
+                }
+
+                if all_synced {
+                    info!("All expected cameras synchronized.");
+                    self.signal_all_cams_synced.store(true, Ordering::SeqCst);
+                } else {
+                    info!("All expected cameras NOT synchronized.");
                 }
             }
         }

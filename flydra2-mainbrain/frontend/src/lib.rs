@@ -202,6 +202,21 @@ impl Model {
 
     fn view_shared(&self) -> Html {
         if let Some(ref value) = self.shared {
+            let record_widget = if value.all_expected_cameras_are_synced
+                && value.clock_model_copy.is_some()
+            {
+                html! {
+                    <RecordingPathWidget
+                    label="Record .braidz file",
+                    value=self.recording_path.clone(),
+                    ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)}),
+                    />
+                }
+            } else {
+                html! {
+                    <div>{"Recording disabled until cameras synchronize and clock model established."}</div>
+                }
+            };
             let fake_sync_warning = if value.fake_sync {
                 html! {
                     <div>
@@ -217,11 +232,7 @@ impl Model {
                 <div>
                     {fake_sync_warning}
                     <div>
-                        <RecordingPathWidget
-                            label="Record .braidz file",
-                            value=self.recording_path.clone(),
-                            ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)}),
-                            />
+                        {record_widget}
                         {view_clock_model(&value.clock_model_copy)}
                         {view_calibration(&value.calibration_filename)}
                         {view_cam_list(&value.connected_cameras)}

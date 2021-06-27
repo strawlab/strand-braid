@@ -241,11 +241,13 @@ where
         .collect();
 
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let mut cam_manager = flydra2::ConnectedCamerasManager::new(
         &Some(recon.clone()),
         all_expected_cameras,
         signal_all_cams_present,
+        signal_all_cams_synced,
     );
 
     let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);

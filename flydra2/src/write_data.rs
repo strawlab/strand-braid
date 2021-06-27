@@ -646,6 +646,7 @@ mod test {
                 &None,
                 std::collections::BTreeSet::new(),
                 Arc::new(AtomicBool::new(true)),
+                Arc::new(AtomicBool::new(true)),
             );
             let tracking_params = Arc::new(SwitchingTrackingParams::default());
             let save_empty_data2d = false;

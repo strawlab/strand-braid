@@ -24,8 +24,7 @@ use bui_backend_types::CallbackDataAndSession;
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, FlydraPacketCodec,
-    FlydraRawUdpPacket, HttpApiCallback, HttpApiShared, RawCamName, RosCamName, SyncFno,
-    TriggerType, Triggerbox,
+    HttpApiCallback, HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
 };
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
@@ -243,6 +242,7 @@ pub struct StartupPhase1 {
     coord_processor: CoordProcessor,
     model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     signal_all_cams_present: Arc<AtomicBool>,
+    signal_all_cams_synced: Arc<AtomicBool>,
 }
 
 pub async fn pre_run(
@@ -303,11 +303,13 @@ pub async fn pre_run(
     };
 
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let cam_manager = flydra2::ConnectedCamerasManager::new(
         &recon,
         all_expected_cameras,
         signal_all_cams_present.clone(),
+        signal_all_cams_synced.clone(),
     );
     let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
 
@@ -405,6 +407,7 @@ pub async fn pre_run(
         connected_cameras: Vec::new(),
         model_server_addr: None,
         flydra_app_name,
+        all_expected_cameras_are_synced: false,
     };
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
@@ -483,6 +486,7 @@ pub async fn pre_run(
         valve,
         model_server_shutdown_rx,
         signal_all_cams_present,
+        signal_all_cams_synced,
     })
 }
 
@@ -505,6 +509,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let valve = phase1.valve;
     let model_server_shutdown_rx = phase1.model_server_shutdown_rx;
     let signal_all_cams_present = phase1.signal_all_cams_present;
+    let signal_all_cams_synced = phase1.signal_all_cams_synced;
 
     let signal_triggerbox_connected = Arc::new(AtomicBool::new(false));
     let triggerbox_cmd = my_app.triggerbox_cmd.clone();
@@ -683,11 +688,11 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         }
     };
 
-    // Automatic sync
+    // Initiate camera synchronization on startup
     let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
     let time_model_arc2 = time_model_arc.clone();
     let cam_manager2 = cam_manager.clone();
-    let sync_jh = rt_handle3.spawn(async move {
+    let sync_start_jh = rt_handle3.spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
         loop {
@@ -703,6 +708,26 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     cam_manager2.clone(),
                     time_model_arc2.clone(),
                 );
+                break;
+            }
+        }
+    });
+
+    // Signal cameras are synchronized
+
+    let shared_store = my_app.inner.shared_arc().clone();
+    let sync_done_jh = rt_handle3.spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+
+        loop {
+            let _now = interval.tick().await;
+            let sync_done = signal_all_cams_synced.load(Ordering::SeqCst);
+            if sync_done {
+                info!("All cameras done synchronizing.");
+
+                // Send message to listeners.
+                let mut tracker = shared_store.write();
+                tracker.modify(|shared| shared.all_expected_cameras_are_synced = true);
                 break;
             }
         }
