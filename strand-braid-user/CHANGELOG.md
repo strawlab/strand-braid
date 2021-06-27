@@ -29,6 +29,13 @@
   crate. This transparently handles `.braidz` files or `.braid` directories as
   well as uncompressed `.csv` files or compressed `.csv.gz` files.
 
+## 0.9.1 - 2021-06-22
+
+### Fixed
+
+* Braid zip archive files (`.braidz` files) containing large files could become
+  corrupt (https://github.com/strawlab/strand-braid/issues/5). This was fixed.
+
 ## 0.9.0 - 2021-01-04
 
 ### Added
