@@ -49,6 +49,10 @@ where
             pending: None,
         }
     }
+
+    pub(crate) fn inner(self) -> St {
+        self.stream
+    }
 }
 
 impl<St, HCL> Stream for OrderedLossyFrameBundler<St, HCL>

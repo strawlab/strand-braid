@@ -17,7 +17,6 @@ log = "0.4.8"
 structopt = "0.3"
 hdrhistogram = "7.1.0"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 futures = "0.3"
 pin-project = "0.4.0"
 csv = "1.1"
@@ -58,6 +57,7 @@ nalgebra-mvn = "0.9"
 iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
+channellib = {path="../channellib"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 
 [dev-dependencies]

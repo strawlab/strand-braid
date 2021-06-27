@@ -3,8 +3,6 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
-use crossbeam_channel::TryRecvError;
-
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 // TODO: generalize also to FMF writer
@@ -26,30 +24,25 @@ pub enum Error {
     ),
     #[error("mkvfix error: {0}")]
     MkvFix(#[from] strand_cam_mkvfix::Error),
-    #[error("send error")]
+    #[error("SendError")]
     SendError(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("receive error")]
-    RecvError(#[cfg(feature = "backtrace")] Backtrace),
+    #[error(transparent)]
+    RecvError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        channellib::RecvError,
+    ),
     #[error("already done")]
     AlreadyDone(#[cfg(feature = "backtrace")] Backtrace),
     #[error("disconnected")]
     Disconnected(#[cfg(feature = "backtrace")] Backtrace),
 }
 
-impl From<crossbeam_channel::SendError<Msg>> for Error {
-    fn from(_orig: crossbeam_channel::SendError<Msg>) -> Error {
+impl From<channellib::SendError<Msg>> for Error {
+    fn from(orig: channellib::SendError<Msg>) -> Error {
         Error::SendError(
             #[cfg(feature = "backtrace")]
-            Backtrace::capture(),
-        )
-    }
-}
-
-impl From<crossbeam_channel::RecvError> for Error {
-    fn from(_orig: crossbeam_channel::RecvError) -> Error {
-        Error::RecvError(
-            #[cfg(feature = "backtrace")]
-            Backtrace::capture(),
+            orig.backtrace,
         )
     }
 }
@@ -62,21 +55,22 @@ macro_rules! async_err {
             Ok(e) => {
                 return Err(e);
             }
-            Err(TryRecvError::Empty) => {}
-            Err(TryRecvError::Disconnected) => {
-                return Err(Error::Disconnected(
-                    #[cfg(feature = "backtrace")]
-                    Backtrace::capture(),
-                ));
+            Err(e) => {
+                if !e.is_empty() {
+                    return Err(Error::Disconnected(
+                        #[cfg(feature = "backtrace")]
+                        Backtrace::capture(),
+                    ));
+                }
             }
         }
     };
 }
 
 pub struct BgMovieWriter {
-    tx: crossbeam_channel::Sender<Msg>,
+    tx: channellib::Sender<Msg>,
     is_done: bool,
-    err_rx: crossbeam_channel::Receiver<Error>,
+    err_rx: channellib::Receiver<Error>,
 }
 
 impl BgMovieWriter {
@@ -85,7 +79,7 @@ impl BgMovieWriter {
         mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
         queue_size: usize,
     ) -> Self {
-        let (err_tx, err_rx) = crossbeam_channel::unbounded();
+        let (err_tx, err_rx) = channellib::unbounded();
         let tx = launch_runner(format_str_mkv, mkv_recording_config, queue_size, err_tx);
         Self {
             tx,
@@ -144,9 +138,9 @@ fn launch_runner(
     format_str_mkv: String,
     mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
     size: usize,
-    err_tx: crossbeam_channel::Sender<Error>,
-) -> crossbeam_channel::Sender<Msg> {
-    let (tx, rx) = crossbeam_channel::bounded::<Msg>(size);
+    err_tx: channellib::Sender<Error>,
+) -> channellib::Sender<Msg> {
+    let (tx, rx) = channellib::bounded::<Msg>(size);
     std::thread::spawn(move || {
         // Load CUDA and nvidia-encode shared libs, but do not return error
         // (yet).

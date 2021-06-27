@@ -11,8 +11,10 @@ use std::convert::TryInto;
 use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{AddrInfoIP, MainbrainBuiLocation, RealtimePointsDestAddr, TriggerType};
-use strand_cam::ImPtDetectCfgSource;
+use flydra_types::{
+    AddrInfoIP, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, TriggerType,
+};
+use strand_cam::{ImPtDetectCfgSource, MyApp, NoisyDrop};
 
 use braid::{braid_start, parse_config_file, BraidCameraConfig};
 
@@ -24,7 +26,10 @@ struct BraidRunCliArgs {
     config_file: std::path::PathBuf,
 }
 
-struct StrandCamInstance {}
+struct StrandCamInstance {
+    /// Prevent MyApp from getting dropped
+    _my_app: NoisyDrop<MyApp>,
+}
 
 fn launch_strand_cam(
     camera: BraidCameraConfig,
@@ -64,9 +69,9 @@ fn launch_strand_cam(
         software_limit_framerate,
     };
 
-    let (_, _, fut) = strand_cam::setup_app(handle, args)?;
+    let (_, _, fut, _my_app) = strand_cam::setup_app(handle, args)?;
     tokio::spawn(fut);
-    Ok(StrandCamInstance {})
+    Ok(StrandCamInstance { _my_app })
 }
 
 fn main() -> Result<()> {
@@ -98,6 +103,11 @@ fn main() -> Result<()> {
     let show_tracking_params = false;
 
     let handle = runtime.handle().clone();
+    let all_expected_cameras = cfg
+        .cameras
+        .iter()
+        .map(|x| RawCamName::new(x.name.clone()).to_ros())
+        .collect();
     let phase1 = runtime.block_on(flydra2_mainbrain::pre_run(
         &handle,
         cfg.mainbrain.cal_fname,
@@ -114,6 +124,7 @@ fn main() -> Result<()> {
         cfg.mainbrain.model_server_addr.clone(),
         cfg.mainbrain.save_empty_data2d,
         cfg.mainbrain.jwt_secret.map(|x| x.as_bytes().to_vec()),
+        all_expected_cameras,
     ))?;
 
     let mainbrain_server_info = MainbrainBuiLocation(phase1.mainbrain_server_info.clone());
@@ -148,7 +159,7 @@ fn main() -> Result<()> {
 
     // Now wait for everything to end..
 
-    debug!("done");
+    debug!("done {}:{}", file!(), line!());
 
     Ok(())
 }

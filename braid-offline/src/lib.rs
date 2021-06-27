@@ -235,10 +235,23 @@ where
         return Err(Error::NoCalibrationFound);
     };
 
-    let mut cam_manager = flydra2::ConnectedCamerasManager::new(&Some(recon.clone()));
+    let all_expected_cameras = recon
+        .cam_names()
+        .map(|x| RosCamName::new(x.to_string()))
+        .collect();
+
+    let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let mut cam_manager = flydra2::ConnectedCamerasManager::new(
+        &Some(recon.clone()),
+        all_expected_cameras,
+        signal_all_cams_present,
+        signal_all_cams_synced,
+    );
 
     let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);
-    let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
+    let (save_data_tx, save_data_rx) = channellib::unbounded();
     let save_empty_data2d = true;
     let ignore_latency = true;
     let mut coord_processor = CoordProcessor::new(

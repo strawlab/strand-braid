@@ -144,33 +144,12 @@ pub enum StrandCamError {
     StringError(String),
     #[error("no cameras found")]
     NoCamerasFound,
-    // #[cfg(feature = "image_tracker")]
-    // #[error("ImageTrackerError: {0}")]
-    // ImageTrackerError(
-    //     #[from]
-    //     #[cfg_attr(feature = "backtrace", backtrace)]
-    //     image_tracker::Error,
-    // ),
     #[error("ConvertImageError: {0}")]
     ConvertImageError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
-    // #[cfg(feature = "checkercal")]
-    // #[error("OpenCvCalibrateError: {0}")]
-    // OpenCvCalibrateError(
-    //     #[from]
-    //     #[cfg_attr(feature = "backtrace", backtrace)]
-    //     opencv_calibrate::Error,
-    // ),
-    // #[error("receiving on an empty and disconnected channel: {source}")]
-    // CrossbeamChannelRecvError {
-    //     #[from]
-    //     source: crossbeam_channel::RecvError,
-    //     #[cfg(feature = "backtrace")]
-    //     backtrace: std::backtrace::Backtrace,
-    // },
     #[error("FMF error: {0}")]
     FMFError(
         #[from]
@@ -281,7 +260,13 @@ impl CloseAppOnThreadExit {
         match result {
             Ok(()) => self.success(),
             Err(e) => {
-                display_err(e, self.file, self.line, self.thread_handle.name());
+                display_err(
+                    e,
+                    self.file,
+                    self.line,
+                    self.thread_handle.name(),
+                    self.thread_handle.id(),
+                );
                 // The drop handler will close everything.
             }
         }
@@ -300,7 +285,13 @@ impl CloseAppOnThreadExit {
 
     #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
-        display_err(e, self.file, self.line, self.thread_handle.name());
+        display_err(
+            e,
+            self.file,
+            self.line,
+            self.thread_handle.name(),
+            self.thread_handle.id(),
+        );
         panic!(
             "panicing thread {:?} due to error",
             self.thread_handle.name()
@@ -312,8 +303,17 @@ impl CloseAppOnThreadExit {
     }
 }
 
-fn display_err(err: anyhow::Error, file: &str, line: u32, name: Option<&str>) {
-    eprintln!("Error ({}:{} {:?}): {}", file, line, name, err,);
+fn display_err(
+    err: anyhow::Error,
+    file: &str,
+    line: u32,
+    thread_name: Option<&str>,
+    thread_id: std::thread::ThreadId,
+) {
+    eprintln!(
+        "Error {}:{} ({:?} Thread name {:?}): {}",
+        file, line, thread_id, thread_name, err
+    );
     eprintln!("Alternate view of error:",);
     eprintln!("{:#?}", err,);
     eprintln!("Debug view of error:",);
@@ -598,16 +598,16 @@ fn frame_process_thread(
     width: u32,
     height: u32,
     pixel_format: PixFmt,
-    rx: crossbeam_channel::Receiver<Msg>,
+    incoming_frame_rx: channellib::Receiver<Msg>,
     cam_args_tx: mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
     cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
-    firehose_tx: crossbeam_channel::Sender<AnnotatedFrame>,
-    plugin_handler_thread_tx: crossbeam_channel::Sender<DynamicFrame>,
-    plugin_result_rx:  crossbeam_channel::Receiver<Vec<http_video_streaming_types::Point>>,
+    firehose_tx: channellib::Sender<AnnotatedFrame>,
+    plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
+    plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
-    camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
+    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
@@ -849,11 +849,11 @@ fn frame_process_thread(
                                     }
                                 };
 
-                                let (save_data_tx, save_data_rx) = crossbeam_channel::unbounded();
+                                let (save_data_tx, save_data_rx) = channellib::unbounded();
                                 maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
                                 let (flydra2_tx, flydra2_rx) = futures::channel::mpsc::channel(100);
 
-                                let (model_sender, model_receiver) = crossbeam_channel::unbounded();
+                                let (model_sender, model_receiver) = channellib::unbounded();
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let camtrig_tx_std2 = camtrig_tx_std.clone();
@@ -936,7 +936,13 @@ fn frame_process_thread(
 
         }
 
-        let msg = rx.recv()?;
+        let msg = match incoming_frame_rx.recv() {
+            Ok(msg) => msg,
+            Err(channellib::RecvError{..}) => {
+                info!("incoming frame channel closed for '{}'", cam_name.as_str());
+                break;
+            },
+        };
         let store_cache = if let Some(ref ssa) = shared_store_arc {
             let mut tracker = ssa.read();
             Some(tracker.as_ref().clone())
@@ -1518,18 +1524,13 @@ fn frame_process_thread(
                                     found_points.extend(results);
                                 }
                                 Err(e) => {
-                                    match e {
-                                        crossbeam_channel::RecvTimeoutError::Timeout => {
-                                            error!("Not displaying annotation because the plugin took too long.");
-                                        },
-                                        crossbeam_channel::RecvTimeoutError::Disconnected => {
-                                            // The tx channel was discconected.
-                                            error!("The plugin disconnected.");
-                                            return Err(StrandCamError::PluginDisconnected.into());
-                                        }
+                                    if e.is_timeout() {
+                                        error!("Not displaying annotation because the plugin took too long.");
+                                    } else {
+                                        error!("The plugin disconnected.");
+                                        return Err(StrandCamError::PluginDisconnected.into());
                                     }
                                 }
-
                             }
                         }
                     }
@@ -1717,6 +1718,7 @@ fn frame_process_thread(
             }
         };
     }
+    info!("frame process thread done for camera '{}'",cam_name.as_str());
     Ok(())
 }
 
@@ -1735,7 +1737,51 @@ fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16
     }
 }
 
-struct MyApp {
+pub struct NoisyDrop<T> {
+    inner: T,
+    name: String,
+    file: String,
+    line: u32,
+}
+
+impl<T> NoisyDrop<T> {
+    fn new(inner: T, name: String, file: &str, line: u32) -> Self {
+        debug!("Creating {} at {}:{}", name, file, line);
+        Self {
+            inner,
+            name,
+            file: file.into(),
+            line,
+        }
+    }
+}
+
+impl<T> std::ops::Deref for NoisyDrop<T> {
+    type Target = T;
+    #[inline(always)]
+    fn deref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> Drop for NoisyDrop<T> {
+    fn drop(&mut self) {
+        debug!(
+            "Dropping {} originally from {}:{}",
+            self.name, self.file, self.line
+        );
+        #[cfg(feature = "backtrace")]
+        error!("{}", std::backtrace::Backtrace::capture());
+    }
+}
+
+macro_rules! noisy_drop {
+    ($name:ident) => {
+        NoisyDrop::new($name, stringify!($name).to_string(), file!(), line!())
+    };
+}
+
+pub struct MyApp {
     inner: BuiAppInner<StoreType, CallbackType>,
     txers: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
 }
@@ -1748,12 +1794,11 @@ impl MyApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-        tx_frame: crossbeam_channel::Sender<Msg>,
+        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> std::result::Result<(crossbeam_channel::Receiver<FirehoseCallback>, Self), StrandCamError>
-    {
+    ) -> std::result::Result<(channellib::Receiver<FirehoseCallback>, Self), StrandCamError> {
         let chan_size = 10;
 
         let addr: std::net::SocketAddr = http_server_addr.parse().unwrap();
@@ -1779,7 +1824,8 @@ impl MyApp {
 
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
-        let (firehose_callback_tx, firehose_callback_rx) = crossbeam_channel::unbounded();
+        let (firehose_callback_tx, firehose_callback_rx) = channellib::unbounded();
+        let firehose_callback_tx = noisy_drop!(firehose_callback_tx);
 
         debug!("created firehose_callback_tx");
 
@@ -1846,20 +1892,22 @@ impl MyApp {
         Ok((firehose_callback_rx, my_app))
     }
 
-    #[allow(unused_variables)]
-    fn pre_run(
-        self,
-        camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-        camtrig_rx: crossbeam_channel::Receiver<ToCamtrigDevice>,
+    /// Spawn the camtrig thread (if compiled to do so).
+    ///
+    /// In the case of #[cfg(feature="with-camtrig")], this will spawn
+    /// the serial thread that communicates with the camtrig device.
+    /// Otherwise, does very little and `sjh` is essentially empty.
+    fn maybe_spawn_camtrig_thread(
+        &self,
+        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
         camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
-        let shared_store_arc = self.inner.shared_arc().clone();
-
         #[cfg(feature = "with_camtrig")]
         let sjh = {
             run_camtrig(
-                shared_store_arc,
+                self.inner.shared_arc().clone(), // shared_store_arc
                 camtrig_tx_std,
                 camtrig_rx,
                 camtrig_heartbeat_update_arc,
@@ -1871,6 +1919,13 @@ impl MyApp {
         let sjh = SerialJoinHandles {};
         Ok(sjh)
     }
+
+    fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
+        &self.inner
+    }
+    // fn inner_mut(&mut self) -> &mut BuiAppInner<StoreType, CallbackType> {
+    //     &mut self.inner
+    // }
 }
 
 #[cfg(feature = "with_camtrig")]
@@ -1938,8 +1993,8 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
 #[cfg(feature = "with_camtrig")]
 fn run_camtrig(
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
-    camtrig_tx_std: crossbeam_channel::Sender<ToCamtrigDevice>,
-    camtrig_rx: crossbeam_channel::Receiver<ToCamtrigDevice>,
+    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+    camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
     camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     tx_cam_arg: mpsc::Sender<CamArg>,
 ) -> Result<SerialJoinHandles> {
@@ -2065,12 +2120,13 @@ fn run_camtrig(
                 loop {
                     match camtrig_rx.try_recv() {
                         Ok(msg) => msgs.push(msg),
-                        Err(e) => match e {
-                            crossbeam_channel::TryRecvError::Empty => break,
-                            _ => {
+                        Err(e) => {
+                            if e.is_empty() {
+                                break;
+                            } else {
                                 thread_closer.fail(e.into());
                             }
-                        },
+                        }
                     }
                 }
 
@@ -2386,7 +2442,8 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
         .expect("runtime");
 
     let handle = runtime.handle().clone();
-    let (_bui_server_info, tx_cam_arg2, fut) = runtime.enter(move || setup_app(handle, args))?;
+    let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
+        runtime.enter(move || setup_app(handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2419,7 +2476,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 pub fn setup_app(
     handle: tokio::runtime::Handle,
     args: StrandCamArgs)
-    -> std::result::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>), StrandCamError>
+    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, NoisyDrop<MyApp>)>
 {
     debug!("CLI request for camera {:?}", args.camera_name);
 
@@ -2432,7 +2489,7 @@ pub fn setup_app(
 
     let cam_infos = mymod.camera_infos()?;
     if cam_infos.len() == 0 {
-        return Err(StrandCamError::NoCamerasFound);
+        return Err(StrandCamError::NoCamerasFound.into());
     }
 
     for cam_info in cam_infos.iter() {
@@ -2514,7 +2571,7 @@ pub fn setup_app(
     cam.set_acquisition_mode(ci2::AcquisitionMode::Continuous)?;
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
-    let (tx_frame, rx_frame) = crossbeam_channel::bounded::<Msg>(20);
+    let (tx_frame, rx_frame) = channellib::bounded::<Msg>(20);
     let tx_frame2 = tx_frame.clone();
     let tx_frame3 = tx_frame.clone();
 
@@ -2524,9 +2581,9 @@ pub fn setup_app(
     info!("  acquired first frame: {}x{}", frame.width(), frame.height());
 
     #[allow(unused_variables)]
-    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = crossbeam_channel::bounded::<DynamicFrame>(500);
+    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = channellib::bounded::<DynamicFrame>(500);
     #[allow(unused_variables)]
-    let (plugin_result_tx, plugin_result_rx) = crossbeam_channel::bounded::<_>(500);
+    let (plugin_result_tx, plugin_result_rx) = channellib::bounded::<_>(500);
 
     #[cfg(feature="plugin-process-frame")]
     let plugin_wait_dur = args.plugin_wait_dur;
@@ -2534,7 +2591,7 @@ pub fn setup_app(
     #[cfg(not(feature="plugin-process-frame"))]
     let plugin_wait_dur = std::time::Duration::from_millis(5);
 
-    let (firehose_tx, firehose_rx) = crossbeam_channel::bounded::<AnnotatedFrame>(5);
+    let (firehose_tx, firehose_rx) = channellib::bounded::<AnnotatedFrame>(5);
 
     let image_width = frame.width();
     let image_height = frame.height();
@@ -2583,7 +2640,7 @@ pub fn setup_app(
     let mainbrain_internal_addr = args.mainbrain_internal_addr.clone();
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
-    let (camtrig_tx_std, camtrig_rx) = crossbeam_channel::unbounded();
+    let (camtrig_tx_std, camtrig_rx) = channellib::unbounded();
 
     let camtrig_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
@@ -2816,14 +2873,16 @@ pub fn setup_app(
         shutdown_rx,
     )?;
 
+    let my_app = noisy_drop!(my_app);
+
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0
     // with the actual open port number.
 
     let (is_loopback, http_camserver_info) = {
-        let local_addr = my_app.inner.local_addr().clone();
+        let local_addr = my_app.inner().local_addr().clone();
         let is_loopback = local_addr.ip().is_loopback();
-        let token = my_app.inner.token();
+        let token = my_app.inner().token();
         (is_loopback, BuiServerInfo::new(local_addr, token))
     };
 
@@ -2943,7 +3002,7 @@ pub fn setup_app(
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         if control.is_done() {
-            return Err(StrandCamError::ThreadDone);
+            return Err(StrandCamError::ThreadDone.into());
         }
         ControlledJoinHandle {
             control,
@@ -3834,7 +3893,11 @@ pub fn setup_app(
     };
 
     debug!("  running forever");
-    let sjh = my_app.pre_run(camtrig_tx_std, camtrig_rx,
+
+    // In the case of #[cfg(feature="with-camtrig")], this will spawn
+    // the serial thread that communicates with the camtrig device.
+    // Otherwise, does very little and `sjh` is essentially empty.
+    let sjh = my_app.maybe_spawn_camtrig_thread(camtrig_tx_std, camtrig_rx,
         camtrig_heartbeat_update_arc, cam_args_tx.clone())?;
 
     let ajh = AllJoinHandles {
@@ -3860,7 +3923,7 @@ pub fn setup_app(
 
     };
 
-    Ok((http_camserver_info, cam_args_tx, cam_arg_future2))
+    Ok((http_camserver_info, cam_args_tx, cam_arg_future2, my_app))
 }
 
 pub struct ControlledJoinHandle<T> {

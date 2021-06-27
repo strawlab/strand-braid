@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 log = "0.4.5"
 chrono = "0.4"
-crossbeam-channel = "0.5"
 thiserror = "1.0"
 
 mkv-writer = {path="../mkv-writer"}
@@ -16,6 +15,7 @@ ci2-remote-control = { path = "../ci2-remote-control"}
 nvenc = {path="../nvenc"}
 strand-cam-mkvfix = {path="../strand-cam-mkvfix"}
 basic-frame = { path = "../basic-frame" }
+channellib = {path="../channellib"}
 
 [features]
 backtrace = ["mkv-writer/backtrace"]

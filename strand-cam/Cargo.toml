@@ -36,7 +36,6 @@ app_dirs = "1.2"
 anyhow = "1.0"
 thiserror = "1.0"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 thread-control = "0.1.2"
 ipp-sys = {version="0.4.4", optional=true}
 ci2 = { path = "../ci2" }
@@ -97,6 +96,7 @@ bg-movie-writer = {path="../bg-movie-writer"}
 strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal", optional=true}
 nvenc = {path="../nvenc"}
 ads-apriltag = {path="../apriltag", optional=true}
+channellib = {path="../channellib"}
 
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}
@@ -107,7 +107,7 @@ default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "check
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
-    "convert-image/backtrace", "http-video-streaming/backtrace"]
+    "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
 
 send-bg-images-to-mainbrain = []
 

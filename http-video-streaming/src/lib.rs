@@ -31,10 +31,10 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
-    #[error("receive error: {source}")]
-    RecvError {
+    #[error("crossbeam receive error: {source}")]
+    CrossbeamRecvError {
         #[from]
-        source: crossbeam_channel::RecvError,
+        source: channellib::RecvError,
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
@@ -182,15 +182,14 @@ impl PerSender {
 
 pub fn firehose_thread(
     sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
-    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame>,
-    firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
+    firehose_rx: channellib::Receiver<AnnotatedFrame>,
+    firehose_callback_rx: channellib::Receiver<FirehoseCallback>,
     use_frame_selector: bool,
     events_prefix: &str,
     flag: thread_control::Flag,
 ) -> Result<()> {
     // TODO switch this to a tokio core reactor based event loop and async processing.
     let mut per_sender_map: HashMap<ConnectionKey, PerSender> = HashMap::new();
-    let zero_dur = std::time::Duration::from_millis(0);
     while flag.is_alive() {
         // We have a timeout here in order to poll the `flag` variable above.
         let mut msg = match firehose_rx.recv_timeout(std::time::Duration::from_millis(100)) {
@@ -206,7 +205,7 @@ pub fn firehose_thread(
         };
 
         // Now pump the queue for any remaining messages, but do not wait for them.
-        while let Ok(msg_last) = firehose_rx.recv_timeout(zero_dur) {
+        while let Ok(msg_last) = firehose_rx.try_recv() {
             msg = msg_last;
         }
         let frame = Rc::new(msg);
@@ -256,6 +255,7 @@ pub fn firehose_thread(
             ps.push(frame.clone());
         }
 
+        // Loop through firehose callback messages to process them all.
         loop {
             match firehose_callback_rx.try_recv() {
                 Ok(msg) => {
@@ -269,12 +269,15 @@ pub fn firehose_thread(
                         }
                     };
                 }
-                Err(crossbeam_channel::TryRecvError::Empty) => break,
-                Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    return Err(Error::CallbackSenderDisconnected(
-                        #[cfg(feature = "backtrace")]
-                        std::backtrace::Backtrace::capture(),
-                    ));
+                Err(e) => {
+                    if e.is_empty() {
+                        break;
+                    } else {
+                        return Err(Error::CallbackSenderDisconnected(
+                            #[cfg(feature = "backtrace")]
+                            e.backtrace,
+                        ));
+                    }
                 }
             };
         }

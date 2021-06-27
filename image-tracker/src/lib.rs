@@ -129,7 +129,7 @@ impl PointInfo {
 }
 
 fn init_ros(
-    orig_cam_name: &RawCamName,
+    orig_cam_name: RawCamName,
     _version_str: String,
     _width: u32,
     _height: u32,
@@ -738,7 +738,7 @@ impl FlyTracker {
             ros_image_update_period,
             api_http_address,
         ) = init_ros(
-            &orig_cam_name,
+            orig_cam_name.clone(),
             version_str,
             w,
             h,
@@ -759,14 +759,19 @@ impl FlyTracker {
 
             let fut = register_node_and_update_image(
                 api_http_address,
-                orig_cam_name,
+                orig_cam_name.clone(),
                 http_camserver_info,
                 ros_cam_name,
                 transmit_current_image_rx,
             );
 
-            let f2 = async {
-                match fut.await {
+            let f2 = async move {
+                let result = fut.await;
+                info!(
+                    "background image handler for camera '{}' is done.",
+                    orig_cam_name.as_str()
+                );
+                match result {
                     Ok(()) => {}
                     Err(e) => {
                         error!("error: {} ({}:{})", e, file!(), line!());
@@ -1233,7 +1238,10 @@ async fn register_node_and_update_image(
             .update_image(ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
-    info!("done listening for background images from {}", ros_cam_name.as_str());
+    info!(
+        "done listening for background images from {}",
+        ros_cam_name.as_str()
+    );
     Ok(())
 }
 

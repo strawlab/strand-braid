@@ -1,12 +1,8 @@
 #[macro_use]
 extern crate log;
-extern crate convert_image;
-extern crate crossbeam_channel;
-extern crate env_logger;
-extern crate failure;
-extern crate machine_vision_formats as formats;
-extern crate machine_vision_shaders as shaders;
-extern crate time;
+
+use machine_vision_formats as formats;
+use machine_vision_shaders as shaders;
 
 use basic_frame::DynamicFrame;
 use formats::Stride;
@@ -19,7 +15,7 @@ mod fly_eye;
 #[cfg(feature = "screen-quad")]
 mod screen_quad;
 
-use crossbeam_channel::Receiver;
+use channellib::Receiver;
 use glium::{glutin, Surface};
 
 #[cfg(feature = "fly-eye")]
@@ -204,14 +200,17 @@ impl App {
 /// check if a frame is available. if yes, get it and keep getting until most recent.
 fn get_most_recent_frame(
     receiver: &Receiver<DynamicFrame>,
-) -> Result<DynamicFrame, crossbeam_channel::TryRecvError> {
-    let mut result = Err(crossbeam_channel::TryRecvError::Empty);
+) -> Result<DynamicFrame, channellib::TryRecvError> {
+    let mut result = Err(crossbeam_channel::TryRecvError::Empty.into());
     loop {
         match receiver.try_recv() {
             Ok(r) => result = Ok(r),
-            Err(crossbeam_channel::TryRecvError::Empty) => break,
-            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                return Err(crossbeam_channel::TryRecvError::Disconnected);
+            Err(e) => {
+                if e.is_empty() {
+                    break;
+                } else {
+                    return Err(e);
+                }
             }
         }
     }

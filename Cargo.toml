@@ -17,6 +17,7 @@ members = [
     "camcal",
     "camtrig",
     "camtrig-comms",
+    "channellib",
     "ci2",
     "ci2/ci2-types",
     "ci2-async",

@@ -36,8 +36,8 @@ pub(crate) struct BackgroundModel {
     pub(crate) cmp_im: FastImageData<Chan1, u8>,
     pub(crate) current_roi: FastImageRegion,
     pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
-    tx_to_worker: crossbeam_channel::Sender<ToWorker>,
-    rx_from_worker: crossbeam_channel::Receiver<FromWorker>,
+    tx_to_worker: channellib::Sender<ToWorker>,
+    rx_from_worker: channellib::Receiver<FromWorker>,
 }
 
 impl BackgroundModel {
@@ -74,8 +74,8 @@ impl BackgroundModel {
         let mean_im = FastImageData::copy_from_8u_c1(&worker.mean_im)?;
         let cmp_im = FastImageData::copy_from_8u_c1(&worker.cmp_im)?;
 
-        let (tx_to_worker, rx_from_main) = crossbeam_channel::bounded::<ToWorker>(10);
-        let (tx_to_main, rx_from_worker) = crossbeam_channel::bounded::<FromWorker>(10);
+        let (tx_to_worker, rx_from_main) = channellib::bounded::<ToWorker>(10);
+        let (tx_to_main, rx_from_worker) = channellib::bounded::<FromWorker>(10);
 
         std::thread::Builder::new()
             .name("bg-img-proc".to_string())
@@ -95,9 +95,9 @@ impl BackgroundModel {
                 loop {
                     let x = match rx_from_main.recv() {
                         Ok(x) => x,
-                        Err(crossbeam_channel::RecvError) => {
+                        Err(e) => {
                             // This is normal when taking a new background image.
-                            debug!("disconnect ({}:{})", file!(), line!());
+                            debug!("disconnect {} ({}:{})", e, file!(), line!());
                             break;
                         }
                     };
@@ -210,10 +210,13 @@ impl BackgroundModel {
                 self.complete_stamp = (ts, fno);
                 true
             }
-            Err(crossbeam_channel::TryRecvError::Empty) => false,
-            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                error!("sender disconnected ({}:{})", file!(), line!());
-                false
+            Err(e) => {
+                if e.is_empty() {
+                    false
+                } else {
+                    error!("sender disconnected ({}:{})", file!(), line!());
+                    false
+                }
             }
         }
     }

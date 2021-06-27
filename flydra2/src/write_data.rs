@@ -439,7 +439,7 @@ impl Drop for WritingState {
 }
 
 pub(crate) fn writer_thread_main(
-    save_data_rx: crossbeam_channel::Receiver<SaveToDiskMsg>,
+    save_data_rx: channellib::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<SwitchingTrackingParams>,
@@ -599,7 +599,7 @@ pub(crate) fn writer_thread_main(
                 };
             }
             Err(e) => {
-                let _: crossbeam_channel::RecvError = e;
+                let _: channellib::RecvError = e;
                 // sender disconnected. we can quit too.
                 break;
             }
@@ -621,6 +621,7 @@ pub(crate) fn writer_thread_main(
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::sync::{atomic::AtomicBool, Arc};
 
     #[test]
     fn test_save_braidz_on_drop() {
@@ -641,7 +642,12 @@ mod test {
                 save_performance_histograms: false,
             };
 
-            let cam_manager = ConnectedCamerasManager::new(&None);
+            let cam_manager = ConnectedCamerasManager::new(
+                &None,
+                std::collections::BTreeSet::new(),
+                Arc::new(AtomicBool::new(true)),
+                Arc::new(AtomicBool::new(true)),
+            );
             let tracking_params = Arc::new(SwitchingTrackingParams::default());
             let save_empty_data2d = false;
 

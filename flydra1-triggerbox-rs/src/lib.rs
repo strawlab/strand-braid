@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate log;
 extern crate byteorder;
+extern crate channellib;
 extern crate chrono;
-extern crate crossbeam_channel;
 extern crate crossbeam_ok;
 extern crate datetime_conversion;
 extern crate flydra_types;
@@ -22,7 +22,7 @@ use anyhow::{Context, Result};
 use chrono::Duration;
 use std::io::Write;
 
-use crossbeam_channel::{Receiver, Sender};
+use channellib::{Receiver, Sender};
 use std::collections::BTreeMap;
 
 use crossbeam_ok::CrossbeamOk;
@@ -176,11 +176,12 @@ impl SerialThread {
                                 }
                             }
                         }
-                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                            break;
-                        }
                         Err(e) => {
-                            return Err(e.into());
+                            if e.is_timeout() {
+                                break;
+                            } else {
+                                return Err(e.into());
+                            }
                         }
                     }
                 }
@@ -443,7 +444,7 @@ pub fn launch_background_thread(
     triggerbox_data_tx: Option<Sender<TriggerClockInfoRow>>,
     query_dt: std::time::Duration,
 ) -> Result<(thread_control::Control, std::thread::JoinHandle<()>)> {
-    // let (raw_tx, raw_rx) = crossbeam_channel::unbounded();
+    // let (raw_tx, raw_rx) = channellib::unbounded();
 
     let triggerbox_thread_builder =
         std::thread::Builder::new().name("triggerbox_comms".to_string());
