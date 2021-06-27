@@ -1,6 +1,7 @@
 use log::{debug, error, info};
 use parking_lot::{Mutex, RwLock};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
@@ -78,6 +79,7 @@ pub struct ConnectedCamerasManager {
     inner: Arc<RwLock<ConnectedCamerasManagerInner>>,
     on_cam_change_func: Arc<Mutex<Option<Box<dyn ConnectedCamCallback>>>>,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
+    signal_all_cams_present: Arc<AtomicBool>,
 }
 
 impl HasCameraList for ConnectedCamerasManager {
@@ -97,6 +99,7 @@ impl ConnectedCamerasManager {
     pub fn new(
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         all_expected_cameras: BTreeSet<RosCamName>,
+        signal_all_cams_present: Arc<AtomicBool>,
     ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
@@ -113,6 +116,7 @@ impl ConnectedCamerasManager {
         };
 
         Self {
+            signal_all_cams_present,
             inner: Arc::new(RwLock::new(ConnectedCamerasManagerInner {
                 all_expected_cameras,
                 next_cam_num: next_cam_num.into(),
@@ -211,10 +215,12 @@ impl ConnectedCamerasManager {
     ) -> Self {
         let ros_cam_name = orig_cam_name.to_ros();
 
+        let signal_all_cams_present = Arc::new(AtomicBool::new(false));
+
         let mut all_expected_cameras = BTreeSet::new();
         all_expected_cameras.insert(ros_cam_name.clone());
 
-        let this = Self::new(recon, all_expected_cameras);
+        let this = Self::new(recon, all_expected_cameras, signal_all_cams_present);
         {
             let orig_cam_name = orig_cam_name.clone();
 
@@ -435,6 +441,7 @@ impl ConnectedCamerasManager {
                     info!("first frame from camera {} arrived.", ros_cam_name);
                     if i2.first_frame_arrived == i2.all_expected_cameras {
                         inner.all_expected_cameras_are_present = true;
+                        self.signal_all_cams_present.store(true, Ordering::SeqCst);
                         info!("All expected cameras connected.");
                     } else {
                         info!("All expected cameras NOT connected.");

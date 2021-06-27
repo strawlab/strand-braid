@@ -57,7 +57,6 @@ enum Msg {
     // Error(JsValue),
     NewServerState(HttpApiShared),
     FailedDecode(String),
-    DoSyncCameras,
     DoRecordCsvTables(bool),
     // Fetched(fetch::ResponseDataResult<()>),
     Ignore,
@@ -133,10 +132,6 @@ impl Component for Model {
             }
             Msg::FailedDecode(s) => {
                 self.fail_msg = s;
-            }
-            Msg::DoSyncCameras => {
-                self.ft = self.send_message(&HttpApiCallback::DoSyncCameras);
-                return false; // don't update DOM, do that on return
             }
             Msg::DoRecordCsvTables(val) => {
                 self.ft = self.send_message(&HttpApiCallback::DoRecordCsvTables(val));
@@ -231,12 +226,6 @@ impl Model {
                         {view_calibration(&value.calibration_filename)}
                         {view_cam_list(&value.connected_cameras)}
                         {view_model_server_link(&value.model_server_addr)}
-                        <div>
-                            <Button:
-                                title="Synchronize Cameras",
-                                onsignal=self.link.callback(|_| Msg::DoSyncCameras),
-                                />
-                        </div>
                     </div>
                 </div>
             }

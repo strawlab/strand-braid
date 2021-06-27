@@ -467,8 +467,6 @@ pub enum HttpApiCallback {
     NewCamera(RegisterNewCamera),
     /// Called from strand-cam to update the current image
     UpdateCurrentImage(UpdateImage),
-    /// Trigger synchronization of the cameras
-    DoSyncCameras,
     /// Start or stop recording data (csv tables)
     DoRecordCsvTables(bool),
     /// set uuid in the experiment_info table

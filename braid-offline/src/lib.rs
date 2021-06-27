@@ -240,8 +240,13 @@ where
         .map(|x| RosCamName::new(x.to_string()))
         .collect();
 
-    let mut cam_manager =
-        flydra2::ConnectedCamerasManager::new(&Some(recon.clone()), all_expected_cameras);
+    let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let mut cam_manager = flydra2::ConnectedCamerasManager::new(
+        &Some(recon.clone()),
+        all_expected_cameras,
+        signal_all_cams_present,
+    );
 
     let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);
     let (save_data_tx, save_data_rx) = channellib::unbounded();
