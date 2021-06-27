@@ -66,7 +66,9 @@ mod tracking_core;
 mod zip_dir;
 
 mod model_server;
-pub use crate::model_server::{GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType};
+pub use crate::model_server::{
+    new_model_server, GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType,
+};
 
 use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;

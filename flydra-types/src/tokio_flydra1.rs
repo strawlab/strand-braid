@@ -59,8 +59,7 @@ impl Decoder for FlydraPacketCodec {
     }
 }
 
-impl Encoder for FlydraPacketCodec {
-    type Item = ();
+impl Encoder<()> for FlydraPacketCodec {
     type Error = std::io::Error;
 
     fn encode(&mut self, _item: (), _dest: &mut bytes::BytesMut) -> std::io::Result<()> {

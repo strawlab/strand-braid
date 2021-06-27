@@ -17,14 +17,14 @@ toml = "0.5"
 itertools = "0.8"
 chrono = "0.4"
 futures = "0.3"
-stream-cancel = "0.6"
+stream-cancel = "0.8"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 csv-eof = {path="../csv-eof"}
 flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
 flydra-types = {path="../flydra-types"}
 groupby = {path="../groupby"}
-tokio = {version="0.2", default-features=false, features=["macros"]}
+tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}

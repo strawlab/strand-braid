@@ -471,7 +471,8 @@ where
                 version: env!("CARGO_PKG_VERSION").into(),
             };
 
-            let model_server = flydra2::ModelServer::new(valve, None, &addr, info, rt_handle)?;
+            let model_server =
+                flydra2::new_model_server(valve, None, &addr, info, rt_handle).await?;
             coord_processor.add_listener(Box::new(model_server));
         }
         None => {}

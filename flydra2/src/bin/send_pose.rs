@@ -1,20 +1,18 @@
 use chrono::Local;
 use log::info;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use flydra2::GetsUpdates;
-use flydra2::{ModelServer, Result, SendType, TimeDataPassthrough};
+use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
 
 fn main() -> Result<()> {
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()
-        .expect("runtime");
+        .build()?;
 
-    let rt_handle = runtime.handle().clone();
-    runtime.block_on(inner(rt_handle))
+    let runtime = Arc::new(runtime);
+    runtime.block_on(inner(runtime.handle().clone()))
 }
 
 async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
@@ -29,7 +27,7 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
 
     let (_quit_trigger, valve) = stream_cancel::Valve::new();
 
-    let ms = ModelServer::new(valve, None, &addr, info, rt_handle)?;
+    let ms = new_model_server(valve, None, &addr, info, rt_handle).await?;
 
     let starti = Instant::now();
 

@@ -50,6 +50,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
     #[error("{source}")]
+    HyperError {
+        #[from]
+        source: hyper::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
     TomlSerError {
         #[from]
         source: toml::ser::Error,

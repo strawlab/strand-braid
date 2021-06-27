@@ -32,9 +32,9 @@ configure = "0.1.1"
 itertools = "0.8"
 http = "0.2"
 tower-service = "0.3.0"
-hyper = "0.13"
-tokio = {version="0.2", default-features=false, features=["macros","rt-core","rt-threaded"]}
-stream-cancel = "0.6"
+hyper = {version="0.14", features=["tcp","server","http1","stream"]}
+tokio = {version="1.0.1", default-features=false, features=["macros","rt","rt-multi-thread","sync","time"]}
+stream-cancel = "0.8"
 includedir = { version = "0.5", optional = true }
 tempdir = "^0.3"
 phf = { version = "0.7.23", optional = true }

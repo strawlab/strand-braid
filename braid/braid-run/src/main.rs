@@ -36,6 +36,7 @@ fn launch_strand_cam(
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     handle: tokio::runtime::Handle,
+    runtime: &tokio::runtime::Runtime,
     force_camera_sync_mode: bool,
     software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit,
 ) -> Result<StrandCamInstance> {
@@ -69,8 +70,8 @@ fn launch_strand_cam(
         software_limit_framerate,
     };
 
-    let (_, _, fut, _my_app) = strand_cam::setup_app(handle, args)?;
-    tokio::spawn(fut);
+    let (_, _, fut, _my_app) = runtime.block_on(strand_cam::setup_app(handle.clone(), args))?;
+    handle.spawn(fut);
     Ok(StrandCamInstance { _my_app })
 }
 
@@ -83,14 +84,12 @@ fn main() -> Result<()> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .core_threads(4)
+        .worker_threads(4)
         .thread_name("braid-runtime")
         .thread_stack_size(3 * 1024 * 1024)
-        .build()
-        .expect("runtime");
+        .build()?;
 
     let trig_cfg = cfg.trigger;
     let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
@@ -135,22 +134,22 @@ fn main() -> Result<()> {
 
     let cfg_cameras = cfg.cameras;
     let handle = runtime.handle().clone();
-    let _strand_cams: Vec<StrandCamInstance> = runtime.enter(|| {
-        cfg_cameras
-            .into_iter()
-            .map(|camera| {
-                let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
-                launch_strand_cam(
-                    camera,
-                    camdata_addr,
-                    Some(mainbrain_server_info.clone()),
-                    handle.clone(),
-                    force_camera_sync_mode,
-                    software_limit_framerate.clone(),
-                )
-            })
-            .collect::<Result<Vec<StrandCamInstance>>>()
-    })?;
+    let _enter_guard = runtime.enter();
+    let _strand_cams = cfg_cameras
+        .into_iter()
+        .map(|camera| {
+            let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
+            launch_strand_cam(
+                camera,
+                camdata_addr,
+                Some(mainbrain_server_info.clone()),
+                handle.clone(),
+                &runtime,
+                force_camera_sync_mode,
+                software_limit_framerate.clone(),
+            )
+        })
+        .collect::<Result<Vec<StrandCamInstance>>>()?;
 
     debug!("done launching cameras");
 

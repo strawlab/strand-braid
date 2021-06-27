@@ -588,7 +588,7 @@ struct FlydraConfigState {
 #[rustfmt::skip]
 #[allow(unused_mut,unused_variables)]
 fn frame_process_thread(
-    handle: tokio::runtime::Handle,
+    my_runtime: tokio::runtime::Handle,
     #[cfg(feature="flydratrax")]
     model_server: flydra2::ModelServer,
     #[cfg(feature="flydratrax")]
@@ -700,7 +700,7 @@ fn frame_process_thread(
         mpsc::channel::<Vec<u8>>(10);
     let http_camserver = CamHttpServerInfo::Server(http_camserver_info.clone());
     #[cfg(feature="image_tracker")]
-    let mut im_tracker = FlyTracker::new(&handle, &cam_name, width, height, cfg,
+    let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, cfg,
         Some(cam_args_tx.clone()), version_str, frame_offset, http_camserver,
         use_cbor_packets, ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
@@ -914,7 +914,7 @@ fn frame_process_thread(
                                     debug!("consume future noerr finished {}:{}", file!(), line!());
                                 });
 
-                                handle.spawn(consume_future_noerr); // flydratrax ignore for now
+                                my_runtime.spawn(consume_future_noerr); // flydratrax ignore for now
                                 maybe_flydra2_stream = Some(flydra2_tx);
                             },
                             video_streaming::Shape::Everything => {
@@ -1788,7 +1788,8 @@ pub struct MyApp {
 
 impl MyApp {
     #![cfg_attr(not(feature = "image_tracker"), allow(unused_variables))]
-    fn new(
+    async fn new(
+        rt_handle: tokio::runtime::Handle,
         shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
         secret: Option<Vec<u8>>,
         http_server_addr: &str,
@@ -1820,7 +1821,8 @@ impl MyApp {
             chan_size,
             &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             Some(strand_cam_storetype::STRAND_CAM_EVENT_NAME.to_string()),
-        )?;
+        )
+        .await?;
 
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
@@ -1885,7 +1887,7 @@ impl MyApp {
             }
             debug!("new_conn_future closing {}:{}", file!(), line!());
         };
-        let _task_join_handle = tokio::spawn(new_conn_future);
+        let _task_join_handle = rt_handle.spawn(new_conn_future);
 
         let my_app = MyApp { inner, txers };
 
@@ -2432,18 +2434,18 @@ impl Default for StrandCamArgs {
 }
 
 pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .core_threads(4)
-        .thread_name("flydra2-mainbrain-runtime")
+        .worker_threads(4)
+        .thread_name("strand-cam-runtime")
         .thread_stack_size(3 * 1024 * 1024)
-        .build()
-        .expect("runtime");
+        .build()?;
 
-    let handle = runtime.handle().clone();
+    let my_handle = runtime.handle().clone();
+
+    let my_runtime = Arc::new(runtime);
     let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
-        runtime.enter(move || setup_app(handle, args))?;
+        my_runtime.block_on(setup_app(my_handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2461,7 +2463,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     })
     .expect("Error setting Ctrl-C handler");
 
-    runtime.block_on(fut);
+    my_runtime.block_on(fut);
 
     info!("done");
     Ok(())
@@ -2473,8 +2475,8 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 // rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
 // correct bug.
 #[rustfmt::skip]
-pub fn setup_app(
-    handle: tokio::runtime::Handle,
+pub async fn setup_app(
+    rt_handle: tokio::runtime::Handle,
     args: StrandCamArgs)
     -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, NoisyDrop<MyApp>)>
 {
@@ -2861,7 +2863,9 @@ pub fn setup_app(
     #[cfg(feature="debug-images")]
     let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let (firehose_callback_rx, my_app) = MyApp::new(
+    let (firehose_callback_rx, my_app) =
+    MyApp::new(
+        rt_handle.clone(),
         shared_store_arc.clone(),
         secret,
         &args.http_server_addr,
@@ -2870,8 +2874,7 @@ pub fn setup_app(
         camtrig_tx_std.clone(),
         tx_frame3,
         valve.clone(),
-        shutdown_rx,
-    )?;
+        shutdown_rx).await?;
 
     let my_app = noisy_drop!(my_app);
 
@@ -2913,8 +2916,6 @@ pub fn setup_app(
     #[cfg(feature="checkercal")]
     let cam_name2 = cam_name.clone();
 
-    let rt_handle = handle.clone();
-
     let frame_process_cjh = {
         let pixel_format = frame.pixel_format();
         let is_starting = Arc::new(true);
@@ -2928,8 +2929,7 @@ pub fn setup_app(
         let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
         let cam_args_tx2 = cam_args_tx.clone();
 
-        #[cfg(feature="flydratrax")]
-        let handle2 = handle.clone();
+        let handle2 = rt_handle.clone();
         #[cfg(feature="flydratrax")]
         let (model_server, flydratrax_calibration_source) = {
 
@@ -2942,7 +2942,7 @@ pub fn setup_app(
             };
 
             // we need the tokio reactor already by here
-            let model_server = flydra2::ModelServer::new(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2)?;
+            let model_server = flydra2::new_model_server(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2.clone()).await?;
             let flydratrax_calibration_source = args.flydratrax_calibration_source;
             (model_server, flydratrax_calibration_source)
         };
@@ -2951,7 +2951,7 @@ pub fn setup_app(
         let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
             let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2.clone(), file!(), line!());
             thread_closer.maybe_err(frame_process_thread(
-                    handle,
+                    handle2,
                     #[cfg(feature="flydratrax")]
                     model_server,
                     #[cfg(feature="flydratrax")]
@@ -3125,6 +3125,8 @@ pub fn setup_app(
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(
             std::time::Duration::from_secs(1800));
+
+        let interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
         let mut incoming1 = valve.wrap(interval_stream);
 
