@@ -80,6 +80,8 @@ pub enum Msg {
     FileChanged(File),
     // BraidzFile(MaybeValidBraidzFile),
     Loaded(FileData),
+    FileDropped(DragEvent),
+    FileDraggedOver(DragEvent),
 }
 
 impl Component for Model {
@@ -162,6 +164,26 @@ impl Component for Model {
                 };
                 self.tasks.push(task);
             }
+            Msg::FileDropped(evt) => {
+                evt.prevent_default();
+                let files = evt.data_transfer().unwrap().files();
+                // log_1(&format!("files dropped: {:?}", files).into());
+                if let Some(files) = files {
+                    let mut result = Vec::new();
+                    let files = js_sys::try_iter(&files)
+                        .unwrap()
+                        .unwrap()
+                        .into_iter()
+                        .map(|v| File::from(v.unwrap()));
+                    result.extend(files);
+                    assert!(result.len() == 1);
+                    self.link
+                        .send_message(Msg::FileChanged(result.pop().unwrap()));
+                }
+            }
+            Msg::FileDraggedOver(evt) => {
+                evt.prevent_default();
+            }
         }
         true
     }
@@ -237,7 +259,9 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div>
+                    <div ondrop=self.link.callback(|e| Msg::FileDropped(e))
+                                         ondragover=self.link.callback(|e| Msg::FileDraggedOver(e))
+                                         class="file-upload-div">
                         <label class=classes!("btn","custum-file-uplad")>{"Select a BRAIDZ file."}
                             <input type="file" class="custom-file-upload-input" accept=".braidz"
                             onchange=self.link.callback(move |value| {
