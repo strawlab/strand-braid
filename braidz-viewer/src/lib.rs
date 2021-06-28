@@ -66,8 +66,7 @@ impl std::fmt::Display for MyError {
 struct Model {
     link: ComponentLink<Self>,
     tasks: Vec<ReaderTask>,
-    pub val: i32,
-    job: Option<Box<dyn Task>>,
+    _job: Option<Box<dyn Task>>,
     braidz_file: MaybeValidBraidzFile,
     did_error: bool,
 }
@@ -92,8 +91,7 @@ impl Component for Model {
         Self {
             link,
             tasks: vec![],
-            val: 0,
-            job: None,
+            _job: None,
             braidz_file: MaybeValidBraidzFile::default(),
             did_error: false,
         }
@@ -144,7 +142,7 @@ impl Component for Model {
                     Duration::from_millis(100),
                     self.link.callback(|_| Msg::RenderAll),
                 );
-                self.job = Some(Box::new(handle));
+                self._job = Some(Box::new(handle));
 
                 // This can be replaced by `Vec::drain_filter()` when that is stable.
                 let mut i = 0;
