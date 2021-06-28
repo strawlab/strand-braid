@@ -49,14 +49,14 @@ impl Component for AutoModeSelect {
 
     fn view(&self) -> Html {
         html! {
-            <div class="auto-mode-container",>
-                <div class="auto-mode-label",>
+            <div class="auto-mode-container">
+                <div class="auto-mode-label">
                     {"Auto mode: "}
                 </div>
-                <div class="auto-mode-buttons",>
-                    <EnumToggle<AutoMode>:
-                        value=self.mode,
-                        onsignal=self.link.callback(|variant| Msg::Clicked(variant)),
+                <div class="auto-mode-buttons">
+                    <EnumToggle<AutoMode>
+                        value=self.mode
+                        onsignal=self.link.callback(|variant| Msg::Clicked(variant))
                     />
                 </div>
             </div>

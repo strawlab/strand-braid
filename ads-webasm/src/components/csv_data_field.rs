@@ -81,7 +81,6 @@ where
     for<'de> RowType: serde::Deserialize<'de>,
 {
     link: ComponentLink<Self>,
-    reader: ReaderService,
     tasks: Vec<ReaderTask>,
     onfile: Option<Callback<MaybeCsvData<RowType>>>,
 }
@@ -96,12 +95,6 @@ pub struct Props<RowType: Clone> {
     pub onfile: Option<Callback<MaybeCsvData<RowType>>>,
 }
 
-// impl<RowType> Default for Props<RowType> {
-//     fn default() -> Self {
-//         Props { onfile: None }
-//     }
-// }
-
 impl<RowType> Component for CsvDataField<RowType>
 where
     RowType: 'static + Clone + PartialEq,
@@ -113,7 +106,6 @@ where
     fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self {
             link,
-            reader: ReaderService::new(),
             tasks: vec![],
             onfile: props.onfile,
         }
@@ -129,10 +121,8 @@ where
             }
             Msg::Files(files) => {
                 for file in files.into_iter() {
-                    let task = self
-                        .reader
-                        .read_file(file, self.link.callback(Msg::Loaded))
-                        .unwrap();
+                    let task =
+                        ReaderService::read_file(file, self.link.callback(Msg::Loaded)).unwrap();
                     self.tasks.push(task);
                 }
             }
@@ -148,10 +138,10 @@ where
 
     fn view(&self) -> Html {
         html! {
-            <input type="file",
-                class="custom-file-upload-input",
-                multiple=false,
-                accept=".csv",
+            <input type="file"
+                class="custom-file-upload-input"
+                multiple=false
+                accept=".csv"
                 onchange=self.link.callback(|value| {
                     let mut result = Vec::new();
                     if let ChangeData::Files(files) = value {
@@ -163,7 +153,7 @@ where
                         result.extend(files);
                     }
                     Msg::Files(result)
-                }),
+                })
                 />
         }
     }

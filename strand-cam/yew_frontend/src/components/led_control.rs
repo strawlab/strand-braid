@@ -89,31 +89,31 @@ impl Component for LedControl {
 
     fn view(&self) -> Html {
         html! {
-            <div class="led-control",>
+            <div class="led-control">
                 <h3>{"LED "}{format!("{}", self.channel.num)}</h3>
-                <EnumToggle<OnState>:
-                    value=self.channel.on_state,
-                    onsignal=self.link.callback(|variant| Msg::Clicked(variant)),
+                <EnumToggle<OnState>
+                    value=self.channel.on_state
+                    onsignal=self.link.callback(|variant| Msg::Clicked(variant))
                 />
                 <h3>{"Intensity"}</h3>
-                <RangedValue:
-                    unit="percent",
-                    min=0.0,
-                    max=100.0,
-                    current=(self.channel.intensity as f32)/MAX_INTENSITY*100.0,
-                    current_value_label=LAST_DETECTED_VALUE_LABEL,
-                    placeholder="intensity",
-                    onsignal=self.link.callback(|v| {Msg::SetIntensityPercent(v)}),
+                <RangedValue
+                    unit="percent"
+                    min=0.0
+                    max=100.0
+                    current=(self.channel.intensity as f32)/MAX_INTENSITY*100.0
+                    current_value_label=LAST_DETECTED_VALUE_LABEL
+                    placeholder="intensity"
+                    onsignal=self.link.callback(|v| {Msg::SetIntensityPercent(v)})
                     />
                 <h3>{"Pulse duration"}</h3>
-                <RangedValue:
-                    unit="clock ticks",
-                    min=1.0,
-                    max=std::u16::MAX as f32,
-                    current=self.pulse_duration_ticks as f32,
-                    current_value_label=LAST_DETECTED_VALUE_LABEL,
-                    placeholder="clock ticks",
-                    onsignal=self.link.callback(|v| {Msg::SetPulseDurationTicks(v)}),
+                <RangedValue
+                    unit="clock ticks"
+                    min=1.0
+                    max=std::u16::MAX as f32
+                    current=self.pulse_duration_ticks as f32
+                    current_value_label=LAST_DETECTED_VALUE_LABEL
+                    placeholder="clock ticks"
+                    onsignal=self.link.callback(|v| {Msg::SetPulseDurationTicks(v)})
                     />
             </div>
         }

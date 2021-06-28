@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = "0.17.4"
+yew = "0.18"
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 web-sys = {version="0.3", features=["CssStyleDeclaration","HtmlAnchorElement"]}
@@ -37,4 +37,4 @@ backtrace = ["mvg/backtrace", "freemovr-calibration/backtrace"]
 members = []
 
 [patch.crates-io]
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}

@@ -239,9 +239,7 @@ impl Component for Model {
                 return true;
             }
             Msg::NewImageFrame(in_msg) => {
-                self.video_data = VideoData {
-                    inner: Some(in_msg),
-                };
+                self.video_data = VideoData::new(in_msg);
             }
             Msg::NewServerState(response) => {
                 // Set the html page title once.
@@ -544,12 +542,12 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div>
-                <h1 style="text-align: center;",>{"Strand Camera "}<a href="https://strawlab.org/strand-cam/",><span class="infoCircle",>{"ℹ"}</span></a></h1>
-                <img src="strand-camera-no-text.png", width="521", height="118", class="center", />
+                <h1 style="text-align: center;">{"Strand Camera "}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ℹ"}</span></a></h1>
+                <img src="strand-camera-no-text.png" width="521" height="118" class="center" />
                 { self.disconnected_dialog() }
                 { self.frame_processing_error_dialog() }
                 { self.camtrig_failed() }
-                <div class="wrapper",>
+                <div class="wrapper">
                     { self.view_video() }
                     { self.view_decode_error() }
                     { self.view_camtrig() }
@@ -561,8 +559,8 @@ impl Component for Model {
                     { self.im_ops_ui() }
                     { self.checkerboard_calibration_ui() }
 
-                    <div class="wrap-collapsible",>
-                        <CheckboxLabel: label="Camera Settings", initially_checked=true, />
+                    <div class="wrap-collapsible">
+                        <CheckboxLabel label="Camera Settings" initially_checked=true />
                         <div>
                             { self.view_gain() }
                             { self.view_exposure() }
@@ -591,7 +589,7 @@ impl Model {
             html! {
                 <div>
                     <p>{"Error decoding callback JSON from server: "}{json_decode_err}</p>
-                    <p><Button: title="Dismiss", onsignal=self.link.callback(|_| Msg::DismissJsonDecodeError), /></p>
+                    <p><Button title="Dismiss" onsignal=self.link.callback(|_| Msg::DismissJsonDecodeError) /></p>
                 </div>
             }
         } else {
@@ -604,9 +602,9 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if let Some(ref device_state) = shared.camtrig_device_state {
                 return html! {
-                    <CamtrigControl:
-                        device_state=device_state,
-                        onsignal=self.link.callback(|x| Msg::CamtrigControlEvent(x)),
+                    <CamtrigControl
+                        device_state=device_state.clone()
+                        onsignal=self.link.callback(|x| Msg::CamtrigControlEvent(x))
                     />
                 };
             }
@@ -627,11 +625,11 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             let title = format!("Live view - {}", shared.camera_name);
             html! {
-                <VideoField: title=&title,
-                    video_data=&self.video_data,
-                    width=shared.image_width,
-                    height=shared.image_height,
-                    measured_fps=shared.measured_fps,
+                <VideoField title=title.clone()
+                    video_data=self.video_data.clone()
+                    width=shared.image_width
+                    height=shared.image_height
+                    measured_fps=shared.measured_fps
                 />
             }
         } else {
@@ -652,10 +650,10 @@ impl Model {
             }
         } else {
             html! {
-                <div class="modal-container",>
+                <div class="modal-container">
                     <h1> { "Web browser not connected to Strand Camera" } </h1>
                     <p>{ format!("Connection State: {:?}", self.es.ready_state()) }</p>
-                    <p>{ "Please restart Strand Camera and " }<ReloadButton: label="reload"/></p>
+                    <p>{ "Please restart Strand Camera and " }<ReloadButton label="reload"/></p>
                 </div>
             }
         }
@@ -666,17 +664,17 @@ impl Model {
             if shared.had_frame_processing_error {
                 return {
                     html! {
-                    <div class="modal-container",>
+                    <div class="modal-container">
                         <h1> { "Error: frame processing too slow" } </h1>
                         <p>{"Processing of image frames is taking too long. Reduce the computational cost of image processing."}</p>
-                        <p><Toggle:
-                                label="Ignore all future errors",
-                                value=self.ignore_all_future_frame_processing_errors,
+                        <p><Toggle
+                                label="Ignore all future errors"
+                                value=self.ignore_all_future_frame_processing_errors
                                 ontoggle=self.link.callback(|checked| {
                                     Msg::SetIgnoreAllFutureErrors(checked)
-                                }),
+                                })
                             /></p>
-                        <p><Button: title="Dismiss", onsignal=self.link.callback(|_| Msg::DismissProcessingErrorModal), /></p>
+                        <p><Button title="Dismiss" onsignal=self.link.callback(|_| Msg::DismissProcessingErrorModal) /></p>
                     </div>
                     }
                 };
@@ -713,7 +711,7 @@ impl Model {
             }
         } else {
             html! {
-                <div class="modal-container",>
+                <div class="modal-container">
                     <h1>{"LED box disconnected"}</h1>
                     <p>{"Please reconnect and restart."}</p>
                 </div>
@@ -739,10 +737,10 @@ impl Model {
                 };
                 html! {<div>
                     <h5>{"NVIDIA device to use for H264 encoding"}</h5>
-                    <VecToggle<String>:
-                        values=shared.cuda_devices.clone(),
-                        selected_idx=selected_cuda_idx as usize,
-                        onsignal=self.link.callback(|item| Msg::ToggleCudaDevice(item as i32)),
+                    <VecToggle<String>
+                        values=shared.cuda_devices.clone()
+                        selected_idx=selected_cuda_idx as usize
+                        onsignal=self.link.callback(|item| Msg::ToggleCudaDevice(item as i32))
                     />
                 </div>}
             } else {
@@ -752,39 +750,39 @@ impl Model {
             // TODO: select cuda device
 
             html! {
-                <div class="wrap-collapsible",>
-                    <CheckboxLabel: label="MKV Recording Options", initially_checked=true, />
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="MKV Recording Options" initially_checked=true />
                     <div>
 
                         <div>
-                            <RecordingPathWidget:
-                                label="Record MKV file",
-                                value=shared.is_recording_mkv.clone(),
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleMkvSave(checked)}),
+                            <RecordingPathWidget
+                                label="Record MKV file"
+                                value=shared.is_recording_mkv.clone()
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleMkvSave(checked)})
                                 />
                         </div>
                         <div>
                             <h5>{"MKV Max Framerate"}</h5>
-                            <EnumToggle<RecordingFrameRate>:
-                                value=shared.mkv_recording_config.max_framerate.clone(),
-                                onsignal=self.link.callback(|variant| Msg::ToggleMkvRecordingFrameRate(variant)),
+                            <EnumToggle<RecordingFrameRate>
+                                value=shared.mkv_recording_config.max_framerate.clone()
+                                onsignal=self.link.callback(|variant| Msg::ToggleMkvRecordingFrameRate(variant))
                             />
                         </div>
 
                         <div>
                             <h5>{"MKV Codec"}</h5>
-                            <VecToggle<CodecSelection>:
-                                values=available_codecs,
-                                selected_idx=selected_idx,
-                                onsignal=self.link.callback(|idx| Msg::ToggleMkvCodec(idx)),
+                            <VecToggle<CodecSelection>
+                                values=available_codecs
+                                selected_idx=selected_idx
+                                onsignal=self.link.callback(|idx| Msg::ToggleMkvCodec(idx))
                             />
                         </div>
 
                         <div>
                             <h5>{"MKV Bitrate"}</h5>
-                            <EnumToggle<BitrateSelection>:
-                                value=get_bitrate(&shared.mkv_recording_config.codec).unwrap(),
-                                onsignal=self.link.callback(|variant| Msg::ToggleMkvBitrate(variant)),
+                            <EnumToggle<BitrateSelection>
+                                value=get_bitrate(&shared.mkv_recording_config.codec).unwrap()
+                                onsignal=self.link.callback(|variant| Msg::ToggleMkvBitrate(variant))
                             />
                         </div>
 
@@ -802,17 +800,17 @@ impl Model {
 
     fn view_post_trigger_options(&self) -> Html {
         html! {
-            <div class="wrap-collapsible",>
-                <CheckboxLabel: label="Post Triggering", initially_checked=true, />
+            <div class="wrap-collapsible">
+                <CheckboxLabel label="Post Triggering" initially_checked=true />
                 <div>
                     <label>{"buffer size (number of frames) "}
-                        <TypedInput<usize>:
-                            storage=&self.post_trigger_buffer_size_local,
-                            on_send_valid=self.link.callback(|v| Msg::SetPostTriggerBufferSize(v)),
+                        <TypedInput<usize>
+                            storage=self.post_trigger_buffer_size_local.clone()
+                            on_send_valid=self.link.callback(|v| Msg::SetPostTriggerBufferSize(v))
                             />
                     </label>
 
-                    <Button: title="Post Trigger MKV Recording", onsignal=self.link.callback(|_| Msg::PostTriggerMkvRecording),/>
+                    <Button title="Post Trigger MKV Recording" onsignal=self.link.callback(|_| Msg::PostTriggerMkvRecording)/>
                     {"(Initiates MKV recording as set above.)"}
 
                 </div>
@@ -825,10 +823,10 @@ impl Model {
             let ufmf_div = if shared.has_image_tracker_compiled {
                 html! {
                     <div>
-                    <RecordingPathWidget:
-                        label="Record µFMF file",
-                        value=shared.is_recording_ufmf.clone(),
-                        ontoggle=self.link.callback(|checked| {Msg::ToggleUfmfSave(checked)}),
+                    <RecordingPathWidget
+                        label="Record µFMF file"
+                        value=shared.is_recording_ufmf.clone()
+                        ontoggle=self.link.callback(|checked| {Msg::ToggleUfmfSave(checked)})
                         />
                     </div>
                 }
@@ -837,22 +835,22 @@ impl Model {
             };
 
             html! {
-                <div class="wrap-collapsible",>
-                    <CheckboxLabel: label="FMF & µFMF Recording", initially_checked=false, />
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="FMF & µFMF Recording" initially_checked=false />
                     <div>
                         { ufmf_div }
                         <div>
-                            <RecordingPathWidget:
-                                label="Record FMF file (warning: huge files)",
-                                value=shared.is_recording_fmf.clone(),
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleFmfSave(checked)}),
+                            <RecordingPathWidget
+                                label="Record FMF file (warning: huge files)"
+                                value=shared.is_recording_fmf.clone()
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleFmfSave(checked)})
                                 />
                         </div>
                         <div>
                             <h5>{"Record FMF Framerate"}</h5>
-                            <EnumToggle<RecordingFrameRate>:
-                                value=shared.recording_framerate.clone(),
-                                onsignal=self.link.callback(|variant| Msg::ToggleFmfRecordingFrameRate(variant)),
+                            <EnumToggle<RecordingFrameRate>
+                                value=shared.recording_framerate.clone()
+                                onsignal=self.link.callback(|variant| Msg::ToggleFmfRecordingFrameRate(variant))
                             />
                         </div>
                     </div>
@@ -873,31 +871,31 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if let Some(ref ts) = shared.apriltag_state {
                 html! {
-                    <div class="wrap-collapsible",>
+                    <div class="wrap-collapsible">
 
-                        <CheckboxLabel: label="April Tag Detection", initially_checked=true, />
+                        <CheckboxLabel label="April Tag Detection" initially_checked=true />
                         <div>
                             <h5>{"Tag Family"}</h5>
-                            <EnumToggle<TagFamily>:
-                                value=ts.april_family.clone(),
-                                onsignal=self.link.callback(|variant| Msg::ToggleTagFamily(variant)),
+                            <EnumToggle<TagFamily>
+                                value=ts.april_family.clone()
+                                onsignal=self.link.callback(|variant| Msg::ToggleTagFamily(variant))
                             />
                         </div>
                         <div>
 
                             <div>
-                                <Toggle:
-                                    label="Enable detection",
-                                    value=ts.do_detection,
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetection(checked)}),
+                                <Toggle
+                                    label="Enable detection"
+                                    value=ts.do_detection
+                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetection(checked)})
                                     />
                             </div>
 
                             <div>
-                                <RecordingPathWidget:
-                                    label="Record detections to CSV file",
-                                    value=ts.is_recording_csv.clone(),
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetectionSaveCsv(checked)}),
+                                <RecordingPathWidget
+                                    label="Record detections to CSV file"
+                                    value=ts.is_recording_csv.clone()
+                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetectionSaveCsv(checked)})
                                     />
                             </div>
                         </div>
@@ -919,22 +917,22 @@ impl Model {
         };
         if let Some(ref shared) = self.server_state {
             html! {
-                <div class="wrap-collapsible",>
-                    <CheckboxLabel: label="ImOps Detection", initially_checked=true, />
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="ImOps Detection" initially_checked=true />
                     <div>
                         <div>
-                            <Toggle:
-                                label="Enable detection",
-                                value=shared.im_ops_state.do_detection,
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleImOpsDetection(checked)}),
+                            <Toggle
+                                label="Enable detection"
+                                value=shared.im_ops_state.do_detection
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleImOpsDetection(checked)})
                                 />
                         </div>
 
                         <div>
                             <label>{"Destination (IP:Port)"}
-                                <TypedInput<SocketAddr>:
-                                    storage=&self.im_ops_destination_local,
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsDestination(v)),
+                                <TypedInput<SocketAddr>
+                                    storage=self.im_ops_destination_local.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsDestination(v))
                                     />
                             </label>
                         </div>
@@ -942,9 +940,9 @@ impl Model {
 
                         <div>
                             <label>{"Source (IP)"}
-                                <TypedInput<IpAddr>:
-                                    storage=&self.im_ops_source_local,
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsSource(v)),
+                                <TypedInput<IpAddr>
+                                    storage=self.im_ops_source_local.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsSource(v))
                                     />
                             </label>
                         </div>
@@ -952,27 +950,27 @@ impl Model {
 
                         <div>
                             <label>{"Center X"}
-                                <TypedInput<u32>:
-                                    storage=&self.im_ops_center_x,
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterX(v)),
+                                <TypedInput<u32>
+                                    storage=self.im_ops_center_x.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterX(v))
                                     />
                             </label>
                         </div>
 
                         <div>
                             <label>{"Center Y"}
-                                <TypedInput<u32>:
-                                    storage=&self.im_ops_center_y,
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterY(v)),
+                                <TypedInput<u32>
+                                    storage=self.im_ops_center_y.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterY(v))
                                     />
                             </label>
                         </div>
 
                         <div>
                             <label>{"Threshold"}
-                                <TypedInput<u8>:
-                                    storage=&self.im_ops_threshold,
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsTheshold(v)),
+                                <TypedInput<u8>
+                                    storage=self.im_ops_threshold.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsTheshold(v))
                                     />
                             </label>
                         </div>
@@ -990,56 +988,56 @@ impl Model {
             if shared.has_image_tracker_compiled {
                 let cfg_clone = shared.im_pt_detect_cfg.clone();
                 return html! {
-                    <div class="wrap-collapsible",>
-                        <CheckboxLabel: label="Object Detection", initially_checked=true, />
+                    <div class="wrap-collapsible">
+                        <CheckboxLabel label="Object Detection" initially_checked=true />
                         <div>
 
                             <div>
-                                <Toggle:
-                                    label="Enable object detection",
-                                    value=shared.is_doing_object_detection,
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetection(checked)}),
+                                <Toggle
+                                    label="Enable object detection"
+                                    value=shared.is_doing_object_detection
+                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetection(checked)})
                                     />
                             </div>
 
                             <div>
-                                <RecordingPathWidget:
-                                    label="Record CSV file",
-                                    value=shared.is_saving_im_pt_detect_csv.clone(),
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)}),
+                                <RecordingPathWidget
+                                    label="Record CSV file"
+                                    value=shared.is_saving_im_pt_detect_csv.clone()
+                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)})
                                     />
                             </div>
 
                             <div>
                                 <h5>{"CSV Max Rate"}</h5>
-                                <EnumToggle<RecordingFrameRate>:
-                                    value=self.csv_recording_rate.clone(),
-                                    onsignal=self.link.callback(|variant| Msg::ToggleCsvRecordingRate(variant)),
+                                <EnumToggle<RecordingFrameRate>
+                                    value=self.csv_recording_rate.clone()
+                                    onsignal=self.link.callback(|variant| Msg::ToggleCsvRecordingRate(variant))
                                 />
                             </div>
 
                             <div>
-                                <Toggle:
-                                    label="Update background model",
-                                    value=shared.im_pt_detect_cfg.do_update_background_model,
+                                <Toggle
+                                    label="Update background model"
+                                    value=shared.im_pt_detect_cfg.do_update_background_model
                                     ontoggle=self.link.callback(move |checked| {
                                         let mut cfg_clone2 = cfg_clone.clone();
                                         cfg_clone2.do_update_background_model = checked;
                                         let cfg_str = serde_yaml::to_string(&cfg_clone2).unwrap();
                                         Msg::SetObjDetectionConfig(cfg_str)
-                                    }),
+                                    })
                                     />
                             </div>
                             <div>
                                 <h5>{"Detailed configuration"}</h5>
-                                <ConfigField<ImPtDetectCfg>:
-                                    server_version=Some(shared.im_pt_detect_cfg.clone()),
-                                    rows=16,
-                                    onsignal=self.link.callback(|cfg| {Msg::SetObjDetectionConfig(cfg)}),
+                                <ConfigField<ImPtDetectCfg>
+                                    server_version=Some(shared.im_pt_detect_cfg.clone())
+                                    rows=16
+                                    onsignal=self.link.callback(|cfg| {Msg::SetObjDetectionConfig(cfg)})
                                     />
-                                <div class="reset-background-btn",>
-                                    <Button: title="Take Current Image As Background", onsignal=self.link.callback(|_| Msg::TakeCurrentImageAsBackground),/>
-                                    <Button: title="Set background to mid-gray", onsignal=self.link.callback(|_| Msg::ClearBackground(127.0)),/>
+                                <div class="reset-background-btn">
+                                    <Button title="Take Current Image As Background" onsignal=self.link.callback(|_| Msg::TakeCurrentImageAsBackground)/>
+                                    <Button title="Set background to mid-gray" onsignal=self.link.callback(|_| Msg::ClearBackground(127.0))/>
                                 </div>
                             </div>
                         </div>
@@ -1076,20 +1074,20 @@ impl Model {
                 };
 
                 html! {
-                    <div class="wrap-collapsible",>
-                        <CheckboxLabel: label="Checkerboard Calibration", />
+                    <div class="wrap-collapsible">
+                        <CheckboxLabel label="Checkerboard Calibration" />
                         <div>
 
-                            <Toggle:
-                                label="Enable checkerboard calibration",
-                                value=shared.checkerboard_data.enabled,
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDetection(checked)}),
+                            <Toggle
+                                label="Enable checkerboard calibration"
+                                value=shared.checkerboard_data.enabled
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDetection(checked)})
                                 />
 
-                            <Toggle:
-                                label="Save debug information",
-                                value=shared.checkerboard_save_debug.is_some(),
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDebug(checked)}),
+                            <Toggle
+                                label="Save debug information"
+                                value=shared.checkerboard_save_debug.is_some()
+                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDebug(checked)})
                                 />
 
                             <div>{checkerboard_debug}</div>
@@ -1097,15 +1095,15 @@ impl Model {
                             <h2>{"Input: Checkerboard Size"}</h2>
                             <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7 for a standard chessboard)."}</p>
                             <label>{"width"}
-                                <TypedInput<u32>:
-                                    storage=&self.checkerboard_width,
-                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardWidth(v)),
+                                <TypedInput<u32>
+                                    storage=self.checkerboard_width.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardWidth(v))
                                     />
                             </label>
                             <label>{"height"}
-                                <TypedInput<u32>:
-                                    storage=&self.checkerboard_height,
-                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardHeight(v)),
+                                <TypedInput<u32>
+                                    storage=self.checkerboard_height.clone()
+                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardHeight(v))
                                     />
                             </label>
 
@@ -1115,16 +1113,16 @@ impl Model {
                                 {num_checkerboards_collected}
                             </div>
 
-                            <Button:
-                                title="Clear Checkerboards",
-                                onsignal=self.link.callback(move |_| Msg::ClearCheckerboards),
+                            <Button
+                                title="Clear Checkerboards"
+                                onsignal=self.link.callback(move |_| Msg::ClearCheckerboards)
                                 />
 
-                            <Button:
-                                title="Perform and Save Calibration",
-                                disabled=disabled,
-                                is_active=is_active,
-                                onsignal=self.link.callback(move |_| Msg::PerformCheckerboardCalibration),
+                            <Button
+                                title="Perform and Save Calibration"
+                                disabled=disabled
+                                is_active=is_active
+                                onsignal=self.link.callback(move |_| Msg::PerformCheckerboardCalibration)
                                 />
 
                         </div>
@@ -1149,15 +1147,15 @@ impl Model {
         {
             if let Some(ref shared) = self.server_state {
                 html! {
-                    <div class="wrap-collapsible",>
-                        <CheckboxLabel: label="Kalman tracking", initially_checked=false, />
+                    <div class="wrap-collapsible">
+                        <CheckboxLabel label="Kalman tracking" initially_checked=false />
                         <div>
                             <div>
                                 <h5>{"Kalman tracking configuration"}</h5>
-                                <ConfigField<KalmanTrackingConfig>:
-                                    server_version=Some(shared.kalman_tracking_config.clone()),
-                                    rows=5,
-                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)}),
+                                <ConfigField<KalmanTrackingConfig>
+                                    server_version=Some(shared.kalman_tracking_config.clone())
+                                    rows=5
+                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)})
                                     />
                             </div>
                         </div>
@@ -1182,15 +1180,15 @@ impl Model {
         {
             if let Some(ref shared) = self.server_state {
                 html! {
-                    <div class="wrap-collapsible",>
-                        <CheckboxLabel: label="Online LED triggering", initially_checked=false, />
+                    <div class="wrap-collapsible">
+                        <CheckboxLabel label="Online LED triggering" initially_checked=false />
 
                             <div>
                                 <h5>{"Led program configuration"}</h5>
-                                <ConfigField<LedProgramConfig>:
-                                    server_version=Some(shared.led_program_config.clone()),
-                                    rows=7,
-                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)}),
+                                <ConfigField<LedProgramConfig>
+                                    server_version=Some(shared.led_program_config.clone())
+                                    rows=7
+                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)})
                                     />
                             </div>
                     </div>
@@ -1213,18 +1211,18 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if let Some(gain_auto) = shared.gain_auto {
                 return html! {
-                    <div class=("gain-main","cam-range-main"),>
+                    <div class=classes!("gain-main","cam-range-main")>
                         <h3>{ "Gain" }</h3>
-                        <div class="cam-range-inner",>
-                            <AutoModeSelect: mode=gain_auto, onsignal=self.link.callback(|g| {Msg::SetGainAuto(g)}), />
-                            <RangedValue:
-                                unit=&shared.gain.unit,
-                                min=shared.gain.min as f32,
-                                max=shared.gain.max as f32,
-                                current=shared.gain.current as f32,
-                                current_value_label=LAST_DETECTED_VALUE_LABEL,
-                                placeholder=&shared.gain.name,
-                                onsignal=self.link.callback(|v| {Msg::SetGainValue(v as f64)}),
+                        <div class="cam-range-inner">
+                            <AutoModeSelect mode=gain_auto onsignal=self.link.callback(|g| {Msg::SetGainAuto(g)}) />
+                            <RangedValue
+                                unit=shared.gain.unit.clone()
+                                min=shared.gain.min as f32
+                                max=shared.gain.max as f32
+                                current=shared.gain.current as f32
+                                current_value_label=LAST_DETECTED_VALUE_LABEL
+                                placeholder=shared.gain.name.clone()
+                                onsignal=self.link.callback(|v| {Msg::SetGainValue(v as f64)})
                                 />
                         </div>
                     </div>
@@ -1240,18 +1238,18 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if let Some(exposure_auto) = shared.exposure_auto {
                 return html! {
-                    <div class=("exposure-main","cam-range-main"),>
+                    <div class=classes!("exposure-main","cam-range-main")>
                         <h3>{ "Exposure Time" }</h3>
-                        <div class="cam-range-inner",>
-                            <AutoModeSelect: mode=exposure_auto, onsignal=self.link.callback(|g| {Msg::SetExposureAuto(g)}), />
-                            <RangedValue:
-                                unit=&shared.exposure_time.unit,
-                                min=shared.exposure_time.min as f32,
-                                max=shared.exposure_time.max as f32,
-                                current=shared.exposure_time.current as f32,
-                                current_value_label=LAST_DETECTED_VALUE_LABEL,
-                                placeholder=&shared.exposure_time.name,
-                                onsignal=self.link.callback(|v| {Msg::SetExposureValue(v as f64)}),
+                        <div class="cam-range-inner">
+                            <AutoModeSelect mode=exposure_auto onsignal=self.link.callback(|g| {Msg::SetExposureAuto(g)}) />
+                            <RangedValue
+                                unit=shared.exposure_time.unit.clone()
+                                min=shared.exposure_time.min as f32
+                                max=shared.exposure_time.max as f32
+                                current=shared.exposure_time.current as f32
+                                current_value_label=LAST_DETECTED_VALUE_LABEL
+                                placeholder=shared.exposure_time.name.clone()
+                                onsignal=self.link.callback(|v| {Msg::SetExposureValue(v as f64)})
                                 />
                         </div>
                     </div>
@@ -1267,28 +1265,28 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if let Some(ref frl) = shared.frame_rate_limit {
                 html! {
-                    <div class=("frame-rate-main","cam-range-main"),>
+                    <div class=classes!("frame-rate-main","cam-range-main")>
                         <h3>{ "Maximum Frame Rate" }</h3>
-                            <div class="auto-mode-container",>
-                                <div class="auto-mode-label",>
+                            <div class="auto-mode-container">
+                                <div class="auto-mode-label">
                                     {"Limit Frame Rate: "}
                                 </div>
-                                <div class="auto-mode-buttons",>
-                                    <EnumToggle<bool>:
-                                        value=shared.frame_rate_limit_enabled,
-                                        onsignal=self.link.callback(|variant| Msg::SetFrameRateLimitEnabled(variant)),
+                                <div class="auto-mode-buttons">
+                                    <EnumToggle<bool>
+                                        value=shared.frame_rate_limit_enabled
+                                        onsignal=self.link.callback(|variant| Msg::SetFrameRateLimitEnabled(variant))
                                     />
                                 </div>
                             </div>
-                        <div class="cam-range-inner",>
-                            <RangedValue:
-                                unit=&frl.unit,
-                                min=frl.min as f32,
-                                max=frl.max as f32,
-                                current=frl.current as f32,
-                                current_value_label=LAST_DETECTED_VALUE_LABEL,
-                                placeholder=&frl.name,
-                                onsignal=self.link.callback(|v| {Msg::SetFrameRateLimit(v as f64)}),
+                        <div class="cam-range-inner">
+                            <RangedValue
+                                unit=frl.unit.clone()
+                                min=frl.min as f32
+                                max=frl.max as f32
+                                current=frl.current as f32
+                                current_value_label=LAST_DETECTED_VALUE_LABEL
+                                placeholder=frl.name.clone()
+                                onsignal=self.link.callback(|v| {Msg::SetFrameRateLimit(v as f64)})
                                 />
                         </div>
                     </div>

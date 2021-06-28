@@ -43,7 +43,7 @@ impl Component for ReloadButton {
 
     fn view(&self) -> Html {
         html! {
-            <Button: title=&self.label, onsignal=self.link.callback(|_| Msg::Clicked),/>
+            <Button title=self.label.clone() onsignal=self.link.callback(|_| Msg::Clicked)/>
         }
     }
 }

@@ -142,7 +142,7 @@ impl Component for VideoField {
         self.width = props.width;
         self.height = props.height;
         self.measured_fps = props.measured_fps;
-        if let Some(ref in_msg) = self.video_data.inner {
+        if let Some(in_msg) = self.video_data.inner() {
             let data_url = in_msg.firehose_frame_data_url.clone();
             let mut draw_shapes = in_msg.annotations.clone();
             if let Some(ref valid_display) = in_msg.valid_display {
@@ -205,16 +205,16 @@ impl Component for VideoField {
 
     fn view(&self) -> Html {
         html! {
-            <div class="wrap-collapsible",>
-              <CheckboxLabel:
-                label=&self.title,
-                initially_checked=self.show_div,
-                oncheck=self.link.callback(|checked| Msg::ToggleCollapsed(checked)),
+            <div class="wrap-collapsible">
+              <CheckboxLabel
+                label=self.title.clone()
+                initially_checked=self.show_div
+                oncheck=self.link.callback(|checked| Msg::ToggleCollapsed(checked))
                 />
               <div>
-                <canvas width=self.width, height=self.height,
-                    id=&self.css_id, class="video-field-canvas",
-                    onmousemove=self.link.callback(|evt| Msg::MouseMove(evt)),
+                <canvas width=format!("{}",self.width) height=format!("{}",self.height)
+                    id=self.css_id.clone() class="video-field-canvas"
+                    onmousemove=self.link.callback(|evt| Msg::MouseMove(evt))
                     />
                 { self.view_text() }
               </div>
@@ -225,18 +225,18 @@ impl Component for VideoField {
 
 impl VideoField {
     fn view_text(&self) -> Html {
-        if let Some(ref data) = self.video_data.inner {
+        if let Some(frame_number) = self.video_data.inner().map(|x| x.fno) {
             let mouse_str = if let Some(ref mouse_pos) = self.mouse_xy {
                 format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
             } else {
                 "".to_string()
             };
-            let fno_str = format!("{}", data.fno);
+            let fno_str = format!("{}", frame_number);
             html! {
-                <div class="video-field-text",>
-                    <div class="video-field-fno",>{"frame: "}{ &fno_str }</div>
-                    <div class="video-field-mousepos",>{"mouse: "}{ &mouse_str }</div>
-                    <div class="video-field-fps",>
+                <div class="video-field-text">
+                    <div class="video-field-fno">{"frame: "}{ &fno_str }</div>
+                    <div class="video-field-mousepos">{"mouse: "}{ &mouse_str }</div>
+                    <div class="video-field-fps">
                         {"frames per second: "}{ format!("{:.1}", self.measured_fps) }
                     </div>
                 </div>

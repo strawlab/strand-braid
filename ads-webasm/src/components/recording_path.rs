@@ -90,18 +90,18 @@ impl Component for RecordingPathWidget {
         };
         html! {
             <span>
-                <label class=label_class,>{ &self.label }
-                    <input type="checkbox",
-                        checked=self.value.is_some(),
-                        onclick=self.link.callback(move |_| Msg::Toggled(new_value)),
-                        class="recording-path-checkbox",
+                <label class=label_class >{ &self.label }
+                    <input type="checkbox"
+                        checked=self.value.is_some()
+                        onclick=self.link.callback(move |_| Msg::Toggled(new_value))
+                        class="recording-path-checkbox"
                         />
-                    <span class="recording-path-widget",>
-                        <span class=("recording-path-widget-inner",widget_inner_class),>
+                    <span class="recording-path-widget" >
+                        <span class=classes!("recording-path-widget-inner", widget_inner_class)>
                         </span>
                     </span>
                 </label>
-                <span class=blinker_class,><span></span></span>
+                <span class=blinker_class><span></span></span>
                 { path_disp }
             </span>
         }

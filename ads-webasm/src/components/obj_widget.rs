@@ -3,7 +3,6 @@ use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
 
 pub struct ObjWidget {
     link: ComponentLink<Self>,
-    reader: ReaderService,
     tasks: Vec<ReaderTask>,
     onfile: Option<Callback<MaybeValidObjFile>>,
 }
@@ -69,7 +68,6 @@ impl Component for ObjWidget {
     fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self {
             link,
-            reader: ReaderService::new(),
             tasks: vec![],
             onfile: props.onfile,
         }
@@ -106,7 +104,7 @@ impl Component for ObjWidget {
             Msg::Files(files) => {
                 for file in files.into_iter() {
                     let callback = self.link.callback(Msg::Loaded);
-                    let task = self.reader.read_file(file, callback).unwrap();
+                    let task = ReaderService::read_file(file, callback).unwrap();
                     self.tasks.push(task);
                 }
             }
@@ -121,10 +119,10 @@ impl Component for ObjWidget {
 
     fn view(&self) -> Html {
         html! {
-            <input type="file",
-                class="custom-file-upload-input",
-                multiple=false,
-                accept=".obj",
+            <input type="file"
+                class="custom-file-upload-input"
+                multiple=false
+                accept=".obj"
                 onchange=self.link.callback(|value| {
                     let mut result = Vec::new();
                     if let ChangeData::Files(files) = value {
@@ -136,7 +134,7 @@ impl Component for ObjWidget {
                         result.extend(files);
                     }
                     Msg::Files(result)
-                }),
+                })
                 />
         }
     }

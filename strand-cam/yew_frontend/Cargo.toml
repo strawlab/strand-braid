@@ -14,13 +14,13 @@ wasm-logger = "0.2.0"
 wasm-bindgen = "0.2.58"
 js-sys = "0.3"
 web-sys = {version="0.3", features=["EventSource","DomRect","Element","DomTokenList","HtmlCanvasElement","HtmlImageElement"]}
-yew = "0.17.4"
+yew = "0.18"
 serde = {version = "1.0", default-features = false}
 serde_json = "1.0"
 serde_yaml = "0.8"
 http = "0.2"
 backtrace = "0.3.40" # here only to require this high version number, not used directly
-yew-event-source = "0.1"
+yew-event-source = "0.2"
 yew-tincture = "0.1"
 
 strand-cam-storetype = {path = "../../strand-cam-storetype", default-features=false}
@@ -45,4 +45,4 @@ flydratrax = ["strand-cam-storetype/flydratrax"]
 members = []
 
 [patch.crates-io]
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}

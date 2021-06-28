@@ -117,7 +117,7 @@ where
             Err(ref e) => {
                 let err_str = format!("❌ Error: {:?}", e);
                 html! {
-                    <div class="config-field-error",>
+                    <div class="config-field-error" >
                         {err_str}
                     </div>
                 }
@@ -125,34 +125,34 @@ where
         };
         let server_version_str = to_string(&self.server_version);
         html! {
-            <div class="config-field-editor",>
-                <div class=("config-field-left-col","config-field-col"),>
-                    <div class="config-field-label",>
+            <div class="config-field-editor" >
+                <div class=classes!("config-field-left-col","config-field-col") >
+                    <div class="config-field-label" >
                         <label>{"Edit configuration"}</label>
                     </div>
-                    <div class="config-field-textarea-div",>
-                        <textarea rows=self.rows, value=&self.local_copy,
-                            class="config-field-textarea",
-                            oninput=self.link.callback(|e: InputData| Msg::OnTextareaInput(e.value)),
+                    <div class="config-field-textarea-div" >
+                        <textarea rows=format!("{}",self.rows)  value=self.local_copy.clone()
+                            class="config-field-textarea"
+                            oninput=self.link.callback(|e: InputData| Msg::OnTextareaInput(e.value))
                             />
                     </div>
                     { maybe_error_div }
                 </div>
-                <div class=("config-field-middle-col","config-field-col"),>
-                    <div class="config-field-btns",>
-                        <div class="config-field-btn-to-browser",>
-                            <Button: title="<-", onsignal=self.link.callback(|_| Msg::ToBrowser),/>
+                <div class=classes!("config-field-middle-col","config-field-col") >
+                    <div class="config-field-btns" >
+                        <div class="config-field-btn-to-browser" >
+                            <Button title="<-"  onsignal=self.link.callback(|_| Msg::ToBrowser) />
                         </div>
-                        <div class="config-field-btn-to-server",>
-                            <Button: title="->", onsignal=self.link.callback(|_| Msg::ToServer),/>
+                        <div class="config-field-btn-to-server" >
+                            <Button title="->"  onsignal=self.link.callback(|_| Msg::ToServer) />
                         </div>
                     </div>
                 </div>
-                <div class=("config-field-right-col","config-field-col"),>
-                    <div class="config-field-label",>
+                <div class=classes!("config-field-right-col","config-field-col") >
+                    <div class="config-field-label" >
                         <label>{"Current configuration"}</label>
                     </div>
-                    <div class="config-field-on-server",>
+                    <div class="config-field-on-server" >
                         {&server_version_str}
                     </div>
                 </div>

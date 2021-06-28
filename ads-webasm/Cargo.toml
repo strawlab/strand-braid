@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
-yew = "0.17.4"
+yew = "0.18"
 js-sys = "0.3"
 web-sys = {version="0.3", features=["EventSource","DomRect","Element","DomTokenList","HtmlCanvasElement","HtmlImageElement"]}
 gloo = { version = "0.2.1" }
