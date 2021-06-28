@@ -631,6 +631,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         TriggerType::FakeSync(cfg) => {
             info!("No triggerbox configuration. Using fake synchronization.");
 
+            signal_triggerbox_connected.store(true, Ordering::SeqCst);
+
             let mut expected_framerate = expected_framerate_arc.write();
             *expected_framerate = Some(cfg.fps as f32);
 
