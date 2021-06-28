@@ -15,7 +15,7 @@ csv = "1.1"
 libflate = "0.1"
 zip = { version = "0.5", default-features = false, features=["deflate", "time"] }
 chrono = "0.4"
-serde-xml-rs = "0.3.0"
+serde-xml-rs = "0.4.1"
 hdrhistogram = "7.1"
 base64 = "0.12"
 
