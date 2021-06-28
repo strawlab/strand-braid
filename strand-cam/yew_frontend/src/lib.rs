@@ -572,6 +572,14 @@ impl Component for Model {
                     { self.view_fmf_recording_options() }
                     { self.view_kalman_tracking() }
                 </div>
+                <footer id="footer">
+                {format!(
+                    "Strand Camera version: {} (revision {})",
+                    env!("CARGO_PKG_VERSION"),
+                    env!("GIT_HASH")
+                )}
+                </footer>
+
             </div>
         }
     }

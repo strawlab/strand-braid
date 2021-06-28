@@ -111,10 +111,12 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
 
     let arg_default = StrandCamArgs::default();
 
+    let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+
     let matches = {
         #[allow(unused_mut)]
         let mut parser = clap::App::new(env!("APP_NAME"))
-            .version(env!("CARGO_PKG_VERSION"))
+            .version(version.as_str())
             .arg(
                 clap::Arg::with_name("JWT_SECRET")
                     .long("jwt-secret")
