@@ -5,7 +5,7 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use yew::prelude::*;
-use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
+use yew::services::reader::{File, FileData, ReaderTask};
 use yew::services::{Task, TimeoutService};
 
 use plotters::{
@@ -65,7 +65,6 @@ impl std::fmt::Display for MyError {
 
 struct Model {
     link: ComponentLink<Self>,
-    reader: ReaderService,
     tasks: Vec<ReaderTask>,
     pub val: i32,
     job: Option<Box<dyn Task>>,
@@ -90,7 +89,6 @@ impl Component for Model {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self {
             link,
-            reader: ReaderService::new(),
             tasks: vec![],
             val: 0,
             job: None,
@@ -160,7 +158,7 @@ impl Component for Model {
                 let file: File = file; // type annotation for IDE
                 let task = {
                     let callback = self.link.callback(Msg::Loaded);
-                    self.reader.read_file(file, callback).unwrap()
+                    yew::services::reader::ReaderService::read_file(file, callback).unwrap()
                 };
                 self.tasks.push(task);
             }
@@ -217,20 +215,20 @@ impl Component for Model {
         };
 
         html! {
-            <div id="page-container",>
-                <div class=(spinner_div_class),>
-                    <div class="compute-modal-inner",>
+            <div id="page-container">
+                <div class=spinner_div_class>
+                    <div class="compute-modal-inner">
                         <p>
                             {"Loading file."}
                         </p>
-                        <div class="lds-ellipsis",>
+                        <div class="lds-ellipsis">
 
                             <div></div><div></div><div></div><div></div>
 
                         </div>
                     </div>
                 </div>
-                <div id="content-wrap",>
+                <div id="content-wrap">
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
                         {"Online viewer for files saved by "}
@@ -240,8 +238,8 @@ impl Component for Model {
                     <p>
                     </p>
                     <div>
-                        <label class=("btn","custum-file-uplad"),>{"Select a BRAIDZ file."}
-                            <input type="file", class="custom-file-upload-input", accept=".braidz"
+                        <label class=classes!("btn","custum-file-uplad")>{"Select a BRAIDZ file."}
+                            <input type="file" class="custom-file-upload-input" accept=".braidz"
                             onchange=self.link.callback(move |value| {
                                 let mut result = Vec::new();
                                 if let ChangeData::Files(files) = value {
@@ -477,7 +475,7 @@ fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Html {
                 <div>
                     <p>
                         {format!("{}", camid)}
-                        <canvas id={canv_id}, width="1000", height="200"/>
+                        <canvas id={canv_id} width="1000" height="200"/>
                     </p>
                 </div>
             }
@@ -499,11 +497,11 @@ fn add_3d_traj_dom_elements() -> Html {
         <div>
             <div>
                 <p>{"Top view"}</p>
-                <canvas id={TOPVIEW}, width="600", height="400"/>
+                <canvas id={TOPVIEW} width="600" height="400"/>
             </div>
             <div>
                 <p>{"Side view"}</p>
-                <canvas id={SIDE1VIEW}, width="600", height="400"/>
+                <canvas id={SIDE1VIEW} width="600" height="400"/>
             </div>
         </div>
     }
