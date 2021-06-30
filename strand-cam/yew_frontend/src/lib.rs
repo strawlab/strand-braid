@@ -562,6 +562,9 @@ impl Component for Model {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Camera Settings" initially_checked=true />
                         <div>
+                            <p>{"Set values on the camera itself."}</p>
+                        </div>
+                        <div>
                             { self.view_gain() }
                             { self.view_exposure() }
                             { self.view_frame_rate_limit() }
@@ -753,6 +756,9 @@ impl Model {
                 <div class="wrap-collapsible">
                     <CheckboxLabel label="MKV Recording Options" initially_checked=true />
                     <div>
+                        <p>{"Record video files."}</p>
+                    </div>
+                    <div>
 
                         <div>
                             <RecordingPathWidget
@@ -803,6 +809,10 @@ impl Model {
             <div class="wrap-collapsible">
                 <CheckboxLabel label="Post Triggering" initially_checked=true />
                 <div>
+                    <p>{"Acquire video into a large buffer. This enables 'going back in time' to trigger saving of images
+                    that were acquired prior to the Post Trigger occurring."}</p>
+                </div>
+                <div>
                     <label>{"buffer size (number of frames) "}
                         <TypedInput<usize>
                             storage=self.post_trigger_buffer_size_local.clone()
@@ -811,7 +821,7 @@ impl Model {
                     </label>
 
                     <Button title="Post Trigger MKV Recording" onsignal=self.link.callback(|_| Msg::PostTriggerMkvRecording)/>
-                    {"(Initiates MKV recording as set above.)"}
+                    {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
 
                 </div>
             </div>
@@ -837,6 +847,9 @@ impl Model {
             html! {
                 <div class="wrap-collapsible">
                     <CheckboxLabel label="FMF & µFMF Recording" initially_checked=false />
+                    <div>
+                        <p>{"Record special-purpose uncompressed video files."}</p>
+                    </div>
                     <div>
                         { ufmf_div }
                         <div>
@@ -918,7 +931,12 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             html! {
                 <div class="wrap-collapsible">
-                    <CheckboxLabel label="ImOps Detection" initially_checked=true />
+                    <CheckboxLabel label="ImOps Detection" initially_checked=false />
+                    <div>
+                        <p>{"⚠ This is an in-development, specialized low-latency detector which detects
+                        a bright point in the image and transmits the pixel coordinates to a
+                        defined network socket. ⚠"}</p>
+                    </div>
                     <div>
                         <div>
                             <Toggle
@@ -1076,6 +1094,9 @@ impl Model {
                 html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Checkerboard Calibration" />
+                        <div>
+                            <p>{"This enables estimation of lens distortion parameters."}</p>
+                        </div>
                         <div>
 
                             <Toggle
