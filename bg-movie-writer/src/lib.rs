@@ -22,8 +22,6 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         mkv_writer::Error,
     ),
-    #[error("mkvfix error: {0}")]
-    MkvFix(#[from] strand_cam_mkvfix::Error),
     #[error("SendError")]
     SendError(#[cfg(feature = "backtrace")] Backtrace),
     #[error(transparent)]
@@ -157,12 +155,10 @@ fn launch_runner(
                             stamp.with_timezone(&chrono::Local);
                         let filename = local.format(&format_str_mkv).to_string();
                         let path = std::path::Path::new(&filename);
-                        let mut h264_path = None;
                         let f = thread_try!(err_tx, std::fs::File::create(&path));
 
                         let nv_enc = match &mkv_recording_config.codec {
                             ci2_remote_control::MkvCodec::H264(_opts) => {
-                                h264_path = Some(std::path::PathBuf::from(path));
                                 // Now we know nvidia-encode is wanted, so
                                 // here we panic if this is not possible. In
                                 // the UI, users should not be able to choose
@@ -192,35 +188,20 @@ fn launch_runner(
                             _ => None,
                         };
 
-                        raw = Some((
-                            h264_path,
-                            thread_try!(
-                                err_tx,
-                                mkv_writer::MkvWriter::new(f, mkv_recording_config.clone(), nv_enc)
-                            ),
+                        raw = Some(thread_try!(
+                            err_tx,
+                            mkv_writer::MkvWriter::new(f, mkv_recording_config.clone(), nv_enc)
                         ));
                     }
-                    if let Some((_h264_path, ref mut r)) = &mut raw {
+                    if let Some(ref mut r) = &mut raw {
                         let result = match_all_dynamic_fmts!(&frame, x, r.write(x, stamp));
                         thread_try!(err_tx, result);
                     }
                 }
                 Msg::Finish => {
                     if raw.is_some() {
-                        let (h264_path, mut mkv_writer) = raw.unwrap();
+                        let mut mkv_writer = raw.unwrap();
                         thread_try!(err_tx, mkv_writer.finish());
-
-                        if let Some(path) = h264_path {
-                            if strand_cam_mkvfix::is_ffmpeg_available() {
-                                thread_try!(err_tx, strand_cam_mkvfix::mkv_fix(path));
-                            } else {
-                                log::error!(
-                                    "Could not fix file {} because `ffmpeg` program not available. \
-                                The file may not display timestamps or seek correctly in some players.",
-                                    path.display()
-                                );
-                            }
-                        }
                     }
                     return; // end the thread
                 }

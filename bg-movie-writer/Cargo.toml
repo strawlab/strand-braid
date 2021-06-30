@@ -13,7 +13,6 @@ mkv-writer = {path="../mkv-writer"}
 machine-vision-formats = "0.1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 nvenc = {path="../nvenc"}
-strand-cam-mkvfix = {path="../strand-cam-mkvfix"}
 basic-frame = { path = "../basic-frame" }
 channellib = {path="../channellib"}
 
