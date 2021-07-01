@@ -2326,6 +2326,8 @@ enum ToDevice {
 }
 
 pub struct StrandCamArgs {
+    /// Is Strand Cam running inside Braid context?
+    pub is_braid: bool,
     pub secret: Option<Vec<u8>>,
     pub camera_name: Option<String>,
     pub pixel_format: Option<String>,
@@ -2392,6 +2394,7 @@ pub enum StartSoftwareFrameRateLimit {
 impl Default for StrandCamArgs {
     fn default() -> Self {
         Self {
+            is_braid: false,
             secret: None,
             camera_name: None,
             pixel_format: None,
@@ -2794,6 +2797,7 @@ pub async fn setup_app(
     let has_image_tracker_compiled = false;
 
     let shared_store = ChangeTracker::new(StoreType {
+        is_braid: args.is_braid,
         is_recording_mkv: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,

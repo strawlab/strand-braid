@@ -36,6 +36,7 @@ pub const STRAND_CAM_EVENT_NAME: &'static str = "strand-cam";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct StoreType {
+    pub is_braid: bool,
     /// is saving MKV file
     pub is_recording_mkv: Option<RecordingPath>,
     /// is saving FMF file

@@ -44,6 +44,7 @@ fn launch_strand_cam(
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
 
     let args = strand_cam::StrandCamArgs {
+        is_braid: true,
         camera_name: Some(camera.name),
         pixel_format: camera.pixel_format,
         camtrig_device_path: None,
