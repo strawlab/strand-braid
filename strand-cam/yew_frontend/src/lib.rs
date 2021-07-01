@@ -627,7 +627,7 @@ impl Model {
     fn view_video(&self) -> Html {
         if let Some(ref shared) = self.server_state {
             let title = format!("Live view - {}", shared.camera_name);
-            let frame_number = self.video_data.inner().map(|x| x.fno).unwrap_or(0);
+            let frame_number = self.video_data.frame_number().unwrap_or(0);
             html! {
                 <VideoField title=title.clone()
                     video_data=self.video_data.clone()

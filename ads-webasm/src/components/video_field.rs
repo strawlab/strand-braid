@@ -47,7 +47,6 @@ pub struct VideoField {
     show_div: bool, // synchronized to whether we are visible
     title: String,
     css_id: String,
-    video_data: VideoData,
     last_frame_render_msec: f64,
     width: u32,
     height: u32,
@@ -82,7 +81,6 @@ impl Component for VideoField {
         Self {
             title: props.title,
             css_id: uuid::Uuid::new_v4().to_string(),
-            video_data: props.video_data,
             last_frame_render_msec: 0.0,
             width: props.width,
             height: props.height,
@@ -141,14 +139,13 @@ impl Component for VideoField {
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
         self.title = props.title;
-        self.video_data = props.video_data;
         self.width = props.width;
         self.height = props.height;
         self.frame_number = props.frame_number;
         self.measured_fps = props.measured_fps;
-        if let Some(in_msg) = self.video_data.inner() {
-            let data_url = in_msg.firehose_frame_data_url.clone();
-            let mut draw_shapes = in_msg.annotations.clone();
+        if let Some(in_msg) = props.video_data.inner() {
+            let data_url = in_msg.firehose_frame_data_url;
+            let mut draw_shapes = in_msg.annotations;
             if let Some(ref valid_display) = in_msg.valid_display {
                 let line_width = 5.0;
                 let green_shape =
