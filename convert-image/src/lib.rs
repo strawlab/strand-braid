@@ -423,6 +423,49 @@ impl<'a, FMT1, FMT2> Stride for ReinterpretedImage<'a, FMT1, FMT2> {
     }
 }
 
+/// If needed, copy original image data to remove stride.
+fn remove_padding<FMT>(frame: &dyn ImageStride<FMT>) -> Result<CowImage<'_, FMT, FMT>>
+where
+    FMT: PixelFormat,
+{
+    let fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+
+    match fmt {
+        formats::pixel_format::PixFmt::BayerRG8
+        | formats::pixel_format::PixFmt::BayerGB8
+        | formats::pixel_format::PixFmt::BayerGR8
+        | formats::pixel_format::PixFmt::BayerBG8
+        | formats::pixel_format::PixFmt::Mono8 => {
+            if frame.width() as usize == frame.stride() {
+                // The stride is already the width.
+                Ok(CowImage::Reinterpreted(force_pixel_format_ref(frame)))
+            } else {
+                // The stride is not the width.
+                use itertools::izip;
+                let dest_stride = frame.width() as usize;
+                let mut dest_buf = vec![0u8; frame.height() as usize * dest_stride];
+
+                for (src_row, dest_row) in izip![
+                    frame.image_data().chunks_exact(frame.stride()),
+                    dest_buf.chunks_exact_mut(dest_stride),
+                ] {
+                    dest_row[..dest_stride].copy_from_slice(&src_row[..dest_stride]);
+                }
+
+                // Return the new buffer as a new image.
+                Ok(CowImage::Owned(SimpleFrame {
+                    width: frame.width(),
+                    height: frame.height(),
+                    stride: frame.width() as u32,
+                    image_data: dest_buf,
+                    fmt: std::marker::PhantomData,
+                }))
+            }
+        }
+        _ => todo!(),
+    }
+}
+
 enum CowImage<'a, F, FORIG> {
     Reinterpreted(ReinterpretedImage<'a, FORIG, F>),
     Owned(SimpleFrame<F>),
@@ -611,7 +654,9 @@ where
                 | formats::pixel_format::PixFmt::BayerBG8 => {
                     // .. from bayer.
                     let mut rgb = force_buffer_pixel_format_ref(dest);
-                    bayer_into_rgb(frame, &mut rgb, dest_stride)?;
+                    // The bayer code requires no padding in the input image.
+                    let exact_stride = remove_padding(frame)?;
+                    bayer_into_rgb(&exact_stride, &mut rgb, dest_stride)?;
                     Ok(())
                 }
                 formats::pixel_format::PixFmt::Mono8 => {
@@ -735,19 +780,15 @@ where
 
     let frame = to_rgb8_or_mono8(frame)?;
 
-    let coding = match &frame {
-        SupportedEncoding::Mono(_) => image::ColorType::L8,
-        SupportedEncoding::Rgb(_) => image::ColorType::Rgb8,
+    let (coding, bytes_per_pixel) = match &frame {
+        SupportedEncoding::Mono(_) => (image::ColorType::L8, 1),
+        SupportedEncoding::Rgb(_) => (image::ColorType::Rgb8, 3),
     };
 
     // The encoders in the `image` crate only handle packed inputs. We check if
     // our data is packed and if not, make a packed copy.
 
     let mut packed = None;
-    let bytes_per_pixel = machine_vision_formats::pixel_format::pixfmt::<FMT>()
-        .unwrap()
-        .bits_per_pixel()
-        / 8;
     let packed_stride = frame.width() as usize * bytes_per_pixel as usize;
     if frame.stride() != packed_stride {
         let mut dest = Vec::with_capacity(packed_stride * frame.height() as usize);
@@ -820,6 +861,31 @@ mod tests {
                 assert_eq!(pixel.0[0], 0, "at pixel {},{}", col, row);
             }
         }
+    }
+
+    #[test]
+    fn check_bayer_conversion_to_jpg() {
+        // Create an image where stride is larger than width.
+        const STRIDE: usize = 6;
+        const W: u32 = 4;
+        const H: u32 = 4;
+        // Create buffer with value of `42` everywhere.
+        let mut image_data = vec![42; H as usize * STRIDE];
+        // Set the image part of the buffer to `0`.
+        for row in 0..H as usize {
+            let start_idx = row * STRIDE;
+            for col in 0..W as usize {
+                image_data[start_idx + col] = 0;
+            }
+        }
+        let frame: SimpleFrame<formats::pixel_format::BayerRG8> = SimpleFrame {
+            width: W,
+            height: H,
+            stride: STRIDE as u32,
+            image_data,
+            fmt: std::marker::PhantomData,
+        };
+        frame_to_image(&frame, ImageOptions::Jpeg(240)).unwrap();
     }
 
     #[test]
