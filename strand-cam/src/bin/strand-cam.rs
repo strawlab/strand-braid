@@ -20,7 +20,12 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
 }
 
 fn main() -> std::result::Result<(), anyhow::Error> {
-    human_panic::setup_panic!();
+    human_panic::setup_panic!(human_panic::Metadata {
+        version: format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")).into(),
+        name: env!("CARGO_PKG_NAME").into(),
+        authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+        homepage: env!("CARGO_PKG_HOMEPAGE").into(),
+    });
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
