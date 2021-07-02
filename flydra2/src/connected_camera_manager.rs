@@ -382,7 +382,23 @@ impl ConnectedCamerasManager {
                     }
                     Synchronized(frame0) => {
                         // The camera is already synchronized, return synced frame number
-                        synced_frame = Some(cam_frame - frame0);
+                        let corrected_frame_number = cam_frame - frame0;
+                        if corrected_frame_number == u64::MAX {
+                            // We have seen a bug in which the frame number is
+                            // `u64::MAX`. This checks if this obviously wrong
+                            // frame number is introduced after the present
+                            // location or before. In any case, if we are
+                            // getting frame numbers like this, clearly we
+                            // cannot track anymore, so panicing here only
+                            // raises the issue slightly earlier.
+                            panic!(
+                                "Impossible frame number. cam_name: {}, cam_frame: {}, frame0: {}",
+                                ros_cam_name.as_str(),
+                                cam_frame,
+                                frame0
+                            );
+                        }
+                        synced_frame = Some(corrected_frame_number);
                     }
                 };
             } else {

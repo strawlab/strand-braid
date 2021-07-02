@@ -884,6 +884,17 @@ impl CoordProcessor {
             match &si {
                 StreamItem::EOF => {}
                 StreamItem::Packet(fdp) => {
+                    if fdp.frame_data.synced_frame.0 == u64::MAX {
+                        // We have seen a bug after making a contiguous stream
+                        // (see below) in which the frame number is `u64::MAX`.
+                        // This checks if this obviously wrong frame number is
+                        // introduced after the present location or before. In
+                        // any case, if we are getting frame numbers like this,
+                        // clearly we cannot track anymore, so panicing here
+                        // only raises the issue slightly earlier.
+                        panic!("Impossible frame number with frame data {:?}", fdp);
+                    }
+
                     save_data_tx
                         .send(SaveToDiskMsg::Data2dDistorted(fdp.clone()))
                         .cb_ok();
