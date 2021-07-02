@@ -363,7 +363,6 @@ dependencies = [
  "machine-vision-formats",
  "mkv-writer",
  "nvenc",
- "strand-cam-mkvfix",
  "thiserror",
 ]
 
@@ -448,7 +447,7 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "braid"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -468,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "braid-offline"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "approx 0.5.0",
@@ -501,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "braid-run"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "braid",
@@ -523,7 +522,7 @@ dependencies = [
 
 [[package]]
 name = "braidz-cli"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "braidz-parser",
@@ -2776,9 +2775,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.9.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 
 [[package]]
 name = "hdrhistogram"
@@ -2963,9 +2962,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e4d964fdc6dd89caf85b8e8155d43fd68aab016218a8da111231ed3f4a2e822"
+checksum = "4b8e70faee179bf56f2047f12533ab75c0e46b25268d662e6374955b1dafb352"
 dependencies = [
  "core-foundation 0.9.1",
  "windows",
@@ -3174,9 +3173,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.6.2"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
+checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown",
@@ -4627,15 +4626,15 @@ dependencies = [
 
 [[package]]
 name = "plotters-backend"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07fffcddc1cb3a1de753caa4e4df03b79922ba43cf882acc1bdd7e8df9f4590"
+checksum = "fd8be10f7485c8a323ea100b20d6052c27cf5968f08f8e3a56ee9f0cf38ebd3d"
 
 [[package]]
 name = "plotters-svg"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b38a02e23bd9604b842a812063aec4ef702b57989c37b655254bb61c471ad211"
+checksum = "521fa9638fa597e1dc53e9412a4f9cefb01187ee1f7413076f9e6749e2885ba9"
 dependencies = [
  "plotters-backend",
 ]
@@ -5713,9 +5712,9 @@ checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
 
 [[package]]
 name = "slotmap"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "585cd5dffe4e9e06f6dfdf66708b70aca3f781bed561f4f667b2d9c0d4559e36"
+checksum = "6ed667ea1f11160850af698a8894c2a18829d8c886d3d3778ed671fc1448356f"
 dependencies = [
  "version_check",
 ]
@@ -5865,7 +5864,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "strand-cam"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "ads-apriltag",
  "alga",
@@ -5973,7 +5972,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam-offline-kalmanize"
-version = "0.10.0-beta.0"
+version = "0.10.0"
 dependencies = [
  "alga",
  "anyhow",
@@ -6663,9 +6662,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb0d2e7be6ae3a5fa87eed5fb451aff96f2573d2694942e40543ae0bbe19c796"
+checksum = "8895849a949e7845e06bd6dc1aa51731a103c42707010a5b591c0038fb73385b"
 
 [[package]]
 name = "unicode-width"
@@ -7070,9 +7069,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc9f9638ab146d5aac1e2a11e6a7d0936f2539ff7bf506bda53e32d8bc717522"
+checksum = "d21e80c408bb5609db1c24323a942d34bc573178b5ab2d386b981bd3ed07122d"
 dependencies = [
  "const-sha1",
  "windows_gen",
@@ -7081,15 +7080,15 @@ dependencies = [
 
 [[package]]
 name = "windows_gen"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98559339612c93b285707747c52e6bc647ecbf4c1559287500e3c4dc0f9beecd"
+checksum = "6471156e3821094bf99528667c498b36eb58a092b187e9a03324d72744cf3646"
 
 [[package]]
 name = "windows_macros"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6fbda4b2e343ede6ce95ae3bc2e35e546b7869e100b8c661d3393f4fbbb4cc6"
+checksum = "12cd9926fdba87226d95e0ec872736934f9df405cede2ca546e307e0d5d4b973"
 dependencies = [
  "syn 1.0.73",
  "windows_gen",
@@ -7175,24 +7174,21 @@ dependencies = [
 
 [[package]]
 name = "yew"
-version = "0.17.4"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d8703eb5b883e816cd74c65e2f6dd4144eeedb77c1b3e0284e8f3f593b80ab1"
+checksum = "e4d5154faef86dddd2eb333d4755ea5643787d20aca683e58759b0e53351409f"
 dependencies = [
  "anyhow",
  "anymap",
  "bincode",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "cfg-match",
  "console_error_panic_hook",
- "futures",
  "gloo",
  "http",
  "indexmap",
  "js-sys",
  "log",
- "proc-macro-hack 0.5.19",
- "proc-macro-nested",
  "ryu",
  "serde",
  "serde_json",
@@ -7206,13 +7202,12 @@ dependencies = [
 
 [[package]]
 name = "yew-macro"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61a9a452e63b6222b28b426dafbc6b207192e0127cdb93324cc7407b8c7e1768"
+checksum = "d6e23bfe3dc3933fbe9592d149c9985f3047d08c637a884b9344c21e56e092ef"
 dependencies = [
  "boolinator",
  "lazy_static",
- "proc-macro-hack 0.5.19",
  "proc-macro2 1.0.27",
  "quote 1.0.9",
  "syn 1.0.73",
@@ -7221,7 +7216,7 @@ dependencies = [
 [[package]]
 name = "yew-tincture"
 version = "0.1.0"
-source = "git+https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture?rev=e835164fa9ced144811b314625a1df43759ea3e7#e835164fa9ced144811b314625a1df43759ea3e7"
+source = "git+https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture?rev=eec5433a380f4324ad6e1f579e315d598c41b57e#eec5433a380f4324ad6e1f579e315d598c41b57e"
 dependencies = [
  "uuid",
  "yew",
