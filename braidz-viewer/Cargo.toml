@@ -23,6 +23,7 @@ web-sys = {version="^0.3.28", features=["Blob", "DateTimeValue", "File",
     "FileList", "FileReader", "HtmlInputElement", "DataTransfer", "DragEvent"]}
 js-sys = "0.3.28"
 plotters = "0.3"
+plotters-backend = "=0.3.0" # until https://github.com/plotters-rs/plotters-backend/issues/4 is fixed
 plotters-canvas = "0.3"
 wee_alloc = "0.4.5"
 serde = { version = "^1.0.85", features = ['derive'] }
