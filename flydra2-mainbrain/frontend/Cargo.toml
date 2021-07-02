@@ -1,6 +1,6 @@
 [package]
 name = "braid-frontend"
-version =  "0.10.0-beta.0" # braid release synchronized
+version =  "0.10.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
