@@ -1,12 +1,13 @@
 use std::str;
 
-use futures::{stream::StreamExt, sink::SinkExt};
+use futures::{sink::SinkExt, stream::StreamExt};
 use tokio_util::codec::Decoder;
 
 use camtrig::CamtrigCodec;
-use camtrig::{Result,Error};
-use camtrig_comms::{ToDevice, DeviceState, TriggerState, Running, OnState, ChannelState};
+use camtrig::{Error, Result};
+use camtrig_comms::{ChannelState, DeviceState, OnState, Running, ToDevice, TriggerState};
 
+#[cfg(unix)]
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     let settings = tokio_serial::SerialPortSettings::default();
@@ -32,11 +33,11 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     tokio::spawn(printer);
 
     // Create a stream to call our closure every second.
-    let mut interval_stream =
-        tokio::time::interval(std::time::Duration::from_millis(1000));
+    let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(1000));
 
     let stream_future = async move {
-        while let Some(_) = interval_stream.next().await {
+        loop {
+            interval_stream.tick().await;
             // This closure is called once a second.
 
             // let msg = ToDevice::EchoRequest8((1,2,3,4,5,6,7,8));
@@ -53,40 +54,44 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {
     let intensity = camtrig_comms::MAX_INTENSITY;
-    ChannelState { num, intensity, on_state }
+    ChannelState {
+        num,
+        intensity,
+        on_state,
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    #[cfg(not(unix))]
+    println!("Error: this program was compiled to do nothing. It is supported on unix only.");
+
     env_logger::init();
 
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
-        .arg(clap::Arg::with_name("freq")
-                 .long("freq")
-                 .takes_value(true))
-        .arg(clap::Arg::with_name("device")
-                 .long("device")
-                 .takes_value(true))
-        .arg(clap::Arg::with_name("all_leds_on")
-                 .long("all-leds-on"))
+        .arg(clap::Arg::with_name("freq").long("freq").takes_value(true))
+        .arg(
+            clap::Arg::with_name("device")
+                .long("device")
+                .takes_value(true),
+        )
+        .arg(clap::Arg::with_name("all_leds_on").long("all-leds-on"))
         .get_matches();
 
-    let freq_str =
-        matches
-            .value_of("freq")
-            .ok_or(Error::CamtrigError("expected freq".into()))?;
+    let freq_str = matches
+        .value_of("freq")
+        .ok_or(Error::CamtrigError("expected freq".into()))?;
     let freq_hz: u16 = freq_str.parse()?;
     println!("freq_hz: {}", freq_hz);
 
-    let device_name =
-        matches
-            .value_of("device")
-            .ok_or(Error::CamtrigError("expected device".into()))?;
+    let device_name = matches
+        .value_of("device")
+        .ok_or(Error::CamtrigError("expected device".into()))?;
 
     let running = match freq_hz {
         0 => Running::Stopped,
-        f => Running::ConstantFreq(f)
+        f => Running::ConstantFreq(f),
     };
 
     let on_state = if matches.occurrences_of("all_leds_on") > 0 {
@@ -103,6 +108,8 @@ async fn main() -> Result<()> {
         ch4: make_chan(4, on_state),
     };
 
+    #[cfg(unix)]
     try_serial(device_name, &next_state).await;
+
     Ok(())
 }

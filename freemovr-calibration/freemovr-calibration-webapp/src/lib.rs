@@ -232,12 +232,12 @@ impl Component for Model {
 
         html! {
             <div>
-                <div class=(spinner_div_class),>
-                    <div class="compute-modal-inner",>
+                <div class=spinner_div_class>
+                    <div class="compute-modal-inner">
                         <p>
                             {"Performing computation."}
                         </p>
-                        <div class="lds-ellipsis",>
+                        <div class="lds-ellipsis">
 
                             <div></div><div></div><div></div><div></div>
 
@@ -247,7 +247,7 @@ impl Component for Model {
                 <h1>{"FreemoVR Pinhole Calibration Tool - Alpha Release"}</h1>
                 <h3>{"by Andrew Straw, Straw Lab, University of Freiburg, Germany"}</h3>
                 <p>{"This page computes a FreemoVR calibration based on a "}
-                    <a href="https://en.wikipedia.org/wiki/Pinhole_camera_model",>
+                    <a href="https://en.wikipedia.org/wiki/Pinhole_camera_model">
                     {"pinhole projection model."}</a>
                 </p>
                 <p>{"Note: although FreemoVR supports multiple virtual displays \
@@ -258,10 +258,10 @@ impl Component for Model {
                 </p>
 
                 <h2>{"Input: Display Surface Model"}</h2>
-                <label class=("btn", "custom-file-upload"),>
+                <label class=classes!("btn", "custom-file-upload")>
                     {"Select an OBJ file."}
-                    <ObjWidget:
-                        onfile=self.link.callback(|obj_file| Msg::ObjFile(obj_file)),
+                    <ObjWidget
+                        onfile=self.link.callback(|obj_file| Msg::ObjFile(obj_file))
                         />
                 </label>
                 <p>
@@ -271,22 +271,22 @@ impl Component for Model {
                 <h2>{"Input: Display Size"}</h2>
                 <p>{"Enter the size of your display in pixels (e.g. 1024 x 768)."}</p>
                 <label>{"width"}
-                    <TypedInput<usize>:
-                        storage=&self.display_width,
+                    <TypedInput<usize>
+                        storage=self.display_width.clone()
                         />
                 </label>
                 <label>{"height"}
-                    <TypedInput<usize>:
-                        storage=&self.display_height,
+                    <TypedInput<usize>
+                        storage=self.display_height.clone()
                         />
                 </label>
 
                 <h2>{"Input: Corresponding Points"}</h2>
                 <p>{"The file must be a CSV file with columns: display_x, display_y, texture_u, texture_v."}</p>
-                <label class=("btn", "custom-file-upload"),>
+                <label class=classes!("btn", "custom-file-upload")>
                     {"Select a CSV file."}
-                    <CsvDataField<SimpleUVCorrespondance>:
-                        onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file)),
+                    <CsvDataField<SimpleUVCorrespondance>
+                        onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file))
                         />
                 </label>
                 <p>
@@ -297,15 +297,15 @@ impl Component for Model {
                 <div>
                     {download_exr_str}
                 </div>
-                <Button:
-                    title="Compute EXR",
-                    onsignal=self.link.callback(|()| Msg::ComputeExr),
-                    disabled=!can_compute_pinhole_calibration,
+                <Button
+                    title="Compute EXR"
+                    onsignal=self.link.callback(|()| Msg::ComputeExr)
+                    disabled=!can_compute_pinhole_calibration
                     />
-                <Button:
-                    title="Download EXR",
-                    onsignal=self.link.callback(|()| Msg::DownloadExr),
-                    disabled=self.computed_exr.is_none(),
+                <Button
+                    title="Download EXR"
+                    onsignal=self.link.callback(|()| Msg::DownloadExr)
+                    disabled=self.computed_exr.is_none()
                     />
 
 
@@ -321,15 +321,15 @@ impl Component for Model {
                     <div>
                         {download_exr_str}
                     </div>
-                    <Button:
-                        title="Compute Corresponding Points",
-                        onsignal=self.link.callback(|()| Msg::ComputeCorrespondingCsv),
-                        disabled=!can_compute_pinhole_calibration,
+                    <Button
+                        title="Compute Corresponding Points"
+                        onsignal=self.link.callback(|()| Msg::ComputeCorrespondingCsv)
+                        disabled=!can_compute_pinhole_calibration
                         />
-                    <Button:
-                        title="Download Corresponding Points",
-                        onsignal=self.link.callback(|()| Msg::DownloadCorrespondingCsv),
-                        disabled=self.computed_csv.is_none(),
+                    <Button
+                        title="Download Corresponding Points"
+                        onsignal=self.link.callback(|()| Msg::DownloadCorrespondingCsv)
+                        disabled=self.computed_csv.is_none()
                         />
 
 
@@ -337,10 +337,10 @@ impl Component for Model {
                     <p>{"With your own program, edit the CSV file you downloaded above."}</p>
 
                     <h3>{"Step 3: Upload the Corresponding Points"}</h3>
-                    <label class=("btn", "custom-file-upload"),>
+                    <label class=classes!("btn", "custom-file-upload")>
                         {"Select a CSV file."}
-                        <CsvDataField<CompleteCorrespondance>:
-                            onfile=self.link.callback(|csv_file| Msg::CsvFile2(csv_file)),
+                        <CsvDataField<CompleteCorrespondance>
+                            onfile=self.link.callback(|csv_file| Msg::CsvFile2(csv_file))
                             />
                     </label>
                     <p>
@@ -351,15 +351,15 @@ impl Component for Model {
                     <div>
                         {download_stage_2_exr_str}
                     </div>
-                    <Button:
-                        title="Compute EXR",
-                        onsignal=self.link.callback(|()| Msg::ComputeExr2),
-                        disabled=!can_compute_stage_2_exr,
+                    <Button
+                        title="Compute EXR"
+                        onsignal=self.link.callback(|()| Msg::ComputeExr2)
+                        disabled=!can_compute_stage_2_exr
                         />
-                    <Button:
-                        title="Download EXR",
-                        onsignal=self.link.callback(|()| Msg::DownloadExr2),
-                        disabled=self.computed_stage_2_exr.is_none(),
+                    <Button
+                        title="Download EXR"
+                        onsignal=self.link.callback(|()| Msg::DownloadExr2)
+                        disabled=self.computed_stage_2_exr.is_none()
                         />
 
                 </div>
@@ -526,7 +526,7 @@ impl yew::worker::Agent for MyWorker {
                     .respond(who, MyWorkerResponse::ExrData(Ok(exr_buf)));
             }
             MyWorkerRequest::CalcCsv(src_data) => {
-                use freemovr_calibration::PinholeCal;;
+                use freemovr_calibration::PinholeCal;
                 let trimesh = src_data.geom_as_trimesh().unwrap();
 
                 let pinhole_fits = src_data.pinhole_fits();

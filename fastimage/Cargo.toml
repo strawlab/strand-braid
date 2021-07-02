@@ -11,7 +11,7 @@ num-traits = "0.2"
 [dev-dependencies]
 itertools = "0.8"
 criterion = "0.2"
-approx = "0.4"
+approx = "0.5"
 
 [features]
 default = ["simd-sse2"]

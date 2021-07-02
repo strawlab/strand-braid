@@ -2,6 +2,7 @@
 name = "fly-eye"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [dependencies]
 failure = "0.1.2"
@@ -9,17 +10,21 @@ log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.8"
 structopt = "0.3"
 crossbeam-channel = "0.5"
-image = "0.22"
+image = "0.23"
 glium = "0.25"
 imagefmt = "4.0.0"
 time = "0.1"
+chrono = "0.4"
+
+basic-frame = { path = "../basic-frame" }
 convert-image = { path = "../convert-image" }
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 machine-vision-shaders = { path = "../machine-vision-shaders" }
 crossbeam-ok = {path="../crossbeam-ok"}
 ci2 = { path = "../ci2" }
 ci2-dc1394 = { path = "../ci2-dc1394", optional = true }
 ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
+channellib = {path="../channellib"}
 
 [features]
 default = ["fly-eye"]

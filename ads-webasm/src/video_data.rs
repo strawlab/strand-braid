@@ -1,10 +1,22 @@
 use super::FirehoseImageData;
 
-// TODO: put inner behind std::rc::Rc to prevent cloning of data
-
 #[derive(Clone, PartialEq)]
 pub struct VideoData {
-    pub inner: Option<FirehoseImageData>,
+    inner: Option<FirehoseImageData>,
+}
+
+impl VideoData {
+    pub fn new(data: FirehoseImageData) -> Self {
+        Self { inner: Some(data) }
+    }
+
+    pub fn frame_number(&self) -> Option<u64> {
+        self.inner.as_ref().map(|x| x.fno)
+    }
+
+    pub fn inner(self) -> Option<FirehoseImageData> {
+        self.inner
+    }
 }
 
 impl Default for VideoData {

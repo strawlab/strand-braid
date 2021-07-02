@@ -1,30 +1,49 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 use std::rc::Rc;
 
 #[macro_use]
 extern crate log;
 
 use ci2_remote_control::MkvRecordingConfig;
-use convert_image::{encode_into_nv12, encode_y4m_frame, Colorspace};
+use convert_image::{encode_into_nv12, encode_y4m_frame, Y4MColorspace};
 
-use machine_vision_formats::ImageStride;
+use machine_vision_formats::{ImageBufferMutRef, ImageStride, PixelFormat};
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("i/o error")]
-    IoError(#[from] std::io::Error),
+    #[error("IO error: {source}")]
+    IoError {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("file already closed")]
     FileAlreadyClosed,
     #[error("inconsistent state")]
     InconsistentState,
     #[error("convert image error")]
-    ConvertImageError(#[from] convert_image::Error),
-    #[error("vpx encoder error")]
-    VpxEncoderError(#[from] vpx_encode::Error),
+    ConvertImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        convert_image::Error,
+    ),
+    #[error("VPX Encoder Error")]
+    VpxEncoderError {
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        inner: vpx_encode::Error,
+    },
     #[error("nvenc error")]
-    NvencError(#[from] nvenc::NvEncError),
+    NvencError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        nvenc::NvEncError,
+    ),
     #[error("nvenc libraries not loaded")]
     NvencLibsNotLoaded,
 }
@@ -43,12 +62,12 @@ impl From<dynlink_cuda::CudaError> for Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-enum MyEcoder<'lib> {
+enum MyEncoder<'lib> {
     Vpx(vpx_encode::Encoder),
-    H264(H264Encoder<'lib>),
+    Nvidia(NvEncoder<'lib>),
 }
 
-pub struct WebmWriter<'lib, T>
+pub struct MkvWriter<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
@@ -56,7 +75,7 @@ where
     nv_enc: Option<nvenc::NvEnc<'lib>>,
 }
 
-impl<'lib, T> WebmWriter<'lib, T>
+impl<'lib, T> MkvWriter<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
@@ -71,13 +90,14 @@ where
         })
     }
 
-    pub fn write<'a, IM>(
+    pub fn write<'a, IM, FMT>(
         &'a mut self,
         frame: &IM,
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<()>
     where
-        IM: ImageStride,
+        IM: ImageStride<FMT>,
+        FMT: PixelFormat,
     {
         let inner = self.inner.take();
 
@@ -88,7 +108,7 @@ where
                 let width = frame.width();
                 let height = frame.height();
 
-                let mut webm_segment =
+                let mut mkv_segment =
                     mux::Segment::new(mux::Writer::new(fd)).expect("mux::Segment::new");
 
                 let mut opt_h264_encoder = None;
@@ -106,7 +126,7 @@ where
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
                             Some(ref nv_enc) => {
-                                debug!("Using codec H264 in webm file.");
+                                debug!("Using codec H264 in mkv file.");
 
                                 // Setup the encoder.
                                 let cuda_version = nv_enc.cuda_version()?;
@@ -134,7 +154,9 @@ where
                                     nv_enc.functions.new_encoder(ctx)?;
 
                                 let encode = nvenc::NV_ENC_CODEC_H264_GUID;
+                                // let encode = nvenc::NV_ENC_CODEC_HEVC_GUID;
                                 let preset = nvenc::NV_ENC_PRESET_HP_GUID;
+                                // let preset = nvenc::NV_ENC_PRESET_DEFAULT_GUID;
                                 let format = nvenc::BufferFormat::NV12;
 
                                 let param_builder =
@@ -144,7 +166,7 @@ where
 
                                 let param_builder =
                                     match cfg.max_framerate.as_numerator_denominator() {
-                                        Some((num, den)) => param_builder.framerate(num, den),
+                                        Some((num, den)) => param_builder.set_framerate(num, den),
                                         None => param_builder,
                                     };
 
@@ -182,7 +204,7 @@ where
 
                                 let vram_queue = nvenc::Queue::new(vram_buffers);
 
-                                opt_h264_encoder = Some(H264Encoder {
+                                opt_h264_encoder = Some(NvEncoder {
                                     encoder,
                                     vram_queue,
                                 });
@@ -193,10 +215,10 @@ where
                     }
                 };
 
-                let vt = webm_segment.add_video_track(width, height, None, mux_codec);
+                let vt = mkv_segment.add_video_track(width, height, None, mux_codec);
 
                 let my_encoder = if let Some((vpx_codec, bitrate)) = vpx_tup {
-                    debug!("Using codec {:?} in webm file.", vpx_codec);
+                    debug!("Using codec {:?} in mkv file.", vpx_codec);
                     // Setup the encoder.
                     let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
                         width: width,
@@ -206,10 +228,10 @@ where
                         codec: vpx_codec,
                     })?;
 
-                    MyEcoder::Vpx(vpx_encoder)
+                    MyEncoder::Vpx(vpx_encoder)
                 } else {
                     let enc = opt_h264_encoder.unwrap();
-                    MyEcoder::H264(enc)
+                    MyEncoder::Nvidia(enc)
                 };
 
                 // Set DateUTC metadata
@@ -223,13 +245,16 @@ where
 
                 // Also see http://ffmpeg.org/doxygen/3.2/matroskaenc_8c_source.html
                 debug!(
-                    "saving DateUTC with value in webm file: {} (from initial timestamp {})",
+                    "saving DateUTC with value in mkv file: {} (from initial timestamp {})",
                     nanoseconds, timestamp
                 );
-                webm_segment.set_date_utc(nanoseconds);
+                mkv_segment.set_date_utc(nanoseconds);
+                mkv_segment.set_app_name(
+                    format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).as_str(),
+                );
 
                 let mut state = RecordingState {
-                    webm_segment,
+                    mkv_segment,
                     vt,
                     my_encoder,
                     first_timestamp: timestamp,
@@ -282,7 +307,7 @@ where
             }
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
-                    MyEcoder::Vpx(vpx_encoder) => {
+                    MyEncoder::Vpx(vpx_encoder) => {
                         let mut frames = vpx_encoder.finish().unwrap();
                         trace!("Finishing vpx encoding.");
                         while let Some(frame) = frames.next().unwrap() {
@@ -295,10 +320,10 @@ where
                             );
                         }
                     }
-                    MyEcoder::H264(mut h264_encoder) => {
+                    MyEncoder::Nvidia(mut nv_encoder) => {
                         // Now done with all frames, drain the pending data.
                         loop {
-                            match h264_encoder.vram_queue.get_pending() {
+                            match nv_encoder.vram_queue.get_pending() {
                                 None => break,
                                 Some(iobuf) => {
                                     // scope for locked output buffer
@@ -316,9 +341,9 @@ where
 
                 // If duration is set to `None`, libwebm will set it
                 // automatically.
-                let _ = state.webm_segment.finalize(None);
+                let _ = state.mkv_segment.finalize(None);
 
-                trace!("Finalized webm.");
+                trace!("Finalized mkv.");
                 self.inner = Some(WriteState::Finished);
                 Ok(())
             }
@@ -359,21 +384,23 @@ fn nanos(dur: &std::time::Duration) -> u64 {
     (as_secs_f64(dur) * 1e9).round() as u64
 }
 
-fn write_frame<'lib, T>(
+fn write_frame<'lib, T, FRAME, FMT>(
     state: &mut RecordingState<'lib, T>,
-    raw_frame: &dyn ImageStride,
+    raw_frame: &FRAME,
     timestamp: chrono::DateTime<chrono::Utc>,
 ) -> Result<()>
 where
     T: std::io::Write + std::io::Seek,
+    FRAME: ImageStride<FMT>,
+    FMT: PixelFormat,
 {
     use webm::mux::Track;
 
     let elapsed = timestamp.signed_duration_since(state.first_timestamp);
 
     match &mut state.my_encoder {
-        MyEcoder::Vpx(ref mut vpx_encoder) => {
-            let yuv = encode_y4m_frame(raw_frame, Colorspace::C420paldv)?;
+        MyEncoder::Vpx(ref mut vpx_encoder) => {
+            let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
             trace!("got yuv data for frame. {} bytes.", yuv.len());
 
             let milliseconds = elapsed.num_milliseconds();
@@ -384,11 +411,11 @@ where
                     .add_frame(frame.data, nanos(&frame.pts_dur()), frame.key);
             }
         }
-        MyEcoder::H264(ref mut h264_encoder) => {
-            let vram_buf: &mut IOBuffer<_, _> = match h264_encoder.vram_queue.get_available() {
+        MyEncoder::Nvidia(ref mut nv_encoder) => {
+            let vram_buf: &mut IOBuffer<_, _> = match nv_encoder.vram_queue.get_available() {
                 Some(iobuf) => iobuf,
                 None => {
-                    let iobuf = h264_encoder.vram_queue.get_pending().expect("get pending");
+                    let iobuf = nv_encoder.vram_queue.get_pending().expect("get pending");
                     {
                         // scope for locked output buffer
                         let outbuf = iobuf.out_buf.lock()?;
@@ -396,7 +423,7 @@ where
                             .vt
                             .add_frame(outbuf.mem(), nanos(outbuf.pts()), outbuf.is_keyframe());
                     }
-                    h264_encoder
+                    nv_encoder
                         .vram_queue
                         .get_available()
                         .expect("get available")
@@ -408,13 +435,15 @@ where
             let pitch = {
                 // Scope for locked input buffer.
                 let mut inbuf = vram_buf.in_buf.lock()?;
-                let pitch = inbuf.pitch();
+                let dest_stride = inbuf.pitch();
                 let dptr = inbuf.mem_mut();
-                encode_into_nv12(raw_frame, dptr, pitch)?;
-                pitch
+                let mut dest = ImageBufferMutRef::new(dptr);
+                encode_into_nv12(raw_frame, &mut dest, dest_stride)?;
+                // Now vram_buf.in_buf has the nv12 encoded data.
+                dest_stride
             };
 
-            h264_encoder.encoder.encode_picture(
+            nv_encoder.encoder.encode_picture(
                 &vram_buf.in_buf,
                 &vram_buf.out_buf,
                 pitch,
@@ -438,15 +467,15 @@ struct RecordingState<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
-    webm_segment: webm::mux::Segment<webm::mux::Writer<T>>,
+    mkv_segment: webm::mux::Segment<webm::mux::Writer<T>>,
     vt: webm::mux::VideoTrack,
-    my_encoder: MyEcoder<'lib>,
+    my_encoder: MyEncoder<'lib>,
     first_timestamp: chrono::DateTime<chrono::Utc>,
     previous_timestamp: chrono::DateTime<chrono::Utc>,
     target_interval: chrono::Duration,
 }
 
-struct H264Encoder<'lib> {
+struct NvEncoder<'lib> {
     encoder: Rc<nvenc::Encoder<'lib>>,
     vram_queue: nvenc::Queue<IOBuffer<InputBuffer<'lib>, OutputBuffer<'lib>>>,
 }

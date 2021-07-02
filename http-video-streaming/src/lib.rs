@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 #[macro_use]
 extern crate log;
 
@@ -11,7 +13,7 @@ use parking_lot::RwLock;
 use bui_backend::lowlevel::EventChunkSender;
 use bui_backend_types::{ConnectionKey, SessionKey};
 
-use machine_vision_formats as formats;
+use basic_frame::DynamicFrame;
 
 pub use http_video_streaming_types::{
     CircleParams, DrawableShape, FirehoseCallbackInner, Point, Shape, ToClient,
@@ -19,36 +21,31 @@ pub use http_video_streaming_types::{
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error, Clone, Eq, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("unknown path")]
-    UnknownPath,
-    #[error("convert image")]
-    ConvertImageError,
-    #[error("receive error")]
-    RecvError,
-    #[error("try receive error")]
-    TryRecvError,
+    UnknownPath(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
+    #[error(transparent)]
+    ConvertImageError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        convert_image::Error,
+    ),
+    #[error("crossbeam receive error: {source}")]
+    CrossbeamRecvError {
+        #[from]
+        source: channellib::RecvError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("callback sender disconnected")]
-    CallbackSenderDisconnected,
-}
-
-impl From<convert_image::Error> for Error {
-    fn from(_: convert_image::Error) -> Error {
-        Error::ConvertImageError
-    }
-}
-
-impl From<crossbeam_channel::RecvError> for Error {
-    fn from(_: crossbeam_channel::RecvError) -> Error {
-        Error::RecvError
-    }
+    CallbackSenderDisconnected(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
 }
 
 // future: use MediaSource API? https://w3c.github.io/media-source
 
-pub struct AnnotatedFrame<F: formats::ImageData + Send> {
-    pub frame: F,
+pub struct AnnotatedFrame {
+    pub frame: DynamicFrame,
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
     pub name: Option<String>,
@@ -60,10 +57,10 @@ pub struct FirehoseCallback {
     pub inner: FirehoseCallbackInner,
 }
 
-struct PerSender<F: formats::ImageData + Send> {
+struct PerSender {
     name_selector: NameSelector,
     out: EventChunkSender,
-    frame_lifo: Option<Rc<AnnotatedFrame<F>>>,
+    frame_lifo: Option<Rc<AnnotatedFrame>>,
     ready_to_send: bool,
     conn_key: ConnectionKey,
     fno: u64,
@@ -76,15 +73,12 @@ pub enum NameSelector {
     Name(String),
 }
 
-impl<F> PerSender<F>
-where
-    F: formats::ImageData + formats::Stride + Send,
-{
+impl PerSender {
     fn new(
         out: EventChunkSender,
         conn_key: ConnectionKey,
         name_selector: NameSelector,
-    ) -> PerSender<F> {
+    ) -> PerSender {
         PerSender {
             name_selector,
             out,
@@ -94,7 +88,7 @@ where
             fno: 0,
         }
     }
-    fn push(&mut self, frame: Rc<AnnotatedFrame<F>>) {
+    fn push(&mut self, frame: Rc<AnnotatedFrame>) {
         let use_frame = match self.name_selector {
             NameSelector::All => true,
             NameSelector::None => false,
@@ -139,9 +133,10 @@ where
                 if self.ready_to_send {
                     // sent_time computed early so that latency includes duration to encode, etc.
                     let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    let bytes = ::convert_image::frame_to_image(
+                    let bytes = basic_frame::match_all_dynamic_fmts!(
                         &most_recent_frame_data.frame,
-                        convert_image::ImageOptions::Jpeg(80),
+                        x,
+                        convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
                     )?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
@@ -185,20 +180,16 @@ where
     }
 }
 
-pub fn firehose_thread<F>(
+pub fn firehose_thread(
     sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
-    firehose_rx: crossbeam_channel::Receiver<AnnotatedFrame<F>>,
-    firehose_callback_rx: crossbeam_channel::Receiver<FirehoseCallback>,
+    firehose_rx: channellib::Receiver<AnnotatedFrame>,
+    firehose_callback_rx: channellib::Receiver<FirehoseCallback>,
     use_frame_selector: bool,
     events_prefix: &str,
     flag: thread_control::Flag,
-) -> Result<()>
-where
-    F: formats::ImageData + formats::Stride + Send,
-{
+) -> Result<()> {
     // TODO switch this to a tokio core reactor based event loop and async processing.
-    let mut per_sender_map: HashMap<ConnectionKey, PerSender<F>> = HashMap::new();
-    let zero_dur = std::time::Duration::from_millis(0);
+    let mut per_sender_map: HashMap<ConnectionKey, PerSender> = HashMap::new();
     while flag.is_alive() {
         // We have a timeout here in order to poll the `flag` variable above.
         let mut msg = match firehose_rx.recv_timeout(std::time::Duration::from_millis(100)) {
@@ -214,7 +205,7 @@ where
         };
 
         // Now pump the queue for any remaining messages, but do not wait for them.
-        while let Ok(msg_last) = firehose_rx.recv_timeout(zero_dur) {
+        while let Ok(msg_last) = firehose_rx.try_recv() {
             msg = msg_last;
         }
         let frame = Rc::new(msg);
@@ -240,7 +231,10 @@ where
                             }
                         } else {
                             if !path.starts_with(events_prefix) {
-                                return Err(Error::UnknownPath);
+                                return Err(Error::UnknownPath(
+                                    #[cfg(feature = "backtrace")]
+                                    std::backtrace::Backtrace::capture(),
+                                ));
                             }
                             let slash_idx = events_prefix.len() + 1; // get location of '/' separator
                             let use_name = path[slash_idx..].to_string();
@@ -261,6 +255,7 @@ where
             ps.push(frame.clone());
         }
 
+        // Loop through firehose callback messages to process them all.
         loop {
             match firehose_callback_rx.try_recv() {
                 Ok(msg) => {
@@ -274,9 +269,15 @@ where
                         }
                     };
                 }
-                Err(crossbeam_channel::TryRecvError::Empty) => break,
-                Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                    return Err(Error::CallbackSenderDisconnected);
+                Err(e) => {
+                    if e.is_empty() {
+                        break;
+                    } else {
+                        return Err(Error::CallbackSenderDisconnected(
+                            #[cfg(feature = "backtrace")]
+                            e.backtrace,
+                        ));
+                    }
                 }
             };
         }

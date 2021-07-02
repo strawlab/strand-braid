@@ -1,6 +1,6 @@
 [package]
 name = "braid-offline"
-version = "0.9.1" # braid release synchronized
+version =  "0.10.0-beta.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
@@ -17,24 +17,24 @@ toml = "0.5"
 itertools = "0.8"
 chrono = "0.4"
 futures = "0.3"
-crossbeam-channel = "0.5"
-stream-cancel = "0.6"
+stream-cancel = "0.8"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 csv-eof = {path="../csv-eof"}
 flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
 flydra-types = {path="../flydra-types"}
 groupby = {path="../groupby"}
-tokio = {version="0.2", default-features=false, features=["macros"]}
+tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}
+channellib = {path="../channellib"}
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}
 tempfile = "3"
 zip = { version = "0.5", default-features = false, features=["time"] }
-approx = "0.4"
+approx = "0.5"
 env_logger = "0.8"
 fs_extra = "1.1"
 

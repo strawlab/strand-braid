@@ -9,7 +9,7 @@ use yew::format::Json;
 use yew::prelude::*;
 use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
-use ads_webasm::components::{Button, RecordingPathWidget, ReloadButton};
+use ads_webasm::components::{RecordingPathWidget, ReloadButton};
 
 use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
 
@@ -36,7 +36,7 @@ impl std::fmt::Display for MyError {
 
 struct Model {
     link: ComponentLink<Self>,
-    ft: Option<FetchTask>,
+    _ft: Option<FetchTask>,
     shared: Option<HttpApiShared>,
     es: EventSourceTask,
     fail_msg: String,
@@ -57,7 +57,6 @@ enum Msg {
     // Error(JsValue),
     NewServerState(HttpApiShared),
     FailedDecode(String),
-    DoSyncCameras,
     DoRecordCsvTables(bool),
     // Fetched(fetch::ResponseDataResult<()>),
     Ignore,
@@ -93,7 +92,7 @@ impl Component for Model {
 
         Self {
             link,
-            ft: None,
+            _ft: None,
             shared: None,
             es: task,
             fail_msg: "".to_string(),
@@ -134,12 +133,8 @@ impl Component for Model {
             Msg::FailedDecode(s) => {
                 self.fail_msg = s;
             }
-            Msg::DoSyncCameras => {
-                self.ft = self.send_message(&HttpApiCallback::DoSyncCameras);
-                return false; // don't update DOM, do that on return
-            }
             Msg::DoRecordCsvTables(val) => {
-                self.ft = self.send_message(&HttpApiCallback::DoRecordCsvTables(val));
+                self._ft = self.send_message(&HttpApiCallback::DoRecordCsvTables(val));
                 return false; // don't update DOM, do that on return
             }
             Msg::Ignore => {
@@ -151,15 +146,15 @@ impl Component for Model {
 
     fn view(&self) -> Html {
         html! {
-            <div id="page-container",>
-                <div id="content-wrap",>
+            <div id="page-container">
+                <div id="content-wrap">
                     <h1 style="text-align: center;">{"Braid "}
-                        <a href="https://strawlab.org/braid/",><span class="infoCircle",>{"ℹ"}</span></a>
+                        <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ℹ"}</span></a>
                     </h1>
-                    <img src="braid-logo-no-text.png", width="523", height="118", class="center",/>
+                    <img src="braid-logo-no-text.png" width="523" height="118" class="center"/>
                     {self.disconnected_dialog()}
                     {self.view_shared()}
-                    <footer id="footer",>
+                    <footer id="footer">
                         {format!(
                             "Braid frontend date: {} (revision {})",
                             env!("GIT_DATE"),
@@ -207,6 +202,21 @@ impl Model {
 
     fn view_shared(&self) -> Html {
         if let Some(ref value) = self.shared {
+            let record_widget = if value.all_expected_cameras_are_synced
+                && value.clock_model_copy.is_some()
+            {
+                html! {
+                    <RecordingPathWidget
+                    label="Record .braidz file"
+                    value=self.recording_path.clone()
+                    ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)})
+                    />
+                }
+            } else {
+                html! {
+                    <div>{"Recording disabled until cameras synchronize and clock model established."}</div>
+                }
+            };
             let fake_sync_warning = if value.fake_sync {
                 html! {
                     <div>
@@ -222,21 +232,11 @@ impl Model {
                 <div>
                     {fake_sync_warning}
                     <div>
-                        <RecordingPathWidget
-                            label="Record .braidz file",
-                            value=self.recording_path.clone(),
-                            ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)}),
-                            />
+                        {record_widget}
                         {view_clock_model(&value.clock_model_copy)}
                         {view_calibration(&value.calibration_filename)}
                         {view_cam_list(&value.connected_cameras)}
                         {view_model_server_link(&value.model_server_addr)}
-                        <div>
-                            <Button:
-                                title="Synchronize Cameras",
-                                onsignal=self.link.callback(|_| Msg::DoSyncCameras),
-                                />
-                        </div>
                     </div>
                 </div>
             }
@@ -258,10 +258,10 @@ impl Model {
             }
         } else {
             html! {
-                <div class="modal-container",>
+                <div class="modal-container">
                     <h1> { "Web browser not connected to Braid" } </h1>
                     <p>{ format!("Connection State: {:?}", self.es.ready_state()) }</p>
-                    <p>{ "Please restart Braid and " }<ReloadButton: label="reload"/></p>
+                    <p>{ "Please restart Braid and " }<ReloadButton label="reload"/></p>
                 </div>
             }
         }
@@ -361,7 +361,7 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
         let url = format!("http://{}:{}/", ip, addr.port());
         html! {
             <div>
-                <a href=url,>
+                <a href=url>
                     {"Model server"}
                 </a>
             </div>

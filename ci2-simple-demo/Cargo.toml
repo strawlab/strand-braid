@@ -2,10 +2,13 @@
 name = "ci2-simple-demo"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
 
 [dependencies]
 log = "0.4"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
+anyhow = "1.0"
+
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 chrono = "0.4"
@@ -23,3 +26,5 @@ default = []
 backend_dc1394 = ["ci2-dc1394"]
 backend_flycap2 = ["ci2-flycap2"]
 backend_pyloncxx = ["ci2-pyloncxx"]
+
+backtrace = ["ci2/backtrace"]

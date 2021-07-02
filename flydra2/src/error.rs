@@ -7,15 +7,12 @@ pub enum Error {
     FlydraTypes {
         #[from]
         source: flydra_types::FlydraTypesError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Mvg {
         #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         source: mvg::MvgError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Io {
@@ -53,6 +50,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
     #[error("{source}")]
+    HyperError {
+        #[from]
+        source: hyper::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("{source}")]
     TomlSerError {
         #[from]
         source: toml::ser::Error,
@@ -70,42 +74,76 @@ pub enum Error {
     InvalidHypothesisTestingParameters,
     #[error("insufficient data to calculate FPS")]
     InsufficientDataToCalculateFps,
-    #[error("Error opening {filename}: {source}")]
-    FileError {
-        what: &'static str,
-        filename: String,
-        source: Box<dyn std::error::Error + Sync + Send>,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
-    #[error("{source}")]
-    WrappedError {
-        source: Box<dyn std::error::Error + Sync + Send>,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    #[error(transparent)]
+    FileError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        FileErrorInner,
+    ),
+    #[error(transparent)]
+    WrappedError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        WrappedErrorInner,
+    ),
+}
+
+#[derive(Debug)]
+pub struct FileErrorInner {
+    what: &'static str,
+    filename: String,
+    source: Box<dyn std::error::Error + Sync + Send>,
+}
+
+impl std::fmt::Display for FileErrorInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Error opening {}: {}", self.filename, self.source)
+    }
+}
+
+impl std::error::Error for FileErrorInner {
+    #[cfg(feature = "backtrace")]
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.source.backtrace()
+    }
+}
+
+#[derive(Debug)]
+pub struct WrappedErrorInner {
+    source: Box<dyn std::error::Error + Sync + Send>, // Box::new(source),
+}
+
+impl std::fmt::Display for WrappedErrorInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.source)
+    }
+}
+
+impl std::error::Error for WrappedErrorInner {
+    #[cfg(feature = "backtrace")]
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.source.backtrace()
+    }
 }
 
 pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
 where
     E: 'static + std::error::Error + Sync + Send,
 {
-    Error::FileError {
+    FileErrorInner {
         what,
         filename,
         source: Box::new(source),
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace::capture(),
     }
+    .into()
 }
 
 pub fn wrap_error<E>(source: E) -> Error
 where
     E: 'static + std::error::Error + Sync + Send,
 {
-    Error::WrappedError {
+    WrappedErrorInner {
         source: Box::new(source),
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace::capture(),
     }
+    .into()
 }

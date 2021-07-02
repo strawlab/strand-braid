@@ -47,11 +47,11 @@ pub struct VideoField {
     show_div: bool, // synchronized to whether we are visible
     title: String,
     css_id: String,
-    video_data: VideoData,
     last_frame_render_msec: f64,
     width: u32,
     height: u32,
     mouse_xy: Option<MouseCoords>,
+    frame_number: u64,
     measured_fps: f32,
     link: ComponentLink<VideoField>,
     green_stroke: StrokeStyle,
@@ -69,6 +69,7 @@ pub struct Props {
     pub video_data: VideoData,
     pub width: u32,
     pub height: u32,
+    pub frame_number: u64,
     pub measured_fps: f32,
 }
 
@@ -80,11 +81,11 @@ impl Component for VideoField {
         Self {
             title: props.title,
             css_id: uuid::Uuid::new_v4().to_string(),
-            video_data: props.video_data,
             last_frame_render_msec: 0.0,
             width: props.width,
             height: props.height,
             mouse_xy: None,
+            frame_number: 0,
             measured_fps: props.measured_fps,
             show_div: true,
             link,
@@ -138,13 +139,13 @@ impl Component for VideoField {
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
         self.title = props.title;
-        self.video_data = props.video_data;
         self.width = props.width;
         self.height = props.height;
+        self.frame_number = props.frame_number;
         self.measured_fps = props.measured_fps;
-        if let Some(ref in_msg) = self.video_data.inner {
-            let data_url = in_msg.firehose_frame_data_url.clone();
-            let mut draw_shapes = in_msg.annotations.clone();
+        if let Some(in_msg) = props.video_data.inner() {
+            let data_url = in_msg.firehose_frame_data_url;
+            let mut draw_shapes = in_msg.annotations;
             if let Some(ref valid_display) = in_msg.valid_display {
                 let line_width = 5.0;
                 let green_shape =
@@ -154,9 +155,9 @@ impl Component for VideoField {
             let in_msg2 = ImData2 {
                 ck: in_msg.ck,
                 fno: in_msg.fno,
-                found_points: in_msg.found_points.clone(),
-                name: in_msg.name.clone(),
-                ts_rfc3339: in_msg.ts_rfc3339.clone(),
+                found_points: in_msg.found_points,
+                name: in_msg.name,
+                ts_rfc3339: in_msg.ts_rfc3339,
                 draw_shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
             };
             let in_msg2 = JsValue::from_serde(&in_msg2).unwrap();
@@ -205,16 +206,16 @@ impl Component for VideoField {
 
     fn view(&self) -> Html {
         html! {
-            <div class="wrap-collapsible",>
-              <CheckboxLabel:
-                label=&self.title,
-                initially_checked=self.show_div,
-                oncheck=self.link.callback(|checked| Msg::ToggleCollapsed(checked)),
+            <div class="wrap-collapsible">
+              <CheckboxLabel
+                label=self.title.clone()
+                initially_checked=self.show_div
+                oncheck=self.link.callback(|checked| Msg::ToggleCollapsed(checked))
                 />
               <div>
-                <canvas width=self.width, height=self.height,
-                    id=&self.css_id, class="video-field-canvas",
-                    onmousemove=self.link.callback(|evt| Msg::MouseMove(evt)),
+                <canvas width=format!("{}",self.width) height=format!("{}",self.height)
+                    id=self.css_id.clone() class="video-field-canvas"
+                    onmousemove=self.link.callback(|evt| Msg::MouseMove(evt))
                     />
                 { self.view_text() }
               </div>
@@ -225,26 +226,20 @@ impl Component for VideoField {
 
 impl VideoField {
     fn view_text(&self) -> Html {
-        if let Some(ref data) = self.video_data.inner {
-            let mouse_str = if let Some(ref mouse_pos) = self.mouse_xy {
-                format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
-            } else {
-                "".to_string()
-            };
-            let fno_str = format!("{}", data.fno);
-            html! {
-                <div class="video-field-text",>
-                    <div class="video-field-fno",>{"frame: "}{ &fno_str }</div>
-                    <div class="video-field-mousepos",>{"mouse: "}{ &mouse_str }</div>
-                    <div class="video-field-fps",>
-                        {"frames per second: "}{ format!("{:.1}", self.measured_fps) }
-                    </div>
-                </div>
-            }
+        let mouse_str = if let Some(ref mouse_pos) = self.mouse_xy {
+            format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
         } else {
-            html! {
-                <span>{ "" }</span>
-            }
+            "".to_string()
+        };
+        let fno_str = format!("{}", self.frame_number);
+        html! {
+            <div class="video-field-text">
+                <div class="video-field-fno">{"frame: "}{ &fno_str }</div>
+                <div class="video-field-mousepos">{"mouse: "}{ &mouse_str }</div>
+                <div class="video-field-fps">
+                    {"frames per second: "}{ format!("{:.1}", self.measured_fps) }
+                </div>
+            </div>
         }
     }
 }

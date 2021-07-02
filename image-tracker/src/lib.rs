@@ -1,8 +1,13 @@
 #![recursion_limit = "128"]
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
+use borrow_fastimage::BorrowedFrame;
 use futures::{channel::mpsc, stream::StreamExt};
 
 use machine_vision_formats as formats;
@@ -21,9 +26,10 @@ use fastimage::{
 };
 use rust_cam_bui_types::ClockModel;
 
-use formats::PixelFormat;
-use timestamped_frame::{HostTimeData, ImageStrideTime};
+use formats::{pixel_format::Mono32f, ImageBuffer, ImageBufferRef, Stride};
+use timestamped_frame::{ExtraTimeData, HostTimeData};
 
+use basic_frame::DynamicFrame;
 use flydra_types::{
     serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
     ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
@@ -57,7 +63,10 @@ thread_local!(
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(Error::DivideByZero);
+        return Err(Error::DivideByZero(
+            #[cfg(feature = "backtrace")]
+            Backtrace::capture(),
+        ));
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -120,7 +129,7 @@ impl PointInfo {
 }
 
 fn init_ros(
-    orig_cam_name: &RawCamName,
+    orig_cam_name: RawCamName,
     _version_str: String,
     _width: u32,
     _height: u32,
@@ -166,7 +175,7 @@ impl TrackingState {
         running_mean: FastImageData<Chan1, f32>,
         mean_squared_im: FastImageData<Chan1, f32>,
         cfg: &ImPtDetectCfg,
-        pixel_format: formats::PixelFormat,
+        pixel_format: formats::PixFmt,
         complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
     ) -> Result<Self>
     where
@@ -484,7 +493,10 @@ macro_rules! do_send {
         match $sock.send(&$data) {
             Ok(sz) => {
                 if sz != $data.len() {
-                    return Err(Error::IncompleteSend);
+                    return Err(Error::IncompleteSend(
+                        #[cfg(feature = "backtrace")]
+                        Backtrace::capture(),
+                    ));
                 }
             }
             Err(err) => {
@@ -526,18 +538,8 @@ fn save_bg_data(
     state_background: &background_model::BackgroundModel,
 ) -> Result<()> {
     let (ts, fno) = state_background.complete_stamp;
-    let mean = borrow_fi(
-        &state_background.mean_background,
-        ts,
-        fno,
-        state_background.f32_encoding,
-    )?;
-    let sumsq = borrow_fi(
-        &state_background.mean_squared_im,
-        ts,
-        fno,
-        state_background.f32_encoding,
-    )?;
+    let mean: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_background, ts, fno)?;
+    let sumsq: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_squared_im, ts, fno)?;
     ufmf_writer.add_keyframe(b"mean", &mean)?;
     ufmf_writer.add_keyframe(b"sumsq", &sumsq)?;
     Ok(())
@@ -686,7 +688,7 @@ impl FlyTracker {
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         mainbrain_internal_addr: Option<MainbrainBuiLocation>,
         camdata_addr: Option<RealtimePointsDestAddr>,
-        async_rx: mpsc::Receiver<Vec<u8>>,
+        transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
         valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
@@ -709,14 +711,20 @@ impl FlyTracker {
                     hack_binning = Some(bins);
                 }
                 Err(e) => {
-                    return Err(
-                        Error::OtherError(format!("could not parse to bins: {:?}", e)).into(),
-                    );
+                    return Err(Error::OtherError {
+                        msg: format!("could not parse to bins: {:?}", e),
+                        #[cfg(feature = "backtrace")]
+                        backtrace: std::backtrace::Backtrace::capture(),
+                    });
                 }
             },
             Err(std::env::VarError::NotPresent) => {}
             Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(Error::OtherError(format!("received not unicode env var")).into());
+                return Err(Error::OtherError {
+                    msg: format!("received not unicode env var"),
+                    #[cfg(feature = "backtrace")]
+                    backtrace: std::backtrace::Backtrace::capture(),
+                });
             }
         };
 
@@ -730,7 +738,7 @@ impl FlyTracker {
             ros_image_update_period,
             api_http_address,
         ) = init_ros(
-            &orig_cam_name,
+            orig_cam_name.clone(),
             version_str,
             w,
             h,
@@ -751,14 +759,19 @@ impl FlyTracker {
 
             let fut = register_node_and_update_image(
                 api_http_address,
-                orig_cam_name,
+                orig_cam_name.clone(),
                 http_camserver_info,
                 ros_cam_name,
-                async_rx,
+                transmit_current_image_rx,
             );
 
-            let f2 = async {
-                match fut.await {
+            let f2 = async move {
+                let result = fut.await;
+                info!(
+                    "background image handler for camera '{}' is done.",
+                    orig_cam_name.as_str()
+                );
+                match result {
                     Ok(()) => {}
                     Err(e) => {
                         error!("error: {} ({}:{})", e, file!(), line!());
@@ -836,7 +849,10 @@ impl FlyTracker {
                     }
                     #[cfg(not(feature = "flydra-uds"))]
                     &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                        return Err(Error::UnixDomainSocketsNotSupported.into());
+                        return Err(Error::UnixDomainSocketsNotSupported(
+                            #[cfg(feature = "backtrace")]
+                            Backtrace::capture(),
+                        ));
                     }
                     &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
                         let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
@@ -911,15 +927,16 @@ impl FlyTracker {
 
     pub fn process_new_frame(
         &mut self,
-        frame: &dyn ImageStrideTime,
+        frame: &DynamicFrame,
         ufmf_state: UfmfState,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
+        let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
         let q1 = std::time::Instant::now();
         let mut sample_vec = Vec::new();
-        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.host_timestamp());
-        let opt_trigger_stamp = self.get_start_ts(frame.host_framenumber() as u64);
+        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
+        let opt_trigger_stamp = self.get_start_ts(frame.extra().host_framenumber() as u64);
         let acquire_duration = match opt_trigger_stamp {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside
@@ -930,7 +947,7 @@ impl FlyTracker {
         };
 
         self.acquisition_histogram
-            .push_new_sample(acquire_duration, frame.host_framenumber() as u64);
+            .push_new_sample(acquire_duration, frame.extra().host_framenumber() as u64);
 
         if self.acquisition_histogram.is_old() {
             self.acquisition_histogram.show_stats();
@@ -948,13 +965,12 @@ impl FlyTracker {
                 let path = std::path::Path::new(&dest);
                 info!("saving UFMF to path {}", path.display());
                 let f = std::fs::File::create(&path)?;
-                let frame0 = Some(frame);
                 let ufmf_writer = UFMFWriter::new(
                     f,
                     cast::u16(frame.width())?,
                     cast::u16(frame.height())?,
                     frame.pixel_format(),
-                    frame0,
+                    Some(frame),
                 )?;
                 // save current background state when starting ufmf save.
                 do_save_ufmf_bg = true;
@@ -968,7 +984,7 @@ impl FlyTracker {
         };
 
         let raw_im_full = FastImageView::view_raw(
-            &frame.image_data(),
+            frame.image_data_without_format(),
             frame.stride() as ipp_ctypes::c_int,
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
@@ -978,7 +994,10 @@ impl FlyTracker {
         sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(Error::ImageSizeChanged);
+            return Err(Error::ImageSizeChanged(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ));
         }
 
         // move state into local variable so we can move it into next state
@@ -992,7 +1011,7 @@ impl FlyTracker {
             cam_name: self.ros_cam_name.as_str().to_string(),
             timestamp: opt_trigger_stamp.clone(),
             cam_received_time: acquire_stamp,
-            framenumber: frame.host_framenumber() as i32,
+            framenumber: frame.extra().host_framenumber() as i32,
             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
             done_camnode_processing: 0.0,
             preprocess_stamp,
@@ -1044,7 +1063,10 @@ impl FlyTracker {
 
                 startup_state.n_frames += 1;
                 packet.image_processing_steps |= ImageProcessingSteps::BGSTARTUP;
-                let complete_stamp = (frame.host_timestamp(), frame.host_framenumber());
+                let complete_stamp = (
+                    frame.extra().host_timestamp(),
+                    frame.extra().host_framenumber(),
+                );
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
                     let state = TrackingState::new(
@@ -1052,7 +1074,7 @@ impl FlyTracker {
                         startup_state.running_mean,
                         startup_state.mean_squared_im,
                         &self.cfg,
-                        frame.pixel_format(),
+                        pixel_format,
                         complete_stamp,
                     )?;
                     (packet, BackgroundAcquisitionState::NormalUpdates(state))
@@ -1074,14 +1096,17 @@ impl FlyTracker {
                     FastImageData::<Chan1, f32>::copy_from_32f_c1(&running_mean)?;
                 ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
 
-                let complete_stamp = (frame.host_timestamp(), frame.host_framenumber());
+                let complete_stamp = (
+                    frame.extra().host_timestamp(),
+                    frame.extra().host_framenumber(),
+                );
 
                 let state = TrackingState::new(
                     &raw_im_full,
                     running_mean,
                     mean_squared_im,
                     &self.cfg,
-                    frame.pixel_format(),
+                    pixel_format,
                     complete_stamp,
                 )?;
                 debug!("cleared background model to value {}", value);
@@ -1135,7 +1160,7 @@ impl FlyTracker {
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();
                 if let UfmfState::Saving(ref mut ufmf_writer) = new_ufmf_state {
-                    ufmf_writer.add_frame(frame, &point_data)?;
+                    ufmf_writer.add_frame(&frame, &point_data)?;
                     if do_save_ufmf_bg || got_new_bg_data {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }
@@ -1202,17 +1227,21 @@ async fn register_node_and_update_image(
     orig_cam_name: flydra_types::RawCamName,
     http_camserver_info: flydra_types::CamHttpServerInfo,
     ros_cam_name: RosCamName,
-    mut async_rx: mpsc::Receiver<Vec<u8>>,
+    mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<()> {
     let mut mainbrain_session = mainbrain_future_session(api_http_address).await?;
     mainbrain_session
         .register_flydra_camnode(orig_cam_name, http_camserver_info, ros_cam_name.clone())
         .await?;
-    while let Some(image_png_vecu8) = async_rx.next().await {
+    while let Some(image_png_vecu8) = transmit_current_image_rx.next().await {
         mainbrain_session
             .update_image(ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
+    info!(
+        "done listening for background images from {}",
+        ros_cam_name.as_str()
+    );
     Ok(())
 }
 

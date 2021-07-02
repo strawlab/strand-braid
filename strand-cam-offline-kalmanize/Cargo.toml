@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam-offline-kalmanize"
-version = "0.9.1" # braid release synchronized
+version =  "0.10.0-beta.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
@@ -9,7 +9,6 @@ log = { version = "0.4.5", features = ["release_max_level_debug"] }
 env_logger = "0.8"
 structopt = "0.3.13"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 csv = "1.1"
 chrono = "0.4.6"
 serde = {version="^1.0", features=["derive"]}
@@ -17,15 +16,15 @@ serde_derive = "1.0.79"
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
 toml = "0.5"
-nalgebra = {version="0.26", features=["serde-serialize"]}
-ncollide3d = "0.29"
+nalgebra = {version="0.27", features=["serde-serialize"]}
+ncollide3d = "0.30"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
 lazy_static = "1.4.0"
-hyper = "0.13.0"
+hyper = "0.14"
 futures = "0.3"
-tokio = {version="0.2", default-features=false, features=["macros"]}
+tokio = {version="1.0.1", default-features=false, features=["macros"]}
 includedir = { version = "0.5", optional = true }
 tempdir = "^0.3"
 phf = { version = "0.7.23", optional = true }
@@ -38,7 +37,7 @@ http-video-streaming-types = {path="../http-video-streaming/http-video-streaming
 flydra-types = {path="../flydra-types"}
 tracking = {path="../tracking"}
 groupby = {path="../groupby"}
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="142f427bfe9d2230b0dae0a5f7527703f43ae899"}
+pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
@@ -47,3 +46,7 @@ flydra2 = {path="../flydra2", default-features = false, features=["flat-3d", "bu
 braidz-parser = {path="../braidz-parser"}
 zip-or-dir = {path="../zip-or-dir"}
 braid-offline = {path="../braid-offline", default-features = false, features=["flat-3d"]}
+channellib = {path="../channellib"}
+
+[features]
+backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]

@@ -1,4 +1,5 @@
 #![deny(rust_2018_idioms)]
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 use thiserror::Error;
 
@@ -39,45 +40,47 @@ pub enum MvgError {
     NotImplemented,
     #[error("cannot convert to flydra xml")]
     CannotConvertToFlydraXml,
-    #[error("IO error: {}", error)]
-    Io { error: std::io::Error },
-    #[error("serde_yaml error: {}", error)]
-    SerdeYaml { error: serde_yaml::Error },
-    #[error("serde_json error: {}", error)]
-    SerdeJson { error: serde_json::Error },
+    #[error("IO error: {source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("serde_yaml error: {source}")]
+    SerdeYaml {
+        #[from]
+        source: serde_yaml::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("serde_json error: {source}")]
+    SerdeJson {
+        #[from]
+        source: serde_json::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("SvgError: {}", error)]
     SvgError { error: &'static str },
     #[error("PinvError: {}", error)]
     PinvError { error: String },
-    #[error("cam_geom::Error: {}", error)]
-    CamGeomError { error: cam_geom::Error },
-    #[error("opencv_ros_camera::Error: {}", error)]
-    OpencvRosError { error: opencv_ros_camera::Error },
+    #[error("cam_geom::Error: {source}")]
+    CamGeomError {
+        #[from]
+        source: cam_geom::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("opencv_ros_camera::Error: {source}")]
+    OpencvRosError {
+        #[from]
+        source: opencv_ros_camera::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
 }
 
-impl From<serde_yaml::Error> for MvgError {
-    fn from(error: serde_yaml::Error) -> Self {
-        MvgError::SerdeYaml { error }
-    }
-}
-
-impl From<serde_json::Error> for MvgError {
-    fn from(error: serde_json::Error) -> Self {
-        MvgError::SerdeJson { error }
-    }
-}
-
-impl From<std::io::Error> for MvgError {
-    fn from(error: std::io::Error) -> Self {
-        MvgError::Io { error }
-    }
-}
-
-impl From<cam_geom::Error> for MvgError {
-    fn from(error: cam_geom::Error) -> Self {
-        MvgError::CamGeomError { error }
-    }
-}
 #[derive(Debug)]
 pub struct CubicRootArgs {
     pub p4: f64,
@@ -90,12 +93,6 @@ pub struct CubicRootArgs {
 }
 
 pub type Result<M> = std::result::Result<M, MvgError>;
-
-impl From<opencv_ros_camera::Error> for MvgError {
-    fn from(error: opencv_ros_camera::Error) -> Self {
-        MvgError::OpencvRosError { error }
-    }
-}
 
 mod pymvg_support;
 

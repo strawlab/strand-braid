@@ -1,5 +1,5 @@
 [package]
-name = "webm-writer"
+name = "mkv-writer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
@@ -8,26 +8,25 @@ edition = "2018"
 log = "0.4"
 chrono = "0.4.6"
 webm = "1"
-vpx-encode = {version="0.4.1", features=["vp9"]}
+vpx-encode = {version="0.5", features=["vp9"]}
 thiserror = "1.0"
+machine-vision-formats = "0.1"
 
 nvenc = {path="../nvenc"}
 dynlink-cuda = {path="../nvenc/dynlink-cuda"}
 dynlink-nvidia-encode = {path="../nvenc/dynlink-nvidia-encode"}
 
-machine-vision-formats = { path = "../machine-vision-formats" }
 ci2-remote-control = { path = "../ci2-remote-control"}
 convert-image = { path = "../convert-image" }
 
 [dev-dependencies]
-failure = "0.1"
+anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 basic-frame = { path = "../basic-frame" }
 rusttype = "0.8.1"
-image = "0.22"
+image = "0.23"
 ttf-firacode = "0.1"
+simple-frame = { path = "../simple-frame" }
 
 [features]
-default = ["example-vp8"]
-example-nv-h264 = []
-example-vp8 = []
+backtrace = ["vpx-encode/backtrace", "nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace"]

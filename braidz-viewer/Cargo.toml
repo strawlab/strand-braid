@@ -16,11 +16,11 @@ bytesize = "1.0"
 log = "0.4"
 wasm-logger = "0.2.0"
 
-yew = "0.17.4"
+yew = "0.18"
 
 wasm-bindgen = "^0.2.45"
 web-sys = {version="^0.3.28", features=["Blob", "DateTimeValue", "File",
-    "FileList", "FileReader", "HtmlInputElement"]}
+    "FileList", "FileReader", "HtmlInputElement", "DataTransfer", "DragEvent"]}
 js-sys = "0.3.28"
 plotters = "0.3"
 plotters-canvas = "0.3"
@@ -36,3 +36,6 @@ braidz-parser = {path="../braidz-parser"}
 [profile.release]  # Attempts to minimize file size
 lto = true
 opt-level = 'z'
+
+[features]
+backtrace = ["mvg/backtrace"]

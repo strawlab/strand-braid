@@ -5,7 +5,7 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use yew::prelude::*;
-use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
+use yew::services::reader::{File, FileData, ReaderTask};
 use yew::services::{Task, TimeoutService};
 
 use plotters::{
@@ -65,10 +65,8 @@ impl std::fmt::Display for MyError {
 
 struct Model {
     link: ComponentLink<Self>,
-    reader: ReaderService,
     tasks: Vec<ReaderTask>,
-    pub val: i32,
-    job: Option<Box<dyn Task>>,
+    _job: Option<Box<dyn Task>>,
     braidz_file: MaybeValidBraidzFile,
     did_error: bool,
 }
@@ -81,6 +79,8 @@ pub enum Msg {
     FileChanged(File),
     // BraidzFile(MaybeValidBraidzFile),
     Loaded(FileData),
+    FileDropped(DragEvent),
+    FileDraggedOver(DragEvent),
 }
 
 impl Component for Model {
@@ -90,10 +90,8 @@ impl Component for Model {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         Self {
             link,
-            reader: ReaderService::new(),
             tasks: vec![],
-            val: 0,
-            job: None,
+            _job: None,
             braidz_file: MaybeValidBraidzFile::default(),
             did_error: false,
         }
@@ -144,7 +142,7 @@ impl Component for Model {
                     Duration::from_millis(100),
                     self.link.callback(|_| Msg::RenderAll),
                 );
-                self.job = Some(Box::new(handle));
+                self._job = Some(Box::new(handle));
 
                 // This can be replaced by `Vec::drain_filter()` when that is stable.
                 let mut i = 0;
@@ -160,9 +158,29 @@ impl Component for Model {
                 let file: File = file; // type annotation for IDE
                 let task = {
                     let callback = self.link.callback(Msg::Loaded);
-                    self.reader.read_file(file, callback).unwrap()
+                    yew::services::reader::ReaderService::read_file(file, callback).unwrap()
                 };
                 self.tasks.push(task);
+            }
+            Msg::FileDropped(evt) => {
+                evt.prevent_default();
+                let files = evt.data_transfer().unwrap().files();
+                // log_1(&format!("files dropped: {:?}", files).into());
+                if let Some(files) = files {
+                    let mut result = Vec::new();
+                    let files = js_sys::try_iter(&files)
+                        .unwrap()
+                        .unwrap()
+                        .into_iter()
+                        .map(|v| File::from(v.unwrap()));
+                    result.extend(files);
+                    assert!(result.len() == 1);
+                    self.link
+                        .send_message(Msg::FileChanged(result.pop().unwrap()));
+                }
+            }
+            Msg::FileDraggedOver(evt) => {
+                evt.prevent_default();
             }
         }
         true
@@ -217,20 +235,20 @@ impl Component for Model {
         };
 
         html! {
-            <div id="page-container",>
-                <div class=(spinner_div_class),>
-                    <div class="compute-modal-inner",>
+            <div id="page-container">
+                <div class=spinner_div_class>
+                    <div class="compute-modal-inner">
                         <p>
                             {"Loading file."}
                         </p>
-                        <div class="lds-ellipsis",>
+                        <div class="lds-ellipsis">
 
                             <div></div><div></div><div></div><div></div>
 
                         </div>
                     </div>
                 </div>
-                <div id="content-wrap",>
+                <div id="content-wrap">
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
                         {"Online viewer for files saved by "}
@@ -239,9 +257,11 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div>
-                        <label class=("btn","custum-file-uplad"),>{"Select a BRAIDZ file."}
-                            <input type="file", class="custom-file-upload-input", accept=".braidz"
+                    <div ondrop=self.link.callback(|e| Msg::FileDropped(e))
+                                         ondragover=self.link.callback(|e| Msg::FileDraggedOver(e))
+                                         class="file-upload-div">
+                        <label class=classes!("btn","custum-file-uplad")>{"Select a BRAIDZ file."}
+                            <input type="file" class="custom-file-upload-input" accept=".braidz"
                             onchange=self.link.callback(move |value| {
                                 let mut result = Vec::new();
                                 if let ChangeData::Files(files) = value {
@@ -477,7 +497,7 @@ fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Html {
                 <div>
                     <p>
                         {format!("{}", camid)}
-                        <canvas id={canv_id}, width="1000", height="200"/>
+                        <canvas id={canv_id} width="1000" height="200"/>
                     </p>
                 </div>
             }
@@ -499,11 +519,11 @@ fn add_3d_traj_dom_elements() -> Html {
         <div>
             <div>
                 <p>{"Top view"}</p>
-                <canvas id={TOPVIEW}, width="600", height="400"/>
+                <canvas id={TOPVIEW} width="600" height="400"/>
             </div>
             <div>
                 <p>{"Side view"}</p>
-                <canvas id={SIDE1VIEW}, width="600", height="400"/>
+                <canvas id={SIDE1VIEW} width="600" height="400"/>
             </div>
         </div>
     }

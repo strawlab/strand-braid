@@ -20,7 +20,12 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
 }
 
 fn main() -> std::result::Result<(), anyhow::Error> {
-    human_panic::setup_panic!();
+    human_panic::setup_panic!(human_panic::Metadata {
+        version: format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")).into(),
+        name: env!("CARGO_PKG_NAME").into(),
+        authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
+        homepage: env!("CARGO_PKG_HOMEPAGE").into(),
+    });
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
@@ -111,10 +116,12 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
 
     let arg_default = StrandCamArgs::default();
 
+    let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+
     let matches = {
         #[allow(unused_mut)]
         let mut parser = clap::App::new(env!("APP_NAME"))
-            .version(env!("CARGO_PKG_VERSION"))
+            .version(version.as_str())
             .arg(
                 clap::Arg::with_name("JWT_SECRET")
                     .long("jwt-secret")
@@ -233,6 +240,18 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         {
             parser = parser
                 .arg(
+                    Arg::with_name("camera_xml_calibration")
+                        .long("camera-xml-calibration")
+                        .help("Filename of flydra .xml camera calibration.")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("camera_pymvg_calibration")
+                        .long("camera-pymvg-calibration")
+                        .help("Filename of pymvg json camera calibration.")
+                        .takes_value(true),
+                )
+                .arg(
                     Arg::with_name("no_save_empty_data2d")
                         .long("no-save-empty-data2d")
                         .help("do not save data2d_distoted also when no detections found"),
@@ -267,6 +286,35 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         .to_string();
 
     let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    let camera_xml_calibration = matches
+        .value_of("camera_xml_calibration")
+        .map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    let camera_pymvg_calibration = matches
+        .value_of("camera_pymvg_calibration")
+        .map(|s| s.to_string());
+
+    #[cfg(feature = "flydratrax")]
+    if camera_pymvg_calibration.is_some() {
+        if camera_xml_calibration.is_some() {
+            anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
+        }
+    }
+
+    #[cfg(feature = "flydratrax")]
+    let flydratrax_calibration_source = match camera_xml_calibration {
+        None => strand_cam::CalSource::PseudoCal,
+        Some(fname) => strand_cam::CalSource::XmlFile(std::path::PathBuf::from(fname)),
+    };
+
+    #[cfg(feature = "flydratrax")]
+    let flydratrax_calibration_source = match camera_pymvg_calibration {
+        None => strand_cam::CalSource::PseudoCal,
+        Some(fname) => strand_cam::CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
+    };
 
     let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
 
@@ -368,6 +416,8 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         mainbrain_internal_addr,
         camdata_addr,
         show_url,
+        #[cfg(feature = "flydratrax")]
+        flydratrax_calibration_source,
         #[cfg(feature = "flydratrax")]
         save_empty_data2d,
         #[cfg(feature = "flydratrax")]

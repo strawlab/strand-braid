@@ -119,20 +119,20 @@ impl Component for Model {
 
                <div>
                    <RecordingPathWidget
-                       label="Record file directory",
-                       value=self.record_filename.clone(),
-                       ontoggle=self.link.callback(|checked| {Msg::DoRecordFile(checked)}),
+                       label="Record file directory"
+                       value=self.record_filename.clone()
+                       ontoggle=self.link.callback(|checked| {Msg::DoRecordFile(checked)})
                        />
                </div>
 
 
-               <Button: title="Add 1.0 to f32 float", onsignal=self.link.callback(|_| Msg::AddOne),/>
+               <Button title="Add 1.0 to f32 float" onsignal=self.link.callback(|_| Msg::AddOne)/>
 
                <div>
                    <label>{"u8 int"}
                    <TypedInput<u8>
-                       storage=&self.raw_u8,
-                       on_input=self.link.callback(|v| Msg::SetU8(v)),
+                       storage=self.raw_u8.clone()
+                       on_input=self.link.callback(|v| Msg::SetU8(v))
                        />
                    </label>
                </div>
@@ -141,8 +141,8 @@ impl Component for Model {
                <div>
                    <label>{"f32 float"}
                    <TypedInput<f32>
-                       storage=&self.raw_f32,
-                       on_input=self.link.callback(|v| Msg::SetF32(v)),
+                       storage=self.raw_f32.clone()
+                       on_input=self.link.callback(|v| Msg::SetF32(v))
                        />
                    </label>
                </div>
@@ -150,10 +150,10 @@ impl Component for Model {
 
                <div>
                    <h2>{"Data Upload"}</h2>
-                   <label class=("btn", "custom-file-upload"),>
+                   <label class=classes!("btn", "custom-file-upload")>
                        {"Select a CSV file."}
                        <CsvDataField<CsvRowType>
-                           onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file)),
+                           onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file))
                            />
                    </label>
                    <p>
@@ -165,15 +165,15 @@ impl Component for Model {
 
                <div>
                    <ConfigField<MyConfig>
-                        server_version=Some(self.cfg.clone()),
-                        rows=20,
-                        onsignal=self.link.callback(|s| {Msg::SetConfigString(s)}),
+                        server_version=Some(self.cfg.clone())
+                        rows=20
+                        onsignal=self.link.callback(|s| {Msg::SetConfigString(s)})
                         />
                </div>
 
 
-               <div class="wrap-collapsible",>
-                   <CheckboxLabel label="Label 1", />
+               <div class="wrap-collapsible">
+                   <CheckboxLabel label="Label 1" />
                    <div>
                       {"Content that should be hidden by default"}
                    </div>
@@ -181,8 +181,8 @@ impl Component for Model {
                </div>
 
 
-               <div class="wrap-collapsible",>
-                   <CheckboxLabel label="Label 2", initially_checked=true, />
+               <div class="wrap-collapsible">
+                   <CheckboxLabel label="Label 2" initially_checked=true />
                    <div>
                       {"Content that should be shown by default"}
                    </div>
@@ -191,8 +191,8 @@ impl Component for Model {
 
 
                <div>
-                   <input id="unique3", type="checkbox", />
-                   <label for="unique3",>{"Label 3"}</label>
+                   <input id="unique3" type="checkbox" />
+                   <label for="unique3">{"Label 3"}</label>
                    <div>
                       {"Content that should always be shown."}
                    </div>

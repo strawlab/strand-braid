@@ -1,5 +1,7 @@
 //! dynamic linking of CUDA
 
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 pub mod api;
 mod error;
 mod ffi;

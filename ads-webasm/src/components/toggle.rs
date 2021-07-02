@@ -57,7 +57,7 @@ impl Component for Toggle {
             "toggle-off"
         };
         html! {
-            <label class=class,>{ &self.label }<input type="checkbox", checked=self.value, onclick=self.link.callback(move |_| Msg::Toggled(new_value)),/></label>
+            <label class=class >{ &self.label }<input type="checkbox"  checked=self.value  onclick=self.link.callback(move |_| Msg::Toggled(new_value)) /></label>
         }
     }
 }

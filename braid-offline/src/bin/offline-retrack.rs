@@ -27,7 +27,8 @@ struct Opt {
     tracking_params: Option<std::path::PathBuf>,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
@@ -36,18 +37,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_tracing_logger::init();
-
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
-        .enable_all()
-        .build()
-        .expect("runtime");
-
-    let rt_handle = runtime.handle().clone();
-    runtime.block_on(inner(rt_handle))
-}
-
-async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
     let opt = Opt::from_args();
 
     let data_src =
@@ -91,6 +80,8 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> anyhow::Result<()> {
         )
         .into());
     }
+
+    let rt_handle = tokio::runtime::Handle::current();
 
     let save_performance_histograms = true;
 

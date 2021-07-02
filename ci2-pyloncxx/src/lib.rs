@@ -1,12 +1,21 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 extern crate machine_vision_formats as formats;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use anyhow::Context;
+use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use std::convert::TryInto;
 use std::sync::Arc;
 
+use basic_frame::DynamicFrame;
 use ci2::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
+use machine_vision_formats::{ImageBuffer, ImageBufferRef};
 use pylon_cxx::{HasProperties, NodeMap};
+use timestamped_frame::HostTimeData;
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
@@ -22,12 +31,26 @@ pub type Result<M> = std::result::Result<M, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("{0}")]
-    PylonError(#[from] pylon_cxx::PylonError),
-    #[error("{0}")]
-    IntParseError(#[from] std::num::ParseIntError),
-    #[error("OtherError {0}")]
-    OtherError(String),
+    #[error("Pylon error: {source}")]
+    PylonError {
+        #[from]
+        source: pylon_cxx::PylonError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("int parse error: {source}")]
+    IntParseError {
+        #[from]
+        source: std::num::ParseIntError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("other error: {msg}")]
+    OtherError {
+        msg: String,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 impl From<Error> for ci2::Error {
@@ -56,7 +79,6 @@ pub fn new_module() -> ci2::Result<WrappedModule> {
 }
 
 impl ci2::CameraModule for WrappedModule {
-    type FrameType = Frame;
     type CameraType = WrappedCamera;
 
     fn name(&self) -> &str {
@@ -103,7 +125,7 @@ pub struct Frame {
     image_data: Vec<u8>,                           // raw image data
     host_timestamp: chrono::DateTime<chrono::Utc>, // timestamp from host computer
     host_framenumber: usize,                       // framenumber from host computer
-    pixel_format: formats::PixelFormat,            // format of the data
+    pixel_format: formats::PixFmt,                 // format of the data
     pub block_id: u64,                             // framenumber from the camera driver
     pub device_timestamp: u64,                     // timestamp from the camera driver
 }
@@ -127,18 +149,18 @@ impl timestamped_frame::HostTimeData for Frame {
     }
 }
 
-impl formats::ImageData for Frame {
-    fn image_data(&self) -> &[u8] {
-        &self.image_data
-    }
+impl<F> formats::ImageData<F> for Frame {
     fn width(&self) -> u32 {
         self.width
     }
     fn height(&self) -> u32 {
         self.height
     }
-    fn pixel_format(&self) -> formats::PixelFormat {
-        self.pixel_format
+    fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
+        ImageBufferRef::new(&self.image_data)
+    }
+    fn buffer(self) -> ImageBuffer<F> {
+        ImageBuffer::new(self.image_data)
     }
 }
 
@@ -282,7 +304,12 @@ impl WrappedCamera {
                 });
             }
         }
-        return Err(Error::OtherError(format!("requested camera '{}' was not found", name)).into());
+        return Err(Error::OtherError {
+            msg: format!("requested camera '{}' was not found", name),
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
+        }
+        .into());
     }
 
     fn exposure_time_param_name(&self) -> &'static str {
@@ -318,8 +345,6 @@ impl ci2::CameraInfo for WrappedCamera {
 }
 
 impl ci2::Camera for WrappedCamera {
-    type FrameType = Frame;
-
     /// Return the sensor width in pixels
     fn width(&self) -> ci2::Result<u32> {
         Ok(self
@@ -343,13 +368,13 @@ impl ci2::Camera for WrappedCamera {
             .try_into()?)
     }
 
-    // Settings: PixelFormat ----------------------------
-    fn pixel_format(&self) -> ci2::Result<formats::PixelFormat> {
+    // Settings: PixFmt ----------------------------
+    fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
         let camera = self.inner.lock();
         let pixel_format_node = camera.enum_node("PixelFormat").map_pylon_err()?;
         convert_to_pixel_format(pixel_format_node.value().map_pylon_err()?.as_ref())
     }
-    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixelFormat>> {
+    fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
         let camera = self.inner.lock();
         let pixel_format_node = camera.enum_node("PixelFormat").map_pylon_err()?;
         // This version returns only the formats we know, silently dropping the unknowns.
@@ -358,16 +383,16 @@ impl ci2::Camera for WrappedCamera {
             .map_pylon_err()?
             .iter()
             .filter_map(|string_val| convert_to_pixel_format(string_val).ok())
-            .collect::<Vec<formats::PixelFormat>>())
+            .collect::<Vec<formats::PixFmt>>())
         // This version returns only the formats we know, returning an error if an unknown is found.
         // Ok(pixel_format_node
         //     .settable_values()
         //     .map_pylon_err()?
         //     .iter()
         //     .map(|string_val| convert_to_pixel_format(string_val))
-        //     .collect::<ci2::Result<Vec<formats::PixelFormat>>>()?)
+        //     .collect::<ci2::Result<Vec<formats::PixFmt>>>()?)
     }
-    fn set_pixel_format(&mut self, pixel_format: formats::PixelFormat) -> ci2::Result<()> {
+    fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
         let s = convert_pixel_format(pixel_format)?;
         let camera = self.inner.lock();
         let mut pixel_format_node = camera.enum_node("PixelFormat").map_pylon_err()?;
@@ -520,7 +545,7 @@ impl ci2::Camera for WrappedCamera {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerMode enum string: {}",
                     s
                 )));
@@ -598,7 +623,7 @@ impl ci2::Camera for WrappedCamera {
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector enum string: {}",
                     s
                 )));
@@ -612,7 +637,7 @@ impl ci2::Camera for WrappedCamera {
             ci2::TriggerSelector::FrameStart => "FrameStart",
             ci2::TriggerSelector::ExposureActive => "ExposureActive",
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector: {:?}",
                     s
                 )));
@@ -640,10 +665,10 @@ impl ci2::Camera for WrappedCamera {
             "SingleFrame" => ci2::AcquisitionMode::SingleFrame,
             "MultiFrame" => ci2::AcquisitionMode::MultiFrame,
             s => {
-                return Err(ci2::Error::CI2Error(format!(
+                return Err(ci2::Error::from(format!(
                     "unexpected AcquisitionMode: {:?}",
                     s
-                )))
+                )));
             }
         })
     }
@@ -675,7 +700,7 @@ impl ci2::Camera for WrappedCamera {
     }
 
     /// synchronous (blocking) frame acquisition
-    fn next_frame(&mut self) -> ci2::Result<Self::FrameType> {
+    fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
         let pixel_format = self.pixel_format()?;
 
         let mut gr = self.grab_result.lock();
@@ -698,7 +723,7 @@ impl ci2::Camera for WrappedCamera {
                     if block_id < 30000 && i.previous_block_id > 30000 {
                         // check nothing crazy is going on
                         if (i.store_fno - i.last_rollover) < 30000 {
-                            return Err(ci2::Error::CI2Error(format!(
+                            return Err(ci2::Error::from(format!(
                                 "Cannot recover frame count with \
                                 Basler GigE camera {}. Did many \
                                 frames get dropped?",
@@ -721,40 +746,49 @@ impl ci2::Camera for WrappedCamera {
                 }
             };
 
-            Ok(Frame {
-                width: gr.width().map_pylon_err()?,
-                height: gr.height().map_pylon_err()?,
-                stride: gr.stride().map_pylon_err()?.try_into()?,
-                image_data: buffer.to_vec(),
-                device_timestamp: gr.time_stamp().map_pylon_err()?,
+            let width = gr.width().map_pylon_err()?;
+            let height = gr.height().map_pylon_err()?;
+            let stride = gr.stride().map_pylon_err()?.try_into()?;
+            let image_data = buffer.to_vec();
+            let device_timestamp = gr.time_stamp().map_pylon_err()?;
+
+            let extra = Box::new(PylonExtra {
                 block_id,
                 host_timestamp: now,
                 host_framenumber: fno,
+                device_timestamp,
                 pixel_format,
-            })
+            });
+            Ok(DynamicFrame::new(
+                width,
+                height,
+                stride,
+                extra,
+                image_data,
+                pixel_format,
+            ))
 
         // println!("Gray value of first pixel: {}\n", image_buffer[0]);
         } else {
-            return Err(ci2::Error::SingleFrameError(format!(
+            Err(ci2::Error::SingleFrameError(format!(
                 "Pylon Error {}: {}",
                 gr.error_code().map_pylon_err()?,
                 gr.error_description().map_pylon_err()?
-            )));
+            )))
         }
     }
 }
 
-pub fn convert_pixel_format(pixel_format: formats::PixelFormat) -> ci2::Result<&'static str> {
-    use ci2::Error::CI2Error;
-    use formats::PixelFormat::*;
+pub fn convert_pixel_format(pixel_format: formats::PixFmt) -> ci2::Result<&'static str> {
+    use formats::PixFmt::*;
     let pixfmt = match pixel_format {
-        MONO8 => "Mono8",
-        MONO10 => "Mono10",
-        MONO10p => "Mono10p",
-        MONO12 => "Mono12",
-        MONO12p => "Mono12p",
-        MONO16 => "Mono16",
+        Mono8 => "Mono8",
 
+        // MONO10 => "Mono10",
+        // MONO10p => "Mono10p",
+        // MONO12 => "Mono12",
+        // MONO12p => "Mono12p",
+        // MONO16 => "Mono16",
         YUV422 => "YUV422packed",
         RGB8 => "RGB8packed",
 
@@ -762,25 +796,25 @@ pub fn convert_pixel_format(pixel_format: formats::PixelFormat) -> ci2::Result<&
         BayerRG8 => "BayerRG8",
         BayerBG8 => "BayerBG8",
         BayerGB8 => "BayerGB8",
-
-        e => {
-            return Err(CI2Error(format!("Unknown PixelFormat {:?}", e)));
+        // e => {
+        //     return Err(ci2::Error::from(format!("Unknown PixelFormat {:?}", e)));
+        // }
+        unknown => {
+            return Err(ci2::Error::from(format!("Unsuppored PixFmt {}", unknown)));
         }
     };
     Ok(pixfmt)
 }
 
-pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixelFormat> {
-    use ci2::Error::CI2Error;
-    use formats::PixelFormat::*;
+pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
+    use formats::PixFmt::*;
     let pixfmt = match orig {
-        "Mono8" => MONO8,
-        "Mono10" => MONO10,
-        "Mono10p" => MONO10p,
-        "Mono12" => MONO12,
-        "Mono12p" => MONO12p,
-        "Mono16" => MONO16,
-
+        "Mono8" => Mono8,
+        // "Mono10" => MONO10,
+        // "Mono10p" => MONO10p,
+        // "Mono12" => MONO12,
+        // "Mono12p" => MONO12p,
+        // "Mono16" => MONO16,
         "YUV422packed" => YUV422,
         "RGB8Packed" => RGB8,
 
@@ -790,7 +824,10 @@ pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixelFormat> 
         "BayerBG8" => BayerBG8,
 
         e => {
-            return Err(CI2Error(format!("Unknown pixel format string: {:?}", e)));
+            return Err(ci2::Error::from(format!(
+                "Unknown pixel format string: {:?}",
+                e
+            )));
         }
     };
     Ok(pixfmt)
@@ -816,7 +853,7 @@ fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
         s => {
-            return Err(ci2::Error::CI2Error(format!(
+            return Err(ci2::Error::from(format!(
                 "unexpected AutoMode enum string: {}",
                 s
             )));
@@ -832,10 +869,53 @@ fn mode_to_str(value: AutoMode) -> &'static str {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct PylonExtra {
+    pub block_id: u64,
+    host_timestamp: DateTime<Utc>,
+    host_framenumber: usize,
+    pub pixel_format: formats::PixFmt,
+    pub device_timestamp: u64,
+}
+
+impl HostTimeData for PylonExtra {
+    fn host_framenumber(&self) -> usize {
+        self.host_framenumber
+    }
+    fn host_timestamp(&self) -> DateTime<Utc> {
+        self.host_timestamp
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn test_pylon_extra() {
+        use crate::PylonExtra;
+        use timestamped_frame::HostTimeData;
+
+        let pe: Box<dyn HostTimeData> = Box::new(PylonExtra {
+            block_id: 123,
+            host_timestamp: chrono::Utc::now(),
+            host_framenumber: 456,
+            pixel_format: formats::PixFmt::Mono8,
+            device_timestamp: 789,
+        });
+
+        dbg!(&pe);
+
+        let extra: &dyn HostTimeData = pe.as_ref();
+        // let extra: &dyn HostTimeData = &pe;
+
+        dbg!(extra.blarg());
+
+        dbg!(extra);
+
+        let extra_any: &dyn std::any::Any = extra.as_any();
+
+        dbg!(extra_any);
+
+        let _extra2 = extra_any.downcast_ref::<PylonExtra>().unwrap();
+        // let _extra2 = extra_any.downcast_ref::<Box<PylonExtra>>().unwrap();
     }
 }

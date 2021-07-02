@@ -474,11 +474,9 @@ pub fn parse_configs_and_run<R>(
 where
     R: BufRead,
 {
-    let mut runtime = tokio::runtime::Builder::new()
-        .threaded_scheduler()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()
-        .expect("runtime");
+        .build()?;
 
     let rt_handle = runtime.handle().clone();
 

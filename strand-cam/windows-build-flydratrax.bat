@@ -21,6 +21,6 @@ set VPX_STATIC=1
 set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.9.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.9.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
-cargo build --release --no-default-features --features bundle_files,backend_pyloncxx,flydratrax,imtrack-dark-circle,flydra2/bundle_files,ipp-sys/2019,cfg-pt-detect-src-prefs,checkercal
+cargo build --release --no-default-features --features bundle_files,backend_pyloncxx,flydratrax,imtrack-dark-circle,flydra2/bundle_files,ipp-sys/2019,cfg-pt-detect-src-prefs,checkercal,backtrace,ci2-pyloncxx/backtrace
 
 copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world320.dll ..\target\release\

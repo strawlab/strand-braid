@@ -66,11 +66,11 @@ where
             let is_active = &self.value == variant;
             let disabled = is_active; // do not allow clicking currently active state
             html! {
-                <Button:
-                    title=name,
-                    disabled=disabled,
-                    is_active=is_active,
-                    onsignal=self.link.callback(move |_| Msg::Clicked(variant.clone())),
+                <Button
+                    title=name
+                    disabled=disabled
+                    is_active=is_active
+                    onsignal=self.link.callback(move |_| Msg::Clicked(variant.clone()))
                 />
             }
         });

@@ -1,3 +1,9 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
+use basic_frame::DynamicFrame;
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
 
@@ -14,19 +20,41 @@ pub enum Error {
     SingleFrameError(String),
     #[error("Timeout")]
     Timeout,
-    #[error("CI2Error({0})")]
-    CI2Error(String),
+    #[error("CI2Error({msg})")]
+    CI2Error {
+        msg: String,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("feature not present")]
-    FeatureNotPresent,
+    FeatureNotPresent(#[cfg(feature = "backtrace")] Backtrace),
     #[error("BackendError({0})")]
-    BackendError(#[from] anyhow::Error),
-
-    #[error("{0}")]
-    IoError(#[from] std::io::Error),
-    #[error("{0}")]
-    Utf8Error(#[from] std::str::Utf8Error),
-    #[error("{0}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
+    BackendError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        anyhow::Error,
+    ),
+    #[error("io error: {source}")]
+    IoError {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("utf8 error: {source}")]
+    Utf8Error {
+        #[from]
+        source: std::str::Utf8Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
+    #[error("try from int error: {source}")]
+    TryFromIntError {
+        #[from]
+        source: std::num::TryFromIntError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 fn _test_error_is_send() {
@@ -37,7 +65,21 @@ fn _test_error_is_send() {
 
 impl<'a> From<&'a str> for Error {
     fn from(orig: &'a str) -> Error {
-        Error::CI2Error(orig.to_string())
+        Error::CI2Error {
+            msg: orig.to_string(),
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Error {
+        Error::CI2Error {
+            msg,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
@@ -46,8 +88,7 @@ impl<'a> From<&'a str> for Error {
 
 /// A module for opening cameras (e.g. pylon).
 pub trait CameraModule {
-    type FrameType: formats::OwnedImageStride;
-    type CameraType: Camera<FrameType = Self::FrameType>;
+    type CameraType: Camera;
 
     // TODO: have full_name and friendly_name?
     fn name(&self) -> &str;
@@ -85,8 +126,6 @@ pub struct FrameROI {
 // Camera
 
 pub trait Camera: CameraInfo {
-    type FrameType: formats::OwnedImageStride;
-
     /// Return the sensor width in pixels
     fn width(&self) -> Result<u32>;
     /// Return the sensor height in pixels
@@ -95,10 +134,10 @@ pub trait Camera: CameraInfo {
     // TODO: add this
     // fn stride(&self) -> Result<u32>;
 
-    // Settings: PixelFormat ----------------------------
-    fn pixel_format(&self) -> Result<formats::PixelFormat>;
-    fn possible_pixel_formats(&self) -> Result<Vec<formats::PixelFormat>>;
-    fn set_pixel_format(&mut self, pixel_format: formats::PixelFormat) -> Result<()>;
+    // Settings: PixFmt ----------------------------
+    fn pixel_format(&self) -> Result<formats::PixFmt>;
+    fn possible_pixel_formats(&self) -> Result<Vec<formats::PixFmt>>;
+    fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> Result<()>;
 
     // Settings: Exposure Time ----------------------------
     /// value given in microseconds
@@ -150,5 +189,5 @@ pub trait Camera: CameraInfo {
     fn acquisition_stop(&mut self) -> Result<()>;
 
     /// synchronous (blocking) frame acquisition
-    fn next_frame(&mut self) -> Result<Self::FrameType>;
+    fn next_frame(&mut self) -> Result<DynamicFrame>;
 }

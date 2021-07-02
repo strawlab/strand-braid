@@ -9,8 +9,8 @@ pub enum DlError {
     UreqError,
     #[error("IO error")]
     IOError(#[from] std::io::Error),
-    #[error("Hash mismatch")]
-    HashMismatch,
+    #[error("Hash mismatch (expected: {expected}, found: {found}")]
+    HashMismatch { expected: String, found: String },
     #[error("Hex decode error")]
     HexDecodeError(#[from] hex::FromHexError),
 }
@@ -69,7 +69,11 @@ fn validate(bytes: &[u8], hash: &Hash) -> Result<(), DlError> {
             if &digest[..] == expected.as_slice() {
                 Ok(())
             } else {
-                Err(DlError::HashMismatch)
+                let found = format!("{:x}", digest);
+                Err(DlError::HashMismatch {
+                    expected: sum.clone(),
+                    found,
+                })
             }
         }
     }

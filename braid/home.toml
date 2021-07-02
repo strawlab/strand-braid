@@ -1,13 +1,19 @@
+# This is a sample braid configuration file which opens Braid with no
+# calibration (because mainbrain.cal_fname is not set), using most parameters as
+# default (these are not listed here), using a single camera (whose name is
+# listed), and not using a camera trigger device (but rather "FakeSync").
+
 [mainbrain]
+# No calibration because cal_fname is not set (it is commented out).
 # cal_fname = "blah.xml"
+# Data will be saved in the 'DATA' directory (relative to current path). Make
+# this an absolute path to specify location independent of current path.
 output_base_dirname = "DATA"
+# Start the Braid UI at the address http://127.0.0.1:33333/
 http_api_server_addr = "127.0.0.1:33333"
-model_server_addr = "0.0.0.0:8397"
-lowlatency_camdata_udp_addr = "127.0.0.1:7777"
-save_empty_data2d = true
 
 [[cameras]]
-name = "Basler-40058153"
+name = "Basler-40116277"
 
 [trigger]
 fps = 95.0

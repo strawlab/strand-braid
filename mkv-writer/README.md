@@ -4,6 +4,10 @@ Show creation time with:
 
 View timestamps with:
 
+    mkvinfo --all <intput_ts>
+
+or
+
     ffmpeg -debug_ts -re -copyts -i <intput_ts> -f null out.null
 
 or

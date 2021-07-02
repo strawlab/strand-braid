@@ -323,14 +323,14 @@ pub struct ModelServer {
     local_addr: std::net::SocketAddr,
 }
 
-impl ModelServer {
-    pub fn new(
-        valve: stream_cancel::Valve,
-        shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
-        addr: &std::net::SocketAddr,
-        info: StaticMainbrainInfo,
-        rt_handle: tokio::runtime::Handle,
-    ) -> Result<Self> {
+pub async fn new_model_server(
+    valve: stream_cancel::Valve,
+    shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    addr: &std::net::SocketAddr,
+    info: StaticMainbrainInfo,
+    rt_handle: tokio::runtime::Handle,
+) -> Result<ModelServer> {
+    {
         let channel_size = 2;
         let (tx_new_connection, rx_new_connection) = futures::channel::mpsc::channel(channel_size);
 
@@ -346,7 +346,11 @@ impl ModelServer {
             futures::future::ok::<_, MyError>(service2.clone())
         });
 
-        let server = hyper::Server::bind(&addr).serve(new_service);
+        let server = {
+            // this will fail unless there is a reactor already
+            let bound = async { hyper::Server::try_bind(&addr) }.await?;
+            bound.serve(new_service)
+        };
 
         let local_addr = server.local_addr();
 
@@ -382,14 +386,13 @@ impl ModelServer {
 
         rt_handle.spawn(new_con_fut);
 
+        use futures::future::FutureExt;
         let log_and_swallow_err = |r| match r {
             Ok(_) => {}
             Err(e) => {
                 error!("{} ({}:{})", e, file!(), line!());
             }
         };
-
-        use futures::future::FutureExt;
 
         if let Some(shutdown_rx) = shutdown_rx {
             let graceful = server.with_graceful_shutdown(async move {
@@ -399,10 +402,11 @@ impl ModelServer {
         } else {
             rt_handle.spawn(Box::pin(server.map(log_and_swallow_err)));
         };
-
         Ok(result)
     }
+}
 
+impl ModelServer {
     pub fn local_addr(&self) -> &std::net::SocketAddr {
         &self.local_addr
     }

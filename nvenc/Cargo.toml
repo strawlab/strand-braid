@@ -10,3 +10,6 @@ edition = "2018"
 dynlink-cuda = {path="dynlink-cuda"}
 dynlink-nvidia-encode = {path="dynlink-nvidia-encode"}
 thiserror = "1.0"
+
+[features]
+backtrace = ["dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace"]

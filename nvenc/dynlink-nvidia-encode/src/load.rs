@@ -2,6 +2,9 @@ use std::path::{Path, PathBuf};
 
 use crate::NvencError;
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 // The dynamic loading aspects here were inspired by clang-sys.
 
 // Due to the thread local stuff here, it is somewhat complex to abstract this
@@ -27,8 +30,13 @@ pub fn load_manually() -> Result<SharedLibrary, NvencError> {
     let path = PathBuf::from("nvEncodeAPI64.dll");
     #[cfg(not(target_os = "windows"))]
     let path = PathBuf::from("libnvidia-encode.so.1");
-    let library = libloading::Library::new(&path)
-        .map_err(|e| NvencError::DynLibLoadError(path.display().to_string(), e))?;
+    let library =
+        libloading::Library::new(&path).map_err(|source| NvencError::DynLibLoadError {
+            dynlib: path.display().to_string(),
+            source,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        })?;
 
     let library = SharedLibrary::new(library, path);
 

@@ -7,33 +7,33 @@ edition = "2018"
 [dependencies]
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.9", default-features = false}
+bui-backend = {version="0.11", default-features = false}
 includedir = {version="0.6", optional=true}
 phf = "0.8"
 failure = "0.1.2"
 failure_derive = "0.1"
 parking_lot = "0.11"
-crossbeam-channel = "0.5"
 serde = {version="1.0",features=["derive"]}
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
-hyper = "0.13.0"
-tokio = {version="0.2", default-features=false, features=["sync","rt-core"]}
+hyper = "0.14"
+tokio = {version="1.0.1", default-features=false, features=["sync","rt"]}
 ipp-sys = "0.4.4"
 thread-control = "0.1.2"
-stream-cancel = "0.6"
+stream-cancel = "0.8"
 
 http-video-streaming = {path = "../http-video-streaming"}
 http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
 fastimage = {path = "../fastimage"}
 log = "0.4"
 
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 simple-frame = { path = "../simple-frame" }
 lazy_static = "1.4"
 rt-image-viewer-storetype = { path = "storetype" }
 crossbeam-ok = {path="../crossbeam-ok"}
+channellib = {path="../channellib"}
 
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}

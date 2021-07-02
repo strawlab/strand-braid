@@ -22,16 +22,16 @@ pub struct ToClient {
     pub name: Option<String>,
 }
 
-#[derive(Debug,Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CircleParams {
     pub center_x: i16,
     pub center_y: i16,
     pub radius: u16,
 }
 
-#[derive(Debug,Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PolygonParams {
-    pub points: Vec<(f64,f64)>,
+    pub points: Vec<(f64, f64)>,
 }
 
 // #[derive(Debug,Clone, Serialize, Deserialize, PartialEq)]
@@ -49,7 +49,7 @@ pub struct PolygonParams {
 //     pub data: Vec<u8>,
 // }
 
-#[derive(Debug,Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Shape {
     Everything,
     Circle(CircleParams),
@@ -91,14 +91,14 @@ pub enum StrokeStyle {
 
 impl StrokeStyle {
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        StrokeStyle::CssColor(RgbaColor{r, g, b, a: 1.0})
+        StrokeStyle::CssColor(RgbaColor { r, g, b, a: 1.0 })
     }
 }
 
 impl From<StrokeStyle> for String {
     fn from(orig: StrokeStyle) -> String {
         match orig {
-            StrokeStyle::CssColor(rgba) => rgba.into()
+            StrokeStyle::CssColor(rgba) => rgba.into(),
         }
     }
 }
@@ -151,8 +151,8 @@ mod tests {
             radius: 50,
         };
         let shape = Shape::Circle(cps);
-        let ss = StrokeStyle::from_rgb(1,2,3);
-        let ds = DrawableShape::from_shape(&shape,&ss,1.0);
+        let ss = StrokeStyle::from_rgb(1, 2, 3);
+        let ds = DrawableShape::from_shape(&shape, &ss, 1.0);
         let cds: CanvasDrawableShape = ds.into();
         assert_eq!(cds.stroke_style, "rgba(1, 2, 3, 1.00)");
     }

@@ -77,11 +77,11 @@ where
             let is_active = idx == self.selected_idx;
             let disabled = is_active; // do not allow clicking currently active state
             html! {
-                <Button:
-                    title=name,
-                    disabled=disabled,
-                    is_active=is_active,
-                    onsignal=self.link.callback(move |_| Msg::Clicked(idx)),
+                <Button
+                    title=name
+                    disabled=disabled
+                    is_active=is_active
+                    onsignal=self.link.callback(move |_| Msg::Clicked(idx))
                 />
             }
         });

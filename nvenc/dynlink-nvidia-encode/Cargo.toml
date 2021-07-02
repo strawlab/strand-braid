@@ -8,3 +8,6 @@ edition = "2018"
 libloading = "0.5.2"
 dynlink-cuda = {path="../dynlink-cuda"}
 thiserror = "1.0"
+
+[features]
+backtrace = ["dynlink-cuda/backtrace"]

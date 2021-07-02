@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-nalgebra = {version="0.26", features=["serde-serialize"]}
+nalgebra = {version="0.27", features=["serde-serialize"]}
 num-traits = "0.2"
 serde = {version="1.0", features=["derive"]}
 serde_yaml = "0.8"
@@ -14,13 +14,14 @@ thiserror = "1.0"
 log = "0.4"
 alga = "0.9"
 shellexpand = "2.0"
-cam-geom = {version = "0.8", features=["serde-serialize"]}
-opencv-ros-camera = {version = "0.8", features=["serde-serialize"]}
+cam-geom = {version = "0.9", features=["serde-serialize"]}
+opencv-ros-camera = {version = "0.9", features=["serde-serialize"]}
 
 [dev-dependencies]
 num-iter = "0.1"
-approx = "0.4"
-dlt = "0.6"
+approx = "0.5"
+dlt = "0.7"
 
 [features]
 serde-serialize = []
+backtrace = []

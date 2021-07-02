@@ -1,12 +1,17 @@
 #[macro_use]
 extern crate log;
 
+use anyhow::Result;
+
+use basic_frame::{match_all_dynamic_fmts, BasicExtra, DynamicFrame};
 use ci2_remote_control::MkvRecordingConfig;
-use convert_image::{encode_y4m_frame, Colorspace, ConvertImageFrame, ImageOptions};
-use machine_vision_formats::{ImageData, PixelFormat, Stride};
+use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
+use machine_vision_formats::{
+    pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, ImageStride, Stride,
+};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use timestamped_frame::HostTimeData;
+use timestamped_frame::ExtraTimeData;
 
 const Y4M_MAGIC: &str = "YUV4MPEG2";
 const Y4M_FRAME_MAGIC: &str = "FRAME";
@@ -47,6 +52,38 @@ E.g.
 
 */
 
+/// Convert to runtime specified pixel format and save to FMF file.
+macro_rules! convert_and_write_fmf {
+    ($new_pixel_format:expr, $writer:expr, $x:expr, $timestamp:expr) => {{
+        use pixel_format::*;
+        match $new_pixel_format {
+            PixFmt::Mono8 => write_converted!(Mono8, $writer, $x, $timestamp),
+            PixFmt::Mono32f => write_converted!(Mono32f, $writer, $x, $timestamp),
+            PixFmt::RGB8 => write_converted!(RGB8, $writer, $x, $timestamp),
+            PixFmt::BayerRG8 => write_converted!(BayerRG8, $writer, $x, $timestamp),
+            PixFmt::BayerRG32f => write_converted!(BayerRG32f, $writer, $x, $timestamp),
+            PixFmt::BayerGB8 => write_converted!(BayerGB8, $writer, $x, $timestamp),
+            PixFmt::BayerGB32f => write_converted!(BayerGB32f, $writer, $x, $timestamp),
+            PixFmt::BayerGR8 => write_converted!(BayerGR8, $writer, $x, $timestamp),
+            PixFmt::BayerGR32f => write_converted!(BayerGR32f, $writer, $x, $timestamp),
+            PixFmt::BayerBG8 => write_converted!(BayerBG8, $writer, $x, $timestamp),
+            PixFmt::BayerBG32f => write_converted!(BayerBG32f, $writer, $x, $timestamp),
+            PixFmt::YUV422 => write_converted!(YUV422, $writer, $x, $timestamp),
+            _ => {
+                anyhow::bail!("unsupported pixel format {}", $new_pixel_format);
+            }
+        }
+    }};
+}
+
+/// For a specified runtime specified pixel format, convert and save to FMF file.
+macro_rules! write_converted {
+    ($pixfmt:ty, $writer:expr, $x:expr, $timestamp:expr) => {{
+        let converted_frame = convert_image::convert::<_, $pixfmt>($x)?;
+        $writer.write(&converted_frame, $timestamp)?;
+    }};
+}
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "fmf", about = "work with .fmf (fly movie format) files")]
 enum Opt {
@@ -55,11 +92,11 @@ enum Opt {
     ExportFMF {
         /// new pixel_format (default: no change from input fmf)
         #[structopt(long = "pixel-format", name = "NEW-PIXEL-FORMAT")]
-        new_pixel_format: Option<PixelFormat>,
+        new_pixel_format: Option<PixFmt>,
 
         /// force input data to be interpreted with this pixel_format
         #[structopt(long = "force-input-pixel-format", name = "FORCED-INPUT-PIXEL-FORMAT")]
-        forced_input_pixel_format: Option<PixelFormat>,
+        forced_input_pixel_format: Option<PixFmt>,
 
         /// Filename of input fmf
         #[structopt(parse(from_os_str), name = "INPUT-FMF")]
@@ -139,7 +176,7 @@ struct ExportY4m {
 
     /// colorspace (e.g. 420paldv, mono)
     #[structopt(long = "colorspace", short = "c", default_value = "420paldv")]
-    colorspace: Colorspace,
+    colorspace: Y4MColorspace,
 
     /// frames per second numerator
     #[structopt(default_value = "25", long = "fps-numerator")]
@@ -229,7 +266,7 @@ enum Autocrop {
 
 impl std::str::FromStr for Autocrop {
     type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "None" | "none" => Ok(Autocrop::None),
             "Even" | "even" => Ok(Autocrop::Even),
@@ -276,13 +313,13 @@ fn display_filename(p: &Option<PathBuf>, default: &str) -> PathBuf {
     }
 }
 
-fn info(path: PathBuf) -> Result<(), failure::Error> {
+fn info(path: PathBuf) -> Result<()> {
     #[derive(Debug)]
     struct Info {
         width: u32,
         height: u32,
         stride: usize,
-        pixel_format: PixelFormat,
+        pixel_format: PixFmt,
     }
     let reader = fmf::FMFReader::new(&path)?;
     for (fno, frame) in reader.enumerate() {
@@ -295,17 +332,22 @@ fn info(path: PathBuf) -> Result<(), failure::Error> {
         if fno == 0 {
             println!("{:?}", i);
         }
-        println!("frame {}: {}", fno, frame.host_timestamp());
+        println!("frame {}: {}", fno, frame.extra().host_timestamp());
     }
     Ok(())
 }
 
+/// Write an fmf file
+///
+/// If the `forced_input_pixel_format` argument is not None, it forces the
+/// interpretation of the original data into this format regardless of the pixel
+/// format specied in the header of the input file.
 fn export_fmf(
     path: PathBuf,
-    new_pixel_format: Option<PixelFormat>,
+    new_pixel_format: Option<PixFmt>,
     output: Option<PathBuf>,
-    forced_input_pixel_format: Option<PixelFormat>,
-) -> Result<(), failure::Error> {
+    forced_input_pixel_format: Option<PixFmt>,
+) -> Result<()> {
     let output_fname = default_filename(&path, output, "fmf");
 
     info!(
@@ -321,26 +363,23 @@ fn export_fmf(
     let mut writer = fmf::FMFWriter::new(f)?;
 
     for frame in reader {
-        let frame_timestamp = frame.host_timestamp();
-        let frame: ConvertImageFrame = match forced_input_pixel_format {
-            Some(forced_input_pixel_format) => {
-                convert_image::force_pixel_formats(Box::new(frame), forced_input_pixel_format)
-            }
-            None => frame.into(),
+        let fts = frame.extra().host_timestamp();
+        let frame: DynamicFrame = match forced_input_pixel_format {
+            Some(forced_input_pixel_format) => frame.force_pixel_format(forced_input_pixel_format),
+            None => frame,
         };
 
-        let new_pixel_format = match new_pixel_format {
+        let fmt = match new_pixel_format {
             Some(new_pixel_format) => new_pixel_format,
             None => frame.pixel_format(),
         };
 
-        let converted_frame = convert_image::convert(&frame, new_pixel_format)?;
-        writer.write(&converted_frame, frame_timestamp)?;
+        match_all_dynamic_fmts!(frame, x, convert_and_write_fmf!(fmt, writer, &x, fts));
     }
     Ok(())
 }
 
-fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), failure::Error> {
+fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
     let opts = glob::MatchOptions::new();
     let paths = glob::glob_with(&pattern, opts)?;
     let f = std::fs::File::create(&output_fname)?;
@@ -355,7 +394,7 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<(), failure::Er
 }
 
 #[cfg(feature = "import-webm")]
-fn import_webm(x: ImportWebm) -> Result<(), failure::Error> {
+fn import_webm(x: ImportWebm) -> Result<()> {
     let output_fname = default_filename(&x.input, x.output, "fmf");
 
     info!(
@@ -376,7 +415,15 @@ fn import_webm(x: ImportWebm) -> Result<(), failure::Error> {
     // Ok(())
 }
 
-fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error> {
+fn convert_to_rgb8(
+    frame: &DynamicFrame,
+) -> std::result::Result<Box<dyn ImageStride<pixel_format::RGB8> + '_>, convert_image::Error> {
+    let f: Box<dyn ImageStride<_>> =
+        match_all_dynamic_fmts!(frame, x, Box::new(convert_image::convert(x)?));
+    Ok(f)
+}
+
+fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
     use std::io::Write;
 
     let stem = path.file_stem().unwrap().to_os_string(); // strip extension
@@ -404,9 +451,10 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
     for (i, frame) in reader.enumerate() {
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
-        let buf = convert_image::frame_to_image(&frame, opts)?;
-        let mut f = std::fs::File::create(fname)?;
-        f.write_all(&buf)?;
+        let frame = convert_to_rgb8(&frame)?;
+        let buf = convert_image::frame_to_image(frame.as_ref(), opts)?;
+        let mut fd = std::fs::File::create(fname)?;
+        fd.write_all(&buf)?;
     }
     Ok(())
 }
@@ -419,8 +467,8 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
 //     }
 // }
 
-// fn encode_bgr24_frame( frame: fmf::FMFFrame, autocrop: Autocrop ) -> fmf::FMFResult<Vec<u8>> {
-//     use PixelFormat::*;
+// fn encode_bgr24_frame( frame: fmf::DynamicFrame, autocrop: Autocrop ) -> fmf::FMFResult<Vec<u8>> {
+//     use PixFmt::*;
 
 //     // convert bayer formats
 //     let frame: ConvertImageFrame = match frame.pixel_format() {
@@ -465,7 +513,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
 //     }
 // }
 
-// fn export_bgr24(x: ExportBgr24) -> Result<(), failure::Error> {
+// fn export_bgr24(x: ExportBgr24) -> Result<()> {
 //     use std::io::Write;
 
 //     let output_fname = default_filename(&x.input, x.output, "bgr24");
@@ -489,7 +537,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<(), failure::Error
 //     Ok(())
 // }
 
-fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
+fn export_mkv(x: ExportMkv) -> Result<()> {
     // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
     // also this https://www.webmproject.org/docs/webm-sdk/example_vp9_lossless_encoder.html
 
@@ -503,7 +551,7 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
 
     let out_fd = match &output_fname {
         None => {
-            failure::bail!("Cannot export mkv to stdout."); // Seek required
+            anyhow::bail!("Cannot export mkv to stdout."); // Seek required
         }
         Some(path) => std::fs::File::create(&path)?,
     };
@@ -534,8 +582,6 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
     };
 
-    // pub fn new(fd: T, config: MkvRecordingConfig, nv_enc: Option<nvenc::NvEnc<'f,'lib>>) -> Result<Self> {
-
     #[cfg(feature = "nv-h264")]
     let libs = nvenc::Dynlibs::new()?;
 
@@ -546,60 +592,91 @@ fn export_mkv(x: ExportMkv) -> Result<(), failure::Error> {
     let nv_enc = None;
 
     debug!("opening file {}", output_fname.unwrap().display());
-    let mut mkv_writer = webm_writer::WebmWriter::new(out_fd, cfg, nv_enc)?;
+    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, nv_enc)?;
 
     for (fno, fmf_frame) in reader.enumerate() {
         debug!("saving frame {}", fno);
-        let fmf_frame_clipped = fmf_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-        let ts = fmf_frame.host_timestamp();
-        mkv_writer.write(&fmf_frame_clipped, ts)?;
+        let ts = fmf_frame.extra().host_timestamp();
+        match fmf_frame {
+            DynamicFrame::Mono8(mono_frame) => {
+                let fmf_frame_clipped =
+                    mono_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
+                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
+            }
+            other_frame => {
+                let host_framenumber = other_frame.extra().host_framenumber();
+                let host_timestamp = other_frame.extra().host_timestamp();
+                let rgb_frame = convert_to_rgb8(&other_frame)?;
+                let rgb_frame = {
+                    let width = rgb_frame.width();
+                    let height = rgb_frame.height();
+                    let stride = rgb_frame.stride() as u32;
+                    let image_data = rgb_frame.buffer_ref().data.to_vec(); // copy data
+                    let extra = Box::new(BasicExtra {
+                        host_framenumber,
+                        host_timestamp,
+                    });
+                    basic_frame::BasicFrame::<pixel_format::RGB8> {
+                        width,
+                        height,
+                        stride,
+                        extra,
+                        image_data,
+                        pixel_format: std::marker::PhantomData,
+                    }
+                };
+                let fmf_frame_clipped =
+                    rgb_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
+                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
+            }
+        }
     }
 
     debug!("finishing file");
-    mkv_writer.finish()?;
+    my_mkv_writer.finish()?;
     Ok(())
 }
 
 /// A view of a source image in which the rightmost pixels may be clipped
-struct ClippedFrame<'a> {
-    src: &'a basic_frame::BasicFrame,
+struct ClippedFrame<'a, FMT> {
+    src: &'a basic_frame::BasicFrame<FMT>,
     width: u32,
 }
 
-impl<'a> ImageData for ClippedFrame<'a> {
+impl<'a, FMT> ImageData<FMT> for ClippedFrame<'a, FMT> {
     fn width(&self) -> u32 {
         self.width
     }
     fn height(&self) -> u32 {
         self.src.height()
     }
-    fn image_data(&self) -> &[u8] {
-        self.src.image_data()
+    fn buffer_ref(&self) -> ImageBufferRef<'a, FMT> {
+        ImageBufferRef::new(&self.src.image_data())
     }
-    fn pixel_format(&self) -> PixelFormat {
-        self.src.pixel_format()
+    fn buffer(self) -> ImageBuffer<FMT> {
+        ImageBuffer::new(self.buffer_ref().data.to_vec()) // copy data
     }
 }
 
-impl<'a> Stride for ClippedFrame<'a> {
+impl<'a, FMT> Stride for ClippedFrame<'a, FMT> {
     fn stride(&self) -> usize {
         self.src.stride()
     }
 }
 
-trait ClipFrame {
-    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame;
+trait ClipFrame<FMT> {
+    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame<FMT>;
 }
 
-impl ClipFrame for basic_frame::BasicFrame {
-    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame {
+impl<FMT> ClipFrame<FMT> for basic_frame::BasicFrame<FMT> {
+    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame<FMT> {
         let width = (self.width() / val as u32) * val as u32;
         debug!("clipping image of width {} to {}", self.width(), width);
         ClippedFrame { src: &self, width }
     }
 }
 
-fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
+fn export_y4m(x: ExportY4m) -> Result<()> {
     use std::io::Write;
 
     let output_fname = default_filename(&x.input, x.output, "y4m");
@@ -619,12 +696,12 @@ fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
     let mut buffer_width = reader.width();
     let buffer_height = reader.height();
 
-    if reader.format() == PixelFormat::RGB8 {
+    if reader.format() == PixFmt::RGB8 {
         buffer_width *= 3;
     }
 
     let final_width = match reader.format() {
-        PixelFormat::RGB8 => buffer_width / 3,
+        PixFmt::RGB8 => buffer_width / 3,
         _ => buffer_width,
     };
     let final_height = buffer_height;
@@ -651,14 +728,16 @@ fn export_y4m(x: ExportY4m) -> Result<(), failure::Error> {
         let buf = format!("{magic}\n", magic = Y4M_FRAME_MAGIC);
         out_fd.write_all(buf.as_bytes())?;
 
-        let buf = encode_y4m_frame(&frame, x.colorspace)?;
-        out_fd.write_all(&buf)?;
+        basic_frame::match_all_dynamic_fmts!(frame, f, {
+            let buf = encode_y4m_frame(&f, x.colorspace)?;
+            out_fd.write_all(&buf)?;
+        });
     }
     out_fd.flush()?;
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "fmf=info,error");
     }

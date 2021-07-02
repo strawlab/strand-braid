@@ -326,7 +326,7 @@ fn get_kalman_estimates_row(obj_id: u32, posterior: &StampedEstimate) -> KalmanE
 impl LivingModel<ModelFramePosteriors> {
     fn finish_frame(
         mut self,
-        save_data_tx: &mut crossbeam_channel::Sender<SaveToDiskMsg>,
+        save_data_tx: &mut channellib::Sender<SaveToDiskMsg>,
         model_servers: &[Box<dyn GetsUpdates>],
         num_observations_to_visibility: u8,
     ) -> LivingModel<ModelFrameDone> {
@@ -507,7 +507,7 @@ pub(crate) fn initialize_model_collection(
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     fps: f32,
     cam_manager: ConnectedCamerasManager,
-    save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
+    save_data_tx: channellib::Sender<SaveToDiskMsg>,
 ) -> ModelCollection<CollectionFrameDone> {
     let new_obj = NewObjectTest::new(recon.clone(), params.clone());
 
@@ -549,7 +549,7 @@ pub(crate) struct MCInner {
     motion_model: MotionModel3DFixedDt<MyFloat>,
     cam_manager: ConnectedCamerasManager,
     next_obj_id: u32,
-    save_data_tx: crossbeam_channel::Sender<SaveToDiskMsg>,
+    save_data_tx: channellib::Sender<SaveToDiskMsg>,
 }
 
 impl ModelCollection<CollectionFrameDone> {

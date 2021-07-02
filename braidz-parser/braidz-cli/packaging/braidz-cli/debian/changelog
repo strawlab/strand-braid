@@ -1,5 +1,5 @@
-braidz-cli (0.9.1-1) xenial; urgency=low                                                                                │·······················
+braidz-cli (0.10.0-0) xenial; urgency=low
 
-  * New release                                                                                                         │·······················
+  * New release
 
- -- Andrew Straw <strawman@astraw.com>  Mon, 21 Jun 2021 22:29:31 +0200
+ -- Andrew Straw <strawman@astraw.com>  Mon, 28 Jun 2021 01:01:01 +0200

@@ -70,21 +70,21 @@ impl Component for CamtrigControl {
 
     fn view(&self) -> Html {
         html! {
-            <div class="wrap-collapsible",>
-                <CheckboxLabel: label="LED control", initially_checked=true, />
+            <div class="wrap-collapsible">
+                <CheckboxLabel label="LED control" initially_checked=true />
                 <div>
-                    <div class="leds-controllers",>
-                        <LedControl:
-                            channel=&self.device_state.ch1,
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x)),
+                    <div class="leds-controllers">
+                        <LedControl
+                            channel=self.device_state.ch1.clone()
+                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
                         />
-                        <LedControl:
-                            channel=&self.device_state.ch2,
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x)),
+                        <LedControl
+                            channel=self.device_state.ch2.clone()
+                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
                         />
-                        <LedControl:
-                            channel=&self.device_state.ch3,
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x)),
+                        <LedControl
+                            channel=self.device_state.ch3.clone()
+                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
                         />
                     </div>
                 </div>

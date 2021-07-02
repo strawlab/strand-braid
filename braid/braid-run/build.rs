@@ -14,7 +14,9 @@ fn git_hash() -> String {
 
 fn main() {
     #[cfg(not(any(feature = "bundle_files", feature = "serve_files")))]
-    compile_error!("no file source selected.");
+    compile_error!(
+        "no file source selected. Either 'bundle_files'  or 'serve_files' cargo feature required."
+    );
 
     let git_rev = git_hash();
     println!("cargo:rustc-env=GIT_HASH={}", git_rev);

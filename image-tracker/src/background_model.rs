@@ -5,7 +5,10 @@ use crate::errors::Error;
 #[cfg(feature = "linux")]
 use ::posix_scheduler;
 
+use basic_frame::DynamicFrame;
+
 use formats::{ImageData, Stride};
+use timestamped_frame::ExtraTimeData;
 
 use crossbeam_ok::CrossbeamOk;
 use fastimage::{
@@ -14,7 +17,7 @@ use fastimage::{
 
 pub(crate) const NUM_BG_START_IMAGES: usize = 20;
 
-type ToWorker = (basic_frame::BasicFrame, ImPtDetectCfg);
+type ToWorker = (DynamicFrame, ImPtDetectCfg);
 type FromWorker = (
     FastImageData<Chan1, f32>,
     FastImageData<Chan1, f32>,
@@ -26,15 +29,15 @@ type FromWorker = (
 );
 
 pub(crate) struct BackgroundModel {
-    pub(crate) f32_encoding: PixelFormat,
+    pub(crate) f32_encoding: formats::PixFmt,
     pub(crate) mean_background: FastImageData<Chan1, f32>,
     pub(crate) mean_im: FastImageData<Chan1, u8>,
     pub(crate) mean_squared_im: FastImageData<Chan1, f32>,
     pub(crate) cmp_im: FastImageData<Chan1, u8>,
     pub(crate) current_roi: FastImageRegion,
     pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
-    tx_to_worker: crossbeam_channel::Sender<ToWorker>,
-    rx_from_worker: crossbeam_channel::Receiver<FromWorker>,
+    tx_to_worker: channellib::Sender<ToWorker>,
+    rx_from_worker: channellib::Receiver<FromWorker>,
 }
 
 impl BackgroundModel {
@@ -44,7 +47,7 @@ impl BackgroundModel {
         running_mean: FastImageData<Chan1, f32>,
         mean_squared_im: FastImageData<Chan1, f32>,
         cfg: &ImPtDetectCfg,
-        pixel_format: PixelFormat,
+        pixel_format: formats::PixFmt,
         complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
     ) -> Result<Self>
     where
@@ -71,8 +74,8 @@ impl BackgroundModel {
         let mean_im = FastImageData::copy_from_8u_c1(&worker.mean_im)?;
         let cmp_im = FastImageData::copy_from_8u_c1(&worker.cmp_im)?;
 
-        let (tx_to_worker, rx_from_main) = crossbeam_channel::bounded::<ToWorker>(10);
-        let (tx_to_main, rx_from_worker) = crossbeam_channel::bounded::<FromWorker>(10);
+        let (tx_to_worker, rx_from_main) = channellib::bounded::<ToWorker>(10);
+        let (tx_to_main, rx_from_worker) = channellib::bounded::<FromWorker>(10);
 
         std::thread::Builder::new()
             .name("bg-img-proc".to_string())
@@ -92,16 +95,25 @@ impl BackgroundModel {
                 loop {
                     let x = match rx_from_main.recv() {
                         Ok(x) => x,
-                        Err(crossbeam_channel::RecvError) => {
+                        Err(e) => {
                             // This is normal when taking a new background image.
-                            debug!("disconnect ({}:{})", file!(), line!());
+                            debug!("disconnect {} ({}:{})", e, file!(), line!());
                             break;
                         }
                     };
                     let (frame, cfg) = x;
-
+                    let data = match &frame {
+                        DynamicFrame::Mono8(x) => x.image_data(),
+                        DynamicFrame::BayerRG8(x) => x.image_data(),
+                        DynamicFrame::BayerGB8(x) => x.image_data(),
+                        DynamicFrame::BayerGR8(x) => x.image_data(),
+                        DynamicFrame::BayerBG8(x) => x.image_data(),
+                        other => {
+                            panic!("unsupported format: {}", other.pixel_format());
+                        }
+                    };
                     let raw_im_full = FastImageView::view_raw(
-                        &frame.image_data(),
+                        data,
                         frame.stride() as ipp_ctypes::c_int,
                         frame.width() as ipp_ctypes::c_int,
                         frame.height() as ipp_ctypes::c_int,
@@ -117,8 +129,8 @@ impl BackgroundModel {
                     let cmp_im = FastImageData::copy_from_8u_c1(&worker.cmp_im).unwrap();
 
                     let roi = worker.current_roi.clone();
-                    let ts = frame.host_timestamp();
-                    let fno = frame.host_framenumber();
+                    let ts = frame.extra().host_timestamp();
+                    let fno = frame.extra().host_framenumber();
                     let msg = (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts, fno);
                     if tx_to_main.is_full() {
                         error!("updated background image dropped because pipe full");
@@ -129,19 +141,20 @@ impl BackgroundModel {
             })?;
 
         let f32_encoding = {
-            use crate::formats::PixelFormat::*;
+            use crate::formats::PixFmt::*;
 
             match pixel_format {
-                MONO8 => MONO32f,
+                Mono8 => Mono32f,
                 BayerRG8 => BayerRG32f,
                 BayerBG8 => BayerBG32f,
                 BayerGB8 => BayerGB32f,
                 BayerGR8 => BayerGR32f,
                 pixel_format => {
-                    return Err(Error::OtherError(format!(
-                        "unimplemented pixel_format {}",
-                        pixel_format
-                    ))
+                    return Err(Error::OtherError {
+                        msg: format!("unimplemented pixel_format {}", pixel_format),
+                        #[cfg(feature = "backtrace")]
+                        backtrace: std::backtrace::Backtrace::capture(),
+                    }
                     .into());
                 }
             }
@@ -164,7 +177,7 @@ impl BackgroundModel {
     /// Update background model for new image
     pub(crate) fn start_bg_update(
         &mut self,
-        frame: &dyn ImageStrideTime,
+        frame: &DynamicFrame,
         cfg: &ImPtDetectCfg,
         q1: &std::time::Instant,
         sample_vec: &mut Vec<(f64, u32)>,
@@ -175,7 +188,7 @@ impl BackgroundModel {
         } else {
             sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
             // let frame = fi_to_frame(raw_im_full)?;
-            let frame_copy = basic_frame::BasicFrame::copy_from(frame);
+            let frame_copy = frame.clone();
             sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
             let cfg = cfg.clone();
             sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
@@ -197,10 +210,13 @@ impl BackgroundModel {
                 self.complete_stamp = (ts, fno);
                 true
             }
-            Err(crossbeam_channel::TryRecvError::Empty) => false,
-            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                error!("sender disconnected ({}:{})", file!(), line!());
-                false
+            Err(e) => {
+                if e.is_empty() {
+                    false
+                } else {
+                    error!("sender disconnected ({}:{})", file!(), line!());
+                    false
+                }
             }
         }
     }

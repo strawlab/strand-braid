@@ -33,7 +33,12 @@ impl SimpleDisplay {
     pub(crate) fn to_orig(self, name: &str) -> Display {
         let vdisp = VirtualDisplay {
             id: VirtualDisplayName(name.to_string()),
-            viewport: vec![(0,0), (self.width,0), (self.width,self.height), (0,self.height)],
+            viewport: vec![
+                (0, 0),
+                (self.width, 0),
+                (self.width, self.height),
+                (0, self.height),
+            ],
             mirror: Mirror::None,
         };
         Display {
@@ -49,7 +54,7 @@ impl SimpleDisplay {
 #[serde(deny_unknown_fields)]
 pub struct VirtualDisplay {
     pub id: VirtualDisplayName,
-    pub viewport: Vec<(usize,usize)>,
+    pub viewport: Vec<(usize, usize)>,
     #[serde(default)]
     pub mirror: Mirror,
 }

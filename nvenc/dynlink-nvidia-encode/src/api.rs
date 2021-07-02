@@ -3,14 +3,19 @@ use crate::load::SharedLibrary;
 use crate::{NvInt, NvencError};
 use std::{mem::MaybeUninit, rc::Rc};
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 macro_rules! api_call {
     ($expr:expr) => {{
         let status = $expr;
         if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-            return Err(NvencError::ErrCode(
+            return Err(NvencError::ErrCode {
                 status,
-                crate::error::code_to_string(status),
-            ));
+                message: crate::error::code_to_string(status),
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            });
         }
     }};
 }
@@ -20,7 +25,11 @@ macro_rules! load_func {
         let func = if let Some(func) = $inner.$ident {
             func
         } else {
-            return Err(NvencError::NameFFIError(stringify!($ident).to_string()));
+            return Err(NvencError::NameFFIError {
+                name: stringify!($ident).to_string(),
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            });
         };
 
         Ok(func)
@@ -29,8 +38,12 @@ macro_rules! load_func {
 
 macro_rules! get_func {
     ($lib:expr, $name:expr) => {{
-        unsafe { $lib.library.get($name) }
-            .map_err(|e| NvencError::NameFFIError2(String::from_utf8_lossy($name).to_string(), e))
+        unsafe { $lib.library.get($name) }.map_err(|source| NvencError::NameFFIError2 {
+            name: String::from_utf8_lossy($name).to_string(),
+            source,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        })
         // format!(
         //     "the name {} could not be opened: {}", String::from_utf8_lossy($name), e))?
     }};
@@ -437,7 +450,11 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
         &self.pts
     }
     pub fn is_keyframe(&self) -> bool {
-        self.picture_type == crate::ffi::_NV_ENC_PIC_TYPE::NV_ENC_PIC_TYPE_I
+        use crate::ffi::_NV_ENC_PIC_TYPE::*;
+        match self.picture_type {
+            NV_ENC_PIC_TYPE_I | NV_ENC_PIC_TYPE_IDR => true,
+            _ => false,
+        }
     }
 }
 
@@ -524,7 +541,10 @@ impl BufferFormat {
                 Ok((stride as usize) * (height as usize) * 3 / 2)
             }
             &BufferFormat::ARGB => Ok((stride as usize) * (height as usize) * 4),
-            _ => Err(NvencError::UnableToComputeSize),
+            _ => Err(NvencError::UnableToComputeSize {
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            }),
         }
     }
 }
@@ -588,7 +608,7 @@ impl InitParamsBuilder {
     ///
     /// Note: "The frame rate has no meaning in NVENC other than deciding rate
     /// control parameters." https://devtalk.nvidia.com/default/topic/1023473
-    pub fn framerate(mut self, num: u32, den: u32) -> Self {
+    pub fn set_framerate(mut self, num: u32, den: u32) -> Self {
         self.0.init_params.frameRateNum = num;
         self.0.init_params.frameRateDen = den;
         self

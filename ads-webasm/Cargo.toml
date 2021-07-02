@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
-yew = "0.17.4"
+yew = "0.18"
 js-sys = "0.3"
 web-sys = {version="0.3", features=["EventSource","DomRect","Element","DomTokenList","HtmlCanvasElement","HtmlImageElement"]}
 gloo = { version = "0.2.1" }
@@ -23,7 +23,7 @@ yew-tincture = "0.1"
 uuid = { version = "0.8", features = ["v4"] } # add feature flag reqruied for uuid crate
 
 simple-obj-parse = {path="../simple-obj-parse", optional=true}
-ncollide3d = {version="0.29", optional=true}
+ncollide3d = {version="0.30", optional=true}
 
 csv = {version="1.1", optional=true}
 

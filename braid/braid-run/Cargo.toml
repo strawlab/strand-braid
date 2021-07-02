@@ -1,6 +1,6 @@
 [package]
 name = "braid-run"
-version = "0.9.1" # braid release synchronized
+version =  "0.10.0-beta.0" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 homepage = "https://strawlab.org/braid"
@@ -13,7 +13,7 @@ ipp-sys = "0.4.4"
 log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
 structopt = "0.3"
-tokio = {version="0.2.5", default-features=false}
+tokio = {version="1.0.1", default-features=false}
 
 braid = {path=".."}
 image-tracker = {path = "../../image-tracker"}
@@ -25,8 +25,12 @@ flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
 flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 
+ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
+
 [features]
 default = ["stand-cam-posix-sched-fifo", "fiducial", "jemalloc"]
+
+backtrace = ["flydra2/backtrace", "strand-cam/backtrace", "image-tracker/backtrace"]
 
 jemalloc = ["jemallocator"]
 

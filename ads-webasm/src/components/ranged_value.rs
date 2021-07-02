@@ -106,23 +106,23 @@ impl Component for RangedValue {
             "ranged-value-input-error"
         };
         html! {
-            <div class="ranged-value",>
-                <div class="ranged-value-state",>
+            <div class="ranged-value" >
+                <div class="ranged-value-state" >
                    { &self.current_value_label }{ current_str }{ self.unit.clone() }
                 </div>
-                <div class="ranged-value-range",>
+                <div class="ranged-value-range" >
                     { range }
                 </div>
                 <div>
-                    <input type="text",
-                        class=input_class,
-                        placeholder=&self.placeholder,
-                        value=&self.local_value_buf,
-                        oninput=self.link.callback(|e: InputData| Msg::NewValue(e.value)),
-                        onblur=self.link.callback(|_| Msg::SendValue),
+                    <input type="text"
+                        class=input_class
+                        placeholder=self.placeholder.clone()
+                        value=self.local_value_buf.clone()
+                        oninput=self.link.callback(|e: InputData| Msg::NewValue(e.value))
+                        onblur=self.link.callback(|_| Msg::SendValue)
                         onkeypress=self.link.callback(|e: KeyboardEvent| {
                             if e.key() == "Enter" { Msg::SendValue } else { Msg::Ignore }
-                        }), />
+                        })  />
                     {error}
                 </div>
             </div>

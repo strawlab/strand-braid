@@ -7,10 +7,10 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 futures = "0.3"
-hyper = {version="0.13.0", default-features = false, features=["tcp"]}
+hyper = {version="0.14", default-features = false, features=["tcp","client","http1"]}
 parking_lot = "0.11"
 http = "0.2"
-bytes = "0.5"
+bytes = "1.0"
 serde = "1"
 cookie = "0.14"
 

@@ -8,4 +8,4 @@ edition = "2018"
 log = "0.4"
 futures = "0.3"
 
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"

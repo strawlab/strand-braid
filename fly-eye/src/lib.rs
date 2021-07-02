@@ -1,12 +1,11 @@
 #[macro_use]
 extern crate log;
-extern crate convert_image;
-extern crate crossbeam_channel;
-extern crate env_logger;
-extern crate failure;
-extern crate machine_vision_formats as formats;
-extern crate machine_vision_shaders as shaders;
-extern crate time;
+
+use machine_vision_formats as formats;
+use machine_vision_shaders as shaders;
+
+use basic_frame::DynamicFrame;
+use formats::Stride;
 
 #[macro_use]
 extern crate glium;
@@ -16,7 +15,7 @@ mod fly_eye;
 #[cfg(feature = "screen-quad")]
 mod screen_quad;
 
-use crossbeam_channel::Receiver;
+use channellib::Receiver;
 use glium::{glutin, Surface};
 
 #[cfg(feature = "fly-eye")]
@@ -24,12 +23,8 @@ use fly_eye as coords;
 #[cfg(feature = "screen-quad")]
 use screen_quad as coords;
 
-pub struct App<F>
-where
-    F: formats::ImageStride,
-    Vec<u8>: From<Box<F>>,
-{
-    pub rx: Receiver<Box<F>>,
+pub struct App {
+    pub rx: Receiver<DynamicFrame>,
 }
 
 struct Inner {
@@ -39,11 +34,7 @@ struct Inner {
     uniform_type: shaders::UniformType,
 }
 
-impl<F> App<F>
-where
-    F: formats::ImageStride,
-    Vec<u8>: From<Box<F>>,
-{
+impl App {
     pub fn mainloop(&mut self) -> Result<(), failure::Error> {
         let mut events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new().with_title("Fly Eye");
@@ -92,7 +83,7 @@ where
                     };
 
                     let opengl_texture = match pixel_format {
-                        formats::PixelFormat::RGB8 => {
+                        formats::pixel_format::PixFmt::RGB8 => {
                             let texdata = glium::texture::RawImage2d::from_raw_rgb(
                                 imdata.clone(),
                                 (width, height),
@@ -126,7 +117,7 @@ where
                 }
 
                 if let Some(ref inner) = inner {
-                    if pixel_format == formats::PixelFormat::RGB8 {
+                    if pixel_format == formats::pixel_format::PixFmt::RGB8 {
                         unimplemented!("RGB data not coverted to pbuffer");
                     }
                     inner.p_buffer.write(&imdata);
@@ -207,16 +198,19 @@ where
 }
 
 /// check if a frame is available. if yes, get it and keep getting until most recent.
-fn get_most_recent_frame<F>(
-    receiver: &Receiver<Box<F>>,
-) -> Result<Box<F>, crossbeam_channel::TryRecvError> {
-    let mut result = Err(crossbeam_channel::TryRecvError::Empty);
+fn get_most_recent_frame(
+    receiver: &Receiver<DynamicFrame>,
+) -> Result<DynamicFrame, channellib::TryRecvError> {
+    let mut result = Err(crossbeam_channel::TryRecvError::Empty.into());
     loop {
         match receiver.try_recv() {
             Ok(r) => result = Ok(r),
-            Err(crossbeam_channel::TryRecvError::Empty) => break,
-            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                return Err(crossbeam_channel::TryRecvError::Disconnected);
+            Err(e) => {
+                if e.is_empty() {
+                    break;
+                } else {
+                    return Err(e);
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ members = [
     "camcal",
     "camtrig",
     "camtrig-comms",
+    "channellib",
     "ci2",
     "ci2/ci2-types",
     "ci2-async",
@@ -58,8 +59,8 @@ members = [
     "image-tracker/im-pt-detect-config",
     "imagesrc",
     "imagesrc-gst",
+    "imops",
     "lstsq",
-    "machine-vision-formats",
     "machine-vision-shaders",
     "mvg",
     "mvg/mvg-util",
@@ -88,9 +89,10 @@ members = [
     "timestamped-frame",
     "tracking",
     "ufmf",
-    "webm-writer",
+    "mkv-writer",
     "withkey",
     "zip-or-dir",
+    "zip-or-dir/dir2zip",
 ]
 
 exclude = [
@@ -106,6 +108,8 @@ debug = true
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
 
 [patch.crates-io]
-webm = { git = "https://bare-git.strawlab.org/rust-webm.git", rev="9f9d158031bd5bc465ff6b40103575fb8ed742aa"}
+webm = { git = "https://github.com/strawlab/rust-webm", rev="652e1c16e6feccfe967087d6ae681bf969f30028"}
 cbindgen = {git="https://github.com/astraw/cbindgen", rev="7279a4faceec28593bd8a6b0192fd3ac3ee25b53"} # until https://github.com/eqrion/cbindgen/pull/304
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="e835164fa9ced144811b314625a1df43759ea3e7"}
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}
+tokio-serial = {git="https://github.com/mnbbrown/tokio-serial", rev="ace64363030f8af6b5c9aaadd930ee9515fe33f1"}
+thiserror = {git = "https://github.com/astraw/thiserror", rev="86993c25ab39d24a983eb76a208f51c502e17b90"}

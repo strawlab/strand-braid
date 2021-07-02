@@ -1,19 +1,14 @@
-extern crate convert_image;
-extern crate crossbeam_channel;
-extern crate crossbeam_ok;
-extern crate env_logger;
-extern crate failure;
-extern crate fly_eye;
-extern crate image;
-extern crate machine_vision_formats as formats;
-extern crate structopt;
+use machine_vision_formats as formats;
 
+use basic_frame::BasicExtra;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crossbeam_channel::unbounded;
+use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
 use fly_eye::App;
+
+use formats::pixel_format::RGB8;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "fly-eye-cli", about = "run fly eye on image file")]
@@ -29,7 +24,20 @@ fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
     let (firehose_tx, firehose_rx) = unbounded();
 
     let frame = convert_image::piston_to_frame(piston_image)?;
-    firehose_tx.send(frame.into()).cb_ok();
+    let extra = Box::new(BasicExtra {
+        host_timestamp: chrono::Utc::now(),
+        host_framenumber: 0,
+    });
+    let frame: basic_frame::BasicFrame<RGB8> = basic_frame::BasicFrame {
+        width: frame.width,
+        height: frame.height,
+        stride: frame.stride,
+        image_data: frame.image_data,
+        pixel_format: std::marker::PhantomData,
+        extra,
+    };
+    let dynframe = basic_frame::DynamicFrame::from(frame);
+    firehose_tx.send(dynframe).cb_ok();
 
     let mut app = App { rx: firehose_rx };
     app.mainloop()?;

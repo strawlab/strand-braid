@@ -7,22 +7,21 @@ edition = "2018"
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }
 thiserror = "1.0"
-machine-vision-formats = { path = "../machine-vision-formats" }
+machine-vision-formats = "0.1"
 timestamped-frame = {path="../timestamped-frame"}
 basic-frame = {path="../basic-frame"}
 num-traits = "0.2"
-crossbeam-channel = "0.5"
 thread-control = "0.1"
 cast = "0.2.2"
 serde = {version="1.0",features=["derive"]}
 serde_json = { version = "1.0"}
 serde_cbor = "0.9"
 serde_yaml = "0.8"
-tokio = {version="0.2", default-features=false}
-stream-cancel = "0.6"
-hyper = "0.13.0"
-nalgebra = "0.26"
-ncollide2d = "0.29"
+tokio = {version="1.0.1", default-features=false, features=["rt"]}
+stream-cancel = "0.8"
+hyper = "0.14"
+nalgebra = "0.27"
+ncollide2d = "0.30"
 fastimage = { version = "0.1", path = "../fastimage" }
 ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }
@@ -43,6 +42,8 @@ datetime-conversion = {path="../datetime-conversion"}
 posix-scheduler = {path="../posix-scheduler", optional=true}
 bui-backend-session = {path="../bui-backend-session"}
 crossbeam-ok = {path="../crossbeam-ok"}
+channellib = {path="../channellib"}
+
 ncollide-geom = {path="../ncollide-geom"}
 
 [dev-dependencies]
@@ -51,6 +52,7 @@ download-verify = {path="../download-verify"}
 env_logger = "0.8"
 im-pt-detect-config = {path = "im-pt-detect-config"}
 ipp-sys = "0.4.4"
+tokio = {version="1.0.1", default-features=false, features=["macros"]}
 
 [features]
 flydra-uds=["unix_socket"]
@@ -58,3 +60,5 @@ flydra-uds=["unix_socket"]
 debug-images = ["rt-image-viewer"]
 
 linux = ["posix-scheduler","posix-scheduler/linux"]
+
+backtrace = ["ci2/backtrace", "mvg/backtrace"]

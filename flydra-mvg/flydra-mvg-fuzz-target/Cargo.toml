@@ -10,5 +10,5 @@ edition = "2018"
 afl = {version="0.8",optional=true}
 flydra-mvg = {path=".."}
 mvg = {path="../../mvg"}
-nalgebra = "0.26"
+nalgebra = "0.27"
 anyhow = "1.0"
