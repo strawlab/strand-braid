@@ -164,6 +164,7 @@ dependencies = [
  "log",
  "mvg",
  "plotters",
+ "plotters-backend",
  "plotters-canvas",
  "serde",
  "wasm-bindgen",
@@ -1243,9 +1244,9 @@ dependencies = [
 
 [[package]]
 name = "plotters-backend"
-version = "0.3.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd8be10f7485c8a323ea100b20d6052c27cf5968f08f8e3a56ee9f0cf38ebd3d"
+checksum = "b07fffcddc1cb3a1de753caa4e4df03b79922ba43cf882acc1bdd7e8df9f4590"
 
 [[package]]
 name = "plotters-bitmap"
