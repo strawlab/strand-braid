@@ -12,6 +12,8 @@
   `--camera-xml-calibration` or `--camera-pymvg-calibration` command-line
   arguments.
 
+* Use of the human-panic crate to enable better error reporting from users.
+
 ### Changed
 
 * For the `strand-cam-offline-kalmanize` program, the `--output` (or `-o`)
@@ -27,7 +29,7 @@
 * Error handling is now performed by the `anyhow` and `thiserror` crates in
   place of the `failure` crate.
 
-* Asynchronous task handlingn was updated to `tokio` 1.0 from 0.2.
+* Asynchronous task handling was updated to `tokio` 1.0 from 0.2.
 
 ### Fixed
 
