@@ -2,7 +2,7 @@
 set -o errexit
 
 apt-get update
-apt-get install -y cpio libudev-dev libapriltag-dev libssl-dev zlib1g-dev pkg-config
+DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev libapriltag-dev libssl-dev zlib1g-dev pkg-config curl build-essential git
 
 ORIG_DIR=`pwd`
 echo $ORIG_DIR

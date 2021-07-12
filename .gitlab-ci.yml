@@ -8,18 +8,19 @@ cache:
 # At some point, we should do: cargo test --all
 
 # lapack notes for the future:
-#   Ubuntu 16.04     - apt-get update && apt-get install -y curl build-essential libgfortran-5-dev liblapack-dev libblas-dev
-#   Debian (jessie?) - apt-get update && apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
+#   Ubuntu 16.04     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-5-dev liblapack-dev libblas-dev
+#   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
 test_crates_linux_ubuntu_focal:
   stage: build
   tags:
     - ubuntu-focal
   script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl
     - curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
     - source $CARGO_HOME/env
     - cargo --version
-    - apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
     # Test apriltag
     - cd apriltag
     - cargo test --release
@@ -45,7 +46,7 @@ test_crates:
 
     # Test gstreamer nvargustime plugin
     - apt-get update
-    - apt-get install -y libgstreamer-plugins-base1.0-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev
     - cd gst-plugin-nvargustime
     - cargo test --release
     - cd ..
@@ -99,7 +100,7 @@ test_crates:
     - cd ..
 
     # Test freemovr-calibration, which requires opencv
-    - apt-get update && apt-get install -y libopencv-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libopencv-dev
     - cd freemovr-calibration
     # run test in release mode, otherwise slow
     - cargo test --release --features "opencv"
@@ -134,9 +135,9 @@ test_flydra2:
   script:
     - ls -l _submodules
     - apt-get -y update
-    - apt-get install -y wget ca-certificates && wget -O- https://strawlab.org/assets/astraw-archive-keyring.gpg | apt-key add -
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y wget ca-certificates && wget -O- https://strawlab.org/assets/astraw-archive-keyring.gpg | apt-key add -
     - echo "deb http://debs.strawlab.org/ xenial/" >> /etc/apt/sources.list
-    - apt-get -y update && apt-get install -y python-pip python-flydra-analysis
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y python-pip python-flydra-analysis
     - pip install pillow==6.2.2 --force-reinstall
     - pip install imageio==2.8.0 # flydra2 test requires imageio. fix version to keep python2 support.
     - cd braid-offline
@@ -201,7 +202,7 @@ strand-cam-ubuntu1604-debs:
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
     - mkdir -p $CI_PROJECT_DIR/rust-cam-xenial-debs-build
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
     - cd strand-cam/packaging
     - pwd
@@ -231,16 +232,16 @@ strand-cam-ubuntu2004-debs:
   tags:
     - ubuntu-focal
   script:
+    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
+    # package list here is probably more than needed, but should contain the required subset.
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev libdc1394-22-dev libusb-1.0-0-dev curl
+
     # Download pylon and install 6
     - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
     - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
     - mkdir -p $CI_PROJECT_DIR/rust-cam-focal-debs-build
-
-    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
-    # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev libdc1394-22-dev libusb-1.0-0-dev
 
     - cd strand-cam/packaging
     - pwd
@@ -272,7 +273,7 @@ strand-cam-ubuntu2004-debs:
 #       - dc1394
 #   script:
 #     - mkdir -p $CI_PROJECT_DIR/internal_debs
-#     - apt-get update && apt-get install -y dpkg-dev debhelper devscripts
+#     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper devscripts
 
 #     - cd strand-cam/packaging
 #     - make strand-cam-camtrig-pylon_VERSION_amd64.deb
@@ -292,7 +293,7 @@ camtrig-ubuntu1604-debs:
     - ubuntu-16.04
   script:
     - mkdir -p $CI_PROJECT_DIR/xenial-camtrig-debs
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
     - cd camtrig
     - cp $CI_PROJECT_DIR/build/camtrig ./
@@ -565,7 +566,7 @@ strand-cam-camtrig-pylon-linux:
     - export APRILTAG_SRC=`pwd`/_submodules/apriltag
     - export APRILTAG_SYS_METHOD=raw,static
 
-    - apt-get update && apt-get install -y libudev-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.26-amd64.exe > $CARGO_HOME/bin/cargo-web
     - chmod a+x $CARGO_HOME/bin/cargo-web
     - cd rt-image-viewer/yew_frontend && time ./build.sh && cd ../..
@@ -594,7 +595,7 @@ braid-offline-ubuntu1604:
   tags:
     - rust
   script:
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
     - cd $CI_PROJECT_DIR/braid-offline
     # force recomputing git version tag
     - touch Cargo.toml
@@ -616,7 +617,7 @@ braidz-cli-ubuntu1604:
   tags:
     - rust
   script:
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     # force recomputing git version tag
     - touch Cargo.toml
@@ -670,7 +671,7 @@ braid-pylon-ubuntu1604:
     - export APRILTAG_SRC=`pwd`/_submodules/apriltag
     - export APRILTAG_SYS_METHOD=raw,static
 
-    - apt-get update && apt-get install -y libudev-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
 
     - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.26-amd64.exe > $CARGO_HOME/bin/cargo-web
     - chmod a+x $CARGO_HOME/bin/cargo-web
@@ -706,7 +707,7 @@ braid-pylon-ubuntu1604:
     - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
     - ls -l ../target/release
     - cd packaging
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
     - make
     - mkdir -p $CI_PROJECT_DIR/braid-pylon-linux-build
     - cp *.deb $CI_PROJECT_DIR/braid-pylon-linux-build
@@ -756,7 +757,7 @@ braid-pylon-ubuntu2004:
     - ../target/release/write-debian-changelog braid-pylon focal > ../target/release/braid.changelog
     - ls -l ../target/release
     - cd packaging
-    - apt-get update && apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
     - make
     - mkdir -p $CI_PROJECT_DIR/braid-pylon-focal-build
     - cp *.deb $CI_PROJECT_DIR/braid-pylon-focal-build
@@ -823,7 +824,7 @@ strand-cam-dc1394-ubuntu2004:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
-    - apt-get install -y libdc1394-22-dev libusb-1.0-0-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libdc1394-22-dev libusb-1.0-0-dev
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd ..
     # force recomputing git version tag
@@ -844,7 +845,7 @@ camtrig-linux:
     - rust
   script:
     - apt-get update
-    - apt-get install -y libudev-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - cd camtrig
     - NUM_JOBS=2 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1" cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
