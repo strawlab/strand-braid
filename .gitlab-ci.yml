@@ -160,6 +160,7 @@ test_flydra2:
 
 test_mvg:
   stage: test
+  dependencies: []
   tags:
     - rust
   script:
@@ -176,6 +177,7 @@ build_flyeye_dc1394:
 
 test_image_tracker:
   stage: test
+  dependencies: []
   tags:
     - rust
     - ipp
@@ -185,6 +187,7 @@ test_image_tracker:
 
 test_fastimage:
   stage: test
+  dependencies: []
   tags:
     - rust
     - ipp
@@ -884,6 +887,7 @@ camtrig-firmware:
 
 test_simple_pylon:
   stage: test
+  dependencies: []
   tags:
     - rust
   script:
@@ -902,6 +906,7 @@ test_simple_pylon:
 
 test_simple_dc1394:
   stage: test
+  dependencies: []
   tags:
     - rust
     - dc1394
