@@ -3,21 +3,21 @@ use std::str;
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio_util::codec::Decoder;
 
+use tokio_serial::SerialPortBuilderExt;
+
 use camtrig::CamtrigCodec;
 use camtrig::{Error, Result};
 use camtrig_comms::{ChannelState, DeviceState, OnState, Running, ToDevice, TriggerState};
 
-#[cfg(unix)]
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
-    let settings = tokio_serial::SerialPortSettings::default();
 
-    let mut port = tokio_serial::Serial::from_path(serial_device, &settings).unwrap();
-    mio_serial::SerialPort::set_baud_rate(&mut port, 9600).unwrap();
+    #[allow(unused_mut)]
+    let mut port = tokio_serial::new(serial_device, 9600).open_async().unwrap();
 
     #[cfg(unix)]
     port.set_exclusive(false)
-        .expect("Unable to set serial port exlusive");
+        .expect("Unable to set serial port exclusive to false");
 
     let (mut writer, mut reader) = CamtrigCodec::new().framed(port).split();
 
@@ -63,9 +63,6 @@ fn make_chan(num: u8, on_state: OnState) -> ChannelState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    #[cfg(not(unix))]
-    println!("Error: this program was compiled to do nothing. It is supported on unix only.");
-
     env_logger::init();
 
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
@@ -108,7 +105,6 @@ async fn main() -> Result<()> {
         ch4: make_chan(4, on_state),
     };
 
-    #[cfg(unix)]
     try_serial(device_name, &next_state).await;
 
     Ok(())
