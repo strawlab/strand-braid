@@ -12,7 +12,7 @@ An online viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.
 The following plots were made with the file
 [20201112_133722.braidz](http://strawlab-cdn.com/assets/20201112_133722.braidz).
 The scripts can be accessed at
-https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis.
+[github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
 
 ### `braid-analysis-plot-data2d-timeseries.py`
 
