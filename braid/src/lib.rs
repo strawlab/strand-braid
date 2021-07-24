@@ -48,7 +48,13 @@ pub fn braid_start(name: &str) -> Result<()> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MainbrainConfig {
-    /// Filename of the camera calibration, optional. Can contain shell variables.
+    /// Filename of the camera calibration, optional.
+    ///
+    /// Can contain shell variables such as `~`, `$A`, or `${B}`.
+    ///
+    /// If the filename ends with .pymvg or .json, it will be treated as a pymvg
+    /// calibration file. Else it will be treated considered in the flydra XML
+    /// calibration format.
     pub cal_fname: Option<std::path::PathBuf>,
     /// Directory where data should be saved. Can contain shell variables.
     pub output_base_dirname: std::path::PathBuf,

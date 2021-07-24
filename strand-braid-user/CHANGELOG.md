@@ -1,3 +1,10 @@
+## 0.10.1 - unreleased
+
+### Added
+
+* Camera calibration for Braid can now be in the pymvg .json file format (or
+  continue to remain in the flydra .xml file format).
+
 ## 0.10.0 - 2021-07-02
 
 ### Added
