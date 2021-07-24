@@ -11,9 +11,10 @@ use camtrig_comms::{ChannelState, DeviceState, OnState, Running, ToDevice, Trigg
 
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
-
     #[allow(unused_mut)]
-    let mut port = tokio_serial::new(serial_device, 9600).open_async().unwrap();
+    let mut port = tokio_serial::new(serial_device, 9600)
+        .open_native_async()
+        .unwrap();
 
     #[cfg(unix)]
     port.set_exclusive(false)
