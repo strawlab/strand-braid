@@ -244,7 +244,8 @@ impl Component for Model {
             Msg::NewServerState(response) => {
                 // Set the html page title once.
                 if self.html_page_title.is_none() {
-                    let title = format!("{} - Strand Camera", response.camera_name);
+                    let strand_cam_name = get_strand_cam_name(self.server_state.as_ref());
+                    let title = format!("{} - {}", response.camera_name, strand_cam_name);
                     web_sys::window()
                         .unwrap()
                         .document()
@@ -540,16 +541,7 @@ impl Component for Model {
     }
 
     fn view(&self) -> Html {
-        let strand_cam_name = if self
-            .server_state
-            .as_ref()
-            .map(|x| x.is_braid)
-            .unwrap_or(false)
-        {
-            "Braid - Strand Cam "
-        } else {
-            "Strand Cam "
-        };
+        let strand_cam_name = get_strand_cam_name(self.server_state.as_ref());
         html! {
             <div>
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ℹ"}</span></a></h1>
@@ -1382,6 +1374,14 @@ impl Model {
                 None
             }
         }
+    }
+}
+
+fn get_strand_cam_name(server_state: Option<&ServerState>) -> &'static str {
+    if server_state.map(|x| x.is_braid).unwrap_or(false) {
+        "Braid - Strand Cam "
+    } else {
+        "Strand Cam "
     }
 }
 
