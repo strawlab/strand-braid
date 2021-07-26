@@ -51,6 +51,7 @@ members = [
     "flydra2-mainbrain/frontend",
     "freemovr-calibration",
     "freemovr-calibration/freemovr-calibration-cli",
+    "freemovr-calibration/freemovr-calibration-webapp",
     "groupby",
     "gst-plugin-apriltag",
     "gst-plugin-nvargustime",
