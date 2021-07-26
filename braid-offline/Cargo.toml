@@ -1,6 +1,6 @@
 [package]
 name = "braid-offline"
-version =  "0.10.0" # braid release synchronized
+version =  "0.10.1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
