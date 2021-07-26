@@ -21,9 +21,5 @@ wasm-logger = "0.2.0"
 ads-webasm = {path="../ads-webasm", features=["csv-widget"]}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 
-# Bypass (for now) build errors when this is in the workspace below me.
-[workspace]
-members = []
-
 [patch.crates-io]
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}
