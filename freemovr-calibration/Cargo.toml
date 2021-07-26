@@ -13,11 +13,11 @@ serde_derive = "1.0"
 serde_yaml = "0.8"
 serde_json = "1.0"
 alga = "0.9"
-nalgebra = "0.27"
-ncollide2d = "0.30"
-ncollide3d = {version="0.30", features=["serde-serialize"]}
-cam-geom = "0.9"
-opencv-ros-camera = "0.9"
+nalgebra = "0.28"
+ncollide2d = "0.31"
+ncollide3d = {version="0.31", features=["serde-serialize"]}
+cam-geom = "0.10"
+opencv-ros-camera = "0.10"
 genmesh = "0.6"
 obj = {version="0.10", features=["genmesh"]}
 byteorder = "1.2.2"
@@ -25,7 +25,7 @@ image = "0.22"
 csv = "1.1"
 chrono = {version="0.4", features=["serde"]}
 
-dlt = "0.7"
+dlt = "0.8"
 mvg = {path="../mvg", features=["serde-serialize"]}
 camcal = {path="../camcal", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}

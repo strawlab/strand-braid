@@ -23,7 +23,7 @@ yew-tincture = "0.1"
 uuid = { version = "0.8", features = ["v4"] } # add feature flag reqruied for uuid crate
 
 simple-obj-parse = {path="../simple-obj-parse", optional=true}
-ncollide3d = {version="0.30", optional=true}
+ncollide3d = {version="0.31", optional=true}
 
 csv = {version="1.1", optional=true}
 

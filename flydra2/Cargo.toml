@@ -25,8 +25,8 @@ serde = {version="^1.0", features=["derive"]}
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
 toml = "0.5"
-nalgebra = {version="0.27", features=["serde-serialize"]}
-ncollide3d = "0.30"
+nalgebra = {version="0.28", features=["serde-serialize"]}
+ncollide3d = "0.31"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
@@ -49,11 +49,11 @@ mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 flydra-types = {path="../flydra-types"}
-adskalman = "0.10"
+adskalman = "0.11"
 tracking = {path="../tracking"}
 groupby = {path="../groupby"}
 pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
-nalgebra-mvn = "0.9"
+nalgebra-mvn = "0.10"
 iana-time-zone = "0.1"
 withkey = {path="../withkey"}
 crossbeam-ok = {path="../crossbeam-ok"}

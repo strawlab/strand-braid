@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-nalgebra = "0.27"
-ncollide3d = "0.30"
+nalgebra = "0.28"
+ncollide3d = "0.31"
 genmesh = "0.6"
 obj = {version="0.10", features=["genmesh"]}

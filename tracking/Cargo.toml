@@ -5,8 +5,8 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-adskalman = "0.10"
-nalgebra = "0.27"
+adskalman = "0.11"
+nalgebra = "0.28"
 num-traits = "0.2"
 
 [dev-dependencies]
