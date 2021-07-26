@@ -20,8 +20,8 @@ serde_yaml = "0.8"
 tokio = {version="1.0.1", default-features=false, features=["rt"]}
 stream-cancel = "0.8"
 hyper = "0.14"
-nalgebra = "0.27"
-ncollide2d = "0.30"
+nalgebra = "0.28"
+ncollide2d = "0.31"
 fastimage = { version = "0.1", path = "../fastimage" }
 ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }

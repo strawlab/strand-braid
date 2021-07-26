@@ -6,8 +6,8 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-nalgebra = "0.27"
-opencv-ros-camera = "0.9"
+nalgebra = "0.28"
+opencv-ros-camera = "0.10"
 serde = {version="1.0", features=["derive"]}
 
 opencv-calibrate = {path="../opencv-calibrate"}
