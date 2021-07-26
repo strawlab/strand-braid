@@ -447,7 +447,7 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "braid"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "braid-offline"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "approx 0.5.0",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "braid-run"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "braid",
@@ -522,7 +522,7 @@ dependencies = [
 
 [[package]]
 name = "braidz-cli"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "braidz-parser",
@@ -724,7 +724,6 @@ dependencies = [
  "futures",
  "log",
  "mini-rxtx",
- "mio-serial",
  "parking_lot 0.11.1",
  "thiserror",
  "tokio",
@@ -1882,7 +1881,7 @@ dependencies = [
  "nalgebra",
  "rust-cam-bui-types",
  "serde",
- "serialport",
+ "serialport 3.3.0",
  "structopt",
  "thread-control",
 ]
@@ -2118,22 +2117,6 @@ name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
-
-[[package]]
-name = "fuchsia-zircon"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e9763c69ebaae630ba35f74888db465e49e259ba1bc0eda7d06f4a067615d82"
-dependencies = [
- "bitflags",
- "fuchsia-zircon-sys",
-]
-
-[[package]]
-name = "fuchsia-zircon-sys"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
 
 [[package]]
 name = "funty"
@@ -3200,15 +3183,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iovec"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "ipp-headers-sys"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3330,16 +3304,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kernel32-sys"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
-dependencies = [
- "winapi 0.2.8",
- "winapi-build",
-]
-
-[[package]]
 name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3372,9 +3336,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.97"
+version = "0.2.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
+checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
 
 [[package]]
 name = "libdc1394-sys"
@@ -3761,71 +3725,28 @@ checksum = "519df8d6856dcd4b40519947737b408f81be051fc032590659cae5d77d664185"
 
 [[package]]
 name = "mio"
-version = "0.6.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4afd66f5b91bf2a3bc13fad0e21caedac168ca4c707504e75585648ae80e4cc4"
-dependencies = [
- "cfg-if 0.1.10",
- "fuchsia-zircon",
- "fuchsia-zircon-sys",
- "iovec",
- "kernel32-sys",
- "libc",
- "log",
- "miow 0.2.2",
- "net2",
- "slab",
- "winapi 0.2.8",
-]
-
-[[package]]
-name = "mio"
 version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c2bdb6314ec10835cd3293dd268473a835c02b7b352e788be788b3c6ca6bb16"
 dependencies = [
  "libc",
  "log",
- "miow 0.3.7",
+ "miow",
  "ntapi",
  "winapi 0.3.9",
 ]
 
 [[package]]
-name = "mio-named-pipes"
-version = "0.1.7"
+name = "mio-serial"
+version = "4.0.0-beta4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0840c1c50fd55e521b247f949c241c9997709f23bd7f023b9762cd561e935656"
+checksum = "89dc2265b44062d6dbb189a0434e6f4966f04db971487b2651bb19495b47598e"
 dependencies = [
  "log",
- "mio 0.6.23",
- "miow 0.3.7",
+ "mio",
+ "nix 0.22.0",
+ "serialport 4.0.1",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "mio-serial"
-version = "3.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0f0c240805cd4c65aa97da44ad99df8bad922cb999d0e451b51fdec13a661fd"
-dependencies = [
- "mio 0.6.23",
- "mio-named-pipes",
- "nix 0.17.0",
- "serialport",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "miow"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd808424166322d4a38da87083bfddd3ac4c131334ed55856112eb06d46944d"
-dependencies = [
- "kernel32-sys",
- "net2",
- "winapi 0.2.8",
- "ws2_32-sys",
 ]
 
 [[package]]
@@ -3871,6 +3792,7 @@ name = "mvg"
 version = "0.1.0"
 dependencies = [
  "alga",
+ "anyhow",
  "approx 0.5.0",
  "cam-geom",
  "dlt",
@@ -4017,17 +3939,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "net2"
-version = "0.2.37"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "391630d12b68002ae1e25e8f974306474966550ad82dac6886fb8910c19568ae"
-dependencies = [
- "cfg-if 0.1.10",
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "nix"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4042,9 +3953,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.17.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
+checksum = "dd0eaf8df8bab402257e0a5c17a254e4cc1f72a93588a1ddfb5d356c801aa7cb"
 dependencies = [
  "bitflags",
  "cc",
@@ -4063,6 +3974,19 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf1e25ee6b412c2a1e3fcb6a4499a5c1bfe7f43e014bdce9a6b6666e5aa2d187"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -5580,6 +5504,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "serialport"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8cd7c0f22290ee2c01457009fa6fc1cae4153d5608a924e5dc423babc2c655"
+dependencies = [
+ "CoreFoundation-sys",
+ "IOKit-sys",
+ "bitflags",
+ "cfg-if 0.1.10",
+ "mach 0.2.3",
+ "nix 0.16.1",
+ "regex",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "sha1"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5864,7 +5804,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "strand-cam"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "ads-apriltag",
  "alga",
@@ -5938,7 +5878,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_yaml",
- "serialport",
+ "serialport 3.3.0",
  "shellexpand",
  "strand-cam-csv-config-types",
  "strand-cam-pseudo-cal",
@@ -5972,7 +5912,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam-offline-kalmanize"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "alga",
  "anyhow",
@@ -6270,16 +6210,16 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.25"
-source = "git+https://github.com/astraw/thiserror?rev=86993c25ab39d24a983eb76a208f51c502e17b90#86993c25ab39d24a983eb76a208f51c502e17b90"
+version = "1.0.26"
+source = "git+https://github.com/astraw/thiserror?rev=4695c072c307498e3e8b785a745655e7933fc9ee#4695c072c307498e3e8b785a745655e7933fc9ee"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.25"
-source = "git+https://github.com/astraw/thiserror?rev=86993c25ab39d24a983eb76a208f51c502e17b90#86993c25ab39d24a983eb76a208f51c502e17b90"
+version = "1.0.26"
+source = "git+https://github.com/astraw/thiserror?rev=4695c072c307498e3e8b785a745655e7933fc9ee#4695c072c307498e3e8b785a745655e7933fc9ee"
 dependencies = [
  "proc-macro2 1.0.27",
  "quote 1.0.9",
@@ -6419,15 +6359,15 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.7.1"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fb2ed024293bb19f7a5dc54fe83bf86532a44c12a2bb8ba40d64a4509395ca2"
+checksum = "4b7b349f11a7047e6d1276853e612d152f5e8a352c61917887cc2169e2366b4c"
 dependencies = [
  "autocfg 1.0.1",
  "bytes 1.0.1",
  "libc",
  "memchr",
- "mio 0.7.13",
+ "mio",
  "num_cpus",
  "once_cell",
  "parking_lot 0.11.1",
@@ -6460,10 +6400,13 @@ dependencies = [
 
 [[package]]
 name = "tokio-serial"
-version = "4.3.3"
-source = "git+https://github.com/mnbbrown/tokio-serial?rev=ace64363030f8af6b5c9aaadd930ee9515fe33f1#ace64363030f8af6b5c9aaadd930ee9515fe33f1"
+version = "5.4.0-beta4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62d966953932f152937f7a74c411292a93cd104442663b3c2bc49dbb7dd4b716"
 dependencies = [
+ "cfg-if 1.0.0",
  "futures",
+ "log",
  "mio-serial",
  "tokio",
 ]
@@ -7122,16 +7065,6 @@ dependencies = [
 [[package]]
 name = "withkey"
 version = "0.1.0"
-
-[[package]]
-name = "ws2_32-sys"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
-dependencies = [
- "winapi 0.2.8",
- "winapi-build",
-]
 
 [[package]]
 name = "wyz"

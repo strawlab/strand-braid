@@ -65,7 +65,7 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "braid-frontend"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "ads-webasm",
  "anyhow",
