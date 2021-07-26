@@ -47,6 +47,7 @@ members = [
     "flydra1-triggerbox-rs",
     "flydra2",
     "flydra2-mainbrain",
+    "flydra2-mainbrain/frontend",
     "freemovr-calibration",
     "freemovr-calibration/freemovr-calibration-cli",
     "groupby",
