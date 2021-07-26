@@ -39,10 +39,3 @@ checkercal = ["strand-cam-storetype/checkercal"]
 
 with_camtrig = ["strand-cam-storetype/with_camtrig", "camtrig-comms", "camtrig-comms"]
 flydratrax = ["strand-cam-storetype/flydratrax"]
-
-# Bypass (for now) build errors when this is in the workspace below me.
-[workspace]
-members = []
-
-[patch.crates-io]
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}

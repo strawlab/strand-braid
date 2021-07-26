@@ -81,6 +81,7 @@ members = [
     "simple-frame",
     "simple-obj-parse",
     "strand-cam",
+    "strand-cam/yew_frontend",
     "strand-cam-csv-config-types",
     "strand-cam-mkvfix",
     "strand-cam-offline-kalmanize",
