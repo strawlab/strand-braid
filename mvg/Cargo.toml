@@ -21,6 +21,7 @@ opencv-ros-camera = {version = "0.9", features=["serde-serialize"]}
 num-iter = "0.1"
 approx = "0.5"
 dlt = "0.7"
+anyhow = "1.0"
 
 [features]
 serde-serialize = []

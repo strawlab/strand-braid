@@ -43,6 +43,13 @@ fn test_distortion_roundtrip() {
 }
 
 #[test]
+fn test_load_pymvg() -> anyhow::Result<()> {
+    let buf = include_str!("pymvg-example.json");
+    let _system = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    Ok(())
+}
+
+#[test]
 fn test_whole_vs_parts() {
     let cam = get_cam();
     let extrinsics = cam.extrinsics();
