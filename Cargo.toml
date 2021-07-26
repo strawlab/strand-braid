@@ -12,6 +12,7 @@ members = [
     "braidz-parser",
     "braidz-parser/braidz-cli",
     "braidz-types",
+    "braidz-viewer",
     "bui-backend-session",
     "bui-backend-session/demo",
     "camcal",

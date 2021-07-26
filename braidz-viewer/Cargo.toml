@@ -7,10 +7,6 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib"]
 
-# Bypass (for now) build errors when this is in the workspace below me.
-[workspace]
-members = []
-
 [dependencies]
 bytesize = "1.0"
 log = "0.4"
