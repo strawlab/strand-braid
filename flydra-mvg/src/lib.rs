@@ -595,12 +595,8 @@ where
     R: RealField + serde::Serialize + DeserializeOwned + Default,
 {
     pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
-        let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)
-            .map_err(|_e| MvgError::Io {
-            source: std::io::ErrorKind::Other.into(),
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
-        })?;
+        let recon: flydra_xml_support::FlydraReconstructor<R> =
+            serde_xml_rs::from_reader(reader).map_err(|_e| MvgError::CannotConvertToFlydraXml)?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
 
