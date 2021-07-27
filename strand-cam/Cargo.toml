@@ -81,7 +81,7 @@ bytes = "1.0"
 nalgebra = {version="0.28", optional = true }
 opencv-ros-camera = "0.10"
 alga = { version = "0.9", optional = true }
-approx = { version = "0.4", optional = true }
+approx = { version = "0.5", optional = true }
 human-panic = "1.0.3"
 
 rt-image-viewer = {path="../rt-image-viewer", optional=true}
