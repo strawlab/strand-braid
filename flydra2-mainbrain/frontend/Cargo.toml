@@ -7,10 +7,6 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# Bypass (for now) build errors when this is in the workspace below me.
-[workspace]
-members = []
-
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
@@ -28,6 +24,3 @@ yew-event-source = "0.2"
 flydra-types = {path="../../flydra-types", default-features=false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 ads-webasm = {path="../../ads-webasm"}
-
-[patch.crates-io]
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}

@@ -3112,7 +3112,7 @@ pub async fn setup_app(
 
         let app_version: semver::Version = {
             let mut my_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-            my_version.build = vec![ semver::Identifier::AlphaNumeric(env!("GIT_HASH").to_string()) ];
+            my_version.build = semver::BuildMetadata::new(env!("GIT_HASH").to_string().as_str())?;
             my_version
         };
 
