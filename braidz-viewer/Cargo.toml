@@ -29,9 +29,5 @@ zip-or-dir = {path="../zip-or-dir"}
 braidz-types = {path="../braidz-types"}
 braidz-parser = {path="../braidz-parser"}
 
-[profile.release]  # Attempts to minimize file size
-lto = true
-opt-level = 'z'
-
 [features]
 backtrace = ["mvg/backtrace"]
