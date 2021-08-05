@@ -16,5 +16,4 @@ chrono = "0.4"
 lstsq = {path="../lstsq"}
 structopt = "0.3"
 env_logger = "0.8"
-crossbeam-ok = {path="../crossbeam-ok"}
-channellib = {path="../channellib"}
+crossbeam-channel = "0.5"

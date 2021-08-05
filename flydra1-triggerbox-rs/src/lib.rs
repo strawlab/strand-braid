@@ -1,9 +1,7 @@
 #[macro_use]
 extern crate log;
 extern crate byteorder;
-extern crate channellib;
 extern crate chrono;
-extern crate crossbeam_ok;
 extern crate lstsq;
 extern crate nalgebra as na;
 extern crate serde;
@@ -20,10 +18,8 @@ use anyhow::{Context, Result};
 use chrono::Duration;
 use std::io::Write;
 
-use channellib::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender};
 use std::collections::BTreeMap;
-
-use crossbeam_ok::CrossbeamOk;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ClockModel {
@@ -332,7 +328,12 @@ impl SerialThread {
                         tcnt: (frac * 255.0) as u8,
                         stop_timestamp: now,
                     };
-                    tbox_tx.send(to_save).cb_ok();
+                    match tbox_tx.send(to_save) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            warn!("ignoring {}", e);
+                        }
+                    }
                 }
 
                 // delete old data

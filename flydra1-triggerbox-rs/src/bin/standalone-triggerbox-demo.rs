@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use crossbeam_ok::CrossbeamOk;
 use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
 use structopt::StructOpt;
 
@@ -21,11 +20,11 @@ fn main() -> anyhow::Result<()> {
     info!("flydra1_triggerbox starting");
     let opt = Opt::from_args();
 
-    let (tx, rx) = channellib::unbounded();
+    let (tx, rx) = crossbeam_channel::unbounded();
 
-    tx.send(Cmd::StopPulsesAndReset).cb_ok();
-    tx.send(make_trig_fps_cmd(opt.fps)).cb_ok();
-    tx.send(Cmd::StartPulses).cb_ok();
+    tx.send(Cmd::StopPulsesAndReset)?;
+    tx.send(make_trig_fps_cmd(opt.fps))?;
+    tx.send(Cmd::StartPulses)?;
 
     let cb = Box::new(|tm| {
         println!("got new time model: {:?}", tm);
