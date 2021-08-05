@@ -4,7 +4,6 @@ extern crate byteorder;
 extern crate channellib;
 extern crate chrono;
 extern crate crossbeam_ok;
-extern crate flydra_types;
 extern crate lstsq;
 extern crate nalgebra as na;
 extern crate serde;
@@ -19,21 +18,28 @@ use crate::arduino_udev::serial_handshake;
 
 use anyhow::{Context, Result};
 use chrono::Duration;
-use serde::{Deserialize, Serialize};
 use std::io::Write;
 
 use channellib::{Receiver, Sender};
 use std::collections::BTreeMap;
 
 use crossbeam_ok::CrossbeamOk;
-use flydra_types::TriggerClockInfoRow;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ClockModel {
     pub gain: f64,
     pub offset: f64,
     pub residuals: f64,
     pub n_measurements: u64,
+}
+
+#[derive(Debug)]
+pub struct TriggerClockInfoRow {
+    // changes to this should update BraidMetadataSchemaTag
+    pub start_timestamp: chrono::DateTime<chrono::Utc>,
+    pub framecount: i64,
+    pub tcnt: u8,
+    pub stop_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 struct SerialThread {
@@ -321,10 +327,10 @@ impl SerialThread {
                 if let Some(ref tbox_tx) = self.triggerbox_data_tx {
                     // send our newly acquired data to be saved to disk
                     let to_save = TriggerClockInfoRow {
-                        start_timestamp: send_timestamp.into(),
+                        start_timestamp: send_timestamp,
                         framecount: pulsenumber as i64,
                         tcnt: (frac * 255.0) as u8,
-                        stop_timestamp: now.into(),
+                        stop_timestamp: now,
                     };
                     tbox_tx.send(to_save).cb_ok();
                 }
