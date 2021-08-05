@@ -13,7 +13,6 @@ thread-control = "0.1"
 serde = "1.0"
 nalgebra = "0.28"
 chrono = "0.4"
-datetime-conversion = {path="../datetime-conversion"}
 lstsq = {path="../lstsq"}
 structopt = "0.3"
 env_logger = "0.8"

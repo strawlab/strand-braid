@@ -4,7 +4,6 @@ extern crate byteorder;
 extern crate channellib;
 extern crate chrono;
 extern crate crossbeam_ok;
-extern crate datetime_conversion;
 extern crate flydra_types;
 extern crate lstsq;
 extern crate nalgebra as na;
@@ -14,6 +13,7 @@ extern crate serialport;
 extern crate thread_control;
 
 mod ascii;
+mod datetime_conversion;
 
 mod arduino_udev;
 use crate::arduino_udev::serial_handshake;
