@@ -64,7 +64,6 @@ members = [
     "imagesrc",
     "imagesrc-gst",
     "imops",
-    "lstsq",
     "machine-vision-shaders",
     "mvg",
     "mvg/mvg-util",
