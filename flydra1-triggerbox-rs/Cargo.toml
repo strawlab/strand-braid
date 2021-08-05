@@ -10,13 +10,12 @@ serialport = "3"
 log = "0.4"
 byteorder = "1"
 thread-control = "0.1"
-serde = "1.0"
+serde = {version="1.0", features=["derive"]}
 nalgebra = "0.28"
 chrono = "0.4"
 lstsq = {path="../lstsq"}
 structopt = "0.3"
 env_logger = "0.8"
-rust-cam-bui-types = {path="../rust-cam-bui-types"}
 flydra-types = {path="../flydra-types"}
 crossbeam-ok = {path="../crossbeam-ok"}
 channellib = {path="../channellib"}

@@ -7,7 +7,6 @@ extern crate crossbeam_ok;
 extern crate flydra_types;
 extern crate lstsq;
 extern crate nalgebra as na;
-extern crate rust_cam_bui_types;
 extern crate serde;
 extern crate serialport;
 extern crate thread_control;
@@ -20,6 +19,7 @@ use crate::arduino_udev::serial_handshake;
 
 use anyhow::{Context, Result};
 use chrono::Duration;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 
 use channellib::{Receiver, Sender};
@@ -27,7 +27,14 @@ use std::collections::BTreeMap;
 
 use crossbeam_ok::CrossbeamOk;
 use flydra_types::TriggerClockInfoRow;
-use rust_cam_bui_types::ClockModel;
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct ClockModel {
+    pub gain: f64,
+    pub offset: f64,
+    pub residuals: f64,
+    pub n_measurements: u64,
+}
 
 struct SerialThread {
     device: std::path::PathBuf,
