@@ -8,7 +8,6 @@ extern crate serde;
 extern crate serialport;
 extern crate thread_control;
 
-mod ascii;
 mod datetime_conversion;
 
 mod arduino_udev;
@@ -20,6 +19,34 @@ use std::io::Write;
 
 use crossbeam_channel::{Receiver, Sender};
 use std::collections::BTreeMap;
+
+const DEVICE_FIRMWARE_VERSION: u8 = 14;
+
+// ----- name type handling
+pub const DEVICE_NAME_LEN: usize = 8;
+
+pub type InnerNameType = [u8; DEVICE_NAME_LEN];
+pub type NameType = Option<InnerNameType>;
+
+pub fn to_name_type(x: &str) -> anyhow::Result<InnerNameType> {
+    let mut name = [0; DEVICE_NAME_LEN];
+    let bytes = x.as_bytes();
+    if bytes.len() > DEVICE_NAME_LEN {
+        anyhow::bail!("Maximum name length ({} chars) exceeded.", DEVICE_NAME_LEN);
+    }
+    &name[..bytes.len()].copy_from_slice(&bytes);
+    Ok(name)
+}
+
+pub fn name_display(name: &NameType) -> String {
+    if let Some(name) = name {
+        format!("\"{}\"", String::from_utf8_lossy(name))
+    } else {
+        "none".into()
+    }
+}
+
+// ------ clock model types
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ClockModel {
@@ -38,6 +65,8 @@ pub struct TriggerClockInfoRow {
     pub stop_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
+// ------ serial thread type
+
 struct SerialThread {
     device: std::path::PathBuf,
     icr1_and_prescaler: Option<Icr1AndPrescaler>,
@@ -45,8 +74,6 @@ struct SerialThread {
     qi: u8,
     queries: BTreeMap<u8, chrono::DateTime<chrono::Utc>>,
     ser: Option<Box<dyn serialport::SerialPort>>,
-    // raw_q: Sender<RawData>,
-    // time_q: Sender<TimeData<R>>,
     outq: Receiver<Cmd>,
     vquery_time: chrono::DateTime<chrono::Utc>,
     last_time: chrono::DateTime<chrono::Utc>,
@@ -55,13 +82,6 @@ struct SerialThread {
     callback: Box<dyn FnMut(Option<ClockModel>)>,
     triggerbox_data_tx: Option<Sender<TriggerClockInfoRow>>,
 }
-
-// struct RawData {
-//     send_timestamp: chrono::DateTime<chrono::Utc>,
-//     pulsenumber: u32,
-//     frac_u8: u8,
-//     recv_timestamp: chrono::DateTime<chrono::Utc>,
-// }
 
 #[derive(Debug, Clone)]
 pub enum Prescaler {
@@ -89,13 +109,12 @@ pub enum Cmd {
     Icr1AndPrescaler(Icr1AndPrescaler),
     StopPulsesAndReset,
     StartPulses,
+    SetDeviceName(InnerNameType),
 }
 
 impl SerialThread {
     fn new(
         device: std::path::PathBuf,
-        // raw_q: Sender<RawData>,
-        // time_q: Sender<TimeData<R>>,
         outq: Receiver<Cmd>,
         callback: Box<dyn FnMut(Option<ClockModel>)>,
         triggerbox_data_tx: Option<Sender<TriggerClockInfoRow>>,
@@ -109,7 +128,6 @@ impl SerialThread {
             qi: 0,
             queries: BTreeMap::new(),
             ser: None,
-            // raw_q,
             outq: outq,
             vquery_time, // wait 1 second before first version query
             last_time: vquery_time + Duration::seconds(1), // and 1 second after version query
@@ -133,26 +151,42 @@ impl SerialThread {
         Ok(())
     }
 
-    fn run(&mut self, flag: thread_control::Flag, query_dt: std::time::Duration) -> Result<()> {
+    fn run(
+        &mut self,
+        flag: thread_control::Flag,
+        query_dt: std::time::Duration,
+        assert_device_name: NameType,
+    ) -> Result<()> {
         let query_dt = Duration::from_std(query_dt)?;
-        let name = serial_handshake(&self.device)
+
+        // wtf - what is this doing if we only open port below?
+        let (mut ser, name) = serial_handshake(&self.device)
             .context(format!("opening device {}", self.device.display()))?;
-        debug!("connected to device named {}", name);
+
+        if assert_device_name.is_some() {
+            if name != assert_device_name {
+                anyhow::bail!(
+                    "Found name {}, but expected {}. ({:?} vs {:?}.)",
+                    name_display(&name),
+                    name_display(&assert_device_name),
+                    name,
+                    assert_device_name,
+                );
+            }
+        }
+
+        // Not sure if it is OK to bump up baud rate in mid communication.
+        ser.set_baud_rate(115_200)?;
+        ser.set_timeout(std::time::Duration::from_millis(10))?;
+
+        self.ser = Some(ser);
+        if let Some(name) = &name {
+            let name_str = String::from_utf8_lossy(name);
+            debug!("connected to device named {}", name_str);
+        }
         let mut now = chrono::Utc::now();
 
         let connect_time = now.clone();
-
-        use serialport::*;
-
-        let settings = SerialPortSettings {
-            baud_rate: 115_200,
-            data_bits: DataBits::Eight,
-            flow_control: FlowControl::None,
-            parity: Parity::None,
-            stop_bits: StopBits::One,
-            timeout: std::time::Duration::from_millis(10),
-        };
-        self.ser = Some(serialport::open_with_settings(&self.device, &settings)?);
 
         let mut buf: Vec<u8> = Vec::new();
         let mut read_buf: Vec<u8> = vec![0; 100];
@@ -182,6 +216,15 @@ impl SerialThread {
                                 Cmd::StartPulses => {
                                     self.allow_requesting_clock_sync = true;
                                     self.write(b"S1")?;
+                                }
+                                Cmd::SetDeviceName(name) => {
+                                    let computed_crc =
+                                        format!("{:X}", arduino_udev::crc8maxim(&name));
+                                    trace!("computed CRC: {:?}", computed_crc);
+
+                                    self.write(b"N=")?;
+                                    self.write(&name)?;
+                                    self.write(&computed_crc.as_bytes())?;
                                 }
                             }
                         }
@@ -382,11 +425,6 @@ impl SerialThread {
                         n_measurements,
                     }));
                 }
-
-                // let frac_u8 = (frac * 255.0).round() as u8;
-                // let recv_timestamp = now;
-                // self.raw_q.send( RawData {send_timestamp, pulsenumber,
-                //     frac_u8, recv_timestamp} )?;
             }
             None => {
                 warn!("No clock measurements until framerate set.");
@@ -397,7 +435,7 @@ impl SerialThread {
 
     fn _handle_version(&mut self, value: u8, _pulsenumber: u32, _count: u16) -> Result<()> {
         trace!("got returned version with value: {}", value);
-        assert!(value == 14);
+        assert!(value == DEVICE_FIRMWARE_VERSION);
         self.vquery_time = chrono::Utc::now();
         self.version_check_done = true;
         info!("connected to triggerbox firmware version {}", value);
@@ -457,9 +495,8 @@ pub fn launch_background_thread(
     cmd: Receiver<Cmd>,
     triggerbox_data_tx: Option<Sender<TriggerClockInfoRow>>,
     query_dt: std::time::Duration,
+    assert_device_name: NameType,
 ) -> Result<(thread_control::Control, std::thread::JoinHandle<()>)> {
-    // let (raw_tx, raw_rx) = channellib::unbounded();
-
     let triggerbox_thread_builder =
         std::thread::Builder::new().name("triggerbox_comms".to_string());
     let (flag, control) = thread_control::make_pair();
@@ -467,7 +504,7 @@ pub fn launch_background_thread(
         run_func(|| {
             let mut triggerbox =
                 SerialThread::new(device, /*raw_tx,*/ cmd, callback, triggerbox_data_tx)?;
-            triggerbox.run(flag, query_dt)
+            triggerbox.run(flag, query_dt, assert_device_name)
         });
     })?;
 
