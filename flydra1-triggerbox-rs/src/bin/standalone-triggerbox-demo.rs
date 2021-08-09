@@ -4,11 +4,20 @@ extern crate log;
 use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
 use structopt::StructOpt;
 
+#[cfg(target_os = "macos")]
+const DEFAULT_DEVICE_PATH: &str = "/dev/tty.usbmodem1423";
+
+#[cfg(target_os = "linux")]
+const DEFAULT_DEVICE_PATH: &str = "/dev/ttyUSB0";
+
+#[cfg(target_os = "windows")]
+const DEFAULT_DEVICE_PATH: &str = r#"COM3"#;
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "standalone-triggerbox-demo")]
 struct Opt {
     /// Filename of device
-    #[structopt(parse(from_os_str), long = "device", default_value = "/dev/trig1")]
+    #[structopt(parse(from_os_str), long = "device", default_value = DEFAULT_DEVICE_PATH)]
     device: std::path::PathBuf,
     /// Framerate
     #[structopt(long = "fps", default_value = "100")]
