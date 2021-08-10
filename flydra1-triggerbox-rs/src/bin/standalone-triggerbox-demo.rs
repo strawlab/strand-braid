@@ -24,6 +24,12 @@ struct Opt {
     /// Framerate
     #[structopt(long = "fps", default_value = "100")]
     fps: f64,
+    /// Analog output 1
+    #[structopt(long = "aout1", default_value = "0.0")]
+    aout1: f64,
+    /// Analog output 2
+    #[structopt(long = "aout2", default_value = "0.0")]
+    aout2: f64,
     /// Assert device name. Raises an error if device's name is not equal.
     #[structopt(long = "assert-device-name")]
     assert_device_name: Option<String>,
@@ -49,6 +55,9 @@ fn main() -> anyhow::Result<()> {
         tx.send(Cmd::SetDeviceName(actual_name))?;
         quit_early = true;
     }
+
+    tx.send(Cmd::SetAOut((opt.aout1, opt.aout2)))?;
+
     let assert_device_name = opt
         .assert_device_name
         .as_ref()

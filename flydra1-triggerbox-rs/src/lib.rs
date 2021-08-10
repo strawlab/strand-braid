@@ -110,6 +110,7 @@ pub enum Cmd {
     StopPulsesAndReset,
     StartPulses,
     SetDeviceName(InnerNameType),
+    SetAOut((f64, f64)),
 }
 
 impl SerialThread {
@@ -225,6 +226,30 @@ impl SerialThread {
                                     self.write(b"N=")?;
                                     self.write(&name)?;
                                     self.write(&computed_crc.as_bytes())?;
+                                }
+                                Cmd::SetAOut((volts1, volts2)) => {
+                                    fn volts_to_dac(volts: f64) -> u16 {
+                                        // Convert voltage to fraction and clamp.
+                                        let frac = (volts / 4.096).clamp(0.0, 1.0);
+                                        // Compute integer DAC value.
+                                        let val: u16 = (frac * 4095.0).round() as u16;
+                                        val
+                                    }
+                                    let val1 = volts_to_dac(volts1);
+                                    let val2 = volts_to_dac(volts2);
+
+                                    self.write(b"O=")?;
+                                    self.write(&val1.to_le_bytes())?;
+                                    self.write(&val2.to_le_bytes())?;
+                                    self.write(b"x")?;
+
+                                    // Now wait for return value.
+                                    std::thread::sleep(std::time::Duration::from_millis(50));
+
+                                    let mut buf = vec![0; 100];
+                                    let len = self.ser.as_mut().unwrap().read(&mut buf)?;
+                                    let buf = &buf[..len];
+                                    debug!("AOUT ignoring values: {:?}", buf);
                                 }
                             }
                         }
