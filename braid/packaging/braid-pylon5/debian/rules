@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+# This is a hack. We cannot build from clean source. Download binary and
+# then run the debian stuff.
+
+%:
+	dh $@
+
+override_dh_installudev:
+	dh_installudev --priority=70
+
+override_dh_shlibdeps:
+	dh_shlibdeps -a -l/opt/pylon5/lib64 --dpkg-shlibdeps-params=--ignore-missing-info
