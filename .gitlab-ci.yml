@@ -776,6 +776,59 @@ braid-pylon-ubuntu2004:
       - braid-pylon-focal-build/
     name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
+braid-pylon5-ubuntu2004:
+  stage: build
+  tags:
+    - ubuntu-focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/install-pylon5.sh
+    - export PYLON_VERSION=5
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
+
+    # build mainbrain web frontend
+    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
+    - ./build.sh
+
+    # build braid-run
+    - cd $CI_PROJECT_DIR/braid/braid-run
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon5/lib64" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace" --release
+    - ldd ../../target/release/braid-run
+
+    # build braid
+    - cd $CI_PROJECT_DIR/braid
+    # force recomputing git version tag
+    - touch build.rs
+    - NUM_JOBS=2 cargo build --release
+    - ldd ../target/release/braid
+
+    - ../target/release/write-debian-changelog braid-pylon5 focal > ../target/release/braid.changelog
+    - ls -l ../target/release
+    - cd packaging
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - make braid-pylon5_VERSION_amd64.deb
+    - mkdir -p $CI_PROJECT_DIR/braid-pylon5-focal-build
+    - cp *.deb $CI_PROJECT_DIR/braid-pylon5-focal-build
+    - cp *.changes $CI_PROJECT_DIR/braid-pylon5-focal-build
+    - ls -lh *.deb
+    - ls -l *.deb
+    - dpkg -I *.deb
+    - dpkg --contents *.deb
+    - dpkg --info *.deb
+
+  artifacts:
+    paths:
+      - braid-pylon5-focal-build/
+    name: "braid-pylon5-ubuntu2004-${CI_COMMIT_SHA}"
+
+
 strand-cam-dc1394-linux:
   stage: build
   tags:
