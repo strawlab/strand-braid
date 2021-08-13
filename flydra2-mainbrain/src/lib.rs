@@ -53,7 +53,7 @@ enum MainbrainError {
 struct HttpApiApp {
     inner: BuiAppInner<HttpApiShared, HttpApiCallback>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
@@ -66,7 +66,7 @@ async fn new_http_api_app(
     shared: HttpApiShared,
     config: Config,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
@@ -101,8 +101,6 @@ async fn new_http_api_app(
     );
 
     let cam_manager2 = cam_manager.clone();
-    let triggerbox_cmd2 = triggerbox_cmd.clone();
-    let time_model_arc2 = time_model_arc.clone();
 
     let expected_framerate_arc2 = expected_framerate_arc.clone();
     let output_base_dirname2 = output_base_dirname.clone();
@@ -110,7 +108,6 @@ async fn new_http_api_app(
     let current_images_arc2 = current_images_arc.clone();
     let shared_data = inner.shared_arc().clone();
 
-    let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
     // Create a Stream to handle callbacks from clients.
     inner.set_callback_listener(Box::new(
         move |msg: CallbackDataAndSession<HttpApiCallback>| {
@@ -233,7 +230,7 @@ pub struct StartupPhase1 {
     handle: tokio::runtime::Handle,
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
-    triggerbox_rx: Option<channellib::Receiver<flydra1_triggerbox::Cmd>>,
+    triggerbox_rx: Option<channellib::Receiver<braid_triggerbox::Cmd>>,
     flydra1: bool,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
@@ -548,7 +545,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         version: env!("CARGO_PKG_VERSION").into(),
     };
 
-    let (triggerbox_data_tx, triggerbox_data_rx) = channellib::unbounded();
+    let (triggerbox_data_tx, triggerbox_data_rx) =
+        channellib::unbounded::<braid_triggerbox::TriggerClockInfoRow>();
 
     // TODO: convert this to a tokio task rather than its own thread.
     let write_controller_arc2 = write_controller_arc.clone();
@@ -566,7 +564,13 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                         signal_triggerbox_connected2.store(true, Ordering::SeqCst);
                     }
                     let write_controller = write_controller_arc2.write();
-                    write_controller.append_trigger_clock_info_message(msg);
+                    let msg2 = flydra_types::TriggerClockInfoRow {
+                        start_timestamp: msg.start_timestamp.into(),
+                        framecount: msg.framecount,
+                        tcnt: msg.tcnt,
+                        stop_timestamp: msg.stop_timestamp.into(),
+                    };
+                    write_controller.append_trigger_clock_info_message(msg2);
                 }
                 Err(e) => {
                     let _: channellib::RecvError = e;
@@ -585,7 +589,13 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         let time_model_arc = time_model_arc.clone();
         let http_session_handler = http_session_handler.clone();
         let tracker = tracker.clone();
-        Box::new(move |tm: Option<ClockModel>| {
+        Box::new(move |tm1: Option<braid_triggerbox::ClockModel>| {
+            let tm = tm1.map(|x| rust_cam_bui_types::ClockModel {
+                gain: x.gain,
+                offset: x.offset,
+                n_measurements: x.n_measurements,
+                residuals: x.residuals,
+            });
             let cm = tm.clone();
             {
                 let mut guard = time_model_arc.write();
@@ -615,7 +625,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let fps = &cfg.framerate;
             let query_dt = &cfg.query_dt;
 
-            use flydra1_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
+            use braid_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
 
             let device = std::path::PathBuf::from(dev);
             let tx = my_app.triggerbox_cmd.clone().unwrap();
@@ -633,9 +643,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let (control, _handle) = launch_background_thread(
                 on_new_clock_model,
                 device,
-                cmd_rx,
-                Some(triggerbox_data_tx),
+                cmd_rx.into_inner(),
+                Some(triggerbox_data_tx.into_inner()),
                 *query_dt,
+                None,
             )?;
 
             _triggerbox_thread_control = Some(control);
@@ -654,7 +665,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             // let local = now.with_timezone(&chrono::Local);
             let offset = datetime_conversion::datetime_to_f64(&now);
 
-            (on_new_clock_model)(Some(ClockModel {
+            (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
                 gain,
                 n_measurements: 0,
                 offset,
@@ -1034,7 +1045,7 @@ fn toggle_saving_csv_tables(
 }
 
 fn synchronize_cameras(
-    triggerbox_cmd: Option<channellib::Sender<flydra1_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
@@ -1062,12 +1073,12 @@ fn synchronize_cameras(
     }
 }
 
-fn begin_cam_sync_triggerbox_in_process(tx: channellib::Sender<flydra1_triggerbox::Cmd>) {
+fn begin_cam_sync_triggerbox_in_process(tx: channellib::Sender<braid_triggerbox::Cmd>) {
     // This is the case when the triggerbox is within this process.
     info!("preparing for triggerbox to temporarily stop sending pulses");
 
     info!("requesting triggerbox to stop sending pulses");
-    use flydra1_triggerbox::Cmd::*;
+    use braid_triggerbox::Cmd::*;
     tx.send(StopPulsesAndReset).cb_ok();
     // TODO FIXME: fire a tokio_timer to sleep and then to then after it returns.
     // This is probably really bad.
