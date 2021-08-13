@@ -84,8 +84,8 @@ test_crates:
     - cargo test
     - cd ..
 
-    # Test flydra1-triggerbox-rs
-    - cd flydra1-triggerbox-rs
+    # Test braid-triggerbox
+    - cd braid-triggerbox
     - cargo test
     - cd ..
 

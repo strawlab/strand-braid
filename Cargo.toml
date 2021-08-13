@@ -46,7 +46,7 @@ members = [
     "flydra-mvg",
     "flydra-mvg/flydra-mvg-fuzz-target",
     "flydra-types",
-    "flydra1-triggerbox-rs",
+    "braid-triggerbox",
     "flydra2",
     "flydra2-mainbrain",
     "flydra2-mainbrain/frontend",

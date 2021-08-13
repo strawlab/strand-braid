@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use flydra1_triggerbox::{
+use braid_triggerbox::{
     launch_background_thread, make_trig_fps_cmd, name_display, to_name_type, Cmd,
 };
 use structopt::StructOpt;
@@ -40,7 +40,7 @@ struct Opt {
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    info!("flydra1_triggerbox starting");
+    info!("braid_triggerbox starting");
     let opt = Opt::from_args();
 
     let mut quit_early = false;
