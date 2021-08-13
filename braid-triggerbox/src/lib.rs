@@ -34,7 +34,7 @@ pub fn to_name_type(x: &str) -> anyhow::Result<InnerNameType> {
     if bytes.len() > DEVICE_NAME_LEN {
         anyhow::bail!("Maximum name length ({} chars) exceeded.", DEVICE_NAME_LEN);
     }
-    &name[..bytes.len()].copy_from_slice(&bytes);
+    (&mut name[..bytes.len()]).copy_from_slice(&bytes);
     Ok(name)
 }
 
