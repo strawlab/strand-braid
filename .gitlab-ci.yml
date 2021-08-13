@@ -84,11 +84,6 @@ test_crates:
     - cargo test
     - cd ..
 
-    # Test braid-triggerbox
-    - cd braid-triggerbox
-    - cargo test
-    - cd ..
-
     # Test fmf
     - cd fmf
     - cargo test

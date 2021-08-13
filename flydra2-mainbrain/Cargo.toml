@@ -16,7 +16,7 @@ serde_json = "1.0"
 toml = "0.5"
 regex = "1.0"
 flydra-types = {path="../flydra-types", features=["with-dns"]}
-braid-triggerbox = { path = "../braid-triggerbox" }
+braid-triggerbox = "0.1"
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
 chrono = "0.4"
 futures = "0.3"

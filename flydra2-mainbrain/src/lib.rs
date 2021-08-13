@@ -621,13 +621,12 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     // if let Some(ref cfg) = trigger_cfg {
     match &trigger_cfg {
         TriggerType::TriggerboxV1(cfg) => {
-            let dev = &cfg.device_fname;
+            let device = cfg.device_fname.clone();
             let fps = &cfg.framerate;
             let query_dt = &cfg.query_dt;
 
             use braid_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
 
-            let device = std::path::PathBuf::from(dev);
             let tx = my_app.triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
 
