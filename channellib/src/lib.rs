@@ -76,6 +76,10 @@ impl<T> std::fmt::Debug for SendError<T> {
 pub struct Receiver<T>(crossbeam_channel::Receiver<T>);
 
 impl<T> Receiver<T> {
+    pub fn into_inner(self) -> crossbeam_channel::Receiver<T> {
+        self.0
+    }
+
     #[inline(always)]
     pub fn recv(&self) -> Result<T, RecvError> {
         self.0.recv().map_err(Into::into)
@@ -95,6 +99,10 @@ impl<T> Receiver<T> {
 pub struct Sender<T>(crossbeam_channel::Sender<T>);
 
 impl<T> Sender<T> {
+    pub fn into_inner(self) -> crossbeam_channel::Sender<T> {
+        self.0
+    }
+
     #[inline(always)]
     pub fn send(&self, msg: T) -> Result<(), SendError<T>> {
         self.0.send(msg).map_err(|e| SendError {

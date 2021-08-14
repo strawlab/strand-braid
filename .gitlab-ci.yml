@@ -84,18 +84,8 @@ test_crates:
     - cargo test
     - cd ..
 
-    # Test flydra1-triggerbox-rs
-    - cd flydra1-triggerbox-rs
-    - cargo test
-    - cd ..
-
     # Test fmf
     - cd fmf
-    - cargo test
-    - cd ..
-
-    # Test lstsq
-    - cd lstsq
     - cargo test
     - cd ..
 
