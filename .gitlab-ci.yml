@@ -89,11 +89,6 @@ test_crates:
     - cargo test
     - cd ..
 
-    # Test lstsq
-    - cd lstsq
-    - cargo test
-    - cd ..
-
     # Test freemovr-calibration, which requires opencv
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libopencv-dev
     - cd freemovr-calibration
