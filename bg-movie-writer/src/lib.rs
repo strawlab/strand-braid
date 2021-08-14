@@ -37,6 +37,7 @@ pub enum Error {
 }
 
 impl From<channellib::SendError<Msg>> for Error {
+    #[allow(unused_variables)]
     fn from(orig: channellib::SendError<Msg>) -> Error {
         Error::SendError(
             #[cfg(feature = "backtrace")]
