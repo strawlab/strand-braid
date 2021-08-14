@@ -1,4 +1,4 @@
-wasm-pack build --target web
+wasm-pack build --target web -- --no-default-features
 
 mkdir pkg
 copy static\index.html pkg
