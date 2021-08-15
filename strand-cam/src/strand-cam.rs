@@ -2261,6 +2261,18 @@ async fn check_version(
     Ok(())
 }
 
+fn get_mkv_writing_application(is_braid: bool) -> String {
+    if is_braid {
+        format!(
+            "braid-{}-{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        )
+    } else {
+        format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+    }
+}
+
 fn display_qr_url(url: &str) {
     use qrcodegen::{QrCode, QrCodeEcc};
     use std::io::stdout;
@@ -2796,8 +2808,13 @@ pub async fn setup_app(
     #[cfg(not(feature="image_tracker"))]
     let has_image_tracker_compiled = false;
 
+    let mut mkv_recording_config = MkvRecordingConfig::default();
+
+    let is_braid = args.is_braid;
+    mkv_recording_config.writing_application = Some(get_mkv_writing_application(is_braid));
+
     let shared_store = ChangeTracker::new(StoreType {
-        is_braid: args.is_braid,
+        is_braid,
         is_recording_mkv: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,
@@ -2808,7 +2825,7 @@ pub async fn setup_app(
         camera_name: cam.name().into(),
         recording_filename: None,
         recording_framerate: RecordingFrameRate::default(),
-        mkv_recording_config: MkvRecordingConfig::default(),
+        mkv_recording_config,
         gain: gain_ranged,
         gain_auto: gain_auto,
         exposure_time: exposure_ranged,
@@ -3240,7 +3257,11 @@ pub async fn setup_app(
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|tracker| tracker.recording_framerate = v);
                 }
-                CamArg::SetMkvRecordingConfig(cfg) => {
+                CamArg::SetMkvRecordingConfig(mut cfg) => {
+                    if cfg.writing_application.is_none() {
+                        // The writing application is not set in the web UI
+                        cfg.writing_application = Some(get_mkv_writing_application(is_braid));
+                    }
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
                 }

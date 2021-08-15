@@ -73,6 +73,7 @@ where
 {
     inner: Option<WriteState<'lib, T>>,
     nv_enc: Option<nvenc::NvEnc<'lib>>,
+    writing_application: String,
 }
 
 impl<'lib, T> MkvWriter<'lib, T>
@@ -84,9 +85,14 @@ where
         config: MkvRecordingConfig,
         nv_enc: Option<nvenc::NvEnc<'lib>>,
     ) -> Result<Self> {
+        let writing_application: String = config
+            .clone()
+            .writing_application
+            .unwrap_or_else(|| format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")));
         Ok(Self {
             inner: Some(WriteState::Configured((fd, config))),
             nv_enc,
+            writing_application,
         })
     }
 
@@ -249,9 +255,7 @@ where
                     nanoseconds, timestamp
                 );
                 mkv_segment.set_date_utc(nanoseconds);
-                mkv_segment.set_app_name(
-                    format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).as_str(),
-                );
+                mkv_segment.set_app_name(&self.writing_application);
 
                 let mut state = RecordingState {
                     mkv_segment,
