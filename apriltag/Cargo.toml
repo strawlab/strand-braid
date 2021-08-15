@@ -6,7 +6,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-apriltag-sys = "0.1.3"
+apriltag-sys = "0.2"
 
 [dev-dependencies]
 machine-vision-formats = "0.1"

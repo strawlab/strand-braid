@@ -16,11 +16,20 @@ On Debian/Ubuntu linux, you can install the prerequisites to build like this:
 
     sudo apt-get install libapriltag-dev
 
+On Windows, you need to install pthread with vcpkg for `apriltag-sys`
+
+    vcpkg install pthread:x64-windows-static
+
 ## Build and test
 
 Build and test like this:
 
     cargo test
+
+On Windows, tell `apriltag-sys` where to find pthread:
+
+    $Env:APRILTAG_SYS_WINDOWS_PTHREAD_INCLUDE_DIR="/path/to/vcpkg/installed/x64-windows-static/include"
+    $Env:APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB="/path/to/vcpkg/installed/x64-windows-static/lib/pthreadVC3.lib"
 
 ## License
 
