@@ -22,7 +22,6 @@ convert-image = { path = "../convert-image" }
 [dev-dependencies]
 anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
-basic-frame = { path = "../basic-frame" }
 rusttype = "0.8.1"
 image = "0.23"
 ttf-firacode = "0.1"

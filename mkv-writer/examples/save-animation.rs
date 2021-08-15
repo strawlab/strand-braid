@@ -1,17 +1,17 @@
 #[macro_use]
 extern crate log;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
-use basic_frame::{BasicExtra, BasicFrame};
 use ci2_remote_control::MkvRecordingConfig;
+use simple_frame::SimpleFrame;
 
-use machine_vision_formats::{pixel_format::RGB8, ImageData};
+use machine_vision_formats::pixel_format::RGB8;
 use rusttype::{point, Font, Scale};
 
 struct Rgba(pub [u8; 4]);
 
-fn put_pixel(self_: &mut BasicFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
+fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
     let row_start = self_.stride as usize * y as usize;
     let pix_start = row_start + x as usize * 3;
 
@@ -35,50 +35,57 @@ fn put_pixel(self_: &mut BasicFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
 }
 
 fn stamp_frame<'a>(
-    rgb: &simple_frame::SimpleFrame<RGB8>,
+    mut image: &mut SimpleFrame<RGB8>,
     font: &rusttype::Font<'a>,
-    count: usize,
-    start: &DateTime<Utc>,
-) -> Result<(basic_frame::BasicFrame<RGB8>, DateTime<Utc>), anyhow::Error> {
-    let dt_msec = 5;
-    let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
-
-    let ts = start.checked_add_signed(dt).unwrap();
-
-    let width = rgb.width();
-    let height = rgb.height();
-    let image_data = rgb.image_data().to_vec(); // copy data
-
-    let extra = Box::new(BasicExtra {
-        host_timestamp: ts,
-        host_framenumber: count,
-    });
-    let mut image: BasicFrame<RGB8> = BasicFrame {
-        width: width as u32,
-        height: height as u32,
-        stride: (width * 3) as u32,
-        image_data,
-        extra,
-        pixel_format: std::marker::PhantomData,
-    };
-
+    text: &str,
+) -> Result<(), anyhow::Error> {
     // from https://gitlab.redox-os.org/redox-os/rusttype/blob/master/dev/examples/image.rs
 
     // The font size to use
     let scale = Scale::uniform(32.0);
-
-    // The text to render
-    let text = format!("{}", ts);
 
     // Use a dark red colour
     let colour = (150, 0, 0);
 
     let v_metrics = font.v_metrics(scale);
 
+    let x0 = 20.0;
+    let y0 = 20.0;
+
     // layout the glyphs in a line with 20 pixels padding
     let glyphs: Vec<_> = font
-        .layout(&text, scale, point(20.0, 20.0 + v_metrics.ascent))
+        .layout(&text, scale, point(x0, y0 + v_metrics.ascent))
         .collect();
+
+    // Find the most visually pleasing width to display
+    let width = glyphs
+        .iter()
+        .rev()
+        .map(|g| g.position().x as f32 + g.unpositioned().h_metrics().advance_width)
+        .next()
+        .unwrap_or(0.0)
+        .ceil() as usize;
+
+    let x_start = x0.floor() as usize;
+    let x_end = x_start + width;
+
+    let y_start = y0.floor() as usize;
+    let y_end = y_start + v_metrics.ascent.ceil() as usize;
+
+    for x in x_start..x_end {
+        for y in y_start..y_end {
+            put_pixel(
+                &mut image,
+                // Offset the position by the glyph bounding box
+                x as u32,
+                y as u32,
+                // Turn the coverage into an alpha value
+                Rgba([255, 255, 255, 255]),
+            )
+        }
+    }
+
+    // TODO: clear background
 
     for glyph in glyphs {
         if let Some(bounding_box) = glyph.pixel_bounding_box() {
@@ -96,7 +103,7 @@ fn stamp_frame<'a>(
         }
     }
 
-    Ok((image, ts))
+    Ok(())
 }
 
 fn usage_exit() -> Result<(), anyhow::Error> {
@@ -174,7 +181,17 @@ fn main() -> Result<(), anyhow::Error> {
         if count > 1000 {
             break;
         }
-        let (frame, ts) = stamp_frame(&rgb, &font, count, &start)?;
+
+        let dt_msec = 5;
+        let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
+
+        let ts = start.checked_add_signed(dt).unwrap();
+
+        // The text to render
+        let text = format!("{}", ts);
+        let mut frame = rgb.clone();
+
+        stamp_frame(&mut frame, &font, &text)?;
         count += 1;
         my_mkv_writer.write(&frame, ts)?;
     }
