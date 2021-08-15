@@ -3,6 +3,7 @@ use machine_vision_formats::{
     OwnedImageStride, Stride,
 };
 
+#[derive(Clone)]
 pub struct SimpleFrame<F> {
     /// width in pixels
     pub width: u32,
