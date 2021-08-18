@@ -437,6 +437,7 @@ impl Component for Model {
                     let cfg = ci2_remote_control::MkvRecordingConfig {
                         codec: v.get_codec(&old_config.codec),
                         max_framerate: old_config.max_framerate.clone(),
+                        writing_application: None,
                     };
                     self.ft = send_cam_message(CamArg::SetMkvRecordingConfig(cfg), self);
                 }

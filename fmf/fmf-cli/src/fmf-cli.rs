@@ -580,6 +580,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
     let cfg = MkvRecordingConfig {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
+        writing_application: Some("fmf-cli".to_string()),
     };
 
     #[cfg(feature = "nv-h264")]

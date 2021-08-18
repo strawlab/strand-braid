@@ -146,6 +146,7 @@ impl Default for H264Options {
 pub struct MkvRecordingConfig {
     pub codec: MkvCodec,
     pub max_framerate: RecordingFrameRate,
+    pub writing_application: Option<String>,
 }
 
 impl Default for MkvRecordingConfig {
@@ -153,6 +154,7 @@ impl Default for MkvRecordingConfig {
         Self {
             codec: MkvCodec::default(),
             max_framerate: RecordingFrameRate::Fps25,
+            writing_application: None,
         }
     }
 }

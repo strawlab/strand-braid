@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 
 use ci2_remote_control::MkvRecordingConfig;
 use simple_frame::SimpleFrame;
@@ -35,7 +35,7 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
 }
 
 fn stamp_frame<'a>(
-    mut image: &mut SimpleFrame<RGB8>,
+    mut image: &mut simple_frame::SimpleFrame<RGB8>,
     font: &rusttype::Font<'a>,
     text: &str,
 ) -> Result<(), anyhow::Error> {
@@ -110,14 +110,13 @@ fn usage_exit() -> Result<(), anyhow::Error> {
     println!(
         "Usage:
 
-    save-animation nv-h264|vp8"
+    variable-framerate nv-h264|vp8"
     );
     Err(anyhow::format_err!("invalid usage"))
 }
 
 fn main() -> Result<(), anyhow::Error> {
-    let start = Utc::now();
-    let output_fname = "animation.mkv";
+    let output_fname = "variable-framerate.mkv";
 
     info!("exporting {}", output_fname);
 
@@ -169,30 +168,36 @@ fn main() -> Result<(), anyhow::Error> {
     // This only succeeds if collection consists of one font
     let font = Font::from_bytes(font_data as &[u8]).expect("Error constructing Font");
 
-    let mut count = 0;
-    let mut istart = std::time::Instant::now();
-    loop {
-        if count % 100 == 0 {
-            let el = istart.elapsed();
-            let elf = el.as_secs() as f64 + 1e-9 * el.subsec_nanos() as f64;
-            println!("frame {}, duration {} msec", count, elf * 1000.0);
-            istart = std::time::Instant::now();
-        }
-        if count > 1000 {
-            break;
-        }
+    // A sequence of inter-frame intervals which are non-constant.
+    #[rustfmt::skip]
+    let frame_dt_sec_seq = [
+        0.0,
+        1.0, 1.0, 1.0, 1.0,
+        0.5, 0.5, 0.5, 0.5,
+        1.0, 1.0, 1.0, 1.0,
+    ];
 
-        let dt_msec = 5;
-        let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
+    let start =
+        DateTime::<Utc>::from_utc(chrono::NaiveDateTime::from_timestamp(60, 123_456_789), Utc);
+    let mut accum = 0.0;
+
+    for (count, frame_dt_sec) in frame_dt_sec_seq.iter().enumerate() {
+        accum += frame_dt_sec;
+
+        let dur = std::time::Duration::from_secs_f64(accum);
+        let dt = chrono::Duration::from_std(dur).unwrap();
 
         let ts = start.checked_add_signed(dt).unwrap();
 
-        // The text to render
-        let text = format!("{}", ts);
+        let time_string = ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
         let mut frame = rgb.clone();
 
+        // The text to render
+        let text = format!("frame {}: {}", count, time_string);
+        println!("{}", text);
+
         stamp_frame(&mut frame, &font, &text)?;
-        count += 1;
         my_mkv_writer.write(&frame, ts)?;
     }
 
