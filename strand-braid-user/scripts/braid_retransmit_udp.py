@@ -44,6 +44,7 @@ class Flydra2Proxy:
             except KeyError:
                 continue
             msg = "%s, %s, %s" % (update_dict["x"], update_dict["y"], update_dict["z"])
+            msg = msg.encode('ascii')
             sock.sendto(msg, addr)
             # print('send message %r to %s'%(msg,addr))
 
