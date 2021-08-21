@@ -11,7 +11,6 @@ anyhow = "1.0"
 
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
-chrono = "0.4"
 env_logger = "0.8"
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
