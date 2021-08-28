@@ -9,3 +9,6 @@ wasm-bindgen --target no-modules --no-typescript --out-dir pkg --out-name native
 mkdir pkg
 copy static\index.html pkg
 copy static\style.css pkg
+
+REM Build OK. Now run with:
+REM     microserver --port 8000 --no-spa pkg

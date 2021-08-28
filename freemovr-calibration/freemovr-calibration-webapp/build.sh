@@ -12,3 +12,6 @@ wasm-bindgen --target no-modules --no-typescript --out-dir pkg --out-name native
 mkdir -p pkg
 cp static/index.html pkg
 cp static/style.css pkg
+
+echo Build OK. Now run with:
+echo     microserver --port 8000 --no-spa pkg
