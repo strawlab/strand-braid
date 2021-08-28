@@ -98,9 +98,9 @@ dependencies = [
 
 [[package]]
 name = "adskalman"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a83dbb25ed68a7642de3430bd0784aec628996067b0b170c9af4495d769e3b7f"
+checksum = "e752da73d8b04b5da8c1dfb5a4fbf6f62fbd41142400d4d6841ee77f762f8a9a"
 dependencies = [
  "approx 0.5.0",
  "log",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "apriltag-sys"
-version = "0.1.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "327ced21a329f615089e32c39e20064d6df96f4d2901445ced1b7b5e48c286fe"
+checksum = "78a77140ca7fdf4ec8d3238870585daa941651b5a776da5ae5369bfc4d912dd4"
 dependencies = [
  "cc",
  "cmake",
@@ -549,6 +549,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "braid-triggerbox"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c36c2aa73a6f12970c02faf1239e94d9717a35935f978262e064c3c00e3ff79c"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "chrono",
+ "crossbeam-channel",
+ "env_logger 0.9.0",
+ "log",
+ "lstsq",
+ "nalgebra",
+ "serde",
+ "serialport 4.0.1",
+ "structopt",
+ "thiserror",
+ "thread-control",
+]
+
+[[package]]
 name = "braidz-cli"
 version = "0.10.1"
 dependencies = [
@@ -748,9 +769,9 @@ checksum = "81a18687293a1546b67c246452202bbbf143d239cb43494cc163da14979082da"
 
 [[package]]
 name = "cam-geom"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ceb17588eea1c8bd8388fa0dd742c2dc4f6fe2d0ca981d955da0987752c743c2"
+checksum = "fa64297205097a43f42e1c3d0bc602d5402d0458631cfba3877aedad36ef21b7"
 dependencies = [
  "approx 0.5.0",
  "itertools 0.10.1",
@@ -1014,7 +1035,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "basic-frame",
- "chrono",
  "ci2",
  "ci2-async",
  "ci2-dc1394",
@@ -1032,7 +1052,6 @@ name = "ci2-simple-demo"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "ci2",
  "ci2-dc1394",
  "ci2-flycap2",
@@ -1637,9 +1656,9 @@ dependencies = [
 
 [[package]]
 name = "dlt"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fe8d3db2c95e8f27cd65d540936aba5075d4c8e3fb473597bee0ef84770d3f4"
+checksum = "b54cedf759675eabbe8ef584898ee550ab67dab722e8e4d9439ad668171935ad"
 dependencies = [
  "nalgebra",
 ]
@@ -1792,6 +1811,19 @@ name = "env_logger"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "atty",
+ "humantime 2.1.0",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b2cf0344971ee6c64c31be0d530793fba457d322dfec2810c453d0ef228f9c3"
 dependencies = [
  "atty",
  "humantime 2.1.0",
@@ -1986,28 +2018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flydra1-triggerbox"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "byteorder",
- "channellib",
- "chrono",
- "crossbeam-ok",
- "datetime-conversion",
- "env_logger 0.8.4",
- "flydra-types",
- "log",
- "lstsq",
- "nalgebra",
- "rust-cam-bui-types",
- "serde",
- "serialport 3.3.0",
- "structopt",
- "thread-control",
-]
-
-[[package]]
 name = "flydra2"
 version = "0.20.29"
 dependencies = [
@@ -2069,6 +2079,7 @@ version = "0.20.29"
 dependencies = [
  "anyhow",
  "async-change-tracker",
+ "braid-triggerbox",
  "bui-backend",
  "bui-backend-codegen",
  "bui-backend-session",
@@ -2085,7 +2096,6 @@ dependencies = [
  "env_logger 0.8.4",
  "flydra-mvg",
  "flydra-types",
- "flydra1-triggerbox",
  "flydra2",
  "futures",
  "hyper",
@@ -3763,9 +3773,10 @@ dependencies = [
 
 [[package]]
 name = "lstsq"
-version = "0.1.0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbb6986e562bdba3c672f049a355b1e2d1367b7bf01517637ac52d396baae3a5"
 dependencies = [
- "approx 0.5.0",
  "nalgebra",
 ]
 
@@ -3968,7 +3979,6 @@ name = "mkv-writer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "basic-frame",
  "chrono",
  "ci2-remote-control",
  "convert-image",
@@ -4027,9 +4037,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39fe9195887b501f296ac918ecbff4650b6935da164d4902ef73e140c46a0dce"
+checksum = "d506eb7e08d6329505faa8a3a00a5dcc6de9f76e0c77e4b75763ae3c770831ff"
 dependencies = [
  "approx 0.5.0",
  "matrixmultiply",
@@ -4055,9 +4065,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra-mvn"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b39bd85100947c1b3fe69194d36fca0b6adcf3730c774a9edbb7f3dda12afc"
+checksum = "b4d9d2c4fa314c92f74c3c7913b0f4f70706c7acbfcb2bd336f846ed6b283a59"
 dependencies = [
  "nalgebra",
 ]
@@ -4106,9 +4116,9 @@ dependencies = [
 
 [[package]]
 name = "ncollide2d"
-version = "0.31.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f65631850de06398721fda61410682000e9409b01e5c309deb81c65b861b3f"
+checksum = "1f272981acd57d7bfb6f7c6cd5c00f4c8c9168daa4958f04f2ba7fef1b6337df"
 dependencies = [
  "approx 0.5.0",
  "bitflags",
@@ -4125,9 +4135,9 @@ dependencies = [
 
 [[package]]
 name = "ncollide3d"
-version = "0.31.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5110a8f0e9269c10ed7202c67fbe44c832578617d23c856bb724e38d23c46649"
+checksum = "979e4b8af97817d8251b10bdf3ffc420abe1b8d28eb7e5e0193d575dca4c41a6"
 dependencies = [
  "approx 0.5.0",
  "bitflags",
@@ -4422,9 +4432,9 @@ dependencies = [
 
 [[package]]
 name = "opencv-ros-camera"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74710d2e72a88935e4a1f0d986bcd08abec4e1f8a33c418011cb217070edead2"
+checksum = "e475074ca9b3fdc0f25c59a56fcde5319c4a8426aeec86279aea24d005690512"
 dependencies = [
  "cam-geom",
  "nalgebra",
@@ -4981,9 +4991,9 @@ dependencies = [
 
 [[package]]
 name = "pylon-cxx"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86d1031f7c2d9974c359d14cad965ebae93f87acd72e0c24255b123475ae9469"
+checksum = "1ac4527d26a86462f9ff9b02463f92be277c4dff5ee00615308dc72c8b8eb2a2"
 dependencies = [
  "cxx",
  "cxx-build",
@@ -5556,6 +5566,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
+name = "safe_arch"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "794821e4ccb0d9f979512f9c1973480123f9bd62a90d74ab0f9426fcf8f4a529"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "safemem"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5783,6 +5802,7 @@ dependencies = [
  "IOKit-sys",
  "bitflags",
  "cfg-if 0.1.10",
+ "libudev",
  "mach 0.2.3",
  "nix 0.16.1",
  "regex",
@@ -5884,14 +5904,15 @@ dependencies = [
 
 [[package]]
 name = "simba"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e82063457853d00243beda9952e910b82593e4b07ae9f721b9278a99a0d3d5c"
+checksum = "f0b7840f121a46d63066ee7a99fc81dcabbc6105e437cae43528cea199b5a05f"
 dependencies = [
  "approx 0.5.0",
  "num-complex 0.4.0",
  "num-traits 0.2.14",
  "paste",
+ "wide",
 ]
 
 [[package]]
@@ -7308,6 +7329,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "wide"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd89cf484471f953ee84f07c0dff0ea20e9ddf976f03cabdf5dda48b221f22e7"
+dependencies = [
+ "bytemuck",
+ "safe_arch",
 ]
 
 [[package]]
