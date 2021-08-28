@@ -1,3 +1,14 @@
+## unreleased
+
+### Added
+
+* Backport to Pylon 5 for Basler cameras. This is not enabled by default but can
+  be useful to debug issues dependent on driver version.
+
+* Validate that triggerbox works in Windows.
+
+* April Tag detection works in Windows.
+
 ## 0.10.1 - 2021-07-26
 
 ### Added
