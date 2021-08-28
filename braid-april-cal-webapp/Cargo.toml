@@ -1,0 +1,30 @@
+[package]
+name = "braid-april-cal-webapp"
+version = "0.1.0"
+edition = "2018"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+yew = "0.18"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+web-sys = {version="0.3", features=["CssStyleDeclaration","HtmlAnchorElement"]}
+log = "0.4"
+wasm-logger = "0.2.0"
+serde = {version = "1.0", default-features = false, features=["derive"]}
+serde_json = "1.0"
+serde_yaml = "0.8"
+failure = "0.1"
+http = "0.2"
+itertools = "0.7.8"
+nalgebra = "0.29"
+cam-geom = "0.11"
+chrono = {version="0.4", features=["serde"]}
+dlt = "0.9"
+
+mvg = {path="../mvg", features=["serde-serialize"]}
+flydra-mvg = {path="../flydra-mvg"}
+ads-webasm = {path="../ads-webasm", features=["csv-widget"]}
+
+[features]
+backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

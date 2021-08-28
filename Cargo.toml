@@ -9,6 +9,7 @@ members = [
     "bisection-search",
     "braid",
     "braid/braid-run",
+    "braid-april-cal-webapp",
     "braid-offline",
     "braidz-parser",
     "braidz-parser/braidz-cli",

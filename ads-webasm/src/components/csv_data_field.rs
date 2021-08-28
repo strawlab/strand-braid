@@ -43,7 +43,7 @@ impl<RowType> std::fmt::Display for MaybeCsvData<RowType> {
     }
 }
 
-fn parse_csv<RowType>(filename: String, buf: &[u8]) -> MaybeCsvData<RowType>
+pub fn parse_csv<RowType>(filename: String, buf: &[u8]) -> MaybeCsvData<RowType>
 where
     for<'de> RowType: serde::Deserialize<'de>,
 {
