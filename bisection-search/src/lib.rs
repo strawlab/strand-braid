@@ -6,7 +6,7 @@ pub struct Interval<T> {
     b: T,
 }
 
-impl<T: RealField> Interval<T> {
+impl<T: RealField + Copy> Interval<T> {
     pub fn new(a: T, b: T) -> Option<Self> {
         if b >= a {
             Some(Self { a, b })
@@ -25,7 +25,7 @@ impl<T> Interval<T> {
     }
 }
 
-impl<T: RealField> Interval<T> {
+impl<T: RealField + Copy> Interval<T> {
     pub fn new_from_range<RB: std::ops::RangeBounds<T>>(range: RB) -> Option<Self> {
         if let std::ops::Bound::Included(start) = range.start_bound() {
             if let std::ops::Bound::Included(end) = range.end_bound() {
@@ -36,7 +36,7 @@ impl<T: RealField> Interval<T> {
     }
 }
 
-impl<T: RealField> Interval<T> {
+impl<T: RealField + Copy> Interval<T> {
     pub fn size(&self) -> T {
         self.b - self.a
     }
@@ -71,7 +71,7 @@ where
 
 impl<T, F> BisectionSearch<T, F>
 where
-    T: RealField,
+    T: RealField + Copy,
     F: Fn(&T) -> T,
 {
     pub fn step(mut self) -> Self {

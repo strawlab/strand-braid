@@ -40,12 +40,14 @@ pub use mvg::Result;
 // MultiCameraIter -------------------------------------------------------
 
 /// implements an `Iterator` which returns cameras as `MultiCamera`s.
-pub struct MultiCameraIter<'a, 'b, R: RealField + Default + serde::Serialize> {
+pub struct MultiCameraIter<'a, 'b, R: RealField + Copy + Default + serde::Serialize> {
     name_iter: CamNameIter<'b, R>,
     flydra_system: &'a FlydraMultiCameraSystem<R>,
 }
 
-impl<'a, 'b, R: RealField + Default + serde::Serialize> Iterator for MultiCameraIter<'a, 'b, R> {
+impl<'a, 'b, R: RealField + Copy + Default + serde::Serialize> Iterator
+    for MultiCameraIter<'a, 'b, R>
+{
     type Item = MultiCamera<R>;
     fn next(&mut self) -> Option<Self::Item> {
         self.name_iter
@@ -57,11 +59,11 @@ impl<'a, 'b, R: RealField + Default + serde::Serialize> Iterator for MultiCamera
 // CamNameIter -------------------------------------------------------
 
 /// implements an `Iterator` which returns camera names as `&str`s.
-pub struct CamNameIter<'a, R: RealField + Default + serde::Serialize>(
+pub struct CamNameIter<'a, R: RealField + Copy + Default + serde::Serialize>(
     std::collections::btree_map::Keys<'a, String, Camera<R>>,
 );
 
-impl<'a, R: RealField + Default + serde::Serialize> Iterator for CamNameIter<'a, R> {
+impl<'a, R: RealField + Copy + Default + serde::Serialize> Iterator for CamNameIter<'a, R> {
     type Item = &'a str;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(AsRef::as_ref)
@@ -76,7 +78,7 @@ impl<'a, R: RealField + Default + serde::Serialize> Iterator for CamNameIter<'a,
 /// rays are defined from an origin (typically the camera center) in a
 /// direction rather than a point in 3D space, which may be on the other side
 /// of a refractive boundary.
-trait RayCamera<R: RealField> {
+trait RayCamera<R: RealField + Copy> {
     fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> ncollide3d::query::Ray<R>;
     fn project_distorted_pixel_to_ray(&self, pt2d: &DistortedPixel<R>)
         -> ncollide3d::query::Ray<R>;
@@ -84,7 +86,7 @@ trait RayCamera<R: RealField> {
     fn project_ray_to_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> UndistortedPixel<R>;
 }
 
-impl<R: RealField + Default + serde::Serialize> RayCamera<R> for Camera<R> {
+impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R> {
     fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> ncollide3d::query::Ray<R> {
         let dist = na::convert(1.0);
         let p2 = self.project_pixel_to_3d_with_dist(pt, dist);
@@ -128,13 +130,13 @@ impl<R: RealField + Default + serde::Serialize> RayCamera<R> for Camera<R> {
 /// resulting pixel may be subject to refraction. Instead, we have only the
 /// ray based methods.
 #[derive(Clone, Debug)]
-pub struct MultiCamera<R: RealField + Default + serde::Serialize> {
+pub struct MultiCamera<R: RealField + Copy + Default + serde::Serialize> {
     water: Option<R>,
     name: String,
     cam: Camera<R>,
 }
 
-impl<R: RealField + Default + serde::Serialize> MultiCamera<R> {
+impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
     pub fn to_cam(self) -> Camera<R> {
         self.cam
     }
@@ -316,12 +318,12 @@ impl<R: RealField + Default + serde::Serialize> MultiCamera<R> {
 // FlydraMultiCameraSystem ----------------------------------------------------
 
 #[derive(Clone, Debug)]
-pub struct FlydraMultiCameraSystem<R: RealField + serde::Serialize> {
+pub struct FlydraMultiCameraSystem<R: RealField + Copy + serde::Serialize> {
     system: MultiCameraSystem<R>,
     water: Option<R>,
 }
 
-impl<R: RealField + Default + serde::Serialize> FlydraMultiCameraSystem<R> {
+impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R> {
     pub fn from_system(system: MultiCameraSystem<R>, water: Option<R>) -> Self {
         FlydraMultiCameraSystem { system, water }
     }
@@ -592,7 +594,7 @@ impl<R: RealField + Default + serde::Serialize> FlydraMultiCameraSystem<R> {
 
 impl<R> FlydraMultiCameraSystem<R>
 where
-    R: RealField + serde::Serialize + DeserializeOwned + Default,
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
     pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
         let recon: flydra_xml_support::FlydraReconstructor<R> =
@@ -615,12 +617,12 @@ where
 // FlydraCamera ----------------------------------------------
 
 /// A helper trait to implement conversions to and from `mvg::Camera`
-pub trait FlydraCamera<R: RealField + serde::Serialize> {
+pub trait FlydraCamera<R: RealField + Copy + serde::Serialize> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>>;
     fn from_flydra(cam: &SingleCameraCalibration<R>) -> Result<(String, Camera<R>)>;
 }
 
-impl<R: RealField + serde::Serialize> FlydraCamera<R> for Camera<R> {
+impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
@@ -759,7 +761,7 @@ impl<R: RealField + serde::Serialize> FlydraCamera<R> for Camera<R> {
 }
 
 /// helper function (duplicated from mvg)
-fn pmat2cam_center<R: RealField>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
+fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = p.clone().remove_column(0).determinant();
     let y = -p.clone().remove_column(1).determinant();
     let z = p.clone().remove_column(2).determinant();

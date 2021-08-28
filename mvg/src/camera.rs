@@ -19,14 +19,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Camera<R: RealField> {
+pub struct Camera<R: RealField + Copy> {
     pub(crate) width: usize,
     pub(crate) height: usize,
     pub(crate) inner: cam_geom::Camera<R, RosOpenCvIntrinsics<R>>,
     pub(crate) cache: CameraCache<R>,
 }
 
-impl<R: RealField> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera<R> {
+impl<R: RealField + Copy> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera<R> {
     #[inline]
     fn as_ref(&self) -> &cam_geom::Camera<R, RosOpenCvIntrinsics<R>> {
         &self.inner
@@ -34,7 +34,7 @@ impl<R: RealField> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera
 }
 
 #[cfg(feature = "serde-serialize")]
-impl<R: RealField + serde::Serialize> serde::Serialize for Camera<R> {
+impl<R: RealField + serde::Serialize + Copy> serde::Serialize for Camera<R> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -52,7 +52,7 @@ impl<R: RealField + serde::Serialize> serde::Serialize for Camera<R> {
 }
 
 #[cfg(feature = "serde-serialize")]
-impl<'de, R: RealField + serde::Deserialize<'de>> serde::Deserialize<'de> for Camera<R> {
+impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de> for Camera<R> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -73,7 +73,7 @@ impl<'de, R: RealField + serde::Deserialize<'de>> serde::Deserialize<'de> for Ca
             std::marker::PhantomData<&'de R2>,
         );
 
-        impl<'de, R2: RealField + serde::Deserialize<'de>> serde::de::Visitor<'de>
+        impl<'de, R2: RealField + serde::Deserialize<'de> + Copy> serde::de::Visitor<'de>
             for CameraVisitor<'de, R2>
         {
             type Value = Camera<R2>;
@@ -169,19 +169,19 @@ fn _test_camera_is_deserialize() {
 }
 
 #[derive(Clone, PartialEq)]
-pub(crate) struct CameraCache<R: RealField> {
+pub(crate) struct CameraCache<R: RealField + Copy> {
     pub(crate) m: OMatrix<R, U3, U4>,
     pub(crate) pinv: OMatrix<R, U4, U3>,
 }
 
-impl<R: RealField> std::fmt::Debug for CameraCache<R> {
+impl<R: RealField + Copy> std::fmt::Debug for CameraCache<R> {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // do not show cache
         Ok(())
     }
 }
 
-fn my_pinv<R: RealField>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
+fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
     na::linalg::SVD::try_new(m.clone(), true, true, na::convert(1e-7), 100)
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
@@ -190,7 +190,7 @@ fn my_pinv<R: RealField>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
         })
 }
 
-impl<R: RealField> Camera<R> {
+impl<R: RealField + Copy> Camera<R> {
     pub fn new(
         width: usize,
         height: usize,
@@ -385,7 +385,7 @@ impl<R: RealField> Camera<R> {
     }
 }
 
-impl<R: RealField> std::default::Default for Camera<R> {
+impl<R: RealField + Copy> std::default::Default for Camera<R> {
     fn default() -> Camera<R> {
         let extrinsics = crate::extrinsics::make_default_extrinsics();
         let intrinsics = crate::make_default_intrinsics();
@@ -393,7 +393,7 @@ impl<R: RealField> std::default::Default for Camera<R> {
     }
 }
 
-fn pmat2cam_center<R: RealField>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
+fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = p.clone().remove_column(0).determinant();
     let y = -p.clone().remove_column(1).determinant();
     let z = p.clone().remove_column(2).determinant();
@@ -405,7 +405,7 @@ fn pmat2cam_center<R: RealField>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
 ///
 /// This is the implementation from prior to
 /// https://github.com/rustsim/nalgebra/commit/74aefd9c23dadd12ee654c7d0206b0a96d22040c
-fn my_quat_angle<R: RealField>(quat: &na::UnitQuaternion<R>) -> R {
+fn my_quat_angle<R: RealField + Copy>(quat: &na::UnitQuaternion<R>) -> R {
     let w = quat.quaternion().scalar().abs();
 
     // Handle inaccuracies that make break `.acos`.
@@ -417,7 +417,9 @@ fn my_quat_angle<R: RealField>(quat: &na::UnitQuaternion<R>) -> R {
 }
 
 /// convert a 3x3 matrix into a valid right-handed rotation
-fn right_handed_rotation_quat_new<R: RealField>(orig: &Matrix3<R>) -> Result<UnitQuaternion<R>> {
+fn right_handed_rotation_quat_new<R: RealField + Copy>(
+    orig: &Matrix3<R>,
+) -> Result<UnitQuaternion<R>> {
     let r1 = orig.clone();
     let rotmat = Rotation3::from_matrix_unchecked(r1);
     let rquat = UnitQuaternion::from_rotation_matrix(&rotmat);
@@ -437,7 +439,7 @@ fn right_handed_rotation_quat_new<R: RealField>(orig: &Matrix3<R>) -> Result<Uni
     Ok(rquat)
 }
 
-fn rq<R: RealField>(A: Matrix3<R>) -> (Matrix3<R>, Matrix3<R>) {
+fn rq<R: RealField + Copy>(A: Matrix3<R>) -> (Matrix3<R>, Matrix3<R>) {
     let zero: R = Zero::zero();
     let one: R = One::one();
 
@@ -455,7 +457,9 @@ fn rq<R: RealField>(A: Matrix3<R>) -> (Matrix3<R>, Matrix3<R>) {
 }
 
 /// perform RQ decomposition and return results as right-handed quaternion and intrinsics matrix
-pub fn rq_decomposition<R: RealField>(orig: Matrix3<R>) -> Result<(UnitQuaternion<R>, Matrix3<R>)> {
+pub fn rq_decomposition<R: RealField + Copy>(
+    orig: Matrix3<R>,
+) -> Result<(UnitQuaternion<R>, Matrix3<R>)> {
     let (mut intrin, mut q) = rq(orig);
     let zero: R = Zero::zero();
     for i in 0..3 {

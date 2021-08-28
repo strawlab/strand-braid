@@ -5,6 +5,6 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-ncollide2d = "0.31"
+ncollide2d = "0.32"
 delaunator = "0.2.0"
-nalgebra = "0.28"
+nalgebra = "0.29"

@@ -87,7 +87,7 @@ pub(crate) fn generate_observation_model<R>(
     ekf_observation_covariance_pixels: f32,
 ) -> Result<CameraObservationModel<R>>
 where
-    R: RealField + Default + serde::Serialize,
+    R: RealField + Copy + Default + serde::Serialize,
 {
     let pt3d: PointWorldFrame<R> = to_world_point(state);
     // Deals with water if needed.
@@ -104,7 +104,7 @@ where
 #[derive(Debug)]
 struct CameraObservationModel<R>
 where
-    R: RealField + Default + serde::Serialize,
+    R: RealField + Copy + Default + serde::Serialize,
 {
     cam: flydra_mvg::MultiCamera<R>,
     observation_matrix: OMatrix<R, U2, U6>,
@@ -114,7 +114,7 @@ where
 
 impl<R> CameraObservationModel<R>
 where
-    R: RealField + Default + serde::Serialize,
+    R: RealField + Copy + Default + serde::Serialize,
 {
     fn new(
         cam: flydra_mvg::MultiCamera<R>,
@@ -150,7 +150,7 @@ where
     DefaultAllocator: Allocator<R, U2>,
     DefaultAllocator: Allocator<(usize, usize), U2>,
     U2: DimMin<U2, Output = U2>,
-    R: RealField + Default + serde::Serialize,
+    R: RealField + Copy + Default + serde::Serialize,
 {
     fn H(&self) -> &OMatrix<R, U2, U6> {
         &self.observation_matrix
@@ -324,7 +324,7 @@ impl std::cmp::PartialEq for TimeDataPassthrough {
     }
 }
 
-fn to_world_point<R: nalgebra::RealField>(vec6: &OVector<R, U6>) -> PointWorldFrame<R> {
+fn to_world_point<R: RealField + Copy>(vec6: &OVector<R, U6>) -> PointWorldFrame<R> {
     // TODO could we just borrow a pointer to data instead of copying it?
     PointWorldFrame {
         coords: Point3::new(vec6.x, vec6.y, vec6.z),

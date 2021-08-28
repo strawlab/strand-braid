@@ -3,7 +3,7 @@ use na::RealField;
 use nalgebra as na;
 
 #[derive(Debug, Clone)]
-pub(crate) struct RootParams<R: RealField> {
+pub(crate) struct RootParams<R: RealField + Copy> {
     n1: R,
     n2: R,
     z1: R,
@@ -12,7 +12,7 @@ pub(crate) struct RootParams<R: RealField> {
     eps: R,
 }
 
-impl<R: RealField> RootParams<R> {
+impl<R: RealField + Copy> RootParams<R> {
     pub(crate) fn new(n1: R, n2: R, z1: R, h: R, z2: R, eps: R) -> Self {
         Self {
             n1,
@@ -71,7 +71,7 @@ impl<R: RealField> RootParams<R> {
 /// `n1*sqrt( h1*h1 + z1*z1 ) + n2*sqrt(z2*z2 + h2*h2)`. See
 /// [this](https://github.com/strawlab/flydra/blob/master/flydra_core/sympy_demo/refraction_demo.py)
 /// for the full factorization.
-pub(crate) fn find_fastest_path_fermat<R: RealField>(params: &RootParams<R>) -> Result<R> {
+pub(crate) fn find_fastest_path_fermat<R: RealField + Copy>(params: &RootParams<R>) -> Result<R> {
     let RootParams {
         n1,
         n2,

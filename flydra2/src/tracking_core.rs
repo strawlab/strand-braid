@@ -102,7 +102,7 @@ impl ModelFramePosteriors {
     }
 }
 
-fn covariance_size<R: RealField>(mat: &OMatrix<R, U6, U6>) -> R {
+fn covariance_size<R: RealField + Copy>(mat: &OMatrix<R, U6, U6>) -> R {
     // XXX should probably use trace/N (mean of variances) or determinant (volume of variance)
     let v1 = vec![mat[(0, 0)], mat[(1, 1)], mat[(2, 2)]];
     v1.iter()

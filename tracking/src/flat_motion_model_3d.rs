@@ -14,7 +14,7 @@ use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
 ///
 /// The state vector is [x y z xvel yvel zvel].
 #[derive(Debug, Clone)]
-pub struct FlatZZero3DModel<R: RealField>
+pub struct FlatZZero3DModel<R: RealField + Copy>
 where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
@@ -22,7 +22,7 @@ where
     motion_noise_scale: R,
 }
 
-impl<R: RealField> FlatZZero3DModel<R>
+impl<R: RealField + Copy> FlatZZero3DModel<R>
 where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<R: RealField> MotionModel3D<R> for FlatZZero3DModel<R>
+impl<R: RealField + Copy> MotionModel3D<R> for FlatZZero3DModel<R>
 where
     DefaultAllocator: Allocator<R, U6, U6>,
     DefaultAllocator: Allocator<R, U6>,

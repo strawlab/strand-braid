@@ -5,7 +5,7 @@ use nalgebra::RealField;
 
 use cam_geom::ExtrinsicParameters;
 
-pub fn make_default_extrinsics<R: RealField>() -> ExtrinsicParameters<R> {
+pub fn make_default_extrinsics<R: RealField + Copy>() -> ExtrinsicParameters<R> {
     let axis = na::core::Unit::new_normalize(Vector3::x());
     let angle = na::convert(0.0);
     let rquat = UnitQuaternion::from_axis_angle(&axis, angle);
@@ -14,7 +14,7 @@ pub fn make_default_extrinsics<R: RealField>() -> ExtrinsicParameters<R> {
     ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter)
 }
 
-pub fn from_rquat_translation<R: RealField>(
+pub fn from_rquat_translation<R: RealField + Copy>(
     rquat: UnitQuaternion<R>,
     translation: Point3<R>,
 ) -> ExtrinsicParameters<R> {

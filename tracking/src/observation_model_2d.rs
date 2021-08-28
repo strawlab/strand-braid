@@ -8,13 +8,13 @@ use nalgebra::{DefaultAllocator, OMatrix, OVector, RealField};
 use adskalman::ObservationModel;
 
 #[derive(Debug)]
-pub struct ObservationModel2D<R: RealField> {
+pub struct ObservationModel2D<R: RealField+Copy> {
     observation_matrix: OMatrix<R, U2, U4>,
     observation_matrix_transpose: OMatrix<R, U4, U2>,
     observation_noise_covariance: OMatrix<R, U2, U2>,
 }
 
-impl<R: RealField> ObservationModel2D<R> {
+impl<R: RealField+Copy> ObservationModel2D<R> {
     pub fn new(observation_noise_covariance: OMatrix<R, U2, U2>) -> Self {
         let zero: R = Zero::zero();
         let one: R = One::one();
@@ -32,7 +32,7 @@ impl<R: RealField> ObservationModel2D<R> {
     }
 }
 
-impl<R: RealField> ObservationModel<R, U4, U2> for ObservationModel2D<R>
+impl<R: RealField+Copy> ObservationModel<R, U4, U2> for ObservationModel2D<R>
 where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,

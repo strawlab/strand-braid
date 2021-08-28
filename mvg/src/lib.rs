@@ -107,13 +107,13 @@ mod multi_cam_system;
 pub use crate::multi_cam_system::MultiCameraSystem;
 
 #[derive(Debug, Clone)]
-pub struct DistortedPixel<R: RealField> {
+pub struct DistortedPixel<R: RealField + Copy> {
     pub coords: Point2<R>,
 }
 
 impl<R, IN> From<&cam_geom::Pixels<R, U1, IN>> for DistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U2>,
 {
     fn from(orig: &cam_geom::Pixels<R, U1, IN>) -> Self {
@@ -125,7 +125,7 @@ where
 
 impl<R, IN> From<cam_geom::Pixels<R, U1, IN>> for DistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U2>,
 {
     fn from(orig: cam_geom::Pixels<R, U1, IN>) -> Self {
@@ -136,7 +136,7 @@ where
 
 impl<R> Into<cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>>> for &DistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
     fn into(self) -> cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>> {
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<R: RealField> DistortedPixel<R> {
+impl<R: RealField + Copy> DistortedPixel<R> {
     pub fn from_pixels<NPTS, IN>(pixels: &cam_geom::Pixels<R, NPTS, IN>, i: usize) -> Self
     where
         NPTS: Dim,
@@ -159,13 +159,13 @@ impl<R: RealField> DistortedPixel<R> {
 }
 
 #[derive(Debug, Clone)]
-pub struct UndistortedPixel<R: RealField> {
+pub struct UndistortedPixel<R: RealField + Copy> {
     pub coords: Point2<R>,
 }
 
 impl<R, IN> From<&opencv_ros_camera::UndistortedPixels<R, U1, IN>> for UndistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U2>,
 {
     fn from(orig: &opencv_ros_camera::UndistortedPixels<R, U1, IN>) -> Self {
@@ -177,7 +177,7 @@ where
 
 impl<R, IN> From<opencv_ros_camera::UndistortedPixels<R, U1, IN>> for UndistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U2>,
 {
     fn from(orig: opencv_ros_camera::UndistortedPixels<R, U1, IN>) -> Self {
@@ -189,7 +189,7 @@ where
 impl<R> Into<opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>>>
     for &UndistortedPixel<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
     fn into(self) -> opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>> {
@@ -200,14 +200,14 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct PointCameraFrame<R: RealField> {
+pub struct PointCameraFrame<R: RealField + Copy> {
     pub coords: Point3<R>,
 }
 
 impl<R, IN> From<&cam_geom::Points<cam_geom::coordinate_system::CameraFrame, R, U1, IN>>
     for PointCameraFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U3>,
 {
     fn from(orig: &cam_geom::Points<cam_geom::coordinate_system::CameraFrame, R, U1, IN>) -> Self {
@@ -220,7 +220,7 @@ where
 impl<R, IN> From<cam_geom::Points<cam_geom::coordinate_system::CameraFrame, R, U1, IN>>
     for PointCameraFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U3>,
 {
     fn from(orig: cam_geom::Points<cam_geom::coordinate_system::CameraFrame, R, U1, IN>) -> Self {
@@ -239,7 +239,7 @@ impl<R>
         >,
     > for &PointCameraFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
     fn into(
@@ -259,14 +259,14 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct PointWorldFrame<R: RealField> {
+pub struct PointWorldFrame<R: RealField + Copy> {
     pub coords: Point3<R>,
 }
 
 impl<R, IN> From<&cam_geom::Points<cam_geom::coordinate_system::WorldFrame, R, U1, IN>>
     for PointWorldFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U3>,
 {
     fn from(orig: &cam_geom::Points<cam_geom::coordinate_system::WorldFrame, R, U1, IN>) -> Self {
@@ -279,7 +279,7 @@ where
 impl<R, IN> From<cam_geom::Points<cam_geom::coordinate_system::WorldFrame, R, U1, IN>>
     for PointWorldFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     IN: nalgebra::storage::Storage<R, U1, U3>,
 {
     fn from(orig: cam_geom::Points<cam_geom::coordinate_system::WorldFrame, R, U1, IN>) -> Self {
@@ -298,7 +298,7 @@ impl<R>
         >,
     > for &PointWorldFrame<R>
 where
-    R: RealField,
+    R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
     fn into(
@@ -317,19 +317,19 @@ where
     }
 }
 
-pub fn vec_sum<R: RealField>(vec: &[R]) -> R {
+pub fn vec_sum<R: RealField + Copy>(vec: &[R]) -> R {
     vec.iter().fold(na::convert(0.0), |acc, i| acc + *i)
 }
 
 #[derive(Debug, Clone)]
-pub struct PointWorldFrameWithSumReprojError<R: RealField> {
+pub struct PointWorldFrameWithSumReprojError<R: RealField + Copy> {
     pub point: PointWorldFrame<R>,
     pub cum_reproj_dist: R,
     pub mean_reproj_dist: R,
     pub reproj_dists: Vec<R>,
 }
 
-impl<R: RealField> PointWorldFrameWithSumReprojError<R> {
+impl<R: RealField + Copy> PointWorldFrameWithSumReprojError<R> {
     pub fn new(point: PointWorldFrame<R>, reproj_dists: Vec<R>) -> Self {
         let cum_reproj_dist = vec_sum(&reproj_dists);
         let n_cams: R = na::convert(reproj_dists.len() as f64);
@@ -344,12 +344,12 @@ impl<R: RealField> PointWorldFrameWithSumReprojError<R> {
 }
 
 #[derive(Debug, Clone)]
-pub enum PointWorldFrameMaybeWithSumReprojError<R: RealField> {
+pub enum PointWorldFrameMaybeWithSumReprojError<R: RealField + Copy> {
     Point(PointWorldFrame<R>),
     WithSumReprojError(PointWorldFrameWithSumReprojError<R>),
 }
 
-impl<R: RealField> PointWorldFrameMaybeWithSumReprojError<R> {
+impl<R: RealField + Copy> PointWorldFrameMaybeWithSumReprojError<R> {
     pub fn point(self) -> PointWorldFrame<R> {
         use crate::PointWorldFrameMaybeWithSumReprojError::*;
         match self {
@@ -360,12 +360,12 @@ impl<R: RealField> PointWorldFrameMaybeWithSumReprojError<R> {
 }
 
 #[derive(Debug, Clone)]
-pub struct WorldCoordAndUndistorted2D<R: RealField> {
+pub struct WorldCoordAndUndistorted2D<R: RealField + Copy> {
     wc: PointWorldFrameMaybeWithSumReprojError<R>,
     upoints: Vec<(String, UndistortedPixel<R>)>,
 }
 
-impl<R: RealField> WorldCoordAndUndistorted2D<R> {
+impl<R: RealField + Copy> WorldCoordAndUndistorted2D<R> {
     pub fn new(
         wc: PointWorldFrameMaybeWithSumReprojError<R>,
         upoints: Vec<(String, UndistortedPixel<R>)>,
@@ -385,7 +385,7 @@ impl<R: RealField> WorldCoordAndUndistorted2D<R> {
     }
 }
 
-pub fn make_default_intrinsics<R: RealField>() -> RosOpenCvIntrinsics<R> {
+pub fn make_default_intrinsics<R: RealField + Copy>() -> RosOpenCvIntrinsics<R> {
     let cx = na::convert(320.0);
     let cy = na::convert(240.0);
     let fx = na::convert(1000.0);

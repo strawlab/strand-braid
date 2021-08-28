@@ -21,7 +21,7 @@ failure = "0.1"
 http = "0.2"
 itertools = "0.7.8"
 chrono = {version="0.4", features=["serde"]}
-ncollide3d = {version="0.31", features=["serde-serialize"]}
+ncollide3d = {version="0.32", features=["serde-serialize"]}
 
 mvg = {path="../../mvg", features=["serde-serialize"]}
 enum-iter = {path="../../enum-iter"}

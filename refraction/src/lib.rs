@@ -52,7 +52,7 @@ pub struct RefractionEq<T> {
     pub n: T,
 }
 
-impl<T: RealField> RefractionEq<T> {
+impl<T: RealField + Copy> RefractionEq<T> {
     /// Evaluate the refraction equation at location `x`.
     pub fn f(&self, x: T) -> T {
         let RefractionEq { d, h, w, n } = self.clone();
@@ -64,7 +64,7 @@ impl<T: RealField> RefractionEq<T> {
 
 pub fn find_root<T>(a: T, b: T, eq: RefractionEq<T>, tolerance: T) -> Option<T>
 where
-    T: RealField,
+    T: RealField + Copy,
 {
     let interval = match Interval::new(a, b) {
         Some(i) => i,

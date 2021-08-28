@@ -13,7 +13,7 @@ use adskalman::TransitionModelLinearNoControl;
 ///
 /// The state vector is [x y xvel yvel].
 #[derive(Debug)]
-pub struct ConstantVelocity2DModel<R: RealField>
+pub struct ConstantVelocity2DModel<R: RealField + Copy>
 where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
@@ -21,7 +21,7 @@ where
     motion_noise_scale: R,
 }
 
-impl<R: RealField> ConstantVelocity2DModel<R>
+impl<R: RealField + Copy> ConstantVelocity2DModel<R>
 where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
@@ -75,7 +75,7 @@ where
 ///
 /// The state vector is [x y xvel yvel]
 #[derive(Debug)]
-pub struct MotionModel2DFixedDt<R: RealField>
+pub struct MotionModel2DFixedDt<R: RealField + Copy>
 where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,
@@ -85,7 +85,7 @@ where
     transition_noise_covariance: OMatrix<R, U4, U4>,
 }
 
-impl<R: RealField> TransitionModelLinearNoControl<R, U4> for MotionModel2DFixedDt<R>
+impl<R: RealField + Copy> TransitionModelLinearNoControl<R, U4> for MotionModel2DFixedDt<R>
 where
     DefaultAllocator: Allocator<R, U4, U4>,
     DefaultAllocator: Allocator<R, U4>,

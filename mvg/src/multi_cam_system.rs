@@ -19,14 +19,14 @@ use crate::{
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
-pub struct MultiCameraSystem<R: RealField + Serialize> {
+pub struct MultiCameraSystem<R: RealField + Serialize + Copy> {
     cams_by_name: BTreeMap<String, Camera<R>>,
     comment: Option<String>,
 }
 
 impl<R> MultiCameraSystem<R>
 where
-    R: RealField + Serialize + DeserializeOwned + Default,
+    R: RealField + Serialize + DeserializeOwned + Default + Copy,
 {
     // This is disabled because nalgebra and serde write incompatible json.
     // pub fn to_pymvg_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<R: RealField + Default + Serialize> MultiCameraSystem<R> {
+impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     pub fn new(cams_by_name: BTreeMap<String, Camera<R>>) -> Self {
         Self::new_inner(cams_by_name, None)
     }

@@ -10,7 +10,7 @@ pub enum MirrorAxis {
 }
 
 /// return a copy of this camera whose x coordinate is (image_width-x)
-pub fn mirror<R: RealField>(
+pub fn mirror<R: RealField + Copy>(
     self_: &RosOpenCvIntrinsics<R>,
     axis: MirrorAxis,
 ) -> Option<RosOpenCvIntrinsics<R>> {

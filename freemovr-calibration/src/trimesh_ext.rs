@@ -4,11 +4,11 @@ use ncollide3d::query::PointQueryWithLocation;
 use ncollide3d::shape::TriMesh;
 use ncollide3d::shape::TrianglePointLocation;
 
-pub trait FaceIndices<N: nalgebra::RealField> {
+pub trait FaceIndices<N: nalgebra::RealField + Copy> {
     fn indices(&self) -> Vec<Point3<usize>>;
 }
 
-impl<N: nalgebra::RealField> FaceIndices<N> for TriMesh<N> {
+impl<N: nalgebra::RealField + Copy> FaceIndices<N> for TriMesh<N> {
     fn indices(&self) -> Vec<Point3<usize>> {
         self.faces()
             .iter()
@@ -17,7 +17,7 @@ impl<N: nalgebra::RealField> FaceIndices<N> for TriMesh<N> {
     }
 }
 
-pub trait UvPosition<N: nalgebra::RealField> {
+pub trait UvPosition<N: nalgebra::RealField + Copy> {
     fn project_point_to_uv(
         &self,
         m: &Isometry3<N>,
@@ -26,7 +26,7 @@ pub trait UvPosition<N: nalgebra::RealField> {
     ) -> Option<Point2<N>>;
 }
 
-impl<N: nalgebra::RealField> UvPosition<N> for TriMesh<N> {
+impl<N: nalgebra::RealField + Copy> UvPosition<N> for TriMesh<N> {
     fn project_point_to_uv(
         &self,
         m: &Isometry3<N>,
