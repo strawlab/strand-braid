@@ -38,8 +38,8 @@ pub enum MvgError {
     NoValidRootFound,
     #[error("not implemented operation in mvg")]
     NotImplemented,
-    #[error("cannot convert to flydra xml")]
-    CannotConvertToFlydraXml,
+    #[error("cannot convert to or from flydra xml")]
+    FailedFlydraXmlConversion,
     #[error("IO error: {source}")]
     Io {
         #[from]

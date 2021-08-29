@@ -598,7 +598,7 @@ where
 {
     pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
         let recon: flydra_xml_support::FlydraReconstructor<R> =
-            serde_xml_rs::from_reader(reader).map_err(|_e| MvgError::CannotConvertToFlydraXml)?;
+            serde_xml_rs::from_reader(reader).map_err(|_e| MvgError::FailedFlydraXmlConversion)?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
 
@@ -626,7 +626,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(MvgError::CannotConvertToFlydraXml.into());
+            return Err(MvgError::FailedFlydraXmlConversion.into());
         }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
