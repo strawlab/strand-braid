@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 log = "0.4.5"
 chrono = "0.4"
-thiserror = "1.0"
+thiserror = "1.0.28"
 
 mkv-writer = {path="../mkv-writer"}
 machine-vision-formats = "0.1"
