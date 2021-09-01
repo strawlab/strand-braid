@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 machine-vision-formats = "0.1"
 simple-frame = { path = "../simple-frame" }
-image = "0.23"
+image = {version="0.23", default-features=false, features=["jpeg","png"]}
 thiserror = "1.0"
 bayer = "0.1"
 itertools = "0.8"
