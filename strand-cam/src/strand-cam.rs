@@ -509,6 +509,8 @@ fn to_serializer(
 struct AprilConfig {
     created_at: chrono::DateTime<chrono::Local>,
     camera_name: String,
+    camera_width_pixels: usize,
+    camera_height_pixels: usize,
 }
 
 #[cfg(feature = "fiducial")]
@@ -519,7 +521,12 @@ struct AprilTagWriter {
 
 #[cfg(feature = "fiducial")]
 impl AprilTagWriter {
-    fn new(template: String, camera_name: &str) -> Result<Self> {
+    fn new(
+        template: String,
+        camera_name: &str,
+        camera_width_pixels: usize,
+        camera_height_pixels: usize,
+    ) -> Result<Self> {
         let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
         let local = now.with_timezone(&chrono::Local);
         let fname = local.format(&template).to_string();
@@ -530,6 +537,8 @@ impl AprilTagWriter {
         let april_config = AprilConfig {
             created_at: local,
             camera_name: camera_name.to_string(),
+            camera_width_pixels,
+            camera_height_pixels,
         };
         let cfg_yaml = serde_yaml::to_string(&april_config).unwrap();
         writeln!(
@@ -1019,7 +1028,7 @@ fn frame_process_thread(
                 {
                     if let Some(x) = store_cache.as_ref() {
                         if let Some(apriltag_state) = &x.apriltag_state {
-                            apriltag_writer = Some(AprilTagWriter::new(format_str_apriltags_csv, &x.camera_name)?);
+                            apriltag_writer = Some(AprilTagWriter::new(format_str_apriltags_csv, &x.camera_name, x.image_width as usize, x.image_height as usize)?);
                         }
                     }
                 }
