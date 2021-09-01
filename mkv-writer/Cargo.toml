@@ -8,7 +8,7 @@ edition = "2018"
 log = "0.4"
 chrono = "0.4.6"
 webm = "1"
-vpx-encode = {version="0.5", features=["vp9"]}
+vpx-encode = {version="0.5", features=["vp9"], optional=true}
 thiserror = "1.0.28"
 machine-vision-formats = "0.1"
 
@@ -29,4 +29,9 @@ ttf-firacode = "0.1"
 simple-frame = { path = "../simple-frame" }
 
 [features]
-backtrace = ["vpx-encode/backtrace", "nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace"]
+default = ["vpx"]
+
+vpx=["vpx-encode"]
+
+# Also remember to enable vpx-encode/backtrace if both backtrace and vpx features are enabled.
+backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace"]

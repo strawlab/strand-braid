@@ -6,7 +6,10 @@ use std::rc::Rc;
 extern crate log;
 
 use ci2_remote_control::MkvRecordingConfig;
-use convert_image::{encode_into_nv12, encode_y4m_frame, Y4MColorspace};
+use convert_image::encode_into_nv12;
+
+#[cfg(feature = "vpx")]
+use convert_image::{encode_y4m_frame, Y4MColorspace};
 
 use machine_vision_formats::{ImageBufferMutRef, ImageStride, PixelFormat};
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
@@ -32,11 +35,17 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         convert_image::Error,
     ),
+    #[cfg(feature = "vpx")]
     #[error("VPX Encoder Error")]
     VpxEncoderError {
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         inner: vpx_encode::Error,
+    },
+    #[error("Compiled without VPX support but VPX requested")]
+    NoVpxAvailable {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
     },
     #[error("nvenc error")]
     NvencError(
@@ -63,6 +72,7 @@ impl From<dynlink_cuda::CudaError> for Error {
 type Result<T> = std::result::Result<T, Error>;
 
 enum MyEncoder<'lib> {
+    #[cfg(feature = "vpx")]
     Vpx(vpx_encode::Encoder),
     Nvidia(NvEncoder<'lib>),
 }
@@ -117,17 +127,28 @@ where
                 let mut mkv_segment =
                     mux::Segment::new(mux::Writer::new(fd)).expect("mux::Segment::new");
 
+                #[allow(unused_assignments)]
                 let mut opt_h264_encoder = None;
 
                 let (vpx_tup, mux_codec) = match cfg.codec {
+                    #[cfg(feature = "vpx")]
                     ci2_remote_control::MkvCodec::VP8(opts) => (
+                        #[cfg(feature = "vpx")]
                         Some((vpx_encode::VideoCodecId::VP8, opts.bitrate)),
                         webm::mux::VideoCodecId::VP8,
                     ),
+                    #[cfg(feature = "vpx")]
                     ci2_remote_control::MkvCodec::VP9(opts) => (
                         Some((vpx_encode::VideoCodecId::VP9, opts.bitrate)),
                         webm::mux::VideoCodecId::VP9,
                     ),
+                    #[cfg(not(feature = "vpx"))]
+                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                        return Err(Error::NoVpxAvailable {
+                            #[cfg(feature = "backtrace")]
+                            backtrace: std::backtrace::Backtrace::capture(),
+                        });
+                    }
                     ci2_remote_control::MkvCodec::H264(opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
@@ -223,18 +244,32 @@ where
 
                 let vt = mkv_segment.add_video_track(width, height, None, mux_codec);
 
-                let my_encoder = if let Some((vpx_codec, bitrate)) = vpx_tup {
-                    debug!("Using codec {:?} in mkv file.", vpx_codec);
-                    // Setup the encoder.
-                    let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
-                        width: width,
-                        height: height,
-                        timebase: [1, 1000], // millisecond time base
-                        bitrate,
-                        codec: vpx_codec,
-                    })?;
+                // A dummy type which is never used so the compiler does not complain.
+                #[cfg(not(feature = "vpx"))]
+                #[allow(unused_variables)]
+                let vpx_tup: Option<u8> = vpx_tup;
 
-                    MyEncoder::Vpx(vpx_encoder)
+                let my_encoder = if let Some(vpx_tup) = vpx_tup {
+                    #[cfg(feature = "vpx")]
+                    {
+                        let (vpx_codec, bitrate) = vpx_tup;
+                        debug!("Using codec {:?} in mkv file.", vpx_codec);
+                        // Setup the encoder.
+                        let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
+                            width: width,
+                            height: height,
+                            timebase: [1, 1000], // millisecond time base
+                            bitrate,
+                            codec: vpx_codec,
+                        })?;
+
+                        MyEncoder::Vpx(vpx_encoder)
+                    }
+                    #[cfg(not(feature = "vpx"))]
+                    {
+                        // We should never get here.
+                        panic!("No VPX support at compilation time. VPX: {}", vpx_tup);
+                    }
                 } else {
                     let enc = opt_h264_encoder.unwrap();
                     MyEncoder::Nvidia(enc)
@@ -311,6 +346,7 @@ where
             }
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
+                    #[cfg(feature = "vpx")]
                     MyEncoder::Vpx(vpx_encoder) => {
                         let mut frames = vpx_encoder.finish().unwrap();
                         trace!("Finishing vpx encoding.");
@@ -364,18 +400,12 @@ trait PtsDur {
     fn pts_dur(&self) -> std::time::Duration;
 }
 
-// same as std::time::Duration::from_secs_f64 in rust 1.38
-fn from_secs_f64(secs: f64) -> std::time::Duration {
-    let whole_secs = secs.floor() as u64;
-    let subsec_nanos = ((secs - whole_secs as f64) * 1e9).round() as u32;
-    std::time::Duration::new(whole_secs, subsec_nanos)
-}
-
+#[cfg(feature = "vpx")]
 impl<'a> PtsDur for vpx_encode::Frame<'a> {
     fn pts_dur(&self) -> std::time::Duration {
         // millisecond time base
         let secs = self.pts as f64 / 1000.0;
-        from_secs_f64(secs)
+        std::time::Duration::from_secs_f64(secs)
     }
 }
 
@@ -403,6 +433,7 @@ where
     let elapsed = timestamp.signed_duration_since(state.first_timestamp);
 
     match &mut state.my_encoder {
+        #[cfg(feature = "vpx")]
         MyEncoder::Vpx(ref mut vpx_encoder) => {
             let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
             trace!("got yuv data for frame. {} bytes.", yuv.len());
