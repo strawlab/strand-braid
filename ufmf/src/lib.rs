@@ -1,12 +1,5 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
-extern crate byteorder;
-extern crate cast;
-extern crate chrono;
-extern crate machine_vision_formats as formats;
-extern crate timestamped_frame;
-
-extern crate datetime_conversion;
 
 #[macro_use]
 extern crate structure;
@@ -16,6 +9,7 @@ use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use machine_vision_formats as formats;
 use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
 use timestamped_frame::{ExtraTimeData, ImageStrideTime};
 
@@ -334,13 +328,13 @@ where
 
         let dtl = frame.extra().host_timestamp();
 
-        let bytes_per_pixel = machine_vision_formats::pixel_format::pixfmt::<FMT>()
+        let bytes_per_pixel = formats::pixel_format::pixfmt::<FMT>()
             .unwrap()
             .bits_per_pixel()
             / 8;
 
         let timestamp = datetime_conversion::datetime_to_f64(&dtl);
-        let dtype = get_dtype(machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap())?;
+        let dtype = get_dtype(formats::pixel_format::pixfmt::<FMT>().unwrap())?;
         let width = cast::u16(frame.width())?;
         let height = cast::u16(frame.height())?;
 
@@ -648,7 +642,7 @@ mod tests {
 
     #[test]
     fn test_float_keyframe() {
-        use machine_vision_formats::pixel_format::Mono32f;
+        use formats::pixel_format::Mono32f;
         let w = 10;
         let h = 10;
         let pixel_format = formats::pixel_format::PixFmt::Mono8;
