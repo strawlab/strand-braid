@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [build-dependencies]
-cbindgen = "=0.8.2"
+cbindgen = "0.20"

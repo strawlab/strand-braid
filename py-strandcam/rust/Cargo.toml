@@ -16,7 +16,7 @@ plugin-defs = {path="../../plugin-defs"}
 ipp-sys = "0.4.4" # Just so we can specify features
 
 [build-dependencies]
-cbindgen = "=0.8.2"
+cbindgen = "0.20"
 plugin-defs = {path="../../plugin-defs"}
 
 [features]

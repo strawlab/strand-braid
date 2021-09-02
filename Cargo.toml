@@ -113,5 +113,4 @@ debug = true
 
 [patch.crates-io]
 webm = { git = "https://github.com/strawlab/rust-webm", rev="652e1c16e6feccfe967087d6ae681bf969f30028"}
-cbindgen = {git="https://github.com/astraw/cbindgen", rev="7279a4faceec28593bd8a6b0192fd3ac3ee25b53"} # until https://github.com/eqrion/cbindgen/pull/304
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}
