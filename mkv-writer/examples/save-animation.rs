@@ -116,6 +116,7 @@ fn usage_exit() -> Result<(), anyhow::Error> {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    env_logger::init();
     let start = Utc::now();
     let output_fname = "animation.mkv";
 

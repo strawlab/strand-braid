@@ -116,6 +116,7 @@ fn usage_exit() -> Result<(), anyhow::Error> {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    env_logger::init();
     let output_fname = "variable-framerate.mkv";
 
     info!("exporting {}", output_fname);

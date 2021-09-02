@@ -20,6 +20,7 @@ ci2-remote-control = { path = "../ci2-remote-control"}
 convert-image = { path = "../convert-image" }
 
 [dev-dependencies]
+env_logger = "0.8"
 anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 rusttype = "0.8.1"
