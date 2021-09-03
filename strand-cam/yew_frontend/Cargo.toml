@@ -34,7 +34,7 @@ enum-iter = {path="../../enum-iter"}
 ads-webasm = {path="../../ads-webasm"}
 
 [features]
-default = ["checkercal"]
+default = []
 checkercal = ["strand-cam-storetype/checkercal"]
 
 with_camtrig = ["strand-cam-storetype/with_camtrig", "camtrig-comms", "camtrig-comms"]

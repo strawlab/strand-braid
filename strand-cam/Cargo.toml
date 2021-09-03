@@ -103,7 +103,7 @@ channellib = {path="../channellib"}
 bui-backend-codegen = {version="0.9", default-features = false}
 
 [features]
-default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "checkercal", "jemalloc"]
+default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "jemalloc"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 

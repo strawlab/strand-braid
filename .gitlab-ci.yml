@@ -687,7 +687,7 @@ braid-pylon-ubuntu1604:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
     - ldd ../../target/release/braid-run
 
     # build braid
@@ -737,7 +737,7 @@ braid-pylon-ubuntu2004:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
     - ldd ../../target/release/braid-run
 
     # build braid
@@ -789,7 +789,7 @@ braid-pylon5-ubuntu2004:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon5/lib64" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="-C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon5/lib64" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
     - ldd ../../target/release/braid-run
 
     # build braid
