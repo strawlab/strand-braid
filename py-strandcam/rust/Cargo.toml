@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0"
-strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "checkercal", "image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]}
+strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]}
 plugin-defs = {path="../../plugin-defs"}
 ipp-sys = "0.4.4" # Just so we can specify features
 
