@@ -2,8 +2,6 @@
 extern crate log;
 
 extern crate ci2;
-#[cfg(feature = "camsrc_dc1394")]
-use ci2_dc1394 as camsrc;
 #[cfg(feature = "camsrc_flycap2")]
 use ci2_flycap2 as camsrc;
 

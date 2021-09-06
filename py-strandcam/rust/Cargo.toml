@@ -21,4 +21,3 @@ plugin-defs = {path="../../plugin-defs"}
 
 [features]
 backend_pyloncxx = ["strand-cam/backend_pyloncxx"]
-backend_dc1394 = ["strand-cam/backend_dc1394"]

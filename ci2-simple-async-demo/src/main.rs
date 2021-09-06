@@ -6,8 +6,6 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[cfg(feature = "backend_aravis")]
 use ci2_aravis as backend;
-#[cfg(feature = "backend_dc1394")]
-use ci2_dc1394 as backend;
 #[cfg(feature = "backend_flycap2")]
 use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]

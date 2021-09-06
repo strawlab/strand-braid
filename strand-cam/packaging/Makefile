@@ -1,5 +1,4 @@
 BUILD_DIR := ../../build
-FVIEW2_DC1394_SRC := $(BUILD_DIR)/strand-cam-dc1394
 FVIEW2_PYLON_SRC := $(BUILD_DIR)/strand-cam-pylon
 FVIEW2_CAMTRIG_PYLON_SRC := $(BUILD_DIR)/strand-cam-camtrig-pylon
 
@@ -7,18 +6,7 @@ FVIEW2_CAMTRIG_PYLON_SRC := $(BUILD_DIR)/strand-cam-camtrig-pylon
 # do not really exist) unless we update their names it for each build.
 # Therefore, these filenames are listed in .PHONY
 
-all: strand-cam-dc1394_VERSION_amd64.deb strand-cam-pylon_VERSION_amd64.deb \
-	strand-cam-camtrig-pylon_VERSION_amd64.deb
-
-.PHONY: all strand-cam-dc1394_VERSION_amd64.deb strand-cam-pylon_VERSION_amd64.deb \
-	strand-cam-camtrig-pylon_VERSION_amd64.deb
-
-strand-cam-dc1394/strand-cam-dc1394:
-	cp $(FVIEW2_DC1394_SRC) strand-cam-dc1394/
-	cp $(FVIEW2_DC1394_SRC).changelog strand-cam-dc1394/debian/changelog
-
-strand-cam-dc1394_VERSION_amd64.deb: strand-cam-dc1394/strand-cam-dc1394
-	cd strand-cam-dc1394 && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+all: strand-cam-pylon_VERSION_amd64.deb strand-cam-camtrig-pylon_VERSION_amd64.deb
 
 strand-cam-pylon/strand-cam-pylon:
 	cp $(FVIEW2_PYLON_SRC) strand-cam-pylon/

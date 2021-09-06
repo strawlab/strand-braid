@@ -7,7 +7,7 @@ To build the frontend
 
 To check the build
 
-    cargo check --features "serve_files backend_dc1394 with_camtrig flydratrax flydra2/serve_files"
+    cargo check --features "serve_files backend_pyloncxx with_camtrig flydratrax flydra2/serve_files"
 
 To build the backend (debug)
 
