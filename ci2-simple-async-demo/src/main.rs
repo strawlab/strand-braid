@@ -32,7 +32,7 @@ pub fn print_backend_specific_data(frame: &DynamicFrame) {
 }
 
 #[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_flycap2")))]
-pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
+pub fn print_backend_specific_data(_extra: &dyn HostTimeData) {
     // do nothing
 }
 

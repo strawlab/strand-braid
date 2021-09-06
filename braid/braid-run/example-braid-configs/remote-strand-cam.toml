@@ -1,0 +1,21 @@
+# Configuration for a remote stand-cam.
+
+[mainbrain]
+# No calibration because cal_fname is not set (it is commented out).
+# cal_fname = "blah.xml"
+# Data will be saved in the 'DATA' directory (relative to current path). Make
+# this an absolute path to specify location independent of current path.
+output_base_dirname = "DATA"
+# Start the Braid UI at the address http://127.0.0.1:33333/
+http_api_server_addr = "127.0.0.1:33333"
+
+[[cameras]]
+name = "Basler-40116277"
+
+[[cameras]]
+name = "DEV_1AB22C00D794"
+remote_camera = true
+
+[trigger]
+fps = 50.0
+trigger_type = "FakeSync"

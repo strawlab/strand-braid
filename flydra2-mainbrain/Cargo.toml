@@ -15,6 +15,7 @@ serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
 regex = "1.0"
+url = "2"
 flydra-types = {path="../flydra-types", features=["with-dns"]}
 braid-triggerbox = "0.1"
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
@@ -36,7 +37,7 @@ includedir = { version = "0.6", optional = true }
 phf = { version = "0.8", optional = true }
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.11", default-features = false}
+bui-backend = {version="0.12", default-features = false}
 
 mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}

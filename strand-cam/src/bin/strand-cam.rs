@@ -37,7 +37,16 @@ fn main() -> std::result::Result<(), anyhow::Error> {
 
     env_tracing_logger::init();
 
-    let args = parse_args()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(4)
+        .thread_name("strand-cam-runtime")
+        .thread_stack_size(3 * 1024 * 1024)
+        .build()?;
+
+    let handle = runtime.handle();
+
+    let args = parse_args(handle)?;
 
     run_app(args)
 }
@@ -111,7 +120,9 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<strand_cam::ImPtDetect
     Ok(tracker_cfg_src)
 }
 
-fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
+fn parse_args(
+    handle: &tokio::runtime::Handle,
+) -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let cli_args = get_cli_args();
 
     let arg_default = StrandCamArgs::default();
@@ -123,16 +134,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         let mut parser = clap::App::new(env!("APP_NAME"))
             .version(version.as_str())
             .arg(
-                clap::Arg::with_name("JWT_SECRET")
-                    .long("jwt-secret")
-                    .help(
-                        "Specifies the JWT secret. Falls back to the JWT_SECRET \
-                    environment variable if unspecified.",
-                    )
-                    .global(true)
-                    .takes_value(true),
-            )
-            .arg(
                 Arg::with_name("no_browser")
                     .long("no-browser")
                     .conflicts_with("browser")
@@ -143,16 +144,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
                     .long("browser")
                     .conflicts_with("no_browser")
                     .help("Force auto-opening of browser"),
-            )
-            .arg(
-                Arg::with_name("force_camera_sync_mode")
-                    .long("force_camera_sync_mode")
-                    .help("Force the camera to synchronize to external trigger"),
-            )
-            .arg(
-                Arg::with_name("flydra1")
-                    .long("flydra1")
-                    .help("backward compat with flydra1"),
             )
             .arg(
                 Arg::with_name("mkv_filename_template")
@@ -176,6 +167,12 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
                     .takes_value(true),
             )
             .arg(
+                Arg::with_name("camera_name")
+                    .long("camera-name")
+                    .help("The name of the desired camera.")
+                    .takes_value(true),
+            )
+            .arg(
                 Arg::with_name("http_server_addr")
                     .long("http-server-addr")
                     .help("The port to open the HTTP server.")
@@ -188,19 +185,47 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
                     .help("The directory in which to save CSV data files.")
                     .default_value("~/DATA")
                     .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("camera_name")
-                    .long("camera-name")
-                    .help("The name of the desired camera.")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("pixel_format")
-                    .long("pixel-format")
-                    .help("The desired pixel format.")
+            );
+
+        #[cfg(not(feature = "braid-config"))]
+        {
+            parser = parser
+                .arg(
+                    Arg::with_name("pixel_format")
+                        .long("pixel-format")
+                        .help("The desired pixel format.")
+                        .takes_value(true),
+                )
+                .arg(
+                    clap::Arg::with_name("JWT_SECRET")
+                        .long("jwt-secret")
+                        .help(
+                            "Specifies the JWT secret. Falls back to the JWT_SECRET \
+                    environment variable if unspecified.",
+                        )
+                        .global(true)
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("force_camera_sync_mode")
+                        .long("force_camera_sync_mode")
+                        .help("Force the camera to synchronize to external trigger"),
+                )
+                .arg(
+                    Arg::with_name("flydra1")
+                        .long("flydra1")
+                        .help("backward compat with flydra1"),
+                );
+        }
+
+        #[cfg(feature = "braid-config")]
+        {
+            parser = parser.arg(
+                Arg::with_name("braid_addr")
+                    .help("Braid HTTP API address (IP:Port)")
                     .takes_value(true),
             );
+        }
 
         #[cfg(feature = "posix_sched_fifo")]
         {
@@ -316,8 +341,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         Some(fname) => strand_cam::CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
     };
 
-    let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
-
     let csv_save_dir = matches
         .value_of("csv_save_dir")
         .ok_or_else(|| anyhow::anyhow!("expected csv_save_dir"))?
@@ -337,11 +360,6 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
             0 => no_browser_default(),
             _ => false,
         },
-        _ => true,
-    };
-
-    let force_camera_sync_mode = match matches.occurrences_of("force_camera_sync_mode") {
-        0 => false,
         _ => true,
     };
 
@@ -377,10 +395,79 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         .map(|s| s.parse().unwrap())
         .expect("required debug_addr");
 
-    let mainbrain_internal_addr = None;
-    let camdata_addr = None;
+    #[cfg(feature = "braid-config")]
+    let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, remote_info) = {
+        let braid_addr = matches
+            .value_of("braid_addr")
+            .ok_or_else(|| anyhow::anyhow!("expected braid_addr"))?
+            .to_string();
+        log::info!("Will connect to braid at \"{}\"", braid_addr);
+        let mainbrain_internal_addr = flydra_types::MainbrainBuiLocation(
+            flydra_types::BuiServerInfo::parse_url_with_token(&braid_addr)?,
+        );
 
-    #[cfg(feature = "image_tracker")]
+        let mut mainbrain_session = handle.block_on(
+            braid_http_session::mainbrain_future_session(mainbrain_internal_addr.clone()),
+        )?;
+
+        let camera_name = camera_name
+            .as_ref()
+            .ok_or(strand_cam::StrandCamError::CameraNameRequired)?;
+
+        let camera_name = flydra_types::RawCamName::new(camera_name.to_string());
+
+        let remote_info = handle.block_on(mainbrain_session.get_remote_info(&camera_name))?;
+
+        let camdata_addr = {
+            let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
+            let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
+            let camdata_addr = Some(flydra_types::RealtimePointsDestAddr::IpAddr(
+                addr_info_ip.clone(),
+            ));
+            camdata_addr
+        };
+
+        let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangesNotSavedToDisk(
+            remote_info.config.point_detection_config.clone(),
+        );
+
+        (
+            Some(mainbrain_internal_addr),
+            camdata_addr,
+            tracker_cfg_src,
+            remote_info,
+        )
+    };
+
+    #[cfg(feature = "braid-config")]
+    let force_camera_sync_mode = remote_info.force_camera_sync_mode;
+
+    #[cfg(not(feature = "braid-config"))]
+    let force_camera_sync_mode = match matches.occurrences_of("force_camera_sync_mode") {
+        0 => false,
+        _ => true,
+    };
+
+    log::warn!("force_camera_sync_mode: {}", force_camera_sync_mode);
+
+    #[cfg(feature = "braid-config")]
+    let pixel_format = remote_info.config.pixel_format;
+
+    #[cfg(not(feature = "braid-config"))]
+    let (mainbrain_internal_addr, camdata_addr, pixel_format) = {
+        let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
+        (None, None, pixel_format)
+    };
+
+    #[cfg(not(feature = "braid-config"))]
+    let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
+
+    #[cfg(feature = "braid-config")]
+    let software_limit_framerate = remote_info.software_limit_framerate;
+
+    log::warn!("software_limit_framerate: {:?}", software_limit_framerate);
+
+    #[cfg(all(feature = "image_tracker", not(feature = "braid-config")))]
     let tracker_cfg_src = get_tracker_cfg(&matches)?;
 
     let show_url = true;
@@ -394,6 +481,7 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let defaults = StrandCamArgs::default();
 
     Ok(StrandCamArgs {
+        handle: Some(handle.clone()),
         secret,
         camera_name,
         pixel_format,
@@ -425,7 +513,7 @@ fn parse_args() -> std::result::Result<StrandCamArgs, anyhow::Error> {
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template,
         force_camera_sync_mode,
-        software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit::NoChange,
+        software_limit_framerate,
         ..defaults
     })
 }

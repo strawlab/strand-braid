@@ -16,7 +16,9 @@ use flydra_types::{
 };
 use strand_cam::{ImPtDetectCfgSource, MyApp, NoisyDrop};
 
-use braid::{braid_start, parse_config_file, BraidCameraConfig};
+use braid::braid_start;
+use braid_config_data::parse_config_file;
+use flydra_types::BraidCameraConfig;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "run the multi-camera realtime 3D tracker")]
@@ -32,18 +34,18 @@ struct StrandCamInstance {
 }
 
 fn launch_strand_cam(
+    handle: tokio::runtime::Handle,
     camera: BraidCameraConfig,
     camdata_addr: Option<RealtimePointsDestAddr>,
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
-    handle: tokio::runtime::Handle,
-    runtime: &tokio::runtime::Runtime,
     force_camera_sync_mode: bool,
-    software_limit_framerate: strand_cam::StartSoftwareFrameRateLimit,
+    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
 ) -> Result<StrandCamInstance> {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
 
     let args = strand_cam::StrandCamArgs {
+        handle: Some(handle.clone()),
         is_braid: true,
         camera_name: Some(camera.name),
         pixel_format: camera.pixel_format,
@@ -71,7 +73,7 @@ fn launch_strand_cam(
         software_limit_framerate,
     };
 
-    let (_, _, fut, _my_app) = runtime.block_on(strand_cam::setup_app(handle.clone(), args))?;
+    let (_, _, fut, _my_app) = handle.block_on(strand_cam::setup_app(handle.clone(), args))?;
     handle.spawn(fut);
     Ok(StrandCamInstance { _my_app })
 }
@@ -85,19 +87,28 @@ fn main() -> Result<()> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
+    let n_local_cameras = cfg.cameras.iter().filter(|c| !c.remote_camera).count();
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .worker_threads(4)
+        .worker_threads(4 + 4 * n_local_cameras)
         .thread_name("braid-runtime")
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
+    let pixel_formats = cfg
+        .cameras
+        .iter()
+        .map(|cfg| (cfg.name.clone(), cfg.clone()))
+        .collect();
+
     let trig_cfg = cfg.trigger;
+
     let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
-        TriggerType::TriggerboxV1(_) => (true, strand_cam::StartSoftwareFrameRateLimit::NoChange),
+        TriggerType::TriggerboxV1(_) => (true, flydra_types::StartSoftwareFrameRateLimit::NoChange),
         TriggerType::FakeSync(cfg) => (
             false,
-            strand_cam::StartSoftwareFrameRateLimit::Enable(cfg.fps),
+            flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.fps),
         ),
     };
     let show_tracking_params = false;
@@ -117,6 +128,7 @@ fn main() -> Result<()> {
         // Raising the mainbrain thread priority is currently disabled.
         // cfg.mainbrain.sched_policy_priority,
         &cfg.mainbrain.lowlatency_camdata_udp_addr,
+        pixel_formats,
         trig_cfg,
         false,
         cfg.mainbrain.http_api_server_addr.clone(),
@@ -125,6 +137,8 @@ fn main() -> Result<()> {
         cfg.mainbrain.save_empty_data2d,
         cfg.mainbrain.jwt_secret.map(|x| x.as_bytes().to_vec()),
         all_expected_cameras,
+        force_camera_sync_mode,
+        software_limit_framerate.clone(),
     ))?;
 
     let mainbrain_server_info = MainbrainBuiLocation(phase1.mainbrain_server_info.clone());
@@ -138,17 +152,21 @@ fn main() -> Result<()> {
     let _enter_guard = runtime.enter();
     let _strand_cams = cfg_cameras
         .into_iter()
-        .map(|camera| {
-            let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
-            launch_strand_cam(
-                camera,
-                camdata_addr,
-                Some(mainbrain_server_info.clone()),
-                handle.clone(),
-                &runtime,
-                force_camera_sync_mode,
-                software_limit_framerate.clone(),
-            )
+        .filter_map(|camera| {
+            if !camera.remote_camera {
+                let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
+                Some(launch_strand_cam(
+                    handle.clone(),
+                    camera,
+                    camdata_addr,
+                    Some(mainbrain_server_info.clone()),
+                    force_camera_sync_mode,
+                    software_limit_framerate.clone(),
+                ))
+            } else {
+                log::info!("Not starting remote camera \"{}\"", camera.name);
+                None
+            }
         })
         .collect::<Result<Vec<StrandCamInstance>>>()?;
 

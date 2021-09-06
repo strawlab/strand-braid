@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0.28"
-bui-backend = {version="0.11", default-features = false}
+bui-backend = {version="0.12", default-features = false}
 bui-backend-types = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.6"

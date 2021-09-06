@@ -50,8 +50,6 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
-    #[error("{0}")]
-    JsonError(#[from] serde_json::Error),
     #[error("TryRecvError")]
     TryRecvError,
     #[error("RecvTimeoutError: {source}")]

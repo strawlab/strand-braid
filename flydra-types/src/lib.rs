@@ -131,6 +131,60 @@ impl std::fmt::Display for RosCamName {
     }
 }
 
+pub const REMOTE_CAMERA_INFO_PATH: &'static str = "remote_camera_info/";
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum StartSoftwareFrameRateLimit {
+    /// Set the frame_rate limit at a given frame rate.
+    Enable(f64),
+    /// Disable the frame_rate limit.
+    Disabled,
+    /// Do not change the frame rate limit.
+    NoChange,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct RemoteCameraInfoResponse {
+    pub camdata_addr: String,
+    pub config: BraidCameraConfig,
+    pub force_camera_sync_mode: bool,
+    pub software_limit_framerate: StartSoftwareFrameRateLimit,
+}
+
+fn return_false() -> bool {
+    false
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BraidCameraConfig {
+    /// The name of the camera (e.g. "Basler-22005677")
+    pub name: String,
+    /// The pixel format to use.
+    pub pixel_format: Option<String>,
+    /// Configuration for detecting points.
+    #[serde(default = "im_pt_detect_config::default_absdiff")]
+    pub point_detection_config: image_tracker_types::ImPtDetectCfg,
+    /// Whether to raise the priority of the grab thread.
+    #[serde(default = "return_false")]
+    pub raise_grab_thread_priority: bool,
+    /// If true, do not start camera in local braid but wait for connection.
+    #[serde(default = "return_false")]
+    pub remote_camera: bool,
+}
+
+impl BraidCameraConfig {
+    pub fn default_absdiff_config(name: String) -> Self {
+        Self {
+            name,
+            pixel_format: None,
+            point_detection_config: im_pt_detect_config::default_absdiff(),
+            raise_grab_thread_priority: false,
+            remote_camera: false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RegisterNewCamera {
     /// The raw name of the camera as given by the camera itself.
@@ -228,6 +282,34 @@ impl BuiServerInfo {
         }
     }
 
+    #[cfg(feature = "with-dns")]
+    pub fn parse_url_with_token(url: &str) -> Result<Self> {
+        let stripped = url
+            .strip_prefix("http://")
+            .ok_or(FlydraTypesError::UrlParseError)?;
+        let first_slash = stripped.find("/");
+        let (addr_str, token) = if let Some(slash_idx) = first_slash {
+            let path = &stripped[slash_idx..];
+            if path.len() == 1 {
+                (&stripped[..slash_idx], AccessToken::NoToken)
+            } else {
+                let token_str = path[1..]
+                    .strip_prefix("?token=")
+                    .ok_or(FlydraTypesError::UrlParseError)?;
+                (
+                    &stripped[..slash_idx],
+                    AccessToken::PreSharedToken(token_str.to_string()),
+                )
+            }
+        } else {
+            (stripped, AccessToken::NoToken)
+        };
+        let addr = std::net::ToSocketAddrs::to_socket_addrs(addr_str)?
+            .next()
+            .ok_or(FlydraTypesError::UrlParseError)?;
+        Ok(Self::new(addr, token))
+    }
+
     pub fn guess_base_url_with_token(&self) -> String {
         match self.token {
             AccessToken::NoToken => format!("http://{}/", self.resolved_addr),
@@ -243,6 +325,27 @@ impl BuiServerInfo {
 
     pub fn token(&self) -> &AccessToken {
         &self.token
+    }
+}
+
+#[cfg(feature = "with-dns")]
+#[test]
+fn test_bui_server_info() {
+    for addr_str in &[
+        "127.0.0.1:1234",
+        // Ideally, we would also test unspecified addresses here.
+        // "0.0.0.0:222"
+    ] {
+        let addr1 = std::net::ToSocketAddrs::to_socket_addrs(addr_str)
+            .unwrap()
+            .next()
+            .unwrap();
+        let bsi1 = BuiServerInfo::new(addr1, AccessToken::PreSharedToken("token1".into()));
+
+        let url1 = bsi1.guess_base_url_with_token();
+        let test1 = BuiServerInfo::parse_url_with_token(&url1).unwrap();
+        let url2 = test1.guess_base_url_with_token();
+        assert_eq!(url1, url2);
     }
 }
 
@@ -589,6 +692,8 @@ pub enum FlydraTypesError {
     IoError(#[from] std::io::Error),
     #[error("{0}")]
     Utf8Error(#[from] std::str::Utf8Error),
+    #[error("URL parse error")]
+    UrlParseError,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

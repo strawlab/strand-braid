@@ -1,0 +1,15 @@
+[package]
+name = "braid-config-data"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+toml = "0.5"
+shellexpand = "2.0"
+thiserror = "1"
+
+flydra-types = {path="../flydra-types"}
+serde = {version="1.0.79",features=["derive"]}
+
+[features]
+backtrace = []

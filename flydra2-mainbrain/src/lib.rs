@@ -65,6 +65,8 @@ async fn new_http_api_app(
     cam_manager: flydra2::ConnectedCamerasManager,
     shared: HttpApiShared,
     config: Config,
+    camdata_addr: String,
+    configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
     triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
@@ -72,20 +74,72 @@ async fn new_http_api_app(
     output_base_dirname: std::path::PathBuf,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
     current_images_arc: Arc<RwLock<flydra2::ImageDictType>>,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
 ) -> Result<HttpApiApp> {
     // Create our shared state.
     let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
 
     // Create `inner`, which takes care of the browser communication details for us.
     let chan_size = 10;
+
+    let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
+        config.clone(),
+        &auth,
+        chan_size,
+        &*EVENTS_PREFIX,
+        Some(Arc::new(Box::new(move |mut resp, req| {
+            let path = req.uri().path();
+            let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
+                let query = req.uri().query();
+                let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
+                let mut camera_name: Option<String> = None;
+                for (key, value) in query_pairs {
+                    use std::ops::Deref;
+                    if key.deref() == "camera" {
+                        camera_name = Some(value.to_string());
+                    }
+                }
+                if let Some(camera_name) = camera_name {
+                    if configs.contains_key(&camera_name) {
+                        let config = configs.get(&camera_name).unwrap().clone();
+                        let camdata_addr = camdata_addr.clone();
+                        let software_limit_framerate = software_limit_framerate.clone();
+
+                        let msg = flydra_types::RemoteCameraInfoResponse {
+                            camdata_addr,
+                            config,
+                            force_camera_sync_mode,
+                            software_limit_framerate,
+                        };
+                        let body_str = serde_json::to_string(&msg).unwrap();
+                        const JSON_TYPE: &'static str = "application/json";
+                        resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE)
+                            .body(body_str.into())?
+                    } else {
+                        resp = resp.status(hyper::StatusCode::NOT_FOUND);
+                        resp.body(hyper::Body::empty())?
+                    }
+                } else {
+                    resp = resp.status(hyper::StatusCode::NOT_FOUND);
+                    resp.body(hyper::Body::empty())?
+                }
+            } else {
+                resp = resp.status(hyper::StatusCode::NOT_FOUND);
+                resp.body(hyper::Body::empty())?
+            };
+            Ok(resp)
+        }))),
+    );
+
     let (_, mut inner) = create_bui_app_inner(
+        tokio::runtime::Handle::current(),
         Some(shutdown_rx),
         &auth,
         shared_store,
-        config,
-        chan_size,
-        &*EVENTS_PREFIX,
         Some(flydra_types::BRAID_EVENT_NAME.to_string()),
+        rx_conn,
+        bui_server,
     )
     .await?;
 
@@ -246,7 +300,8 @@ pub async fn pre_run(
     opt_tracking_params: Option<flydra2::SwitchingTrackingParams>,
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    camdata_addr: &str,
+    camdata_addr_unspecified: &str,
+    configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
     flydra1: bool,
     http_api_server_addr: String,
@@ -255,6 +310,8 @@ pub async fn pre_run(
     save_empty_data2d: bool,
     jwt_secret: Option<Vec<u8>>,
     all_expected_cameras: std::collections::BTreeSet<RosCamName>,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
 ) -> Result<StartupPhase1> {
     info!("saving to directory: {}", output_base_dirname.display());
 
@@ -441,12 +498,29 @@ pub async fn pre_run(
         }
     };
 
+    let (camdata_addr, camdata_socket) = {
+        // The port of the low latency UDP incoming data socket may be specified
+        // as 0 in which case the OS will decide which port will actually be
+        // bound. So here we create the socket and get its port.
+        let camdata_addr_unspecified = camdata_addr_unspecified.parse::<SocketAddr>().unwrap();
+        let camdata_addr_unspecified_buf = addr_to_buf(&camdata_addr_unspecified)?;
+        debug!(
+            "flydra mainbrain camera listener at: {}",
+            camdata_addr_unspecified_buf
+        );
+        let camdata_socket = UdpSocket::bind(&camdata_addr_unspecified).await?;
+
+        (camdata_socket.local_addr()?.to_string(), camdata_socket)
+    };
+
     let my_app = new_http_api_app(
         shutdown_rx,
         auth,
         cam_manager.clone(),
         shared,
         config,
+        camdata_addr,
+        configs,
         time_model_arc,
         triggerbox_cmd,
         sync_pulse_pause_started_arc,
@@ -454,6 +528,8 @@ pub async fn pre_run(
         output_base_dirname.clone(),
         write_controller_arc.clone(),
         current_images_arc.clone(),
+        force_camera_sync_mode,
+        software_limit_framerate,
     )
     .await?;
 
@@ -469,14 +545,6 @@ pub async fn pre_run(
         println!("This same URL as a QR code:");
         display_qr_url(&url);
     }
-
-    let camdata_addr = camdata_addr.parse::<SocketAddr>().unwrap();
-
-    let camdata_addr_buf = addr_to_buf(&camdata_addr)?;
-    debug!("flydra mainbrain camera listener at: {}", camdata_addr_buf);
-
-    let camdata_socket_fut = UdpSocket::bind(&camdata_addr);
-    let camdata_socket = camdata_socket_fut.await?;
 
     Ok(StartupPhase1 {
         camdata_socket,

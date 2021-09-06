@@ -126,6 +126,13 @@ pub struct FrameROI {
 // Camera
 
 pub trait Camera: CameraInfo {
+    // ----- start: weakly typed but easier to implement API -----
+
+    // fn feature_access_query(&self, name: &str) -> Result<AccessQueryResult>;
+    fn feature_enum_set(&self, name: &str, value: &str) -> Result<()>;
+
+    // ----- end: weakly typed but easier to implement API -----
+
     /// Return the sensor width in pixels
     fn width(&self) -> Result<u32>;
     /// Return the sensor height in pixels
@@ -189,5 +196,15 @@ pub trait Camera: CameraInfo {
     fn acquisition_stop(&mut self) -> Result<()>;
 
     /// synchronous (blocking) frame acquisition
+    // TODO: enable the ability to enqueue memory locations for new frame data.
+    // This way pre-allocated can be stored to by the library and copies of the
+    // data do not have to be made.
+    // TODO: specify timeout
     fn next_frame(&mut self) -> Result<DynamicFrame>;
 }
+
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct AccessQueryResult {
+//     pub is_readable: bool,
+//     pub is_writeable: bool,
+// }

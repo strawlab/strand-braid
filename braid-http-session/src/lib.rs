@@ -1,10 +1,17 @@
-use ::serde_json;
-use hyper;
-
 use ::bui_backend_session::{future_session, InsecureSession};
-use flydra_types;
+use log::{debug, error};
 
-// TODO: move this into strand-cam (and out of image-tracker).
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("{0}")]
+    FlydraTypesError(#[from] flydra_types::FlydraTypesError),
+    #[error("{0}")]
+    JsonError(#[from] serde_json::Error),
+    #[error("{0}")]
+    HyperError(#[from] hyper::Error),
+    #[error("HTTP error {0} when calling {1}")]
+    HttpError(hyper::StatusCode, String),
+}
 
 /// Create a `MainbrainSession` which has already made a request
 pub async fn mainbrain_future_session(
@@ -42,6 +49,48 @@ impl MainbrainSession {
             // TODO: return Err(_)?
         };
         Ok(())
+    }
+
+    pub async fn get_remote_info(
+        &mut self,
+        orig_cam_name: &flydra_types::RawCamName,
+    ) -> Result<flydra_types::RemoteCameraInfoResponse, Error> {
+        let path = format!(
+            "{}?camera={}",
+            flydra_types::REMOTE_CAMERA_INFO_PATH,
+            orig_cam_name.as_str()
+        );
+
+        debug!(
+            "Getting remote camera info for camera \"{}\".",
+            orig_cam_name.as_str()
+        );
+
+        let resp = self.inner.get(&path).await?;
+
+        if !resp.status().is_success() {
+            error!("error: GET was not a success {}:{}", file!(), line!());
+            return Err(Error::HttpError(resp.status(), path));
+        };
+
+        // fold all chunks into one Vec<u8>
+        let body = resp.into_body();
+        use futures::stream::StreamExt;
+        let chunks: Vec<Result<hyper::body::Bytes, hyper::Error>> = body.collect().await;
+        use std::iter::FromIterator;
+        let chunks: Result<Vec<hyper::body::Bytes>, hyper::Error> =
+            Result::from_iter(chunks.into_iter());
+        let chunks: Vec<hyper::body::Bytes> = chunks?;
+        let data: Vec<u8> = chunks.into_iter().fold(vec![], |mut buf, chunk| {
+            log::trace!("got chunk: {}", String::from_utf8_lossy(&chunk));
+            buf.extend_from_slice(&*chunk);
+            buf
+        });
+
+        // parse data
+        Ok(serde_json::from_slice::<
+            flydra_types::RemoteCameraInfoResponse,
+        >(&data)?)
     }
 
     pub async fn register_flydra_camnode(
