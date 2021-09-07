@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate log;
 
-use std::sync::Arc;
-use parking_lot::RwLock;
 use bui_backend_types::AccessToken;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 const SET_COOKIE: &str = "set-cookie";
 const COOKIE: &str = "cookie";
@@ -20,7 +20,10 @@ pub struct InsecureSession {
 }
 
 /// Create an `InsecureSession` which has already made a request
-pub async fn future_session(base_uri: &str, token: AccessToken) -> Result<InsecureSession,hyper::Error> {
+pub async fn future_session(
+    base_uri: &str,
+    token: AccessToken,
+) -> Result<InsecureSession, hyper::Error> {
     let mut base = InsecureSession::new(&base_uri);
     base.get_with_token("", token).await?;
     Ok(base)
@@ -56,16 +59,20 @@ impl InsecureSession {
         };
         let pqs: &str = &pq;
 
-        let pq: http::uri::PathAndQuery = std::convert::TryFrom::try_from( pqs ).unwrap();
+        let pq: http::uri::PathAndQuery = std::convert::TryFrom::try_from(pqs).unwrap();
 
         http::uri::Builder::new()
             .scheme(self.base_uri.scheme().unwrap().clone())
             .authority(self.base_uri.authority().unwrap().clone())
-            .path_and_query(  pq )
+            .path_and_query(pq)
             .build()
             .expect("build url")
     }
-    async fn inner_get(&mut self, rel: &str, token: Option<AccessToken>) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    async fn inner_get(
+        &mut self,
+        rel: &str,
+        token: Option<AccessToken>,
+    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
         let uri = self.get_rel_uri(rel, token);
 
         let body = hyper::Body::empty();
@@ -75,13 +82,21 @@ impl InsecureSession {
         self.make_request(req).await
     }
     pub async fn get(&mut self, rel: &str) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
-        self.inner_get(rel,None).await
+        self.inner_get(rel, None).await
     }
-    async fn get_with_token(&mut self, rel: &str, token: AccessToken) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
-        self.inner_get(rel,Some(token)).await
+    async fn get_with_token(
+        &mut self,
+        rel: &str,
+        token: AccessToken,
+    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+        self.inner_get(rel, Some(token)).await
     }
 
-    pub async fn post(&mut self, rel: &str, body: hyper::Body) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    pub async fn post(
+        &mut self,
+        rel: &str,
+        body: hyper::Body,
+    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
         let uri = self.get_rel_uri(rel, None);
 
         let mut req = hyper::Request::new(body);
@@ -90,7 +105,10 @@ impl InsecureSession {
         self.make_request(req).await
     }
 
-    async fn make_request(&mut self, mut req: hyper::Request<hyper::Body>) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    async fn make_request(
+        &mut self,
+        mut req: hyper::Request<hyper::Body>,
+    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
         let client = hyper::Client::new();
 
         debug!("building request");
@@ -98,21 +116,26 @@ impl InsecureSession {
             let jar = self.jar.read();
             for cookie in jar.iter() {
                 debug!("adding cookie {}", cookie);
-                req.headers_mut().insert(COOKIE, hyper::header::HeaderValue::from_str(&cookie.to_string()).unwrap());
+                req.headers_mut().insert(
+                    COOKIE,
+                    hyper::header::HeaderValue::from_str(&cookie.to_string()).unwrap(),
+                );
             }
         }
 
         let jar2 = self.jar.clone();
         debug!("making request {:?}", req);
-        let response = client
-            .request(req).await?;
+        let response = client.request(req).await?;
 
         debug!("handling response {:?}", response);
         handle_response(jar2, response)
     }
 }
 
-fn handle_response(jar2: Arc<RwLock<cookie::CookieJar>>, mut response: hyper::Response<hyper::Body>) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+fn handle_response(
+    jar2: Arc<RwLock<cookie::CookieJar>>,
+    mut response: hyper::Response<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
     debug!("starting to handle cookies in response {:?}", response);
 
     use hyper::header::Entry::*;
@@ -126,8 +149,8 @@ fn handle_response(jar2: Arc<RwLock<cookie::CookieJar>>, mut response: hyper::Re
                 // TODO FIXME do not reinsert same cookie again and again
                 debug!("stored cookie {:?}", cookie_raw);
             }
-        },
-        Vacant(_) => {},
+        }
+        Vacant(_) => {}
     }
 
     debug!("done handling cookies in response {:?}", response);

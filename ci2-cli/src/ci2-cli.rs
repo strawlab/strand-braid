@@ -3,8 +3,6 @@ extern crate log;
 
 #[cfg(feature = "backend_aravis")]
 extern crate ci2_aravis as backend;
-#[cfg(feature = "backend_dc1394")]
-extern crate ci2_dc1394 as backend;
 #[cfg(feature = "backend_flycap2")]
 extern crate ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]

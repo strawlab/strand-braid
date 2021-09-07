@@ -345,6 +345,20 @@ impl ci2::CameraInfo for WrappedCamera {
 }
 
 impl ci2::Camera for WrappedCamera {
+    // ----- start: weakly typed but easier to implement API -----
+
+    // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
+    //     todo!();
+    // }
+
+    fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        let mut node = camera.enum_node(name).map_pylon_err()?;
+        Ok(node.set_value(value).map_pylon_err()?)
+    }
+
+    // ----- end: weakly typed but easier to implement API -----
+
     /// Return the sensor width in pixels
     fn width(&self) -> ci2::Result<u32> {
         Ok(self

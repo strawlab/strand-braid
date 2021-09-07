@@ -52,9 +52,6 @@ use crate::background_model::{BackgroundModel, NUM_BG_START_IMAGES};
 mod errors;
 pub use crate::errors::*;
 
-mod mainbrain_session;
-use mainbrain_session::mainbrain_future_session;
-
 #[cfg(feature = "debug-images")]
 thread_local!(
     static RT_IMAGE_VIEWER_SENDER: RefCell<rt_image_viewer::RtImageViewerSender> =
@@ -1229,7 +1226,8 @@ async fn register_node_and_update_image(
     ros_cam_name: RosCamName,
     mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<()> {
-    let mut mainbrain_session = mainbrain_future_session(api_http_address).await?;
+    let mut mainbrain_session =
+        braid_http_session::mainbrain_future_session(api_http_address).await?;
     mainbrain_session
         .register_flydra_camnode(orig_cam_name, http_camserver_info, ros_cam_name.clone())
         .await?;

@@ -8,7 +8,7 @@
 
     cd ../strand-cam/yew_frontend && ./build.sh
     cd -
-    touch rust/build.rs && BACKEND=dc1394 IPP_SYS=2019 python setup.py install && python scripts/demo.py
+    touch rust/build.rs && BACKEND=pyloncxx IPP_SYS=2019 python setup.py install && python scripts/demo.py
 
 ## TODO
 

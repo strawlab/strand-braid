@@ -29,7 +29,6 @@ type FromWorker = (
 );
 
 pub(crate) struct BackgroundModel {
-    pub(crate) f32_encoding: formats::PixFmt,
     pub(crate) mean_background: FastImageData<Chan1, f32>,
     pub(crate) mean_im: FastImageData<Chan1, u8>,
     pub(crate) mean_squared_im: FastImageData<Chan1, f32>,
@@ -140,7 +139,7 @@ impl BackgroundModel {
                 }
             })?;
 
-        let f32_encoding = {
+        let _f32_encoding = {
             use crate::formats::PixFmt::*;
 
             match pixel_format {
@@ -161,7 +160,6 @@ impl BackgroundModel {
         };
 
         let result = Self {
-            f32_encoding,
             mean_background: running_mean,
             mean_squared_im,
             mean_im,

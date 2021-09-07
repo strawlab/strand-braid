@@ -16,6 +16,7 @@ structopt = "0.3"
 tokio = {version="1.0.1", default-features=false}
 
 braid = {path=".."}
+braid-config-data = {path="../../braid-config-data"}
 image-tracker = {path = "../../image-tracker"}
 im-pt-detect-config = {path = "../../image-tracker/im-pt-detect-config"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
@@ -44,7 +45,6 @@ serve_files = [ "strand-cam/serve_files",  "flydra2-mainbrain/serve_files" ]
 
 # Backend choice
 # backend_aravis = ["strand-cam/backend_aravis"]
-backend_dc1394 = ["strand-cam/backend_dc1394"]
 backend_flycap2 = ["strand-cam/backend_flycap2"]
 backend_pyloncxx = ["strand-cam/backend_pyloncxx"]
 

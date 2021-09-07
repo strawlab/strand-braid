@@ -221,6 +221,20 @@ impl<C> ci2::Camera for ThreadedAsyncCamera<C>
 where
     C: ci2::Camera,
 {
+    // ----- start: weakly typed but easier to implement API -----
+
+    // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
+    //     let c = self.camera.lock();
+    //     c.feature_access_query(name)
+    // }
+
+    fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
+        let c = self.camera.lock();
+        c.feature_enum_set(name, value)
+    }
+
+    // ----- end: weakly typed but easier to implement API -----
+
     fn width(&self) -> ci2::Result<u32> {
         let c = self.camera.lock();
         c.width()

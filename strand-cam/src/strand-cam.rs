@@ -8,15 +8,10 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 #[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
 extern crate log;
 
 #[cfg(feature = "backend_aravis")]
 use ci2_aravis as backend;
-#[cfg(feature = "backend_dc1394")]
-use ci2_dc1394 as backend;
 #[cfg(feature = "backend_flycap2")]
 use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
@@ -40,6 +35,7 @@ use libflate::finish::AutoFinishUnchecked;
 use libflate::gzip::Encoder;
 
 use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
+use serde::{Deserialize, Serialize};
 
 use hyper_tls::HttpsConnector;
 #[allow(unused_imports)]
@@ -72,7 +68,7 @@ use ci2_remote_control::CsvSaveConfig;
 use ci2_remote_control::{CamArg, MkvRecordingConfig, RecordingFrameRate};
 use flydra_types::{
     BuiServerInfo, CamHttpServerInfo, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr,
-    RosCamName,
+    RosCamName, StartSoftwareFrameRateLimit,
 };
 
 #[cfg(feature = "image_tracker")]
@@ -236,6 +232,10 @@ pub enum StrandCamError {
     #[cfg(feature = "with_camtrig")]
     #[error("{0}")]
     SerialportError(#[from] serialport::Error),
+
+    #[cfg(feature = "braid-config")]
+    #[error("A camera name is required")]
+    CameraNameRequired,
 }
 
 pub struct CloseAppOnThreadExit {
@@ -1822,14 +1822,22 @@ impl MyApp {
             }
         };
 
+        let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
+            config.clone(),
+            &auth,
+            chan_size,
+            &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
+            None,
+        );
+
         let (new_conn_rx, mut inner) = create_bui_app_inner(
+            rt_handle.clone(),
             Some(shutdown_rx),
             &auth,
             shared_store_arc,
-            config,
-            chan_size,
-            &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             Some(strand_cam_storetype::STRAND_CAM_EVENT_NAME.to_string()),
+            rx_conn,
+            bui_server,
         )
         .await?;
 
@@ -2347,6 +2355,8 @@ enum ToDevice {
 }
 
 pub struct StrandCamArgs {
+    /// A handle to the tokio runtime.
+    pub handle: Option<tokio::runtime::Handle>,
     /// Is Strand Cam running inside Braid context?
     pub is_braid: bool,
     pub secret: Option<Vec<u8>>,
@@ -2402,19 +2412,10 @@ pub enum CalSource {
     PymvgJsonFile(std::path::PathBuf),
 }
 
-#[derive(Clone)]
-pub enum StartSoftwareFrameRateLimit {
-    /// Set the frame_rate limit at a given frame rate.
-    Enable(f64),
-    /// Disable the frame_rate limit.
-    Disabled,
-    /// Do not change the frame rate limit.
-    NoChange,
-}
-
 impl Default for StrandCamArgs {
     fn default() -> Self {
         Self {
+            handle: None,
             is_braid: false,
             secret: None,
             camera_name: None,
@@ -2458,18 +2459,16 @@ impl Default for StrandCamArgs {
 }
 
 pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(4)
-        .thread_name("strand-cam-runtime")
-        .thread_stack_size(3 * 1024 * 1024)
-        .build()?;
+    let handle = args
+        .handle
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("no tokio runtime handle"))?
+        .clone();
 
-    let my_handle = runtime.handle().clone();
+    let my_handle = handle.clone();
 
-    let my_runtime = Arc::new(runtime);
     let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
-        my_runtime.block_on(setup_app(my_handle, args))?;
+        handle.block_on(setup_app(my_handle, args))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2487,7 +2486,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     })
     .expect("Error setting Ctrl-C handler");
 
-    my_runtime.block_on(fut);
+    handle.block_on(fut);
 
     info!("done");
     Ok(())
@@ -2594,7 +2593,10 @@ pub async fn setup_app(
         (frame_rate_limit_supported, frame_rate_limit_enabled)
     };
 
-    cam.set_acquisition_mode(ci2::AcquisitionMode::Continuous)?;
+    match cam.feature_enum_set("AcquisitionMode", "Continuous") {
+        Ok(()) => {}
+        Err(e) => {debug!("Ignoring error when setting AcquisitionMode: {}",e);}
+    }
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
     let (tx_frame, rx_frame) = channellib::bounded::<Msg>(20);
