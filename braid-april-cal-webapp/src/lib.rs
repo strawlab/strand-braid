@@ -248,7 +248,8 @@ impl Component for Model {
         };
 
         html! {
-        <div>
+            <div id="page-container">
+            <div id="content-wrap">
             <div class=spinner_div_class>
                 <div class="compute-modal-inner">
                     <p>
@@ -305,6 +306,7 @@ impl Component for Model {
                 env!("GIT_DATE"),
                 env!("GIT_HASH"))}
             </footer>
+        </div>
         </div>
         }
     }
