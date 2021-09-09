@@ -950,8 +950,12 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let consume_future =
         coord_processor.consume_stream(valve.wrap(flydra2_stream), expected_framerate);
 
-    // We block (in an async way) here for the entire runtime of the program.
+    // We "block" (in an async way) here for the entire runtime of the program.
     let opt_jh = consume_future.await;
+
+    // If these tasks are still running, cancel them.
+    sync_start_jh.abort();
+    sync_done_jh.abort();
 
     // Allow writer thread time to finish writing.
     if let Some(jh) = opt_jh {
