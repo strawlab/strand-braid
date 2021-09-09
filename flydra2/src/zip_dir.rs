@@ -20,17 +20,18 @@ where
     for entry in it {
         let path = entry.path();
         let name = path.strip_prefix(prefix.as_ref()).unwrap();
+        let name_string = name.to_str().unwrap().to_string();
 
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
         if path.is_file() {
-            zipw.start_file_from_path(name, options)?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
+            zipw.start_file(name_string, options)?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zipw)?;
         } else if name.as_os_str().len() != 0 {
             // Only if not root! Avoids path spec / warning
             // and mapname conversion failed error on unzip
-            zipw.add_directory_from_path(name, options)?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
+            zipw.add_directory(name_string, options)?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
         }
     }
     zipw.finish()?;
