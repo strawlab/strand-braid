@@ -287,22 +287,6 @@ camtrig-ubuntu1604-debs:
       - xenial-camtrig-debs/
     name: "rust-cam-xenial-camtrig-debs-${CI_COMMIT_SHA}"
 
-build-strand-cam-mkvfix:
-  stage: build
-  tags:
-    - rust
-  script:
-    - cd strand-cam-mkvfix
-    - cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/strand-cam-mkvfix
-    - ldd ../target/release/strand-cam-mkvfix
-    - ls -lh ../target/release/strand-cam-mkvfix
-    - cp -a ../target/release/strand-cam-mkvfix $CI_PROJECT_DIR/strand-cam-mkvfix
-  artifacts:
-    paths:
-      - strand-cam-mkvfix
-    name: "strand-cam-mkvfix-${CI_COMMIT_SHA}"
-
 build-freemovr-calibration:
   stage: build
   tags:
