@@ -47,16 +47,6 @@ pub(crate) struct NumberedContiguous<St, T> {
     pending: Option<T>,
 }
 
-impl<St, T> NumberedContiguous<St, T>
-where
-    St: Stream<Item = T>,
-    T: Numbered,
-{
-    pub(crate) fn inner(self) -> St {
-        self.stream
-    }
-}
-
 enum ContigStage<T> {
     CatchingUp((u64, T)),
     WaitingForNext,
