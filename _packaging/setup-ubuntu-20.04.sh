@@ -32,12 +32,12 @@ wasm-pack --version
 rustc --version
 curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
 echo "b47f14efcb5cb35e7a17300094e2e5c7daba8bbdc6610a0463f5933cda61a1de /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb" | sha256sum -c
-apt install /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+apt-get install /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
 
 # Download pylon and install 6
 curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-apt install /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+apt-get install /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
 curl --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
 echo "0316517e848ab3193b8d3ce2d7275602466dbd396e465b7aae5a9c7f342290d4  /tmp/opencv-3.2-static.tar.gz" | sha256sum -c
