@@ -80,7 +80,10 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType, ToCamtrigDevice};
+#[cfg(feature = "with_camtrig")]
+use strand_cam_storetype::ToCamtrigDevice;
+use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
+
 #[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
@@ -616,6 +619,7 @@ fn frame_process_thread(
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
+    #[cfg(feature = "with_camtrig")]
     camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
@@ -1804,7 +1808,7 @@ impl MyApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        #[cfg(feature = "with_camtrig")] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
         tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -1877,7 +1881,10 @@ impl MyApp {
                     }
                     CallbackType::ToCamtrig(camtrig_arg) => {
                         info!("in camtrig callback: {:?}", camtrig_arg);
+                        #[cfg(feature = "with_camtrig")]
                         camtrig_tx_std.send(camtrig_arg).cb_ok();
+                        #[cfg(not(feature = "with_camtrig"))]
+                        log::error!("ignoring command for camtrig: {:?}", camtrig_arg);
                     }
                 }
                 futures::future::ok(())
@@ -1916,6 +1923,7 @@ impl MyApp {
     /// In the case of #[cfg(feature="with-camtrig")], this will spawn
     /// the serial thread that communicates with the camtrig device.
     /// Otherwise, does very little and `sjh` is essentially empty.
+    #[cfg(feature = "with_camtrig")]
     fn maybe_spawn_camtrig_thread(
         &self,
         camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
@@ -1923,20 +1931,13 @@ impl MyApp {
         camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
-        #[cfg(feature = "with_camtrig")]
-        let sjh = {
-            run_camtrig(
-                self.inner.shared_arc().clone(), // shared_store_arc
-                camtrig_tx_std,
-                camtrig_rx,
-                camtrig_heartbeat_update_arc,
-                cam_args_tx,
-            )?
-        };
-
-        #[cfg(not(feature = "with_camtrig"))]
-        let sjh = SerialJoinHandles {};
-        Ok(sjh)
+        run_camtrig(
+            self.inner.shared_arc().clone(), // shared_store_arc
+            camtrig_tx_std,
+            camtrig_rx,
+            camtrig_heartbeat_update_arc,
+            cam_args_tx,
+        )
     }
 
     fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
@@ -1968,19 +1969,6 @@ impl SerialJoinHandles {
             self.serial_write_cjh.control.clone(),
             self.serial_heartbeat_cjh.control.clone(),
         ]
-    }
-}
-
-#[cfg(not(feature = "with_camtrig"))]
-struct SerialJoinHandles {}
-
-#[cfg(not(feature = "with_camtrig"))]
-impl SerialJoinHandles {
-    fn close_and_join_all(self) -> std::thread::Result<()> {
-        Ok(())
-    }
-    fn stoppers(&self) -> Vec<thread_control::Control> {
-        vec![]
     }
 }
 
@@ -2668,6 +2656,7 @@ pub async fn setup_app(
     let mainbrain_internal_addr = args.mainbrain_internal_addr.clone();
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
+    #[cfg(feature = "with_camtrig")]
     let (camtrig_tx_std, camtrig_rx) = channellib::unbounded();
 
     let camtrig_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
@@ -2903,6 +2892,7 @@ pub async fn setup_app(
         &args.http_server_addr,
         config,
         cam_args_tx2.clone(),
+        #[cfg(feature = "with_camtrig")]
         camtrig_tx_std.clone(),
         tx_frame3,
         valve.clone(),
@@ -2956,6 +2946,7 @@ pub async fn setup_app(
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature="flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
+        #[cfg(feature = "with_camtrig")]
         let camtrig_tx_std = camtrig_tx_std.clone();
         let http_camserver_info2 = http_camserver_info.clone();
         let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
@@ -3002,6 +2993,7 @@ pub async fn setup_app(
                     plugin_handler_thread_tx,
                     plugin_result_rx,
                     plugin_wait_dur,
+                    #[cfg(feature = "with_camtrig")]
                     camtrig_tx_std,
                     flag,
                     is_starting,
@@ -3935,10 +3927,12 @@ pub async fn setup_app(
     // In the case of #[cfg(feature="with-camtrig")], this will spawn
     // the serial thread that communicates with the camtrig device.
     // Otherwise, does very little and `sjh` is essentially empty.
+    #[cfg(feature = "with_camtrig")]
     let sjh = my_app.maybe_spawn_camtrig_thread(camtrig_tx_std, camtrig_rx,
         camtrig_heartbeat_update_arc, cam_args_tx.clone())?;
 
     let ajh = AllJoinHandles {
+        #[cfg(feature = "with_camtrig")]
         sjh,
         frame_process_cjh,
         video_streaming_cjh,
@@ -3997,6 +3991,7 @@ impl<T> ControlledJoinHandle<T> {
 }
 
 pub struct AllJoinHandles {
+    #[cfg(feature = "with_camtrig")]
     sjh: SerialJoinHandles,
     frame_process_cjh: ControlledJoinHandle<()>,
     video_streaming_cjh: ControlledJoinHandle<()>,
@@ -4006,6 +4001,7 @@ pub struct AllJoinHandles {
 
 impl AllJoinHandles {
     fn close_and_join_all(self) -> std::thread::Result<()> {
+        #[cfg(feature = "with_camtrig")]
         self.sjh.close_and_join_all()?;
         self.frame_process_cjh.close_and_join()?;
         self.video_streaming_cjh.close_and_join()?;
@@ -4014,12 +4010,14 @@ impl AllJoinHandles {
         Ok(())
     }
     fn stoppers(&self) -> Vec<thread_control::Control> {
+        #[allow(unused_mut)]
         let mut result = vec![
             self.frame_process_cjh.control.clone(),
             self.video_streaming_cjh.control.clone(),
             #[cfg(feature = "plugin-process-frame")]
             self.plugin_streaming_cjh.control.clone(),
         ];
+        #[cfg(feature = "with_camtrig")]
         result.extend(self.sjh.stoppers().into_iter());
         result
     }
