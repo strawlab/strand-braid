@@ -149,7 +149,7 @@ impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de>
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["width", "height", "extrinsics", "intrinsics"];
+        const FIELDS: &[&str] = &["width", "height", "extrinsics", "intrinsics"];
         deserializer.deserialize_struct("Camera", FIELDS, CameraVisitor(std::marker::PhantomData))
     }
 }
