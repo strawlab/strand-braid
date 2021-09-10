@@ -911,20 +911,10 @@ mod tests {
             device_timestamp: 789,
         });
 
-        dbg!(&pe);
-
         let extra: &dyn HostTimeData = pe.as_ref();
-        // let extra: &dyn HostTimeData = &pe;
-
-        dbg!(extra.blarg());
-
-        dbg!(extra);
 
         let extra_any: &dyn std::any::Any = extra.as_any();
 
-        dbg!(extra_any);
-
         let _extra2 = extra_any.downcast_ref::<PylonExtra>().unwrap();
-        // let _extra2 = extra_any.downcast_ref::<Box<PylonExtra>>().unwrap();
     }
 }
