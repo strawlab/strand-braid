@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
             let mut file = std::fs::File::open(&fname)
-                .map_err(|e| anyhow::Error::from(e))
+                .map_err(anyhow::Error::from)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
             let mut buf = String::new();
             std::io::Read::read_to_string(&mut file, &mut buf)?;
@@ -63,9 +63,11 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     };
-    let mut opts = braid_offline::KalmanizeOptions::default();
-    opts.start_frame = opt.start_frame;
-    opts.stop_frame = opt.stop_frame;
+    let opts = braid_offline::KalmanizeOptions {
+        start_frame: opt.start_frame,
+        stop_frame: opt.stop_frame,
+        ..Default::default()
+    };
 
     // The user specifies an output .braidz file. But we will save initially to
     // a .braid directory. We here ensure the user's name had ".braidz"
@@ -77,8 +79,7 @@ async fn main() -> anyhow::Result<()> {
         return Err(anyhow::format_err!(
             "Path {} exists. Will not overwrite.",
             output_braidz.display()
-        )
-        .into());
+        ));
     }
 
     let rt_handle = tokio::runtime::Handle::current();

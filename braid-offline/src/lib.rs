@@ -87,7 +87,7 @@ fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
             x0_abs: row.x,
             y0_abs: row.y,
             area: row.area,
-            maybe_slope_eccentricty: maybe_slope_eccentricty,
+            maybe_slope_eccentricty,
             cur_val: row.cur_val,
             mean_val: row.mean_val,
             sumsqf_val: row.sumsqf_val,
@@ -106,7 +106,7 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     let mut by_cam = BTreeMap::new();
 
     for inrow in invec.into_iter() {
-        let ref mut rows_entry = by_cam.entry(inrow.camn).or_insert_with(|| Vec::new());
+        let rows_entry = &mut by_cam.entry(inrow.camn).or_insert_with(Vec::new);
         rows_entry.push(inrow);
     }
 
@@ -138,7 +138,7 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
                 line!()
             );
             let df = last_row.frame - row0.frame;
-            if !last_row.timestamp.is_none() && !row0.timestamp.is_none() {
+            if last_row.timestamp.is_some() && row0.timestamp.is_some() {
                 // timestamp from trigger-derived source (should be more accurate)
                 let ts1 = last_row.timestamp.map(|x| x.as_f64()).unwrap();
                 let ts0 = row0.timestamp.map(|x| x.as_f64()).unwrap();
@@ -267,7 +267,7 @@ where
     for cam_name in recon.cam_names() {
         let mut old_image_fname = data_src.path_starter();
         old_image_fname.push(flydra2::IMAGES_DIRNAME);
-        old_image_fname.push(&cam_name);
+        old_image_fname.push(cam_name);
         old_image_fname.set_extension("png");
 
         if !old_image_fname.exists() {
