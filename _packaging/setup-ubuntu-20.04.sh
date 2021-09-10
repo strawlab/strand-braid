@@ -43,6 +43,4 @@ curl --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-st
 echo "0316517e848ab3193b8d3ce2d7275602466dbd396e465b7aae5a9c7f342290d4  /tmp/opencv-3.2-static.tar.gz" | sha256sum -c
 tar xzf /tmp/opencv-3.2-static.tar.gz -C /
 
-mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-web/cargo-web-0.6.26-amd64.exe > $CARGO_HOME/bin/cargo-web
-
 cd $ORIG_DIR
