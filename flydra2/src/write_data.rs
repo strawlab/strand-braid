@@ -93,7 +93,7 @@ impl WritingState {
                 let mut fullpath = image_path.clone();
                 fullpath.push(fname);
                 let mut fd = std::fs::File::create(&fullpath)?;
-                fd.write(&tup)?;
+                fd.write_all(&tup)?;
             }
         }
 
