@@ -608,7 +608,7 @@ braidz-cli-ubuntu1604:
       - braidz-cli-linux-build/
     name: "braidz-cli-ubuntu1604-${CI_COMMIT_SHA}"
 
-braidz-viewer:
+braid-webapps:
   stage: build
   tags:
     - rust
@@ -620,9 +620,24 @@ braidz-viewer:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
+    # Update wasm-bindgen to latest...
+    - cargo update
+    # ... and install latest (and therefore matching) wasm-pack
+    - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    # ... and latest wasm-bindgen-cli
+    - cargo install -f wasm-bindgen-cli
+
     - wasm-pack --version
+
     - cd braidz-viewer
     - ./build.sh
+    - cd ..
+
+    - wasm-bindgen --version
+
+    - cd braid-april-cal-webapp
+    - ./build.sh
+    - cd ..
 
 braid-pylon-ubuntu1604:
   stage: build
