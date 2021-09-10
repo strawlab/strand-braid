@@ -1,27 +1,27 @@
-use std::iter::Iterator;
 use std::collections::{BTreeMap, VecDeque};
+use std::iter::Iterator;
 use withkey::WithKey;
 
 // TODO: better error handling. Do not wrap Result types, but handle Results automatically.
 
 /// A type which reads ahead by `bufsize` elements and sorts within.
 pub struct BufferedSortIter<K, I, T, E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
     single_iter: I,
-    sorted_buf: BTreeMap<K,VecDeque<T>>,
+    sorted_buf: BTreeMap<K, VecDeque<T>>,
     done_reading: bool,
     highest_key: Option<K>,
 }
 
 impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, T, E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
-    pub fn new( single_iter: I, bufsize: usize) -> Result<Self,E> {
+    pub fn new(single_iter: I, bufsize: usize) -> Result<Self, E> {
         let sorted_buf = BTreeMap::new();
         let mut result = Self {
             single_iter,
@@ -34,7 +34,7 @@ impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, 
         while count < bufsize {
             count += 1;
             if !result.read_next()? {
-                break
+                break;
             }
         }
         Ok(result)
@@ -46,7 +46,7 @@ impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, 
 
     // read a single item from the iterator. returns true if should read again.
     #[inline]
-    fn read_next(&mut self) -> Result<bool,E> {
+    fn read_next(&mut self) -> Result<bool, E> {
         if self.done_reading {
             return Ok(false);
         }
@@ -54,14 +54,17 @@ impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, 
             None => {
                 self.done_reading = true;
                 Ok(false)
-            },
+            }
             Some(result_el) => {
                 let el = result_el?;
                 let key = el.key();
-                let ref mut rows_entry = self.sorted_buf.entry(key).or_insert_with(|| VecDeque::new());
+                let ref mut rows_entry = self
+                    .sorted_buf
+                    .entry(key)
+                    .or_insert_with(|| VecDeque::new());
                 rows_entry.push_back(el);
                 Ok(true)
-            },
+            }
         }
     }
 
@@ -72,10 +75,8 @@ impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, 
         let result: T = {
             let mut first = self.sorted_buf.iter_mut().next();
             match first {
-                None => {
-                    return None
-                },
-                Some((this_key,ref mut this_el_vec)) => {
+                None => return None,
+                Some((this_key, ref mut this_el_vec)) => {
                     if let Some(ref hk) = self.highest_key {
                         assert!(this_key >= hk, "failed to sort data (bufsize too small?)");
                     }
@@ -98,16 +99,20 @@ impl<K: std::cmp::Ord + Clone, I, T, E: std::fmt::Debug> BufferedSortIter<K, I, 
     }
 }
 
-impl<K: std::cmp::Ord + std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd + Clone,I,T,E: std::fmt::Debug> Iterator for BufferedSortIter<K,I,T,E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+impl<
+        K: std::cmp::Ord + std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd + Clone,
+        I,
+        T,
+        E: std::fmt::Debug,
+    > Iterator for BufferedSortIter<K, I, T, E>
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
     type Item = std::result::Result<T, E>;
-    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item>
-    {
+    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
         match self.read_next() {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 // The error may be desynchronized somewhat from element in iterator
                 // from which it came, but at least it gets
@@ -123,19 +128,19 @@ impl<K: std::cmp::Ord + std::fmt::Debug + std::cmp::PartialEq + std::cmp::Partia
 ///
 /// Panics if the input iterator is not sorted.
 pub struct AscendingGroupIter<K, I, T, E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
     single_iter: I,
-    peek: Option<std::result::Result<T,E>>,
+    peek: Option<std::result::Result<T, E>>,
     key_type: std::marker::PhantomData<K>,
 }
 
 impl<K, I, T, E> AscendingGroupIter<K, I, T, E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
     pub fn new(mut single_iter: I) -> Self {
         let peek = single_iter.next();
@@ -157,18 +162,17 @@ pub struct GroupedRows<K, T: WithKey<K>> {
     pub rows: Vec<T>,
 }
 
-impl<K: std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd,I, T: WithKey<K>,E> Iterator for AscendingGroupIter<K,I,T,E>
-    where
-        I: Iterator<Item=std::result::Result<T,E>>,
-        T: WithKey<K>,
+impl<K: std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd, I, T: WithKey<K>, E> Iterator
+    for AscendingGroupIter<K, I, T, E>
+where
+    I: Iterator<Item = std::result::Result<T, E>>,
+    T: WithKey<K>,
 {
-    type Item = std::result::Result<GroupedRows<K,T>, E>;
-    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item>
-    {
+    type Item = std::result::Result<GroupedRows<K, T>, E>;
+    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
         match self.peek.take() {
             None => None, // no more rows, return None
             Some(row_result) => {
-
                 match row_result {
                     Ok(next_seed) => {
                         // first row of new group_key
@@ -192,23 +196,18 @@ impl<K: std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd,I, T: WithK
                                                         val.key(), item.group_key);
                                                 }
                                                 self.peek = Some(Ok(val));
-                                                break
+                                                break;
                                             }
                                         }
-                                        Err(e) => {
-                                            return Some(Err(e))
-                                        }
+                                        Err(e) => return Some(Err(e)),
                                     }
                                 }
                             }
                         }
                         Some(Ok(item))
                     }
-                    Err(e) => {
-                        return Some(Err(e))
-                    }
+                    Err(e) => return Some(Err(e)),
                 }
-
             }
         }
     }
@@ -231,56 +230,123 @@ mod tests {
     #[test]
     fn groupby_empty() {
         let foos: Vec<Foo> = vec![];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut group_iter = AscendingGroupIter::new(foos_iter);
         assert!(group_iter.next() == None);
     }
 
     #[test]
     fn groupby_monotonic() {
-        let foos = vec![Foo{x:1}, Foo{x:1}, Foo{x:2}, Foo{x:2}, Foo{x:3}];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos = vec![
+            Foo { x: 1 },
+            Foo { x: 1 },
+            Foo { x: 2 },
+            Foo { x: 2 },
+            Foo { x: 3 },
+        ];
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut group_iter = AscendingGroupIter::new(foos_iter);
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 1, rows: vec![Foo{x:1}, Foo{x:1}]})));
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 2, rows: vec![Foo{x:2}, Foo{x:2}]})));
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 3, rows: vec![Foo{x:3}]})));
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 1,
+                    rows: vec![Foo { x: 1 }, Foo { x: 1 }]
+                }))
+        );
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 2,
+                    rows: vec![Foo { x: 2 }, Foo { x: 2 }]
+                }))
+        );
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 3,
+                    rows: vec![Foo { x: 3 }]
+                }))
+        );
         assert!(group_iter.next() == None);
     }
 
     #[test]
     #[should_panic]
     fn groupby_nonmonotonic() {
-        let foos = vec![Foo{x:1}, Foo{x:3}, Foo{x:2}];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos = vec![Foo { x: 1 }, Foo { x: 3 }, Foo { x: 2 }];
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut group_iter = AscendingGroupIter::new(foos_iter);
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 1, rows: vec![Foo{x:1}, Foo{x:1}]})));
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 2, rows: vec![Foo{x:2}, Foo{x:2}]})));
-        assert!(group_iter.next() == Some(Ok(GroupedRows{group_key: 3, rows: vec![Foo{x:3}]})));
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 1,
+                    rows: vec![Foo { x: 1 }, Foo { x: 1 }]
+                }))
+        );
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 2,
+                    rows: vec![Foo { x: 2 }, Foo { x: 2 }]
+                }))
+        );
+        assert!(
+            group_iter.next()
+                == Some(Ok(GroupedRows {
+                    group_key: 3,
+                    rows: vec![Foo { x: 3 }]
+                }))
+        );
         assert!(group_iter.next() == None);
     }
 
     #[test]
     fn buffered_sort_empty() {
         let foos = vec![];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut sorted_iter = BufferedSortIter::new(foos_iter, 100).unwrap();
         assert!(sorted_iter.next() == None);
     }
 
     #[test]
     fn buffered_sort_results() {
-        let foos = vec![Foo{x:1}, Foo{x:3}, Foo{x:1}, Foo{x:4}, Foo{x:3}, Foo{x:3}, Foo{x:3}, Foo{x:3}, Foo{x:1}];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos = vec![
+            Foo { x: 1 },
+            Foo { x: 3 },
+            Foo { x: 1 },
+            Foo { x: 4 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 1 },
+        ];
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut sorted_iter = BufferedSortIter::new(foos_iter, 100).unwrap();
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:4})));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
         assert!(sorted_iter.next() == None);
     }
 
@@ -288,36 +354,60 @@ mod tests {
     #[should_panic]
     fn buffered_sort_results_too_spread() {
         // the bufsize is only 2 here but the disordered items extend further apart, so this should fail.
-        let foos = vec![Foo{x:1}, Foo{x:3}, Foo{x:1}, Foo{x:4}, Foo{x:3}, Foo{x:3}, Foo{x:3}, Foo{x:3}, Foo{x:1}];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos = vec![
+            Foo { x: 1 },
+            Foo { x: 3 },
+            Foo { x: 1 },
+            Foo { x: 4 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 1 },
+        ];
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut sorted_iter = BufferedSortIter::new(foos_iter, 2).unwrap();
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:4})));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
         assert!(sorted_iter.next() == None);
     }
 
     #[test]
     fn buffered_sort_results_partial() {
         // here bufsize is 4, which is enough
-        let foos = vec![Foo{x:1}, Foo{x:3}, Foo{x:4}, Foo{x:1}, Foo{x:3}, Foo{x:3}, Foo{x:3}, Foo{x:3}];
-        let foos_iter = foos.into_iter().map(|x| {let r: Result<Foo,u8> = Ok(x); r});
+        let foos = vec![
+            Foo { x: 1 },
+            Foo { x: 3 },
+            Foo { x: 4 },
+            Foo { x: 1 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+            Foo { x: 3 },
+        ];
+        let foos_iter = foos.into_iter().map(|x| {
+            let r: Result<Foo, u8> = Ok(x);
+            r
+        });
         let mut sorted_iter = BufferedSortIter::new(foos_iter, 4).unwrap();
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:1})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:3})));
-        assert!(sorted_iter.next() == Some(Ok(Foo{x:4})));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 1 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
+        assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
         assert!(sorted_iter.next() == None);
     }
-
 }
