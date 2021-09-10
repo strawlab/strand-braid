@@ -287,7 +287,7 @@ impl BuiServerInfo {
         let stripped = url
             .strip_prefix("http://")
             .ok_or(FlydraTypesError::UrlParseError)?;
-        let first_slash = stripped.find("/");
+        let first_slash = stripped.find('/');
         let (addr_str, token) = if let Some(slash_idx) = first_slash {
             let path = &stripped[slash_idx..];
             if path.len() == 1 {
