@@ -147,8 +147,8 @@ fn test_flydra_xml_writing() {
                     PointWorldFrame { coords: Point3::new(0.01, 0.02, 0.03) },
                     PointWorldFrame { coords: Point3::new(-0.01, -0.02, -0.03) },
                 ] {
-                    let expected = cam_orig.project_3d_to_distorted_pixel(&pt);
-                    let actual = cam_new.project_3d_to_distorted_pixel(&pt);
+                    let expected = cam_orig.project_3d_to_distorted_pixel(pt);
+                    let actual = cam_new.project_3d_to_distorted_pixel(pt);
                     assert_relative_eq!(actual.coords, expected.coords, max_relative = 1e-10);
                 }
             };

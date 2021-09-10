@@ -76,12 +76,11 @@ where
 
     // changes to this should update BraidMetadataSchemaTag
 
-    let v: Vec<Result<String, serde_xml_rs::Error>> = recon
+    let v: Result<Vec<String>, serde_xml_rs::Error> = recon
         .cameras
         .iter()
         .map(|cam| serde_xml_rs::to_string(cam))
         .collect();
-    let v: Result<Vec<String>, serde_xml_rs::Error> = v.into_iter().collect();
     let v: Vec<String> = v?;
     let cams_buf = v.join("");
 
@@ -114,7 +113,7 @@ where
     assert!(buf.ends_with(strip_end));
     let bufptr = &buf[0..(buf.len() - strip_end.len())];
     let bufptr = &bufptr[strip_start.len()..];
-    serializer.serialize_str(&bufptr)
+    serializer.serialize_str(bufptr)
 }
 
 #[rustfmt::skip]
@@ -137,7 +136,7 @@ where
     use std::str::FromStr;
 
     let s = String::deserialize(deserializer)?;
-    let rows: Vec<&str> = s.split(";").collect();
+    let rows: Vec<&str> = s.split(';').collect();
     if rows.len() != 3 {
         return Err(serde::de::Error::custom("expected exactly 3 rows"));
     }
@@ -170,7 +169,7 @@ where
     use std::str::FromStr;
 
     let s = String::deserialize(deserializer)?;
-    let nums: Vec<&str> = s.split(" ").collect();
+    let nums: Vec<&str> = s.split(' ').collect();
     if nums.len() != 2 {
         return Err(serde::de::Error::custom("expected exactly 2 numbers"));
     }

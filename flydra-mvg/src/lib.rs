@@ -90,7 +90,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R
     fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> ncollide3d::query::Ray<R> {
         let dist = na::convert(1.0);
         let p2 = self.project_pixel_to_3d_with_dist(pt, dist);
-        let ray_origin = self.extrinsics().camcenter().clone();
+        let ray_origin = *self.extrinsics().camcenter();
         let ray_dir = p2.coords - ray_origin;
         ncollide3d::query::Ray::new(ray_origin, ray_dir)
     }
@@ -342,8 +342,12 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         self.system.cams().len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.system.cams().is_empty()
+    }
+
     pub fn cam_by_name(&self, name: &str) -> Option<MultiCamera<R>> {
-        self.system.cam_by_name(&name).map(|cam| MultiCamera {
+        self.system.cam_by_name(name).map(|cam| MultiCamera {
             water: self.water,
             name: name.to_string(),
             cam: cam.clone(),
@@ -364,7 +368,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
     pub fn find3d_and_cum_reproj_dist_distorted(
         &self,
-        points: &Vec<(String, DistortedPixel<R>)>,
+        points: &[(String, DistortedPixel<R>)],
     ) -> Result<PointWorldFrameWithSumReprojError<R>> {
         use crate::PointWorldFrameMaybeWithSumReprojError::*;
 
@@ -387,10 +391,10 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     /// with the lowest mean reprojection error is selected.
     pub fn find3d(
         &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
+        points: &[(String, UndistortedPixel<R>)],
     ) -> Result<PointWorldFrameMaybeWithSumReprojError<R>> {
         if points.len() < 2 {
-            return Err(MvgError::NotEnoughPoints.into());
+            return Err(MvgError::NotEnoughPoints);
         }
 
         use crate::PointWorldFrameMaybeWithSumReprojError::*;
@@ -400,14 +404,14 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 // TODO: would it be possible to have a 3d reconstruction with
                 // lower reprojection error when it was z<0 but with the air
                 // based calculation? This would seem problematic...
-                let opt_water_3d_pt = match self.find3d_water(&points, n2) {
+                let opt_water_3d_pt = match self.find3d_water(points, n2) {
                     Ok(water_3d_pt) => Some(water_3d_pt),
                     Err(MvgError::CamGeomError { .. }) => None,
                     Err(e) => {
-                        return Err(e.into());
+                        return Err(e);
                     }
                 };
-                let air_3d_pt = self.find3d_air(&points)?;
+                let air_3d_pt = self.find3d_air(points)?;
 
                 let air_dists = self.get_reprojection_undistorted_dists(points, &air_3d_pt)?;
                 let air_dist_sum = vec_sum(&air_dists);
@@ -438,16 +442,13 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
     pub fn find3d_distorted(
         &self,
-        points: &Vec<(String, DistortedPixel<R>)>,
+        points: &[(String, DistortedPixel<R>)],
     ) -> Result<WorldCoordAndUndistorted2D<R>> {
         let upoints: Vec<(String, UndistortedPixel<R>)> = points
             .iter()
             .filter_map(|&(ref name, ref pt)| {
-                if let Some(cam) = self.cam_by_name(name) {
-                    Some((name.clone(), cam.undistort(pt)))
-                } else {
-                    None
-                }
+                self.cam_by_name(name)
+                    .map(|cam| (name.clone(), cam.undistort(pt)))
             })
             .collect();
         if upoints.len() != points.len() {
@@ -461,7 +462,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
     fn find3d_water(
         &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
+        points: &[(String, UndistortedPixel<R>)],
         n2: R,
     ) -> Result<PointWorldFrame<R>> {
         use cam_geom::{Ray, WorldFrame};
@@ -479,45 +480,40 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
             let opt_surface_pt_toi: Option<R> =
                 z0.toi_with_ray(&eye, &air_ray, R::max_value(), solid);
 
-            match opt_surface_pt_toi {
-                Some(toi) => {
-                    let surface_pt = air_ray.origin + air_ray.dir * toi;
+            if let Some(toi) = opt_surface_pt_toi {
+                let surface_pt = air_ray.origin + air_ray.dir * toi;
 
-                    // closest point to camera on water surface, assumes water at z==0
-                    let camcenter = &air_ray.origin;
-                    let camcenter_z0 =
-                        Point3::from(Vector3::new(camcenter[0], camcenter[1], na::convert(0.0)));
+                // closest point to camera on water surface, assumes water at z==0
+                let camcenter = &air_ray.origin;
+                let camcenter_z0 =
+                    Point3::from(Vector3::new(camcenter[0], camcenter[1], na::convert(0.0)));
 
-                    let surface_pt_cam = surface_pt - camcenter_z0;
+                let surface_pt_cam = surface_pt - camcenter_z0;
 
-                    // Get underwater line from water surface (using Snell's Law).
-                    let y = surface_pt_cam[1];
-                    let x = surface_pt_cam[0];
-                    let pt_angle = y.atan2(x);
-                    let pt_horiz_dist = (x * x + y * y).sqrt(); // horizontal distance from camera to water surface
-                    let theta_air = pt_horiz_dist.atan2(camcenter[2]);
+                // Get underwater line from water surface (using Snell's Law).
+                let y = surface_pt_cam[1];
+                let x = surface_pt_cam[0];
+                let pt_angle = y.atan2(x);
+                let pt_horiz_dist = (x * x + y * y).sqrt(); // horizontal distance from camera to water surface
+                let theta_air = pt_horiz_dist.atan2(camcenter[2]);
 
-                    // sin(theta_water)/sin(theta_air) = sin(n_air)/sin(n_water)
-                    let n_air = na::convert(AIR_REFRACTION);
-                    let sin_theta_water = theta_air.sin() * n_air / n2;
-                    let theta_water = sin_theta_water.asin();
-                    let horiz_dist_at_depth_1 = theta_water.tan();
-                    let horiz_dist_cam_depth_1 = horiz_dist_at_depth_1 + pt_horiz_dist; // total horizontal distance
-                    let deep_pt_cam = Vector3::new(
-                        horiz_dist_cam_depth_1 * pt_angle.cos(),
-                        horiz_dist_cam_depth_1 * pt_angle.sin(),
-                        na::convert(-1.0),
-                    );
-                    let deep_pt = deep_pt_cam + camcenter_z0.coords;
-                    let water_ray_dir = deep_pt - surface_pt.coords;
-                    rays.push(Ray::new(
-                        surface_pt.coords.transpose(),
-                        water_ray_dir.transpose(),
-                    ));
-                }
-                None => {
-                    // no intersection with this point
-                }
+                // sin(theta_water)/sin(theta_air) = sin(n_air)/sin(n_water)
+                let n_air = na::convert(AIR_REFRACTION);
+                let sin_theta_water = theta_air.sin() * n_air / n2;
+                let theta_water = sin_theta_water.asin();
+                let horiz_dist_at_depth_1 = theta_water.tan();
+                let horiz_dist_cam_depth_1 = horiz_dist_at_depth_1 + pt_horiz_dist; // total horizontal distance
+                let deep_pt_cam = Vector3::new(
+                    horiz_dist_cam_depth_1 * pt_angle.cos(),
+                    horiz_dist_cam_depth_1 * pt_angle.sin(),
+                    na::convert(-1.0),
+                );
+                let deep_pt = deep_pt_cam + camcenter_z0.coords;
+                let water_ray_dir = deep_pt - surface_pt.coords;
+                rays.push(Ray::new(
+                    surface_pt.coords.transpose(),
+                    water_ray_dir.transpose(),
+                ));
             }
         }
         let pt = cam_geom::best_intersection_of_rays(&rays)?;
@@ -525,17 +521,14 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     /// Find 3D coordinate using pixel coordinates from cameras
-    fn find3d_air(
-        &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
-    ) -> Result<PointWorldFrame<R>> {
+    fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
         self.system.find3d(points)
     }
 
     /// Find reprojection error of 3D coordinate into pixel coordinates
     pub fn get_reprojection_undistorted_dists(
         &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
+        points: &[(String, UndistortedPixel<R>)],
         this_3d_pt: &PointWorldFrame<R>,
     ) -> Result<Vec<R>> {
         let this_dists = points
@@ -545,7 +538,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                     &self
                         .cam_by_name(cam_name)
                         .ok_or(MvgError::UnknownCamera)?
-                        .project_3d_to_pixel(&this_3d_pt)
+                        .project_3d_to_pixel(this_3d_pt)
                         .coords,
                     &orig.coords,
                 ))
@@ -568,7 +561,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     pub fn to_flydra_reconstructor(&self) -> Result<flydra_xml_support::FlydraReconstructor<R>> {
-        let cameras: Vec<Result<flydra_xml_support::SingleCameraCalibration<R>>> = self
+        let cameras: Result<Vec<flydra_xml_support::SingleCameraCalibration<R>>> = self
             .system
             .cams_by_name()
             .iter()
@@ -578,14 +571,12 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 Ok(flydra_cam)
             })
             .collect();
-        let cameras: Result<Vec<flydra_xml_support::SingleCameraCalibration<R>>> =
-            cameras.into_iter().collect();
         let cameras = cameras?;
         let water = self.water;
 
         Ok(flydra_xml_support::FlydraReconstructor {
             cameras,
-            comment: self.system.comment().map(|x| x.clone()),
+            comment: self.system.comment().cloned(),
             water,
             minimum_eccentricity: na::convert(0.0),
         })
@@ -626,7 +617,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(MvgError::FailedFlydraXmlConversion.into());
+            return Err(MvgError::FailedFlydraXmlConversion);
         }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
@@ -647,7 +638,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
             cc1p: None,
             cc2p: None,
         };
-        let calibration_matrix = self.linear_part_as_pmat().clone();
+        let calibration_matrix = *self.linear_part_as_pmat();
         Ok(SingleCameraCalibration {
             cam_id,
             calibration_matrix,
@@ -663,7 +654,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         let zero: R = Zero::zero();
 
         let name = cam.cam_id.clone();
-        let m = cam.calibration_matrix.clone().remove_column(3);
+        let m = cam.calibration_matrix.remove_column(3);
         let (rquat, k) = rq_decomposition(m)?;
 
         let k22: R = k[(2, 2)];
@@ -761,10 +752,11 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
 }
 
 /// helper function (duplicated from mvg)
+#[allow(clippy::many_single_char_names)]
 fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
-    let x = p.clone().remove_column(0).determinant();
-    let y = -p.clone().remove_column(1).determinant();
-    let z = p.clone().remove_column(2).determinant();
-    let w = -p.clone().remove_column(3).determinant();
+    let x = (*p).remove_column(0).determinant();
+    let y = -(*p).remove_column(1).determinant();
+    let z = (*p).remove_column(2).determinant();
+    let w = -(*p).remove_column(3).determinant();
     Point3::from(Vector3::new(x / w, y / w, z / w))
 }
