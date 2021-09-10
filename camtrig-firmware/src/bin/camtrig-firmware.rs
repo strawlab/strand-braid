@@ -81,7 +81,7 @@ use stm32_hal::stm32::{self, USART2};
 use stm32_hal::time::{Hertz, U32Ext};
 use stm32_hal::timer::{self, Timer};
 
-use rtfm::Mutex;
+use rtic::Mutex;
 
 use mini_rxtx::Decoded;
 
@@ -109,7 +109,7 @@ type ItmType = cortex_m::peripheral::ITM;
 #[cfg(not(feature = "itm"))]
 type ItmType = ();
 
-#[rtfm::app(device = stm32f3xx_hal::stm32, peripherals = true)]
+#[rtic::app(device = stm32f3xx_hal::stm32, peripherals = true)]
 const APP: () = {
     // Late resources
     struct Resources {
@@ -297,7 +297,7 @@ const APP: () = {
                             sender.send_msg(msg).unwrap();
                         });
 
-                        rtfm::pend(Interrupt::USART2_EXTI26);
+                        rtic::pend(Interrupt::USART2_EXTI26);
                         // iprintln!(&itm.stim[0], "echo");
                     }
                     Decoded::Msg(ToDevice::CounterInfoRequest(_tim_num)) => {
@@ -316,7 +316,7 @@ const APP: () = {
                             sender.send_msg(msg).unwrap();
                         });
 
-                        rtfm::pend(Interrupt::USART2_EXTI26);
+                        rtic::pend(Interrupt::USART2_EXTI26);
                     }
                     Decoded::FrameNotYetComplete => {
                         // Frame not complete yet, do nothing until next byte.
@@ -496,7 +496,7 @@ fn update_led_state(next_state: &ChannelState, resources: &mut idle::Resources) 
             _ => panic!("unknown channel"),
         };
     }
-    rtfm::pend(Interrupt::TIM2);
+    rtic::pend(Interrupt::TIM2);
 }
 
 // -------------------------------------------------------------------------
