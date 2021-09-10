@@ -24,7 +24,7 @@ pub async fn future_session(
     base_uri: &str,
     token: AccessToken,
 ) -> Result<InsecureSession, hyper::Error> {
-    let mut base = InsecureSession::new(&base_uri);
+    let mut base = InsecureSession::new(base_uri);
     base.get_with_token("", token).await?;
     Ok(base)
 }
@@ -32,7 +32,7 @@ pub async fn future_session(
 impl InsecureSession {
     fn new(base_uri: &str) -> Self {
         let base_uri: hyper::Uri = base_uri.parse().expect("failed to parse uri");
-        if let Some(ref pq) = base_uri.path_and_query() {
+        if let Some(pq) = base_uri.path_and_query() {
             assert_eq!(pq.path(), "/");
             assert!(pq.query().is_none());
         }
