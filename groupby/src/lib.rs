@@ -58,10 +58,7 @@ where
             Some(result_el) => {
                 let el = result_el?;
                 let key = el.key();
-                let ref mut rows_entry = self
-                    .sorted_buf
-                    .entry(key)
-                    .or_insert_with(|| VecDeque::new());
+                let rows_entry = &mut self.sorted_buf.entry(key).or_insert_with(VecDeque::new);
                 rows_entry.push_back(el);
                 Ok(true)
             }
@@ -191,7 +188,9 @@ where
                                             if val.key() == item.group_key {
                                                 item.rows.push(val);
                                             } else {
-                                                if !(val.key() > item.group_key) {
+                                                if val.key().partial_cmp(&item.group_key)
+                                                    != Some(std::cmp::Ordering::Greater)
+                                                {
                                                     panic!("key is not monotonically ascending ({:?} < {:?})",
                                                         val.key(), item.group_key);
                                                 }
@@ -206,7 +205,7 @@ where
                         }
                         Some(Ok(item))
                     }
-                    Err(e) => return Some(Err(e)),
+                    Err(e) => Some(Err(e)),
                 }
             }
         }
