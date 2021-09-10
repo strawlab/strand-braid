@@ -52,7 +52,7 @@ where
     let v = serde_json::Value::deserialize(deserializer)?;
     let rows = v
         .as_array()
-        .ok_or(serde::de::Error::custom("expected array"))?;
+        .ok_or_else(|| serde::de::Error::custom("expected array"))?;
 
     if rows.len() != 3 {
         return Err(serde::de::Error::custom(format!(
@@ -65,7 +65,7 @@ where
     for (i, row_value) in rows.iter().enumerate() {
         let row = row_value
             .as_array()
-            .ok_or(serde::de::Error::custom("expected array"))?;
+            .ok_or_else(|| serde::de::Error::custom("expected array"))?;
 
         if row.len() != COLS::dim() {
             return Err(serde::de::Error::custom(format!(
@@ -79,7 +79,7 @@ where
         for el_value in row {
             let el = el_value
                 .as_f64()
-                .ok_or(serde::de::Error::custom("expected float"))?;
+                .ok_or_else(|| serde::de::Error::custom("expected float"))?;
             values.push(nalgebra::convert(el));
         }
     }

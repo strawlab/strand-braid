@@ -80,7 +80,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     pub fn from_pymvg(pymvg_system: &PymvgMultiCameraSystemV1<R>) -> Result<Self> {
         let mut cams = BTreeMap::new();
         if pymvg_system.__pymvg_file_version__ != "1.0" {
-            return Err(MvgError::UnsupportedVersion.into());
+            return Err(MvgError::UnsupportedVersion);
         }
         for pymvg_cam in pymvg_system.camera_system.iter() {
             let (name, cam) = Camera::from_pymvg(pymvg_cam)?;
@@ -106,7 +106,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     /// pixels.
     pub fn get_reprojection_undistorted_dists(
         &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
+        points: &[(String, UndistortedPixel<R>)],
         this_3d_pt: &PointWorldFrame<R>,
     ) -> Result<Vec<R>> {
         let this_dists = points
@@ -117,7 +117,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
                         .cams_by_name
                         .get(cam_name)
                         .ok_or(MvgError::UnknownCamera)?
-                        .project_3d_to_pixel(&this_3d_pt)
+                        .project_3d_to_pixel(this_3d_pt)
                         .coords,
                     &orig.coords,
                 ))
@@ -129,7 +129,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     /// Find 3D coordinate and cumulative reprojection distance using pixel coordinates from cameras
     pub fn find3d_and_cum_reproj_dist(
         &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
+        points: &[(String, UndistortedPixel<R>)],
     ) -> Result<PointWorldFrameWithSumReprojError<R>> {
         let point = self.find3d(points)?;
         let reproj_dists = self.get_reprojection_undistorted_dists(points, &point)?;
@@ -137,21 +137,15 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     }
 
     /// Find 3D coordinate using pixel coordinates from cameras
-    pub fn find3d(
-        &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
-    ) -> Result<PointWorldFrame<R>> {
+    pub fn find3d(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
         if points.len() < 2 {
-            return Err(MvgError::NotEnoughPoints.into());
+            return Err(MvgError::NotEnoughPoints);
         }
 
-        Ok(self.find3d_air(&points)?)
+        self.find3d_air(points)
     }
 
-    fn find3d_air(
-        &self,
-        points: &Vec<(String, UndistortedPixel<R>)>,
-    ) -> Result<PointWorldFrame<R>> {
+    fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
         let mut rays: Vec<Ray<WorldFrame, R>> = Vec::with_capacity(points.len());
         for &(ref name, ref xy) in points.iter() {
             // Get camera.

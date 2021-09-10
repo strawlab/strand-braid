@@ -134,14 +134,14 @@ where
     }
 }
 
-impl<R> Into<cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>>> for &DistortedPixel<R>
+impl<R> From<&DistortedPixel<R>> for cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>>
 where
     R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
-    fn into(self) -> cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>> {
-        cam_geom::Pixels {
-            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[self.coords[0], self.coords[1]]),
+    fn from(orig: &DistortedPixel<R>) -> Self {
+        Self {
+            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[orig.coords[0], orig.coords[1]]),
         }
     }
 }
@@ -186,15 +186,15 @@ where
     }
 }
 
-impl<R> Into<opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>>>
-    for &UndistortedPixel<R>
+impl<R> From<&UndistortedPixel<R>>
+    for opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>>
 where
     R: RealField + Copy,
     na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
 {
-    fn into(self) -> opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>> {
-        opencv_ros_camera::UndistortedPixels {
-            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[self.coords[0], self.coords[1]]),
+    fn from(orig: &UndistortedPixel<R>) -> Self {
+        Self {
+            data: na::OMatrix::<R, U1, U2>::from_row_slice(&[orig.coords[0], orig.coords[1]]),
         }
     }
 }
@@ -229,31 +229,22 @@ where
     }
 }
 
-impl<R>
-    Into<
-        cam_geom::Points<
-            cam_geom::coordinate_system::CameraFrame,
-            R,
-            U1,
-            na::storage::Owned<R, U1, U3>,
-        >,
-    > for &PointCameraFrame<R>
-where
-    R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
-{
-    fn into(
-        self,
-    ) -> cam_geom::Points<
+impl<R> From<&PointCameraFrame<R>>
+    for cam_geom::Points<
         cam_geom::coordinate_system::CameraFrame,
         R,
         U1,
         na::storage::Owned<R, U1, U3>,
-    > {
-        cam_geom::Points::new(na::OMatrix::<R, U1, U3>::new(
-            self.coords[0],
-            self.coords[1],
-            self.coords[2],
+    >
+where
+    R: RealField + Copy,
+    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+{
+    fn from(orig: &PointCameraFrame<R>) -> Self {
+        Self::new(na::OMatrix::<R, U1, U3>::new(
+            orig.coords[0],
+            orig.coords[1],
+            orig.coords[2],
         ))
     }
 }
@@ -288,31 +279,22 @@ where
     }
 }
 
-impl<R>
-    Into<
-        cam_geom::Points<
-            cam_geom::coordinate_system::WorldFrame,
-            R,
-            U1,
-            na::storage::Owned<R, U1, U3>,
-        >,
-    > for &PointWorldFrame<R>
-where
-    R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
-{
-    fn into(
-        self,
-    ) -> cam_geom::Points<
+impl<R> From<&PointWorldFrame<R>>
+    for cam_geom::Points<
         cam_geom::coordinate_system::WorldFrame,
         R,
         U1,
         na::storage::Owned<R, U1, U3>,
-    > {
-        cam_geom::Points::new(na::OMatrix::<R, U1, U3>::new(
-            self.coords[0],
-            self.coords[1],
-            self.coords[2],
+    >
+where
+    R: RealField + Copy,
+    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+{
+    fn from(orig: &PointWorldFrame<R>) -> Self {
+        Self::new(na::OMatrix::<R, U1, U3>::new(
+            orig.coords[0],
+            orig.coords[1],
+            orig.coords[2],
         ))
     }
 }

@@ -107,9 +107,9 @@ fn test_from_pmat2() {
                 continue;
             }
         };
-        let cam2 = crate::Camera::from_pmat(cam1.width(), cam1.height(), &pmat).unwrap();
+        let cam2 = crate::Camera::from_pmat(cam1.width(), cam1.height(), pmat).unwrap();
         println!("cam1 {:?}", cam1);
         println!("cam2 {:?}", cam2);
-        assert!(is_similar(&cam1, &cam2));
+        assert!(is_similar(cam1, &cam2));
     }
 }
