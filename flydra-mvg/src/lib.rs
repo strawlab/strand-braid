@@ -600,7 +600,7 @@ where
             #[cfg(feature = "backtrace")]
             backtrace: std::backtrace::Backtrace::capture(),
         })?;
-        writer.write(buf.as_bytes())?;
+        writer.write_all(buf.as_bytes())?;
         Ok(())
     }
 }
