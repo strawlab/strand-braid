@@ -68,9 +68,11 @@ impl RGB888 {
 
         let m1 = if dr > dg { dr } else { dg };
 
-        let m2 = if m1 > db { m1 } else { db };
-
-        m2
+        if m1 > db {
+            m1
+        } else {
+            db
+        }
     }
 
     fn distance(&self, other: &RGB888) -> i32 {
@@ -409,7 +411,7 @@ impl<'a, FMT1, FMT2> ImageData<FMT2> for ReinterpretedImage<'a, FMT1, FMT2> {
         self.orig.height()
     }
     fn buffer_ref(&self) -> ImageBufferRef<'_, FMT2> {
-        ImageBufferRef::new(&self.orig.image_data())
+        ImageBufferRef::new(self.orig.image_data())
     }
     fn buffer(self) -> ImageBuffer<FMT2> {
         // copy the data
@@ -794,7 +796,7 @@ where
         let mut dest = Vec::with_capacity(packed_stride * frame.height() as usize);
         let src = frame.image_data();
         let chunk_iter = src.chunks_exact(frame.stride());
-        if chunk_iter.remainder().len() != 0 {
+        if !chunk_iter.remainder().is_empty() {
             return Err(Error::InvalidAllocatedBufferSize);
         }
         for src_row in chunk_iter {
@@ -811,11 +813,11 @@ where
     match opts {
         ImageOptions::Jpeg(quality) => {
             let mut encoder = image::jpeg::JpegEncoder::new_with_quality(&mut result, quality);
-            encoder.encode(&use_frame, frame.width(), frame.height(), coding)?;
+            encoder.encode(use_frame, frame.width(), frame.height(), coding)?;
         }
         ImageOptions::Png => {
             let encoder = image::png::PngEncoder::new(&mut result);
-            encoder.encode(&use_frame, frame.width(), frame.height(), coding)?;
+            encoder.encode(use_frame, frame.width(), frame.height(), coding)?;
         }
     }
     Ok(result)
@@ -1037,7 +1039,7 @@ where
                 {
                     dest_row.copy_from_slice(&src_row[..frame.width() as usize]);
                 }
-                return Ok(buf);
+                Ok(buf)
             } else {
                 Ok(frame.image_data().to_vec())
             }
