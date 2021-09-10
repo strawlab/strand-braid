@@ -505,9 +505,8 @@ where
 {
     let mut buf = vec![];
     let mut new_file = std::fs::File::create(dest)?;
-    while reader.read(&mut buf)? > 0 {
-        new_file.write(&mut buf)?;
-    }
+    reader.read_to_end(&mut buf)?;
+    new_file.write_all(&buf)?;
     new_file.flush()?;
     Ok(())
 }
