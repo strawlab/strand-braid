@@ -36,7 +36,7 @@ async fn test_covariance() {
 
     let rt_handle = tokio::runtime::Handle::try_current().unwrap();
 
-    let save_performance_histograms = true;
+    let save_performance_histograms = false;
 
     braid_offline::kalmanize(
         data_src,
