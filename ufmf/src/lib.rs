@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
-
 #[macro_use]
 extern crate structure;
 
@@ -9,8 +8,8 @@ use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
-use machine_vision_formats as formats;
 use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
+use machine_vision_formats as formats;
 use timestamped_frame::{ExtraTimeData, ImageStrideTime};
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
@@ -44,6 +43,7 @@ const FRAME_CHUNK: u8 = 1;
 const INDEX_DICT_CHUNK: u8 = 2;
 
 fn pack_header(v: u32, index_loc: u64, w: u16, h: u16, cl: u8) -> std::io::Result<Vec<u8>> {
+    #[allow(clippy::too_many_arguments)]
     structure!("<4sIQHHB").pack(b"ufmf", v, index_loc, w, h, cl)
 }
 
@@ -85,7 +85,7 @@ fn write_image<F: Write + Seek, FMT>(
         let start = i * frame.stride() + xoffset;
         let stop = start + row_bytes;
         let row_data = &image_data[start..stop];
-        pos += f.write(&row_data)?;
+        pos += f.write(row_data)?;
     }
     Ok(pos)
 }
@@ -246,7 +246,7 @@ where
     pub fn add_frame(
         &mut self,
         origframe: &DynamicFrame,
-        point_data: &Vec<RectFromCenter>,
+        point_data: &[RectFromCenter],
     ) -> UFMFResult<Vec<RectFromCorner>> {
         if origframe.pixel_format() != self.pixel_format {
             return Err(UFMFError::FormatChanged);
@@ -277,7 +277,7 @@ where
         let mut self_f = match self.f {
             Some(ref mut f) => f,
             None => {
-                return Err(UFMFError::AlreadyClosed.into());
+                return Err(UFMFError::AlreadyClosed);
             }
         };
 
@@ -304,7 +304,7 @@ where
             )?;
             self.pos += self_f.write(&this_str_head)?;
             self.pos += match_all_dynamic_fmts!(region.origframe, frame, {
-                write_image(&mut self_f, frame, bytes_per_pixel, &region.rect)?
+                write_image(&mut self_f, frame, bytes_per_pixel, region.rect)?
             });
         }
         Ok(())
@@ -322,7 +322,7 @@ where
         let mut self_f = match self.f {
             Some(ref mut f) => f,
             None => {
-                return Err(UFMFError::AlreadyClosed.into());
+                return Err(UFMFError::AlreadyClosed);
             }
         };
 
@@ -342,7 +342,7 @@ where
             let entry = self
                 .index_keyframes
                 .entry(keyframe_type.to_vec())
-                .or_insert_with(|| Vec::new());
+                .or_insert_with(Vec::new);
             let timestamp = datetime_conversion::datetime_to_f64(&dtl);
             entry.push(TimestampLoc {
                 timestamp,
@@ -352,7 +352,7 @@ where
 
         let buf = vec![KEYFRAME_CHUNK, cast::u8(keyframe_type.len())?];
         self.pos += self_f.write(&buf)?;
-        self.pos += self_f.write(&keyframe_type)?;
+        self.pos += self_f.write(keyframe_type)?;
 
         let buf = structure!("<BHHd").pack(dtype, width, height, timestamp)?;
         let rect = RectFromCorner {
@@ -391,7 +391,7 @@ where
         let mut self_f = match opt_f {
             Some(f) => f,
             None => {
-                return Err(UFMFError::AlreadyClosed.into());
+                return Err(UFMFError::AlreadyClosed);
             }
         };
 
@@ -426,6 +426,7 @@ mod tests {
     use basic_frame::{BasicExtra, BasicFrame, DynamicFrame};
     use byteorder::WriteBytesExt;
 
+    #[allow(clippy::float_cmp)]
     fn arange(start: u8, timestamp: f64) -> DynamicFrame {
         let w = 10;
         let h = 10;
@@ -457,6 +458,7 @@ mod tests {
         })
     }
 
+    #[allow(clippy::float_cmp)]
     fn arange_float(start: f32, timestamp: f64) -> DynamicFrame {
         let w = 10;
         let h = 10;

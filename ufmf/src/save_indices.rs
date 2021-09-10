@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, WriteBytesExt};
 
 pub(crate) fn save_indices<F: Write + Seek>(
     f: &mut F,
-    index_frame: &Vec<TimestampLoc>,
+    index_frame: &[TimestampLoc],
     index_keyframes: &BTreeMap<Vec<u8>, Vec<TimestampLoc>>,
 ) -> UFMFResult<usize> {
     let mut pos = 0;
@@ -26,12 +26,12 @@ pub(crate) fn save_indices<F: Write + Seek>(
     Ok(pos)
 }
 
-fn write_idx<F: Write + Seek>(f: &mut F, idx: &Vec<TimestampLoc>) -> UFMFResult<usize> {
+fn write_idx<F: Write + Seek>(f: &mut F, idx: &[TimestampLoc]) -> UFMFResult<usize> {
     let mut pos = 0;
 
-    if idx.len() > 0 {
-        let locs = idx.iter().map(|x| x.loc).collect();
-        let timestamps = idx.iter().map(|x| x.timestamp).collect();
+    if !idx.is_empty() {
+        let locs: Vec<_> = idx.iter().map(|x| x.loc).collect();
+        let timestamps: Vec<_> = idx.iter().map(|x| x.timestamp).collect();
 
         pos += start_dict(f, 2)?;
         pos += write_key(f, b"loc")?;
@@ -55,11 +55,11 @@ fn write_key<F: Write + Seek>(f: &mut F, key: &[u8]) -> UFMFResult<usize> {
     let buf0 = structure!("<H").pack(cast::u16(key.len())?)?;
     let buf1 = key;
     pos += f.write(&buf0)?;
-    pos += f.write(&buf1)?;
+    pos += f.write(buf1)?;
     Ok(pos)
 }
 
-fn write_locs<F: Write + Seek>(f: &mut F, locs: &Vec<u64>) -> UFMFResult<usize> {
+fn write_locs<F: Write + Seek>(f: &mut F, locs: &[u64]) -> UFMFResult<usize> {
     let mut pos = 0;
     let dtype_char = b'l';
     let bytes_per_element = 8;
@@ -77,7 +77,7 @@ fn write_locs<F: Write + Seek>(f: &mut F, locs: &Vec<u64>) -> UFMFResult<usize> 
     Ok(pos)
 }
 
-fn write_timestamps<F: Write + Seek>(f: &mut F, timestamps: &Vec<f64>) -> UFMFResult<usize> {
+fn write_timestamps<F: Write + Seek>(f: &mut F, timestamps: &[f64]) -> UFMFResult<usize> {
     let mut pos = 0;
     let dtype_char = b'd';
     let bytes_per_element = 8;
