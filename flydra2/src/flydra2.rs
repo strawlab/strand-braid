@@ -163,7 +163,7 @@ where
     }
     fn predict_observation(&self, state: &OVector<R, U6>) -> OVector<R, U2> {
         // TODO: update to handle water here. See tag "laksdfjasl".
-        let pt = to_world_point(&state);
+        let pt = to_world_point(state);
         let undistored = self.cam.project_3d_to_pixel(&pt);
         OMatrix::<R, U1, U2>::new(undistored.coords[0], undistored.coords[1]).transpose()
         // This doesn't compile for some reason:
@@ -296,11 +296,7 @@ impl std::cmp::PartialEq for TimeDataPassthrough {
         let result = self.frame.eq(&other.frame);
         if result {
             if self.timestamp.is_none() {
-                if other.timestamp.is_none() {
-                    return true;
-                } else {
-                    return false;
-                }
+                return other.timestamp.is_none();
             }
 
             let ts1 = self.timestamp.clone().unwrap();
@@ -555,7 +551,7 @@ impl OrderingWriter {
     fn serialize(&mut self, row: KalmanEstimatesRow) -> csv::Result<()> {
         let key = row.frame.0;
         {
-            let ref mut entry = self.buffer.entry(key).or_insert_with(|| Vec::new());
+            let entry = &mut self.buffer.entry(key).or_insert_with(Vec::new);
             entry.push(row);
         }
 
@@ -583,7 +579,7 @@ impl OrderingWriter {
 impl Drop for OrderingWriter {
     fn drop(&mut self) {
         // get current buffer
-        let old_buffer = std::mem::replace(&mut self.buffer, BTreeMap::new());
+        let old_buffer = std::mem::take(&mut self.buffer);
         // drain buffer
         for (_frame, rows) in old_buffer.into_iter() {
             for row in rows.into_iter() {
@@ -637,13 +633,13 @@ impl Default for HistogramWritingState {
 }
 
 fn save_hlog(
-    output_dirname: &std::path::PathBuf,
+    output_dirname: &std::path::Path,
     fname: &str,
     histograms: &mut Vec<IntervalHistogram<u64>>,
     file_start_time: std::time::SystemTime,
 ) {
     // Write the reconstruction latency histograms to disk.
-    let mut log_path = output_dirname.clone();
+    let mut log_path = output_dirname.to_path_buf();
     log_path.push(fname);
     log_path.set_extension("hlog");
     let mut fd = std::fs::File::create(&log_path).expect("creating latency log file");
@@ -959,8 +955,8 @@ impl CoordProcessor {
         info!("contiguous_stream is done.");
 
         debug!("consume_stream future done");
-        let writer_thread_handle = self.writer_thread_handle.take();
-        writer_thread_handle
+
+        self.writer_thread_handle.take()
     }
 }
 

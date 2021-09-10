@@ -25,7 +25,7 @@ pub(crate) struct CameraList {
 
 impl CameraList {
     pub(crate) fn new(cams: &[u8]) -> Self {
-        let inner = cams.iter().map(|x| x.clone()).collect();
+        let inner = cams.iter().copied().collect();
         Self { inner }
     }
 }
@@ -107,7 +107,7 @@ impl ConnectedCamerasManager {
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
-        let next_cam_num = if let &Some(ref recon) = recon {
+        let next_cam_num = if let Some(ref recon) = recon {
             for (base_num, cam_name) in recon.cam_names().enumerate() {
                 let ros_cam_name = RosCamName::new(cam_name.to_string());
                 let cam_num: CamNum = safe_u8(base_num).into();
@@ -156,7 +156,7 @@ impl ConnectedCamerasManager {
         let old_ccis = {
             let mut inner = self.inner.write();
             inner.next_cam_num = next_cam_num.into();
-            let old_ccis = std::mem::replace(&mut inner.ccis, BTreeMap::new());
+            let old_ccis = std::mem::take(&mut inner.ccis);
             inner.not_yet_connected = not_yet_connected;
             old_ccis
         };
@@ -190,7 +190,7 @@ impl ConnectedCamerasManager {
     fn notify_cam_changed_listeners(&self) {
         let mutex_guard = self.on_cam_change_func.lock();
         let inner_ref: Option<&Box<dyn ConnectedCamCallback>> = mutex_guard.as_ref();
-        if let Some(ref cb) = inner_ref {
+        if let Some(cb) = inner_ref {
             let cams = {
                 // scope for read lock on self.inner
                 self.inner
@@ -254,7 +254,7 @@ impl ConnectedCamerasManager {
                     ros_cam_name.as_str()
                 );
                 // unknown (and thus un-calibrated) camera
-                let cam_num = inner.next_cam_num.clone();
+                let cam_num = inner.next_cam_num;
                 inner.next_cam_num.0 += 1;
                 cam_num
             };
@@ -313,7 +313,7 @@ impl ConnectedCamerasManager {
                     ros_cam_name.as_str()
                 );
                 // unknown (and thus un-calibrated) camera
-                let cam_num_inner = inner.next_cam_num.clone();
+                let cam_num_inner = inner.next_cam_num;
                 inner.next_cam_num.0 += 1;
                 cam_num_inner
             };
@@ -462,52 +462,50 @@ impl ConnectedCamerasManager {
             do_check_if_all_cameras_synchronized = true;
         }
 
-        if do_check_if_all_cameras_present {
-            if !self.inner.read().all_expected_cameras_are_present {
-                let mut inner = self.inner.write();
-                let i2: &mut ConnectedCamerasManagerInner = &mut inner;
-                if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
-                    info!("first frame from camera {} arrived.", ros_cam_name);
-                    if i2.first_frame_arrived == i2.all_expected_cameras {
-                        inner.all_expected_cameras_are_present = true;
-                        self.signal_all_cams_present.store(true, Ordering::SeqCst);
-                        info!("All expected cameras connected.");
-                    } else {
-                        info!("All expected cameras NOT connected.");
-                    }
-                }
-            }
-        }
-
-        if do_check_if_all_cameras_synchronized {
-            if !self.inner.read().all_expected_cameras_are_synced {
-                let mut inner = self.inner.write();
-                let i2: &mut ConnectedCamerasManagerInner = &mut inner;
-                // if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
-                //     info!("first frame from camera {} arrived.", ros_cam_name);
-                let mut all_synced = true;
-                for ros_cam_name in i2.all_expected_cameras.iter() {
-                    let this_sync = i2
-                        .ccis
-                        .get(ros_cam_name)
-                        .map(|cci| cci.sync_state.is_synchronized())
-                        .unwrap_or(false);
-                    if !this_sync {
-                        all_synced = false;
-                        break;
-                    }
-                }
-
-                if all_synced {
-                    info!("All expected cameras synchronized.");
-                    self.signal_all_cams_synced.store(true, Ordering::SeqCst);
+        if do_check_if_all_cameras_present && !self.inner.read().all_expected_cameras_are_present {
+            let mut inner = self.inner.write();
+            let i2: &mut ConnectedCamerasManagerInner = &mut inner;
+            if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
+                info!("first frame from camera {} arrived.", ros_cam_name);
+                if i2.first_frame_arrived == i2.all_expected_cameras {
+                    inner.all_expected_cameras_are_present = true;
+                    self.signal_all_cams_present.store(true, Ordering::SeqCst);
+                    info!("All expected cameras connected.");
                 } else {
-                    info!("All expected cameras NOT synchronized.");
+                    info!("All expected cameras NOT connected.");
                 }
             }
         }
 
-        synced_frame.map(|x| SyncFno(x))
+        if do_check_if_all_cameras_synchronized
+            && !self.inner.read().all_expected_cameras_are_synced
+        {
+            let mut inner = self.inner.write();
+            let i2: &mut ConnectedCamerasManagerInner = &mut inner;
+            // if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
+            //     info!("first frame from camera {} arrived.", ros_cam_name);
+            let mut all_synced = true;
+            for ros_cam_name in i2.all_expected_cameras.iter() {
+                let this_sync = i2
+                    .ccis
+                    .get(ros_cam_name)
+                    .map(|cci| cci.sync_state.is_synchronized())
+                    .unwrap_or(false);
+                if !this_sync {
+                    all_synced = false;
+                    break;
+                }
+            }
+
+            if all_synced {
+                info!("All expected cameras synchronized.");
+                self.signal_all_cams_synced.store(true, Ordering::SeqCst);
+            } else {
+                info!("All expected cameras NOT synchronized.");
+            }
+        }
+
+        synced_frame.map(SyncFno)
     }
 
     pub fn get_ros_cam_name(&self, cam_num: CamNum) -> Option<RosCamName> {
@@ -540,7 +538,7 @@ impl ConnectedCamerasManager {
         let inner = self.inner.read();
         match inner.ccis.get(ros_cam_name) {
             Some(cci) => Some(cci.cam_num),
-            None => inner.not_yet_connected.get(ros_cam_name).map(|x| x.clone()),
+            None => inner.not_yet_connected.get(ros_cam_name).copied(),
         }
     }
 
@@ -555,6 +553,10 @@ impl ConnectedCamerasManager {
 
     pub fn len(&self) -> usize {
         self.inner.read().ccis.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.read().ccis.is_empty()
     }
 }
 

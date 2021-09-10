@@ -76,14 +76,14 @@ where
                     // The new item is already contiguous.
                     *this.previous = Some(item_number);
                     *this.stage = Some(WaitingForNext);
-                    return Poll::Ready(Some(item));
+                    Poll::Ready(Some(item))
                 } else {
                     let next = *previous + 1;
                     let next_item = Self::Item::new_empty(next);
 
                     *this.previous = Some(next);
                     *this.stage = Some(CatchingUp((diff - 1, item)));
-                    return Poll::Ready(Some(next_item));
+                    Poll::Ready(Some(next_item))
                 }
             }
             WaitingForNext => {
@@ -111,11 +111,11 @@ where
                         // This is the first item
                         *this.previous = Some(item_number);
                         *this.stage = Some(WaitingForNext);
-                        return Poll::Ready(Some(item));
+                        Poll::Ready(Some(item))
                     }
                     Some(previous) => {
                         // This is a new item and we had a previous item.
-                        if !(item_number > *previous) {
+                        if item_number <= *previous {
                             // items not monotonically increasing - stop
                             return Poll::Ready(None);
                         }
@@ -124,14 +124,14 @@ where
                             // The new item is already contiguous.
                             *this.previous = Some(item_number);
                             *this.stage = Some(WaitingForNext);
-                            return Poll::Ready(Some(item));
+                            Poll::Ready(Some(item))
                         } else {
                             let next = *previous + 1;
                             let next_item = Self::Item::new_empty(next);
 
                             *this.previous = Some(next);
                             *this.stage = Some(CatchingUp((diff - 1, item)));
-                            return Poll::Ready(Some(next_item));
+                            Poll::Ready(Some(next_item))
                         }
                     }
                 }

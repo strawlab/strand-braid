@@ -2,13 +2,8 @@ use log::{debug, error, info};
 
 use std::{self, pin::Pin};
 
-use chrono;
-use datetime_conversion;
-use flydra_types;
 use futures::{channel::mpsc, sink::SinkExt};
-use hyper;
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use futures::stream::StreamExt;
 use hyper::header::ACCEPT;
@@ -66,7 +61,7 @@ impl ModelService {
 
     #[allow(dead_code)]
     fn fullpath(&self, path: &str) -> String {
-        assert!(path.starts_with("/")); // security check
+        assert!(path.starts_with('/')); // security check
         let path = std::path::PathBuf::from(path)
             .strip_prefix("/")
             .unwrap()
@@ -115,17 +110,20 @@ impl ModelService {
     }
 }
 
+type ServiceResult = Pin<
+    Box<
+        dyn futures::future::Future<
+                Output = std::result::Result<http::Response<hyper::Body>, hyper::Error>,
+            > + Send,
+    >,
+>;
+
 impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
     type Response = http::Response<hyper::Body>;
     type Error = hyper::Error;
 
     // should Self::Future also implement Unpin??
-    type Future = Pin<
-        Box<
-            dyn futures::future::Future<Output = std::result::Result<Self::Response, Self::Error>>
-                + Send,
-        >,
-    >;
+    type Future = ServiceResult;
 
     fn poll_ready(
         &mut self,
@@ -153,7 +151,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                         )
                         .body(body)
                         .expect("response") // todo map err
-                } else if path == &self.events_path {
+                } else if path == self.events_path {
                     let mut accepts_event_stream = false;
                     for value in req.headers().get_all(ACCEPT).iter() {
                         if value
@@ -172,7 +170,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
 
                         let rx_event_stream = self.valve.wrap(rx_event_stream);
 
-                        let rx_event_stream = rx_event_stream.map(|chunk| Ok::<_, MyError>(chunk));
+                        let rx_event_stream = rx_event_stream.map(Ok::<_, MyError>);
 
                         {
                             let conn_info = NewEventStreamConnection {
@@ -197,8 +195,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                         .body(hyper::Body::wrap_stream(rx_event_stream))
                         .expect("response") // todo map err
                     } else {
-                        let msg = format!(
-                            r#"<!doctype html>
+                        let msg = r#"<!doctype html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -211,7 +208,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
         <a href="/">here</a>.)
     </body>
 </html>"#
-                        );
+                            .to_string();
                         resp.status(StatusCode::BAD_REQUEST)
                             .body(msg.into())
                             .expect("response") // todo map err
@@ -348,7 +345,7 @@ pub async fn new_model_server(
 
         let server = {
             // this will fail unless there is a reactor already
-            let bound = async { hyper::Server::try_bind(&addr) }.await?;
+            let bound = async { hyper::Server::try_bind(addr) }.await?;
             bound.serve(new_service)
         };
 

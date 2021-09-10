@@ -35,7 +35,7 @@ impl WritingState {
         cfg: StartSavingCsvConfig,
         cam_info_rows: Vec<CamInfoRow>,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: Arc<SwitchingTrackingParams>,
+        mut tracking_params: Arc<SwitchingTrackingParams>,
         save_empty_data2d: bool,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
@@ -80,7 +80,7 @@ impl WritingState {
             let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
             let mut fd = std::fs::File::create(&braid_metadata_path)?;
-            fd.write_all(&metadata_buf.as_bytes()).unwrap();
+            fd.write_all(metadata_buf.as_bytes()).unwrap();
         }
 
         // write images
@@ -134,7 +134,7 @@ impl WritingState {
             );
 
             let tps = TrackingParamsSaver {
-                tracking_params: Arc::make_mut(&mut tracking_params.clone()).clone().into(), // convert to flydra_types::TrackingParams
+                tracking_params: Arc::make_mut(&mut tracking_params).clone().into(), // convert to flydra_types::TrackingParams
                 git_revision,
             };
             let message2 = serde_json::to_string(&tps)?;
@@ -253,18 +253,16 @@ impl WritingState {
         let pts_to_save: Vec<Data2dDistortedRowF32> = fdp
             .points
             .iter()
-            .map(|orig| convert_to_save(&frame_data, &orig))
+            .map(|orig| convert_to_save(frame_data, orig))
             .collect();
 
-        let data2d_distorted: Vec<Data2dDistortedRowF32> = if pts_to_save.len() > 0 {
+        let data2d_distorted: Vec<Data2dDistortedRowF32> = if !pts_to_save.is_empty() {
             pts_to_save
+        } else if self.save_empty_data2d {
+            let empty_data = vec![convert_empty_to_save(frame_data)];
+            empty_data
         } else {
-            if self.save_empty_data2d {
-                let empty_data = vec![convert_empty_to_save(&frame_data)];
-                empty_data
-            } else {
-                vec![]
-            }
+            vec![]
         };
 
         for row in data2d_distorted.iter() {
@@ -312,8 +310,7 @@ impl Drop for WritingState {
 
         // Move out original output name so that a subsequent call to `drop()`
         // doesn't accidentally overwrite our real data.
-        let output_dirname =
-            std::mem::replace(&mut self.output_dirname, std::path::PathBuf::default());
+        let output_dirname = std::mem::take(&mut self.output_dirname);
 
         let now_system = std::time::SystemTime::now();
         {
@@ -390,10 +387,9 @@ impl Drop for WritingState {
                 // so that the first bytes of the file have it. This is why we
                 // special-case the file here.
                 let mut readme_entry: Option<walkdir::DirEntry> = None;
-                let files1: Vec<walkdir::DirEntry> =
-                    walkdir.into_iter().filter_map(|e| e.ok()).collect();
+
                 let mut files = Vec::new();
-                for entry in files1.into_iter() {
+                for entry in walkdir.into_iter().filter_map(|e| e.ok()) {
                     if entry.file_name() == flydra_types::README_MD_FNAME {
                         readme_entry = Some(entry);
                     } else {
@@ -476,9 +472,8 @@ pub(crate) fn writer_thread_main(
                         if let Some(ref mut ws) = writing_state {
                             if let Some(ref mut kew) = ws.kalman_estimates_wtr {
                                 kew.serialize(record)?;
-                                match ws.writer_stats.as_mut() {
-                                    Some(count) => *count += 1,
-                                    None => {}
+                                if let Some(count) = ws.writer_stats.as_mut() {
+                                    *count += 1
                                 }
                             }
                             if let Some(ref mut daw) = ws.data_assoc_wtr {
