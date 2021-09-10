@@ -200,7 +200,7 @@ impl DynamicFrame {
 }
 
 impl ExtraTimeData for DynamicFrame {
-    fn extra<'a>(&'a self) -> &'a dyn HostTimeData {
+    fn extra(&self) -> &dyn HostTimeData {
         match_all_dynamic_fmts!(self, x, { x.extra.as_ref() })
     }
 }
