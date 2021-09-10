@@ -31,8 +31,8 @@ pub use camtrig_comms::ToDevice as ToCamtrigDevice;
 #[cfg(not(feature = "with_camtrig"))]
 pub type ToCamtrigDevice = std::marker::PhantomData<u8>;
 
-pub const STRAND_CAM_EVENTS_URL_PATH: &'static str = "/strand-cam-events";
-pub const STRAND_CAM_EVENT_NAME: &'static str = "strand-cam";
+pub const STRAND_CAM_EVENTS_URL_PATH: &str = "/strand-cam-events";
+pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct StoreType {
@@ -138,7 +138,7 @@ impl Default for ImOpsState {
     }
 }
 
-pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &'static str = "apriltags%Y%m%d_%H%M%S.csv.gz";
+pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &str = "apriltags%Y%m%d_%H%M%S.csv.gz";
 
 #[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
