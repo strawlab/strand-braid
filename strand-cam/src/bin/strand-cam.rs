@@ -15,7 +15,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
     matches
         .value_of("JWT_SECRET")
         .map(|s| s.into())
-        .or(std::env::var("JWT_SECRET").ok())
+        .or_else(|| std::env::var("JWT_SECRET").ok())
         .map(|s| s.into_bytes())
 }
 
@@ -359,10 +359,7 @@ fn parse_args(
         _ => true,
     };
 
-    let use_cbor_packets = match matches.occurrences_of("flydra1") {
-        0 => true,
-        _ => false,
-    };
+    let use_cbor_packets = matches!(matches.occurrences_of("flydra1"), 0);
 
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = match matches.occurrences_of("no_save_empty_data2d") {
@@ -439,10 +436,7 @@ fn parse_args(
     let force_camera_sync_mode = remote_info.force_camera_sync_mode;
 
     #[cfg(not(feature = "braid-config"))]
-    let force_camera_sync_mode = match matches.occurrences_of("force_camera_sync_mode") {
-        0 => false,
-        _ => true,
-    };
+    let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
 
     log::warn!("force_camera_sync_mode: {}", force_camera_sync_mode);
 
