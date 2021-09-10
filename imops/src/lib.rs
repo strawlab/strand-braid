@@ -247,7 +247,7 @@ where
     let width = im.width() as usize;
 
     let datalen = im.height() as usize * stride;
-    let full_data = &mut im.buffer_mut_ref().data[..];
+    let full_data = &mut *im.buffer_mut_ref().data;
     let data = &mut full_data[..datalen];
     let chunk_iter = data.chunks_exact_mut(stride);
 
