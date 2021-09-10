@@ -50,7 +50,7 @@ impl BundledAllCamsOneFrameUndistorted {
         indent: usize,
     ) -> std::io::Result<()> {
         // let i0 = std::str::from_utf8(vec![b" "; indent].as_slice()).unwrap();
-        let i0 = std::iter::repeat(" ").take(indent).collect::<String>();
+        let i0 = " ".repeat(indent);
         writeln!(
             &mut f,
             "{}BundledBundledAllCamsOneFrameUndistorted, frame {}",
@@ -87,7 +87,7 @@ impl OneCamOneFrameUndistorted {
         indent: usize,
     ) -> std::io::Result<()> {
         // let i0 = std::str::from_utf8(vec![b" "; indent].as_slice()).unwrap();
-        let i0 = std::iter::repeat(" ").take(indent).collect::<String>();
+        let i0 = " ".repeat(indent);
         for pt in self.undistorted.iter() {
             writeln!(&mut f, "{} {:?}", i0, pt)?;
             // cam_data.pretty_format(f, indent+4);
@@ -99,7 +99,7 @@ impl OneCamOneFrameUndistorted {
 impl BundledAllCamsOneFrameDistorted {
     /// A new (likely incomplete) BundledAllCamsOneFrameDistorted from first packet.
     pub(crate) fn new(initial: FrameDataAndPoints) -> Self {
-        let frame = initial.frame_data.synced_frame.clone();
+        let frame = initial.frame_data.synced_frame;
         let timestamp = initial.frame_data.trigger_timestamp.clone();
         let tdpt = TimeDataPassthrough { frame, timestamp };
         let mut result = Self {
@@ -159,7 +159,7 @@ impl BundledAllCamsOneFrameDistorted {
             self.inner.iter().map(|x| do_undistort(x, recon)).collect();
         let orig_distorted = self.inner;
         debug_assert!(inner.len() == orig_distorted.len());
-        let tdpt = self.tdpt.clone();
+        let tdpt = self.tdpt;
         BundledAllCamsOneFrameUndistorted {
             tdpt,
             inner,

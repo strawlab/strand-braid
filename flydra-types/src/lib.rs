@@ -131,7 +131,7 @@ impl std::fmt::Display for RosCamName {
     }
 }
 
-pub const REMOTE_CAMERA_INFO_PATH: &'static str = "remote_camera_info/";
+pub const REMOTE_CAMERA_INFO_PATH: &str = "remote_camera_info/";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum StartSoftwareFrameRateLimit {
@@ -287,7 +287,7 @@ impl BuiServerInfo {
         let stripped = url
             .strip_prefix("http://")
             .ok_or(FlydraTypesError::UrlParseError)?;
-        let first_slash = stripped.find("/");
+        let first_slash = stripped.find('/');
         let (addr_str, token) = if let Some(slash_idx) = first_slash {
             let path = &stripped[slash_idx..];
             if path.len() == 1 {
@@ -417,19 +417,19 @@ pub struct TrackingParamsInner3D {
     pub num_observations_to_visibility: u8,
 }
 
-impl Into<TrackingParams> for TrackingParamsInner3D {
-    fn into(self) -> TrackingParams {
-        let hypothesis_test_params = Some(self.hypothesis_test_params);
+impl From<TrackingParamsInner3D> for TrackingParams {
+    fn from(orig: TrackingParamsInner3D) -> Self {
+        let hypothesis_test_params = Some(orig.hypothesis_test_params);
 
-        TrackingParams {
-            motion_noise_scale: self.motion_noise_scale,
-            initial_position_std_meters: self.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: self.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: self.ekf_observation_covariance_pixels.into(),
-            accept_observation_min_likelihood: self.accept_observation_min_likelihood,
-            max_position_std_meters: self.max_position_std_meters,
+        Self {
+            motion_noise_scale: orig.motion_noise_scale,
+            initial_position_std_meters: orig.initial_position_std_meters,
+            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
+            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels.into(),
+            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
+            max_position_std_meters: orig.max_position_std_meters,
             hypothesis_test_params,
-            num_observations_to_visibility: self.num_observations_to_visibility,
+            num_observations_to_visibility: orig.num_observations_to_visibility,
         }
     }
 }
@@ -498,19 +498,18 @@ pub struct TrackingParamsInnerFlat3D {
     pub num_observations_to_visibility: u8,
 }
 
-impl Into<TrackingParams> for TrackingParamsInnerFlat3D {
-    fn into(self) -> TrackingParams {
+impl From<TrackingParamsInnerFlat3D> for TrackingParams {
+    fn from(orig: TrackingParamsInnerFlat3D) -> Self {
         let hypothesis_test_params = None;
-
-        TrackingParams {
-            motion_noise_scale: self.motion_noise_scale,
-            initial_position_std_meters: self.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: self.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: self.ekf_observation_covariance_pixels.into(),
-            accept_observation_min_likelihood: self.accept_observation_min_likelihood,
-            max_position_std_meters: self.max_position_std_meters,
+        Self {
+            motion_noise_scale: orig.motion_noise_scale,
+            initial_position_std_meters: orig.initial_position_std_meters,
+            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
+            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels.into(),
+            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
+            max_position_std_meters: orig.max_position_std_meters,
             hypothesis_test_params,
-            num_observations_to_visibility: self.num_observations_to_visibility,
+            num_observations_to_visibility: orig.num_observations_to_visibility,
         }
     }
 }

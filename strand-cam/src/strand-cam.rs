@@ -80,7 +80,10 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType, ToCamtrigDevice};
+#[cfg(feature = "with_camtrig")]
+use strand_cam_storetype::ToCamtrigDevice;
+use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
+
 #[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
@@ -98,7 +101,7 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
 
-pub const DEBUG_ADDR_DEFAULT: &'static str = "127.0.0.1:8877";
+pub const DEBUG_ADDR_DEFAULT: &str = "127.0.0.1:8877";
 
 pub const APP_INFO: AppInfo = AppInfo {
     name: "strand-cam",
@@ -423,7 +426,7 @@ impl<T: chrono::TimeZone> FpsCalc<T> {
             }
         }
         if reset_previous {
-            self.prev = Some((fno, stamp.clone()));
+            self.prev = Some((fno, stamp));
         }
         result
     }
@@ -588,6 +591,8 @@ struct FlydraConfigState {
     kalman_tracking_config: KalmanTrackingConfig,
 }
 
+type CollectedCornersArc = Arc<RwLock<Vec<Vec<(f32, f32)>>>>;
+
 // We perform image analysis in its own thread.
 // We want to remove rustfmt::skip attribute. There is a bug similar to
 // https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
@@ -616,6 +621,7 @@ fn frame_process_thread(
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
+    #[cfg(feature = "with_camtrig")]
     camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
@@ -629,7 +635,7 @@ fn frame_process_thread(
     camdata_addr: Option<RealtimePointsDestAddr>,
     camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     do_process_frame_callback: bool,
-    collected_corners_arc: Arc<RwLock<Vec<Vec<(f32,f32)>>>>,
+    collected_corners_arc: CollectedCornersArc,
     save_empty_data2d: SaveEmptyData2dType,
     valve: stream_cancel::Valve,
     #[cfg(feature = "debug-images")]
@@ -707,6 +713,7 @@ fn frame_process_thread(
 
     let (mut transmit_current_image_tx, transmit_current_image_rx) =
         mpsc::channel::<Vec<u8>>(10);
+    #[allow(clippy::redundant_clone)]
     let http_camserver = CamHttpServerInfo::Server(http_camserver_info.clone());
     #[cfg(feature="image_tracker")]
     let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, cfg,
@@ -1229,12 +1236,7 @@ fn frame_process_thread(
 
 
                                 let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                    if socket.local_addr().unwrap().ip() == store_cache_ref.im_ops_state.source {
-                                        // Source IP remained constant.
-                                        false
-                                    } else {
-                                        true
-                                    }
+                                    socket.local_addr().unwrap().ip() != store_cache_ref.im_ops_state.source
                                 } else {
                                     true
                                 };
@@ -1243,7 +1245,7 @@ fn frame_process_thread(
                                     let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(store_cache_ref.im_ops_state.source, 0u16)).unwrap();
                                     let sockaddr = iter.next().unwrap();
 
-                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr).map_err(|e| {error!("failed opening socket: {}", e); ()}).ok();
+                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr).map_err(|e| {error!("failed opening socket: {}", e); }).ok();
                                 }
 
                                 if let Some(socket) = &mut im_ops_socket {
@@ -1416,10 +1418,7 @@ fn frame_process_thread(
                                     writeln!(fd, "# -- end of yaml config --")?;
                                 }
 
-                                writeln!(fd, "{},{},{},{},{},{},{},{},{}",
-                                    "time_microseconds", "frame", "x_px",
-                                    "y_px", "orientation_radians_mod_pi", "central_moment", "led_1", "led_2",
-                                    "led_3")?;
+                                writeln!(fd, "time_microseconds,frame,x_px,y_px,orientation_radians_mod_pi,central_moment,led_1,led_2,led_3")?;
                                 fd.flush()?;
 
                                 let min_interval_sec = if let Some(fps) = rate_limit {
@@ -1790,9 +1789,12 @@ macro_rules! noisy_drop {
     };
 }
 
+pub type AppConnection =
+    Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
+
 pub struct MyApp {
     inner: BuiAppInner<StoreType, CallbackType>,
-    txers: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
+    txers: AppConnection,
 }
 
 impl MyApp {
@@ -1804,7 +1806,7 @@ impl MyApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        #[cfg(feature = "with_camtrig")] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
         tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -1814,19 +1816,17 @@ impl MyApp {
         let addr: std::net::SocketAddr = http_server_addr.parse().unwrap();
         let auth = if let Some(ref secret) = secret {
             bui_backend::highlevel::generate_random_auth(addr, secret.clone())?
+        } else if addr.ip().is_loopback() {
+            AccessControl::Insecure(addr)
         } else {
-            if addr.ip().is_loopback() {
-                AccessControl::Insecure(addr)
-            } else {
-                return Err(StrandCamError::JwtError);
-            }
+            return Err(StrandCamError::JwtError);
         };
 
         let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
             config.clone(),
             &auth,
             chan_size,
-            &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
+            strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             None,
         );
 
@@ -1877,7 +1877,10 @@ impl MyApp {
                     }
                     CallbackType::ToCamtrig(camtrig_arg) => {
                         info!("in camtrig callback: {:?}", camtrig_arg);
+                        #[cfg(feature = "with_camtrig")]
                         camtrig_tx_std.send(camtrig_arg).cb_ok();
+                        #[cfg(not(feature = "with_camtrig"))]
+                        log::error!("ignoring command for camtrig: {:?}", camtrig_arg);
                     }
                 }
                 futures::future::ok(())
@@ -1916,6 +1919,7 @@ impl MyApp {
     /// In the case of #[cfg(feature="with-camtrig")], this will spawn
     /// the serial thread that communicates with the camtrig device.
     /// Otherwise, does very little and `sjh` is essentially empty.
+    #[cfg(feature = "with_camtrig")]
     fn maybe_spawn_camtrig_thread(
         &self,
         camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
@@ -1923,20 +1927,13 @@ impl MyApp {
         camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
-        #[cfg(feature = "with_camtrig")]
-        let sjh = {
-            run_camtrig(
-                self.inner.shared_arc().clone(), // shared_store_arc
-                camtrig_tx_std,
-                camtrig_rx,
-                camtrig_heartbeat_update_arc,
-                cam_args_tx,
-            )?
-        };
-
-        #[cfg(not(feature = "with_camtrig"))]
-        let sjh = SerialJoinHandles {};
-        Ok(sjh)
+        run_camtrig(
+            self.inner.shared_arc().clone(), // shared_store_arc
+            camtrig_tx_std,
+            camtrig_rx,
+            camtrig_heartbeat_update_arc,
+            cam_args_tx,
+        )
     }
 
     fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
@@ -1968,19 +1965,6 @@ impl SerialJoinHandles {
             self.serial_write_cjh.control.clone(),
             self.serial_heartbeat_cjh.control.clone(),
         ]
-    }
-}
-
-#[cfg(not(feature = "with_camtrig"))]
-struct SerialJoinHandles {}
-
-#[cfg(not(feature = "with_camtrig"))]
-impl SerialJoinHandles {
-    fn close_and_join_all(self) -> std::thread::Result<()> {
-        Ok(())
-    }
-    fn stoppers(&self) -> Vec<thread_control::Control> {
-        vec![]
     }
 }
 
@@ -2294,7 +2278,7 @@ fn display_qr_url(url: &str) {
     use qrcodegen::{QrCode, QrCodeEcc};
     use std::io::stdout;
 
-    let qr = QrCode::encode_text(&url, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_text(url, QrCodeEcc::Low).unwrap();
 
     let stdout = stdout();
     let mut stdout_handle = stdout.lock();
@@ -2462,8 +2446,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     let handle = args
         .handle
         .clone()
-        .ok_or_else(|| anyhow::anyhow!("no tokio runtime handle"))?
-        .clone();
+        .ok_or_else(|| anyhow::anyhow!("no tokio runtime handle"))?;
 
     let my_handle = handle.clone();
 
@@ -2513,7 +2496,7 @@ pub async fn setup_app(
     info!("camera module: {}", mymod.name());
 
     let cam_infos = mymod.camera_infos()?;
-    if cam_infos.len() == 0 {
+    if cam_infos.is_empty() {
         return Err(StrandCamError::NoCamerasFound.into());
     }
 
@@ -2526,7 +2509,7 @@ pub async fn setup_app(
         None => cam_infos[0].name(),
     };
 
-    let mut cam = match mymod.threaded_async_camera(&name) {
+    let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
         Err(e) => {
             let msg = format!("{}",e);
@@ -2555,7 +2538,7 @@ pub async fn setup_app(
 
     if let Some(ref pixfmt_str) = args.pixel_format {
         use std::str::FromStr;
-        let pixfmt = PixFmt::from_str(&pixfmt_str)
+        let pixfmt = PixFmt::from_str(pixfmt_str)
             .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
         info!("  setting pixel format: {}", pixfmt);
         cam.set_pixel_format(pixfmt)?;
@@ -2668,6 +2651,7 @@ pub async fn setup_app(
     let mainbrain_internal_addr = args.mainbrain_internal_addr.clone();
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
+    #[cfg(feature = "with_camtrig")]
     let (camtrig_tx_std, camtrig_rx) = channellib::unbounded();
 
     let camtrig_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
@@ -2774,7 +2758,7 @@ pub async fn setup_app(
                     let n = nv_enc.cuda_device_count()?;
                     let r: Result<Vec<String>> = (0..n).map(|i| {
                         let dev = nv_enc.new_cuda_device(i)?;
-                        Ok(dev.name().map_err(|e| nvenc::NvEncError::from(e))?)
+                        Ok(dev.name().map_err(nvenc::NvEncError::from)?)
                     }).collect();
                     r?
                 }
@@ -2830,23 +2814,23 @@ pub async fn setup_app(
         is_recording_fmf: None,
         is_recording_ufmf: None,
         format_str_apriltag_csv,
-        format_str_mkv: args.mkv_filename_template.into(),
-        format_str: args.fmf_filename_template.into(),
-        format_str_ufmf: args.ufmf_filename_template.into(),
+        format_str_mkv: args.mkv_filename_template,
+        format_str: args.fmf_filename_template,
+        format_str_ufmf: args.ufmf_filename_template,
         camera_name: cam.name().into(),
         recording_filename: None,
         recording_framerate: RecordingFrameRate::default(),
         mkv_recording_config,
         gain: gain_ranged,
-        gain_auto: gain_auto,
+        gain_auto,
         exposure_time: exposure_ranged,
-        exposure_auto: exposure_auto,
+        exposure_auto,
         frame_rate_limit_enabled,
         frame_rate_limit,
-        trigger_mode: trigger_mode,
-        trigger_selector: trigger_selector,
-        image_width: image_width,
-        image_height: image_height,
+        trigger_mode,
+        trigger_selector,
+        image_width,
+        image_height,
         is_doing_object_detection: false,
         measured_fps: 0.0,
         is_saving_im_pt_detect_csv: None,
@@ -2903,6 +2887,7 @@ pub async fn setup_app(
         &args.http_server_addr,
         config,
         cam_args_tx2.clone(),
+        #[cfg(feature = "with_camtrig")]
         camtrig_tx_std.clone(),
         tx_frame3,
         valve.clone(),
@@ -2915,7 +2900,7 @@ pub async fn setup_app(
     // with the actual open port number.
 
     let (is_loopback, http_camserver_info) = {
-        let local_addr = my_app.inner().local_addr().clone();
+        let local_addr = *my_app.inner().local_addr();
         let is_loopback = local_addr.ip().is_loopback();
         let token = my_app.inner().token();
         (is_loopback, BuiServerInfo::new(local_addr, token))
@@ -2943,6 +2928,7 @@ pub async fn setup_app(
     let do_process_frame_callback = false;
 
     let collected_corners_arc = Arc::new(RwLock::new(Vec::new()));
+    #[allow(clippy::redundant_clone)]
     let collected_corners_arc2 = collected_corners_arc.clone();
 
     #[cfg(feature="checkercal")]
@@ -2956,6 +2942,7 @@ pub async fn setup_app(
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature="flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
+        #[cfg(feature = "with_camtrig")]
         let camtrig_tx_std = camtrig_tx_std.clone();
         let http_camserver_info2 = http_camserver_info.clone();
         let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
@@ -3002,6 +2989,7 @@ pub async fn setup_app(
                     plugin_handler_thread_tx,
                     plugin_result_rx,
                     plugin_wait_dur,
+                    #[cfg(feature = "with_camtrig")]
                     camtrig_tx_std,
                     flag,
                     is_starting,
@@ -3038,7 +3026,7 @@ pub async fn setup_app(
         }
         ControlledJoinHandle {
             control,
-            join_handle: frame_process_jh.into(),
+            join_handle: frame_process_jh,
         }
     };
     debug!("frame_process_thread spawned");
@@ -3131,7 +3119,7 @@ pub async fn setup_app(
     }};
 
     let do_version_check = match std::env::var_os("DISABLE_VERSION_CHECK") {
-        Some(v) => if &v != "0" { false } else { true },
+        Some(v) => &v == "0",
         None => { true },
     };
 
@@ -3162,9 +3150,9 @@ pub async fn setup_app(
 
         let mut incoming1 = valve.wrap(interval_stream);
 
-        let known_version2 = known_version.clone();
+        let known_version2 = known_version;
         let stream_future = async move {
-            while let Some(_) = incoming1.next().await {
+            while incoming1.next().await.is_some() {
                 let https = HttpsConnector::new();
                 let client = hyper::Client::builder()
                     .build::<_, hyper::Body>(https);
@@ -3888,7 +3876,7 @@ pub async fn setup_app(
         // sleep to let the webserver start before opening browser
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        open_browser(url.clone())?;
+        open_browser(url)?;
     } else {
         info!("listening at {}", url);
     }
@@ -3904,10 +3892,10 @@ pub async fn setup_app(
             firehose_rx,
             firehose_callback_rx,
             false,
-            &strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
+            strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             flag,
-        ).map_err(|e| anyhow::Error::from(e)));
-    })?.into();
+        ).map_err(anyhow::Error::from));
+    })?;
     let video_streaming_cjh = ControlledJoinHandle { control, join_handle };
 
     #[cfg(feature="plugin-process-frame")]
@@ -3935,10 +3923,12 @@ pub async fn setup_app(
     // In the case of #[cfg(feature="with-camtrig")], this will spawn
     // the serial thread that communicates with the camtrig device.
     // Otherwise, does very little and `sjh` is essentially empty.
+    #[cfg(feature = "with_camtrig")]
     let sjh = my_app.maybe_spawn_camtrig_thread(camtrig_tx_std, camtrig_rx,
         camtrig_heartbeat_update_arc, cam_args_tx.clone())?;
 
     let ajh = AllJoinHandles {
+        #[cfg(feature = "with_camtrig")]
         sjh,
         frame_process_cjh,
         video_streaming_cjh,
@@ -3997,6 +3987,7 @@ impl<T> ControlledJoinHandle<T> {
 }
 
 pub struct AllJoinHandles {
+    #[cfg(feature = "with_camtrig")]
     sjh: SerialJoinHandles,
     frame_process_cjh: ControlledJoinHandle<()>,
     video_streaming_cjh: ControlledJoinHandle<()>,
@@ -4006,6 +3997,7 @@ pub struct AllJoinHandles {
 
 impl AllJoinHandles {
     fn close_and_join_all(self) -> std::thread::Result<()> {
+        #[cfg(feature = "with_camtrig")]
         self.sjh.close_and_join_all()?;
         self.frame_process_cjh.close_and_join()?;
         self.video_streaming_cjh.close_and_join()?;
@@ -4014,12 +4006,14 @@ impl AllJoinHandles {
         Ok(())
     }
     fn stoppers(&self) -> Vec<thread_control::Control> {
+        #[allow(unused_mut)]
         let mut result = vec![
             self.frame_process_cjh.control.clone(),
             self.video_streaming_cjh.control.clone(),
             #[cfg(feature = "plugin-process-frame")]
             self.plugin_streaming_cjh.control.clone(),
         ];
+        #[cfg(feature = "with_camtrig")]
         result.extend(self.sjh.stoppers().into_iter());
         result
     }

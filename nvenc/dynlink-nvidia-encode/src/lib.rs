@@ -8,6 +8,7 @@
 
 pub mod api;
 mod error;
+#[allow(clippy::all)]
 mod ffi;
 pub mod guids;
 pub mod load;

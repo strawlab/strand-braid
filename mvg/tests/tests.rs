@@ -79,14 +79,14 @@ fn get_cam() -> Camera<f64> {
     ));
     let translation = Point3::new(0.273485679077, 0.0707310128808, 0.0877802104531);
     let extrinsics = mvg::extrinsics::from_rquat_translation(rquat, translation);
-    let cam = Camera::new(
+
+    Camera::new(
         named_intrinsics.width,
         named_intrinsics.height,
         extrinsics,
         named_intrinsics.intrinsics,
     )
-    .expect("Camera::new");
-    cam
+    .expect("Camera::new")
 }
 
 macro_rules! check_project_3d_roundtrip {

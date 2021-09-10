@@ -34,6 +34,6 @@ impl PostTriggerBuffer {
     }
 
     pub(crate) fn get_and_clear(&mut self) -> VecDeque<DynamicFrame> {
-        std::mem::replace(&mut self.inner, VecDeque::new())
+        std::mem::take(&mut self.inner)
     }
 }

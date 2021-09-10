@@ -7,10 +7,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use structopt::StructOpt;
 
-use flydra2::{pick_csvgz_or_csv, DataAssocRow, Result};
+use flydra2::{DataAssocRow, Result};
 use groupby::AscendingGroupIter;
 
 use flydra_types::{KalmanEstimatesRow, SyncFno};
+
+use braid_offline::pick_csvgz_or_csv;
 
 // computed later for back-compat
 const COMPUTED_DIRNAME: &str = "flydra1-compat-computed-offline";
@@ -80,7 +82,7 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
     }
 
     let mut contiguous_estimates_wtr = {
-        let mut csv_path = dirpath.clone();
+        let mut csv_path = dirpath;
         csv_path.push(COMPUTED_DIRNAME);
         csv_path.push(CONTIGUOUS_ESTIMATES_FNAME);
         csv_path.set_extension("csv");
@@ -105,9 +107,7 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
             "implausibly large frame number"
         );
 
-        let ref mut rows_entry = kest_per_obj_id
-            .entry(row.obj_id)
-            .or_insert_with(|| Vec::new());
+        let rows_entry = &mut kest_per_obj_id.entry(row.obj_id).or_insert_with(Vec::new);
         rows_entry.push(row);
     }
 
@@ -155,7 +155,7 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
 ) -> Result<()> {
     let mut twod_idxs_wtr_idx = 0;
     let mut twod_idxs_wtr = {
-        let mut csv_path = dirpath.clone();
+        let mut csv_path = dirpath;
         csv_path.push(COMPUTED_DIRNAME);
         csv_path.push(TWOD_IDXS_FNAME);
         csv_path.set_extension("vlarray_csv");
@@ -228,9 +228,7 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
 
         let mut da_by_obj_id = BTreeMap::new();
         for da_row in data_assoc_rows.rows {
-            let ref mut rows_entry = da_by_obj_id
-                .entry(da_row.obj_id)
-                .or_insert_with(|| Vec::new());
+            let rows_entry = &mut da_by_obj_id.entry(da_row.obj_id).or_insert_with(Vec::new);
             rows_entry.push(da_row);
         }
 
@@ -241,10 +239,9 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
             // camns_and_idxs
             let da_rows = da_rows.unwrap_or_else(|| Vec::with_capacity(0));
 
-            let camns_and_idxs: Vec<u8> = da_rows
+            let camns_and_idxs = da_rows
                 .into_iter()
-                .flat_map(|x| vec![x.cam_num.0, x.pt_idx].into_iter())
-                .collect();
+                .flat_map(|x| vec![x.cam_num.0, x.pt_idx].into_iter());
 
             let csvs = camns_and_idxs
                 .into_iter()
@@ -258,7 +255,7 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
             // Also: calculate reprojection error and reconstruction latency.
 
             let row: FilteredObservations = FilteredObservations {
-                obj_id: obj_id,
+                obj_id,
                 frame: kest_row.frame,
                 x: nan,
                 y: nan,
@@ -295,7 +292,7 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
         let row: DataAssocRow = row?;
         {
             let key = (row.obj_id, row.frame);
-            let ref mut entry = da_index.entry(key).or_insert_with(|| Vec::new());
+            let entry = da_index.entry(key).or_insert_with(Vec::new);
             entry.push(row_num);
         }
         all_da_rows.push(row);
@@ -305,9 +302,8 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
     let nan: f32 = std::f32::NAN;
     let empty_vec = vec![];
 
-    let mut twod_idxs_wtr_idx = 0;
     let mut twod_idxs_wtr = {
-        let mut csv_path = dirpath.clone();
+        let mut csv_path = dirpath;
         csv_path.push(COMPUTED_DIRNAME);
         csv_path.push(TWOD_IDXS_FNAME);
         csv_path.set_extension("vlarray_csv");
@@ -316,7 +312,7 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
 
     // Iterate through all estimates.
     let kalman_estimates_iter = kalman_estimates_reader.into_deserialize();
-    for kest_row in kalman_estimates_iter {
+    for (twod_idxs_wtr_idx, kest_row) in kalman_estimates_iter.enumerate() {
         let kest_row: KalmanEstimatesRow = kest_row?;
 
         let obj_id = kest_row.obj_id;
@@ -330,15 +326,13 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
         };
 
         // Get the corresponding data association data for this frame.
-        let da_rows: Vec<_> = da_row_nums
+        let da_rows = da_row_nums
             .iter()
-            .map(|row_idx: &usize| all_da_rows[*row_idx].clone())
-            .collect();
+            .map(|row_idx: &usize| all_da_rows[*row_idx].clone());
 
-        let camns_and_idxs: Vec<u8> = da_rows
+        let camns_and_idxs = da_rows
             .into_iter()
-            .flat_map(|x| vec![x.cam_num.0, x.pt_idx].into_iter())
-            .collect();
+            .flat_map(|x| vec![x.cam_num.0, x.pt_idx].into_iter());
 
         let csvs = camns_and_idxs
             .into_iter()
@@ -347,12 +341,12 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
         writeln!(twod_idxs_wtr, "{}", csvs)?;
 
         let row: FilteredObservations = FilteredObservations {
-            obj_id: obj_id,
+            obj_id,
             frame: kest_row.frame,
             x: nan,
             y: nan,
             z: nan,
-            obs_2d_idx: twod_idxs_wtr_idx, // index into ML_estimates_2d_idxs sequence
+            obs_2d_idx: twod_idxs_wtr_idx as u64, // index into ML_estimates_2d_idxs sequence
             hz_line0: nan,
             hz_line1: nan,
             hz_line2: nan,
@@ -361,8 +355,6 @@ fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
             hz_line5: nan,
         };
         ml_estimates_wtr.serialize(row)?;
-
-        twod_idxs_wtr_idx += 1;
     }
 
     Ok(())
@@ -407,7 +399,7 @@ fn add_ml_estimates_tables(dirname: &std::path::Path) -> Result<()> {
         kalman_estimates_reader,
         data_assoc_reader,
         ml_estimates_wtr,
-        dirpath.clone(),
+        dirpath,
     )?;
     // save_data_association_cache_all(kalman_estimates_reader,data_assoc_reader,ml_estimates_wtr,dirpath.clone())?;
 
@@ -426,6 +418,10 @@ fn main() -> Result<()> {
     env_tracing_logger::init();
 
     let opt = Opt::from_args();
+
+    // Here we operate on a plain directory (rather than a
+    // `zip_or_dir::ZipDirArchive`).
+
     compute_contiguous_kests(&opt.dirname)?;
     add_ml_estimates_tables(&opt.dirname)
 }

@@ -158,4 +158,4 @@ mod tests {
     }
 }
 
-pub const VIDEO_STREAM_EVENT_NAME: &'static str = "http-video-streaming";
+pub const VIDEO_STREAM_EVENT_NAME: &str = "http-video-streaming";

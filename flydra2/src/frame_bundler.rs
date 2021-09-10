@@ -1,9 +1,10 @@
+use std::{cmp::Ordering, pin::Pin};
+
 use futures::{
     stream::Stream,
     task::{Context, Poll},
 };
 use pin_project::pin_project;
-use std::pin::Pin;
 
 use crate::FrameDataAndPoints;
 
@@ -94,22 +95,24 @@ where
                     let current = this.current.as_ref().unwrap();
                     new_item.frame_data.synced_frame.0 as i64 - current.frame().0 as i64
                 };
-                if dt == 0 {
-                    // new packet from ongoing frame.
-                    let current: &mut Option<BundledAllCamsOneFrameDistorted> = this.current;
-                    let current_cameras = {
-                        let x = current.as_mut().unwrap();
-                        x.push(new_item);
-                        x.cameras()
-                    };
 
-                    if current_cameras == &all_cameras {
-                        let previous = current.take().unwrap();
-                        *current = None;
-                        return Poll::Ready(Some(previous));
+                match dt.cmp(&0) {
+                    Ordering::Equal => {
+                        // new packet from ongoing frame.
+                        let current: &mut Option<BundledAllCamsOneFrameDistorted> = this.current;
+                        let current_cameras = {
+                            let x = current.as_mut().unwrap();
+                            x.push(new_item);
+                            x.cameras()
+                        };
+
+                        if current_cameras == &all_cameras {
+                            let previous = current.take().unwrap();
+                            *current = None;
+                            return Poll::Ready(Some(previous));
+                        }
                     }
-                } else {
-                    if dt > 0 {
+                    Ordering::Greater => {
                         // New packet from future frame. Return the accumulated-
                         // until now data and start accumulating from this new
                         // data.
@@ -118,7 +121,9 @@ where
                         *current = Some(BundledAllCamsOneFrameDistorted::new(new_item));
                         return Poll::Ready(Some(previous));
                     }
-                    // Else drop `new_item` because it has higher latency.
+                    Ordering::Less => {
+                        // Drop `new_item` because it has higher latency.
+                    }
                 }
             }
         }
@@ -191,10 +196,10 @@ fn test_frame_bundler() {
 
     let packet2_frame3_cam2 = FrameDataAndPoints {
         frame_data: FrameData::new(
-            cam_name_2.clone(),
+            cam_name_2,
             cam_num_2,
             SyncFno(3),
-            trigger_timestamp.clone(),
+            trigger_timestamp,
             FlydraFloatTimestampLocal::from_f64(0.0),
         ),
         points: Vec::new(),
@@ -242,7 +247,7 @@ fn test_frame_bundler() {
 
     let inputs: Vec<_> = vec![
         StreamItem::Packet(packet1_frame1_cam1.clone()),
-        StreamItem::Packet(packet2_frame0_cam2.clone()),
+        StreamItem::Packet(packet2_frame0_cam2),
         StreamItem::EOF,
     ];
 
@@ -255,7 +260,7 @@ fn test_frame_bundler() {
 
     let inputs: Vec<_> = vec![
         StreamItem::Packet(packet1_frame1_cam1.clone()),
-        StreamItem::Packet(packet2_frame2_cam2.clone()),
+        StreamItem::Packet(packet2_frame2_cam2),
         StreamItem::EOF,
     ];
 
@@ -269,7 +274,7 @@ fn test_frame_bundler() {
 
     let inputs: Vec<_> = vec![
         StreamItem::Packet(packet1_frame1_cam1.clone()),
-        StreamItem::Packet(packet2_frame3_cam2.clone()),
+        StreamItem::Packet(packet2_frame3_cam2),
         StreamItem::EOF,
     ];
 
@@ -284,7 +289,7 @@ fn test_frame_bundler() {
 
     let inputs: Vec<_> = vec![
         StreamItem::Packet(packet1_frame1_cam1.clone()),
-        StreamItem::Packet(packet2_frame1_cam2.clone()),
+        StreamItem::Packet(packet2_frame1_cam2),
     ];
 
     let bundled = bundle_frames(stream::iter(inputs), cameras.clone());
@@ -294,9 +299,9 @@ fn test_frame_bundler() {
 
     // But not if only one frame arrives.
 
-    let inputs: Vec<_> = vec![StreamItem::Packet(packet1_frame1_cam1.clone())];
+    let inputs: Vec<_> = vec![StreamItem::Packet(packet1_frame1_cam1)];
 
-    let bundled = bundle_frames(stream::iter(inputs), cameras.clone());
+    let bundled = bundle_frames(stream::iter(inputs), cameras);
     let actual: Vec<_> = futures::executor::block_on(bundled.collect());
     assert_eq!(actual.len(), 0);
 }

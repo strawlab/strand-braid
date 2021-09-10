@@ -92,9 +92,9 @@ impl ci2::CameraModule for WrappedModule {
         let infos = pylon_infos
             .into_iter()
             .map(|info| {
-                let serial = info.property_value("SerialNumber").unwrap().to_string();
-                let model = info.property_value("ModelName").unwrap().to_string();
-                let vendor = info.property_value("VendorName").unwrap().to_string();
+                let serial = info.property_value("SerialNumber").unwrap();
+                let model = info.property_value("ModelName").unwrap();
+                let vendor = info.property_value("VendorName").unwrap();
                 let name = to_name(&info);
                 let pci = Box::new(PylonCameraInfo {
                     name,
@@ -109,7 +109,7 @@ impl ci2::CameraModule for WrappedModule {
         Ok(infos)
     }
     fn camera(&mut self, name: &str) -> ci2::Result<Self::CameraType> {
-        Ok(WrappedCamera::new(name)?)
+        WrappedCamera::new(name)
     }
 }
 
@@ -354,7 +354,7 @@ impl ci2::Camera for WrappedCamera {
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
         let camera = self.inner.lock();
         let mut node = camera.enum_node(name).map_pylon_err()?;
-        Ok(node.set_value(value).map_pylon_err()?)
+        node.set_value(value).map_pylon_err()
     }
 
     // ----- end: weakly typed but easier to implement API -----
@@ -410,7 +410,7 @@ impl ci2::Camera for WrappedCamera {
         let s = convert_pixel_format(pixel_format)?;
         let camera = self.inner.lock();
         let mut pixel_format_node = camera.enum_node("PixelFormat").map_pylon_err()?;
-        Ok(pixel_format_node.set_value(s).map_pylon_err()?)
+        pixel_format_node.set_value(s).map_pylon_err()
     }
 
     // Settings: Exposure Time ----------------------------
@@ -420,7 +420,7 @@ impl ci2::Camera for WrappedCamera {
         let node = camera
             .float_node(self.exposure_time_param_name())
             .map_pylon_err()?;
-        Ok(node.value().map_pylon_err()?)
+        node.value().map_pylon_err()
     }
     /// value given in microseconds
     fn exposure_time_range(&self) -> ci2::Result<(f64, f64)> {
@@ -432,13 +432,12 @@ impl ci2::Camera for WrappedCamera {
     }
     /// value given in microseconds
     fn set_exposure_time(&mut self, value: f64) -> ci2::Result<()> {
-        Ok(self
-            .inner
+        self.inner
             .lock()
             .float_node(self.exposure_time_param_name())
             .map_pylon_err()?
             .set_value(value)
-            .map_pylon_err()?)
+            .map_pylon_err()
     }
 
     // Settings: Exposure Time Auto Mode ----------------------------
@@ -453,13 +452,12 @@ impl ci2::Camera for WrappedCamera {
     }
     fn set_exposure_auto(&mut self, value: AutoMode) -> ci2::Result<()> {
         let sval = mode_to_str(value);
-        Ok(self
-            .inner
+        self.inner
             .lock()
             .enum_node("ExposureAuto")
             .map_pylon_err()?
             .set_value(sval)
-            .map_pylon_err()?)
+            .map_pylon_err()
     }
 
     // Settings: Gain ----------------------------
@@ -538,13 +536,12 @@ impl ci2::Camera for WrappedCamera {
 
     fn set_gain_auto(&mut self, value: AutoMode) -> ci2::Result<()> {
         let sval = mode_to_str(value);
-        Ok(self
-            .inner
+        self.inner
             .lock()
             .enum_node("GainAuto")
             .map_pylon_err()?
             .set_value(sval)
-            .map_pylon_err()?)
+            .map_pylon_err()
     }
 
     // Settings: TriggerMode ----------------------------
@@ -571,13 +568,12 @@ impl ci2::Camera for WrappedCamera {
             ci2::TriggerMode::Off => "Off",
             ci2::TriggerMode::On => "On",
         };
-        Ok(self
-            .inner
+        self.inner
             .lock()
             .enum_node("TriggerMode")
             .map_pylon_err()?
             .set_value(sval)
-            .map_pylon_err()?)
+            .map_pylon_err()
     }
 
     // Settings: AcquisitionFrameRateEnable ----------------------------
@@ -604,7 +600,7 @@ impl ci2::Camera for WrappedCamera {
         let node = camera
             .float_node(self.acquisition_frame_rate_name())
             .map_pylon_err()?;
-        Ok(node.value().map_pylon_err()?)
+        node.value().map_pylon_err()
     }
     fn acquisition_frame_rate_range(&self) -> ci2::Result<(f64, f64)> {
         let camera = self.inner.lock();
@@ -614,13 +610,12 @@ impl ci2::Camera for WrappedCamera {
         Ok((node.min().map_pylon_err()?, node.max().map_pylon_err()?))
     }
     fn set_acquisition_frame_rate(&mut self, value: f64) -> ci2::Result<()> {
-        Ok(self
-            .inner
+        self.inner
             .lock()
             .float_node(self.acquisition_frame_rate_name())
             .map_pylon_err()?
             .set_value(value)
-            .map_pylon_err()?)
+            .map_pylon_err()
     }
 
     // Settings: TriggerSelector ----------------------------
@@ -916,20 +911,10 @@ mod tests {
             device_timestamp: 789,
         });
 
-        dbg!(&pe);
-
         let extra: &dyn HostTimeData = pe.as_ref();
-        // let extra: &dyn HostTimeData = &pe;
-
-        dbg!(extra.blarg());
-
-        dbg!(extra);
 
         let extra_any: &dyn std::any::Any = extra.as_any();
 
-        dbg!(extra_any);
-
         let _extra2 = extra_any.downcast_ref::<PylonExtra>().unwrap();
-        // let _extra2 = extra_any.downcast_ref::<Box<PylonExtra>>().unwrap();
     }
 }

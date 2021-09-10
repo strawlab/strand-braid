@@ -1152,7 +1152,7 @@ impl FlyTracker {
                 sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
                 let radius = self.cfg.feature_window_size;
-                let point_data = points
+                let point_data: Vec<_> = points
                     .iter()
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();

@@ -62,7 +62,7 @@ impl<'lib> LibCuda<'lib> {
         let mut inner: CUdevice = unsafe { zeroed() };
         api_call!((*self.cuDeviceGet)(&mut inner, i));
         Ok(CudaDevice {
-            parent: &self,
+            parent: self,
             inner,
         })
     }
@@ -117,7 +117,7 @@ macro_rules! get_func {
     }};
 }
 
-pub fn init<'lib>(library: &'lib SharedLibrary) -> Result<LibCuda<'lib>, CudaError> {
+pub fn init(library: &SharedLibrary) -> Result<LibCuda<'_>, CudaError> {
     let lib_cuda = LibCuda {
         cuInit: get_func!(library, b"cuInit\0"),
         cuDriverGetVersion: get_func!(library, b"cuDriverGetVersion\0"),

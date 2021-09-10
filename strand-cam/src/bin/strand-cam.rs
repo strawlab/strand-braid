@@ -15,7 +15,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
     matches
         .value_of("JWT_SECRET")
         .map(|s| s.into())
-        .or(std::env::var("JWT_SECRET").ok())
+        .or_else(|| std::env::var("JWT_SECRET").ok())
         .map(|s| s.into_bytes())
 }
 
@@ -323,22 +323,18 @@ fn parse_args(
         .map(|s| s.to_string());
 
     #[cfg(feature = "flydratrax")]
-    if camera_pymvg_calibration.is_some() {
-        if camera_xml_calibration.is_some() {
-            anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
+    let flydratrax_calibration_source = {
+        use std::path::PathBuf;
+        match (camera_xml_calibration, camera_pymvg_calibration) {
+            (None, None) => strand_cam::CalSource::PseudoCal,
+            (Some(xml_fname), None) => strand_cam::CalSource::XmlFile(PathBuf::from(xml_fname)),
+            (None, Some(json_fname)) => {
+                strand_cam::CalSource::PymvgJsonFile(PathBuf::from(json_fname))
+            }
+            (Some(_), Some(_)) => {
+                anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
+            }
         }
-    }
-
-    #[cfg(feature = "flydratrax")]
-    let flydratrax_calibration_source = match camera_xml_calibration {
-        None => strand_cam::CalSource::PseudoCal,
-        Some(fname) => strand_cam::CalSource::XmlFile(std::path::PathBuf::from(fname)),
-    };
-
-    #[cfg(feature = "flydratrax")]
-    let flydratrax_calibration_source = match camera_pymvg_calibration {
-        None => strand_cam::CalSource::PseudoCal,
-        Some(fname) => strand_cam::CalSource::PymvgJsonFile(std::path::PathBuf::from(fname)),
     };
 
     let csv_save_dir = matches
@@ -363,10 +359,7 @@ fn parse_args(
         _ => true,
     };
 
-    let use_cbor_packets = match matches.occurrences_of("flydra1") {
-        0 => true,
-        _ => false,
-    };
+    let use_cbor_packets = matches!(matches.occurrences_of("flydra1"), 0);
 
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = match matches.occurrences_of("no_save_empty_data2d") {
@@ -443,10 +436,7 @@ fn parse_args(
     let force_camera_sync_mode = remote_info.force_camera_sync_mode;
 
     #[cfg(not(feature = "braid-config"))]
-    let force_camera_sync_mode = match matches.occurrences_of("force_camera_sync_mode") {
-        0 => false,
-        _ => true,
-    };
+    let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
 
     log::warn!("force_camera_sync_mode: {}", force_camera_sync_mode);
 

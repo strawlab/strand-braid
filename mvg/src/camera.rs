@@ -149,7 +149,7 @@ impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de>
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["width", "height", "extrinsics", "intrinsics"];
+        const FIELDS: &[&str] = &["width", "height", "extrinsics", "intrinsics"];
         deserializer.deserialize_struct("Camera", FIELDS, CameraVisitor(std::marker::PhantomData))
     }
 }
@@ -182,7 +182,7 @@ impl<R: RealField + Copy> std::fmt::Debug for CameraCache<R> {
 }
 
 fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
-    na::linalg::SVD::try_new(m.clone(), true, true, na::convert(1e-7), 100)
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 100)
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
@@ -219,7 +219,7 @@ impl<R: RealField + Copy> Camera<R> {
     }
 
     pub fn from_pmat(width: usize, height: usize, pmat: &OMatrix<R, U3, U4>) -> Result<Self> {
-        let m = pmat.clone().remove_column(3);
+        let m = (*pmat).remove_column(3);
         let (rquat, k) = rq_decomposition(m)?;
 
         let k22: R = k[(2, 2)];
@@ -234,7 +234,7 @@ impl<R: RealField + Copy> Camera<R> {
         let cy = k[(1, 2)];
 
         let intrinsics = RosOpenCvIntrinsics::from_params(fx, skew, fy, cx, cy);
-        let camcenter = pmat2cam_center(&pmat);
+        let camcenter = pmat2cam_center(pmat);
         let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);
 
         Camera::new(width, height, extrinsics, intrinsics)
@@ -291,12 +291,12 @@ impl<R: RealField + Copy> Camera<R> {
 
     #[inline]
     pub fn intrinsics(&self) -> &RosOpenCvIntrinsics<R> {
-        &self.inner.intrinsics()
+        self.inner.intrinsics()
     }
 
     #[inline]
     pub fn extrinsics(&self) -> &ExtrinsicParameters<R> {
-        &self.inner.extrinsics()
+        self.inner.extrinsics()
     }
 
     pub fn to_pymvg(&self, name: &str) -> PymvgCamera<R> {
@@ -317,7 +317,7 @@ impl<R: RealField + Copy> Camera<R> {
             D: dvec,
             R: self.intrinsics().rect,
             Q: *self.extrinsics().rotation().matrix(),
-            translation: self.extrinsics().translation().clone(),
+            translation: *self.extrinsics().translation(),
         }
     }
 
@@ -370,7 +370,7 @@ impl<R: RealField + Copy> Camera<R> {
     {
         let ray_cam = self.intrinsics().undistorted_pixel_to_camera(&pt2d.into());
         let pt_cam = ray_cam.point_on_ray_at_distance(dist);
-        self.extrinsics().camera_to_world(&pt_cam.into()).into()
+        self.extrinsics().camera_to_world(&pt_cam).into()
     }
 
     pub fn project_distorted_pixel_to_3d_with_dist(
@@ -381,7 +381,7 @@ impl<R: RealField + Copy> Camera<R> {
         use cam_geom::IntrinsicParameters;
         let ray_cam = self.intrinsics().pixel_to_camera(&pt2d.into());
         let pt_cam = ray_cam.point_on_ray_at_distance(dist);
-        self.extrinsics().camera_to_world(&pt_cam.into()).into()
+        self.extrinsics().camera_to_world(&pt_cam).into()
     }
 }
 
@@ -393,11 +393,12 @@ impl<R: RealField + Copy> std::default::Default for Camera<R> {
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
-    let x = p.clone().remove_column(0).determinant();
-    let y = -p.clone().remove_column(1).determinant();
-    let z = p.clone().remove_column(2).determinant();
-    let w = -p.clone().remove_column(3).determinant();
+    let x = (*p).remove_column(0).determinant();
+    let y = -(*p).remove_column(1).determinant();
+    let z = (*p).remove_column(2).determinant();
+    let w = -(*p).remove_column(3).determinant();
     Point3::from(Vector3::new(x / w, y / w, z / w))
 }
 
@@ -420,7 +421,7 @@ fn my_quat_angle<R: RealField + Copy>(quat: &na::UnitQuaternion<R>) -> R {
 fn right_handed_rotation_quat_new<R: RealField + Copy>(
     orig: &Matrix3<R>,
 ) -> Result<UnitQuaternion<R>> {
-    let r1 = orig.clone();
+    let r1 = *orig;
     let rotmat = Rotation3::from_matrix_unchecked(r1);
     let rquat = UnitQuaternion::from_rotation_matrix(&rotmat);
     {
@@ -433,7 +434,7 @@ fn right_handed_rotation_quat_new<R: RealField + Copy>(
         let angle = my_quat_angle(&delta);
         let epsilon = na::convert(1.0e-7);
         if angle.abs() > epsilon {
-            return Err(MvgError::InvalidRotationMatrix.into());
+            return Err(MvgError::InvalidRotationMatrix);
         }
     }
     Ok(rquat)
@@ -586,9 +587,9 @@ mod tests {
                     continue;
                 }
             };
-            assert!(is_pmat_same(&cam1, &pmat));
-            let cam2 = crate::Camera::from_pmat(cam1.width(), cam1.height(), &pmat).unwrap();
-            assert!(is_similar(&cam1, &cam2));
+            assert!(is_pmat_same(cam1, pmat));
+            let cam2 = crate::Camera::from_pmat(cam1.width(), cam1.height(), pmat).unwrap();
+            assert!(is_similar(cam1, &cam2));
         }
     }
 
@@ -597,7 +598,7 @@ mod tests {
         for (name, cam1) in crate::tests::get_test_cameras().iter() {
             println!("testing camera {}", name);
             let cam2 = cam1.flip().expect("flip cam");
-            if !is_similar(&cam1, &cam2) {
+            if !is_similar(cam1, &cam2) {
                 panic!("results not similar for cam {}", name);
             }
         }

@@ -200,8 +200,7 @@ fn launch_runner(
                     }
                 }
                 Msg::Finish => {
-                    if raw.is_some() {
-                        let mut mkv_writer = raw.unwrap();
+                    if let Some(mut mkv_writer) = raw {
                         thread_try!(err_tx, mkv_writer.finish());
                     }
                     return; // end the thread

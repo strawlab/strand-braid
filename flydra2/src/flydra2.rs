@@ -163,7 +163,7 @@ where
     }
     fn predict_observation(&self, state: &OVector<R, U6>) -> OVector<R, U2> {
         // TODO: update to handle water here. See tag "laksdfjasl".
-        let pt = to_world_point(&state);
+        let pt = to_world_point(state);
         let undistored = self.cam.project_3d_to_pixel(&pt);
         OMatrix::<R, U1, U2>::new(undistored.coords[0], undistored.coords[1]).transpose()
         // This doesn't compile for some reason:
@@ -296,11 +296,7 @@ impl std::cmp::PartialEq for TimeDataPassthrough {
         let result = self.frame.eq(&other.frame);
         if result {
             if self.timestamp.is_none() {
-                if other.timestamp.is_none() {
-                    return true;
-                } else {
-                    return false;
-                }
+                return other.timestamp.is_none();
             }
 
             let ts1 = self.timestamp.clone().unwrap();
@@ -512,27 +508,6 @@ pub enum SaveToDiskMsg {
     QuitNow,
 }
 
-/// Load .csv or .csv.gz file
-#[deprecated = "use the zip-or-dir crate and braidz_parser::open_maybe_gzipped"]
-pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::Read>> {
-    let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
-
-    if csv_path.exists() {
-        std::fs::File::open(&csv_path)
-            .map(|fd| {
-                let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
-                rdr
-            })
-            .map_err(|e| file_error("opening", format!("opening {}", csv_path.display()), e))
-    } else {
-        // This gives us an error corresponding to a non-existing .gz file.
-        let gz_fd = std::fs::File::open(&gz_fname)
-            .map_err(|e| file_error("opening", format!("opening {}", gz_fname.display()), e))?;
-        let decoder = libflate::gzip::Decoder::new(gz_fd)?;
-        Ok(Box::new(decoder))
-    }
-}
-
 /// Acts like a `csv::Writer` but buffers and orders by frame.
 ///
 /// This is done to allow consumers of the kalman estimates data to iterate
@@ -555,7 +530,7 @@ impl OrderingWriter {
     fn serialize(&mut self, row: KalmanEstimatesRow) -> csv::Result<()> {
         let key = row.frame.0;
         {
-            let ref mut entry = self.buffer.entry(key).or_insert_with(|| Vec::new());
+            let entry = &mut self.buffer.entry(key).or_insert_with(Vec::new);
             entry.push(row);
         }
 
@@ -583,7 +558,7 @@ impl OrderingWriter {
 impl Drop for OrderingWriter {
     fn drop(&mut self) {
         // get current buffer
-        let old_buffer = std::mem::replace(&mut self.buffer, BTreeMap::new());
+        let old_buffer = std::mem::take(&mut self.buffer);
         // drain buffer
         for (_frame, rows) in old_buffer.into_iter() {
             for row in rows.into_iter() {
@@ -637,13 +612,13 @@ impl Default for HistogramWritingState {
 }
 
 fn save_hlog(
-    output_dirname: &std::path::PathBuf,
+    output_dirname: &std::path::Path,
     fname: &str,
     histograms: &mut Vec<IntervalHistogram<u64>>,
     file_start_time: std::time::SystemTime,
 ) {
     // Write the reconstruction latency histograms to disk.
-    let mut log_path = output_dirname.clone();
+    let mut log_path = output_dirname.to_path_buf();
     log_path.push(fname);
     log_path.set_extension("hlog");
     let mut fd = std::fs::File::create(&log_path).expect("creating latency log file");
@@ -959,8 +934,8 @@ impl CoordProcessor {
         info!("contiguous_stream is done.");
 
         debug!("consume_stream future done");
-        let writer_thread_handle = self.writer_thread_handle.take();
-        writer_thread_handle
+
+        self.writer_thread_handle.take()
     }
 }
 

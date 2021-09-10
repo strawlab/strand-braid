@@ -158,7 +158,7 @@ impl Component for Model {
     type Properties = ();
 
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let callback = link.callback(|v| Msg::DataReceived(v));
+        let callback = link.callback(Msg::DataReceived);
         let worker = MyWorker::bridge(callback);
 
         Self {
@@ -181,7 +181,7 @@ impl Component for Model {
             }
             Msg::DetectionSerializerData(csv_file) => match csv_file {
                 MaybeCsvData::Valid(csv_data) => {
-                    let raw_buf: &[u8] = &csv_data.raw_buf();
+                    let raw_buf: &[u8] = csv_data.raw_buf();
                     match get_cfg(raw_buf) {
                         Ok(cfg) => {
                             self.per_camera_2d
@@ -274,7 +274,7 @@ impl Component for Model {
             <label class=classes!("btn", "custom-file-upload")>
                 {"Upload a 3D coordinate CSV file."}
                 <CsvDataField<Fiducial3DCoords>
-                    onfile=self.link.callback(|csv_file| Msg::Fiducial3dCoordsData(csv_file))
+                    onfile=self.link.callback(Msg::Fiducial3dCoordsData)
                     />
             </label>
             <p>
@@ -286,7 +286,7 @@ impl Component for Model {
             <label class=classes!("btn", "custom-file-upload")>
                 {"Upload a camera coordinate CSV file."}
                 <CsvDataField<DetectionSerializer>
-                    onfile=self.link.callback(|csv_file| Msg::DetectionSerializerData(csv_file))
+                    onfile=self.link.callback(Msg::DetectionSerializerData)
                     />
             </label>
             {self.view_camera_data()}
@@ -386,7 +386,7 @@ impl Model {
 
 fn download_file(orig_buf: &[u8], filename: &str) {
     let mime_type = "application/octet-stream";
-    let b = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&orig_buf) }.into());
+    let b = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(orig_buf) }.into());
     let array = js_sys::Array::new();
     array.push(&b.buffer());
 
@@ -404,7 +404,7 @@ fn download_file(orig_buf: &[u8], filename: &str) {
         .unwrap();
 
     anchor.set_href(&data_url);
-    anchor.set_download(&filename);
+    anchor.set_download(filename);
     anchor.set_target("_blank");
 
     anchor.style().set_property("display", "none").unwrap();
@@ -529,7 +529,7 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
             let v = sumv / uv.len() as f64;
 
             if let Some(from_csv) = object_points.get(id) {
-                let object_point = from_csv.clone();
+                let object_point = *from_csv;
                 let pt = dlt::CorrespondingPoint {
                     object_point,
                     image_point: [u, v],
@@ -563,8 +563,7 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
                 };
                 let image_point = Point2::from_slice(&pt.image_point);
                 let projected_pixel = cam.project_3d_to_distorted_pixel(&world_pt);
-                let dist = nalgebra::distance(&projected_pixel.coords, &image_point);
-                dist
+                nalgebra::distance(&projected_pixel.coords, &image_point)
             })
             .collect();
 

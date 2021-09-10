@@ -26,7 +26,7 @@ fn test_calibration() {
             match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
-                    let raw_buf: &[u8] = &csv_data.raw_buf();
+                    let raw_buf: &[u8] = csv_data.raw_buf();
                     let cfg = get_cfg(raw_buf).unwrap();
                     (cfg.camera_name.clone(), (cfg, datavec))
                 }

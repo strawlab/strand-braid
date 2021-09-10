@@ -49,7 +49,7 @@ macro_rules! get_func {
     }};
 }
 
-pub fn init<'lib>(library: &'lib SharedLibrary) -> Result<Rc<LibNvEncode<'lib>>, NvencError> {
+pub fn init(library: &SharedLibrary) -> Result<Rc<LibNvEncode<'_>>, NvencError> {
     let lib_nv_encode = LibNvEncode {
         NvEncodeAPICreateInstance: get_func!(library, b"NvEncodeAPICreateInstance\0")?,
         NvEncodeAPIGetMaxSupportedVersion: get_func!(
@@ -203,9 +203,9 @@ impl<'lib> Encoder<'lib> {
         Ok(InputBuffer {
             encoder: self_.clone(),
             ptr: params.inputBuffer,
-            format: format,
-            width: width,
-            height: height,
+            format,
+            width,
+            height,
             destroyed: false,
         })
     }
@@ -451,10 +451,7 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
     }
     pub fn is_keyframe(&self) -> bool {
         use crate::ffi::_NV_ENC_PIC_TYPE::*;
-        match self.picture_type {
-            NV_ENC_PIC_TYPE_I | NV_ENC_PIC_TYPE_IDR => true,
-            _ => false,
-        }
+        matches!(self.picture_type, NV_ENC_PIC_TYPE_I | NV_ENC_PIC_TYPE_IDR)
     }
 }
 
@@ -658,7 +655,7 @@ pub enum RateControlMode {
 }
 
 impl RateControlMode {
-    fn to_c(&self) -> NvInt {
+    fn to_c(self) -> NvInt {
         use RateControlMode::*;
         match self {
             Constqp => _NV_ENC_PARAMS_RC_MODE::NV_ENC_PARAMS_RC_CONSTQP,

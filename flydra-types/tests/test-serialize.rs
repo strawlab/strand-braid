@@ -29,8 +29,7 @@ header = struct.pack(recv_pt_header_fmt,            cam_id, raw_timestamp, camn_
 
 print('%r' % header)
 */
-const TEST_HEADER_BUF: &'static [u8; 58] =
-    b"\x06cam_id\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
+const TEST_HEADER_BUF: &[u8; 58] = b"\x06cam_id\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
         \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaeG\xe1z\x14\xae(@w\xbe\
         \x9f\x1a/\xdd^@*\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00";
 
@@ -75,8 +74,7 @@ pt = (x0_abs, y0_abs, area, slope, eccentricity,
 ptbuf = struct.pack(recv_pt_fmt, *pt)
 print('%r' % ptbuf)
 */
-const TEST_POINT_BUF: &'static [u8; 58] =
-    b"\xaeG\xe1z\x14\xae(@\xa4p=\n\xd7cL@333333&@3333336@fffff\
+const TEST_POINT_BUF: &[u8; 58] = b"\xaeG\xe1z\x14\xae(@\xa4p=\n\xd7cL@333333&@3333336@fffff\
         \xa6@@\x01\r\x00\x00\x00\x00\x80\x1c\xc8@\x00\x00\x00\x00\x00\xc0K@";
 
 fn make_test_point() -> FlydraRawUdpPoint {

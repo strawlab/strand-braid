@@ -178,10 +178,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
         match &mut self.zip_archive {
             Some(zip_archive) => {
                 let relname_str = relname.as_os_str().to_str().unwrap();
-                match zip_archive.by_name(relname_str) {
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
+                zip_archive.by_name(relname_str).is_ok()
             }
             None => self.rel(relname).exists(),
         }
@@ -207,10 +204,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
         match &mut self.zip_archive {
             Some(zip_archive) => {
                 let relname_str = relname.as_ref().as_os_str().to_str().unwrap();
-                match zip_archive.by_name(relname_str) {
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
+                zip_archive.by_name(relname_str).is_ok()
             }
             None => dirpath.is_file(),
         }
@@ -235,14 +229,11 @@ impl<R: Read + Seek> ZipDirArchive<R> {
 
         match &mut self.zip_archive {
             Some(zip_archive) => {
-                let deep_tree_file_names: Vec<PathBuf> =
-                    zip_archive.file_names().map(PathBuf::from).collect();
-
                 // full zip fname, relative name
                 let mut suffixes: Vec<PathBuf> = vec![];
 
                 let mut found_any = false;
-                for deep_path in deep_tree_file_names.into_iter() {
+                for deep_path in zip_archive.file_names().map(PathBuf::from) {
                     if let Some(prefix) = &relname {
                         let (has_match, suffix) = remove_shared_prefix(&deep_path, prefix);
                         if has_match {
@@ -272,10 +263,8 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                     }
                 }
                 result = unique_single_components.into_iter().collect();
-                if result.is_empty() && relname.is_some() {
-                    if !found_any {
-                        return Err(Error::NotDirectory);
-                    }
+                if result.is_empty() && relname.is_some() && !found_any {
+                    return Err(Error::NotDirectory);
                 }
             }
             None => {
@@ -378,6 +367,10 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
             None => self.relname.push(p),
         }
     }
+    pub fn join(mut self, p: &str) -> Self {
+        self.push(p);
+        self
+    }
     pub fn path(&mut self) -> &std::path::Path {
         &self.relname
     }
@@ -422,7 +415,7 @@ impl SlashJoin for PathBuf {
     fn slash_push<P: AsRef<Path>>(&mut self, path: P) {
         // TODO: FIXME: xxx fix this terrible hack implementation.
         let self_str = format!("{}", self.display());
-        let new_str = if self_str == "" {
+        let new_str = if self_str.is_empty() {
             std::path::PathBuf::from(path.as_ref())
         } else {
             let my_str = format!("{}/{}", self_str, path.as_ref().display());
@@ -512,7 +505,7 @@ fn copy_dir<R: Read + Seek>(
         } else {
             // if not a file, it is a subdir
             let subpath: PathBuf = match relname {
-                None => PathBuf::from(full_entry),
+                None => full_entry,
                 // Some(parent) => PathBuf::from(parent).join(entry),
                 Some(_) => full_entry, //PathBuf::from(parent).join(entry),
             };

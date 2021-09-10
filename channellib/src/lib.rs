@@ -43,17 +43,11 @@ impl TryRecvError {
     }
 
     pub fn is_empty(&self) -> bool {
-        match self.source {
-            crossbeam_channel::TryRecvError::Empty => true,
-            _ => false,
-        }
+        matches!(self.source, crossbeam_channel::TryRecvError::Empty)
     }
 
     pub fn is_disconnected(&self) -> bool {
-        match self.source {
-            crossbeam_channel::TryRecvError::Disconnected => true,
-            _ => false,
-        }
+        matches!(self.source, crossbeam_channel::TryRecvError::Disconnected)
     }
 }
 

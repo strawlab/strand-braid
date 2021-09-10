@@ -42,10 +42,10 @@ impl NewObjectTest {
                     .collect();
                 for cc in cam_combinations.iter() {
                     let size = safe_u8(cc.len());
-                    if (2 <= size) && (size <= HTEST_MAX_N_CAMS) {
-                        let ref mut size_entry = cam_combinations_by_size
+                    if (2..=HTEST_MAX_N_CAMS).contains(&size) {
+                        let size_entry = &mut cam_combinations_by_size
                             .entry(size)
-                            .or_insert_with(|| Vec::new());
+                            .or_insert_with(Vec::new);
                         size_entry.push(cc.clone());
                     }
                 }
@@ -135,12 +135,9 @@ impl NewObjectTest {
                 let data = match self.recon.find3d_and_cum_reproj_dist_distorted(&points) {
                     Ok(data) => data,
                     Err(err) => {
-                        match err {
-                            mvg::MvgError::SvdFailed => {
-                                error!("failed SVD in find3d with points {:?}", points);
-                                continue;
-                            }
-                            _ => {}
+                        if let mvg::MvgError::SvdFailed = err {
+                            error!("failed SVD in find3d with points {:?}", points);
+                            continue;
                         }
                         error!("failed find3d {}", err);
                         return None;

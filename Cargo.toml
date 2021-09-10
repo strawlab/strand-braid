@@ -85,7 +85,6 @@ members = [
     "strand-cam",
     "strand-cam/yew_frontend",
     "strand-cam-csv-config-types",
-    "strand-cam-mkvfix",
     "strand-cam-offline-kalmanize",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",

@@ -161,7 +161,7 @@ struct LMInner {
 impl LivingModel<ModelFrameStarted> {
     /// linearize the observation model for camera about myself and then project
     /// myself through the linearization to get expected_observation.
-    fn compute_expected_observation<'a, 'b>(
+    fn compute_expected_observation(
         &self,
         camera: flydra_mvg::MultiCamera<MyFloat>,
         ekf_observation_covariance_pixels: f32,
@@ -210,7 +210,7 @@ impl LivingModel<ModelFrameStarted> {
         (obs_model, mvn)
     }
 
-    fn compute_observation_likelihoods<'c>(
+    fn compute_observation_likelihoods(
         self,
         all_cam_data: &BundledAllCamsOneFrameUndistorted,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
@@ -225,7 +225,7 @@ impl LivingModel<ModelFrameStarted> {
             .map(|cam_data| {
                 // outer loop: cameras
 
-                if cam_data.undistorted.len() == 0 {
+                if cam_data.undistorted.is_empty() {
                     ObservationModel::NoObservations
                 } else {
                     let cam = recon
@@ -299,11 +299,11 @@ impl LivingModel<ModelFrameStarted> {
 fn get_kalman_estimates_row(obj_id: u32, posterior: &StampedEstimate) -> KalmanEstimatesRow {
     let state = posterior.estimate.state();
     let p = posterior.estimate.covariance();
-    let timestamp = posterior.trigger_timestamp().clone();
+    let timestamp = posterior.trigger_timestamp();
 
     KalmanEstimatesRow {
         obj_id,
-        frame: posterior.frame().clone(),
+        frame: posterior.frame(),
         timestamp,
         x: state[0],
         y: state[1],
@@ -332,8 +332,8 @@ impl LivingModel<ModelFramePosteriors> {
     ) -> LivingModel<ModelFrameDone> {
         // save data -------------------------------
         let obj_id = self.lmi.obj_id;
-        let frame = self.state.posterior.frame().clone();
-        let mut new_gestation_age = self.gestation_age.clone();
+        let frame = self.state.posterior.frame();
+        let mut new_gestation_age = self.gestation_age;
 
         let r: Vec<f64> = self
             .state
@@ -359,7 +359,7 @@ impl LivingModel<ModelFramePosteriors> {
             .into_iter()
             .map(|da_info| DataAssocRow {
                 obj_id,
-                frame: frame.clone(),
+                frame,
                 cam_num: da_info.cam_num,
                 pt_idx: da_info.pt_idx,
             })
@@ -370,11 +370,11 @@ impl LivingModel<ModelFramePosteriors> {
 
         // Save kalman estimates and data association data to disk iff there
         // were one or more observations.
-        if data_assoc_rows.len() > 0 {
+        if !data_assoc_rows.is_empty() {
             // We had an observation.
 
             let mut do_become_visible = false;
-            if let &Some(n_obs) = &new_gestation_age {
+            if let Some(n_obs) = &new_gestation_age {
                 // Update our gestation age with another observation.
                 let new_num_observations = n_obs + 1;
                 new_gestation_age = if new_num_observations > num_observations_to_visibility {
@@ -425,7 +425,7 @@ impl LivingModel<ModelFramePosteriors> {
 
                     // println!("saving row with no observations {} {}", self.lmi.obj_id, fno);
                     // println!("   start idx end {} {} {}", start_idx, idx, end_idx);
-                    let no_obs_record = get_kalman_estimates_row(self.lmi.obj_id, &posterior);
+                    let no_obs_record = get_kalman_estimates_row(self.lmi.obj_id, posterior);
                     save_data_tx
                         .send(SaveToDiskMsg::KalmanEstimate(KalmanEstimateRecord {
                             record: no_obs_record,
@@ -439,7 +439,7 @@ impl LivingModel<ModelFramePosteriors> {
                 // println!("saving row with observations {} {}", self.lmi.obj_id, frame.0);
                 save_data_tx
                     .send(SaveToDiskMsg::KalmanEstimate(KalmanEstimateRecord {
-                        record: record.clone(),
+                        record,
                         data_assoc_rows,
                         mean_reproj_dist_100x,
                     }))
@@ -579,7 +579,7 @@ impl ModelCollection<CollectionFrameDone> {
 }
 
 impl ModelCollection<CollectionFrameStarted> {
-    pub(crate) fn compute_observation_likes<'a, 'b>(
+    pub(crate) fn compute_observation_likes(
         self,
         bundle: BundledAllCamsOneFrameUndistorted,
     ) -> ModelCollection<CollectionFrameWithObservationLikes> {
@@ -620,7 +620,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
         //
         // Do something like the hungarian algorithm.
 
-        if self.state.models_with_obs_likes.len() == 0 {
+        if self.state.models_with_obs_likes.is_empty() {
             // Short-circuit stuff below when no data.
             let state = CollectionFramePosteriors {
                 models_with_posteriors: vec![],
@@ -651,7 +651,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 .iter()
                 .map(|model| {
                     LivingModel {
-                        gestation_age: model.gestation_age.clone(),
+                        gestation_age: model.gestation_age,
                         state: ModelFramePosteriors {
                             posterior: StampedEstimate {
                                 estimate: model.state.prior.clone(), // just the prior initially
@@ -660,7 +660,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             data_assoc_this_timestamp: vec![], // no observations yet
                         },
                         posteriors: model.posteriors.clone(),
-                        last_observation_offset: model.last_observation_offset.clone(),
+                        last_observation_offset: model.last_observation_offset,
                         lmi: model.lmi.clone(),
                     }
                 })
@@ -678,7 +678,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 let (frame_cam_points, fdp): (&OneCamOneFrameUndistorted, &FrameDataAndPoints) =
                     per_cam;
 
-                if frame_cam_points.undistorted.len() == 0 {
+                if frame_cam_points.undistorted.is_empty() {
                     continue;
                 }
 
@@ -747,7 +747,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                     // Also, each model can only get a single observation (from
                     // this camera).
                     let likelihoods = wantedness.row(row_idx); // extract likelihood for all points
-                    let best_col = arg_max_col(&likelihoods.iter().map(|x| *x).collect()); // select best point
+                    let best_col = arg_max_col(&likelihoods.iter().copied().collect::<Vec<_>>()); // select best point
                     trace!("row_idx {}, best_col {:?}", row_idx, best_col);
 
                     if let Some((best_idx, best_wantedness)) = best_col {
@@ -858,7 +858,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
     }
 }
 
-fn arg_max_col(a: &Vec<f64>) -> Option<(usize, f64)> {
+fn arg_max_col(a: &[f64]) -> Option<(usize, f64)> {
     let mut r = None;
     for (i, val) in a.iter().enumerate() {
         r = match r {
@@ -956,7 +956,7 @@ impl ModelCollection<CollectionFramePosteriors> {
                 let fdp_vec: &Vec<FrameDataAndPoints> = &unused.0.orig_distorted;
 
                 // get single (best) point per camera
-                filter_points_and_take_first(&fdp_vec, minimum_pixel_abs_zscore.into())
+                filter_points_and_take_first(fdp_vec, minimum_pixel_abs_zscore)
             };
 
             if log_enabled!(Trace) {
@@ -1024,7 +1024,7 @@ impl ModelCollection<CollectionFramePosteriors> {
             }
         }
 
-        if to_kill.len() > 0 {
+        if !to_kill.is_empty() {
             for ms in model_servers.iter() {
                 for model in &to_kill {
                     if model.gestation_age.is_none() {
@@ -1038,8 +1038,7 @@ impl ModelCollection<CollectionFramePosteriors> {
             }
         }
 
-        let num_observations_to_visibility =
-            self.mcinner.params.num_observations_to_visibility.clone();
+        let num_observations_to_visibility = self.mcinner.params.num_observations_to_visibility;
 
         let models = to_live
             .into_iter()
@@ -1060,7 +1059,7 @@ impl ModelCollection<CollectionFramePosteriors> {
 }
 
 fn filter_points_and_take_first(
-    fdp_vec: &Vec<FrameDataAndPoints>,
+    fdp_vec: &[FrameDataAndPoints],
     minimum_pixel_abs_zscore: f64,
 ) -> BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>> {
     fdp_vec

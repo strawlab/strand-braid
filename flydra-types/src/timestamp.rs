@@ -45,7 +45,7 @@ assert_impl_all!(val; FlydraFloatTimestampLocal<Triggerbox>, PartialEq);
 
 impl<S: Source> FlydraFloatTimestampLocal<S> {
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
-        let value_f64 = datetime_conversion::datetime_to_f64(&dt);
+        let value_f64 = datetime_conversion::datetime_to_f64(dt);
         let value_f64 = value_f64.into();
         let source = std::marker::PhantomData;
         Self { value_f64, source }

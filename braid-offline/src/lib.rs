@@ -87,7 +87,7 @@ fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
             x0_abs: row.x,
             y0_abs: row.y,
             area: row.area,
-            maybe_slope_eccentricty: maybe_slope_eccentricty,
+            maybe_slope_eccentricty,
             cur_val: row.cur_val,
             mean_val: row.mean_val,
             sumsqf_val: row.sumsqf_val,
@@ -106,7 +106,7 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     let mut by_cam = BTreeMap::new();
 
     for inrow in invec.into_iter() {
-        let ref mut rows_entry = by_cam.entry(inrow.camn).or_insert_with(|| Vec::new());
+        let rows_entry = &mut by_cam.entry(inrow.camn).or_insert_with(Vec::new);
         rows_entry.push(inrow);
     }
 
@@ -138,7 +138,7 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
                 line!()
             );
             let df = last_row.frame - row0.frame;
-            if !last_row.timestamp.is_none() && !row0.timestamp.is_none() {
+            if last_row.timestamp.is_some() && row0.timestamp.is_some() {
                 // timestamp from trigger-derived source (should be more accurate)
                 let ts1 = last_row.timestamp.map(|x| x.as_f64()).unwrap();
                 let ts0 = row0.timestamp.map(|x| x.as_f64()).unwrap();
@@ -267,7 +267,7 @@ where
     for cam_name in recon.cam_names() {
         let mut old_image_fname = data_src.path_starter();
         old_image_fname.push(flydra2::IMAGES_DIRNAME);
-        old_image_fname.push(&cam_name);
+        old_image_fname.push(cam_name);
         old_image_fname.set_extension("png");
 
         if !old_image_fname.exists() {
@@ -505,17 +505,37 @@ where
 {
     let mut buf = vec![];
     let mut new_file = std::fs::File::create(dest)?;
-    while reader.read(&mut buf)? > 0 {
-        new_file.write(&mut buf)?;
-    }
+    reader.read_to_end(&mut buf)?;
+    new_file.write_all(&buf)?;
     new_file.flush()?;
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+/// Load .csv or .csv.gz file
+///
+/// This should not be used in the general case but only for special cases where
+/// a raw directory is being used, such as specifically when modifying a
+/// directory under construction. For the general reading case, prefer
+/// `braidz_parser` crate (or the `zip_or_dir` if it may not be a valid braidz
+/// archive) crate.
+pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> flydra2::Result<Box<dyn std::io::Read>> {
+    let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
+
+    if csv_path.exists() {
+        std::fs::File::open(&csv_path)
+            .map(|fd| {
+                let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
+                rdr
+            })
+            .map_err(|e| {
+                flydra2::file_error("opening", format!("opening {}", csv_path.display()), e)
+            })
+    } else {
+        // This gives us an error corresponding to a non-existing .gz file.
+        let gz_fd = std::fs::File::open(&gz_fname).map_err(|e| {
+            flydra2::file_error("opening", format!("opening {}", gz_fname.display()), e)
+        })?;
+        let decoder = libflate::gzip::Decoder::new(gz_fd)?;
+        Ok(Box::new(decoder))
     }
 }
