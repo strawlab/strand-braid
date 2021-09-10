@@ -84,7 +84,7 @@ impl PerSender {
             out,
             frame_lifo: None,
             ready_to_send: true,
-            conn_key: conn_key,
+            conn_key,
             fno: 0,
         }
     }
@@ -128,50 +128,47 @@ impl PerSender {
         // TODO make algorithm smarter to have more in-flight frames?
         // TODO include sent time in message to clients so we don't maintain that
 
-        match self.frame_lifo {
-            Some(ref most_recent_frame_data) => {
-                if self.ready_to_send {
-                    // sent_time computed early so that latency includes duration to encode, etc.
-                    let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-                    let bytes = basic_frame::match_all_dynamic_fmts!(
-                        &most_recent_frame_data.frame,
-                        x,
-                        convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
-                    )?;
-                    let firehose_frame_base64 = base64::encode(&bytes);
-                    let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
-                    let found_points = most_recent_frame_data.found_points.clone();
-                    let tc = ToClient {
-                        firehose_frame_data_url: data_url,
-                        found_points,
-                        valid_display: most_recent_frame_data.valid_display.clone(),
-                        annotations: most_recent_frame_data.annotations.clone(),
-                        fno: self.fno,
-                        ts_rfc3339: sent_time.to_rfc3339(),
-                        ck: self.conn_key,
-                        name: most_recent_frame_data.name.clone(),
-                    };
+        if let Some(ref most_recent_frame_data) = self.frame_lifo {
+            if self.ready_to_send {
+                // sent_time computed early so that latency includes duration to encode, etc.
+                let sent_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+                let bytes = basic_frame::match_all_dynamic_fmts!(
+                    &most_recent_frame_data.frame,
+                    x,
+                    convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
+                )?;
+                let firehose_frame_base64 = base64::encode(&bytes);
+                let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
+                let found_points = most_recent_frame_data.found_points.clone();
+                let tc = ToClient {
+                    firehose_frame_data_url: data_url,
+                    found_points,
+                    valid_display: most_recent_frame_data.valid_display.clone(),
+                    annotations: most_recent_frame_data.annotations.clone(),
+                    fno: self.fno,
+                    ts_rfc3339: sent_time.to_rfc3339(),
+                    ck: self.conn_key,
+                    name: most_recent_frame_data.name.clone(),
+                };
 
-                    let buf = serde_json::to_string(&tc).expect("encode");
-                    let buf = format!(
-                        "event: {}\ndata: {}\n\n",
-                        http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
-                        buf
-                    );
-                    let hc = buf.clone().into();
+                let buf = serde_json::to_string(&tc).expect("encode");
+                let buf = format!(
+                    "event: {}\ndata: {}\n\n",
+                    http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
+                    buf
+                );
+                let hc = buf.into();
 
-                    match futures::executor::block_on(self.out.send(hc)) {
-                        Ok(()) => {}
-                        Err(_) => {
-                            info!("failed to send data to connection. dropping.");
-                            // Failed to send data to event stream key.
-                            // TODO: drop this sender.
-                        }
+                match futures::executor::block_on(self.out.send(hc)) {
+                    Ok(()) => {}
+                    Err(_) => {
+                        info!("failed to send data to connection. dropping.");
+                        // Failed to send data to event stream key.
+                        // TODO: drop this sender.
                     }
-                    self.ready_to_send = false;
                 }
+                self.ready_to_send = false;
             }
-            None => {} // nothing to do, no frame in queue
         }
 
         self.frame_lifo = None;
@@ -180,8 +177,10 @@ impl PerSender {
     }
 }
 
+pub type SenderMap = Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
+
 pub fn firehose_thread(
-    sender_map_arc: Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>,
+    sender_map_arc: SenderMap,
     firehose_rx: channellib::Receiver<AnnotatedFrame>,
     firehose_callback_rx: channellib::Receiver<FirehoseCallback>,
     use_frame_selector: bool,
@@ -223,7 +222,7 @@ pub fn firehose_thread(
                 match sender_map.get(conn_key) {
                     Some(item) => {
                         // sender was added.
-                        let ref path = item.2;
+                        let path = &item.2;
                         let name_selector = if path == events_prefix {
                             match use_frame_selector {
                                 true => NameSelector::None,
