@@ -107,7 +107,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
                         if row.message.starts_with(line1_start) {
                             let line = row.message.replace(line1_start, "");
-                            let fps_str = line.split(" ").next().unwrap();
+                            let fps_str = line.split(' ').next().unwrap();
                             if fps_str != "unknown" {
                                 expected_fps = fps_str.parse()?;
                             }
@@ -253,7 +253,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             for row in d2d_reader.into_deserialize().early_eof_ok().into_iter() {
                 num_rows += 1;
                 let row: Data2dDistortedRow = row?;
-                let entry = qz.entry(row.camn).or_insert_with(|| Seq2d::new());
+                let entry = qz.entry(row.camn).or_insert_with(Seq2d::new);
                 entry.push(row.frame, row.x, row.y);
                 let this_frame: u64 = row.frame.try_into().unwrap();
                 let this_time = row.cam_received_timestamp;
@@ -354,15 +354,15 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 }
                 Err(e) => {
                     println!("error {} {:?}", e, e);
+                    #[allow(unused_variables)]
                     match e {
-                        Error::ZipOrDir { ref source } => match &source {
-                            zip_or_dir::Error::FileNotFound => None,
-                            _ => {
-                                return Err(e.into());
-                            }
-                        },
+                        Error::ZipOrDir {
+                            source: zip_or_dir::Error::FileNotFound,
+                            #[cfg(feature = "backtrace")]
+                            backtrace,
+                        } => None,
                         _ => {
-                            return Err(e.into());
+                            return Err(e);
                         }
                     }
                 }

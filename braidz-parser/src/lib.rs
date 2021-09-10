@@ -375,10 +375,10 @@ fn append_to_path(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 #[test]
 fn test_append_to_path() {
     let foo = std::path::Path::new("foo");
-    assert!(&append_to_path(&foo, ".gz") == std::path::Path::new("foo.gz"));
+    assert!(&append_to_path(foo, ".gz") == std::path::Path::new("foo.gz"));
 
     let foo_csv = std::path::Path::new("foo.csv");
-    assert!(&append_to_path(&foo_csv, ".gz") == std::path::Path::new("foo.csv.gz"));
+    assert!(&append_to_path(foo_csv, ".gz") == std::path::Path::new("foo.csv.gz"));
 }
 
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
