@@ -378,6 +378,10 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
             None => self.relname.push(p),
         }
     }
+    pub fn join(mut self, p: &str) -> Self {
+        self.push(p);
+        self
+    }
     pub fn path(&mut self) -> &std::path::Path {
         &self.relname
     }
