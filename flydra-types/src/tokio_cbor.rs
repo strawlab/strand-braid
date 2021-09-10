@@ -33,12 +33,10 @@ impl Decoder for CborPacketCodec {
         // Parse all available input data.
         let available = buf.split();
         let deserializer = serde_cbor::Deserializer::from_slice(&available[..]);
-        let new_results: Vec<Result<FlydraRawUdpPacket, serde_cbor::error::Error>> =
-            deserializer.into_iter().collect();
 
         // early return on error
         let new_results: Result<Vec<FlydraRawUdpPacket>, serde_cbor::error::Error> =
-            new_results.into_iter().collect();
+            deserializer.into_iter().collect();
         let new_results = match new_results {
             Ok(v) => v,
             Err(e) => {
