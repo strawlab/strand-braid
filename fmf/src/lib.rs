@@ -138,7 +138,7 @@ impl<F: Write + Seek> FMFWriter<F> {
                 WriterState::Writing(inner)
             }
             WriterState::Writing(inner) => WriterState::Writing(inner),
-            WriterState::InconsistentState => return Err(FMFError::InconsistentState.into()),
+            WriterState::InconsistentState => return Err(FMFError::InconsistentState),
         };
         self.state = new_state;
 
@@ -173,7 +173,7 @@ impl<F: Write + Seek> FMFWriter<F> {
         match self.state {
             WriterState::FileOpened(f) => Ok(f),
             WriterState::Writing(mut inner) => inner.close(),
-            WriterState::InconsistentState => Err(FMFError::InconsistentState.into()),
+            WriterState::InconsistentState => Err(FMFError::InconsistentState),
         }
     }
 }
@@ -224,7 +224,7 @@ impl<F: Write + Seek> FMFWriterInner<F> {
         let self_f = match self.f {
             Some(ref mut f) => f,
             None => {
-                return Err(FMFError::AlreadyClosed.into());
+                return Err(FMFError::AlreadyClosed);
             }
         };
         self_f.write_f64::<LittleEndian>(timestamp)?;
@@ -260,7 +260,7 @@ impl<F: Write + Seek> FMFWriterInner<F> {
         let mut self_f = match opt_f {
             Some(f) => f,
             None => {
-                return Err(FMFError::AlreadyClosed.into());
+                return Err(FMFError::AlreadyClosed);
             }
         };
 
@@ -290,7 +290,7 @@ mod tests {
 
     use timestamped_frame::ExtraTimeData;
 
-    use chrono;
+    
     use chrono::{DateTime, Local};
     use machine_vision_formats::pixel_format::Mono8;
 

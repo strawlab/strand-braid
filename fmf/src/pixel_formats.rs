@@ -31,7 +31,7 @@ pub(crate) fn get_pixel_format(format: &[u8]) -> FMFResult<PixFmt> {
         b"YUV422" => Ok(YUV422),
         b"RGB8" => Ok(RGB8),
         f => Err(FMFError::UnknownFormat(
-            String::from_utf8_lossy(&f).into_owned(),
+            String::from_utf8_lossy(f).into_owned(),
         )),
     }
 }
