@@ -248,7 +248,8 @@ impl Component for Model {
         };
 
         html! {
-        <div>
+            <div id="page-container">
+            <div id="content-wrap">
             <div class=spinner_div_class>
                 <div class="compute-modal-inner">
                     <p>
@@ -264,7 +265,10 @@ impl Component for Model {
             <h1>{"Braid April Tag Calibration Tool"}</h1>
             <h3>{"by Andrew Straw, Straw Lab, University of Freiburg, Germany"}</h3>
             <p>{"This page computes a "}<a href="https://strawlab.org/braid/">{"Braid"}</a>
-               {" calibration based on April Tag fiducial marker detection data."}</p>
+               {" calibration based on April Tag fiducial marker detection data. "}
+               {"The source code for this page may be found "}
+               <a href="https://github.com/strawlab/strand-braid/tree/main/braid-april-cal-webapp">
+               {"here"}</a>{"."}</p>
             <h2>{"Input: 3D coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file with columns: id, x, y, z."}</p>
             <label class=classes!("btn", "custom-file-upload")>
@@ -305,6 +309,7 @@ impl Component for Model {
                 env!("GIT_DATE"),
                 env!("GIT_HASH"))}
             </footer>
+        </div>
         </div>
         }
     }
