@@ -3,6 +3,8 @@ use std::process::Command;
 
 use anyhow::Context;
 
+use braid_offline::pick_csvgz_or_csv;
+
 /// unzip the zip archive `src` into the destination `dest`.
 ///
 /// The destination is created if it does not already exist.
@@ -89,7 +91,7 @@ where
 
     let kest_reader = {
         let csv_path = src.as_ref().join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
-        let rdr = flydra2::pick_csvgz_or_csv(&csv_path)?;
+        let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
 

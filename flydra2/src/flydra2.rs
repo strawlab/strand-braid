@@ -508,27 +508,6 @@ pub enum SaveToDiskMsg {
     QuitNow,
 }
 
-/// Load .csv or .csv.gz file
-#[deprecated = "use the zip-or-dir crate and braidz_parser::open_maybe_gzipped"]
-pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> Result<Box<dyn std::io::Read>> {
-    let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
-
-    if csv_path.exists() {
-        std::fs::File::open(&csv_path)
-            .map(|fd| {
-                let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
-                rdr
-            })
-            .map_err(|e| file_error("opening", format!("opening {}", csv_path.display()), e))
-    } else {
-        // This gives us an error corresponding to a non-existing .gz file.
-        let gz_fd = std::fs::File::open(&gz_fname)
-            .map_err(|e| file_error("opening", format!("opening {}", gz_fname.display()), e))?;
-        let decoder = libflate::gzip::Decoder::new(gz_fd)?;
-        Ok(Box::new(decoder))
-    }
-}
-
 /// Acts like a `csv::Writer` but buffers and orders by frame.
 ///
 /// This is done to allow consumers of the kalman estimates data to iterate

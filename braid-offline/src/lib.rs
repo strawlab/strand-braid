@@ -512,10 +512,31 @@ where
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+/// Load .csv or .csv.gz file
+///
+/// This should not be used in the general case but only for special cases where
+/// a raw directory is being used, such as specifically when modifying a
+/// directory under construction. For the general reading case, prefer
+/// `braidz_parser` crate (or the `zip_or_dir` if it may not be a valid braidz
+/// archive) crate.
+pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> flydra2::Result<Box<dyn std::io::Read>> {
+    let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
+
+    if csv_path.exists() {
+        std::fs::File::open(&csv_path)
+            .map(|fd| {
+                let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
+                rdr
+            })
+            .map_err(|e| {
+                flydra2::file_error("opening", format!("opening {}", csv_path.display()), e)
+            })
+    } else {
+        // This gives us an error corresponding to a non-existing .gz file.
+        let gz_fd = std::fs::File::open(&gz_fname).map_err(|e| {
+            flydra2::file_error("opening", format!("opening {}", gz_fname.display()), e)
+        })?;
+        let decoder = libflate::gzip::Decoder::new(gz_fd)?;
+        Ok(Box::new(decoder))
     }
 }

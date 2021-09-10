@@ -7,10 +7,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use structopt::StructOpt;
 
-use flydra2::{pick_csvgz_or_csv, DataAssocRow, Result};
+use flydra2::{DataAssocRow, Result};
 use groupby::AscendingGroupIter;
 
 use flydra_types::{KalmanEstimatesRow, SyncFno};
+
+use braid_offline::pick_csvgz_or_csv;
 
 // computed later for back-compat
 const COMPUTED_DIRNAME: &str = "flydra1-compat-computed-offline";
@@ -426,6 +428,10 @@ fn main() -> Result<()> {
     env_tracing_logger::init();
 
     let opt = Opt::from_args();
+
+    // Here we operate on a plain directory (rather than a
+    // `zip_or_dir::ZipDirArchive`).
+
     compute_contiguous_kests(&opt.dirname)?;
     add_ml_estimates_tables(&opt.dirname)
 }
