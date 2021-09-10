@@ -256,8 +256,8 @@ where
                         debug!("Using codec {:?} in mkv file.", vpx_codec);
                         // Setup the encoder.
                         let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
-                            width: width,
-                            height: height,
+                            width,
+                            height,
                             timebase: [1, 1000], // millisecond time base
                             bitrate,
                             codec: vpx_codec,
