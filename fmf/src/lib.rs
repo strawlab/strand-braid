@@ -290,7 +290,6 @@ mod tests {
 
     use timestamped_frame::ExtraTimeData;
 
-    
     use chrono::{DateTime, Local};
     use machine_vision_formats::pixel_format::Mono8;
 
