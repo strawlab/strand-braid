@@ -15,7 +15,7 @@ pub enum Msg {
 pub enum MaybeValidObjFile {
     NotLoaded,
     ParseFail(simple_obj_parse::Error),
-    Valid(ValidObjFile),
+    Valid(Box<ValidObjFile>),
     NotExactlyOneMesh,
 }
 
@@ -23,16 +23,16 @@ impl std::fmt::Display for MaybeValidObjFile {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use self::MaybeValidObjFile::*;
 
-        match &self {
-            &Valid(ref fd) => write!(
+        match self {
+            Valid(ref fd) => write!(
                 f,
                 "OBJ file \"{}\" with {} vertices.",
                 fd.filename,
                 fd.mesh.vertices().len()
             ),
-            &NotLoaded => write!(f, "No OBJ file loaded."),
-            &ParseFail(ref _e) => write!(f, "Failed parsing OBJ file."),
-            &NotExactlyOneMesh => write!(f, "OBJ file loaded, but not exactly one mesh present."),
+            NotLoaded => write!(f, "No OBJ file loaded."),
+            ParseFail(ref _e) => write!(f, "Failed parsing OBJ file."),
+            NotExactlyOneMesh => write!(f, "OBJ file loaded, but not exactly one mesh present."),
         }
     }
 }
@@ -84,12 +84,12 @@ impl Component for ObjWidget {
                         if obj_list.len() == 1 {
                             let obj = obj_list.into_iter().next().unwrap();
 
-                            MaybeValidObjFile::Valid(ValidObjFile {
+                            MaybeValidObjFile::Valid(Box::new(ValidObjFile {
                                 filename,
                                 _filesize: buf.len(),
                                 _meshname: obj.0,
                                 mesh: obj.1,
-                            })
+                            }))
                         } else {
                             MaybeValidObjFile::NotExactlyOneMesh
                         }

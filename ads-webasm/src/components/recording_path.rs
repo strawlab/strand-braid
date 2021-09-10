@@ -73,7 +73,10 @@ impl Component for RecordingPathWidget {
                 let jsdate = js_sys::Date::new_0();
                 let mins_from_utc_f64: f64 = jsdate.get_timezone_offset();
                 let mins_from_utc = mins_from_utc_f64 as i32;
-                assert_eq!(mins_from_utc_f64, mins_from_utc as f64);
+                // check that truncation to i32 does not lose precision
+                if (mins_from_utc_f64 - mins_from_utc as f64).abs() > 1e-16 {
+                    panic!("Assumption about results of js Date is wrong.");
+                }
                 let offset = chrono::offset::FixedOffset::west(mins_from_utc * 60);
                 let timeval = timeval_utc.with_timezone(&offset);
                 html! {

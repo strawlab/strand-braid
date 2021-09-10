@@ -162,7 +162,7 @@ impl Component for VideoField {
             };
             let in_msg2 = JsValue::from_serde(&in_msg2).unwrap();
 
-            let callback = self.link.callback(move |v| Msg::FrameLoaded(v));
+            let callback = self.link.callback(Msg::FrameLoaded);
 
             // This is typically hidden in a task. Can we make this a Task?
             let callback2 = Closure::once_into_js(move |v: JsValue| {
@@ -210,12 +210,12 @@ impl Component for VideoField {
               <CheckboxLabel
                 label=self.title.clone()
                 initially_checked=self.show_div
-                oncheck=self.link.callback(|checked| Msg::ToggleCollapsed(checked))
+                oncheck=self.link.callback(Msg::ToggleCollapsed)
                 />
               <div>
                 <canvas width=format!("{}",self.width) height=format!("{}",self.height)
                     id=self.css_id.clone() class="video-field-canvas"
-                    onmousemove=self.link.callback(|evt| Msg::MouseMove(evt))
+                    onmousemove=self.link.callback(Msg::MouseMove)
                     />
                 { self.view_text() }
               </div>

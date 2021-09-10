@@ -61,7 +61,7 @@ where
     }
 
     fn view(&self) -> Html {
-        let all_rendered = T::variants().into_iter().map(|variant| {
+        let all_rendered = T::variants().iter().map(|variant| {
             let name = format!("{}", variant);
             let is_active = &self.value == variant;
             let disabled = is_active; // do not allow clicking currently active state

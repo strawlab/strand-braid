@@ -30,15 +30,15 @@ impl<RowType> std::fmt::Display for MaybeCsvData<RowType> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use self::MaybeCsvData::*;
 
-        match &self {
-            &Valid(ref fd) => write!(
+        match self {
+            Valid(ref fd) => write!(
                 f,
                 "CSV file \"{}\" with {} rows.",
                 fd.filename,
                 fd.rows.len()
             ),
-            &Empty => write!(f, "No CSV file loaded."),
-            &ParseFail(ref _e) => write!(f, "Failed parsing CSV file: {}", _e),
+            Empty => write!(f, "No CSV file loaded."),
+            ParseFail(ref _e) => write!(f, "Failed parsing CSV file: {}", _e),
         }
     }
 }
