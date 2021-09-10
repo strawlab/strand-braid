@@ -390,6 +390,12 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
     }
 }
 
+impl<R: Read + Seek> IncrementalParser<R, FullyParsed> {
+    pub fn kalman_estimates_info(&self) -> Option<&KalmanEstimatesInfo> {
+        self.state.kalman_estimates_info.as_ref()
+    }
+}
+
 impl<R: Read + Seek, S: ParseState> IncrementalParser<R, S> {
     /// Consume and return the raw storage archive.
     pub fn zip_struct(self) -> zip_or_dir::ZipDirArchive<R> {
