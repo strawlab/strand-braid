@@ -97,21 +97,11 @@ pub struct StoreType {
     pub had_frame_processing_error: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct ApriltagState {
     pub do_detection: bool,
     pub april_family: TagFamily,
     pub is_recording_csv: Option<RecordingPath>,
-}
-
-impl Default for ApriltagState {
-    fn default() -> Self {
-        Self {
-            do_detection: false,
-            april_family: TagFamily::default(),
-            is_recording_csv: None,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
