@@ -97,7 +97,11 @@ pub struct FileErrorInner {
 
 impl std::fmt::Display for FileErrorInner {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Error opening {}: {}", self.filename, self.source)
+        write!(
+            f,
+            "Error \"{}\" opening {}: {}",
+            self.what, self.filename, self.source
+        )
     }
 }
 
