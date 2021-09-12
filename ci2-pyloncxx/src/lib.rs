@@ -125,7 +125,6 @@ pub struct Frame {
     image_data: Vec<u8>,                           // raw image data
     host_timestamp: chrono::DateTime<chrono::Utc>, // timestamp from host computer
     host_framenumber: usize,                       // framenumber from host computer
-    pixel_format: formats::PixFmt,                 // format of the data
     pub block_id: u64,                             // framenumber from the camera driver
     pub device_timestamp: u64,                     // timestamp from the camera driver
 }
@@ -223,10 +222,10 @@ enum FramecoutingMethod {
 
 #[derive(Clone)]
 pub struct WrappedCamera {
+    #[allow(dead_code)]
     pylon_auto_init: Arc<Mutex<pylon_cxx::PylonAutoInit>>,
     inner: Arc<Mutex<pylon_cxx::InstantCamera>>,
     framecounting_method: FramecoutingMethod,
-    device_info: pylon_cxx::DeviceInfo,
     name: String,
     serial: String,
     model: String,
@@ -295,7 +294,6 @@ impl WrappedCamera {
                     inner: Arc::new(Mutex::new(cam)),
                     name: name.to_string(),
                     framecounting_method,
-                    device_info,
                     serial,
                     model,
                     vendor,
