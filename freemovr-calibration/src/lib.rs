@@ -114,7 +114,7 @@ pub fn parse_pinhole_yaml<R: std::io::Read, P: AsRef<Path>>(
     };
     let result = LoadedPinholeInputFile {
         loaded: result,
-        yaml_dir: yaml_dir.as_ref().to_path_buf(),
+        _yaml_dir: yaml_dir.as_ref().to_path_buf(),
     };
     Ok(result)
 }

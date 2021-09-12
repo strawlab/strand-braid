@@ -41,7 +41,7 @@ pub(crate) struct FinalSize {
 #[derive(Debug, Clone)]
 pub struct LoadedPinholeInputFile {
     pub loaded: PinholeInputFile,
-    pub(crate) yaml_dir: std::path::PathBuf,
+    pub(crate) _yaml_dir: std::path::PathBuf,
 }
 
 /// Can be used to run DLT
