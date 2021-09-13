@@ -25,7 +25,6 @@ tokio = {version="1.0.1", default-features=false, features=["sync","rt","net"]}
 tokio-util = {version = "0.6", features=["codec","net"]}
 stream-cancel = "0.8"
 bytes = "1.0"
-structopt = "0.3"
 clap = "2.20"
 qrcodegen = "1.4"
 image = "0.22"
