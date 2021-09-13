@@ -14,10 +14,10 @@ use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 use anyhow::Result;
 
 fn remove_trailing_newline(line1: &str) -> &str {
-    if line1.ends_with("\n") {
-        &line1[..line1.len() - 1]
+    if let Some(stripped) = line1.strip_suffix('\n') {
+        stripped
     } else {
-        &line1
+        line1
     }
 }
 
@@ -39,53 +39,49 @@ where
             std::mem::swap(self, &mut old);
             let next: ReadState = match old {
                 ReadState::Initialized => {
-                    if line.starts_with("#") {
+                    if line.starts_with('#') {
                         if line == "# -- start of yaml config --" {
                             ReadState::FoundStartHeader
                         } else {
                             ReadState::Initialized
                         }
                     } else {
-                        // *self = ReadState::Finished(Err(anyhow::format_err!("no header")));
+                        // *self = ReadState::Finished(Err(anyhow::anyhow!("no header")));
                         ReadState::Finished(Ok(Vec::new()))
                     }
                 }
                 ReadState::FoundStartHeader => {
-                    if line.starts_with("#") {
-                        if line.starts_with("# ") {
-                            let this_line = &line[2..];
-                            ReadState::Reading(vec![this_line.to_string()])
+                    if line.starts_with('#') {
+                        if let Some(stripped) = line.strip_prefix("# ") {
+                            ReadState::Reading(vec![stripped.to_string()])
                         } else {
-                            ReadState::Finished(Err(
-                                anyhow::format_err!("unexpected line prefix").into()
-                            ))
+                            ReadState::Finished(Err(anyhow::anyhow!("unexpected line prefix")))
                         }
                     } else {
-                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::anyhow!("premature end of headers")))
                     }
                 }
                 ReadState::Reading(mut vec_lines) => {
-                    if line.starts_with("#") {
-                        if line.starts_with("# ") {
+                    if line.starts_with('#') {
+                        if let Some(stripped) = line.strip_prefix("# ") {
                             if line == "# -- end of yaml config --" {
                                 ReadState::Finished(Ok(vec_lines))
                             } else {
-                                let this_line = &line[2..];
-                                vec_lines.push(this_line.to_string());
+                                vec_lines.push(stripped.to_string());
                                 ReadState::Reading(vec_lines)
                             }
                         } else {
-                            ReadState::Finished(Err(anyhow::format_err!("unexpected line prefix")))
+                            ReadState::Finished(Err(anyhow::anyhow!("unexpected line prefix")))
                         }
                     } else {
-                        ReadState::Finished(Err(anyhow::format_err!("premature end of headers")))
+                        ReadState::Finished(Err(anyhow::anyhow!("premature end of headers")))
                     }
                 }
                 ReadState::Finished(_) => {
-                    ReadState::Finished(Err(anyhow::format_err!("parsing after finish")))
+                    ReadState::Finished(Err(anyhow::anyhow!("parsing after finish")))
                 }
                 ReadState::Marker => {
-                    ReadState::Finished(Err(anyhow::format_err!("parsing while parsing")))
+                    ReadState::Finished(Err(anyhow::anyhow!("parsing while parsing")))
                 }
             };
             *self = next;
@@ -94,7 +90,7 @@ where
             if let ReadState::Finished(rv) = self {
                 rv
             } else {
-                Err(anyhow::format_err!("premature end of header"))
+                Err(anyhow::anyhow!("premature end of header"))
             }
         }
     }
@@ -125,7 +121,7 @@ impl StrandCamConfig {
         match serde_yaml::from_value(cfg.clone()) {
             Ok(cfg26) => Ok(StrandCamConfig::FullCfgFview2_0_26(cfg26)),
             Err(err26) => {
-                if let Ok(cfg25) = serde_yaml::from_value(cfg.clone()) {
+                if let Ok(cfg25) = serde_yaml::from_value(cfg) {
                     Ok(StrandCamConfig::FullCfgFview2_0_25(cfg25))
                 } else {
                     // Return parse error for latest version
@@ -135,7 +131,7 @@ impl StrandCamConfig {
         }
     }
 
-    fn to_latest(self) -> FullCfgFview2_0_26 {
+    fn into_latest(self) -> FullCfgFview2_0_26 {
         match self {
             StrandCamConfig::FullCfgFview2_0_25(cfg25) => config25_upgrade(cfg25),
             StrandCamConfig::FullCfgFview2_0_26(cfg26) => cfg26,
@@ -155,7 +151,7 @@ async fn kalmanize_2d<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
-    row_filters: &Vec<RowFilter>,
+    row_filters: &[RowFilter],
 ) -> Result<()>
 where
     R: BufRead,
@@ -175,7 +171,7 @@ where
         to_recon_func,
         to_ts0,
         pseudo_cal_params,
-        &flydra_csv_temp_dir,
+        flydra_csv_temp_dir,
         row_filters,
     )?;
 
@@ -226,7 +222,7 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     flydra_csv_temp_dir: &tempdir::TempDir,
-    row_filters: &Vec<RowFilter>,
+    row_filters: &[RowFilter],
 ) -> Result<usize>
 where
     R: BufRead,
@@ -296,7 +292,7 @@ where
                 }
                 RowFilter::InPseudoCalRegion => {
                     // reject points outside calibration region
-                    if !is_inside_calibration_region(&record, &pseudo_cal_params) {
+                    if !is_inside_calibration_region(&record, pseudo_cal_params) {
                         keep_row = false;
                         break;
                     }
@@ -342,7 +338,7 @@ fn config25_upgrade(
 }
 
 fn to_ts0(cfg: &serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>> {
-    let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg.clone())?.to_latest();
+    let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg.clone())?.into_latest();
     Ok(chrono::DateTime::with_timezone(
         &cfg.created_at,
         &chrono::Utc,
@@ -357,8 +353,8 @@ fn to_recon_func(
     cfg: serde_yaml::Value,
     pseudo_cal_params: &PseudoCalParams,
 ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>> {
-    // let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg)?.to_latest();
-    let cfg = StrandCamConfig::from_value(cfg)?.to_latest();
+    // let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg)?.into_latest();
+    let cfg = StrandCamConfig::from_value(cfg)?.into_latest();
 
     let cam_name = get_cam_name(&cfg.camera);
 
@@ -469,7 +465,7 @@ pub fn parse_configs_and_run<R>(
     output_braidz: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
-    row_filters: &Vec<RowFilter>,
+    row_filters: &[RowFilter],
 ) -> Result<()>
 where
     R: BufRead,
@@ -481,16 +477,15 @@ where
     let rt_handle = runtime.handle().clone();
 
     let tracking_params = match tracking_params_buf {
-        Some(ref buf) => {
+        Some(buf) => {
             let tracking_params: flydra_types::TrackingParams =
-                toml::from_str(&buf).map_err(|e| anyhow::Error::from(e))?;
+                toml::from_str(buf).map_err(anyhow::Error::from)?;
             tracking_params
         }
         None => flydra2::SwitchingTrackingParams::default().into(),
     };
 
-    let calibration_params =
-        toml::from_str(&calibration_params_buf).map_err(|e| anyhow::Error::from(e))?;
+    let calibration_params = toml::from_str(calibration_params_buf).map_err(anyhow::Error::from)?;
 
     runtime.block_on(kalmanize_2d(
         point_detection_csv_reader,
@@ -501,6 +496,6 @@ where
         to_ts0,
         &calibration_params,
         rt_handle,
-        &row_filters,
+        row_filters,
     ))
 }
