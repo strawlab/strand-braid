@@ -233,21 +233,11 @@ pub struct HttpApiShared {
     pub all_expected_cameras_are_synced: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct RecentStats {
     pub total_frames_collected: usize,
     pub frames_collected: usize,
     pub points_detected: usize,
-}
-
-impl Default for RecentStats {
-    fn default() -> Self {
-        Self {
-            total_frames_collected: 0,
-            frames_collected: 0,
-            points_detected: 0,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

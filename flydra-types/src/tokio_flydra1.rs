@@ -5,16 +5,9 @@ use crate::{
     FLYDRA1_PER_POINT_PAYLOAD_SIZE,
 };
 
+#[derive(Default)]
 pub struct FlydraPacketCodec {
     current_header: Option<FlydraRawUdpPacketHeader>,
-}
-
-impl Default for FlydraPacketCodec {
-    fn default() -> Self {
-        Self {
-            current_header: None,
-        }
-    }
 }
 
 impl Decoder for FlydraPacketCodec {
