@@ -155,7 +155,7 @@ struct LMInner {
     /// The unique object id for this model
     obj_id: u32,
     /// Initial start frame number
-    start_frame: SyncFno,
+    _start_frame: SyncFno,
 }
 
 impl LivingModel<ModelFrameStarted> {
@@ -1014,7 +1014,7 @@ impl ModelCollection<CollectionFramePosteriors> {
                     last_observation_offset: 0,
                     lmi: LMInner {
                         obj_id,
-                        start_frame: unused.0.tdpt.frame,
+                        _start_frame: unused.0.tdpt.frame,
                     },
                 };
 

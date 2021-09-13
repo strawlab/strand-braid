@@ -315,6 +315,7 @@ fn display_filename(p: &Option<PathBuf>, default: &str) -> PathBuf {
 
 fn info(path: PathBuf) -> Result<()> {
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct Info {
         width: u32,
         height: u32,
@@ -381,7 +382,7 @@ fn export_fmf(
 
 fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
     let opts = glob::MatchOptions::new();
-    let paths = glob::glob_with(&pattern, opts)?;
+    let paths = glob::glob_with(pattern, opts)?;
     let f = std::fs::File::create(&output_fname)?;
     let mut writer = fmf::FMFWriter::new(f)?;
 
@@ -560,19 +561,19 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
 
     let codec = match x.codec {
         Codec::Vp8 => {
-            let mut opts = ci2_remote_control::VP8Options::default();
-            opts.bitrate = x.bitrate;
+            let opts = ci2_remote_control::VP8Options { bitrate: x.bitrate };
             ci2_remote_control::MkvCodec::VP8(opts)
         }
         Codec::Vp9 => {
-            let mut opts = ci2_remote_control::VP9Options::default();
-            opts.bitrate = x.bitrate;
+            let opts = ci2_remote_control::VP9Options { bitrate: x.bitrate };
             ci2_remote_control::MkvCodec::VP9(opts)
         }
         #[cfg(feature = "nv-h264")]
         Codec::H264 => {
-            let mut opts = ci2_remote_control::H264Options::default();
-            opts.bitrate = x.bitrate;
+            let opts = ci2_remote_control::H264Options {
+                bitrate: x.bitrate,
+                ..Default::default()
+            };
             ci2_remote_control::MkvCodec::H264(opts)
         }
     };
@@ -652,7 +653,7 @@ impl<'a, FMT> ImageData<FMT> for ClippedFrame<'a, FMT> {
         self.src.height()
     }
     fn buffer_ref(&self) -> ImageBufferRef<'a, FMT> {
-        ImageBufferRef::new(&self.src.image_data())
+        ImageBufferRef::new(self.src.image_data())
     }
     fn buffer(self) -> ImageBuffer<FMT> {
         ImageBuffer::new(self.buffer_ref().data.to_vec()) // copy data
@@ -673,7 +674,7 @@ impl<FMT> ClipFrame<FMT> for basic_frame::BasicFrame<FMT> {
     fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame<FMT> {
         let width = (self.width() / val as u32) * val as u32;
         debug!("clipping image of width {} to {}", self.width(), width);
-        ClippedFrame { src: &self, width }
+        ClippedFrame { src: self, width }
     }
 }
 

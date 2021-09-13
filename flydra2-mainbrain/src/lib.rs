@@ -13,8 +13,6 @@ use parking_lot::RwLock;
 use tokio::net::UdpSocket;
 use tokio_util::udp::UdpFramed;
 
-use structopt::StructOpt;
-
 use async_change_tracker::ChangeTracker;
 use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner};
 use bui_backend::AccessControl;
@@ -1174,89 +1172,4 @@ pub fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
         }
         std::process::exit(1);
     }
-}
-
-#[derive(Debug, StructOpt)]
-struct Command {
-    /// The .xml file with the reconstructor.
-    #[structopt(
-        parse(from_os_str),
-        name = "RECONSTRUCTOR",
-        short = "r",
-        long = "reconstructor"
-    )]
-    reconstructor: Option<std::path::PathBuf>,
-
-    /// The network addess to listen for raw flydra messages
-    #[structopt(
-        name = "LOWLATENCY_CAMDATA_UDP_ADDR",
-        short = "a",
-        default_value = "127.0.0.1:0",
-        long = "lowlatency-camdata-udp-addr"
-    )]
-    lowlatency_camdata_udp_addr: String,
-
-    /// Trigger device (e.g. /dev/trig1) if used
-    #[structopt(name = "TRIGGER_DEVICE", short = "t", long = "trigger_device")]
-    trigger_device: String,
-
-    /// trigger device framerate
-    #[structopt(
-        name = "TRIGGER_DEVICE_FPS",
-        long = "trigger_device_fps",
-        default_value = "100.0"
-    )]
-    trigger_device_fps: f32,
-
-    /// How often is the trigger device queried (to synchronize clocks), in seconds
-    #[structopt(
-        name = "TRIGGER_DEVICE_QUERY_INTERNVAL",
-        long = "trigger_device_query_interval",
-        default_value = "1"
-    )]
-    trigger_device_query_interval: f32,
-
-    /// Expect flydra1 network packets from the camera nodes
-    #[structopt(name = "FLYDRA1", long = "flydra1")]
-    flydra1: bool,
-
-    /// Whether to save timestamp data from frames in which no features detected
-    #[structopt(name = "SAVE_EMPTY", long = "save_empty_data2d")]
-    save_empty_data2d: bool,
-
-    /// The output directory to save the 3D data.
-    #[structopt(parse(from_os_str), name = "OUTPUT", short = "o", long = "output")]
-    output: std::path::PathBuf,
-
-    /// Show tracking parameters in TOML format and quit
-    #[structopt(name = "SHOW_TRACKING_PARAMS", long = "show-tracking-params")]
-    show_tracking_params: bool,
-
-    /// Tracking parameters TOML file.
-    #[structopt(parse(from_os_str))]
-    tracking_params: Option<std::path::PathBuf>,
-
-    /// The network addess to listen for http api command and control messages
-    #[structopt(
-        name = "HTTP_API_SERVER_ADDR",
-        long = "http-api-server-addr",
-        default_value = "127.0.0.1:0"
-    )]
-    http_api_server_addr: String,
-
-    /// The network addess to listen for http api command and control messages
-    #[structopt(name = "HTTP_API_SERVER_TOKEN", long = "http-api-server-token")]
-    http_api_server_token: Option<String>,
-
-    /// The network addess for serving the model pose
-    #[structopt(
-        name = "MODEL_SERVER_ADDR",
-        long = "model-server-addr",
-        default_value = flydra_types::DEFAULT_MODEL_SERVER_ADDR
-    )]
-    model_server_addr: std::net::SocketAddr,
-
-    /// The network addess to listen for http api command and control messages
-    #[structopt(name = "JWT_SECRET", long = "jwt-secret")]
-    jwt_secret: Option<String>,
 }

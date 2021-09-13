@@ -1,7 +1,7 @@
 use strand_cam_offline_kalmanize::{parse_configs_and_run, RowFilter};
 
-const INPUT_CSV: &'static str = include_str!("data/flytrax20191122_103500.csv");
-const CALIBRATION_PARAMS_TOML: &'static str = include_str!("data/cal1.toml");
+const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
+const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
 
 #[test]
 fn test_run_end_to_end() {
@@ -22,7 +22,7 @@ fn test_run_end_to_end() {
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
         &output_braidz,
-        &CALIBRATION_PARAMS_TOML,
+        CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
         &row_filters,
     )
@@ -57,7 +57,7 @@ fn test_z_values_zero() {
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
         &output_braidz,
-        &CALIBRATION_PARAMS_TOML,
+        CALIBRATION_PARAMS_TOML,
         None,
         &row_filters,
     )
@@ -70,7 +70,7 @@ fn test_z_values_zero() {
     let trajs = &kalman_estimates_info.trajectories;
 
     let mut count = 0;
-    for (_obj_id, traj_data) in trajs {
+    for traj_data in trajs.values() {
         for row in traj_data.position.iter() {
             count += 1;
             assert!(row[2].abs() < 1e-6);

@@ -36,7 +36,7 @@ impl Component for AutoModeSelect {
                 if let Some(ref mut callback) = self.onsignal {
                     callback.emit(mode);
                 }
-                return false; // no need to rerender DOM
+                false // no need to rerender DOM
             }
         }
     }
@@ -56,7 +56,7 @@ impl Component for AutoModeSelect {
                 <div class="auto-mode-buttons">
                     <EnumToggle<AutoMode>
                         value=self.mode
-                        onsignal=self.link.callback(|variant| Msg::Clicked(variant))
+                        onsignal=self.link.callback(Msg::Clicked)
                     />
                 </div>
             </div>

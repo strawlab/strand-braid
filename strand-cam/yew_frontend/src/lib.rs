@@ -46,7 +46,7 @@ use ads_webasm::components::{
 #[cfg(feature = "with_camtrig")]
 use components::CamtrigControl;
 
-const LAST_DETECTED_VALUE_LABEL: &'static str = "Last detected value: ";
+const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
 enum Msg {
     /// Trigger a check of the event source state.
@@ -54,7 +54,7 @@ enum Msg {
 
     NewImageFrame(FirehoseImageData),
 
-    NewServerState(ServerState),
+    NewServerState(Box<ServerState>),
 
     FailedCallbackJsonDecode(String),
     DismissJsonDecodeError,
@@ -141,7 +141,7 @@ struct Model {
     ft: Option<FetchTask>,
     video_data: VideoData,
 
-    server_state: Option<ServerState>,
+    server_state: Option<Box<ServerState>>,
     json_decode_err: Option<String>,
     html_page_title: Option<String>,
     es: EventSourceTask,
@@ -170,7 +170,7 @@ impl Component for Model {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         let task = {
             let data_callback = link.callback(|Json(data)| match data {
-                Ok(data_result) => Msg::NewServerState(data_result),
+                Ok(data_result) => Msg::NewServerState(Box::new(data_result)),
                 Err(e) => {
                     log::error!("in data callback: {}", e);
                     Msg::FailedCallbackJsonDecode(format!("{}", e))
@@ -244,7 +244,8 @@ impl Component for Model {
             Msg::NewServerState(response) => {
                 // Set the html page title once.
                 if self.html_page_title.is_none() {
-                    let strand_cam_name = get_strand_cam_name(self.server_state.as_ref());
+                    let strand_cam_name =
+                        get_strand_cam_name(self.server_state.as_ref().map(AsRef::as_ref));
                     let title = format!("{} - {}", response.camera_name, strand_cam_name);
                     web_sys::window()
                         .unwrap()
@@ -322,7 +323,7 @@ impl Component for Model {
                 return false; // don't update DOM, do that on return
             }
             Msg::SetFrameRateLimitEnabled(v) => {
-                self.ft = send_cam_message(CamArg::SetFrameRateLimitEnabled(v.into()), self);
+                self.ft = send_cam_message(CamArg::SetFrameRateLimitEnabled(v), self);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetFrameRateLimit(v) => {
@@ -449,11 +450,8 @@ impl Component for Model {
                     // TODO: right now, the selected CUDA device is a property
                     // of the H264 codec options. This means that if a different
                     // codec is selected, the user's choice is forgotten.
-                    match &mut cfg.codec {
-                        ci2_remote_control::MkvCodec::H264(ref mut opts) => {
-                            opts.cuda_device = cuda_device;
-                        }
-                        _ => {}
+                    if let ci2_remote_control::MkvCodec::H264(ref mut opts) = &mut cfg.codec {
+                        opts.cuda_device = cuda_device;
                     }
                     self.ft = send_cam_message(CamArg::SetMkvRecordingConfig(cfg), self);
                 }
@@ -542,7 +540,7 @@ impl Component for Model {
     }
 
     fn view(&self) -> Html {
-        let strand_cam_name = get_strand_cam_name(self.server_state.as_ref());
+        let strand_cam_name = get_strand_cam_name(self.server_state.as_ref().map(AsRef::as_ref));
         html! {
             <div>
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ℹ"}</span></a></h1>
@@ -632,7 +630,7 @@ impl Model {
             let title = format!("Live view - {}", shared.camera_name);
             let frame_number = self.video_data.frame_number().unwrap_or(0);
             html! {
-                <VideoField title=title.clone()
+                <VideoField title=title
                     video_data=self.video_data.clone()
                     frame_number=frame_number
                     width=shared.image_width
@@ -738,7 +736,7 @@ impl Model {
             };
 
             // TODO: should we bother showing devices if only 1?
-            let cuda_select_div = if shared.cuda_devices.len() > 0 {
+            let cuda_select_div = if !shared.cuda_devices.is_empty() {
                 let selected_cuda_idx = match &shared.mkv_recording_config.codec {
                     ci2_remote_control::MkvCodec::H264(ref opts) => opts.cuda_device,
                     _ => 0,
@@ -776,7 +774,7 @@ impl Model {
                             <h5>{"MKV Max Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
                                 value=shared.mkv_recording_config.max_framerate.clone()
-                                onsignal=self.link.callback(|variant| Msg::ToggleMkvRecordingFrameRate(variant))
+                                onsignal=self.link.callback(Msg::ToggleMkvRecordingFrameRate)
                             />
                         </div>
 
@@ -785,7 +783,7 @@ impl Model {
                             <VecToggle<CodecSelection>
                                 values=available_codecs
                                 selected_idx=selected_idx
-                                onsignal=self.link.callback(|idx| Msg::ToggleMkvCodec(idx))
+                                onsignal=self.link.callback(Msg::ToggleMkvCodec)
                             />
                         </div>
 
@@ -793,7 +791,7 @@ impl Model {
                             <h5>{"MKV Bitrate"}</h5>
                             <EnumToggle<BitrateSelection>
                                 value=get_bitrate(&shared.mkv_recording_config.codec).unwrap()
-                                onsignal=self.link.callback(|variant| Msg::ToggleMkvBitrate(variant))
+                                onsignal=self.link.callback(Msg::ToggleMkvBitrate)
                             />
                         </div>
 
@@ -821,7 +819,7 @@ impl Model {
                     <label>{"buffer size (number of frames) "}
                         <TypedInput<usize>
                             storage=self.post_trigger_buffer_size_local.clone()
-                            on_send_valid=self.link.callback(|v| Msg::SetPostTriggerBufferSize(v))
+                            on_send_valid=self.link.callback(Msg::SetPostTriggerBufferSize)
                             />
                     </label>
 
@@ -868,7 +866,7 @@ impl Model {
                             <h5>{"Record FMF Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
                                 value=shared.recording_framerate.clone()
-                                onsignal=self.link.callback(|variant| Msg::ToggleFmfRecordingFrameRate(variant))
+                                onsignal=self.link.callback(Msg::ToggleFmfRecordingFrameRate)
                             />
                         </div>
                     </div>
@@ -896,7 +894,7 @@ impl Model {
                             <h5>{"Tag Family"}</h5>
                             <EnumToggle<TagFamily>
                                 value=ts.april_family.clone()
-                                onsignal=self.link.callback(|variant| Msg::ToggleTagFamily(variant))
+                                onsignal=self.link.callback(Msg::ToggleTagFamily)
                             />
                         </div>
                         <div>
@@ -955,7 +953,7 @@ impl Model {
                             <label>{"Destination (IP:Port)"}
                                 <TypedInput<SocketAddr>
                                     storage=self.im_ops_destination_local.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsDestination(v))
+                                    on_send_valid=self.link.callback(Msg::SetImOpsDestination)
                                     />
                             </label>
                         </div>
@@ -965,7 +963,7 @@ impl Model {
                             <label>{"Source (IP)"}
                                 <TypedInput<IpAddr>
                                     storage=self.im_ops_source_local.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsSource(v))
+                                    on_send_valid=self.link.callback(Msg::SetImOpsSource)
                                     />
                             </label>
                         </div>
@@ -975,7 +973,7 @@ impl Model {
                             <label>{"Center X"}
                                 <TypedInput<u32>
                                     storage=self.im_ops_center_x.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterX(v))
+                                    on_send_valid=self.link.callback(Msg::SetImOpsCenterX)
                                     />
                             </label>
                         </div>
@@ -984,7 +982,7 @@ impl Model {
                             <label>{"Center Y"}
                                 <TypedInput<u32>
                                     storage=self.im_ops_center_y.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsCenterY(v))
+                                    on_send_valid=self.link.callback(Msg::SetImOpsCenterY)
                                     />
                             </label>
                         </div>
@@ -993,7 +991,7 @@ impl Model {
                             <label>{"Threshold"}
                                 <TypedInput<u8>
                                     storage=self.im_ops_threshold.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetImOpsTheshold(v))
+                                    on_send_valid=self.link.callback(Msg::SetImOpsTheshold)
                                     />
                             </label>
                         </div>
@@ -1035,7 +1033,7 @@ impl Model {
                                 <h5>{"CSV Max Rate"}</h5>
                                 <EnumToggle<RecordingFrameRate>
                                     value=self.csv_recording_rate.clone()
-                                    onsignal=self.link.callback(|variant| Msg::ToggleCsvRecordingRate(variant))
+                                    onsignal=self.link.callback(Msg::ToggleCsvRecordingRate)
                                 />
                             </div>
 
@@ -1300,7 +1298,7 @@ impl Model {
                                 <div class="auto-mode-buttons">
                                     <EnumToggle<bool>
                                         value=shared.frame_rate_limit_enabled
-                                        onsignal=self.link.callback(|variant| Msg::SetFrameRateLimitEnabled(variant))
+                                        onsignal=self.link.callback(Msg::SetFrameRateLimitEnabled)
                                     />
                                 </div>
                             </div>
@@ -1366,8 +1364,11 @@ impl Model {
                     log::error!("failed sending message");
                     Msg::Ignore
                 });
-        let mut options = FetchOptions::default();
-        options.credentials = Some(Credentials::SameOrigin);
+        let options = FetchOptions {
+            credentials: Some(Credentials::SameOrigin),
+            ..Default::default()
+        };
+
         match FetchService::fetch_with_options(post_request, options, callback) {
             Ok(task) => Some(task),
             Err(err) => {
@@ -1519,7 +1520,7 @@ trait HasAvail {
 
 impl HasAvail for ServerState {
     fn available_codecs(&self) -> Vec<CodecSelection> {
-        if self.cuda_devices.len() > 0 {
+        if !self.cuda_devices.is_empty() {
             vec![
                 CodecSelection::VP8,
                 CodecSelection::VP9,

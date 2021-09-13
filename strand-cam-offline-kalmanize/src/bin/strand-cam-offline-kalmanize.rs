@@ -73,7 +73,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
         );
         // read the calibration parameters
         let mut file = std::fs::File::open(&opt.calibration_params)
-            .map_err(|e| anyhow::Error::from(e))
+            .map_err(anyhow::Error::from)
             .context(format!(
                 "loading calibration parameters {}",
                 opt.calibration_params.display()
@@ -88,7 +88,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
             let mut file = std::fs::File::open(&fname)
-                .map_err(|e| anyhow::Error::from(e))
+                .map_err(anyhow::Error::from)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
             let mut buf = String::new();
             Read::read_to_string(&mut file, &mut buf)?;
@@ -108,14 +108,11 @@ fn open_files_and_run() -> anyhow::Result<()> {
 
     let output_braidz = match opt.output_braidz {
         Some(op) => op,
-        None => opt
-            .point_detection_csv
-            .to_path_buf()
-            .with_extension("braidz"), // replace '.csv' -> '.braidz'
+        None => opt.point_detection_csv.with_extension("braidz"), // replace '.csv' -> '.braidz'
     };
 
     let data_file = std::fs::File::open(&opt.point_detection_csv)
-        .map_err(|e| anyhow::Error::from(e))
+        .map_err(anyhow::Error::from)
         .context(format!(
             "Could not open point detection csv file: {}",
             opt.point_detection_csv.display()

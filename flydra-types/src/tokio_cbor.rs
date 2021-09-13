@@ -5,16 +5,9 @@ use crate::{
     FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock, Triggerbox,
 };
 
+#[derive(Default)]
 pub struct CborPacketCodec {
     buffered_results: std::collections::VecDeque<FlydraRawUdpPacket>,
-}
-
-impl Default for CborPacketCodec {
-    fn default() -> Self {
-        Self {
-            buffered_results: std::collections::VecDeque::new(),
-        }
-    }
 }
 
 impl Decoder for CborPacketCodec {

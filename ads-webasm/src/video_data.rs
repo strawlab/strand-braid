@@ -1,6 +1,6 @@
 use super::FirehoseImageData;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct VideoData {
     inner: Option<FirehoseImageData>,
 }
@@ -16,11 +16,5 @@ impl VideoData {
 
     pub fn inner(self) -> Option<FirehoseImageData> {
         self.inner
-    }
-}
-
-impl Default for VideoData {
-    fn default() -> Self {
-        Self { inner: None }
     }
 }
