@@ -11,47 +11,28 @@ cache:
 #   Ubuntu 16.04     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-5-dev liblapack-dev libblas-dev
 #   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
-test_crates_linux_ubuntu_focal:
+test_crates:
   stage: build
   tags:
     - ubuntu-focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl
-    - curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-    - source $CARGO_HOME/env
-    - cargo --version
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
+
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    - rustup target add thumbv7em-none-eabihf
 
     # Test apriltag
     - cd apriltag
     - cargo test --release
     - cd ..
+
     # Test gstreamer apriltag detector
     - cd gst-plugin-apriltag
     - cargo test --release
     - cd ..
-
-test_crates:
-  stage: build
-  tags:
-    - rust
-  script:
-    # Download pylon 6
-    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-
-    - rustup target add thumbv7em-none-eabihf
-
-    # Install pylon 6
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    # Test gstreamer nvargustime plugin
-    - apt-get update
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev
-
-    - export RUSTFLAGS="-D warnings"
 
     - cd gst-plugin-nvargustime
     - cargo test --release
@@ -96,15 +77,14 @@ test_crates:
     - cd ..
 
     # Test freemovr-calibration, which requires opencv
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libopencv-dev
     - cd freemovr-calibration
     # run test in release mode, otherwise slow
-    - cargo test --release --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
     - cd ..
 
     # Test freemovr-calibration-cli
     - cd freemovr-calibration/freemovr-calibration-cli
-    - cargo build --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
 
     # Test datetime-conversion
@@ -127,15 +107,17 @@ test_flydra2:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   tags:
-    - rust
+    - ubuntu-focal
   script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
     - ls -l _submodules
-    - apt-get -y update
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y wget ca-certificates && wget -O- https://strawlab.org/assets/astraw-archive-keyring.gpg | apt-key add -
-    - echo "deb http://debs.strawlab.org/ xenial/" >> /etc/apt/sources.list
-    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y python-pip python-flydra-analysis
-    - pip install pillow==6.2.2 --force-reinstall
-    - pip install imageio==2.8.0 # flydra2 test requires imageio. fix version to keep python2 support.
+    # These packages are listed in the requirements.txt files for flydra_core and flydra_analysis.
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-scipy python3-tables python3-six python3-nose python3-cairo python3-pandas python3-h5py python3-traitsui python3-pillow python3-aggdraw python3-imageio python-is-python3
+    - pip install cgkit1
+    - pip install flydra_core
+    - pip install flydra_analysis
 
     - export RUSTFLAGS="-D warnings"
 
