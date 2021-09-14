@@ -14,4 +14,4 @@ cp static/style.css braid-april-cal-webapp/
 
 echo Build OK. Now run with:
 echo     microserver --port 8000 --no-spa .
-echo and visit http://localhost:8000/braid-april-cal-webapp
+echo and visit http://localhost:8000/braid-april-cal-webapp/

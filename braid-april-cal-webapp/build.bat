@@ -11,4 +11,4 @@ copy static\style.css braid-april-cal-webapp\
 
 REM Build OK. Now run with:
 REM     microserver --port 8000 --no-spa .
-REM and visit http://localhost:8000/braid-april-cal-webapp
+REM and visit http://localhost:8000/braid-april-cal-webapp/
