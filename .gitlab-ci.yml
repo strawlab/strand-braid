@@ -592,14 +592,8 @@ braidz-cli-ubuntu1604:
 
 braid-webapps:
   stage: build
-  tags:
-    - rust
+  image: rust:latest
   script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
     # Update wasm-bindgen to latest...
@@ -608,14 +602,14 @@ braid-webapps:
     - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     # ... and latest wasm-bindgen-cli
     - cargo install -f wasm-bindgen-cli
+    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - wasm-pack --version
+    - wasm-bindgen --version
 
     - cd braidz-viewer
     - ./build.sh
     - cd ..
-
-    - wasm-bindgen --version
 
     - cd braid-april-cal-webapp
     - ./build.sh
