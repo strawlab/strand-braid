@@ -1,4 +1,4 @@
 #!/bin/bash -x
 set -o errexit
 
-rsync -avzP --delete pkg/ strawlab-org:strawlab.org/braid-april-cal-webapp/
+rsync -avzP --delete braid-april-cal-webapp/ strawlab-org:strawlab.org/braid-april-cal-webapp/

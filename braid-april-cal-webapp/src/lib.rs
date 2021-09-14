@@ -485,7 +485,7 @@ impl yew::worker::Agent for MyWorker {
     }
 
     fn name_of_resource() -> &'static str {
-        "native_worker.js"
+        "braid-april-cal-webapp/native_worker.js"
     }
 }
 
