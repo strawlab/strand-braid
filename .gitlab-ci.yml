@@ -13,8 +13,7 @@ cache:
 
 test_crates:
   stage: build
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -106,8 +105,7 @@ test_flydra2:
   stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -204,8 +202,7 @@ strand-cam-ubuntu1604-debs:
 
 strand-cam-ubuntu2004-debs:
   stage: test # only because we depend on artifacts from build stage
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
@@ -391,8 +388,7 @@ strand-cam-pylon-linux:
 
 strand-cam-pylon-ubuntu2004:
   stage: build
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -462,8 +458,7 @@ py-strandcam-pylon-linux:
 
 strand-cam-camtrig-pylon-ubuntu2004:
   stage: build
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -692,8 +687,7 @@ braid-pylon-ubuntu1604:
 
 braid-pylon-ubuntu2004:
   stage: build
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -743,8 +737,7 @@ braid-pylon-ubuntu2004:
 
 braid-pylon5-ubuntu2004:
   stage: build
-  tags:
-    - ubuntu-focal
+  image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
