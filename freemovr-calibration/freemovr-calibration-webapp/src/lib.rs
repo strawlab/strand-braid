@@ -589,6 +589,9 @@ impl yew::worker::Agent for MyWorker {
     }
 
     fn name_of_resource() -> &'static str {
+        // Due to https://github.com/yewstack/yew/issues/2056 , this currently
+        // must be the absolute path (relative to origin) of the worker.
+        // Ideally, we will fix this.
         "native_worker.js"
     }
 }
