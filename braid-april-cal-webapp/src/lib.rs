@@ -137,11 +137,9 @@ pub fn get_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError> {
 
 pub struct Model {
     link: ComponentLink<Self>,
-    worker: Box<dyn Bridge<MyWorker>>,
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
     per_camera_2d: BTreeMap<String, (AprilConfig, CsvData<DetectionSerializer>)>,
     computed_xml_calibration: Option<CalibrationResult>,
-    n_computing_cal: u8,
 }
 
 pub enum Msg {
@@ -150,7 +148,6 @@ pub enum Msg {
     RemoveCamera(String),
     ComputeCal,
     DownloadCal,
-    DataReceived(MyWorkerResponse),
 }
 
 impl Component for Model {
@@ -158,16 +155,11 @@ impl Component for Model {
     type Properties = ();
 
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let callback = link.callback(Msg::DataReceived);
-        let worker = MyWorker::bridge(callback);
-
         Self {
             link,
-            worker,
             fiducial_3d_coords: MaybeCsvData::Empty,
             per_camera_2d: BTreeMap::new(),
             computed_xml_calibration: None,
-            n_computing_cal: 0,
         }
     }
     fn change(&mut self, _props: ()) -> ShouldRender {
@@ -201,8 +193,14 @@ impl Component for Model {
             }
             Msg::ComputeCal => match self.get_cal_data() {
                 Ok(src_data) => {
-                    self.n_computing_cal += 1;
-                    self.worker.send(MyWorkerRequest::CalcCal(src_data));
+                    match do_calibrate_system(&src_data) {
+                        Ok(cal) => {
+                            self.computed_xml_calibration = Some(cal);
+                        }
+                        Err(e) => {
+                            log::error!("Error performing calibration: {}", e);
+                        }
+                    };
                 }
                 Err(e) => {
                     log::error!("could not get calibration data: {:?}", e);
@@ -214,15 +212,6 @@ impl Component for Model {
                     download_file(&buf, "braid-calibration.xml"); // TODO: set filename to date/time?
                 }
             }
-            Msg::DataReceived(from_worker) => match from_worker {
-                MyWorkerResponse::CalDataVariant(d) => {
-                    self.n_computing_cal -= 1;
-                    match d {
-                        Ok(d) => self.computed_xml_calibration = Some(d),
-                        Err(e) => log::error!("{}", e),
-                    }
-                }
-            },
         }
         true
     }
@@ -241,27 +230,9 @@ impl Component for Model {
             "Calibration not ready, cannot download."
         };
 
-        let spinner_div_class = if self.n_computing_cal > 0 {
-            "compute-modal"
-        } else {
-            "display-none"
-        };
-
         html! {
             <div id="page-container">
             <div id="content-wrap">
-            <div class=spinner_div_class>
-                <div class="compute-modal-inner">
-                    <p>
-                        {"Performing computation."}
-                    </p>
-                    <div class="lds-ellipsis">
-
-                        <div></div><div></div><div></div><div></div>
-
-                    </div>
-                </div>
-            </div>
             <h1>{"Braid April Tag Calibration Tool"}</h1>
             <h3>{"by Andrew Straw, Straw Lab, University of Freiburg, Germany"}</h3>
             <p>{"This page computes a "}<a href="https://strawlab.org/braid/">{"Braid"}</a>
@@ -423,21 +394,6 @@ pub struct CalData {
     pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<DetectionSerializer>)>,
 }
 
-pub struct MyWorker {
-    link: yew::worker::AgentLink<Self>,
-}
-pub enum MyWorkerMsg {}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum MyWorkerRequest {
-    CalcCal(CalData),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum MyWorkerResponse {
-    CalDataVariant(Result<CalibrationResult, String>),
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CalibrationResult {
     pub cam_system: mvg::MultiCameraSystem<f64>,
@@ -454,38 +410,6 @@ impl CalibrationResult {
             .to_flydra_xml(&mut xml_buf)
             .expect("to_flydra_xml");
         Ok(xml_buf)
-    }
-}
-
-impl yew::worker::Agent for MyWorker {
-    type Reach = yew::worker::Public<Self>;
-
-    type Message = MyWorkerMsg;
-    type Input = MyWorkerRequest;
-    type Output = MyWorkerResponse;
-
-    fn create(link: yew::worker::AgentLink<Self>) -> Self {
-        Self { link }
-    }
-
-    fn update(&mut self, msg: Self::Message) {
-        match msg {}
-    }
-
-    fn handle_input(&mut self, msg: Self::Input, who: yew::worker::HandlerId) {
-        match msg {
-            MyWorkerRequest::CalcCal(src_data) => {
-                let result = do_calibrate_system(&src_data)
-                    .map_err(|e| format!("Error performing calibration: {}", e));
-
-                self.link
-                    .respond(who, MyWorkerResponse::CalDataVariant(result));
-            }
-        }
-    }
-
-    fn name_of_resource() -> &'static str {
-        "braid-april-cal-webapp/native_worker.js"
     }
 }
 
