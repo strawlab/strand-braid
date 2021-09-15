@@ -138,33 +138,31 @@ test_flydra2:
     # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_mvg:
-  stage: test
-  dependencies: []
-  tags:
-    - rust
+  stage: build
+  image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
     - cd mvg
     - cargo test
 
 test_image_tracker:
-  stage: test
-  dependencies: []
-  tags:
-    - rust
-    - ipp
+  stage: build
+  image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
     - export RUSTFLAGS="-D warnings"
     - cargo --version
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd image-tracker && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2019"
 
 test_fastimage:
-  stage: test
-  dependencies: []
-  tags:
-    - rust
-    - ipp
+  stage: build
+  image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
     - export RUSTFLAGS="-D warnings"
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
@@ -280,8 +278,7 @@ camtrig-ubuntu1604-debs:
 
 build-freemovr-calibration:
   stage: build
-  tags:
-    - rust
+  image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -297,8 +294,7 @@ build-freemovr-calibration:
 
 build-freemovr-calibration-webapp:
   stage: build
-  tags:
-    - rust
+  image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -537,12 +533,13 @@ strand-cam-camtrig-pylon-linux:
       - build/
     name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
-braid-offline-ubuntu1604:
+braid-offline-ubuntu2004:
   stage: build
-  tags:
-    - rust
+  image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braid-offline
@@ -559,14 +556,15 @@ braid-offline-ubuntu1604:
   artifacts:
     paths:
       - braid-offline-linux-build/
-    name: "braid-offline-ubuntu1604-${CI_COMMIT_SHA}"
+    name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
-braidz-cli-ubuntu1604:
+braidz-cli-ubuntu2004:
   stage: build
-  tags:
-    - rust
+  image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
@@ -583,7 +581,7 @@ braidz-cli-ubuntu1604:
   artifacts:
     paths:
       - braidz-cli-linux-build/
-    name: "braidz-cli-ubuntu1604-${CI_COMMIT_SHA}"
+    name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-webapps:
   stage: build
@@ -789,8 +787,7 @@ braid-pylon5-ubuntu2004:
 
 camtrig-linux:
   stage: build
-  tags:
-    - rust
+  image: rust:latest
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -807,8 +804,7 @@ camtrig-linux:
 
 camtrig-firmware:
   stage: build
-  tags:
-    - rust
+  image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -902,35 +898,35 @@ deploy-braid-pylon-ubuntu1604:
     - braid-pylon-ubuntu1604
   when: manual
 
-deploy-braid-offline-ubuntu1604:
-  stage: deploy
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial braid-offline-linux-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  dependencies:
-    - braid-offline-ubuntu1604
-  when: manual
+# deploy-braid-offline-ubuntu1604:
+#   stage: deploy
+#   tags:
+#     - aptly.strawlab.org-deployer
+#   script:
+#     # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
+#     - aptly repo add strawlab-xenial braid-offline-linux-build/
+#     - aptly publish update xenial filesystem:deploy:xenial
+#   environment:
+#     name: strawlab aptly web server
+#     url: https://aptly.strawlab.org/
+#   dependencies:
+#     - braid-offline-ubuntu1604
+#   when: manual
 
-deploy-braidz-cli-ubuntu1604:
-  stage: deploy
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial braidz-cli-linux-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  dependencies:
-    - braidz-cli-ubuntu1604
-  when: manual
+# deploy-braidz-cli-ubuntu1604:
+#   stage: deploy
+#   tags:
+#     - aptly.strawlab.org-deployer
+#   script:
+#     # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
+#     - aptly repo add strawlab-xenial braidz-cli-linux-build/
+#     - aptly publish update xenial filesystem:deploy:xenial
+#   environment:
+#     name: strawlab aptly web server
+#     url: https://aptly.strawlab.org/
+#   dependencies:
+#     - braidz-cli-ubuntu1604
+#   when: manual
 
 deploy-strand-cam-internal-ubuntu1604:
   stage: deploy
@@ -947,15 +943,17 @@ deploy-strand-cam-internal-ubuntu1604:
     - strand-cam-ubuntu1604-debs
   when: manual
 
-build-fmf-cli-ubuntu1604:
+build-fmf-cli-ubuntu2004:
   stage: build
-  tags:
-    - rust
+  image: ubuntu:focal
   script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential pkg-config
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
     - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
     - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    - export RUSTFLAGS="-D warnings"
 
     # test mkv-writer start
     - cd mkv-writer
@@ -964,11 +962,11 @@ build-fmf-cli-ubuntu1604:
     # test mkv-writer stop
     - cd fmf/fmf-cli
     - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/fmf-cli-xenial
+    - mkdir -p $CI_PROJECT_DIR/fmf-cli-focal
     - ldd ../../target/release/fmf
     - ls -lh ../../target/release/fmf
-    - cp -a ../../target/release/fmf $CI_PROJECT_DIR/fmf-cli-xenial
+    - cp -a ../../target/release/fmf $CI_PROJECT_DIR/fmf-cli-focal
   artifacts:
     paths:
-      - fmf-cli-xenial
-    name: "fmf-cli-ubuntu1604-${CI_COMMIT_SHA}"
+      - fmf-cli-focal
+    name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
