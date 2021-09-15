@@ -17,10 +17,6 @@ To build the backend (release)
 
     cargo build --release --features "bundle_files backend_pyloncxx"
 
-To build with ROS, do this prior to the `cargo` command:
-
-    export ROSRUST_MSG_PATH=`pwd`/../_submodules:`pwd`/../_submodules/ros_comm_msgs:`pwd`/../_submodules/common_msgs:`pwd`/../image-tracker
-
 Note, on Windows, due to [limitations on /clr compilation](https://msdn.microsoft.com/en-us/library/ffkc918h.aspx), the [Visual C++  Redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) may need to be installed to run properly.
 
 ## TODO

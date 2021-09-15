@@ -13,9 +13,6 @@
 [submodule "_submodules/std_msgs"]
 	path = _submodules/std_msgs
 	url = https://github.com/ros/std_msgs
-[submodule "_submodules/ros_comm_msgs"]
-	path = _submodules/ros_comm_msgs
-	url = https://github.com/ros/ros_comm_msgs
 [submodule "_submodules/apriltag"]
 	path = _submodules/apriltag
 	url = https://github.com/AprilRobotics/apriltag

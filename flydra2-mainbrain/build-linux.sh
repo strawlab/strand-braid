@@ -12,5 +12,4 @@ cd yew_frontend
 cd ..
 
 export CI_PROJECT_DIR=`pwd`/..
-export ROSRUST_MSG_PATH=$CI_PROJECT_DIR/_submodules:$CI_PROJECT_DIR/_submodules/ros_comm_msgs:$CI_PROJECT_DIR/_submodules/common_msgs:$CI_PROJECT_DIR/image-tracker
 cargo build --release --features "ros"
