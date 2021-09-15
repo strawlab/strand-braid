@@ -16,7 +16,7 @@ structopt = "0.3"
 chrono = "0.4"
 anyhow = "1.0"
 glob = "0.3"
-image = "0.23"
+image = {version="0.23", default-features=false, features=["jpeg","png","bmp","pnm"]}
 machine-vision-formats = "0.1"
 
 timestamped-frame = {path="../../timestamped-frame"}
