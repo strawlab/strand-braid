@@ -9,7 +9,7 @@ machine-vision-formats = "0.1"
 simple-frame = { path = "../simple-frame" }
 image = {version="0.23", default-features=false, features=["jpeg","png"]}
 thiserror = "1.0"
-bayer = "0.1"
+bayer = {version="0.1", default-features=false}
 itertools = "0.8"
 
 [features]
