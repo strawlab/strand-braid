@@ -91,21 +91,13 @@ impl ModelService {
     #[cfg(feature = "serve_files")]
     fn get_file_content(&self, file_path: &str) -> Option<Vec<u8>> {
         let fullpath = self.fullpath(file_path);
-        let mut file = match std::fs::File::open(&fullpath) {
-            Ok(f) => f,
+        let contents = match std::fs::read(&fullpath) {
+            Ok(contents) => contents,
             Err(e) => {
                 error!("requested path {:?}, but got error {:?}", file_path, e);
                 return None;
             }
         };
-        let mut contents = Vec::new();
-        match file.read_to_end(&mut contents) {
-            Ok(_) => {}
-            Err(e) => {
-                error!("when reading path {:?}, got error {:?}", file_path, e);
-                return None;
-            }
-        }
         Some(contents)
     }
 }
