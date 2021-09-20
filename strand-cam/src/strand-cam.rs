@@ -454,6 +454,7 @@ where
     }
 }
 
+// The center pixel of the detection is (h02,h12)
 #[cfg(feature = "fiducial")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct DetectionSerializer {

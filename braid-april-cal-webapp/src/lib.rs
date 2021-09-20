@@ -54,6 +54,7 @@ pub struct Fiducial3DCoords {
     z: f64,
 }
 
+// The center pixel of the detection is (h02,h12)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DetectionSerializer {
     frame: usize,

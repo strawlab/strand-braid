@@ -203,6 +203,7 @@ fn do_detections(
 
 use serde::Serialize;
 
+// The center pixel of the detection is (h02,h12)
 #[derive(Serialize)]
 struct DetectionSerializer {
     // frame: usize,
