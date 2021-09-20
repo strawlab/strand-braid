@@ -57,21 +57,9 @@ pub struct Fiducial3DCoords {
 // The center pixel of the detection is (h02,h12)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DetectionSerializer {
-    frame: usize,
-    time_microseconds: i64,
     id: i32,
-    hamming: i32,
-    decision_margin: f32,
-    h00: f64,
-    h01: f64,
     h02: f64,
-    h10: f64,
-    h11: f64,
     h12: f64,
-    h20: f64,
-    h21: f64,
-    // no h22 because it is always 1.0
-    family: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -254,7 +242,8 @@ impl Component for Model {
             </p>
 
             <h2>{"Input: Automatically detected camera coordinates of April Tag fiducial markers"}</h2>
-            <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Columns include hamming and detection_margin.)"}</p>
+            <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Required \
+                 columns: id, h02, h12 where (h02,h12) is tag center.)"}</p>
             <label class=classes!("btn", "custom-file-upload")>
                 {"Upload a camera coordinate CSV file."}
                 <CsvDataField<DetectionSerializer>
