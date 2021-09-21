@@ -2206,7 +2206,7 @@ async fn check_version(
     let agent = format!("{}/{}", env!("APP_NAME"), *known_version.read());
 
     let req = hyper::Request::builder()
-        .uri(url)
+        .uri(&url)
         .header(hyper::header::USER_AGENT, agent.as_str())
         .body(hyper::body::Body::empty())
         .unwrap();
@@ -2227,6 +2227,10 @@ async fn check_version(
     }
 
     let known_version3 = known_version2.clone();
+
+    // TODO: this is some ancient hyper and there must be easier ways to get
+    // body into Vec<u8>.
+
     let (_parts, body) = res.into_parts();
 
     // convert stream of Result<Chunk> into future of Vec<Result<Chunk>>
@@ -2248,7 +2252,13 @@ async fn check_version(
         buf.extend_from_slice(&*chunk);
         buf
     });
-    let version: VersionResponse = serde_json::from_slice(&data).unwrap();
+    let version: VersionResponse = match serde_json::from_slice(&data) {
+        Ok(version) => version,
+        Err(e) => {
+            log::warn!("Could not parse version response JSON from {}: {}", url, e);
+            return Ok(());
+        }
+    };
     let mut known_v = known_version3.write();
     if version.available > *known_v {
         info!(
