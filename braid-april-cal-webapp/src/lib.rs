@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use dlt::CorrespondingPoint;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsCast;
 
@@ -390,10 +391,11 @@ pub struct CalData {
 pub struct CalibrationResult {
     pub cam_system: mvg::MultiCameraSystem<f64>,
     pub mean_reproj_dist: BTreeMap<String, f64>,
+    pub points: BTreeMap<String, Vec<CorrespondingPoint<f64>>>,
 }
 
 impl CalibrationResult {
-    fn to_flydra_xml(&self) -> Result<Vec<u8>, MyError> {
+    pub fn to_flydra_xml(&self) -> Result<Vec<u8>, MyError> {
         let flydra_cal =
             flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(self.cam_system.clone(), None);
 
@@ -420,6 +422,7 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
 
     let mut mean_reproj_dist = BTreeMap::new();
     let mut cams = BTreeMap::new();
+    let mut cam_points = BTreeMap::new();
 
     for (cam_name, all_cam_data) in src_data.per_camera_2d.iter() {
         let (cfg, cam_data) = all_cam_data;
@@ -470,27 +473,15 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
             cam2
         };
 
-        // Compute reprojection distance.
-        let dists: Vec<f64> = points
-            .iter()
-            .map(|pt| {
-                let world_pt = mvg::PointWorldFrame {
-                    coords: Point3::from_slice(&pt.object_point),
-                };
-                let image_point = Point2::from_slice(&pt.image_point);
-                let projected_pixel = cam.project_3d_to_distorted_pixel(&world_pt);
-                nalgebra::distance(&projected_pixel.coords, &image_point)
-            })
-            .collect();
-
-        if dists.is_empty() {
+        if points.is_empty() {
             return Err(MyError{msg:format!("Camera {}: could not compute reprojection distance. Are there marker detections also in 3D data?", cam_name)});
         }
-        let sum_dist = dists.iter().fold(0.0, |accum, el| accum + el);
-        let mean_dist = sum_dist / dists.len() as f64;
+
+        let mean_dist = compute_mean_reproj_dist(&cam, &points);
 
         cams.insert(cam_name.clone(), cam);
         mean_reproj_dist.insert(cam_name.clone(), mean_dist);
+        cam_points.insert(cam_name.clone(), points);
     }
 
     let cam_system = mvg::MultiCameraSystem::new(cams);
@@ -498,7 +489,30 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
     Ok(CalibrationResult {
         cam_system,
         mean_reproj_dist,
+        points: cam_points,
     })
+}
+
+/// Compute reprojection distance.
+pub fn compute_mean_reproj_dist(cam: &mvg::Camera<f64>, points: &[CorrespondingPoint<f64>]) -> f64 {
+    assert!(!points.is_empty());
+
+    // Compute reprojection distance.
+    let dists: Vec<f64> = points
+        .iter()
+        .map(|pt| {
+            let world_pt = mvg::PointWorldFrame {
+                coords: Point3::from_slice(&pt.object_point),
+            };
+            let image_point = Point2::from_slice(&pt.image_point);
+            let projected_pixel = cam.project_3d_to_distorted_pixel(&world_pt);
+            nalgebra::distance(&projected_pixel.coords, &image_point)
+        })
+        .collect();
+
+    let sum_dist = dists.iter().fold(0.0, |accum, el| accum + el);
+    let mean_dist = sum_dist / dists.len() as f64;
+    mean_dist
 }
 
 fn mean_forward(cam: &mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {

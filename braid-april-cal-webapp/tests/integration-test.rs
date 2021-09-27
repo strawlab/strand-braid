@@ -55,4 +55,22 @@ fn test_calibration() {
         println!("Camera {}: mean reproj dist: {}", cam_name, reproj_dist);
         assert!(*reproj_dist < 5.0);
     }
+
+    // Now roundtrip through XML (TODO: PyMVG)
+
+    let xml_buf = cal_result.to_flydra_xml().unwrap();
+
+    use flydra_mvg::FlydraMultiCameraSystem;
+    let loaded: FlydraMultiCameraSystem<f64> =
+        FlydraMultiCameraSystem::from_flydra_xml(xml_buf.as_slice()).unwrap();
+
+    for (cam_name, points) in cal_result.points.iter() {
+        let cam = cal_result.cam_system.cam_by_name(cam_name).unwrap();
+        let actual = braid_april_cal_webapp::compute_mean_reproj_dist(&cam, &points);
+        let expected = cal_result.mean_reproj_dist.get(cam_name).unwrap();
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "Reprojection error different after saving and loading calibration."
+        );
+    }
 }
