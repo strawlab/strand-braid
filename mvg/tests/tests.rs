@@ -45,7 +45,27 @@ fn test_distortion_roundtrip() {
 #[test]
 fn test_load_pymvg() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
-    let _system = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    let system = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    assert_eq!(system.cams().len(), 1);
+    let cam = system.cam_by_name("cam1").unwrap();
+    assert_eq!(cam.width(), 1080);
+    assert_eq!(cam.height(), 720);
+    assert_eq!(cam.intrinsics().p[(0, 0)], 1236.529440113545);
+    assert_eq!(cam.intrinsics().p[(1, 0)], 0.0);
+    assert_eq!(cam.intrinsics().p[(0, 1)], 33.472107763674444);
+    assert_eq!(cam.intrinsics().p[(2, 2)], 1.0);
+    assert_eq!(cam.intrinsics().p[(2, 3)], 0.0);
+    approx::assert_relative_eq!(
+        cam.intrinsics().distortion.opencv_vec(),
+        &na::Vector5::new(
+            -0.15287156437154006,
+            0.8689691428266413,
+            -0.01219554893369256,
+            0.0014329742677790488,
+            0.0
+        )
+    );
+    // TODO: finish testing entire pymvg .json file.
     Ok(())
 }
 
