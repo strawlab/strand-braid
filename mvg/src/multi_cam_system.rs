@@ -17,7 +17,7 @@ use crate::{
     Camera, MvgError, PointWorldFrame, PointWorldFrameWithSumReprojError, Result, UndistortedPixel,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 pub struct MultiCameraSystem<R: RealField + Serialize + Copy> {
     cams_by_name: BTreeMap<String, Camera<R>>,
@@ -28,13 +28,11 @@ impl<R> MultiCameraSystem<R>
 where
     R: RealField + Serialize + DeserializeOwned + Default + Copy,
 {
-    // This is disabled because nalgebra and serde write incompatible json.
-    // pub fn to_pymvg_file<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
-    //     let sys = self.to_pymvg()?;
-    //     let mut f = std::fs::File::create(path)?;
-    //     serde_json::to_writer(&mut f, &sys)?;
-    //     Ok(())
-    // }
+    pub fn to_pymvg_writer<W: std::io::Write>(&self, mut writer: &mut W) -> Result<()> {
+        let sys = self.to_pymvg()?;
+        serde_json::to_writer(&mut writer, &sys)?;
+        Ok(())
+    }
     pub fn from_pymvg_file_json<Rd: Read>(reader: Rd) -> Result<Self> {
         let pymvg_system: PymvgMultiCameraSystemV1<R> = serde_json::from_reader(reader)?;
         MultiCameraSystem::from_pymvg(&pymvg_system)
