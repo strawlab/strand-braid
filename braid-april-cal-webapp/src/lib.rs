@@ -252,15 +252,17 @@ impl Component for Model {
             </label>
             {self.view_camera_data()}
 
-            <h2>{"Output"}</h2>
-            <div>
-                {download_xml_str}
-            </div>
+            <h2>{"Compute calibration"}</h2>
             <Button
                 title=compute_xml_title
                 onsignal=self.link.callback(|()| Msg::ComputeCal)
                 disabled=!self.can_compute_xml_calibration()
                 />
+            <p>{"TODO: Display quality of calibration"}</p>
+            <h2>{"Download calibration"}</h2>
+            <div>
+                {download_xml_str}
+            </div>
             <Button
                 title="Download XML calibration"
                 onsignal=self.link.callback(|()| Msg::DownloadCal)
