@@ -50,6 +50,29 @@ fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
     system1.to_pymvg_writer(&mut buf2)?;
     let system2 = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
     assert_eq!(system1, system2);
+
+    // Now check again by passing points. Note that if this fails while the
+    // above passes, this would indicate a bug in the PartialEq implementation
+    // of MultiCameraSystem or its fields. Therefore, we should never fail below
+    // here.
+    let orig = system1.cam_by_name("cam1").unwrap();
+    let reloaded = system2.cam_by_name("cam1").unwrap();
+    let p1 = PointWorldFrame {
+        coords: Point3::new(1.0, 2.0, 3.0),
+    };
+    let p2 = PointWorldFrame {
+        coords: Point3::new(0.0, 0.0, 0.0),
+    };
+
+    let o1 = orig.project_3d_to_distorted_pixel(&p1);
+    let o2 = orig.project_3d_to_distorted_pixel(&p2);
+
+    let r1 = reloaded.project_3d_to_distorted_pixel(&p1);
+    let r2 = reloaded.project_3d_to_distorted_pixel(&p2);
+
+    approx::assert_relative_eq!(o1.coords, r1.coords, epsilon=1e-6);
+    approx::assert_relative_eq!(o2.coords, r2.coords, epsilon=1e-6);
+
     Ok(())
 }
 
