@@ -1,10 +1,8 @@
-use ::serde;
-use ::serde_xml_rs;
-use ::std;
 use nalgebra as na;
 use nalgebra::core::dimension::{U3, U4};
 use nalgebra::core::OMatrix;
 use nalgebra::RealField;
+use serde;
 
 use serde::{Deserialize, Serialize};
 
@@ -76,21 +74,24 @@ where
 
     // changes to this should update BraidMetadataSchemaTag
 
+    // TODO: indent nicely within each camera.
+
     let v: Result<Vec<String>, serde_xml_rs::Error> = recon
         .cameras
         .iter()
         .map(|cam| serde_xml_rs::to_string(cam))
         .collect();
     let v: Vec<String> = v?;
-    let cams_buf = v.join("");
+    let v_indented: Vec<String> = v.iter().map(|s| format!("    {}", s)).collect();
+    let cams_buf = v_indented.join("\n");
 
-    let mut v = vec!["<multi_camera_reconstructor>".to_string()];
+    let mut v = vec!["<multi_camera_reconstructor>\n".to_string()];
     v.push(cams_buf);
     if let Some(ref w) = recon.water {
-        v.push(format!("<water>{}</water>", w));
+        v.push(format!("    <water>{}</water>", w));
     }
     if let Some(ref c) = recon.comment {
-        v.push(format!("<comment>{}</comment>", c));
+        v.push(format!("    <comment>{}</comment>", c));
     }
     v.push("</multi_camera_reconstructor>".to_string());
     let buf = v.join("");
