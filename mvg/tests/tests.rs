@@ -59,6 +59,37 @@ fn test_load_pymvg() -> anyhow::Result<()> {
     let system = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
     assert_eq!(system.cams().len(), 1);
     let cam = system.cam_by_name("cam1").unwrap();
+
+    // First test some key points with data from Python ----------------
+
+    /* This script was used
+    from pymvg.multi_camera_system import MultiCameraSystem
+    import numpy as np
+
+    system = MultiCameraSystem.from_pymvg_file("pymvg-example.json")
+
+    point_3d = np.array([1.0, 2.0, 3.0])
+
+    for camera_name in system.get_names():
+        for point_3d in [np.array([1.0, 2.0, 3.0]),
+                        np.array([0.0, 0.0, 0.0])]:
+            print("point_3d: %r" % (point_3d,))
+            this_pt2d = system.find2d(camera_name, point_3d)
+            # data.append((camera_name, this_pt2d))
+            print("%r: %r" % (camera_name, this_pt2d))
+        */
+
+    let p1 = cam.project_3d_to_distorted_pixel(&PointWorldFrame {
+        coords: Point3::new(1.0, 2.0, 3.0),
+    });
+    let p2 = cam.project_3d_to_distorted_pixel(&PointWorldFrame {
+        coords: Point3::new(0.0, 0.0, 0.0),
+    });
+
+    approx::assert_relative_eq!(p1.coords, na::Point2::new(1833.09435806, 2934.94805999), epsilon=1e-6);
+    approx::assert_relative_eq!(p2.coords, na::Point2::new(616.11767192, 269.61411571), epsilon=1e-6);
+
+    // Now test some values directly read from the pymvg json file -----------------
     assert_eq!(cam.width(), 1080);
     assert_eq!(cam.height(), 720);
     assert_eq!(cam.intrinsics().p[(0, 0)], 1236.529440113545);
@@ -76,7 +107,6 @@ fn test_load_pymvg() -> anyhow::Result<()> {
             0.0
         )
     );
-    // TODO: finish testing entire pymvg .json file.
     Ok(())
 }
 

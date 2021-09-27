@@ -18,8 +18,7 @@ pub fn from_rquat_translation<R: RealField + Copy>(
     rquat: UnitQuaternion<R>,
     translation: Point3<R>,
 ) -> ExtrinsicParameters<R> {
-    let q = rquat.to_rotation_matrix();
-    let camcenter = -(q * translation);
+    let camcenter = -(rquat.inverse() * translation);
     ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter)
 }
 
