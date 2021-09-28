@@ -274,7 +274,7 @@ impl Component for Model {
                 onsignal=self.link.callback(|()| Msg::ComputeCal)
                 disabled=!self.can_compute_xml_calibration()
                 />
-            <p>{"TODO: Display quality of calibration"}</p>
+            {self.view_calibration_quality()}
             <h2>{"Download calibration"}</h2>
             <div>
                 <p>{download_xml_str}</p>
@@ -310,6 +310,33 @@ impl Model {
             false
         };
         !self.per_camera_2d.is_empty() && has_3d
+    }
+    fn view_calibration_quality(&self) -> Html {
+        if let Some(ref cal) = self.computed_calibration {
+            let all_rendered = cal
+                .mean_reproj_dist
+                .iter()
+                .map(|(cam_name, mean_reproj_dist)| {
+                    html! {
+                        <li>
+                            {format!("Camera {}: {:.3} pixels", cam_name, mean_reproj_dist)}
+                        </li>
+                    }
+                });
+
+            html! {
+                <div>
+                    <p>{"Mean reprojection distance:"}</p>
+                    <ul>
+                        { for all_rendered }
+                    </ul>
+                </div>
+            }
+        } else {
+            html! {
+                <div></div>
+            }
+        }
     }
     fn view_camera_data(&self) -> Html {
         if self.per_camera_2d.is_empty() {
