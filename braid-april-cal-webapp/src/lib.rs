@@ -217,8 +217,6 @@ impl Component for Model {
                     download_file(&buf, "braid-calibration.json"); // TODO: set filename to date/time?
                 }
             }
-
-
         }
         true
     }
@@ -226,8 +224,8 @@ impl Component for Model {
     fn view(&self) -> Html {
         let fiducial_3d_coords_file_state = format!("{}", self.fiducial_3d_coords);
 
-        let compute_xml_title = format!(
-            "Compute XML calibration with {} cameras",
+        let compute_button_title = format!(
+            "Compute calibration with {} cameras",
             self.per_camera_2d.len()
         );
 
@@ -272,7 +270,7 @@ impl Component for Model {
 
             <h2>{"Compute calibration"}</h2>
             <Button
-                title=compute_xml_title
+                title=compute_button_title
                 onsignal=self.link.callback(|()| Msg::ComputeCal)
                 disabled=!self.can_compute_xml_calibration()
                 />
