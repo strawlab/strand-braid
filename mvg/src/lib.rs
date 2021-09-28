@@ -1,6 +1,9 @@
 #![deny(rust_2018_idioms)]
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use thiserror::Error;
 
 use nalgebra as na;
@@ -12,8 +15,6 @@ use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
 #[derive(Error, Debug)]
 pub enum MvgError {
-    #[error("bad matrix size")]
-    BadMatrixSize,
     #[error("unknown distortion model")]
     UnknownDistortionModel,
     #[error("rectification matrix not supported")]
@@ -39,7 +40,10 @@ pub enum MvgError {
     #[error("not implemented operation in mvg")]
     NotImplemented,
     #[error("cannot convert to or from flydra xml")]
-    FailedFlydraXmlConversion,
+    FailedFlydraXmlConversion {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("IO error: {source}")]
     Io {
         #[from]
