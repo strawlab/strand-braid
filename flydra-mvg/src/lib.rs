@@ -691,11 +691,14 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         let cx = cam.non_linear_parameters.cc1;
         let cy = cam.non_linear_parameters.cc2;
 
+        let expected_alpha_c = k[(0, 1)] / k[(0, 0)];
+        if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(1e-10) {
+            return Err(MvgError::FailedFlydraXmlConversion);
+        }
+
         // TODO: turn all these `unimplemented!()` calls into
         // proper error returns.
-        if cam.non_linear_parameters.alpha_c != zero {
-            unimplemented!();
-        }
+
         if let Some(fc1p) = cam.non_linear_parameters.fc1p {
             if fc1p != cam.non_linear_parameters.fc1 {
                 unimplemented!();
