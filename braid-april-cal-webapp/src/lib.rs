@@ -277,7 +277,10 @@ impl Component for Model {
             <p>{"TODO: Display quality of calibration"}</p>
             <h2>{"Download calibration"}</h2>
             <div>
-                {download_xml_str}
+                <p>{download_xml_str}</p>
+                <p>{"An XML format is typically used in Braid (although Braid can load PyMVG JSON files).
+                 PyMVG JSON files can be loaded by "}<a href="https://github.com/strawlab/pymvg">{"PyMVG"}
+                 </a>{"."}</p>
             </div>
             <Button
                 title="Download XML calibration"
