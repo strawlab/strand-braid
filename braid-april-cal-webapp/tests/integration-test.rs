@@ -1,10 +1,7 @@
 use ads_webasm::components::{parse_csv, MaybeCsvData};
-use braid_april_cal_webapp::{
-    do_calibrate_system, get_cfg, CalData, DetectionSerializer, Fiducial3DCoords,
-};
+use braid_april_cal_webapp::*;
 
-#[test]
-fn test_calibration() {
+fn gen_cal() -> CalibrationResult {
     let fiducial_3d_coords_buf = include_bytes!("apriltags_coordinates.csv");
     let fiducial_3d_coords =
         parse_csv::<Fiducial3DCoords>("apriltags_coordinates.csv".into(), fiducial_3d_coords_buf);
@@ -55,18 +52,47 @@ fn test_calibration() {
         println!("Camera {}: mean reproj dist: {}", cam_name, reproj_dist);
         assert!(*reproj_dist < 5.0);
     }
+    cal_result
+}
 
-    // Now roundtrip through XML (TODO: PyMVG)
+#[test]
+fn test_calibration_xml() {
+    let cal_result = gen_cal();
 
     let xml_buf = cal_result.to_flydra_xml().unwrap();
 
     use flydra_mvg::FlydraMultiCameraSystem;
     let loaded: FlydraMultiCameraSystem<f64> =
         FlydraMultiCameraSystem::from_flydra_xml(xml_buf.as_slice()).unwrap();
+    if loaded.has_refractive_boundary() {
+        todo!("test XML calibration with water.");
+    }
 
     for (cam_name, points) in cal_result.points.iter() {
-        let cam = cal_result.cam_system.cam_by_name(cam_name).unwrap();
-        let actual = braid_april_cal_webapp::compute_mean_reproj_dist(&cam, &points);
+        let cam = loaded.system().cam_by_name(cam_name).unwrap();
+        let actual = compute_mean_reproj_dist(&cam, &points);
+        let expected = cal_result.mean_reproj_dist.get(cam_name).unwrap();
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "Reprojection error different after saving and loading calibration."
+        );
+    }
+}
+
+#[test]
+fn test_calibration_pymvg() {
+    let cal_result = gen_cal();
+
+    let mut pymvg_json_buf = Vec::new();
+    cal_result.cam_system.to_pymvg_writer(&mut pymvg_json_buf).unwrap();
+
+    use mvg::MultiCameraSystem;
+    let loaded: MultiCameraSystem<f64> =
+        MultiCameraSystem::from_pymvg_file_json(pymvg_json_buf.as_slice()).unwrap();
+
+    for (cam_name, points) in cal_result.points.iter() {
+        let cam = loaded.cam_by_name(cam_name).unwrap();
+        let actual = compute_mean_reproj_dist(&cam, &points);
         let expected = cal_result.mean_reproj_dist.get(cam_name).unwrap();
         assert!(
             (actual - expected).abs() < 1e-10,

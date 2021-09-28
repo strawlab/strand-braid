@@ -33,6 +33,14 @@ impl From<serde_yaml::Error> for MyError {
     }
 }
 
+impl From<serde_json::Error> for MyError {
+    fn from(orig: serde_json::Error) -> MyError {
+        MyError {
+            msg: format!("serde_json::Error: {}", orig),
+        }
+    }
+}
+
 impl From<mvg::MvgError> for MyError {
     fn from(orig: mvg::MvgError) -> MyError {
         MyError {
@@ -129,7 +137,7 @@ pub struct Model {
     link: ComponentLink<Self>,
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
     per_camera_2d: BTreeMap<String, (AprilConfig, CsvData<DetectionSerializer>)>,
-    computed_xml_calibration: Option<CalibrationResult>,
+    computed_calibration: Option<CalibrationResult>,
 }
 
 pub enum Msg {
@@ -137,7 +145,8 @@ pub enum Msg {
     DetectionSerializerData(MaybeCsvData<DetectionSerializer>),
     RemoveCamera(String),
     ComputeCal,
-    DownloadCal,
+    DownloadXmlCal,
+    DownloadPymvgCal,
 }
 
 impl Component for Model {
@@ -149,7 +158,7 @@ impl Component for Model {
             link,
             fiducial_3d_coords: MaybeCsvData::Empty,
             per_camera_2d: BTreeMap::new(),
-            computed_xml_calibration: None,
+            computed_calibration: None,
         }
     }
     fn change(&mut self, _props: ()) -> ShouldRender {
@@ -158,7 +167,7 @@ impl Component for Model {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::Fiducial3dCoordsData(csv_file) => {
-                self.computed_xml_calibration = None;
+                self.computed_calibration = None;
                 self.fiducial_3d_coords = csv_file;
             }
             Msg::DetectionSerializerData(csv_file) => match csv_file {
@@ -185,7 +194,7 @@ impl Component for Model {
                 Ok(src_data) => {
                     match do_calibrate_system(&src_data) {
                         Ok(cal) => {
-                            self.computed_xml_calibration = Some(cal);
+                            self.computed_calibration = Some(cal);
                         }
                         Err(e) => {
                             log::error!("Error performing calibration: {}", e);
@@ -196,12 +205,20 @@ impl Component for Model {
                     log::error!("could not get calibration data: {:?}", e);
                 }
             },
-            Msg::DownloadCal => {
-                if let Some(ref cal) = self.computed_xml_calibration {
+            Msg::DownloadXmlCal => {
+                if let Some(ref cal) = self.computed_calibration {
                     let buf = cal.to_flydra_xml().unwrap();
                     download_file(&buf, "braid-calibration.xml"); // TODO: set filename to date/time?
                 }
             }
+            Msg::DownloadPymvgCal => {
+                if let Some(ref cal) = self.computed_calibration {
+                    let buf = cal.to_pymvg_json().unwrap();
+                    download_file(&buf, "braid-calibration.json"); // TODO: set filename to date/time?
+                }
+            }
+
+
         }
         true
     }
@@ -266,8 +283,13 @@ impl Component for Model {
             </div>
             <Button
                 title="Download XML calibration"
-                onsignal=self.link.callback(|()| Msg::DownloadCal)
-                disabled=self.computed_xml_calibration.is_none()
+                onsignal=self.link.callback(|()| Msg::DownloadXmlCal)
+                disabled=self.computed_calibration.is_none()
+                />
+            <Button
+                title="Download PyMVG JSON calibration"
+                onsignal=self.link.callback(|()| Msg::DownloadPymvgCal)
+                disabled=self.computed_calibration.is_none()
                 />
             <footer id="footer">{format!("Tool date: {} (revision {})",
                 env!("GIT_DATE"),
@@ -404,6 +426,11 @@ impl CalibrationResult {
             .to_flydra_xml(&mut xml_buf)
             .expect("to_flydra_xml");
         Ok(xml_buf)
+    }
+
+    pub fn to_pymvg_json(&self) -> Result<Vec<u8>, MyError> {
+        let sys = self.cam_system.to_pymvg().unwrap();
+        Ok(serde_json::to_vec_pretty(&sys)?)
     }
 }
 
