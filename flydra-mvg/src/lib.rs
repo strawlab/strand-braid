@@ -1,5 +1,8 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
@@ -328,8 +331,16 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         FlydraMultiCameraSystem { system, water }
     }
 
+    pub fn has_refractive_boundary(&self) -> bool {
+        self.water.is_some()
+    }
+
     pub fn to_system(self) -> MultiCameraSystem<R> {
         self.system
+    }
+
+    pub fn system(&self) -> &MultiCameraSystem<R> {
+        &self.system
     }
 
     pub fn new(cams_by_name: BTreeMap<String, Camera<R>>, water: Option<R>) -> Self {
@@ -588,8 +599,13 @@ where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
     pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
-        let recon: flydra_xml_support::FlydraReconstructor<R> =
-            serde_xml_rs::from_reader(reader).map_err(|_e| MvgError::FailedFlydraXmlConversion)?;
+        let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)
+            .map_err(|_e| {
+            MvgError::FailedFlydraXmlConversion {
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            }
+        })?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
 
@@ -617,7 +633,10 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(MvgError::FailedFlydraXmlConversion);
+            return Err(MvgError::FailedFlydraXmlConversion {
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            });
         }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
@@ -692,8 +711,16 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         let cy = cam.non_linear_parameters.cc2;
 
         let expected_alpha_c = k[(0, 1)] / k[(0, 0)];
-        if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(1e-10) {
-            return Err(MvgError::FailedFlydraXmlConversion);
+        // We allow a relatively large epsilon here because, due to a bug, we
+        // have saved many calibrations with cam.non_linear_parameters.alpha_c
+        // set to zero where the skew in k is not quite zero. In theory, this
+        // epsilon should be really low.
+        let epsilon = 0.03;
+        if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
+            return Err(MvgError::FailedFlydraXmlConversion {
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            });
         }
 
         // TODO: turn all these `unimplemented!()` calls into
@@ -701,30 +728,40 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
 
         if let Some(fc1p) = cam.non_linear_parameters.fc1p {
             if fc1p != cam.non_linear_parameters.fc1 {
-                unimplemented!();
+                return Err(MvgError::NotImplemented);
             }
         }
         if let Some(fc2p) = cam.non_linear_parameters.fc2p {
             if fc2p != cam.non_linear_parameters.fc2 {
-                unimplemented!();
+                return Err(MvgError::NotImplemented);
             }
         }
         if let Some(cc1p) = cam.non_linear_parameters.cc1p {
             if cc1p != cam.non_linear_parameters.cc1 {
-                unimplemented!();
+                return Err(MvgError::NotImplemented);
             }
         }
         if let Some(cc2p) = cam.non_linear_parameters.cc2p {
             if cc2p != cam.non_linear_parameters.cc2 {
-                unimplemented!();
+                return Err(MvgError::NotImplemented);
             }
         }
         if let Some(scale_factor) = cam.scale_factor {
             if scale_factor != one {
-                unimplemented!();
+                return Err(MvgError::NotImplemented);
             }
         }
 
+        // This craziness abuses the rectification matrix of the ROS/OpenCV
+        // model to compensate for the issue that the intrinsic parameters used
+        // in the MultiCamSelfCal (MCSC) distortion correction are independent
+        // from the intrinsic parameters of the linear camera model. With this
+        // abuse, we allow storing the MCSC calibration results in a compatible
+        // way with ROS/OpenCV.
+        //
+        // Potential bug warning: it could be that the math used to work out
+        // this matrix form had has a bug in which it was assumed that skew was
+        // always zero. (This goes especially for entry [0,1].)
         #[rustfmt::skip]
         let rect_t = {
             Matrix3::new(
