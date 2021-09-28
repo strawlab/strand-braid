@@ -33,7 +33,7 @@ where
         serde_json::to_writer(&mut writer, &sys)?;
         Ok(())
     }
-    pub fn from_pymvg_file_json<Rd: Read>(reader: Rd) -> Result<Self> {
+    pub fn from_pymvg_json<Rd: Read>(reader: Rd) -> Result<Self> {
         let pymvg_system: PymvgMultiCameraSystemV1<R> = serde_json::from_reader(reader)?;
         MultiCameraSystem::from_pymvg(&pymvg_system)
     }

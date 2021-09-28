@@ -45,10 +45,10 @@ fn test_distortion_roundtrip() {
 #[test]
 fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
-    let system1 = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    let system1 = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     let mut buf2 = Vec::new();
     system1.to_pymvg_writer(&mut buf2)?;
-    let system2 = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    let system2 = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     assert_eq!(system1, system2);
 
     // Now check again by passing points. Note that if this fails while the
@@ -79,7 +79,7 @@ fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
 #[test]
 fn test_load_pymvg() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
-    let system = mvg::MultiCameraSystem::<f64>::from_pymvg_file_json(buf.as_bytes())?;
+    let system = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     assert_eq!(system.cams().len(), 1);
     let cam = system.cam_by_name("cam1").unwrap();
 

@@ -861,7 +861,7 @@ fn frame_process_thread(
                                     }
                                     CalSource::PymvgJsonFile(cal_fname) => {
                                         let rdr = std::fs::File::open(&cal_fname)?;
-                                        let sys = mvg::MultiCameraSystem::from_pymvg_file_json(rdr)?;
+                                        let sys = mvg::MultiCameraSystem::from_pymvg_json(rdr)?;
                                         flydra_mvg::FlydraMultiCameraSystem::from_system(sys, None)
                                     }
                                 };

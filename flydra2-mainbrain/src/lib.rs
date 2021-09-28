@@ -351,7 +351,7 @@ pub async fn pre_run(
             || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
         {
             // Assume any .json or .pymvg file is a pymvg file.
-            let system = mvg::MultiCameraSystem::<MyFloat>::from_pymvg_file_json(cal_file)?;
+            let system = mvg::MultiCameraSystem::<MyFloat>::from_pymvg_json(cal_file)?;
             Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_system(
                 system, None,
             ))

@@ -88,7 +88,7 @@ fn test_calibration_pymvg() {
 
     use mvg::MultiCameraSystem;
     let loaded: MultiCameraSystem<f64> =
-        MultiCameraSystem::from_pymvg_file_json(pymvg_json_buf.as_slice()).unwrap();
+        MultiCameraSystem::from_pymvg_json(pymvg_json_buf.as_slice()).unwrap();
 
     for (cam_name, points) in cal_result.points.iter() {
         let cam = loaded.cam_by_name(cam_name).unwrap();
