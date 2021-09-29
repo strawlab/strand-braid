@@ -1,0 +1,24 @@
+[package]
+name = "braid-process-video"
+version = "0.10.1" # braid release synchronized
+edition = "2018"
+
+[dependencies]
+# apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
+log = "0.4"
+env_logger = "0.8"
+ffmpeg-next = "4.4"
+anyhow = "1"
+chrono = {version="0.4", features=["serde"]}
+serde = {version="1", features=["derive"]}
+toml = "0.5"
+machine-vision-formats = "0.1"
+structopt = "0.3"
+
+mkv-writer = {path="../mkv-writer"}
+ci2-remote-control = { path = "../ci2-remote-control"}
+simple-frame = { path = "../simple-frame" }
+braidz-parser = {path="../braidz-parser"}
+flydra-types = {path="../flydra-types"}
+convert-image = { path = "../convert-image" }
+datetime-conversion = {path="../datetime-conversion"}

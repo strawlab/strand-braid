@@ -12,6 +12,7 @@ members = [
     "braid-april-cal-webapp",
     "braid-config-data",
     "braid-offline",
+    "braid-process-video",
     "braidz-parser",
     "braidz-parser/braidz-cli",
     "braidz-types",

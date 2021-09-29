@@ -585,6 +585,38 @@ braid-offline-ubuntu2004:
       - braid-offline-linux-build/
     name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
+braid-process-video-ubuntu2004:
+  stage: build
+  image: ubuntu:focal
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl
+
+    - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
+    - cd braid-process-video
+    - cargo test
+
+    # force recomputing git version tag
+    - touch Cargo.toml
+    - cd packaging
+    - make
+    - mkdir -p $CI_PROJECT_DIR/braid-process-video-build
+    - cp *.deb $CI_PROJECT_DIR/braid-process-video-build
+    - cp *.changes $CI_PROJECT_DIR/braid-process-video-build
+    - dpkg -I *.deb
+    - dpkg --contents *.deb
+
+  artifacts:
+    paths:
+      - braid-process-video-build/
+    name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
+
 braidz-cli-ubuntu2004:
   stage: build
   image: ubuntu:focal

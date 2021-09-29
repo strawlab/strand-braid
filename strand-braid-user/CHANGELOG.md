@@ -2,6 +2,8 @@
 
 ### Added
 
+* New program `braid-process-video` to process recorded MKV videos.
+
 * MKV videos now save timestamps with microsecond precision. (Previously was
   millisecond precision.)
 
