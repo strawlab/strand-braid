@@ -84,10 +84,11 @@ test_flydra2:
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
-test_crates_rust_latest:
+test_crates_rust_1_55:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
+    - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
 
     # Test mvg
@@ -118,7 +119,6 @@ test_crates_rust_latest:
     # Test imops
     - cd imops
     - cargo test
-    - cargo test --no-default-features --features std,packed_simd
     - cargo test --no-default-features --features std
     - cargo build --no-default-features --target thumbv7em-none-eabihf
     - cd ..
@@ -151,6 +151,19 @@ test_crates_rust_latest:
     # Test fmf
     - cd fmf
     - cargo test
+    - cd ..
+
+test_crates_rust_nightly:
+  stage: build
+  image: rust:1.55.0
+  script:
+    - export RUSTFLAGS="-D warnings"
+
+    - rustup update --no-self-update nightly
+
+    # Test imops with nightly features
+    - cd imops
+    - cargo +nightly test --no-default-features --features std,packed_simd
     - cd ..
 
 test_image_tracker:
@@ -286,7 +299,7 @@ camtrig-ubuntu1604-debs:
 
 build-freemovr-calibration:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -302,7 +315,7 @@ build-freemovr-calibration:
 
 build-freemovr-calibration-webapp:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -593,7 +606,7 @@ braidz-cli-ubuntu2004:
 
 braid-webapps:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -795,7 +808,7 @@ braid-pylon5-ubuntu2004:
 
 camtrig-linux:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -812,7 +825,7 @@ camtrig-linux:
 
 camtrig-firmware:
   stage: build
-  image: rust:latest
+  image: rust:1.55.0
   script:
     - export RUSTFLAGS="-D warnings"
 
