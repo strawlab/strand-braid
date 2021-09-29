@@ -37,44 +37,6 @@ test_crates:
     - cargo test --release
     - cd ..
 
-    # Test imops
-    - cd imops
-    - cargo test
-    - cargo test --no-default-features --features std,packed_simd
-    - cargo test --no-default-features --features std
-    - cargo build --no-default-features --target thumbv7em-none-eabihf
-    - cd ..
-
-    # Test braidz-parser
-    - cd braidz-parser
-    - cargo test
-    - cd ..
-
-    # Test tracking
-    - cd tracking
-    - cargo test
-    - cd ..
-
-    # Test ufmf
-    - cd ufmf
-    - cargo test
-    - cd ..
-
-    # Test flydra-types
-    - cd flydra-types
-    - cargo test
-    - cd ..
-
-    # Test flydra-mvg
-    - cd flydra-mvg
-    - cargo test
-    - cd ..
-
-    # Test fmf
-    - cd fmf
-    - cargo test
-    - cd ..
-
     # Test freemovr-calibration, which requires opencv
     - cd freemovr-calibration
     # run test in release mode, otherwise slow
@@ -85,21 +47,6 @@ test_crates:
     - cd freemovr-calibration/freemovr-calibration-cli
     - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
-
-    # Test datetime-conversion
-    - cd datetime-conversion
-    - cargo test
-    - cd ..
-
-    # Test simple-obj-parse
-    - cd simple-obj-parse
-    - cargo test
-    - cd ..
-
-    # strand-cam-offline-kalmanize
-    - cd strand-cam-offline-kalmanize
-    - cargo test
-    - cd ..
 
 test_flydra2:
   stage: build
@@ -142,14 +89,69 @@ test_crates_rust_latest:
   image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
+
+    # Test mvg
     - cd mvg
     - cargo test
     - cd ..
 
+    # Test braid-april-cal-webapp
     - cd braid-april-cal-webapp
     - cargo test
     - cd ..
 
+    # Test datetime-conversion
+    - cd datetime-conversion
+    - cargo test
+    - cd ..
+
+    # Test simple-obj-parse
+    - cd simple-obj-parse
+    - cargo test
+    - cd ..
+
+    # strand-cam-offline-kalmanize
+    - cd strand-cam-offline-kalmanize
+    - cargo test
+    - cd ..
+
+    # Test imops
+    - cd imops
+    - cargo test
+    - cargo test --no-default-features --features std,packed_simd
+    - cargo test --no-default-features --features std
+    - cargo build --no-default-features --target thumbv7em-none-eabihf
+    - cd ..
+
+    # Test braidz-parser
+    - cd braidz-parser
+    - cargo test
+    - cd ..
+
+    # Test tracking
+    - cd tracking
+    - cargo test
+    - cd ..
+
+    # Test ufmf
+    - cd ufmf
+    - cargo test
+    - cd ..
+
+    # Test flydra-types
+    - cd flydra-types
+    - cargo test
+    - cd ..
+
+    # Test flydra-mvg
+    - cd flydra-mvg
+    - cargo test
+    - cd ..
+
+    # Test fmf
+    - cd fmf
+    - cargo test
+    - cd ..
 
 test_image_tracker:
   stage: build
