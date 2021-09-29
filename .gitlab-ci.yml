@@ -137,13 +137,19 @@ test_flydra2:
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
-test_mvg:
+test_crates_rust_latest:
   stage: build
   image: rust:latest
   script:
     - export RUSTFLAGS="-D warnings"
     - cd mvg
     - cargo test
+    - cd ..
+
+    - cd braid-april-cal-webapp
+    - cargo test
+    - cd ..
+
 
 test_image_tracker:
   stage: build
