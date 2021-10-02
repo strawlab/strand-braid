@@ -63,6 +63,7 @@ impl<S: Source> FlydraFloatTimestampLocal<S> {
         Self { value_f64, source }
     }
 
+    #[inline(always)]
     pub fn as_f64(&self) -> f64 {
         self.value_f64.into()
     }
