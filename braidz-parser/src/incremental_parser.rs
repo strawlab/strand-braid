@@ -352,8 +352,8 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         total_distance,
                     })
                 }
-                Err(e) => {
-                    println!("error {} {:?}", e, e);
+                Err(e) =>
+                {
                     #[allow(unused_variables)]
                     match e {
                         Error::ZipOrDir {
