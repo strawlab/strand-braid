@@ -5,4 +5,4 @@ set VPX_STATIC=1
 set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
-cargo run --release --no-default-features --example save-animation --features backtrace -- vp8
+cargo run --release --no-default-features --example save-animation --features backtrace,vpx -- vp8
