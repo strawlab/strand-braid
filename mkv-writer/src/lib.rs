@@ -29,6 +29,8 @@ pub enum Error {
     FileAlreadyClosed,
     #[error("inconsistent state")]
     InconsistentState,
+    #[error("timestamp too large")]
+    TimestampTooLarge,
     #[error("convert image error")]
     ConvertImageError(
         #[from]
@@ -258,7 +260,7 @@ where
                         let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
                             width,
                             height,
-                            timebase: [1, 1000], // millisecond time base
+                            timebase: [1, 1_000_000], // microsecond time base
                             bitrate,
                             codec: vpx_codec,
                         })?;
@@ -291,6 +293,10 @@ where
                 );
                 mkv_segment.set_date_utc(nanoseconds);
                 mkv_segment.set_app_name(&self.writing_application);
+
+                // 1_000_000_000 (nanosec) / 1_000 (scale) = 1_000_000 (microseconds)
+                // microseconds - timestamp in nanoseconds is divided by this scale to set PTS integer value
+                mkv_segment.set_timecode_scale(1_000);
 
                 let mut state = RecordingState {
                     mkv_segment,
@@ -403,8 +409,8 @@ trait PtsDur {
 #[cfg(feature = "vpx")]
 impl<'a> PtsDur for vpx_encode::Frame<'a> {
     fn pts_dur(&self) -> std::time::Duration {
-        // millisecond time base
-        let secs = self.pts as f64 / 1000.0;
+        // microsecond time base
+        let secs = self.pts as f64 / 1_000_000.0;
         std::time::Duration::from_secs_f64(secs)
     }
 }
@@ -438,8 +444,8 @@ where
             let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
             trace!("got yuv data for frame. {} bytes.", yuv.len());
 
-            let milliseconds = elapsed.num_milliseconds();
-            for frame in vpx_encoder.encode(milliseconds, &yuv).unwrap() {
+            let microseconds = elapsed.num_microseconds().ok_or(Error::TimestampTooLarge)?;
+            for frame in vpx_encoder.encode(microseconds, &yuv).unwrap() {
                 trace!("got vpx encoded data: {} bytes.", frame.data.len());
                 state
                     .vt

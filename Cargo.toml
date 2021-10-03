@@ -110,5 +110,5 @@ debug = true
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
 
 [patch.crates-io]
-webm = { git = "https://github.com/strawlab/rust-webm", rev="652e1c16e6feccfe967087d6ae681bf969f30028"}
+webm = { git = "https://github.com/strawlab/rust-webm", rev="74ec18b522d77f62e6b7f79f3023e0d700694239"}
 yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}

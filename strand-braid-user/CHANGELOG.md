@@ -2,6 +2,9 @@
 
 ### Added
 
+* MKV videos now save timestamps with microsecond precision. (Previously was
+  millisecond precision.)
+
 * Backport to Pylon 5 for Basler cameras. This is not enabled by default but can
   be useful to debug issues dependent on driver version.
 
