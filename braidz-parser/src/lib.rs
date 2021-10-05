@@ -12,7 +12,7 @@ use std::{
 
 use hdrhistogram::serialization::interval_log;
 
-use flydra_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams};
+use flydra_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams, Triggerbox};
 
 use braidz_types::{
     BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, CamInfoRow, CamNum, Data2dDistortedRow,
@@ -170,6 +170,7 @@ pub struct Seq2d {
     pub xdata: Vec<f64>,
     pub ydata: Vec<f64>,
     pub max_pixel: f64,
+    pub timestamp: Vec<Option<FlydraFloatTimestampLocal<Triggerbox>>>,
 }
 
 // TODO: rename KalmanEstimates? or ..Data?
@@ -197,14 +198,22 @@ impl Seq2d {
             xdata: vec![],
             ydata: vec![],
             max_pixel: 0.0,
+            timestamp: vec![],
         }
     }
 
-    fn push(&mut self, f: i64, x: f64, y: f64) {
+    fn push(
+        &mut self,
+        f: i64,
+        x: f64,
+        y: f64,
+        timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
+    ) {
         if !x.is_nan() {
             self.frame.push(f);
             self.xdata.push(x);
             self.ydata.push(y);
+            self.timestamp.push(timestamp);
             self.max_pixel = max(self.max_pixel, max(x, y));
         }
     }
