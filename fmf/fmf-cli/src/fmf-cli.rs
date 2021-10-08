@@ -582,6 +582,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
         writing_application: Some("fmf-cli".to_string()),
+        ..Default::default()
     };
 
     #[cfg(feature = "nv-h264")]

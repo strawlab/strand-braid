@@ -155,7 +155,7 @@ fn main() -> Result<(), anyhow::Error> {
     let cfg = MkvRecordingConfig {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
-        writing_application: None,
+        ..Default::default()
     };
 
     let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, libs_and_nv_enc)?;

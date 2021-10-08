@@ -277,21 +277,23 @@ where
                     MyEncoder::Nvidia(enc)
                 };
 
-                // Set DateUTC metadata
-                use chrono::TimeZone;
-                let millennium_exploded = chrono::Utc.ymd(2001, 1, 1).and_hms(0, 0, 0);
-                let elapsed = timestamp.signed_duration_since(millennium_exploded);
-                let nanoseconds = elapsed.num_nanoseconds().expect("nanosec overflow");
-                // https://chromium.googlesource.com/chromium/src/+/11d989c52c6da43c5e8eb9d377ef0286a1cc8fba/remoting/client/plugin/media_source_video_renderer.cc
-                // https://groups.google.com/a/chromium.org/forum/#!msg/chromium-reviews/DGrjsJm8TEk/YTQxIhUaz3MJ
-                // "DateUTC is specified in nanoseconds from 0:00 on January 1st, 2001." in remoting/client/plugin/media_source_video_renderer.cc
+                if cfg.save_creation_time {
+                    // Set DateUTC metadata
+                    use chrono::TimeZone;
+                    let millennium_exploded = chrono::Utc.ymd(2001, 1, 1).and_hms(0, 0, 0);
+                    let elapsed = timestamp.signed_duration_since(millennium_exploded);
+                    let nanoseconds = elapsed.num_nanoseconds().expect("nanosec overflow");
+                    // https://chromium.googlesource.com/chromium/src/+/11d989c52c6da43c5e8eb9d377ef0286a1cc8fba/remoting/client/plugin/media_source_video_renderer.cc
+                    // https://groups.google.com/a/chromium.org/forum/#!msg/chromium-reviews/DGrjsJm8TEk/YTQxIhUaz3MJ
+                    // "DateUTC is specified in nanoseconds from 0:00 on January 1st, 2001." in remoting/client/plugin/media_source_video_renderer.cc
 
-                // Also see http://ffmpeg.org/doxygen/3.2/matroskaenc_8c_source.html
-                debug!(
-                    "saving DateUTC with value in mkv file: {} (from initial timestamp {})",
-                    nanoseconds, timestamp
-                );
-                mkv_segment.set_date_utc(nanoseconds);
+                    // Also see http://ffmpeg.org/doxygen/3.2/matroskaenc_8c_source.html
+                    debug!(
+                        "saving DateUTC with value in mkv file: {} (from initial timestamp {})",
+                        nanoseconds, timestamp
+                    );
+                    mkv_segment.set_date_utc(nanoseconds);
+                }
                 mkv_segment.set_app_name(&self.writing_application);
 
                 // 1_000_000_000 (nanosec) / 1_000 (scale) = 1_000_000 (microseconds)

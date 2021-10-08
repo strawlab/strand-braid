@@ -147,6 +147,7 @@ pub struct MkvRecordingConfig {
     pub codec: MkvCodec,
     pub max_framerate: RecordingFrameRate,
     pub writing_application: Option<String>,
+    pub save_creation_time: bool,
 }
 
 impl Default for MkvRecordingConfig {
@@ -155,6 +156,7 @@ impl Default for MkvRecordingConfig {
             codec: MkvCodec::default(),
             max_framerate: RecordingFrameRate::Fps25,
             writing_application: None,
+            save_creation_time: true,
         }
     }
 }
