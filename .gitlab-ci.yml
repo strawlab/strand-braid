@@ -12,7 +12,6 @@ cache:
 #   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
 test_crates:
-  stage: build
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
@@ -57,7 +56,6 @@ test_crates:
     - cd ..
 
 test_flydra2:
-  stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   image: ubuntu:focal
@@ -93,7 +91,6 @@ test_flydra2:
     # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_1_56:
-  stage: build
   image: rust:1.56.0
   script:
     - rustup target add thumbv7em-none-eabihf
@@ -162,7 +159,6 @@ test_crates_rust_1_56:
     - cd ..
 
 test_crates_rust_nightly:
-  stage: build
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
@@ -175,7 +171,6 @@ test_crates_rust_nightly:
     - cd ..
 
 test_image_tracker:
-  stage: build
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
@@ -186,7 +181,6 @@ test_image_tracker:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd image-tracker && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2019"
 
 test_fastimage:
-  stage: build
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
@@ -196,7 +190,6 @@ test_fastimage:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 strand-cam-ubuntu1604-debs:
-  stage: test # only because we depend on artifacts from build stage
   tags:
     - ubuntu-16.04
   script:
@@ -219,7 +212,7 @@ strand-cam-ubuntu1604-debs:
     - cp -a *.deb $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
     - ls -lh $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
     - cd ../..
-  dependencies:
+  needs:
     - strand-cam-pylon-linux
     - strand-cam-camtrig-pylon-linux
   artifacts:
@@ -228,7 +221,6 @@ strand-cam-ubuntu1604-debs:
     name: "strand-cam-ubuntu1604-debs-${CI_COMMIT_SHA}"
 
 strand-cam-ubuntu2004-debs:
-  stage: test # only because we depend on artifacts from build stage
   image: ubuntu:focal
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
@@ -253,7 +245,7 @@ strand-cam-ubuntu2004-debs:
     - cp -a *.deb $CI_PROJECT_DIR/rust-cam-focal-debs-build/
     - ls -lh $CI_PROJECT_DIR/rust-cam-focal-debs-build/
     - cd ../..
-  dependencies:
+  needs:
     - strand-cam-pylon-ubuntu2004
     - strand-cam-camtrig-pylon-ubuntu2004
   artifacts:
@@ -262,7 +254,6 @@ strand-cam-ubuntu2004-debs:
     name: "strand-cam-ubuntu2004-debs-${CI_COMMIT_SHA}"
 
 # internal-strand-cam-xenial-deb-packages:
-#   stage: test # only because we depend on artifacts from build stage
 #   tags:
 #       - pylon
 #   script:
@@ -274,7 +265,7 @@ strand-cam-ubuntu2004-debs:
 #     - cp -a *.changes $CI_PROJECT_DIR/internal_debs/
 #     - cp -a *.deb $CI_PROJECT_DIR/internal_debs/
 #     - cd ../..
-# dependencies:
+# needs:
 #   - strand-cam-camtrig-pylon-linux
 # artifacts:
 #   paths:
@@ -282,7 +273,6 @@ strand-cam-ubuntu2004-debs:
 #   name: "rust-cam-internal_debs-${CI_COMMIT_SHA}"
 
 camtrig-ubuntu1604-debs:
-  stage: test # only because we depend on artifacts from build stage
   tags:
     - ubuntu-16.04
   script:
@@ -297,7 +287,7 @@ camtrig-ubuntu1604-debs:
     - cp -a camtrig*.changes $CI_PROJECT_DIR/xenial-camtrig-debs/
     - cp -a camtrig*.deb $CI_PROJECT_DIR/xenial-camtrig-debs/
 
-  dependencies:
+  needs:
     - camtrig-linux
     - camtrig-firmware
   artifacts:
@@ -306,7 +296,6 @@ camtrig-ubuntu1604-debs:
     name: "rust-cam-xenial-camtrig-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  stage: build
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
@@ -322,7 +311,6 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  stage: build
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
@@ -343,7 +331,6 @@ build-freemovr-calibration-webapp:
     name: "freemovr-cal-webapp-${CI_COMMIT_SHA}"
 
 deploy-freemovr-calibration-webapp:
-  stage: deploy
   tags:
     - rsync
   script:
@@ -361,7 +348,7 @@ deploy-freemovr-calibration-webapp:
   environment:
     name: production
     url: https://strawlab.org/vr-cal/
-  dependencies:
+  needs:
     - build-freemovr-calibration-webapp
   when: manual
 
@@ -390,7 +377,6 @@ build-api-docs:
     name: "api-docs-${CI_COMMIT_SHA}"
 
 stage-api-docs:
-  stage: deploy
   image: ubuntu:focal
   script:
     - apt-get update && apt-get install -y rsync openssh-client
@@ -404,7 +390,7 @@ stage-api-docs:
   environment:
     name: strand-braid-api-docs-staging
     url: http://strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/latest
-  dependencies:
+  needs:
     - build-api-docs
 
 publish-api-docs:
@@ -415,7 +401,6 @@ publish-api-docs:
   # private key for the user below. In case accidentally deployment was
   # triggered without entering the variable, delete the job log and the gitlab
   # screen will be available again.
-  stage: deploy
   image: ubuntu:focal
   script:
     - apt-get update && apt-get install -y rsync openssh-client
@@ -433,12 +418,11 @@ publish-api-docs:
   environment:
     name: strand-braid-api-docs
     url: https://strawlab.org/strand-braid-api-docs/latest
-  dependencies:
+  needs:
     - build-api-docs
   when: manual
 
 strand-cam-pylon-linux:
-  stage: build
   tags:
     - rust
     - ipp
@@ -484,7 +468,6 @@ strand-cam-pylon-linux:
     name: "strand-cam-pylon-linux-${CI_COMMIT_SHA}"
 
 strand-cam-pylon-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -511,7 +494,6 @@ strand-cam-pylon-ubuntu2004:
     name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 py-strandcam-pylon-linux:
-  stage: build
   tags:
     - rust
     - ipp
@@ -554,7 +536,6 @@ py-strandcam-pylon-linux:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pyloncxx IPP_SYS=2017 python setup.py install
 
 strand-cam-camtrig-pylon-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -582,7 +563,6 @@ strand-cam-camtrig-pylon-ubuntu2004:
     name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
 strand-cam-camtrig-pylon-linux:
-  stage: build
   tags:
     - rust
     - ipp
@@ -633,7 +613,6 @@ strand-cam-camtrig-pylon-linux:
     name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
@@ -658,7 +637,6 @@ braid-offline-ubuntu2004:
     name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-process-video-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl
@@ -690,7 +668,6 @@ braid-process-video-ubuntu2004:
     name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
 
 braidz-cli-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
@@ -715,7 +692,6 @@ braidz-cli-ubuntu2004:
     name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  stage: build
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
@@ -741,7 +717,6 @@ braid-webapps:
     - cd ..
 
 braid-pylon-ubuntu1604:
-  stage: build
   tags:
     - rust
     - ipp
@@ -815,7 +790,6 @@ braid-pylon-ubuntu1604:
     name: "braid-pylon-ubuntu1604-${CI_COMMIT_SHA}"
 
 braid-pylon-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -865,7 +839,6 @@ braid-pylon-ubuntu2004:
     name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-pylon5-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -917,7 +890,6 @@ braid-pylon5-ubuntu2004:
     name: "braid-pylon5-ubuntu2004-${CI_COMMIT_SHA}"
 
 camtrig-linux:
-  stage: build
   image: rust:1.56.0
   script:
     - apt-get update
@@ -934,7 +906,6 @@ camtrig-linux:
     name: "camtrig-linux-${CI_COMMIT_SHA}"
 
 camtrig-firmware:
-  stage: build
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
@@ -964,7 +935,6 @@ camtrig-firmware:
 # -------
 
 # deploy-strand-cam:
-#   stage: deploy
 #   tags:
 #     - debs.strawlab.org-deployer
 #   script:
@@ -972,14 +942,13 @@ camtrig-firmware:
 #   environment:
 #     name: production
 #     url: http://debs.strawlab.org/xenial/
-#   dependencies:
+#   needs:
 #     - xenial-deb-packages
 #   when: manual
 #   # only:
 #   # - master
 
 deploy-camtrig-ubuntu1604:
-  stage: deploy
   tags:
     - debs.strawlab.org-deployer
   script:
@@ -987,14 +956,13 @@ deploy-camtrig-ubuntu1604:
   environment:
     name: production
     url: http://debs.strawlab.org/xenial/
-  dependencies:
+  needs:
     - camtrig-ubuntu1604-debs
   when: manual
   # only:
   # - master
 
 deploy-braid-pylon-ubuntu1604:
-  stage: deploy
   tags:
     - aptly.strawlab.org-deployer
   script:
@@ -1004,12 +972,11 @@ deploy-braid-pylon-ubuntu1604:
   environment:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
-  dependencies:
+  needs:
     - braid-pylon-ubuntu1604
   when: manual
 
 # deploy-braid-offline-ubuntu1604:
-#   stage: deploy
 #   tags:
 #     - aptly.strawlab.org-deployer
 #   script:
@@ -1019,12 +986,11 @@ deploy-braid-pylon-ubuntu1604:
 #   environment:
 #     name: strawlab aptly web server
 #     url: https://aptly.strawlab.org/
-#   dependencies:
+#   needs:
 #     - braid-offline-ubuntu1604
 #   when: manual
 
 # deploy-braidz-cli-ubuntu1604:
-#   stage: deploy
 #   tags:
 #     - aptly.strawlab.org-deployer
 #   script:
@@ -1034,12 +1000,11 @@ deploy-braid-pylon-ubuntu1604:
 #   environment:
 #     name: strawlab aptly web server
 #     url: https://aptly.strawlab.org/
-#   dependencies:
+#   needs:
 #     - braidz-cli-ubuntu1604
 #   when: manual
 
 deploy-strand-cam-internal-ubuntu1604:
-  stage: deploy
   tags:
     - aptly.strawlab.org-deployer
   script:
@@ -1049,12 +1014,11 @@ deploy-strand-cam-internal-ubuntu1604:
   environment:
     name: strawlab aptly web server
     url: https://aptly.strawlab.org/
-  dependencies:
+  needs:
     - strand-cam-ubuntu1604-debs
   when: manual
 
 build-fmf-cli-ubuntu2004:
-  stage: build
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential pkg-config
