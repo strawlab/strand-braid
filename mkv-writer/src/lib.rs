@@ -295,6 +295,9 @@ where
                     mkv_segment.set_date_utc(nanoseconds);
                 }
                 mkv_segment.set_app_name(&self.writing_application);
+                if let Some(title) = &cfg.title {
+                    mkv_segment.set_title(&title);
+                }
 
                 // 1_000_000_000 (nanosec) / 1_000 (scale) = 1_000_000 (microseconds)
                 // microseconds - timestamp in nanoseconds is divided by this scale to set PTS integer value
