@@ -2942,9 +2942,6 @@ pub async fn setup_app(
     #[allow(clippy::redundant_clone)]
     let collected_corners_arc2 = collected_corners_arc.clone();
 
-    #[cfg(feature="checkercal")]
-    let cam_name2 = cam_name.clone();
-
     let frame_process_cjh = {
         let pixel_format = frame.pixel_format();
         let is_starting = Arc::new(true);
@@ -2978,6 +2975,7 @@ pub async fn setup_app(
         };
 
         let valve2 = valve.clone();
+        let cam_name2 = cam_name.clone();
         let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
             let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2.clone(), file!(), line!());
             thread_closer.maybe_err(frame_process_thread(
@@ -2986,7 +2984,7 @@ pub async fn setup_app(
                     model_server,
                     #[cfg(feature="flydratrax")]
                     flydratrax_calibration_source,
-                    cam_name,
+                    cam_name2,
                     camera_cfg,
                     image_width,
                     image_height,
@@ -3185,6 +3183,10 @@ pub async fn setup_app(
 
     let cam_arg_future = {
         let shared_store_arc = shared_store_arc.clone();
+
+        #[cfg(feature="checkercal")]
+        let cam_name2 = cam_name.clone();
+
         async move {
         // We do not put cam_args_rx behind a stream_cancel::Valve because
         // it is the top-level controller for quitting everything - if
@@ -3271,6 +3273,10 @@ pub async fn setup_app(
                     if cfg.writing_application.is_none() {
                         // The writing application is not set in the web UI
                         cfg.writing_application = Some(get_mkv_writing_application(is_braid));
+                    }
+                    if cfg.title.is_none() {
+                        // The title is not set in the web UI
+                        cfg.title = Some(cam_name.as_str().to_string());
                     }
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
