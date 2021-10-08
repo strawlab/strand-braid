@@ -48,6 +48,14 @@ test_crates:
     - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
 
+    - cd ci2-simple-demo
+    - cargo test --features backend_pyloncxx
+    - cd ..
+
+    - cd ci2-cli
+    - cargo test --features backend_pyloncxx
+    - cd ..
+
 test_flydra2:
   stage: build
   variables:
@@ -850,27 +858,6 @@ camtrig-firmware:
     paths:
       - camtrig-firmware-${CI_COMMIT_SHA}.bin
     name: "camtrig-firmware-${CI_COMMIT_SHA}"
-
-test_simple_pylon:
-  stage: test
-  dependencies: []
-  tags:
-    - rust
-  script:
-    # Download pylon and install 6
-    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - export RUSTFLAGS="-D warnings"
-
-    - cd ci2-simple-demo
-    - NUM_JOBS=2 cargo test --features backend_pyloncxx
-    - cd ..
-
-    - cd ci2-cli
-    - NUM_JOBS=2 cargo test --features backend_pyloncxx
-    - cd ..
 
 # -------
 
