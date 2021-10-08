@@ -1,6 +1,5 @@
 extern crate bui_backend_codegen;
 
-use std::io::Write;
 use std::process::Command;
 
 fn git_hash() -> String {
@@ -41,27 +40,6 @@ fn main() {
     println!("cargo:rustc-env=GIT_HASH={}", git_rev);
     let files_dir = get_files_dir();
     bui_backend_codegen::codegen(&files_dir, "frontend.rs").expect("codegen failed");
-
-    let base_version = env!("CARGO_PKG_VERSION");
-
-    let codegen_fname = "strand-cam-version.json";
-    let buf = format!(
-        "{{\"version\": \"{}\", \"rev\": \"{}\"}}",
-        base_version, git_rev
-    );
-    let out_dir = std::env::var("OUT_DIR").unwrap();
-    let dest_path = std::path::Path::new(&out_dir) // ./target/debug/build/strand-cam6eb4a8957b2eab09/out/
-        .parent()
-        .unwrap() // ./target/debug/build/strand-cam6eb4a8957b2eab09
-        .parent()
-        .unwrap() // ./target/debug/build
-        .parent()
-        .unwrap() // ./target/debug
-        .join(codegen_fname);
-    std::fs::File::create(dest_path)
-        .unwrap()
-        .write_all(buf.as_bytes())
-        .unwrap();
 
     let app_name = format!("{}-{}", BASE, BACKEND);
     println!("cargo:rustc-env=APP_NAME={}", app_name);

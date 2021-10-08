@@ -504,7 +504,6 @@ strand-cam-camtrig-pylon-ubuntu2004:
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
@@ -556,7 +555,6 @@ strand-cam-camtrig-pylon-linux:
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cp ../target/release/strand-cam-version.json $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
