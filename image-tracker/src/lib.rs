@@ -31,9 +31,9 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
-    serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
-    ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
-    Triggerbox,
+    get_start_ts, serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket,
+    FlydraRawUdpPoint, ImageProcessingSteps, MainbrainBuiLocation, RawCamName,
+    RealtimePointsDestAddr, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -910,18 +910,6 @@ impl FlyTracker {
         Ok(())
     }
 
-    #[inline]
-    fn get_start_ts(&self, frame: u64) -> Option<FlydraFloatTimestampLocal<Triggerbox>> {
-        if let Some(frame_offset) = self.frame_offset {
-            if let Some(ref cm) = self.clock_model {
-                let ts: f64 = ((frame - frame_offset) as f64) * cm.gain + cm.offset;
-                let ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(ts);
-                return Some(ts);
-            }
-        }
-        None
-    }
-
     pub fn process_new_frame(
         &mut self,
         frame: &DynamicFrame,
@@ -933,7 +921,11 @@ impl FlyTracker {
         let q1 = std::time::Instant::now();
         let mut sample_vec = Vec::new();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
-        let opt_trigger_stamp = self.get_start_ts(frame.extra().host_framenumber() as u64);
+        let opt_trigger_stamp = get_start_ts(
+            self.clock_model.as_ref(),
+            self.frame_offset,
+            frame.extra().host_framenumber() as u64,
+        );
         let acquire_duration = match opt_trigger_stamp {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside

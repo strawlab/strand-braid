@@ -642,7 +642,9 @@ mod cam_num;
 pub use cam_num::CamNum;
 
 mod timestamp;
-pub use crate::timestamp::{FlydraFloatTimestampLocal, HostClock, Source, Triggerbox};
+pub use crate::timestamp::{
+    get_start_ts, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
+};
 
 pub mod timestamp_f64;
 pub mod timestamp_opt_f64;

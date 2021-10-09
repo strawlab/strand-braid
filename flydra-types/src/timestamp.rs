@@ -69,6 +69,27 @@ impl<S: Source> FlydraFloatTimestampLocal<S> {
     }
 }
 
+/// Compute the trigger time for a particular frame.
+///
+/// Requires both a clock model (general for all cameras) and a frame offset
+/// (which maps the particular frame numbers for a given camera into a
+/// synchronized frame number).
+#[inline]
+pub fn get_start_ts(
+    clock_model: Option<&ClockModel>,
+    frame_offset: Option<u64>,
+    frame: u64,
+) -> Option<FlydraFloatTimestampLocal<Triggerbox>> {
+    if let Some(frame_offset) = frame_offset {
+        if let Some(ref cm) = clock_model {
+            let ts: f64 = ((frame - frame_offset) as f64) * cm.gain + cm.offset;
+            let ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(ts);
+            return Some(ts);
+        }
+    }
+    None
+}
+
 #[test]
 #[should_panic]
 fn test_nan_handling() {
