@@ -1011,7 +1011,7 @@ fn frame_process_thread(
                 fmf_writer = Some(FmfWriteInfo::new(FMFWriter::new(f)?, recording_framerate));
             }
             Msg::StartMkv((format_str_mkv,mkv_recording_config)) => {
-                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, 100));
+                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_mkv_writer(format_str_mkv, mkv_recording_config, 100));
             }
             #[cfg(feature="image_tracker")]
             Msg::StartUFMF(dest) => {
@@ -1019,7 +1019,7 @@ fn frame_process_thread(
             }
             Msg::PostTriggerStartMkv((format_str_mkv,mkv_recording_config)) => {
                 let frames = post_trig_buffer.get_and_clear();
-                let mut raw = bg_movie_writer::BgMovieWriter::new_webm_writer(format_str_mkv, mkv_recording_config, frames.len()+100);
+                let mut raw = bg_movie_writer::BgMovieWriter::new_mkv_writer(format_str_mkv, mkv_recording_config, frames.len()+100);
                 for mut frame in frames.into_iter() {
                     // Force frame width to be power of 2.
                     let val = 2;

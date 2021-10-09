@@ -73,7 +73,7 @@ pub struct BgMovieWriter {
 }
 
 impl BgMovieWriter {
-    pub fn new_webm_writer(
+    pub fn new_mkv_writer(
         format_str_mkv: String,
         mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
         queue_size: usize,
