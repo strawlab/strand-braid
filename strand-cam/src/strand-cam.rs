@@ -2814,10 +2814,11 @@ pub async fn setup_app(
     #[cfg(not(feature="image_tracker"))]
     let has_image_tracker_compiled = false;
 
-    let mut mkv_recording_config = MkvRecordingConfig::default();
-
     let is_braid = args.is_braid;
-    mkv_recording_config.writing_application = Some(get_mkv_writing_application(is_braid));
+    let mkv_recording_config = MkvRecordingConfig {
+        writing_application: Some(get_mkv_writing_application(is_braid)),
+        title: Some(cam_name.as_str().to_string()),
+        ..Default::default()};
 
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
