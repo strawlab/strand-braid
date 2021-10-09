@@ -438,7 +438,7 @@ where
 {
     writer: FMFWriter<T>,
     recording_framerate: RecordingFrameRate,
-    last_saved_stamp: Option<std::time::Instant>,
+    last_saved_stamp: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl<T> FmfWriteInfo<T>
@@ -1508,15 +1508,20 @@ fn frame_process_thread(
                 }
 
                 if let Some(ref mut inner) = fmf_writer {
+                    let timestamp = frame.extra().host_timestamp();
+                    // Based on our recording framerate, do we need to save this frame?
                     let do_save = match inner.last_saved_stamp {
                         None => true,
-                        Some(stamp) => stamp.elapsed() >= inner.recording_framerate.interval(),
+                        Some(stamp) => {
+                            let elapsed = timestamp - stamp;
+                            elapsed >= chrono::Duration::from_std(inner.recording_framerate.interval())?
+                        },
                     };
                     if do_save {
                         match_all_dynamic_fmts!(&frame, x, {
-                            inner.writer.write(x, frame.extra().host_timestamp())?
+                            inner.writer.write(x, timestamp)?
                         });
-                        inner.last_saved_stamp = Some(std::time::Instant::now());
+                        inner.last_saved_stamp = Some(timestamp);
                     }
                 }
 
