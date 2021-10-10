@@ -11,6 +11,7 @@ use std::{
 };
 
 use hdrhistogram::serialization::interval_log;
+use ordered_float::NotNan;
 
 use flydra_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams, Triggerbox};
 
@@ -165,11 +166,14 @@ pub struct D2DInfo {
     pub num_rows: u64,
 }
 
+/// Column store for 2D detections.
+///
+/// Note that these are not filled when there is no detection.
 pub struct Seq2d {
     pub frame: Vec<i64>,
-    pub xdata: Vec<f64>,
-    pub ydata: Vec<f64>,
-    pub max_pixel: f64,
+    pub xdata: Vec<NotNan<f64>>,
+    pub ydata: Vec<NotNan<f64>>,
+    pub max_pixel: NotNan<f64>,
     pub timestamp_trigger: Vec<Option<FlydraFloatTimestampLocal<Triggerbox>>>,
     pub timestamp_host: Vec<FlydraFloatTimestampLocal<HostClock>>,
 }
@@ -198,7 +202,7 @@ impl Seq2d {
             frame: vec![],
             xdata: vec![],
             ydata: vec![],
-            max_pixel: 0.0,
+            max_pixel: NotNan::new(0.0).unwrap(),
             timestamp_trigger: vec![],
             timestamp_host: vec![],
         }
@@ -207,19 +211,17 @@ impl Seq2d {
     fn push(
         &mut self,
         f: i64,
-        x: f64,
-        y: f64,
+        x: NotNan<f64>,
+        y: NotNan<f64>,
         timestamp_trigger: Option<FlydraFloatTimestampLocal<Triggerbox>>,
         timestamp_host: FlydraFloatTimestampLocal<HostClock>,
     ) {
-        if !x.is_nan() {
-            self.frame.push(f);
-            self.xdata.push(x);
-            self.ydata.push(y);
-            self.timestamp_trigger.push(timestamp_trigger);
-            self.timestamp_host.push(timestamp_host);
-            self.max_pixel = max(self.max_pixel, max(x, y));
-        }
+        self.frame.push(f);
+        self.xdata.push(x);
+        self.ydata.push(y);
+        self.timestamp_trigger.push(timestamp_trigger);
+        self.timestamp_host.push(timestamp_host);
+        self.max_pixel = NotNan::new(max(*self.max_pixel, max(*x, *y))).unwrap();
     }
 }
 

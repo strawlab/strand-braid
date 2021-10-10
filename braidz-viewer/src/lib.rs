@@ -324,7 +324,7 @@ fn update_2d_canvas(model: &mut Model) {
                             .y_label_area_size(30)
                             .build_cartesian_2d(
                                 frame_lim[0] as i64..frame_lim[1] as i64,
-                                0.0..seq.max_pixel,
+                                0.0..*seq.max_pixel,
                             )
                             .unwrap();
 
@@ -342,16 +342,15 @@ fn update_2d_canvas(model: &mut Model) {
                                 seq.frame
                                     .iter()
                                     .zip(seq.xdata.iter())
-                                    .map(|(frame, x)| Circle::new((*frame, *x), 2, RED.filled())),
+                                    .map(|(frame, x)| Circle::new((*frame, **x), 2, RED.filled())),
                             )
                             .unwrap();
 
                         chart
                             .draw_series(
-                                seq.frame
-                                    .iter()
-                                    .zip(seq.ydata.iter())
-                                    .map(|(frame, y)| Circle::new((*frame, *y), 2, GREEN.filled())),
+                                seq.frame.iter().zip(seq.ydata.iter()).map(|(frame, y)| {
+                                    Circle::new((*frame, **y), 2, GREEN.filled())
+                                }),
                             )
                             .unwrap();
                     }
