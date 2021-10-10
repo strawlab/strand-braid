@@ -95,7 +95,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let tracking_parameters: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::TEXTLOG_CSV_FNAME);
-            let tracking_parameters = match open_maybe_gzipped(&mut fname) {
+            let tracking_parameters = match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
                     let kest_reader = csv::Reader::from_reader(rdr);
@@ -224,7 +224,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let cam_info = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::CAM_INFO_CSV_FNAME);
-            let rdr = open_maybe_gzipped(&mut fname)?;
+            let rdr = open_maybe_gzipped(fname)?;
             let caminfo_rdr = csv::Reader::from_reader(rdr);
             let mut camn2camid = BTreeMap::new();
             let mut camid2camn = BTreeMap::new();
@@ -246,7 +246,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             // Open main 2D data.
             let mut data_fname = self.archive.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
-            let rdr = open_maybe_gzipped(&mut data_fname)?;
+            let rdr = open_maybe_gzipped(data_fname)?;
             let d2d_reader = csv::Reader::from_reader(rdr);
             let mut qz = BTreeMap::new();
 
@@ -288,7 +288,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let kalman_estimates_info = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
-            let kalman_estimates_info = match open_maybe_gzipped(&mut fname) {
+            let kalman_estimates_info = match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let kest_reader = csv::Reader::from_reader(rdr);
                     let mut trajectories = BTreeMap::new();

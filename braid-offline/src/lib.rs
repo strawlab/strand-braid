@@ -293,7 +293,7 @@ where
         Some(fps) => fps,
         None => {
             // TODO: replace with implementation in braidz-parser.
-            let data_file = open_maybe_gzipped(&mut data_fname)?;
+            let data_file = open_maybe_gzipped(data_fname)?;
 
             // TODO: first choice parse "MainBrain running at {}" string (as in
             // braidz-parser). Second choice, do this.
@@ -334,7 +334,7 @@ where
     // read the cam_info CSV file
     let mut cam_info_fname = data_src.path_starter();
     cam_info_fname.push(flydra_types::CAM_INFO_CSV_FNAME);
-    let cam_info_file = open_maybe_gzipped(&mut cam_info_fname)?;
+    let cam_info_file = open_maybe_gzipped(cam_info_fname)?;
     let mut orig_camn_to_cam_name: BTreeMap<flydra_types::CamNum, RosCamName> = BTreeMap::new();
     let rdr = csv::Reader::from_reader(cam_info_file);
     for row in rdr.into_deserialize::<CamInfoRow>() {
@@ -375,7 +375,7 @@ where
             log::trace!("loading data from {}", data_fname.display());
 
             let display_fname = format!("{}", data_fname.display());
-            let data_file = open_maybe_gzipped(&mut data_fname)?;
+            let data_file = open_maybe_gzipped(data_fname)?;
             let rdr = csv::Reader::from_reader(data_file);
             let data_iter = rdr.into_deserialize();
 

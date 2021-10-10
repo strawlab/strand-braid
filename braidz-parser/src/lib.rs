@@ -287,6 +287,22 @@ pub fn braidz_parse<R: Read + Seek>(
     })
 }
 
+impl<R: Read + Seek> BraidzArchive<R> {
+    /// Iterate over the rows of the `data2d_distorted` table.
+    ///
+    /// This takes a mutable reference because the read location in the archive
+    /// is changed during operation.
+    pub fn iter_data2d_distorted(
+        &mut self,
+    ) -> Result<impl Iterator<Item = Result<Data2dDistortedRow, csv::Error>> + '_, Error> {
+        let mut data_fname = self.archive.path_starter();
+        data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        let rdr = open_maybe_gzipped(data_fname)?;
+        let rdr2 = csv::Reader::from_reader(rdr);
+        Ok(rdr2.into_deserialize().early_eof_ok().into_iter())
+    }
+}
+
 fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
     /*
     # Python reader
@@ -399,7 +415,7 @@ fn test_append_to_path() {
 /// Note, use caution if using `csv_fname` after this, as it may be the original
 /// (`.csv`) or new (`.csv.gz`).
 pub fn open_maybe_gzipped<'a, R: Read + Seek>(
-    path_like: &'a mut zip_or_dir::PathLike<R>,
+    mut path_like: zip_or_dir::PathLike<'a, R>,
 ) -> Result<Box<dyn Read + 'a>, Error> {
     let compressed_relname = append_to_path(path_like.path(), ".gz");
 
