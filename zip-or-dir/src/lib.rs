@@ -389,7 +389,7 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
     pub fn exists(&mut self) -> bool {
         self.parent.exists(&self.relname)
     }
-    pub fn open(&mut self) -> Result<BufReader<Box<dyn Read + '_>>> {
+    pub fn open(self) -> Result<BufReader<Box<dyn Read + 'a>>> {
         self.parent.open(&self.relname)
     }
     pub fn is_file(&mut self) -> bool {
