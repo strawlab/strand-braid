@@ -314,7 +314,7 @@ impl<R: Read + Seek> BraidzArchive<R> {
         data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
         let rdr = open_maybe_gzipped(data_fname)?;
         let rdr2 = csv::Reader::from_reader(rdr);
-        Ok(rdr2.into_deserialize().early_eof_ok().into_iter())
+        Ok(rdr2.into_deserialize().early_eof_ok())
     }
 }
 
@@ -419,10 +419,10 @@ fn append_to_path(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 #[test]
 fn test_append_to_path() {
     let foo = std::path::Path::new("foo");
-    assert!(&append_to_path(foo, ".gz") == std::path::Path::new("foo.gz"));
+    assert!(append_to_path(foo, ".gz") == std::path::Path::new("foo.gz"));
 
     let foo_csv = std::path::Path::new("foo.csv");
-    assert!(&append_to_path(foo_csv, ".gz") == std::path::Path::new("foo.csv.gz"));
+    assert!(append_to_path(foo_csv, ".gz") == std::path::Path::new("foo.csv.gz"));
 }
 
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.

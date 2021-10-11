@@ -254,20 +254,17 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 num_rows += 1;
                 let row: Data2dDistortedRow = row?;
                 let entry = qz.entry(row.camn).or_insert_with(Seq2d::new);
-                match NotNan::new(row.x) {
-                    Ok(x) => {
-                        let y = NotNan::new(row.y).unwrap();
-                        entry.push(
-                            row.frame,
-                            x,
-                            y,
-                            row.timestamp,
-                            row.cam_received_timestamp.clone(),
-                        );
-                    }
-                    Err(_) => {
-                        // 2d detection data was NaN, ignore it.
-                    }
+                if let Ok(x) = NotNan::new(row.x) {
+                    // Iff x is NaN, so is y.
+                    let y = NotNan::new(row.y).unwrap();
+                    // If 2d detection data was NaN, ignore it.
+                    entry.push(
+                        row.frame,
+                        x,
+                        y,
+                        row.timestamp,
+                        row.cam_received_timestamp.clone(),
+                    );
                 }
                 let this_frame: u64 = row.frame.try_into().unwrap();
                 let this_time = row.cam_received_timestamp;
