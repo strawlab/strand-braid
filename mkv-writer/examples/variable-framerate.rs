@@ -35,7 +35,7 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
 }
 
 fn stamp_frame<'a>(
-    mut image: &mut simple_frame::SimpleFrame<RGB8>,
+    image: &mut simple_frame::SimpleFrame<RGB8>,
     font: &rusttype::Font<'a>,
     text: &str,
 ) -> Result<(), anyhow::Error> {
@@ -54,7 +54,7 @@ fn stamp_frame<'a>(
 
     // layout the glyphs in a line with 20 pixels padding
     let glyphs: Vec<_> = font
-        .layout(&text, scale, point(x0, y0 + v_metrics.ascent))
+        .layout(text, scale, point(x0, y0 + v_metrics.ascent))
         .collect();
 
     // Find the most visually pleasing width to display
@@ -75,7 +75,7 @@ fn stamp_frame<'a>(
     for x in x_start..x_end {
         for y in y_start..y_end {
             put_pixel(
-                &mut image,
+                image,
                 // Offset the position by the glyph bounding box
                 x as u32,
                 y as u32,
@@ -92,7 +92,7 @@ fn stamp_frame<'a>(
             // Draw the glyph into the image per-pixel by using the draw closure
             glyph.draw(|x, y, v| {
                 put_pixel(
-                    &mut image,
+                    image,
                     // Offset the position by the glyph bounding box
                     x + bounding_box.min.x as u32,
                     y + bounding_box.min.y as u32,
@@ -138,12 +138,11 @@ fn main() -> Result<(), anyhow::Error> {
                 ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
             (
                 codec,
-                Some(nvenc::NvEnc::new(&nvenc_libs.as_ref().unwrap())?),
+                Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
             )
         }
         "vp8" => {
-            let mut opts = ci2_remote_control::VP8Options::default();
-            opts.bitrate = 1000;
+            let opts = ci2_remote_control::VP8Options { bitrate: 1000 };
             let codec = ci2_remote_control::MkvCodec::VP8(opts);
             (codec, None)
         }
