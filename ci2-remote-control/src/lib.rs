@@ -149,6 +149,9 @@ pub struct MkvRecordingConfig {
     pub writing_application: Option<String>,
     pub save_creation_time: bool,
     pub title: Option<String>,
+    /// Automatically trim image width and height by removing right pixels if
+    /// needed by encoder.
+    pub do_trim_size: bool,
 }
 
 impl Default for MkvRecordingConfig {
@@ -159,6 +162,7 @@ impl Default for MkvRecordingConfig {
             writing_application: None,
             save_creation_time: true,
             title: None,
+            do_trim_size: true,
         }
     }
 }

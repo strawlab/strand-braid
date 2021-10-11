@@ -11,7 +11,9 @@ use convert_image::encode_into_nv12;
 #[cfg(feature = "vpx")]
 use convert_image::{encode_y4m_frame, Y4MColorspace};
 
-use machine_vision_formats::{ImageBufferMutRef, ImageStride, PixelFormat};
+use machine_vision_formats::{
+    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
+};
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
@@ -79,6 +81,43 @@ enum MyEncoder<'lib> {
     Nvidia(NvEncoder<'lib>),
 }
 
+/// A view of image to have new width
+pub struct TrimmedImage<'a, FMT> {
+    pub orig: &'a dyn ImageStride<FMT>,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl<'a, FMT> ImageData<FMT> for TrimmedImage<'a, FMT> {
+    fn width(&self) -> u32 {
+        self.width
+    }
+    fn height(&self) -> u32 {
+        self.height
+    }
+    fn buffer_ref(&self) -> ImageBufferRef<'_, FMT> {
+        self.orig.buffer_ref()
+    }
+    fn buffer(self) -> ImageBuffer<FMT> {
+        // copy the buffer
+        self.orig.buffer_ref().to_buffer()
+    }
+}
+
+impl<'a, FMT> Stride for TrimmedImage<'a, FMT> {
+    fn stride(&self) -> usize {
+        self.orig.stride()
+    }
+}
+
+pub fn trim_image<FMT>(orig: &dyn ImageStride<FMT>, width: u32, height: u32) -> TrimmedImage<FMT> {
+    TrimmedImage {
+        orig,
+        width,
+        height,
+    }
+}
+
 pub struct MkvWriter<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
@@ -122,6 +161,49 @@ where
         match inner {
             Some(WriteState::Configured((fd, cfg))) => {
                 use webm::mux;
+
+                let frame = match cfg.codec {
+                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                        // The VPX encoder will error if the width is not divisible by 2.
+                        let orig_width = frame.width();
+                        let orig_height = frame.height();
+
+                        let trim_width = if cfg.do_trim_size {
+                            // Trim to a width which encoder can handle.
+                            if orig_width % 2 != 0 {
+                                // Trimming required.
+                                orig_width - 1
+                            } else {
+                                // Trimming not required.
+                                orig_width
+                            }
+                        } else {
+                            // Use original width
+                            orig_width
+                        };
+
+                        let trim_height = if cfg.do_trim_size {
+                            // Trim to a height which encoder can handle.
+                            if orig_height % 2 != 0 {
+                                // Trimming required.
+                                orig_height - 1
+                            } else {
+                                // Trimming not required.
+                                orig_height
+                            }
+                        } else {
+                            // Use original height
+                            orig_height
+                        };
+
+                        trim_image(frame, trim_width, trim_height)
+                    }
+                    _ => {
+                        // This path doesn't actually trim the image but still
+                        // wraps the image in a TrimmedImage wrapper.
+                        trim_image(frame, frame.width(), frame.height())
+                    }
+                };
 
                 let width = frame.width();
                 let height = frame.height();
@@ -311,19 +393,23 @@ where
                     previous_timestamp: timestamp,
                     target_interval: chrono::Duration::from_std(cfg.max_framerate.interval())
                         .unwrap(),
+                    trim_width: width,
+                    trim_height: height,
                 };
 
-                write_frame(&mut state, frame, timestamp)?;
+                write_frame(&mut state, &frame, timestamp)?;
 
                 self.inner = Some(WriteState::Recording(state));
 
                 Ok(())
             }
             Some(WriteState::Recording(mut state)) => {
+                let frame = trim_image(frame, state.trim_width, state.trim_height);
+
                 let interval = timestamp.signed_duration_since(state.previous_timestamp);
                 if interval >= state.target_interval {
                     debug!("Saving frame at {}: interval {}", timestamp, interval);
-                    write_frame(&mut state, frame, timestamp)?;
+                    write_frame(&mut state, &frame, timestamp)?;
                     state.previous_timestamp = timestamp;
                 } else {
                     debug!(
@@ -519,6 +605,8 @@ where
     first_timestamp: chrono::DateTime<chrono::Utc>,
     previous_timestamp: chrono::DateTime<chrono::Utc>,
     target_interval: chrono::Duration,
+    trim_width: u32,
+    trim_height: u32,
 }
 
 struct NvEncoder<'lib> {

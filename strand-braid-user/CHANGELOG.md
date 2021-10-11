@@ -9,6 +9,9 @@
 
 * MKV videos now save the camera name as metadata in the segment title field.
 
+* When saving MKV videos, automatically trim pixels to fit divisible-by-two
+  requirements for VPX video encoders.
+
 * Backport to Pylon 5 for Basler cameras. This is not enabled by default but can
   be useful to debug issues dependent on driver version.
 
