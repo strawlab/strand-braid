@@ -166,15 +166,28 @@ pub struct D2DInfo {
     pub num_rows: u64,
 }
 
-/// Column store for 2D detections.
+/// Column store for 2D detections for a single camera.
 ///
 /// Note that these are not filled when there is no detection.
 pub struct Seq2d {
+    /// The frame number in the synchronized, global frame count.
     pub frame: Vec<i64>,
+    /// The x coordinate of the detections.
     pub xdata: Vec<NotNan<f64>>,
+    /// The y coordinate of the detections.
     pub ydata: Vec<NotNan<f64>>,
+    /// The maximum value of all x and y coordinates.
     pub max_pixel: NotNan<f64>,
+    /// The time at which the hardware trigger was computed to have fired to
+    /// initiate image acquisition at this frame.
+    ///
+    /// This is computed based on a model of the clock running on the triggerbox
+    /// and keeping this model updated via continual sampling of both the
+    /// triggerbox clock and the system clock of the computer hosting the
+    /// triggerbox.
     pub timestamp_trigger: Vec<Option<FlydraFloatTimestampLocal<Triggerbox>>>,
+    /// The time at which the image was available to the system clock of the
+    /// host computer of the camera.
     pub timestamp_host: Vec<FlydraFloatTimestampLocal<HostClock>>,
 }
 
