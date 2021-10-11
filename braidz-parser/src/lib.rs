@@ -170,7 +170,8 @@ pub struct Seq2d {
     pub xdata: Vec<f64>,
     pub ydata: Vec<f64>,
     pub max_pixel: f64,
-    pub timestamp: Vec<Option<FlydraFloatTimestampLocal<Triggerbox>>>,
+    pub timestamp_trigger: Vec<Option<FlydraFloatTimestampLocal<Triggerbox>>>,
+    pub timestamp_host: Vec<FlydraFloatTimestampLocal<HostClock>>,
 }
 
 // TODO: rename KalmanEstimates? or ..Data?
@@ -198,7 +199,8 @@ impl Seq2d {
             xdata: vec![],
             ydata: vec![],
             max_pixel: 0.0,
-            timestamp: vec![],
+            timestamp_trigger: vec![],
+            timestamp_host: vec![],
         }
     }
 
@@ -207,13 +209,15 @@ impl Seq2d {
         f: i64,
         x: f64,
         y: f64,
-        timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
+        timestamp_trigger: Option<FlydraFloatTimestampLocal<Triggerbox>>,
+        timestamp_host: FlydraFloatTimestampLocal<HostClock>,
     ) {
         if !x.is_nan() {
             self.frame.push(f);
             self.xdata.push(x);
             self.ydata.push(y);
-            self.timestamp.push(timestamp);
+            self.timestamp_trigger.push(timestamp_trigger);
+            self.timestamp_host.push(timestamp_host);
             self.max_pixel = max(self.max_pixel, max(x, y));
         }
     }

@@ -254,7 +254,13 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 num_rows += 1;
                 let row: Data2dDistortedRow = row?;
                 let entry = qz.entry(row.camn).or_insert_with(Seq2d::new);
-                entry.push(row.frame, row.x, row.y, row.timestamp);
+                entry.push(
+                    row.frame,
+                    row.x,
+                    row.y,
+                    row.timestamp,
+                    row.cam_received_timestamp.clone(),
+                );
                 let this_frame: u64 = row.frame.try_into().unwrap();
                 let this_time = row.cam_received_timestamp;
                 if let Some((ref mut f_lim, ref mut time_lim)) = limits {
