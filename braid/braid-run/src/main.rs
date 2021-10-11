@@ -54,9 +54,9 @@ fn launch_strand_cam(
         secret: None,
         http_server_addr: "127.0.0.1:0".to_string(),
         no_browser: true,
-        mkv_filename_template: "movie%Y%m%d_%H%M%S.mkv".to_string(),
-        fmf_filename_template: "movie%Y%m%d_%H%M%S.fmf".to_string(),
-        ufmf_filename_template: "movie%Y%m%d_%H%M%S.ufmf".to_string(),
+        mkv_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.mkv".to_string(),
+        fmf_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.fmf".to_string(),
+        ufmf_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.ufmf".to_string(),
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
             .to_string(),

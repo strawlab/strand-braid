@@ -2825,15 +2825,19 @@ pub async fn setup_app(
         title: Some(cam_name.as_str().to_string()),
         ..Default::default()};
 
+    let mkv_filename_template = args.mkv_filename_template.replace("{CAMNAME}", cam_name.as_str());
+    let fmf_filename_template = args.fmf_filename_template.replace("{CAMNAME}", cam_name.as_str());
+    let ufmf_filename_template = args.ufmf_filename_template.replace("{CAMNAME}", cam_name.as_str());
+
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
         is_recording_mkv: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,
         format_str_apriltag_csv,
-        format_str_mkv: args.mkv_filename_template,
-        format_str: args.fmf_filename_template,
-        format_str_ufmf: args.ufmf_filename_template,
+        format_str_mkv: mkv_filename_template,
+        format_str: fmf_filename_template,
+        format_str_ufmf: ufmf_filename_template,
         camera_name: cam.name().into(),
         recording_filename: None,
         recording_framerate: RecordingFrameRate::default(),

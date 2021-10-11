@@ -9,6 +9,9 @@
 
 * MKV videos now save the camera name as metadata in the segment title field.
 
+* MKV, FMF, and uFMF videos have the camera name in the filename when saved with
+  Braid.
+
 * When saving MKV videos, automatically trim pixels to fit divisible-by-two
   requirements for VPX video encoders.
 
