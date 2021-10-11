@@ -320,7 +320,7 @@ where
             frame.width() as usize,
             frame.height() as usize,
             wang_debayer::RasterDepth::Depth8,
-            &mut dest.data,
+            dest.data,
         );
 
         wang_debayer::run_demosaic(
