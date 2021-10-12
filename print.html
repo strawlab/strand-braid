@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">3.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">4.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">5.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">2.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">3.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">4.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">5.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">6.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">7.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -563,6 +563,43 @@ example, to analyze images from within a Python script with minimal latency. See
 the
 <a href="https://github.com/strawlab/strand-braid/tree/main/py-strandcam">py-strandcam</a>
 directory.</p>
+<h1><a class="header" href="#processing-recorded-videos-using-braid" id="processing-recorded-videos-using-braid">Processing recorded videos using Braid</a></h1>
+<h2><a class="header" href="#overview" id="overview">Overview</a></h2>
+<p>The <code>braid-process-video</code> program will takes video files and process them to
+produce various outputs.</p>
+<p><img src="braid-process-video.png" alt="braid-process-video.png" /></p>
+<p>As shown in the figure, this program takes <code>.mkv</code> video files saved by Braid and
+a configuration file and then creates an output <code>.mkv</code> which stitches the input
+<code>.mkv</code> files together. Optionally, it can also plot 2D detections from a
+<code>.braidz</code> file on top of the raw video.</p>
+<h2><a class="header" href="#note" id="note">Note</a></h2>
+<ul>
+<li>The <code>.mkv</code> video inputs must be saved by Braid to ensure that the timestamps
+for each frame in the file are correctly stored.</li>
+</ul>
+<h2><a class="header" href="#example-usage" id="example-usage">Example usage</a></h2>
+<p>Here is an example configuration file <code>braid-bundle-videos.toml</code>:</p>
+<pre><code># The .braidz file with 2D detection data (optional).
+input_braidz = &quot;20211011_163203.braidz&quot;
+
+# This stanza specified that an output video will be made.
+[[output]]
+type = 'video'
+filename = 'composite.mkv'
+
+# The following sections specify video sources to use as input.
+[[input_video]]
+filename = 'movie20211011_163224.mkv'
+
+[[input_video]]
+filename = 'movie20211011_163228.mkv'
+</code></pre>
+<p>With such a configuration file, run the program like so:</p>
+<pre><code>braid-process-video --config braid-bundle-videos.toml
+</code></pre>
+<h2><a class="header" href="#todo" id="todo">TODO</a></h2>
+<p>There are many more options which can be configured in the <code>.toml</code> configuration
+file and they should be documented.</p>
 <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <h2><a class="header" href="#synchronization-problems" id="synchronization-problems">synchronization problems</a></h2>
 <h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">any other problem or question</a></h2>
