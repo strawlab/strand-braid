@@ -153,7 +153,14 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     let mut camera_names: Vec<Option<String>> = cfg
         .input_video
         .iter()
-        .map(|s| s.camera_name.clone())
+        .map(|s| {
+            s.camera_name.as_ref().map(|s| {
+                flydra_types::RawCamName::new(s.clone())
+                    .to_ros()
+                    .as_str()
+                    .to_string()
+            })
+        })
         .collect();
 
     // Open a frame reader for each source.
