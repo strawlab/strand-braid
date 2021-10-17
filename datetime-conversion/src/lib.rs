@@ -17,3 +17,28 @@ pub fn f64_to_datetime(timestamp_f64: f64) -> DateTime<Local> {
     let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
     Local.timestamp(secs, nsecs)
 }
+
+#[test]
+fn test_roundtrip() {
+    for orig in &[0.0, 123.456, 456.789, 1634378218.4130154] {
+        let rt = datetime_to_f64(&f64_to_datetime(*orig));
+        dbg!(orig);
+        dbg!(rt);
+        assert!((orig - rt).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn test_precision() {
+    use chrono::TimeZone;
+
+    let t1_orig = 123.123456789;
+    let t2_orig = datetime_to_f64(&chrono::Utc.ymd(2100, 1, 1).and_hms(0, 1, 1));
+
+    // Ensure microsecond precision is kept in floating point representations.
+    let t1_bad = t1_orig + 1e-6;
+    assert!(t1_orig != t1_bad);
+
+    let t2_bad = t2_orig + 1e-6;
+    assert!(t2_orig != t2_bad);
+}
