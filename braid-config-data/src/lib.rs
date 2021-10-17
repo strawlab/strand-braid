@@ -215,11 +215,18 @@ pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidCon
     file.read_to_string(&mut contents)?;
     let mut cfg: BraidConfig2 = match toml::from_str(&contents) {
         Ok(cfg) => cfg,
-        Err(err1) => {
+        Err(err_cfg2) => {
             let cfg1: BraidConfig1 = match toml::from_str(&contents) {
                 Ok(cfg1) => cfg1,
-                Err(_err2) => {
-                    return Err(err1.into());
+                Err(err_cfg1) => {
+                    log::error!(
+                        "parsing config file first as BraidConfig2 failed \
+                    and then again as BraidConfig1 failed. The parse error for \
+                    BraidConfig1 is: {}\n The original error when parsing \
+                    BraidConfig2 will now be raised.",
+                        err_cfg1
+                    );
+                    return Err(err_cfg2.into());
                 }
             };
             BraidConfig2::from(cfg1)
