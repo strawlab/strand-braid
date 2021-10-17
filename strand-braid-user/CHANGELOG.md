@@ -22,6 +22,10 @@
 
 * April Tag detection works in Windows.
 
+### Fixed
+
+* Fixed segmentation fault that sometimes happened on program exit.
+
 ## 0.10.1 - 2021-07-26
 
 ### Added

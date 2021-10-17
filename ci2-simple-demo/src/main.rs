@@ -16,14 +16,15 @@ use timestamped_frame::ExtraTimeData;
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let mut mymod = backend::new_module()?;
-    let infos = mymod.camera_infos()?;
+    let mymod = backend::new_module()?;
+    let mut mymodref = &mymod;
+    let infos = mymodref.camera_infos()?;
     if infos.len() == 0 {
         anyhow::bail!("no cameras detected");
     }
     for info in infos.iter() {
         println!("opening camera {}", info.name());
-        let mut cam = mymod.camera(info.name())?;
+        let mut cam = mymodref.camera(info.name())?;
         println!("got camera");
         cam.acquisition_start()?;
         for _ in 0..10 {

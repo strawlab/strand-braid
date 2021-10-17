@@ -40,7 +40,7 @@ enum Command {
     List,
 }
 
-fn list(mymod: backend::WrappedModule) -> ci2::Result<()> {
+fn list(mymod: &backend::WrappedModule) -> ci2::Result<()> {
     let infos = mymod.camera_infos()?;
     for info in infos.iter() {
         println!("{}", info.name());
@@ -48,7 +48,7 @@ fn list(mymod: backend::WrappedModule) -> ci2::Result<()> {
     Ok(())
 }
 
-fn record(mut mymod: backend::WrappedModule, recargs: Record) -> ci2::Result<()> {
+fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()> {
     let name = if let Some(camera_name) = recargs.camera_name {
         camera_name
     } else {
@@ -102,8 +102,8 @@ fn main() -> anyhow::Result<()> {
     let mymod = backend::new_module()?;
 
     match opt {
-        Command::Record(recargs) => record(mymod, recargs)?,
-        Command::List => list(mymod)?,
+        Command::Record(recargs) => record(&mymod, recargs)?,
+        Command::List => list(&mymod)?,
     };
 
     Ok(())

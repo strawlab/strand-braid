@@ -11,6 +11,10 @@ use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
 
+lazy_static::lazy_static! {
+    static ref CAMLIB: ci2_pyloncxx::WrappedModule = backend::new_module().unwrap();
+}
+
 #[cfg(feature = "backend_pyloncxx")]
 pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
     // Downcast to pylon specific type.
@@ -61,8 +65,7 @@ where
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let sync_mod = backend::new_module()?;
-    let mut async_mod = ci2_async::into_threaded_async(sync_mod);
+    let mut async_mod = ci2_async::into_threaded_async(&*CAMLIB);
     let infos = async_mod.camera_infos()?;
 
     if infos.len() == 0 {

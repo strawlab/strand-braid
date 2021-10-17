@@ -133,6 +133,10 @@ mod post_trigger_buffer;
 #[cfg(feature = "with_camtrig")]
 const CAMTRIG_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
+lazy_static::lazy_static! {
+    static ref CAMLIB: ci2_pyloncxx::WrappedModule = backend::new_module().unwrap();
+}
+
 pub type Result<M> = std::result::Result<M, StrandCamError>;
 
 #[derive(Debug, thiserror::Error)]
@@ -2506,8 +2510,7 @@ pub async fn setup_app(
 
     // -----------------------------------------------
 
-    let sync_mod = backend::new_module()?;
-    let mut mymod = ci2_async::into_threaded_async(sync_mod);
+    let mut mymod = ci2_async::into_threaded_async(&*CAMLIB);
 
     info!("camera module: {}", mymod.name());
 

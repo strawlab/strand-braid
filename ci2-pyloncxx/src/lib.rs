@@ -60,8 +60,7 @@ impl From<Error> for ci2::Error {
 }
 
 pub struct WrappedModule {
-    #[allow(dead_code)]
-    pylon_auto_init: pylon_cxx::PylonAutoInit,
+    pylon_auto_init: pylon_cxx::Pylon,
 }
 
 fn to_name(info: &pylon_cxx::DeviceInfo) -> String {
@@ -74,18 +73,18 @@ fn to_name(info: &pylon_cxx::DeviceInfo) -> String {
 
 pub fn new_module() -> ci2::Result<WrappedModule> {
     Ok(WrappedModule {
-        pylon_auto_init: pylon_cxx::PylonAutoInit::new(),
+        pylon_auto_init: pylon_cxx::Pylon::new(),
     })
 }
 
-impl ci2::CameraModule for WrappedModule {
-    type CameraType = WrappedCamera;
+impl<'a> ci2::CameraModule for &'a WrappedModule {
+    type CameraType = WrappedCamera<'a>;
 
-    fn name(&self) -> &str {
+    fn name(self: &&'a WrappedModule) -> &'static str {
         "pyloncxx"
     }
-    fn camera_infos(&self) -> ci2::Result<Vec<Box<dyn ci2::CameraInfo>>> {
-        let pylon_infos = pylon_cxx::TlFactory::instance()
+    fn camera_infos(self: &&'a WrappedModule) -> ci2::Result<Vec<Box<dyn ci2::CameraInfo>>> {
+        let pylon_infos = pylon_cxx::TlFactory::instance(&self.pylon_auto_init)
             .enumerate_devices()
             .map_pylon_err()
             .context("enumerate_devices")?;
@@ -108,8 +107,8 @@ impl ci2::CameraModule for WrappedModule {
             .collect();
         Ok(infos)
     }
-    fn camera(&mut self, name: &str) -> ci2::Result<Self::CameraType> {
-        WrappedCamera::new(name)
+    fn camera(self: &mut &'a WrappedModule, name: &str) -> ci2::Result<Self::CameraType> {
+        WrappedCamera::new(&self.pylon_auto_init, name)
     }
 }
 
@@ -221,10 +220,8 @@ enum FramecoutingMethod {
 }
 
 #[derive(Clone)]
-pub struct WrappedCamera {
-    #[allow(dead_code)]
-    pylon_auto_init: Arc<Mutex<pylon_cxx::PylonAutoInit>>,
-    inner: Arc<Mutex<pylon_cxx::InstantCamera>>,
+pub struct WrappedCamera<'a> {
+    inner: Arc<Mutex<pylon_cxx::InstantCamera<'a>>>,
     framecounting_method: FramecoutingMethod,
     name: String,
     serial: String,
@@ -240,9 +237,9 @@ fn _test_camera_is_send() {
     implements::<WrappedCamera>();
 }
 
-impl WrappedCamera {
-    fn new(name: &str) -> ci2::Result<Self> {
-        let tl_factory = pylon_cxx::TlFactory::instance();
+impl<'a> WrappedCamera<'a> {
+    fn new(lib: &'a pylon_cxx::Pylon, name: &str) -> ci2::Result<Self> {
+        let tl_factory = pylon_cxx::TlFactory::instance(lib);
         let devices = tl_factory
             .enumerate_devices()
             .context("enumerate_devices")?;
@@ -290,7 +287,7 @@ impl WrappedCamera {
                 let grab_result =
                     Arc::new(Mutex::new(pylon_cxx::GrabResult::new().map_pylon_err()?));
                 return Ok(Self {
-                    pylon_auto_init: Arc::new(Mutex::new(pylon_cxx::PylonAutoInit::new())),
+                    // pylon_auto_init: Arc::new(Mutex::new(pylon_cxx::Pylon::new())),
                     inner: Arc::new(Mutex::new(cam)),
                     name: name.to_string(),
                     framecounting_method,
@@ -327,7 +324,7 @@ impl WrappedCamera {
     }
 }
 
-impl ci2::CameraInfo for WrappedCamera {
+impl<'a> ci2::CameraInfo for WrappedCamera<'a> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -342,7 +339,7 @@ impl ci2::CameraInfo for WrappedCamera {
     }
 }
 
-impl ci2::Camera for WrappedCamera {
+impl<'a> ci2::Camera for WrappedCamera<'a> {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
