@@ -758,11 +758,13 @@ bitflags! {
     }
 }
 
+/// TriggerboxV1 configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TriggerboxConfig {
     pub device_fname: String,
     pub framerate: f32,
+    #[serde(default = "default_query_dt")]
     pub query_dt: std::time::Duration,
 }
 
@@ -771,9 +773,13 @@ impl std::default::Default for TriggerboxConfig {
         Self {
             device_fname: "/dev/trig1".to_string(),
             framerate: 100.0,
-            query_dt: std::time::Duration::from_millis(1500),
+            query_dt: default_query_dt(),
         }
     }
+}
+
+const fn default_query_dt() -> std::time::Duration {
+    std::time::Duration::from_millis(1500)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
