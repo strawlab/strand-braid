@@ -424,8 +424,18 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                                 let y = best_row.y;
 
                                 if !x.is_nan() {
-                                    for xo in -feature_size_pixels..feature_size_pixels {
-                                        for yo in -feature_size_pixels..feature_size_pixels {
+                                    for xo in &[-feature_size_pixels,feature_size_pixels] {
+                                        for yo in -feature_size_pixels..=feature_size_pixels {
+                                            put_pixel(
+                                                &mut composited,
+                                                (cur_x + x as i32 + xo) as u32,
+                                                (cur_y + y as i32 + yo) as u32,
+                                                &green,
+                                            );
+                                        }
+                                    }
+                                    for xo in -feature_size_pixels..=feature_size_pixels {
+                                        for yo in &[-feature_size_pixels,feature_size_pixels] {
                                             put_pixel(
                                                 &mut composited,
                                                 (cur_x + x as i32 + xo) as u32,
