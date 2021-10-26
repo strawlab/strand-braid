@@ -12,7 +12,7 @@ use ci2_flycap2 as backend;
 use ci2_pyloncxx as backend;
 
 lazy_static::lazy_static! {
-    static ref CAMLIB: ci2_pyloncxx::WrappedModule = backend::new_module().unwrap();
+    static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
 }
 
 #[cfg(feature = "backend_pyloncxx")]

@@ -134,7 +134,7 @@ mod post_trigger_buffer;
 const CAMTRIG_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
 lazy_static::lazy_static! {
-    static ref CAMLIB: ci2_pyloncxx::WrappedModule = backend::new_module().unwrap();
+    static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
 }
 
 pub type Result<M> = std::result::Result<M, StrandCamError>;
