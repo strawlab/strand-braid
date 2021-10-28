@@ -1,7 +1,8 @@
 use crate::ffi::*;
 use crate::load::SharedLibrary;
 use crate::{NvInt, NvencError};
-use std::{mem::MaybeUninit, rc::Rc};
+use std::ptr::addr_of_mut;
+use std::{mem::MaybeUninit, pin::Pin, rc::Rc};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -549,55 +550,64 @@ impl BufferFormat {
 /// Parameters used to initialize the encoder
 pub struct InitParams {
     init_params: NV_ENC_INITIALIZE_PARAMS,
+    encode_config: EncodeConfig,
 }
 
-pub struct InitParamsBuilder(InitParams);
+pub struct InitParamsBuilder {
+    init_params: std::mem::MaybeUninit<NV_ENC_INITIALIZE_PARAMS>,
+    encode_config: Option<EncodeConfig>,
+}
 
 impl InitParamsBuilder {
     pub fn new(encode: GUID, width: u32, height: u32) -> Self {
-        let mut init = InitParams {
-            init_params: unsafe { std::mem::zeroed() },
-        };
-        init.init_params.version = NV_ENC_INITIALIZE_PARAMS_VER;
-        init.init_params.encodeGUID = encode;
-        init.init_params.encodeWidth = width;
-        init.init_params.encodeHeight = height;
-        init.init_params.darWidth = width;
-        init.init_params.darHeight = height;
-        init.init_params.enablePTD = 1;
-        Self(init)
+        let mut uninit = std::mem::MaybeUninit::<NV_ENC_INITIALIZE_PARAMS>::zeroed();
+
+        let ptr = uninit.as_mut_ptr();
+
+        unsafe {
+            addr_of_mut!((*ptr).version).write(NV_ENC_INITIALIZE_PARAMS_VER);
+            addr_of_mut!((*ptr).encodeGUID).write(encode);
+            addr_of_mut!((*ptr).encodeWidth).write(width);
+            addr_of_mut!((*ptr).encodeHeight).write(height);
+            addr_of_mut!((*ptr).darWidth).write(width);
+            addr_of_mut!((*ptr).darHeight).write(height);
+            addr_of_mut!((*ptr).enablePTD).write(1);
+        }
+        Self {
+            init_params: uninit,
+            encode_config: None,
+        }
     }
 
     // display aspect ratio width
     pub fn dar_width(mut self, width: u32) -> Self {
-        self.0.init_params.darWidth = width;
+        let ptr = self.init_params.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*ptr).darWidth).write(width);
+        }
         self
     }
 
     // display aspect ratio height
     pub fn dar_height(mut self, height: u32) -> Self {
-        self.0.init_params.darHeight = height;
+        let ptr = self.init_params.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*ptr).darHeight).write(height);
+        }
         self
     }
-
-    // pub fn max_width(mut self, width: u32) -> Self {
-    //     self.0.init_params.maxEncodeWidth = width;
-    //     self
-    // }
-
-    // pub fn max_height(mut self, height: u32) -> Self {
-    //     self.0.init_params.maxEncodeHeight = height;
-    //     self
-    // }
 
     pub fn preset_guid(mut self, preset: GUID) -> Self {
-        self.0.init_params.presetGUID = preset;
+        let ptr = self.init_params.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*ptr).presetGUID).write(preset);
+        }
         self
     }
 
-    pub fn set_encode_config(mut self, mut config: EncodeConfig) -> Self {
-        let config = &mut config.config;
-        self.0.init_params.encodeConfig = config;
+    pub fn set_encode_config(mut self, config: EncodeConfig) -> Self {
+        self.encode_config = Some(config);
+        // We will set the `(*ptr).encodeConfig` when `Self::build` is called.
         self
     }
 
@@ -606,18 +616,37 @@ impl InitParamsBuilder {
     /// Note: "The frame rate has no meaning in NVENC other than deciding rate
     /// control parameters." https://devtalk.nvidia.com/default/topic/1023473
     pub fn set_framerate(mut self, num: u32, den: u32) -> Self {
-        self.0.init_params.frameRateNum = num;
-        self.0.init_params.frameRateDen = den;
+        let ptr = self.init_params.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*ptr).frameRateNum).write(num);
+            addr_of_mut!((*ptr).frameRateDen).write(den);
+        }
         self
     }
 
-    // pub fn ptd(mut self, enable: bool) -> Self {
-    //     self.0.init_params.enablePTD = enable as u32;
-    //     self
-    // }
+    pub fn build(self) -> Result<Pin<Box<InitParams>>, NvencError> {
+        let encode_config = match self.encode_config {
+            Some(c) => c,
+            None => {
+                return Err(NvencError::EncodeConfigRequired {
+                    #[cfg(feature = "backtrace")]
+                    backtrace: Backtrace::capture(),
+                });
+            }
+        };
+        let params = InitParams {
+            init_params: unsafe { self.init_params.assume_init() },
+            encode_config,
+        };
+        let mut boxed = Box::pin(params);
 
-    pub fn build(self) -> InitParams {
-        self.0
+        let ptr: *mut NV_ENC_CONFIG = &mut boxed.encode_config.config;
+        // we know this is safe because modifying a field doesn't move the whole struct
+        unsafe {
+            let mut_ref: Pin<&mut InitParams> = Pin::as_mut(&mut boxed);
+            Pin::get_unchecked_mut(mut_ref).init_params.encodeConfig = ptr;
+        }
+        Ok(boxed)
     }
 }
 

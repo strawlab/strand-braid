@@ -38,6 +38,11 @@ pub enum NvencError {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("Encode configuration required")]
+    EncodeConfigRequired {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 pub fn code_to_string(code: crate::ffi::_NVENCSTATUS::Type) -> &'static str {

@@ -288,7 +288,7 @@ where
                                 encoder_config.set_max_bit_rate(opts.bitrate * 1000);
 
                                 let params =
-                                    param_builder.set_encode_config(encoder_config).build();
+                                    param_builder.set_encode_config(encoder_config).build()?;
 
                                 encoder.initialize(&params)?;
 
