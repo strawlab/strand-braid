@@ -453,11 +453,11 @@ pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Resul
 /// should also be readable by
 /// [ZipDirArchive::from_zip()](struct.ZipDirArchive.html#method.from_zip).
 pub fn copy_archive_to_zipfile<R: Read + Seek>(
-    mut src: &mut ZipDirArchive<R>,
+    src: &mut ZipDirArchive<R>,
     dest: &mut std::fs::File,
 ) -> Result<()> {
     let mut zip_writer = zip::ZipWriter::new(dest);
-    copy_dir(&mut src, None, &mut zip_writer, 0)?;
+    copy_dir(src, None, &mut zip_writer, 0)?;
     zip_writer.finish()?;
     Ok(())
 }
