@@ -297,9 +297,7 @@ impl<'lib> Drop for Encoder<'lib> {
                 panic!("No function 'nvEncDestroyEncoder'");
             };
             let status = unsafe { func(self.inner.0) };
-            if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-                panic!("NV_ENC error code: {}", status);
-            }
+            assert!(!(status != _NVENCSTATUS::NV_ENC_SUCCESS), "NV_ENC error code: {}", status);
             self.destroyed = true;
         }
     }
@@ -361,9 +359,7 @@ impl<'lock, 'lib> Drop for LockedInputBuffer<'lock, 'lib> {
 
             let status = unsafe { func(self.inner.encoder.inner.0, self.inner.ptr) };
 
-            if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-                panic!("NV_ENC error code: {}", status);
-            }
+            assert!(!(status != _NVENCSTATUS::NV_ENC_SUCCESS), "NV_ENC error code: {}", status);
 
             // As far as I understand it, slices (e.g. `self.mem` do not
             // implement Drop, so we do not need to call `std::mem::forget`
@@ -397,9 +393,7 @@ impl<'lib> Drop for InputBuffer<'lib> {
             };
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };
-            if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-                panic!("NV_ENC error code: {}", status);
-            }
+            assert!(!(status != _NVENCSTATUS::NV_ENC_SUCCESS), "NV_ENC error code: {}", status);
 
             self.destroyed = true;
         }
@@ -434,9 +428,7 @@ impl<'lib> Drop for OutputBuffer<'lib> {
             };
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };
-            if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-                panic!("NV_ENC error code: {}", status);
-            }
+            assert!(!(status != _NVENCSTATUS::NV_ENC_SUCCESS), "NV_ENC error code: {}", status);
 
             self.destroyed = true;
         }
@@ -467,9 +459,7 @@ impl<'lock, 'lib> Drop for LockedOutputBuffer<'lock, 'lib> {
 
             let status = unsafe { func(self.inner.encoder.inner.0, self.inner.ptr) };
 
-            if status != _NVENCSTATUS::NV_ENC_SUCCESS {
-                panic!("NV_ENC error code: {}", status);
-            }
+            assert!(!(status != _NVENCSTATUS::NV_ENC_SUCCESS), "NV_ENC error code: {}", status);
 
             // As far as I understand it, slices (e.g. `self.mem` do not
             // implement Drop, so we do not need to call `std::mem::forget`
