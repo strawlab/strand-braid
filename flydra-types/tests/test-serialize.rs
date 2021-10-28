@@ -1,9 +1,7 @@
-extern crate flydra_types;
-extern crate serde_cbor;
-
-use flydra_types::{FlydraRawUdpPacket, FlydraRawUdpPoint, ImageProcessingSteps};
-
-use flydra_types::{FlydraFloatTimestampLocal, HostClock, Triggerbox};
+use flydra_types::{
+    FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock,
+    ImageProcessingSteps, TriggerClockInfoRow, Triggerbox,
+};
 
 fn make_test_packet() -> FlydraRawUdpPacket {
     let cam_name = "cam_id".to_string();
@@ -62,4 +60,37 @@ fn test_cbor_packet() {
     // decode it.
     let packet_new: FlydraRawUdpPacket = serde_cbor::from_slice(&encoded).unwrap();
     assert_eq!(packet_new, packet_orig);
+}
+
+#[test]
+fn test_serialize_timestamps_to_csv() -> anyhow::Result<()> {
+    use chrono::TimeZone;
+
+    let t1_orig = 123.123456789;
+    let t2_orig =
+        FlydraFloatTimestampLocal::<HostClock>::from(chrono::Utc.ymd(2100, 1, 1).and_hms(0, 1, 1))
+            .as_f64();
+    let row_orig = TriggerClockInfoRow {
+        start_timestamp: datetime_conversion::f64_to_datetime(t1_orig).into(),
+        framecount: 123,
+        tcnt: 45,
+        stop_timestamp: datetime_conversion::f64_to_datetime(t2_orig).into(),
+    };
+
+    let mut wtr = csv::Writer::from_writer(vec![]);
+    wtr.serialize(&row_orig)?;
+    let buf = wtr.into_inner()?;
+
+    let mut rdr = csv::Reader::from_reader(buf.as_slice());
+    let mut iter = rdr.deserialize();
+
+    let row_found: TriggerClockInfoRow = iter.next().unwrap()?;
+    assert_eq!(row_orig, row_found);
+
+    let t1_found = row_found.start_timestamp.as_f64();
+    assert_eq!(t1_orig, t1_found);
+    let t2_found = row_found.stop_timestamp.as_f64();
+    assert_eq!(t2_orig, t2_found);
+
+    Ok(())
 }

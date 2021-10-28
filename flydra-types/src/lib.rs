@@ -690,12 +690,13 @@ impl RealtimePointsDestAddr {
 #[derive(Debug, Clone)]
 pub struct MainbrainBuiLocation(pub BuiServerInfo);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct TriggerClockInfoRow {
     // changes to this should update BraidMetadataSchemaTag
     #[serde(with = "crate::timestamp_f64")]
     pub start_timestamp: FlydraFloatTimestampLocal<HostClock>,
     pub framecount: i64,
+    /// Fraction of full framecount is tcnt/255
     pub tcnt: u8,
     #[serde(with = "crate::timestamp_f64")]
     pub stop_timestamp: FlydraFloatTimestampLocal<HostClock>,
