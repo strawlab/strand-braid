@@ -152,9 +152,9 @@ mod test {
 
     impl Timestamped for i32 {
         fn timestamp(&self) -> DateTime<Utc> {
-            use chrono::{NaiveDateTime, Utc};
+            use chrono::NaiveDateTime;
             let base: DateTime<Utc> =
-                DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(60, 0), Utc).into();
+                DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(60, 0), Utc);
 
             let offset = chrono::Duration::from_std(std::time::Duration::from_secs(
                 (*self).try_into().unwrap(),

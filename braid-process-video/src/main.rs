@@ -136,7 +136,7 @@ fn synchronize_readers_from(
 }
 
 fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) -> bool {
-    let dist = a.signed_duration_since(b.clone());
+    let dist = a.signed_duration_since(*b);
     -dur < dist && dist < dur
 }
 
@@ -178,7 +178,7 @@ impl<'a> BraidArchiveSyncData<'a> {
             .collect();
 
         // Get earliest starting video
-        let i = t0.iter().argmin().unwrap().clone();
+        let i = t0.iter().argmin().unwrap();
         let earliest_start_rdr = &frame_readers[i];
         let earliest_start_cam_name = &camera_names[i].as_ref().unwrap();
         let earliest_start = earliest_start_rdr.peek1().unwrap().timestamp();
@@ -215,12 +215,11 @@ impl<'a> BraidArchiveSyncData<'a> {
             .iter()
             .zip(frame_readers.into_iter())
             .map(|(cam_name, frame_reader)| {
-                let cam_num = archive
+                let cam_num = *archive
                     .cam_info
                     .camid2camn
                     .get(cam_name.as_ref().unwrap())
-                    .unwrap()
-                    .clone();
+                    .unwrap();
 
                 let cam_rows = data2d.get(&cam_num).unwrap();
                 let mut found_row = None;
@@ -298,12 +297,8 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
                                 &cam_rows[this_cam.data2d_start_row_idx + this_cam.cur_offset];
 
                             this_cam.cur_offset += 1;
-                            if xrow.frame > this_frame_num {
-                                panic!(
-                                    "missing 2d data in braid archive for frame {}",
-                                    this_frame_num
-                                );
-                            }
+                            assert!(!(xrow.frame > this_frame_num), "missing 2d data in braid archive for frame {}",
+                                    this_frame_num);
                             if xrow.frame == this_frame_num {
                                 row = Some(xrow);
                             } else {
@@ -469,8 +464,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             p2_pts_chrono - p1_pts_chrono
         })
         .min()
-        .unwrap()
-        .clone();
+        .unwrap();
 
     let frame_duration = cfg
         .frame_duration_microsecs
@@ -722,7 +716,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             } else {
                 *ts
             };
-            my_mkv_writer.write(&composited, save_ts.into())?;
+            my_mkv_writer.write(&composited, save_ts)?;
         }
 
         // let png_buf = convert_image::frame_to_image(&composited, convert_image::ImageOptions::Png)?;
