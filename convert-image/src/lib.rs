@@ -366,6 +366,42 @@ fn mono_into_rgb(
     Ok(())
 }
 
+/// Copy an input rgba8 image to a pre-allocated RGB8 buffer.
+fn rgba_into_rgb(
+    frame: &dyn ImageStride<formats::pixel_format::RGBA8>,
+    dest: &mut ImageBufferMutRef<RGB8>,
+    dest_stride: usize,
+) -> Result<()> {
+    // The destination must be at least this large per row.
+    let min_stride = frame.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
+    if dest_stride < min_stride {
+        return Err(Error::InvalidAllocatedBufferStride);
+    }
+
+    let expected_size = dest_stride * frame.height() as usize;
+    if dest.data.len() != expected_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
+
+    use itertools::izip;
+    let w = frame.width() as usize;
+    for (src_row, dest_row) in izip![
+        frame.image_data().chunks_exact(frame.stride()),
+        dest.data.chunks_exact_mut(dest_stride),
+    ] {
+        for (dest_pix, src_pix) in dest_row[..(w * 3)]
+            .chunks_exact_mut(3)
+            .zip(src_row[..(w * 4)].chunks_exact(4))
+        {
+            dest_pix[0] = src_pix[0];
+            dest_pix[1] = src_pix[1];
+            dest_pix[2] = src_pix[2];
+            // src_pix[3] is not used.
+        }
+    }
+    Ok(())
+}
+
 /// Convert RGB8 image data into pre-allocated Mono8 buffer.
 fn rgb8_into_mono8(
     frame: &dyn ImageStride<formats::pixel_format::RGB8>,
@@ -667,6 +703,13 @@ where
                     let mono8 = force_pixel_format_ref(frame);
                     let mut rgb = force_buffer_pixel_format_ref(dest);
                     mono_into_rgb(&mono8, &mut rgb, dest_stride)?;
+                    Ok(())
+                }
+                formats::pixel_format::PixFmt::RGBA8 => {
+                    // .. from rgba8.
+                    let rgba8 = force_pixel_format_ref(frame);
+                    let mut rgb = force_buffer_pixel_format_ref(dest);
+                    rgba_into_rgb(&rgba8, &mut rgb, dest_stride)?;
                     Ok(())
                 }
                 formats::pixel_format::PixFmt::YUV422 => {
