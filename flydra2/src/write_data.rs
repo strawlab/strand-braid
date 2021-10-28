@@ -491,9 +491,9 @@ pub(crate) fn writer_thread_main(
                                     // `trigger_timestamp` is when this frame was acquired.
                                     // It may be None if it cannot be inferred while the
                                     // triggerbox clock model is first initializing.
-                                    use chrono::{DateTime, Local};
-                                    let then: DateTime<Local> = trigger_timestamp.into();
-                                    let now = Local::now();
+                                    use chrono::{DateTime, Utc};
+                                    let then: DateTime<Utc> = trigger_timestamp.into();
+                                    let now = Utc::now();
                                     let elapsed = now.signed_duration_since(then);
                                     let now_system: std::time::SystemTime = now.into();
 
