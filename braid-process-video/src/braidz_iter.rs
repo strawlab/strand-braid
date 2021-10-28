@@ -14,7 +14,6 @@ fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) ->
 
 struct BraidArchivePerCam<'a> {
     frame_reader: crate::peek2::Peek2<FrameReader>,
-    data2d_start_row_idx: usize,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
@@ -95,21 +94,17 @@ impl<'a> BraidArchiveSyncData<'a> {
                     .unwrap();
 
                 let cam_rows = data2d.get(&cam_num).unwrap();
-                let mut found_row = None;
-                for (i, row) in cam_rows.iter().enumerate() {
+                for row in cam_rows.iter() {
                     if row.frame == found_frame {
-                        found_row = Some(i);
                         break;
                     }
                 }
-                let data2d_start_row_idx = found_row.unwrap();
 
                 // Get the rows exclusively for this camera.
                 let cam_rows = data2d.get(&cam_num).unwrap();
                 let cam_rows_peek_iter = cam_rows.iter().peekable();
 
                 BraidArchivePerCam {
-                    data2d_start_row_idx,
                     frame_reader,
                     cam_num,
                     cam_rows_peek_iter,
@@ -144,24 +139,25 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                     .iter_mut()
                     .map(|this_cam| {
                         // Get the rows exclusively for this camera.
-                        let mut cam_rows_peek_iter = &mut this_cam.cam_rows_peek_iter;
+                        let cam_rows_peek_iter = &mut this_cam.cam_rows_peek_iter;
 
                         let mut this_cam_this_frame: Vec<Data2dDistortedRow> = vec![];
                         while let Some(peek_row) = cam_rows_peek_iter.peek() {
                             let peek_row: Data2dDistortedRow = (*peek_row).clone(); // drop the original to free memory reference.
                             if peek_row.frame < this_frame_num {
-                                panic!(
-                                    "not all 2d data in braid archive consumed prior to frame {}",
-                                    this_frame_num
-                                );
+                                // We are behind where we want to be. Skip this
+                                // mkv frame.
+                                cam_rows_peek_iter.next().unwrap();
+                                continue;
                             }
                             if peek_row.frame == this_frame_num {
-                                // we have a frame
+                                // We have a frame.
                                 let row = cam_rows_peek_iter.next().unwrap();
                                 debug_assert!(row.camn == this_cam.cam_num);
                                 this_cam_this_frame.push(row.clone());
                             }
                             if peek_row.frame > this_frame_num {
+                                // This would be going to far.
                                 break;
                             }
                         }

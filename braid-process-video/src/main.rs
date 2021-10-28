@@ -10,12 +10,11 @@ use ffmpeg_next as ffmpeg;
 use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageStride};
 
 use ci2_remote_control::MkvRecordingConfig;
-use flydra_types::{Data2dDistortedRow, FlydraFloatTimestampLocal, RawCamName, Triggerbox};
+use flydra_types::{Data2dDistortedRow, RawCamName};
 
 mod peek2;
 
 mod argmin;
-use argmin::Argmin;
 
 mod frame_reader;
 use frame_reader::FrameReader;
@@ -412,63 +411,32 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             // Did we get an image from the MKV file?
             if let Some(frame) = out_frame_per_cam_input.mkv_frame {
                 let frame = frame?;
+                // Update the timestamp for this frame to whatever timestamp
+                // came from the last MKV frame.
                 composite_timestamp = Some(frame.pts_chrono);
-                // Get timestamp from MKV file.
-                let frame_triggerbox: FlydraFloatTimestampLocal<Triggerbox> =
-                    frame.pts_chrono.into();
-                // Get timestamp from MKV file also as f64 number.
-                let frame_f64 = frame_triggerbox.as_f64();
 
                 per_cam.set_original_image(&frame)?;
 
                 let mut wrote_debug = false;
 
-                if let Some(cam_num) = per_cam.cam_num {
-                    if let Some(data2d_rows) = data2d.get(&cam_num) {
-                        // TODO: major optimization by indexing. This is
-                        // probably SLOW - it iterates over all timestamps
-                        // for each frame.
-                        let time_dist = data2d_rows
-                            .iter()
-                            .map(|row| (row.cam_received_timestamp.as_f64() - frame_f64).abs())
-                            // .map(|row| (row.timestamp.as_ref().unwrap().as_f64() - frame_f64).abs())
-                            .collect::<Vec<f64>>();
+                for row_data2d in out_frame_per_cam_input.this_cam_this_frame.iter() {
+                    if let Some(ref mut fd) = &mut debug_fd {
+                        let row_dt: DateTime<Utc> = (&row_data2d.cam_received_timestamp).into();
+                        writeln!(
+                            fd,
+                            "   {}: {} ({}), {} ({})",
+                            filename,
+                            frame.pts_chrono,
+                            datetime_conversion::datetime_to_f64(&frame.pts_chrono),
+                            row_dt,
+                            row_data2d.cam_received_timestamp.as_f64(),
+                        )?;
+                        wrote_debug = true;
+                    }
 
-                        if let Some(best_idx) = time_dist.iter().argmin() {
-                            // TODO: Potentially there are multiple rows in
-                            // braidz file for this framenumber. Handle them all.
-                            let best_row = &data2d_rows[best_idx];
-                            let best_timestamp = &best_row.cam_received_timestamp;
-                            // let best_timestamp = best_row.timestamp.as_ref().unwrap();
-                            let offset_secs = (frame_f64 - best_timestamp.as_f64()).abs();
-                            let offset_secs_chrono = chrono::Duration::from_std(
-                                std::time::Duration::from_secs_f64(offset_secs),
-                            )
-                            .unwrap();
-
-                            if offset_secs_chrono < sync_threshold {
-                                let best_dt: chrono::DateTime<chrono::Utc> = best_timestamp.into();
-
-                                if let Some(ref mut fd) = &mut debug_fd {
-                                    writeln!(
-                                        fd,
-                                        "   {}: {} ({}), {} ({})",
-                                        filename,
-                                        frame.pts_chrono,
-                                        datetime_conversion::datetime_to_f64(&frame.pts_chrono),
-                                        best_dt,
-                                        best_timestamp.as_f64(),
-                                    )?;
-                                    wrote_debug = true;
-                                }
-
-                                if let Ok(x) = NotNan::new(best_row.x) {
-                                    if let Ok(y) = NotNan::new(best_row.y) {
-                                        per_cam.append_2d_point(x, y)?;
-                                    }
-                                }
-                            }
-                        }
+                    if let Ok(x) = NotNan::new(row_data2d.x) {
+                        let y = NotNan::new(row_data2d.y).unwrap();
+                        per_cam.append_2d_point(x, y)?;
                     }
                 }
 
