@@ -6,8 +6,6 @@ extern crate log;
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-use std::convert::TryInto;
-
 use anyhow::Result;
 use structopt::StructOpt;
 
@@ -120,20 +118,16 @@ fn main() -> Result<()> {
         .collect();
     let phase1 = runtime.block_on(flydra2_mainbrain::pre_run(
         &handle,
-        cfg.mainbrain.cal_fname,
-        cfg.mainbrain.output_base_dirname,
-        Some(cfg.mainbrain.tracking_params.try_into()?),
         show_tracking_params,
         // Raising the mainbrain thread priority is currently disabled.
         // cfg.mainbrain.sched_policy_priority,
-        &cfg.mainbrain.lowlatency_camdata_udp_addr,
         pixel_formats,
         trig_cfg,
-        cfg.mainbrain.http_api_server_addr.clone(),
-        cfg.mainbrain.http_api_server_token.clone(),
-        cfg.mainbrain.model_server_addr.clone(),
-        cfg.mainbrain.save_empty_data2d,
-        cfg.mainbrain.jwt_secret.map(|x| x.as_bytes().to_vec()),
+        &cfg.mainbrain,
+        cfg.mainbrain
+            .jwt_secret
+            .as_ref()
+            .map(|x| x.as_bytes().to_vec()),
         all_expected_cameras,
         force_camera_sync_mode,
         software_limit_framerate.clone(),

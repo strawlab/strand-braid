@@ -288,28 +288,35 @@ pub struct StartupPhase1 {
     model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     signal_all_cams_present: Arc<AtomicBool>,
     signal_all_cams_synced: Arc<AtomicBool>,
+    raw_packet_logger: RawPacketLogger,
 }
 
 pub async fn pre_run(
     handle: &tokio::runtime::Handle,
-    cal_fname: Option<std::path::PathBuf>,
-    output_base_dirname: std::path::PathBuf,
-    opt_tracking_params: Option<flydra2::SwitchingTrackingParams>,
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    camdata_addr_unspecified: &str,
     configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
-    http_api_server_addr: String,
-    http_api_server_token: Option<String>,
-    model_pose_server_addr: std::net::SocketAddr,
-    save_empty_data2d: bool,
+    mainbrain_config: &braid_config_data::MainbrainConfig,
     jwt_secret: Option<Vec<u8>>,
     all_expected_cameras: std::collections::BTreeSet<RosCamName>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
     saving_program_name: &str,
 ) -> Result<StartupPhase1> {
+    use std::convert::TryInto;
+    let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
+    let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
+    let opt_tracking_params: Option<flydra2::SwitchingTrackingParams> =
+        Some(mainbrain_config.tracking_params.clone().try_into()?);
+
+    let camdata_addr_unspecified: &str = &mainbrain_config.lowlatency_camdata_udp_addr;
+
+    let http_api_server_addr: String = mainbrain_config.http_api_server_addr.clone();
+    let http_api_server_token: Option<String> = mainbrain_config.http_api_server_token.clone();
+    let model_pose_server_addr: std::net::SocketAddr = mainbrain_config.model_server_addr.clone();
+    let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
+
     info!("saving to directory: {}", output_base_dirname.display());
 
     let (quit_trigger, valve) = stream_cancel::Valve::new();
