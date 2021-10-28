@@ -52,7 +52,10 @@ impl<S: Source> FlydraFloatTimestampLocal<S> {
     }
 
     pub fn from_f64(value_f64: f64) -> Self {
-        assert!(!value_f64.is_nan(), "cannot convert NaN to FlydraFloatTimestampLocal");
+        assert!(
+            !value_f64.is_nan(),
+            "cannot convert NaN to FlydraFloatTimestampLocal"
+        );
         Self::from_notnan_f64(value_f64.into())
     }
 
