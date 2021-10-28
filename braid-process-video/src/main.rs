@@ -338,6 +338,12 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     for (out_fno, synced_frames) in frame_iter.enumerate() {
         let synced_frames: Vec<Option<Result<Frame>>> = synced_frames;
 
+        if let Some(start_frame) = cfg.start_frame {
+            if out_fno < start_frame {
+                continue;
+            }
+        }
+
         if let Some(ref mut fd) = &mut debug_fd {
             writeln!(fd, "frame {} ----------", out_fno)?;
         }

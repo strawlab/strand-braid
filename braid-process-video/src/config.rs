@@ -82,6 +82,8 @@ pub struct BraidRetrackVideoConfig {
     /// The interval between adjacent frames. Defaults to the value detected in
     /// the first frames of the given video inputs.
     pub frame_duration_microsecs: Option<u64>,
+    /// The first frame to render, skipping prior frames
+    pub start_frame: Option<usize>,
     /// maximum number of frames to render
     pub max_num_frames: Option<usize>,
     pub input_braidz: Option<String>,
@@ -94,6 +96,7 @@ impl Default for BraidRetrackVideoConfig {
         Self {
             sync_threshold_microseconds: None,
             frame_duration_microsecs: None,
+            start_frame: None,
             max_num_frames: None,
             input_braidz: None,
             output: vec![OutputConfig::default()],
