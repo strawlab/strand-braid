@@ -29,6 +29,8 @@ mod synced_iter;
 mod config;
 use config::{BraidRetrackVideoConfig, OutputVideoConfig, Validate};
 
+mod tiny_skia_frame;
+
 #[derive(Debug, StructOpt)]
 #[structopt(about = "process videos within the Braid multi-camera framework")]
 struct BraidProcessVideoCliArgs {
@@ -546,13 +548,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             let mut pixmap =
                 tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
             resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
-            let png_buf = pixmap.encode_png()?;
 
-            let piston_image =
-                image::load_from_memory_with_format(&png_buf, image::ImageFormat::Png)?;
-            let composited = convert_image::piston_to_frame(piston_image)?;
-
-            my_mkv_writer.write(&composited, save_ts)?;
+            my_mkv_writer.write(&tiny_skia_frame::Frame::new(pixmap), save_ts)?;
         }
 
         // let png_buf = convert_image::frame_to_image(&composited, convert_image::ImageOptions::Png)?;
