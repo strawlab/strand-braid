@@ -111,6 +111,8 @@ pub struct MainbrainConfig {
     pub save_empty_data2d: bool,
     /// Secret to use for JWT auth on HTTP port for control API
     pub jwt_secret: Option<String>,
+    /// For debugging: filename to store captured packet data.
+    pub packet_capture_dump_fname: Option<std::path::PathBuf>,
 }
 
 impl std::default::Default for MainbrainConfig {
@@ -127,6 +129,7 @@ impl std::default::Default for MainbrainConfig {
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,
             jwt_secret: None,
+            packet_capture_dump_fname: None,
         }
     }
 }
