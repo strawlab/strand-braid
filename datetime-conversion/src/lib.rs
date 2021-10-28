@@ -12,17 +12,21 @@ where
 }
 
 pub fn f64_to_datetime_local(timestamp_f64: f64) -> DateTime<Local> {
-    let secs_f = timestamp_f64.floor();
-    let secs = secs_f as i64;
-    let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
-    Local.timestamp(secs, nsecs)
+    f64_to_datetime_any(timestamp_f64, Local)
 }
 
 pub fn f64_to_datetime(timestamp_f64: f64) -> DateTime<Utc> {
+    f64_to_datetime_any(timestamp_f64, Utc)
+}
+
+pub fn f64_to_datetime_any<TZ>(timestamp_f64: f64, tz: TZ) -> DateTime<TZ>
+where
+    TZ: chrono::TimeZone,
+{
     let secs_f = timestamp_f64.floor();
     let secs = secs_f as i64;
     let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
-    Utc.timestamp(secs, nsecs)
+    tz.timestamp(secs, nsecs)
 }
 
 #[test]
