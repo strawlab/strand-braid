@@ -157,6 +157,8 @@ fn test_frame_bundler() {
             SyncFno(1),
             trigger_timestamp.clone(),
             FlydraFloatTimestampLocal::from_f64(0.0),
+            None,
+            None,
         ),
         points: Vec::new(),
     };
@@ -168,6 +170,8 @@ fn test_frame_bundler() {
             SyncFno(1),
             trigger_timestamp.clone(),
             FlydraFloatTimestampLocal::from_f64(0.0),
+            None,
+            None,
         ),
         points: Vec::new(),
     };
@@ -179,6 +183,8 @@ fn test_frame_bundler() {
             SyncFno(0),
             trigger_timestamp.clone(),
             FlydraFloatTimestampLocal::from_f64(0.0),
+            None,
+            None,
         ),
         points: Vec::new(),
     };
@@ -190,6 +196,8 @@ fn test_frame_bundler() {
             SyncFno(2),
             trigger_timestamp.clone(),
             FlydraFloatTimestampLocal::from_f64(0.0),
+            None,
+            None,
         ),
         points: Vec::new(),
     };
@@ -201,6 +209,8 @@ fn test_frame_bundler() {
             SyncFno(3),
             trigger_timestamp,
             FlydraFloatTimestampLocal::from_f64(0.0),
+            None,
+            None,
         ),
         points: Vec::new(),
     };

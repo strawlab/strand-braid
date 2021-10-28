@@ -25,6 +25,7 @@ fn test_run_end_to_end() {
         CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
         &row_filters,
+        &format!("{}:{}", file!(), line!()),
     )
     .unwrap();
 
@@ -60,6 +61,7 @@ fn test_z_values_zero() {
         CALIBRATION_PARAMS_TOML,
         None,
         &row_filters,
+        &format!("{}:{}", file!(), line!()),
     )
     .unwrap();
 

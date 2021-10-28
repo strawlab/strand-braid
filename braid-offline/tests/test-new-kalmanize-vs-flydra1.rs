@@ -315,6 +315,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
+        &format!("{}:{}", file!(), line!()),
     )
     .await
     .unwrap();

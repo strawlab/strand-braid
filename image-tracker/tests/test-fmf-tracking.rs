@@ -35,7 +35,6 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
         "test".to_string(),
         frame_offset,
         http_addr,
-        true,
         ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
         addr,
@@ -56,7 +55,7 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
         );
         let ufmf_state = UfmfState::Stopped;
         let maybe_found = ft
-            .process_new_frame(&frame, ufmf_state)
+            .process_new_frame(&frame, ufmf_state, None, None)
             .expect("process frame");
         println!("maybe_found: {:?}", maybe_found);
     }

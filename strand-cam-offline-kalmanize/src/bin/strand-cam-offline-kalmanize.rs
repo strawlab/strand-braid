@@ -133,6 +133,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,
+        "strand-cam-offline-kalmanize",
     )?;
 
     flydra_csv_temp_dir.close()?;

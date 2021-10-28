@@ -210,11 +210,6 @@ fn parse_args(
                     Arg::with_name("force_camera_sync_mode")
                         .long("force_camera_sync_mode")
                         .help("Force the camera to synchronize to external trigger"),
-                )
-                .arg(
-                    Arg::with_name("flydra1")
-                        .long("flydra1")
-                        .help("backward compat with flydra1"),
                 );
         }
 
@@ -359,8 +354,6 @@ fn parse_args(
         _ => true,
     };
 
-    let use_cbor_packets = matches!(matches.occurrences_of("flydra1"), 0);
-
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = match matches.occurrences_of("no_save_empty_data2d") {
         0 => true,
@@ -487,7 +480,6 @@ fn parse_args(
         camtrig_device_path,
         #[cfg(feature = "posix_sched_fifo")]
         process_frame_priority,
-        use_cbor_packets,
         ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
         debug_addr,

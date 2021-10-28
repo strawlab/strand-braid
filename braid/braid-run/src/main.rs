@@ -65,7 +65,6 @@ fn launch_strand_cam(
         raise_grab_thread_priority: camera.raise_grab_thread_priority,
         #[cfg(feature = "stand-cam-posix-sched-fifo")]
         process_frame_priority: None,
-        use_cbor_packets: true,
         mainbrain_internal_addr,
         camdata_addr,
         show_url: false,
@@ -130,7 +129,6 @@ fn main() -> Result<()> {
         &cfg.mainbrain.lowlatency_camdata_udp_addr,
         pixel_formats,
         trig_cfg,
-        false,
         cfg.mainbrain.http_api_server_addr.clone(),
         cfg.mainbrain.http_api_server_token.clone(),
         cfg.mainbrain.model_server_addr.clone(),
@@ -139,6 +137,7 @@ fn main() -> Result<()> {
         all_expected_cameras,
         force_camera_sync_mode,
         software_limit_framerate.clone(),
+        "braid",
     ))?;
 
     let mainbrain_server_info = MainbrainBuiLocation(phase1.mainbrain_server_info.clone());

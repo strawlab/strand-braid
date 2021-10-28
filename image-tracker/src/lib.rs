@@ -31,9 +31,8 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
-    get_start_ts, serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket,
-    FlydraRawUdpPoint, ImageProcessingSteps, MainbrainBuiLocation, RawCamName,
-    RealtimePointsDestAddr, RosCamName,
+    get_start_ts, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
+    ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -557,7 +556,6 @@ pub struct FlyTracker {
     mask_image: Option<FastImageData<Chan1, u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
     coord_socket: Option<DatagramSocket>,
-    use_cbor_packets: bool,
     cam_args_tx: CamArgsTxType,
     clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
@@ -685,7 +683,6 @@ impl FlyTracker {
         version_str: String,
         frame_offset: Option<u64>,
         http_camserver_info: flydra_types::CamHttpServerInfo,
-        use_cbor_packets: bool,
         ros_periodic_update_interval: std::time::Duration,
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         mainbrain_internal_addr: Option<MainbrainBuiLocation>,
@@ -802,7 +799,6 @@ impl FlyTracker {
             last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
             coord_socket: None,
-            use_cbor_packets,
             cam_args_tx,
             clock_model: None,
             frame_offset,
@@ -919,6 +915,8 @@ impl FlyTracker {
         &mut self,
         frame: &DynamicFrame,
         ufmf_state: UfmfState,
+        device_timestamp: Option<std::num::NonZeroU64>,
+        block_id: Option<std::num::NonZeroU64>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
@@ -1005,6 +1003,8 @@ impl FlyTracker {
             cam_name: self.ros_cam_name.as_str().to_string(),
             timestamp: opt_trigger_stamp.clone(),
             cam_received_time: acquire_stamp,
+            device_timestamp,
+            block_id,
             framenumber: frame.extra().host_framenumber() as i32,
             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
             done_camnode_processing: 0.0,
@@ -1184,10 +1184,7 @@ impl FlyTracker {
                 sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
                 if let Some(ref coord_socket) = self.coord_socket {
-                    let data: Vec<u8> = match self.use_cbor_packets {
-                        true => serde_cbor::ser::to_vec_packed_sd(&packet)?,
-                        false => serialize_packet(&packet, self.hack_binning)?,
-                    };
+                    let data: Vec<u8> = serde_cbor::ser::to_vec_packed_sd(&packet)?;
                     coord_socket.send_complete(&data)?;
                 }
                 sample_vec.push((dur_to_f64(q1.elapsed()), line!()));

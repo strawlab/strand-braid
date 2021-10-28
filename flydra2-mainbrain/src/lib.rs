@@ -20,8 +20,8 @@ use bui_backend_types::CallbackDataAndSession;
 
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
-    BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, FlydraPacketCodec,
-    HttpApiCallback, HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
+    BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback,
+    HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
 };
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
@@ -283,7 +283,6 @@ pub struct StartupPhase1 {
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
     triggerbox_rx: Option<channellib::Receiver<braid_triggerbox::Cmd>>,
-    flydra1: bool,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
     model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -301,7 +300,6 @@ pub async fn pre_run(
     camdata_addr_unspecified: &str,
     configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
-    flydra1: bool,
     http_api_server_addr: String,
     http_api_server_token: Option<String>,
     model_pose_server_addr: std::net::SocketAddr,
@@ -310,6 +308,7 @@ pub async fn pre_run(
     all_expected_cameras: std::collections::BTreeSet<RosCamName>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    saving_program_name: &str,
 ) -> Result<StartupPhase1> {
     info!("saving to directory: {}", output_base_dirname.display());
 
@@ -396,6 +395,7 @@ pub async fn pre_run(
         save_data_tx,
         save_data_rx,
         save_empty_data2d,
+        saving_program_name,
         ignore_latency,
     )?;
     let write_controller = coord_processor.get_write_controller();
@@ -553,7 +553,6 @@ pub async fn pre_run(
         handle: handle.clone(),
         trigger_cfg,
         triggerbox_rx,
-        flydra1,
         model_pose_server_addr,
         coord_processor,
         valve,
@@ -576,7 +575,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let rt_handle3 = rt_handle2.clone();
     let trigger_cfg = phase1.trigger_cfg;
     let triggerbox_rx = phase1.triggerbox_rx;
-    let flydra1 = phase1.flydra1;
     let model_pose_server_addr = phase1.model_pose_server_addr;
     let mut coord_processor = phase1.coord_processor;
     let valve = phase1.valve;
@@ -769,28 +767,15 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 >,
             > + Send
             + Unpin,
-    > = match flydra1 {
-        true => {
-            let codec = FlydraPacketCodec::default();
-            // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
+    > = {
+        let codec = CborPacketCodec::default();
+        // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
+        // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
+        let stream = UdpFramed::new(camdata_socket, codec);
 
-            // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
-            let stream = UdpFramed::new(camdata_socket, codec);
-
-            // let (_sink, stream) = UdpFramed::new(camdata_socket, FlydraPacketCodec::default()).split();
-            // let stream = futures::compat::Compat01As03::new(stream);
-            Box::new(stream)
-        }
-        false => {
-            let codec = CborPacketCodec::default();
-            // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
-            // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
-            let stream = UdpFramed::new(camdata_socket, codec);
-
-            // let (_sink, stream) = UdpFramed::new(camdata_socket, CborPacketCodec::default()).split();
-            // let stream = futures::compat::Compat01As03::new(stream);
-            Box::new(stream)
-        }
+        // let (_sink, stream) = UdpFramed::new(camdata_socket, CborPacketCodec::default()).split();
+        // let stream = futures::compat::Compat01As03::new(stream);
+        Box::new(stream)
     };
 
     // Initiate camera synchronization on startup
@@ -925,6 +910,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             synced_frame,
             trigger_timestamp,
             packet.cam_received_time,
+            packet.device_timestamp,
+            packet.block_id,
         );
 
         assert!(packet.points.len() < u8::max_value() as usize);

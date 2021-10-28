@@ -631,7 +631,6 @@ fn frame_process_thread(
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
-    use_cbor_packets: bool,
     process_frame_priority: Option<(i32,i32)>,
     ros_periodic_update_interval: std::time::Duration,
     #[cfg(feature = "debug-images")]
@@ -723,7 +722,7 @@ fn frame_process_thread(
     #[cfg(feature="image_tracker")]
     let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, cfg,
         Some(cam_args_tx.clone()), version_str, frame_offset, http_camserver,
-        use_cbor_packets, ros_periodic_update_interval,
+        ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
         debug_addr,
         mainbrain_internal_addr, camdata_addr, transmit_current_image_rx,
@@ -912,7 +911,10 @@ fn frame_process_thread(
                                     cam_manager, Some(recon),
                                     tracking_params,
                                     save_data_tx,
-                                    save_data_rx, save_empty_data2d, ignore_latency)
+                                    save_data_rx,
+                                    save_empty_data2d,
+                                    "strand-cam",
+                                    ignore_latency)
                                     .expect("create CoordProcessor");
 
                                 let flydratrax_server = crate::flydratrax_handle_msg::FlydraTraxServer::new(model_sender);
@@ -1062,6 +1064,19 @@ fn frame_process_thread(
             }
             Msg::Mframe(frame) => {
                 let extra = frame.extra();
+
+                #[cfg(feature="backend_pyloncxx")]
+                let (device_timestamp, block_id): (u64, u64) = {
+                    let pylon_extra = extra.as_any().downcast_ref::<ci2_pyloncxx::PylonExtra>().unwrap();
+                    (pylon_extra.device_timestamp, pylon_extra.block_id)
+                };
+
+                #[cfg(not(feature="backend_pyloncxx"))]
+                let (device_timestamp, block_id): (u64, u64) = (0,0);
+
+                let device_timestamp = std::num::NonZeroU64::new(device_timestamp);
+                let block_id = std::num::NonZeroU64::new(block_id);
+
                 if let Some(new_fps) = fps_calc
                     .update(extra.host_framenumber(), extra.host_timestamp()) {
                     if let Some(ref mut store) = shared_store_arc {
@@ -1303,8 +1318,26 @@ fn frame_process_thread(
                     #[cfg(feature="image_tracker")]
                     {
                     if is_doing_object_detection {
+
+                        #[cfg(feature = "backend_pyloncxx")]
+                        let (device_timestamp, block_id): (u64, u64) = {
+                            let pylon_extra = frame
+                                .extra()
+                                .as_any()
+                                .downcast_ref::<ci2_pyloncxx::PylonExtra>()
+                                .unwrap();
+                            (pylon_extra.device_timestamp, pylon_extra.block_id)
+                        };
+
+                        #[cfg(not(feature = "backend_pyloncxx"))]
+                        let (device_timestamp, block_id): (u64, u64) = (0, 0);
+
+                        let device_timestamp = std::num::NonZeroU64::new(device_timestamp);
+                        let block_id = std::num::NonZeroU64::new(block_id);
+
                         let inner_ufmf_state = ufmf_state.take().unwrap();
-                        let (tracker_annotation, new_ufmf_state) = im_tracker.process_new_frame(&frame, inner_ufmf_state)?;
+                        let (tracker_annotation, new_ufmf_state) = im_tracker.process_new_frame(
+                            &frame, inner_ufmf_state, device_timestamp, block_id)?;
                         ufmf_state.get_or_insert(new_ufmf_state);
 
                         #[cfg(feature="flydratrax")]
@@ -1324,7 +1357,9 @@ fn frame_process_thread(
                                 let cam_received_timestamp = datetime_conversion::datetime_to_f64(
                                     &frame.extra().host_timestamp());
 
-                                // TODO FIXME XXX It is a lie that this timesource is Triggerbox.
+                                // TODO FIXME XXX It is a lie that this
+                                // timesource is Triggerbox. This is just for
+                                // single-camera flydratrax, though.
                                 let trigger_timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(
                                     cam_received_timestamp));
 
@@ -1339,6 +1374,8 @@ fn frame_process_thread(
                                     SyncFno(frame.extra().host_framenumber() as u64),
                                     trigger_timestamp,
                                     cam_received_timestamp,
+                                    device_timestamp,
+                                    block_id,
                                 );
                                 let fdp = flydra2::FrameDataAndPoints{
                                     frame_data,
@@ -2378,7 +2415,6 @@ pub struct StrandCamArgs {
     #[cfg(feature = "posix_sched_fifo")]
     pub process_frame_priority: Option<(i32, i32)>,
     pub camtrig_device_path: Option<String>,
-    pub use_cbor_packets: bool,
     pub ros_periodic_update_interval: std::time::Duration,
     #[cfg(feature = "debug-images")]
     pub debug_addr: std::net::SocketAddr,
@@ -2439,7 +2475,6 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "posix_sched_fifo")]
             process_frame_priority: None,
             camtrig_device_path: None,
-            use_cbor_packets: true,
             ros_periodic_update_interval: std::time::Duration::from_millis(4500),
             #[cfg(feature = "debug-images")]
             debug_addr: std::str::FromStr::from_str(DEBUG_ADDR_DEFAULT).unwrap(),
@@ -2882,7 +2917,6 @@ pub async fn setup_app(
     let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
 
     let (flag, control) = thread_control::make_pair();
-    let use_cbor_packets = args.use_cbor_packets;
     let camdata_addr = args.camdata_addr;
 
     let mut config = get_default_config();
@@ -3016,7 +3050,6 @@ pub async fn setup_app(
                     flag,
                     is_starting,
                     http_camserver_info2,
-                    use_cbor_packets,
                     process_frame_priority,
                     ros_periodic_update_interval,
                     #[cfg(feature = "debug-images")]

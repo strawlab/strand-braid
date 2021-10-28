@@ -117,6 +117,8 @@ fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
     let timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(timestamp));
 
     let cam_received_time = FlydraFloatTimestampLocal::<HostClock>::from_f64(123.456);
+    let device_timestamp = std::num::NonZeroU64::new(123456);
+    let block_id = std::num::NonZeroU64::new(987654);
     let n_frames_skipped = 6;
 
     let points: Vec<FlydraRawUdpPoint> = vec![];
@@ -125,6 +127,8 @@ fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
         cam_name,
         timestamp,
         cam_received_time,
+        device_timestamp,
+        block_id,
         framenumber,
         n_frames_skipped,
         done_camnode_processing: 0.0,

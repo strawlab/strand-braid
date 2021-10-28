@@ -19,7 +19,7 @@ pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
 //
 // Any changes to these names, including additions and removes, should update
 // BraidMetadataSchemaTag.
-pub const BRAID_SCHEMA: u16 = 2; // BraidMetadataSchemaTag
+pub const BRAID_SCHEMA: u16 = 3; // BraidMetadataSchemaTag
 
 // CSV files. (These may also exist as .csv.gz)
 pub const KALMAN_ESTIMATES_CSV_FNAME: &str = "kalman_estimates.csv";
@@ -591,6 +591,10 @@ pub struct FlydraRawUdpPacket {
     /// frame timestamp of camnode program sampling system clock
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_time: FlydraFloatTimestampLocal<HostClock>,
+    /// timestamp from the camera
+    pub device_timestamp: Option<std::num::NonZeroU64>,
+    /// frame number from the camera
+    pub block_id: Option<std::num::NonZeroU64>,
     pub framenumber: i32,
     pub n_frames_skipped: u32,
     /// this will always be 0.0 for flydra1 custom serialized packets
@@ -600,46 +604,6 @@ pub struct FlydraRawUdpPacket {
     /// this will always be 0 for flydra1 custom serialized packets
     pub image_processing_steps: ImageProcessingSteps,
     pub points: Vec<FlydraRawUdpPoint>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct FlydraRawUdpPacketHeader {
-    pub cam_name: String,
-    /// frame timestamp of trigger pulse start (or 0.0 if cannot be determined)
-    #[serde(with = "crate::timestamp_opt_f64")]
-    pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
-    /// frame timestamp of camnode program sampling system clock
-    #[serde(with = "crate::timestamp_f64")]
-    pub cam_received_time: FlydraFloatTimestampLocal<HostClock>,
-    pub framenumber: i32,
-    pub n_frames_skipped: u32,
-    /// this will always be 0.0 for flydra1 custom serialized packets
-    pub done_camnode_processing: f64,
-    /// this will always be 0.0 for flydra1 custom serialized packets
-    pub preprocess_stamp: f64,
-    /// this will always be 0 for flydra1 custom serialized packets
-    pub image_processing_steps: ImageProcessingSteps,
-    pub len_points: usize,
-}
-
-impl FlydraRawUdpPacket {
-    pub fn from_header_and_points(
-        header: FlydraRawUdpPacketHeader,
-        points: std::vec::Vec<FlydraRawUdpPoint>,
-    ) -> Self {
-        assert!(header.len_points == points.len());
-        Self {
-            cam_name: header.cam_name,
-            timestamp: header.timestamp,
-            cam_received_time: header.cam_received_time,
-            framenumber: header.framenumber,
-            n_frames_skipped: header.n_frames_skipped,
-            done_camnode_processing: header.done_camnode_processing,
-            preprocess_stamp: header.preprocess_stamp,
-            image_processing_steps: header.image_processing_steps,
-            points,
-        }
-    }
 }
 
 mod synced_frame;
@@ -655,17 +619,6 @@ pub use crate::timestamp::{
 
 pub mod timestamp_f64;
 pub mod timestamp_opt_f64;
-
-mod serialize;
-pub use crate::serialize::{
-    deserialize_packet, deserialize_point, serialize_packet, serialize_point, ReadFlydraExt,
-    CBOR_MAGIC, FLYDRA1_PACKET_HEADER_SIZE, FLYDRA1_PER_POINT_PAYLOAD_SIZE,
-};
-
-#[cfg(feature = "with-tokio-codec")]
-mod tokio_flydra1;
-#[cfg(feature = "with-tokio-codec")]
-pub use crate::tokio_flydra1::FlydraPacketCodec;
 
 #[cfg(feature = "with-tokio-codec")]
 mod tokio_cbor;
@@ -831,6 +784,10 @@ pub struct Data2dDistortedRow {
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
+    /// timestamp from the camera
+    pub device_timestamp: Option<std::num::NonZeroU64>,
+    /// frame number from the camera
+    pub block_id: Option<std::num::NonZeroU64>,
     #[serde(deserialize_with = "invalid_nan")]
     pub x: f64,
     #[serde(deserialize_with = "invalid_nan")]
@@ -862,6 +819,10 @@ pub struct Data2dDistortedRowF32 {
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
+    /// timestamp from the camera
+    pub device_timestamp: Option<std::num::NonZeroU64>,
+    /// frame number from the camera
+    pub block_id: Option<std::num::NonZeroU64>,
     pub x: f32,
     pub y: f32,
     pub area: f32,
