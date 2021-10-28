@@ -75,7 +75,7 @@ pub struct Data2dSummary {
     pub num_cameras_with_data: u16,
     pub num_rows: u64,
     pub frame_limits: [u64; 2],
-    pub time_limits: [chrono::DateTime<chrono::Local>; 2],
+    pub time_limits: [chrono::DateTime<chrono::Utc>; 2],
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

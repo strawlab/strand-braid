@@ -162,7 +162,7 @@ impl<R: Read + Seek> BraidzArchive<R> {
 pub struct D2DInfo {
     pub qz: BTreeMap<CamNum, Seq2d>,
     pub frame_lim: [u64; 2],
-    pub time_limits: [chrono::DateTime<chrono::Local>; 2],
+    pub time_limits: [chrono::DateTime<chrono::Utc>; 2],
     pub num_rows: u64,
 }
 
