@@ -1,7 +1,8 @@
 [package]
 name = "braid-process-video"
 version = "0.10.1" # braid release synchronized
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 
 [dependencies]
 # apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev

@@ -54,7 +54,6 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: &Rgba) {
     let p = 1.0 - alpha;
     let q = alpha;
 
-    use std::convert::TryInto;
     let old: [u8; 3] = self_.image_data[pix_start..pix_start + 3]
         .try_into()
         .unwrap();
