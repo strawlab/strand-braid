@@ -552,8 +552,9 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                 fmt_wtr.inner
             };
 
-            let mut debug_svg_fd = std::fs::File::create(format!("frame{:05}.svg", out_fno))?;
-            debug_svg_fd.write_all(&svg_buf)?;
+            // // Write composited SVG to disk.
+            // let mut debug_svg_fd = std::fs::File::create(format!("frame{:05}.svg", out_fno))?;
+            // debug_svg_fd.write_all(&svg_buf)?;
 
             // Now parse the SVG file.
             let rtree = usvg::Tree::from_data(&svg_buf, &usvg_opt.to_ref())?;
@@ -563,6 +564,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                 tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
             resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
 
+            // Save the pixmap into the MVG file being saved.
             my_mkv_writer.write(&tiny_skia_frame::Frame::new(pixmap)?, save_ts)?;
         }
 
