@@ -5,7 +5,6 @@ use std::backtrace::Backtrace;
 
 use std::{
     collections::BTreeMap,
-    convert::TryInto,
     fs::File,
     io::{BufReader, Read, Seek},
 };
