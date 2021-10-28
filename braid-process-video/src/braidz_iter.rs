@@ -12,18 +12,17 @@ fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) ->
     -dur < dist && dist < dur
 }
 
-struct BraidArchivePerCam {
+struct BraidArchivePerCam<'a> {
     frame_reader: crate::peek2::Peek2<FrameReader>,
     data2d_start_row_idx: usize,
     cam_num: CamNum,
-    cur_offset: usize,
+    cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
 
 /// Iterate across multiple movies with a simultaneously recorded .braidz file
 /// used to synchronize the frames.
 pub struct BraidArchiveSyncData<'a> {
-    per_cam: Vec<BraidArchivePerCam>,
-    data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
+    per_cam: Vec<BraidArchivePerCam<'a>>,
     sync_threshold: chrono::Duration,
     cur_braidz_frame: i64,
     did_have_all: bool,
@@ -105,18 +104,21 @@ impl<'a> BraidArchiveSyncData<'a> {
                 }
                 let data2d_start_row_idx = found_row.unwrap();
 
+                // Get the rows exclusively for this camera.
+                let cam_rows = data2d.get(&cam_num).unwrap();
+                let cam_rows_peek_iter = cam_rows.iter().peekable();
+
                 BraidArchivePerCam {
                     data2d_start_row_idx,
                     frame_reader,
                     cam_num,
-                    cur_offset: 0,
+                    cam_rows_peek_iter,
                 }
             })
             .collect();
 
         Ok(Self {
             per_cam,
-            data2d,
             cur_braidz_frame: found_frame,
             sync_threshold,
             did_have_all: false,
@@ -127,7 +129,6 @@ impl<'a> BraidArchiveSyncData<'a> {
 impl<'a> Iterator for BraidArchiveSyncData<'a> {
     type Item = crate::OutFrameIterType;
     fn next(&mut self) -> std::option::Option<Self::Item> {
-        let data2d = &self.data2d;
         let sync_threshold = self.sync_threshold;
 
         loop {
@@ -142,37 +143,44 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                 self.per_cam
                     .iter_mut()
                     .map(|this_cam| {
-                        let cam_rows = data2d.get(&this_cam.cam_num).unwrap();
+                        // Get the rows exclusively for this camera.
+                        let mut cam_rows_peek_iter = &mut this_cam.cam_rows_peek_iter;
 
-                        let mut row = None;
-                        while row.is_none() {
-                            // data2d loop in case there are multiple points per frame in braidz file.
-                            let xrow =
-                                &cam_rows[this_cam.data2d_start_row_idx + this_cam.cur_offset];
+                        let mut this_cam_this_frame: Vec<Data2dDistortedRow> = vec![];
+                        while let Some(peek_row) = cam_rows_peek_iter.peek() {
+                            let peek_row: Data2dDistortedRow = (*peek_row).clone(); // drop the original to free memory reference.
+                            if peek_row.frame < this_frame_num {
+                                panic!(
+                                    "not all 2d data in braid archive consumed prior to frame {}",
+                                    this_frame_num
+                                );
+                            }
+                            if peek_row.frame == this_frame_num {
+                                // we have a frame
+                                let row = cam_rows_peek_iter.next().unwrap();
+                                debug_assert!(row.camn == this_cam.cam_num);
+                                this_cam_this_frame.push(row.clone());
+                            }
+                            if peek_row.frame > this_frame_num {
+                                break;
+                            }
+                        }
 
-                            this_cam.cur_offset += 1;
-                            assert!(
-                                !(xrow.frame > this_frame_num),
+                        if this_cam_this_frame.is_empty() {
+                            panic!(
                                 "missing 2d data in braid archive for frame {}",
                                 this_frame_num
                             );
-                            if xrow.frame == this_frame_num {
-                                row = Some(xrow);
-                            } else {
-                                debug_assert!(xrow.frame < this_frame_num);
-                            }
                         }
-                        let row = row.unwrap();
-                        debug_assert!(row.frame == this_frame_num);
-                        debug_assert!(row.camn == this_cam.cam_num);
 
+                        let row0 = &this_cam_this_frame[0];
                         // Get the timestamp we need.
-                        let need_stamp = &row.cam_received_timestamp;
+                        let need_stamp = &row0.cam_received_timestamp;
                         let need_chrono = need_stamp.into();
 
                         let mut found = false;
 
-                        // Now get the next frame and ensure its timestamp is correct.
+                        // Now get the next MKV frame and ensure its timestamp is correct.
                         if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
                             let p1_pts_chrono = peek1_frame.as_ref().unwrap().pts_chrono;
 
@@ -184,20 +192,19 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                                 // before first frame in MKV? Or is a frame
                                 // skipped?)
                             } else {
-                                todo!("frame missing from BRAIDZ?!");
+                                panic!("frame in MKV is missing from BRAIDZ?!");
                             }
                         }
 
-                        if found {
+                        let mkv_frame = if found {
                             n_cams_this_frame += 1;
                             // Take this MKV frame image data.
-                            this_cam
-                                .frame_reader
-                                .next()
-                                .map(crate::OutFramePerCamInput::new)
+                            this_cam.frame_reader.next()
                         } else {
                             None
-                        }
+                        };
+
+                        crate::OutFramePerCamInput::new(mkv_frame, this_cam_this_frame)
                     })
                     .collect(),
             );

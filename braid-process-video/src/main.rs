@@ -10,7 +10,7 @@ use ffmpeg_next as ffmpeg;
 use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageStride};
 
 use ci2_remote_control::MkvRecordingConfig;
-use flydra_types::{FlydraFloatTimestampLocal, RawCamName, Triggerbox};
+use flydra_types::{Data2dDistortedRow, FlydraFloatTimestampLocal, RawCamName, Triggerbox};
 
 mod peek2;
 
@@ -40,16 +40,26 @@ struct BraidProcessVideoCliArgs {
 }
 
 pub struct OutFramePerCamInput {
-    frame: Result<Frame>,
+    /// Camera image from MKV file, if available.
+    mkv_frame: Option<Result<Frame>>,
+    /// Braidz data. Empty if no braidz data available.
+    this_cam_this_frame: Vec<Data2dDistortedRow>,
 }
 
 impl OutFramePerCamInput {
-    pub(crate) fn new(frame: Result<Frame>) -> Self {
-        Self { frame }
+    pub(crate) fn new(
+        mkv_frame: Option<Result<Frame>>,
+        this_cam_this_frame: Vec<Data2dDistortedRow>,
+    ) -> Self {
+        Self {
+            mkv_frame,
+            this_cam_this_frame,
+        }
     }
 }
 
-pub type OutFrameIterType = Vec<Option<OutFramePerCamInput>>;
+/// An ordered `Vec` with one entry per camera.
+pub type OutFrameIterType = Vec<OutFramePerCamInput>;
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
@@ -392,15 +402,16 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         let mut per_cam_data = Vec::with_capacity(n_frames);
 
         composite_timestamp = None;
-        for ((filename, opt_frame_input), per_cam_ref) in
+        for ((filename, out_frame_per_cam_input), per_cam_ref) in
             filenames.iter().zip(synced_frames).zip(&per_cams)
         {
             // Copy the default information for this camera and then we will
             // start adding information relevant for this frame in time.
             let mut per_cam = per_cam_ref.clone();
 
-            if let Some(frame_input) = opt_frame_input {
-                let frame = frame_input.frame?;
+            // Did we get an image from the MKV file?
+            if let Some(frame) = out_frame_per_cam_input.mkv_frame {
+                let frame = frame?;
                 composite_timestamp = Some(frame.pts_chrono);
                 // Get timestamp from MKV file.
                 let frame_triggerbox: FlydraFloatTimestampLocal<Triggerbox> =

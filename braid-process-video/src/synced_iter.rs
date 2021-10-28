@@ -68,11 +68,11 @@ impl Iterator for SyncedIter {
             .map(|frame_reader| {
                 let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().pts_chrono);
 
-                if let Some(timestamp1) = timestamp1 {
+                let mkv_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;
                     if min_threshold <= timestamp1 && timestamp1 <= max_threshold {
                         stamps.push(timestamp1);
-                        frame_reader.next().map(crate::OutFramePerCamInput::new)
+                        frame_reader.next()
                     } else {
                         // The next frame is not within the range expected.
                         if timestamp1 > max_threshold {
@@ -83,7 +83,7 @@ impl Iterator for SyncedIter {
                             // Just skip a frame in the file? Not sure about this.
                             log::warn!("Two frames in file? Skipping one.");
                             frame_reader.next();
-                            frame_reader.next().map(crate::OutFramePerCamInput::new)
+                            frame_reader.next()
                         } else {
                             // Hmmm
                             todo!();
@@ -92,7 +92,8 @@ impl Iterator for SyncedIter {
                 } else {
                     // end of stream
                     None
-                }
+                };
+                crate::OutFramePerCamInput::new(mkv_frame, vec![])
             })
             .collect();
 
@@ -110,7 +111,7 @@ impl Iterator for SyncedIter {
         if have_more_data {
             Some(res)
         } else {
-            assert_eq!(res.iter().filter(|x| x.is_some()).count(), 0);
+            assert_eq!(res.iter().filter(|x| x.mkv_frame.is_some()).count(), 0);
             None
         }
     }
