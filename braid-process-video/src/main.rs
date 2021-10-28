@@ -506,15 +506,19 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                     let mut curx = 0;
                     for per_cam in per_cam_data.into_iter() {
                         curx += composite_margin_pixels;
-                        w.elem("g", |_| {}).build(|w| {
-                            // TODO: Maybe put in image coordinate system?
-
+                        w.elem("g", |d| {
+                            d.attr(
+                                "transform",
+                                format!("translate({},{})", curx, composite_margin_pixels),
+                            );
+                        })
+                        .build(|w| {
                             if let Some(ref bytes) = per_cam.png_buf {
                                 let png_base64_buf = base64::encode(&bytes);
                                 let data_url = format!("data:image/png;base64,{}", png_base64_buf);
                                 w.single("image", |d| {
-                                    d.attr("x", curx)
-                                        .attr("y", composite_margin_pixels)
+                                    d.attr("x", 0)
+                                        .attr("y", 0)
                                         .attr("width", per_cam.width)
                                         .attr("height", per_cam.height)
                                         .attr("xlink:href", data_url);
@@ -523,8 +527,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
                             for xy in per_cam.points.iter() {
                                 w.single("circle", |d| {
-                                    d.attr("cx", curx as f64 + xy.0.as_ref())
-                                        .attr("cy", composite_margin_pixels as f64 + xy.1.as_ref())
+                                    d.attr("cx", xy.0.as_ref())
+                                        .attr("cy", xy.1.as_ref())
                                         .attr("r", &feature_radius)
                                         .attr("style", &feature_style);
                                 });
