@@ -577,13 +577,14 @@ where
 /// This is a general purpose function which should be able to convert between
 /// many types as efficiently as possible. In case no data needs to be copied,
 /// no data is copied.
+///
+/// For a version which converts into a pre-allocated buffer, use `convert_into`
+/// (which will copy the image even if the format remains unchanged).
 pub fn convert<SRC, DEST>(frame: &dyn ImageStride<SRC>) -> Result<impl ImageStride<DEST> + '_>
 where
     SRC: PixelFormat,
     DEST: PixelFormat,
 {
-    // TODO: add a variant which copies into pre-allocated buffer.
-
     let src_fmt = machine_vision_formats::pixel_format::pixfmt::<SRC>().unwrap();
     let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<DEST>().unwrap();
 
