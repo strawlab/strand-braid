@@ -112,8 +112,8 @@ fn synchronize_readers_from(
 struct PerCamRender {
     width: usize,
     height: usize,
-    cam_name: Option<String>,
-    cam_num: Option<flydra_types::CamNum>,
+    // cam_name: Option<String>,
+    // cam_num: Option<flydra_types::CamNum>,
     png_buf: Option<Vec<u8>>,
     points: Vec<(NotNan<f64>, NotNan<f64>)>,
 }
@@ -126,8 +126,8 @@ impl PerCamRender {
         Self {
             width,
             height,
-            cam_name: None, // TODO
-            cam_num: None,  // TODO
+            // cam_name: None, // TODO
+            // cam_num: None,  // TODO
             png_buf: None,
             points: vec![],
         }
@@ -222,7 +222,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
     let frame_readers: Vec<_> = readers.into_iter().map(crate::peek2::Peek2::new).collect();
 
-    let per_cams: Vec<PerCamRender> = frame_readers.iter().map(|x| PerCamRender::new(x)).collect();
+    let per_cams: Vec<PerCamRender> = frame_readers.iter().map(PerCamRender::new).collect();
 
     let cum_width: usize = per_cams.iter().map(|x| x.width).sum();
     let cum_height: usize = per_cams.iter().map(|x| x.height).max().unwrap();
