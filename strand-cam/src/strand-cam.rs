@@ -1841,12 +1841,12 @@ macro_rules! noisy_drop {
 pub type AppConnection =
     Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
 
-pub struct MyApp {
+pub struct StrandCamApp {
     inner: BuiAppInner<StoreType, CallbackType>,
     txers: AppConnection,
 }
 
-impl MyApp {
+impl StrandCamApp {
     #![cfg_attr(not(feature = "image_tracker"), allow(unused_variables))]
     async fn new(
         rt_handle: tokio::runtime::Handle,
@@ -1958,7 +1958,7 @@ impl MyApp {
         };
         let _task_join_handle = rt_handle.spawn(new_conn_future);
 
-        let my_app = MyApp { inner, txers };
+        let my_app = StrandCamApp { inner, txers };
 
         Ok((firehose_callback_rx, my_app))
     }
@@ -2541,7 +2541,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 pub async fn setup_app(
     rt_handle: tokio::runtime::Handle,
     args: StrandCamArgs)
-    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, NoisyDrop<MyApp>)>
+    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, StrandCamApp)>
 {
     debug!("CLI request for camera {:?}", args.camera_name);
 
@@ -2940,7 +2940,7 @@ pub async fn setup_app(
     let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     let (firehose_callback_rx, my_app) =
-    MyApp::new(
+    StrandCamApp::new(
         rt_handle.clone(),
         shared_store_arc.clone(),
         secret,
@@ -2952,8 +2952,6 @@ pub async fn setup_app(
         tx_frame3,
         valve.clone(),
         shutdown_rx).await?;
-
-    let my_app = noisy_drop!(my_app);
 
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0

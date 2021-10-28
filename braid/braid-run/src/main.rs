@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use flydra_types::{
     AddrInfoIP, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, TriggerType,
 };
-use strand_cam::{ImPtDetectCfgSource, MyApp, NoisyDrop};
+use strand_cam::{ImPtDetectCfgSource, StrandCamApp};
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
@@ -26,11 +26,6 @@ struct BraidRunCliArgs {
     config_file: std::path::PathBuf,
 }
 
-struct StrandCamInstance {
-    /// Prevent MyApp from getting dropped
-    _my_app: NoisyDrop<MyApp>,
-}
-
 fn launch_strand_cam(
     handle: tokio::runtime::Handle,
     camera: BraidCameraConfig,
@@ -38,7 +33,7 @@ fn launch_strand_cam(
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
-) -> Result<StrandCamInstance> {
+) -> Result<StrandCamApp> {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
 
@@ -70,9 +65,9 @@ fn launch_strand_cam(
         software_limit_framerate,
     };
 
-    let (_, _, fut, _my_app) = handle.block_on(strand_cam::setup_app(handle.clone(), args))?;
+    let (_, _, fut, app) = handle.block_on(strand_cam::setup_app(handle.clone(), args))?;
     handle.spawn(fut);
-    Ok(StrandCamInstance { _my_app })
+    Ok(app)
 }
 
 fn main() -> Result<()> {
@@ -161,7 +156,7 @@ fn main() -> Result<()> {
                 None
             }
         })
-        .collect::<Result<Vec<StrandCamInstance>>>()?;
+        .collect::<Result<Vec<StrandCamApp>>>()?;
 
     debug!("done launching cameras");
 
