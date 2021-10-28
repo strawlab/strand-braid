@@ -783,7 +783,7 @@ impl Default for TriggerType {
 // - In old archives from Flydra, it might be that rows are skipped if no
 //   detections were made. However, this loses timestamp information from
 //   cameras, so this is not done anymore or preferred.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Data2dDistortedRow {
     // changes to this should update BraidMetadataSchemaTag
     // should be kept in sync with Data2dDistortedRowF32
