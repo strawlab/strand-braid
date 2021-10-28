@@ -602,12 +602,17 @@ impl AcquisitionHistogram {
         }
         let msecs = duration_secs * 1000.0;
         if msecs < 0.0 {
-            error!(
-                "{} frame {} acquisition duration negative? ({} msecs)",
-                self.ros_cam_name.as_str(),
-                frameno,
-                msecs
-            );
+            if msecs < -5.0 {
+                // A little bit of deviation is expected occasionally due to
+                // noise in fitting the time measurements, so do not log warning
+                // unless it exceeds 5 msec.
+                error!(
+                    "{} frame {} acquisition duration negative? ({} msecs)",
+                    self.ros_cam_name.as_str(),
+                    frameno,
+                    msecs
+                );
+            }
             return;
         }
         let bin_num = if msecs > NUM_MSEC_BINS as f64 {

@@ -773,6 +773,7 @@ pub struct TriggerboxConfig {
     pub framerate: f32,
     #[serde(default = "default_query_dt")]
     pub query_dt: std::time::Duration,
+    pub max_triggerbox_measurement_error: Option<std::time::Duration>,
 }
 
 impl std::default::Default for TriggerboxConfig {
@@ -781,6 +782,10 @@ impl std::default::Default for TriggerboxConfig {
             device_fname: "/dev/trig1".to_string(),
             framerate: 100.0,
             query_dt: default_query_dt(),
+            // Make a relatively long default so that cameras will synchronize
+            // even with relatively long delays. Users can always specify
+            // tighter precision within a config file.
+            max_triggerbox_measurement_error: Some(std::time::Duration::from_millis(20)),
         }
     }
 }

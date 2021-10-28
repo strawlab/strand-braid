@@ -696,8 +696,24 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let tx = my_app.triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
 
+            let (rate_cmd, rate_actual) = make_trig_fps_cmd(*fps as f64);
+
+            let max_triggerbox_measurement_error =
+                cfg.max_triggerbox_measurement_error.unwrap_or_else(|| {
+                    flydra_types::TriggerboxConfig::default()
+                        .max_triggerbox_measurement_error
+                        .unwrap()
+                });
+
             tx.send(Cmd::StopPulsesAndReset).cb_ok();
-            tx.send(make_trig_fps_cmd(*fps as f64)).cb_ok();
+            info!(
+                "Triggerbox request {} fps, actual frame rate will be {} fps. Will \
+                accept maximum timestamp error of {} microseconds.",
+                fps,
+                rate_actual,
+                max_triggerbox_measurement_error.as_micros(),
+            );
+            tx.send(rate_cmd)?;
             tx.send(Cmd::StartPulses).cb_ok();
 
             let mut expected_framerate = expected_framerate_arc.write();
@@ -712,6 +728,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 Some(triggerbox_data_tx.into_inner()),
                 *query_dt,
                 None,
+                max_triggerbox_measurement_error,
             )?;
 
             _triggerbox_thread_control = Some(control);

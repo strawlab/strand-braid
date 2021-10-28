@@ -17,7 +17,7 @@ toml = "0.5"
 regex = "1.0"
 url = "2"
 flydra-types = {path="../flydra-types", features=["with-dns"]}
-braid-triggerbox = "0.1"
+braid-triggerbox = "0.2.1"
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
 chrono = "0.4"
 futures = "0.3"

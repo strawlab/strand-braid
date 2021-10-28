@@ -81,6 +81,11 @@ pub use error::{file_error, wrap_error, Error};
 
 pub type Result<M> = std::result::Result<M, Error>;
 
+// The first trigger pulse is labelled with this pulsenumber. Do to the behavior
+// of the triggerbox, the first pulse physically leaving the device already has
+// pulsenumber 2.
+pub const TRIGGERBOX_FIRST_PULSE: u64 = 2;
+
 pub(crate) fn generate_observation_model<R>(
     cam: &flydra_mvg::MultiCamera<R>,
     state: &Vector6<R>,
