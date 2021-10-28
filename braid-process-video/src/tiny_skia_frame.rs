@@ -5,17 +5,21 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(mut pixmap: tiny_skia::Pixmap) -> Self {
+    pub fn new(mut pixmap: tiny_skia::Pixmap) -> anyhow::Result<Self> {
         // This pixel conversion is based on that of
         // tiny_skia::Pixmap::encode_png
         for pixel in pixmap.pixels_mut() {
             let c = pixel.demultiply();
             *pixel =
                 tiny_skia::PremultipliedColorU8::from_rgba(c.red(), c.green(), c.blue(), c.alpha())
-                    .unwrap();
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Could not demultiply pixmap. (Hint: draw a background color.)"
+                        )
+                    })?;
         }
 
-        Self { pixmap }
+        Ok(Self { pixmap })
     }
 }
 

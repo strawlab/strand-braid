@@ -45,10 +45,14 @@ const VALID_OUTPUT_TYPES: &[&str] = &["video", "debug_txt"];
 #[serde(deny_unknown_fields)]
 pub struct OutputVideoConfig {
     /// The space surrounding each image in the composite view.
-    pub composite_margin_pixels: usize,
+    pub composite_margin_pixels: Option<usize>,
     pub time_dilation_factor: Option<f32>,
-    /// The size of the point to overlay when drawing braidz 2D features.
-    pub feature_size_pixels: Option<u16>,
+    /// The radius of the circle to overlay when drawing braidz 2D features.
+    pub feature_radius: Option<String>,
+    /// The SVG style string of the point to overlay when drawing braidz 2D features.
+    ///
+    /// For example: "fill:none;stroke:deepskyblue;stroke-width:3".
+    pub feature_style: Option<String>,
     /// The title of the saved video, set in the segment metadata.
     pub title: Option<String>,
 }
@@ -56,9 +60,10 @@ pub struct OutputVideoConfig {
 impl Default for OutputVideoConfig {
     fn default() -> Self {
         Self {
-            composite_margin_pixels: 5,
+            composite_margin_pixels: None,
             time_dilation_factor: None,
-            feature_size_pixels: None,
+            feature_radius: None,
+            feature_style: None,
             title: None,
         }
     }

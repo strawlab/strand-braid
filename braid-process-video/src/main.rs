@@ -333,6 +333,24 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     let mut composite_timestamp;
     let mut first_timestamp = None;
 
+    let mut usvg_opt = usvg::Options::default();
+    // Get file's absolute directory.
+    // usvg_opt.resources_dir = std::fs::canonicalize(&args[1]).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+    usvg_opt.fontdb.load_system_fonts();
+
+    let composite_margin_pixels = video_options.composite_margin_pixels.unwrap_or(5);
+
+    let feature_radius = video_options
+        .feature_radius
+        .as_ref()
+        .map(Clone::clone)
+        .unwrap_or_else(|| "10".to_string());
+    let feature_style = video_options
+        .feature_style
+        .as_ref()
+        .map(Clone::clone)
+        .unwrap_or_else(|| "fill:none;stroke:deepskyblue;stroke-width:3".to_string());
+
     let debug_output: Option<&config::OutputConfig> =
         cfg.output.iter().find(|x| x.type_ == "debug_txt");
 
@@ -361,14 +379,6 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         let n_frames = synced_frames.len();
 
         let mut per_cam_data = Vec::with_capacity(n_frames);
-
-        let mut usvg_opt = usvg::Options::default();
-        // Get file's absolute directory.
-        // usvg_opt.resources_dir = std::fs::canonicalize(&args[1]).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
-        usvg_opt.fontdb.load_system_fonts();
-
-        // Convert from total pixels to half width/height.
-        let feature_size_pixels = (video_options.feature_size_pixels.unwrap_or(10) / 2) as i32;
 
         composite_timestamp = None;
         for (filename, ((cam_num, frame), per_cam_ref)) in filenames
@@ -475,58 +485,53 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
             // Draw SVG
             let mut wtr = tagger::new(tagger::upgrade_write(Vec::<u8>::new()));
-
+            let svg_width = cum_width + n_frames * 2 * composite_margin_pixels;
+            let svg_height = cum_height + 2 * composite_margin_pixels;
             wtr.elem("svg", |d| {
-                let width = cum_width + n_frames * 2 * video_options.composite_margin_pixels;
-                let height = cum_height + 2 * video_options.composite_margin_pixels;
-
                 d.attr("xmlns", "http://www.w3.org/2000/svg")
                     .attr("xmlns:xlink", "http://www.w3.org/1999/xlink")
-                    .attr("viewBox", format_args!("0 0 {} {}", width, height));
+                    .attr("viewBox", format_args!("0 0 {} {}", svg_width, svg_height));
             })
             .build(|w| {
-                w.elem("g", |d| {
-                    d.attr("id", "frames");
-                })
-                .build(|w| {
-                    // TODO: put in image coordinate system
+                // write a background white rectangle.
+                w.single("rect", |d| {
+                    d.attr("x", 0)
+                        .attr("y", 0)
+                        .attr("width", svg_width)
+                        .attr("height", svg_height)
+                        .attr("style", "fill:white");
+                });
+
+                w.elem("g", |_| {}).build(|w| {
                     let mut curx = 0;
                     for per_cam in per_cam_data.into_iter() {
-                        curx += video_options.composite_margin_pixels;
-                        if let Some(ref bytes) = per_cam.png_buf {
-                            let png_base64_buf = base64::encode(&bytes);
-                            let data_url = format!("data:image/png;base64,{}", png_base64_buf);
-                            w.single("image", |d| {
-                                d.attr("x", curx)
-                                    .attr("y", video_options.composite_margin_pixels)
-                                    .attr("width", per_cam.width)
-                                    .attr("height", per_cam.height)
-                                    .attr("xlink:href", data_url);
-                            });
-                        } else {
-                            w.single("rect", |d| {
-                                d.attr("x", curx)
-                                    .attr("y", video_options.composite_margin_pixels)
-                                    .attr("width", per_cam.width)
-                                    .attr("height", per_cam.height)
-                                    .attr("style", "fill:blue");
-                            });
-                        }
+                        curx += composite_margin_pixels;
+                        w.elem("g", |_| {}).build(|w| {
+                            // TODO: Maybe put in image coordinate system?
 
-                        for xy in per_cam.points.iter() {
-                            w.single("circle", |d| {
-                                d.attr("cx", curx as f64 + xy.0.as_ref())
-                                    .attr(
-                                        "cy",
-                                        video_options.composite_margin_pixels as f64
-                                            + xy.1.as_ref(),
-                                    )
-                                    .attr("r", format!("{}", feature_size_pixels))
-                                    .attr("style", "fill:none;stroke:green;stroke-width:3");
-                            });
-                        }
+                            if let Some(ref bytes) = per_cam.png_buf {
+                                let png_base64_buf = base64::encode(&bytes);
+                                let data_url = format!("data:image/png;base64,{}", png_base64_buf);
+                                w.single("image", |d| {
+                                    d.attr("x", curx)
+                                        .attr("y", composite_margin_pixels)
+                                        .attr("width", per_cam.width)
+                                        .attr("height", per_cam.height)
+                                        .attr("xlink:href", data_url);
+                                });
+                            }
 
-                        curx += per_cam.width + video_options.composite_margin_pixels;
+                            for xy in per_cam.points.iter() {
+                                w.single("circle", |d| {
+                                    d.attr("cx", curx as f64 + xy.0.as_ref())
+                                        .attr("cy", composite_margin_pixels as f64 + xy.1.as_ref())
+                                        .attr("r", &feature_radius)
+                                        .attr("style", &feature_style);
+                                });
+                            }
+                        });
+
+                        curx += per_cam.width + composite_margin_pixels;
                     }
                 });
             });
@@ -548,7 +553,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                 tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
             resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
 
-            my_mkv_writer.write(&tiny_skia_frame::Frame::new(pixmap), save_ts)?;
+            my_mkv_writer.write(&tiny_skia_frame::Frame::new(pixmap)?, save_ts)?;
         }
 
         // let png_buf = convert_image::frame_to_image(&composited, convert_image::ImageOptions::Png)?;
