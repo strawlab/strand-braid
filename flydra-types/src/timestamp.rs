@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 use crate::*;
 
 use chrono::Utc;
@@ -13,31 +15,39 @@ pub struct HostClock;
 impl Source for HostClock {}
 
 /// A type that represents a timestamp but is serialized to an f64.
-#[derive(Debug, Clone, PartialEq)]
+// TODO: rename from 'Local' because actually the f64 stamp is UTC.
+#[derive(Clone, PartialEq)]
 pub struct FlydraFloatTimestampLocal<S> {
     value_f64: NotNan<f64>,
     source: std::marker::PhantomData<S>,
 }
 
-impl<S: Source, TZ: chrono::TimeZone> From<&chrono::DateTime<TZ>> for FlydraFloatTimestampLocal<S> {
+impl<S> Debug for FlydraFloatTimestampLocal<S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let dt: chrono::DateTime<Utc> = self.into();
+        write!(f, "FlydraFloatTimestampLocal {{ {:?} }}", dt)
+    }
+}
+
+impl<S, TZ: chrono::TimeZone> From<&chrono::DateTime<TZ>> for FlydraFloatTimestampLocal<S> {
     fn from(orig: &chrono::DateTime<TZ>) -> Self {
         FlydraFloatTimestampLocal::from_dt(orig)
     }
 }
 
-impl<S: Source, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloatTimestampLocal<S> {
+impl<S, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloatTimestampLocal<S> {
     fn from(val: chrono::DateTime<TZ>) -> FlydraFloatTimestampLocal<S> {
         FlydraFloatTimestampLocal::from_dt(&val)
     }
 }
 
-impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
+impl<'a, S> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
         datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
 }
 
-impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
+impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
         datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
@@ -45,7 +55,7 @@ impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
 
 assert_impl_all!(val; FlydraFloatTimestampLocal<Triggerbox>, PartialEq);
 
-impl<S: Source> FlydraFloatTimestampLocal<S> {
+impl<S> FlydraFloatTimestampLocal<S> {
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
         let value_f64 = datetime_conversion::datetime_to_f64(dt);
         let value_f64 = value_f64.into();
