@@ -1,32 +1,11 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::{peek2::Peek2, Frame};
-
-pub trait Timestamped {
-    fn timestamp(&self) -> DateTime<Utc>;
-}
-
-impl Timestamped for Result<Frame> {
-    fn timestamp(&self) -> DateTime<Utc> {
-        match self {
-            Ok(v) => v.timestamp(),
-            Err(e) => {
-                panic!("unexpected error getting timestamp: {}", e);
-            }
-        }
-    }
-}
-
-impl Timestamped for Frame {
-    fn timestamp(&self) -> DateTime<Utc> {
-        self.pts_chrono
-    }
-}
+use crate::{peek2::Peek2, Frame, FrameReader};
 
 // Iterate across multiple movies using the frame timestamps to synchronize.
-pub struct SyncedIter<I: Iterator> {
-    frame_readers: Vec<Peek2<I>>,
+pub struct SyncedIter {
+    frame_readers: Vec<Peek2<FrameReader>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
@@ -35,13 +14,9 @@ pub struct SyncedIter<I: Iterator> {
     previous_max: DateTime<Utc>,
 }
 
-impl<I> SyncedIter<I>
-where
-    I: Iterator,
-    I::Item: Timestamped,
-{
+impl SyncedIter {
     pub fn new(
-        frame_readers: Vec<Peek2<I>>,
+        frame_readers: Vec<Peek2<FrameReader>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
     ) -> Result<Self> {
@@ -55,7 +30,7 @@ where
         }
         let t0: Vec<DateTime<Utc>> = frame_readers
             .iter()
-            .map(|x| x.peek1().unwrap().timestamp())
+            .map(|x| x.peek1().unwrap().as_ref().unwrap().pts_chrono)
             .collect();
         let mut previous_min = *t0.iter().min().unwrap();
         let mut previous_max = *t0.iter().max().unwrap();
@@ -77,12 +52,8 @@ where
     }
 }
 
-impl<I> Iterator for SyncedIter<I>
-where
-    I: Iterator,
-    I::Item: Timestamped,
-{
-    type Item = Vec<Option<I::Item>>;
+impl Iterator for SyncedIter {
+    type Item = Vec<Option<Result<Frame>>>;
     fn next(&mut self) -> std::option::Option<Self::Item> {
         let min_threshold = self.previous_min + self.frame_duration - self.sync_threshold;
         let max_threshold = self.previous_max + self.frame_duration + self.sync_threshold;
@@ -91,11 +62,11 @@ where
 
         let mut stamps = Vec::with_capacity(self.frame_readers.len());
 
-        let res: Vec<Option<I::Item>> = self
+        let res: Vec<Option<Result<Frame>>> = self
             .frame_readers
             .iter_mut()
             .map(|frame_reader| {
-                let timestamp1 = frame_reader.peek1().map(|x| x.timestamp());
+                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().pts_chrono);
 
                 if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;

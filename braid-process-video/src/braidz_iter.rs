@@ -45,21 +45,25 @@ impl<'a> BraidArchiveSyncData<'a> {
     ) -> Result<Self> {
         assert_eq!(camera_names.len(), frame_readers.len());
 
-        use crate::synced_iter::Timestamped;
         // The readers will all have the current read position at
         // `approx_start_time` when this is called.
 
         // Get time of first frame for each reader.
         let t0: Vec<DateTime<Utc>> = frame_readers
             .iter()
-            .map(|x| x.peek1().unwrap().timestamp())
+            .map(|x| x.peek1().unwrap().as_ref().unwrap().pts_chrono)
             .collect();
 
         // Get earliest starting video
         let i = t0.iter().argmin().unwrap();
         let earliest_start_rdr = &frame_readers[i];
         let earliest_start_cam_name = &camera_names[i].as_ref().unwrap();
-        let earliest_start = earliest_start_rdr.peek1().unwrap().timestamp();
+        let earliest_start = earliest_start_rdr
+            .peek1()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .pts_chrono;
         let earliest_start_cam_num = archive
             .cam_info
             .camid2camn
