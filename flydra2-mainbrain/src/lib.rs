@@ -938,8 +938,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         let ros_cam_name = RosCamName::new(packet.cam_name.clone());
         live_stats_collector2.register_new_frame_data(&ros_cam_name, packet.points.len());
 
-        let http_session_handler3 = http_session_handler2.clone();
-
         let sync_time_min = match &trigger_cfg {
             TriggerType::TriggerboxV1(_) => {
                 // Using trigger box
@@ -951,16 +949,16 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             }
         };
 
-        let synced_frame = match cam_manager2.got_new_frame_live(
+        let synced_frame = cam_manager2.got_new_frame_live(
             &packet,
             &sync_pulse_pause_started_arc,
             sync_time_min,
             std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
             |name, frame| {
                 let name2 = name.clone();
-                let mut http_session_handler4 = http_session_handler3.clone();
+                let mut http_session_handler3 = http_session_handler2.clone();
                 let fut_no_err = async move {
-                    match http_session_handler4.send_frame_offset(&name2, frame).await {
+                    match http_session_handler3.send_frame_offset(&name2, frame).await {
                         Ok(_http_response) => {}
                         Err(e) => {
                             error!("Error sending frame offset: {}", e);

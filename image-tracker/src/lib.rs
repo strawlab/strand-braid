@@ -628,7 +628,9 @@ impl AcquisitionHistogram {
     }
 }
 
-fn open_destination_addr(camdata_addr: Option<RealtimePointsDestAddr>) -> Result<Option<DatagramSocket>> {
+fn open_destination_addr(
+    camdata_addr: Option<RealtimePointsDestAddr>,
+) -> Result<Option<DatagramSocket>> {
     Ok(match camdata_addr {
         None => None,
         Some(ref dest_addr) => {
@@ -665,9 +667,8 @@ fn open_destination_addr(camdata_addr: Option<RealtimePointsDestAddr>) -> Result
                                     src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
                                 }
                                 SocketAddr::V6(_) => {
-                                    src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(
-                                        0, 0, 0, 0, 0, 0, 0, 0,
-                                    )));
+                                    src_addr
+                                        .set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
                                 }
                             }
                         }
