@@ -92,9 +92,9 @@ test_flydra2:
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
-test_crates_rust_1_55:
+test_crates_rust_1_56:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
@@ -163,7 +163,7 @@ test_crates_rust_1_55:
 
 test_crates_rust_nightly:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -307,7 +307,7 @@ camtrig-ubuntu1604-debs:
 
 build-freemovr-calibration:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -323,7 +323,7 @@ build-freemovr-calibration:
 
 build-freemovr-calibration-webapp:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -716,7 +716,7 @@ braidz-cli-ubuntu2004:
 
 braid-webapps:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -918,7 +918,7 @@ braid-pylon5-ubuntu2004:
 
 camtrig-linux:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -935,7 +935,7 @@ camtrig-linux:
 
 camtrig-firmware:
   stage: build
-  image: rust:1.55.0
+  image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
 
