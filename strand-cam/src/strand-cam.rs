@@ -1794,50 +1794,6 @@ fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16
     }
 }
 
-pub struct NoisyDrop<T> {
-    inner: T,
-    name: String,
-    file: String,
-    line: u32,
-}
-
-impl<T> NoisyDrop<T> {
-    fn new(inner: T, name: String, file: &str, line: u32) -> Self {
-        debug!("Creating {} at {}:{}", name, file, line);
-        Self {
-            inner,
-            name,
-            file: file.into(),
-            line,
-        }
-    }
-}
-
-impl<T> std::ops::Deref for NoisyDrop<T> {
-    type Target = T;
-    #[inline(always)]
-    fn deref(&self) -> &T {
-        &self.inner
-    }
-}
-
-impl<T> Drop for NoisyDrop<T> {
-    fn drop(&mut self) {
-        debug!(
-            "Dropping {} originally from {}:{}",
-            self.name, self.file, self.line
-        );
-        #[cfg(feature = "backtrace")]
-        error!("{}", std::backtrace::Backtrace::capture());
-    }
-}
-
-macro_rules! noisy_drop {
-    ($name:ident) => {
-        NoisyDrop::new($name, stringify!($name).to_string(), file!(), line!())
-    };
-}
-
 pub type AppConnection =
     Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
 
@@ -1893,7 +1849,6 @@ impl StrandCamApp {
         // A channel for the data send from the client browser. No need to convert to
         // bounded to prevent exploding when camera too fast.
         let (firehose_callback_tx, firehose_callback_rx) = channellib::unbounded();
-        let firehose_callback_tx = noisy_drop!(firehose_callback_tx);
 
         debug!("created firehose_callback_tx");
 
