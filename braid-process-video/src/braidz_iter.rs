@@ -132,6 +132,7 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
             self.cur_braidz_frame += 1;
 
             let mut n_cams_this_frame = 0;
+            let mut n_cams_done = 0;
 
             // Iterate across all input mkv cameras.
             let result = Some(
@@ -188,8 +189,10 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                                 // before first frame in MKV? Or is a frame
                                 // skipped?)
                             } else {
-                                panic!("frame in MKV is missing from BRAIDZ?!");
+                                panic!("Frame number in MKV is missing from BRAIDZ.");
                             }
+                        } else {
+                            n_cams_done += 1;
                         }
 
                         let mkv_frame = if found {
@@ -205,16 +208,13 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                     .collect(),
             );
 
+            // All mkv files done. End.
+            if n_cams_done == self.per_cam.len() {
+                return None;
+            }
+
             if self.did_have_all {
-                // If we have already had a crame with all cameras, return
-                // whatever cameras we do have data for, if any.
-                if n_cams_this_frame > 0 {
-                    return result;
-                } else {
-                    // TODO: handle case where all cameras failed to save a
-                    // frame to MKV but future camera data will come.
-                    return None;
-                }
+                return result;
             } else {
                 // If we haven't yet had a frame with all cameras, check if this
                 // is the first such.
