@@ -2,13 +2,15 @@ use std::{collections::BTreeMap, io::Write};
 
 use anyhow::{Context as ContextTrait, Result};
 use chrono::{DateTime, Utc};
+use ordered_float::NotNan;
 use structopt::StructOpt;
 
 use ffmpeg_next as ffmpeg;
 
+use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageStride};
+
 use ci2_remote_control::MkvRecordingConfig;
 use flydra_types::{FlydraFloatTimestampLocal, RawCamName, Triggerbox};
-use simple_frame::SimpleFrame;
 
 mod peek2;
 
@@ -24,8 +26,6 @@ pub use frame::Frame;
 mod braidz_iter;
 mod synced_iter;
 
-use machine_vision_formats::pixel_format::RGB8;
-
 mod config;
 use config::{BraidRetrackVideoConfig, OutputVideoConfig, Validate};
 
@@ -39,34 +39,6 @@ struct BraidProcessVideoCliArgs {
 
 #[derive(Debug, Clone)]
 struct Rgba(pub [u8; 4]);
-
-fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: &Rgba) {
-    if x >= self_.width {
-        return;
-    }
-    if y >= self_.height {
-        return;
-    }
-    let row_start = self_.stride as usize * y as usize;
-    let pix_start = row_start + x as usize * 3;
-
-    let alpha = incoming.0[3] as f64 / 255.0;
-    let p = 1.0 - alpha;
-    let q = alpha;
-
-    let old: [u8; 3] = self_.image_data[pix_start..pix_start + 3]
-        .try_into()
-        .unwrap();
-    let new: [u8; 3] = [
-        (old[0] as f64 * p + incoming.0[0] as f64 * q).round() as u8,
-        (old[1] as f64 * p + incoming.0[1] as f64 * q).round() as u8,
-        (old[2] as f64 * p + incoming.0[2] as f64 * q).round() as u8,
-    ];
-
-    self_.image_data[pix_start] = new[0];
-    self_.image_data[pix_start + 1] = new[1];
-    self_.image_data[pix_start + 2] = new[2];
-}
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
@@ -132,6 +104,45 @@ fn synchronize_readers_from(
             }
         })
         .collect()
+}
+
+#[derive(Clone)]
+struct PerCamRender {
+    width: usize,
+    height: usize,
+    cam_name: Option<String>,
+    cam_num: Option<flydra_types::CamNum>,
+    png_buf: Option<Vec<u8>>,
+    points: Vec<(NotNan<f64>, NotNan<f64>)>,
+}
+
+impl PerCamRender {
+    fn new(rdr: &peek2::Peek2<FrameReader>) -> Self {
+        let peek1 = rdr.peek1().unwrap().as_ref().unwrap();
+        let width = peek1.width() as usize;
+        let height = peek1.height() as usize;
+        Self {
+            width,
+            height,
+            cam_name: None, // TODO
+            cam_num: None,  // TODO
+            png_buf: None,
+            points: vec![],
+        }
+    }
+
+    fn set_original_image(&mut self, image: &dyn ImageStride<RGB8>) -> Result<()> {
+        self.png_buf = Some(convert_image::frame_to_image(
+            image,
+            convert_image::ImageOptions::Png,
+        )?);
+        Ok(())
+    }
+
+    fn append_2d_point(&mut self, x: NotNan<f64>, y: NotNan<f64>) -> Result<()> {
+        self.points.push((x, y));
+        Ok(())
+    }
 }
 
 fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
@@ -209,16 +220,10 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
     let frame_readers: Vec<_> = readers.into_iter().map(crate::peek2::Peek2::new).collect();
 
-    let widths: Vec<usize> = frame_readers
-        .iter()
-        .map(|x| x.peek1().unwrap().as_ref().unwrap().width() as usize)
-        .collect();
-    let cum_width: usize = widths.iter().sum();
-    let cum_height = frame_readers
-        .iter()
-        .map(|x| x.peek1().unwrap().as_ref().unwrap().height() as usize)
-        .max()
-        .unwrap();
+    let per_cams: Vec<PerCamRender> = frame_readers.iter().map(|x| PerCamRender::new(x)).collect();
+
+    let cum_width: usize = per_cams.iter().map(|x| x.width).sum();
+    let cum_height: usize = per_cams.iter().map(|x| x.height).max().unwrap();
 
     // Advance each reader until upcoming frame is not before the start time.
     let frame_duration_approx = frame_readers
@@ -322,8 +327,6 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         ..Default::default()
     };
 
-    let green = Rgba([128, 255, 128, 255]);
-
     let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, mkv_cfg, None)?;
     let mut composite_timestamp;
     let mut first_timestamp = None;
@@ -351,52 +354,37 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             log::info!("frame {}", out_fno);
         }
 
+        // Number of individual input frames from this timepoint to be
+        // compisited into final output.
         let n_frames = synced_frames.len();
 
-        let width = cum_width + n_frames * 2 * video_options.composite_margin_pixels;
-        let height = cum_height + 2 * video_options.composite_margin_pixels;
+        let mut per_cam_data = Vec::with_capacity(n_frames);
 
-        let stride = width as usize * 3;
-        let image_data = vec![255; stride as usize * height as usize];
-        let mut composited = SimpleFrame::<RGB8> {
-            width: width as u32,
-            height: height as u32,
-            stride: stride as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let mut usvg_opt = usvg::Options::default();
+        // Get file's absolute directory.
+        // usvg_opt.resources_dir = std::fs::canonicalize(&args[1]).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+        usvg_opt.fontdb.load_system_fonts();
 
         // Convert from total pixels to half width/height.
         let feature_size_pixels = (video_options.feature_size_pixels.unwrap_or(10) / 2) as i32;
 
-        let mut cur_x: i32 = 0;
-        let cur_y = video_options.composite_margin_pixels as i32;
         composite_timestamp = None;
-        for (filename, ((cam_num, frame), frame_width)) in filenames
+        for (filename, ((cam_num, frame), per_cam_ref)) in filenames
             .iter()
-            .zip(cam_nums.iter().zip(synced_frames).zip(&widths))
+            .zip(cam_nums.iter().zip(synced_frames).zip(&per_cams))
         {
-            cur_x += video_options.composite_margin_pixels as i32;
+            let mut per_cam = per_cam_ref.clone();
 
             if let Some(frame) = frame {
                 let frame = frame?;
                 composite_timestamp = Some(frame.pts_chrono);
+                // Get timestamp from MKV file.
                 let frame_triggerbox: FlydraFloatTimestampLocal<Triggerbox> =
                     frame.pts_chrono.into();
+                // Get timestamp from MKV file also as f64 number.
                 let frame_f64 = frame_triggerbox.as_f64();
 
-                // Draw frame at (cur_x, cur_y) of same frame.width() frame.height() into composited.
-                let src_stride = frame.stride();
-                let copy_width = frame.width() as usize * 3;
-                for src_row in 0..frame.height() as usize {
-                    let start = src_row * src_stride;
-                    let src_row_data = &frame.bytes()[start..][..copy_width];
-
-                    let dest_start_y = cur_y as usize + src_row;
-                    let dest_start = dest_start_y * stride + cur_x as usize * 3;
-                    let dest = &mut composited.image_data[dest_start..][..copy_width];
-                    dest.copy_from_slice(src_row_data);
-                }
+                per_cam.set_original_image(&frame)?;
 
                 let mut wrote_debug = false;
 
@@ -412,6 +400,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                             .collect::<Vec<f64>>();
 
                         if let Some(best_idx) = time_dist.iter().argmin() {
+                            // TODO: Potentially there are multiple rows in
+                            // braidz file for this framenumber. Handle them all.
                             let best_row = &data2d_rows[best_idx];
                             let best_timestamp = &best_row.cam_received_timestamp;
                             // let best_timestamp = best_row.timestamp.as_ref().unwrap();
@@ -437,29 +427,10 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                                     wrote_debug = true;
                                 }
 
-                                let x = best_row.x;
-                                let y = best_row.y;
-
-                                if !x.is_nan() {
-                                    for xo in &[-feature_size_pixels, feature_size_pixels] {
-                                        for yo in -feature_size_pixels..=feature_size_pixels {
-                                            put_pixel(
-                                                &mut composited,
-                                                (cur_x + x as i32 + xo) as u32,
-                                                (cur_y + y as i32 + yo) as u32,
-                                                &green,
-                                            );
-                                        }
-                                    }
-                                    for xo in -feature_size_pixels..=feature_size_pixels {
-                                        for yo in &[-feature_size_pixels, feature_size_pixels] {
-                                            put_pixel(
-                                                &mut composited,
-                                                (cur_x + x as i32 + xo) as u32,
-                                                (cur_y + y as i32 + yo) as u32,
-                                                &green,
-                                            );
-                                        }
+                                if let Ok(x) = NotNan::new(best_row.x) {
+                                    if let Ok(y) = NotNan::new(best_row.y) {
+                                        println!("frame {}: append point", out_fno);
+                                        per_cam.append_2d_point(x, y)?;
                                     }
                                 }
                             }
@@ -480,8 +451,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                 }
             }
 
-            cur_x += *frame_width as i32;
-            cur_x += video_options.composite_margin_pixels as i32;
+            per_cam_data.push(per_cam);
         }
 
         // If there is no new data, we do not write a frame.
@@ -501,6 +471,87 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             } else {
                 *ts
             };
+
+            // Draw SVG
+            let mut wtr = tagger::new(tagger::upgrade_write(Vec::<u8>::new()));
+
+            wtr.elem("svg", |d| {
+                let width = cum_width + n_frames * 2 * video_options.composite_margin_pixels;
+                let height = cum_height + 2 * video_options.composite_margin_pixels;
+
+                d.attr("xmlns", "http://www.w3.org/2000/svg")
+                    .attr("xmlns:xlink", "http://www.w3.org/1999/xlink")
+                    .attr("viewBox", format_args!("0 0 {} {}", width, height));
+            })
+            .build(|w| {
+                w.elem("g", |d| {
+                    d.attr("id", "frames");
+                })
+                .build(|w| {
+                    // TODO: put in image coordinate system
+                    let mut curx = 0;
+                    for per_cam in per_cam_data.into_iter() {
+                        curx += video_options.composite_margin_pixels;
+                        if let Some(ref bytes) = per_cam.png_buf {
+                            let png_base64_buf = base64::encode(&bytes);
+                            let data_url = format!("data:image/png;base64,{}", png_base64_buf);
+                            w.single("image", |d| {
+                                d.attr("x", curx)
+                                    .attr("y", video_options.composite_margin_pixels)
+                                    .attr("width", per_cam.width)
+                                    .attr("height", per_cam.height)
+                                    .attr("xlink:href", data_url);
+                            });
+                        } else {
+                            w.single("rect", |d| {
+                                d.attr("x", curx)
+                                    .attr("y", video_options.composite_margin_pixels)
+                                    .attr("width", per_cam.width)
+                                    .attr("height", per_cam.height)
+                                    .attr("style", "fill:blue");
+                            });
+                        }
+
+                        for xy in per_cam.points.iter() {
+                            w.single("circle", |d| {
+                                d.attr("cx", curx as f64 + xy.0.as_ref())
+                                    .attr(
+                                        "cy",
+                                        video_options.composite_margin_pixels as f64
+                                            + xy.1.as_ref(),
+                                    )
+                                    .attr("r", format!("{}", feature_size_pixels))
+                                    .attr("style", "fill:none;stroke:green;stroke-width:3");
+                            });
+                        }
+
+                        curx += per_cam.width + video_options.composite_margin_pixels;
+                    }
+                });
+            });
+            // Get the SVG file contents.
+            let fmt_wtr = wtr.into_writer();
+            let svg_buf = {
+                let _ = fmt_wtr.error?;
+                fmt_wtr.inner
+            };
+
+            let mut debug_svg_fd = std::fs::File::create(format!("frame{:05}.svg", out_fno))?;
+            debug_svg_fd.write_all(&svg_buf)?;
+
+            // Now parse the SVG file.
+            let rtree = usvg::Tree::from_data(&svg_buf, &usvg_opt.to_ref())?;
+            // Now render the SVG file to a pixmap.
+            let pixmap_size = rtree.svg_node().size.to_screen_size();
+            let mut pixmap =
+                tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+            resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
+            let png_buf = pixmap.encode_png()?;
+
+            let piston_image =
+                image::load_from_memory_with_format(&png_buf, image::ImageFormat::Png)?;
+            let composited = convert_image::piston_to_frame(piston_image)?;
+
             my_mkv_writer.write(&composited, save_ts)?;
         }
 

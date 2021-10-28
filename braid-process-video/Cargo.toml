@@ -15,10 +15,16 @@ serde = {version="1", features=["derive"]}
 toml = "0.5"
 machine-vision-formats = "0.1"
 structopt = "0.3"
+resvg = "0.19"
+tagger = "3.2.1"
+tiny-skia = "0.6.1"
+usvg = { version = "0.19.0", default-features = false }
+image = {version="0.23", default-features=false, features=["png"]}
+base64 = "0.6"
+ordered-float = "1"
 
 mkv-writer = {path="../mkv-writer"}
 ci2-remote-control = { path = "../ci2-remote-control"}
-simple-frame = { path = "../simple-frame" }
 braidz-parser = {path="../braidz-parser"}
 flydra-types = {path="../flydra-types"}
 convert-image = { path = "../convert-image" }

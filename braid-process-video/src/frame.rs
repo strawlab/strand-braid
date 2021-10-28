@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use ffmpeg_next::util::frame::video::Video;
+use machine_vision_formats::{pixel_format::RGB8, ImageBuffer, ImageBufferRef, ImageData, Stride};
 
 pub struct Frame {
     /// The presentation time stamp (in ffmpeg units)
@@ -8,21 +9,6 @@ pub struct Frame {
     pub pts_chrono: DateTime<Utc>,
     /// The ffmpeg data
     pub rgb_frame: Video,
-}
-
-impl Frame {
-    pub fn bytes(&self) -> &[u8] {
-        self.rgb_frame.data(0)
-    }
-    pub fn stride(&self) -> usize {
-        self.rgb_frame.stride(0)
-    }
-    pub fn width(&self) -> u32 {
-        self.rgb_frame.width()
-    }
-    pub fn height(&self) -> u32 {
-        self.rgb_frame.height()
-    }
 }
 
 impl std::fmt::Debug for Frame {
@@ -34,7 +20,55 @@ impl std::fmt::Debug for Frame {
             self.width(),
             self.stride(),
             self.height(),
-            self.bytes().len(),
+            self.buffer_ref().data.len()
         )
+    }
+}
+
+impl ImageData<RGB8> for Frame {
+    fn width(&self) -> u32 {
+        self.rgb_frame.width()
+    }
+    fn height(&self) -> u32 {
+        self.rgb_frame.height()
+    }
+    fn buffer_ref(&self) -> ImageBufferRef<'_, RGB8> {
+        ImageBufferRef {
+            pixel_format: std::marker::PhantomData,
+            data: self.rgb_frame.data(0),
+        }
+    }
+    fn buffer(self) -> ImageBuffer<RGB8> {
+        self.buffer_ref().to_buffer()
+    }
+}
+
+impl ImageData<RGB8> for &Frame {
+    fn width(&self) -> u32 {
+        self.rgb_frame.width()
+    }
+    fn height(&self) -> u32 {
+        self.rgb_frame.height()
+    }
+    fn buffer_ref(&self) -> ImageBufferRef<'_, RGB8> {
+        ImageBufferRef {
+            pixel_format: std::marker::PhantomData,
+            data: self.rgb_frame.data(0),
+        }
+    }
+    fn buffer(self) -> ImageBuffer<RGB8> {
+        self.buffer_ref().to_buffer()
+    }
+}
+
+impl Stride for Frame {
+    fn stride(&self) -> usize {
+        self.rgb_frame.stride(0)
+    }
+}
+
+impl Stride for &Frame {
+    fn stride(&self) -> usize {
+        self.rgb_frame.stride(0)
     }
 }
