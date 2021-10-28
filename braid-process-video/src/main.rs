@@ -112,8 +112,8 @@ fn synchronize_readers_from(
 struct PerCamRender {
     width: usize,
     height: usize,
-    // cam_name: Option<String>,
-    // cam_num: Option<flydra_types::CamNum>,
+    cam_name: Option<String>,
+    cam_num: Option<flydra_types::CamNum>,
     png_buf: Option<Vec<u8>>,
     points: Vec<(NotNan<f64>, NotNan<f64>)>,
 }
@@ -126,8 +126,8 @@ impl PerCamRender {
         Self {
             width,
             height,
-            // cam_name: None, // TODO
-            // cam_num: None,  // TODO
+            cam_name: None,
+            cam_num: None,
             png_buf: None,
             points: vec![],
         }
@@ -222,7 +222,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
     let frame_readers: Vec<_> = readers.into_iter().map(crate::peek2::Peek2::new).collect();
 
-    let per_cams: Vec<PerCamRender> = frame_readers.iter().map(PerCamRender::new).collect();
+    let mut per_cams: Vec<PerCamRender> = frame_readers.iter().map(PerCamRender::new).collect();
 
     let cum_width: usize = per_cams.iter().map(|x| x.width).sum();
     let cum_height: usize = per_cams.iter().map(|x| x.height).max().unwrap();
@@ -292,10 +292,11 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         );
     }
 
-    let cam_nums = camera_names
+    camera_names
         .iter()
-        .map(|opt_cam_name| {
-            opt_cam_name
+        .zip(per_cams.iter_mut())
+        .for_each(|(opt_cam_name, per_cam_mut)| {
+            let cam_num = opt_cam_name
                 .as_ref()
                 .map(|cam_name| {
                     braid_archive
@@ -304,9 +305,10 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                         .flatten()
                 })
                 .flatten()
-                .copied()
-        })
-        .collect::<Vec<_>>();
+                .copied();
+            per_cam_mut.cam_num = cam_num;
+            per_cam_mut.cam_name = opt_cam_name.clone();
+        });
 
     // For now, we can only have a single video output.
     let output = &cfg.output[0];
@@ -381,10 +383,9 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         let mut per_cam_data = Vec::with_capacity(n_frames);
 
         composite_timestamp = None;
-        for (filename, ((cam_num, frame), per_cam_ref)) in filenames
-            .iter()
-            .zip(cam_nums.iter().zip(synced_frames).zip(&per_cams))
-        {
+        for ((filename, frame), per_cam_ref) in filenames.iter().zip(synced_frames).zip(&per_cams) {
+            // Copy the default information for this camera and then we will
+            // start adding information relevant for this frame in time.
             let mut per_cam = per_cam_ref.clone();
 
             if let Some(frame) = frame {
@@ -400,8 +401,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
                 let mut wrote_debug = false;
 
-                if let Some(cam_num) = cam_num {
-                    if let Some(data2d_rows) = data2d.get(cam_num) {
+                if let Some(cam_num) = per_cam.cam_num {
+                    if let Some(data2d_rows) = data2d.get(&cam_num) {
                         // TODO: major optimization by indexing. This is
                         // probably SLOW - it iterates over all timestamps
                         // for each frame.
