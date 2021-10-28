@@ -495,13 +495,28 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
                 w.elem("g", |_| {}).build(|w| {
                     let mut curx = 0;
-                    for per_cam in per_cam_data.into_iter() {
+                    for (cam_idx, per_cam) in per_cam_data.into_iter().enumerate() {
                         curx += composite_margin_pixels;
+
+                        // Clip to the camera image size.
+                        w.elem("clipPath", |d| {
+                            d.attr("id", format!("clip-path-{}", cam_idx));
+                        })
+                        .build(|w| {
+                            w.single("rect", |d| {
+                                d.attr("x", 0)
+                                    .attr("y", 0)
+                                    .attr("width", per_cam.width)
+                                    .attr("height", per_cam.height);
+                            });
+                        });
+
                         w.elem("g", |d| {
                             d.attr(
                                 "transform",
                                 format!("translate({},{})", curx, composite_margin_pixels),
-                            );
+                            )
+                            .attr("clip-path", format!("url(#clip-path-{})", cam_idx));
                         })
                         .build(|w| {
                             if let Some(ref bytes) = per_cam.png_buf {
