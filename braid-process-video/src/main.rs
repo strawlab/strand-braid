@@ -187,8 +187,6 @@ impl<'a> BraidArchiveSyncData<'a> {
             .camid2camn
             .get(*earliest_start_cam_name)
             .unwrap();
-        // dbg!(&earliest_start_cam_name);
-        // dbg!(&earliest_start_cam_num);
 
         // Now get data2d row with this timestamp to find the synchronized frame number.
         let cam_rows = data2d.get(earliest_start_cam_num).unwrap();
@@ -230,9 +228,6 @@ impl<'a> BraidArchiveSyncData<'a> {
                     }
                 }
                 let data2d_start_row_idx = found_row.unwrap();
-
-                // dbg!(&cam_num);
-                // dbg!(&data2d_start_row_idx);
 
                 BraidArchivePerCam {
                     data2d_start_row_idx,
@@ -278,7 +273,6 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
             // braidz frame loop.
             let this_frame_num = self.braidz_frame;
             self.braidz_frame += 1;
-            // dbg!(&this_frame_num);
 
             let mut n_cams_this_frame = 0;
 
@@ -297,8 +291,11 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
                                 &cam_rows[this_cam.data2d_start_row_idx + this_cam.cur_offset];
 
                             this_cam.cur_offset += 1;
-                            assert!(!(xrow.frame > this_frame_num), "missing 2d data in braid archive for frame {}",
-                                    this_frame_num);
+                            assert!(
+                                !(xrow.frame > this_frame_num),
+                                "missing 2d data in braid archive for frame {}",
+                                this_frame_num
+                            );
                             if xrow.frame == this_frame_num {
                                 row = Some(xrow);
                             } else {
@@ -312,14 +309,12 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
                         // Get the timestamp we need.
                         let need_stamp = &row.cam_received_timestamp;
                         let need_chrono = need_stamp.into();
-                        // dbg!(&row.cam_received_timestamp);
 
                         let mut found = false;
 
                         // Now get the next frame and ensure its timestamp is correct.
                         if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
                             let p1_pts_chrono = peek1_frame.as_ref().unwrap().pts_chrono;
-                            // dbg!(&p1_pts_chrono);
 
                             if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
                                 found = true;
@@ -328,7 +323,6 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
                                 // so the frame is not in MKV. (Are we
                                 // before first frame in MKV? Or is a frame
                                 // skipped?)
-                                // dbg!("frame not in MKV.");
                             } else {
                                 todo!("frame missing from BRAIDZ?!");
                             }
