@@ -251,7 +251,11 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         sync_threshold.num_microseconds().unwrap()
     );
 
+    // Build iterator to iterate over output frames. This is equivalent to
+    // iterating over synchronized input frames.
     let frame_iter: Box<dyn Iterator<Item = _>> = if let Some(ref archive) = braid_archive {
+        // In this path, we use the .braidz file as the source of
+        // synchronization.
         Box::new(braidz_iter::BraidArchiveSyncData::new(
             archive,
             &data2d,
@@ -260,6 +264,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             sync_threshold,
         )?)
     } else {
+        // In this path, we use the timestamps in the saved videos as the source
+        // of synchronization.
         let frame_readers = synchronize_readers_from(approx_start_time, frame_readers);
         Box::new(synced_iter::SyncedIter::new(
             frame_readers,
