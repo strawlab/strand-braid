@@ -1,6 +1,6 @@
 extern crate chrono;
 
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone, Utc};
 
 pub fn datetime_to_f64<TZ>(dt: &DateTime<TZ>) -> f64
 where
@@ -11,11 +11,18 @@ where
     (secs as f64) + (nsecs as f64 * 1e-9)
 }
 
-pub fn f64_to_datetime(timestamp_f64: f64) -> DateTime<Local> {
+pub fn f64_to_datetime_local(timestamp_f64: f64) -> DateTime<Local> {
     let secs_f = timestamp_f64.floor();
     let secs = secs_f as i64;
     let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
     Local.timestamp(secs, nsecs)
+}
+
+pub fn f64_to_datetime(timestamp_f64: f64) -> DateTime<Utc> {
+    let secs_f = timestamp_f64.floor();
+    let secs = secs_f as i64;
+    let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
+    Utc.timestamp(secs, nsecs)
 }
 
 #[test]

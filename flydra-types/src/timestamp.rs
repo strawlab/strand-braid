@@ -31,12 +31,24 @@ impl<S: Source, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloat
 
 impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Local> {
     fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Local> {
-        datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
+        datetime_conversion::f64_to_datetime_local(orig.value_f64.into_inner())
     }
 }
 
 impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Local> {
     fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Local> {
+        datetime_conversion::f64_to_datetime_local(orig.value_f64.into_inner())
+    }
+}
+
+impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Utc> {
+    fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Utc> {
+        datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
+    }
+}
+
+impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Utc> {
+    fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Utc> {
         datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
 }
