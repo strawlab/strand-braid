@@ -431,7 +431,6 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
                                 if let Ok(x) = NotNan::new(best_row.x) {
                                     if let Ok(y) = NotNan::new(best_row.y) {
-                                        println!("frame {}: append point", out_fno);
                                         per_cam.append_2d_point(x, y)?;
                                     }
                                 }
