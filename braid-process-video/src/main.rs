@@ -151,10 +151,10 @@ struct BraidArchivePerCam {
 // used to synchronize the frames.
 struct BraidArchiveSyncData<'a> {
     per_cam: Vec<BraidArchivePerCam>,
-    // archive: &'a braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
     data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
-    braidz_frame0: i64,
     sync_threshold: chrono::Duration,
+    cur_braidz_frame: i64,
+    did_have_all: bool,
 }
 
 impl<'a> BraidArchiveSyncData<'a> {
@@ -240,46 +240,30 @@ impl<'a> BraidArchiveSyncData<'a> {
 
         Ok(Self {
             per_cam,
-            // archive,
             data2d,
-            braidz_frame0: found_frame,
+            cur_braidz_frame: found_frame,
             sync_threshold,
+            did_have_all: false,
         })
     }
-
-    fn into_iter(self) -> BraidArchiveIter<'a> {
-        let braidz_frame = self.braidz_frame0;
-        BraidArchiveIter {
-            src: self,
-            braidz_frame,
-            did_have_all: false,
-        }
-    }
 }
 
-struct BraidArchiveIter<'a> {
-    src: BraidArchiveSyncData<'a>,
-    braidz_frame: i64,
-    did_have_all: bool,
-}
-
-impl<'a> Iterator for BraidArchiveIter<'a> {
+impl<'a> Iterator for BraidArchiveSyncData<'a> {
     type Item = Vec<Option<Result<Frame>>>;
     fn next(&mut self) -> std::option::Option<Self::Item> {
-        let data2d = &self.src.data2d;
-        let sync_threshold = self.src.sync_threshold;
+        let data2d = &self.data2d;
+        let sync_threshold = self.sync_threshold;
 
         loop {
             // braidz frame loop.
-            let this_frame_num = self.braidz_frame;
-            self.braidz_frame += 1;
+            let this_frame_num = self.cur_braidz_frame;
+            self.cur_braidz_frame += 1;
 
             let mut n_cams_this_frame = 0;
 
             // Iterate across all input mkv cameras.
             let result = Some(
-                self.src
-                    .per_cam
+                self.per_cam
                     .iter_mut()
                     .map(|this_cam| -> Option<Result<Frame>> {
                         let cam_rows = data2d.get(&this_cam.cam_num).unwrap();
@@ -352,7 +336,7 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
             } else {
                 // If we haven't yet had a frame with all cameras, check if this
                 // is the first such.
-                self.did_have_all = n_cams_this_frame == self.src.per_cam.len();
+                self.did_have_all = n_cams_this_frame == self.per_cam.len();
                 if self.did_have_all {
                     return result;
                 }
@@ -434,21 +418,21 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         }
     }
 
-    let readers: Vec<_> = readers.into_iter().map(crate::peek2::Peek2::new).collect();
+    let frame_readers: Vec<_> = readers.into_iter().map(crate::peek2::Peek2::new).collect();
 
-    let widths: Vec<usize> = readers
+    let widths: Vec<usize> = frame_readers
         .iter()
         .map(|x| x.peek1().unwrap().as_ref().unwrap().width() as usize)
         .collect();
     let cum_width: usize = widths.iter().sum();
-    let cum_height = readers
+    let cum_height = frame_readers
         .iter()
         .map(|x| x.peek1().unwrap().as_ref().unwrap().height() as usize)
         .max()
         .unwrap();
 
     // Advance each reader until upcoming frame is not before the start time.
-    let frame_duration_approx = readers
+    let frame_duration_approx = frame_readers
         .iter()
         .map(|reader| {
             let p1_pts_chrono = reader.peek1().unwrap().as_ref().unwrap().pts_chrono;
@@ -479,12 +463,20 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     );
 
     let synced_iter: Box<dyn Iterator<Item = _>> = if let Some(ref archive) = braid_archive {
-        let sync_data =
-            BraidArchiveSyncData::new(archive, &data2d, &camera_names, readers, sync_threshold)?;
-        Box::new(sync_data.into_iter())
+        Box::new(BraidArchiveSyncData::new(
+            archive,
+            &data2d,
+            &camera_names,
+            frame_readers,
+            sync_threshold,
+        )?)
     } else {
-        let readers = synchronize_readers_from(approx_start_time, readers);
-        Box::new(SyncedIter::new(readers, sync_threshold, frame_duration)?)
+        let frame_readers = synchronize_readers_from(approx_start_time, frame_readers);
+        Box::new(SyncedIter::new(
+            frame_readers,
+            sync_threshold,
+            frame_duration,
+        )?)
     };
 
     let ros_cam_ids: Option<Vec<String>> = braid_archive
