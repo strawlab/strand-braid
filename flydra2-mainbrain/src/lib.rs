@@ -800,7 +800,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             tx.send(Cmd::StartPulses).cb_ok();
 
             let mut expected_framerate = expected_framerate_arc.write();
-            *expected_framerate = Some(*fps);
+            *expected_framerate = Some(rate_actual as f32);
 
             // triggerbox_cmd = Some(tx);
 
