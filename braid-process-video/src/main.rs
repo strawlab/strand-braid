@@ -323,16 +323,14 @@ impl<'a> Iterator for BraidArchiveIter<'a> {
 
                             if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
                                 found = true;
+                            } else if p1_pts_chrono > need_chrono {
+                                // peek1 MKV frame is after the time needed,
+                                // so the frame is not in MKV. (Are we
+                                // before first frame in MKV? Or is a frame
+                                // skipped?)
+                                // dbg!("frame not in MKV.");
                             } else {
-                                if p1_pts_chrono > need_chrono {
-                                    // peek1 MKV frame is after the time needed,
-                                    // so the frame is not in MKV. (Are we
-                                    // before first frame in MKV? Or is a frame
-                                    // skipped?)
-                                    // dbg!("frame not in MKV.");
-                                } else {
-                                    todo!("frame missing from BRAIDZ?!");
-                                }
+                                todo!("frame missing from BRAIDZ?!");
                             }
                         }
 
