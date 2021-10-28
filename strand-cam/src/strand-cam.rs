@@ -1336,6 +1336,8 @@ fn frame_process_thread(
                         let block_id = std::num::NonZeroU64::new(block_id);
 
                         let inner_ufmf_state = ufmf_state.take().unwrap();
+                        // Detect features in the image and send them to the
+                        // mainbrain for 3D processing.
                         let (tracker_annotation, new_ufmf_state) = im_tracker.process_new_frame(
                             &frame, inner_ufmf_state, device_timestamp, block_id)?;
                         ufmf_state.get_or_insert(new_ufmf_state);
