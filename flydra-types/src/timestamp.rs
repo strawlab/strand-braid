@@ -1,5 +1,7 @@
 use crate::*;
 
+use chrono::Utc;
+
 pub trait Source {}
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,26 +31,14 @@ impl<S: Source, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloat
     }
 }
 
-impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Local> {
-    fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Local> {
-        datetime_conversion::f64_to_datetime_local(orig.value_f64.into_inner())
-    }
-}
-
-impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Local> {
-    fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Local> {
-        datetime_conversion::f64_to_datetime_local(orig.value_f64.into_inner())
-    }
-}
-
-impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Utc> {
-    fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Utc> {
+impl<'a, S: Source> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
+    fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
         datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
 }
 
-impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<chrono::Utc> {
-    fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<chrono::Utc> {
+impl<S: Source> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
+    fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
         datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
 }
@@ -118,17 +108,4 @@ fn ensure_conversion() {
     let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
     let t3 = t2.value_f64.into_inner();
     assert!((t3 - 60.123456789).abs() < 1e-10);
-}
-
-#[test]
-fn test_conversions() {
-    use chrono::{DateTime, Local, Utc};
-    let t1 = DateTime::<Utc>::from_utc(chrono::NaiveDateTime::from_timestamp(60, 123_456_789), Utc);
-    let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
-
-    let _: DateTime<Utc> = (&t2).into();
-    let _: DateTime<Utc> = t2.clone().into();
-
-    let _: DateTime<Local> = (&t2).into();
-    let _: DateTime<Local> = t2.clone().into();
 }
