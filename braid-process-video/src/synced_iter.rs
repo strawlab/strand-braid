@@ -1,14 +1,14 @@
 use anyhow::Result;
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Utc};
 
 use crate::{peek2::Peek2, Frame};
 
 pub trait Timestamped {
-    fn timestamp(&self) -> DateTime<FixedOffset>;
+    fn timestamp(&self) -> DateTime<Utc>;
 }
 
 impl Timestamped for Result<Frame> {
-    fn timestamp(&self) -> DateTime<FixedOffset> {
+    fn timestamp(&self) -> DateTime<Utc> {
         match self {
             Ok(v) => v.timestamp(),
             Err(e) => {
@@ -19,19 +19,20 @@ impl Timestamped for Result<Frame> {
 }
 
 impl Timestamped for Frame {
-    fn timestamp(&self) -> DateTime<FixedOffset> {
+    fn timestamp(&self) -> DateTime<Utc> {
         self.pts_chrono
     }
 }
 
+// Iterate across multiple movies using the frame timestamps to synchronize.
 pub struct SyncedIter<I: Iterator> {
     frame_readers: Vec<Peek2<I>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
     frame_duration: chrono::Duration,
-    previous_min: DateTime<FixedOffset>,
-    previous_max: DateTime<FixedOffset>,
+    previous_min: DateTime<Utc>,
+    previous_max: DateTime<Utc>,
 }
 
 impl<I> SyncedIter<I>
@@ -52,7 +53,7 @@ where
                 frame_duration
             );
         }
-        let t0: Vec<DateTime<FixedOffset>> = frame_readers
+        let t0: Vec<DateTime<Utc>> = frame_readers
             .iter()
             .map(|x| x.peek1().unwrap().timestamp())
             .collect();
@@ -150,9 +151,9 @@ mod test {
     use std::convert::TryInto;
 
     impl Timestamped for i32 {
-        fn timestamp(&self) -> DateTime<FixedOffset> {
+        fn timestamp(&self) -> DateTime<Utc> {
             use chrono::{NaiveDateTime, Utc};
-            let base: DateTime<FixedOffset> =
+            let base: DateTime<Utc> =
                 DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(60, 0), Utc).into();
 
             let offset = chrono::Duration::from_std(std::time::Duration::from_secs(

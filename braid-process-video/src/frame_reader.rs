@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use anyhow::{Context as ContextTrait, Result};
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Utc};
 
 use ffmpeg::format::Pixel;
 use ffmpeg::media::Type;
@@ -31,7 +31,7 @@ pub struct FrameReader {
     /// The filename of the file
     pub filename: String,
     /// Creation time of this particular frame reader
-    pub creation_time: DateTime<FixedOffset>,
+    pub creation_time: DateTime<Utc>,
     /// The ffmpeg input
     ictx: ffmpeg::format::context::Input,
     /// The ffmpeg decoder
@@ -54,7 +54,9 @@ impl FrameReader {
             .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
         let metadata = ictx.metadata();
         let creation_time_str = metadata.get("creation_time").unwrap();
-        let creation_time = chrono::DateTime::parse_from_rfc3339(creation_time_str)?;
+        let creation_time: DateTime<chrono::FixedOffset> =
+            chrono::DateTime::parse_from_rfc3339(creation_time_str)?;
+        let creation_time = creation_time.into();
         let title = metadata.get("title").map(Into::into);
 
         let stream = ictx

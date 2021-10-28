@@ -1,11 +1,11 @@
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Utc};
 use ffmpeg_next::util::frame::video::Video;
 
 pub struct Frame {
     /// The presentation time stamp (in ffmpeg units)
     pub pts: i64,
     /// The presentation time stamp
-    pub pts_chrono: DateTime<FixedOffset>,
+    pub pts_chrono: DateTime<Utc>,
     /// The ffmpeg data
     pub rgb_frame: Video,
 }
