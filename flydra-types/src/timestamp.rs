@@ -109,6 +109,8 @@ fn test_nan_handling() {
     let _ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(std::f64::NAN);
 }
 
+/// Ensure that conversion with particular floating point representation remains
+/// fixed. This is important for backwards compatibility of saved data.
 #[test]
 fn ensure_conversion() {
     use chrono::{DateTime, Utc};
@@ -116,4 +118,17 @@ fn ensure_conversion() {
     let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
     let t3 = t2.value_f64.into_inner();
     assert!((t3 - 60.123456789).abs() < 1e-10);
+}
+
+#[test]
+fn test_conversions() {
+    use chrono::{DateTime, Local, Utc};
+    let t1 = DateTime::<Utc>::from_utc(chrono::NaiveDateTime::from_timestamp(60, 123_456_789), Utc);
+    let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
+
+    let _: DateTime<Utc> = (&t2).into();
+    let _: DateTime<Utc> = t2.clone().into();
+
+    let _: DateTime<Local> = (&t2).into();
+    let _: DateTime<Local> = t2.clone().into();
 }
