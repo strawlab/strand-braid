@@ -854,12 +854,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             + Unpin,
     > = {
         let codec = CborPacketCodec::default();
-        // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
-        // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
         let stream = UdpFramed::new(camdata_socket, codec);
 
-        // let (_sink, stream) = UdpFramed::new(camdata_socket, CborPacketCodec::default()).split();
-        // let stream = futures::compat::Compat01As03::new(stream);
         Box::new(stream)
     };
 
