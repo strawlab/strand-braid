@@ -79,7 +79,7 @@ where
     let v: Result<Vec<String>, serde_xml_rs::Error> = recon
         .cameras
         .iter()
-        .map(|cam| serde_xml_rs::to_string(cam))
+        .map(serde_xml_rs::to_string)
         .collect();
     let v: Vec<String> = v?;
     let v_indented: Vec<String> = v.iter().map(|s| format!("    {}", s)).collect();
