@@ -39,8 +39,17 @@ struct BraidProcessVideoCliArgs {
     config: std::path::PathBuf,
 }
 
-#[derive(Debug, Clone)]
-struct Rgba(pub [u8; 4]);
+pub struct OutFramePerCamInput {
+    frame: Result<Frame>,
+}
+
+impl OutFramePerCamInput {
+    pub(crate) fn new(frame: Result<Frame>) -> Self {
+        Self { frame }
+    }
+}
+
+pub type OutFrameIterType = Vec<Option<OutFramePerCamInput>>;
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
@@ -361,7 +370,7 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         .transpose()?;
 
     for (out_fno, synced_frames) in frame_iter.enumerate() {
-        let synced_frames: Vec<Option<Result<Frame>>> = synced_frames;
+        let synced_frames: OutFrameIterType = synced_frames;
 
         if let Some(start_frame) = cfg.start_frame {
             if out_fno < start_frame {
@@ -383,13 +392,15 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         let mut per_cam_data = Vec::with_capacity(n_frames);
 
         composite_timestamp = None;
-        for ((filename, frame), per_cam_ref) in filenames.iter().zip(synced_frames).zip(&per_cams) {
+        for ((filename, opt_frame_input), per_cam_ref) in
+            filenames.iter().zip(synced_frames).zip(&per_cams)
+        {
             // Copy the default information for this camera and then we will
             // start adding information relevant for this frame in time.
             let mut per_cam = per_cam_ref.clone();
 
-            if let Some(frame) = frame {
-                let frame = frame?;
+            if let Some(frame_input) = opt_frame_input {
+                let frame = frame_input.frame?;
                 composite_timestamp = Some(frame.pts_chrono);
                 // Get timestamp from MKV file.
                 let frame_triggerbox: FlydraFloatTimestampLocal<Triggerbox> =

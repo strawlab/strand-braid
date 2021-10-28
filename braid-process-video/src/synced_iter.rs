@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::{peek2::Peek2, Frame, FrameReader};
+use crate::{peek2::Peek2, FrameReader};
 
-// Iterate across multiple movies using the frame timestamps to synchronize.
+/// Iterate across multiple movies using the frame timestamps to synchronize.
 pub struct SyncedIter {
     frame_readers: Vec<Peek2<FrameReader>>,
     /// The shortest value to consider frames synchronized.
@@ -53,7 +53,7 @@ impl SyncedIter {
 }
 
 impl Iterator for SyncedIter {
-    type Item = Vec<Option<Result<Frame>>>;
+    type Item = crate::OutFrameIterType;
     fn next(&mut self) -> std::option::Option<Self::Item> {
         let min_threshold = self.previous_min + self.frame_duration - self.sync_threshold;
         let max_threshold = self.previous_max + self.frame_duration + self.sync_threshold;
@@ -62,7 +62,7 @@ impl Iterator for SyncedIter {
 
         let mut stamps = Vec::with_capacity(self.frame_readers.len());
 
-        let res: Vec<Option<Result<Frame>>> = self
+        let res = self
             .frame_readers
             .iter_mut()
             .map(|frame_reader| {
@@ -72,7 +72,7 @@ impl Iterator for SyncedIter {
                     have_more_data = true;
                     if min_threshold <= timestamp1 && timestamp1 <= max_threshold {
                         stamps.push(timestamp1);
-                        frame_reader.next()
+                        frame_reader.next().map(crate::OutFramePerCamInput::new)
                     } else {
                         // The next frame is not within the range expected.
                         if timestamp1 > max_threshold {
@@ -83,7 +83,7 @@ impl Iterator for SyncedIter {
                             // Just skip a frame in the file? Not sure about this.
                             log::warn!("Two frames in file? Skipping one.");
                             frame_reader.next();
-                            frame_reader.next()
+                            frame_reader.next().map(crate::OutFramePerCamInput::new)
                         } else {
                             // Hmmm
                             todo!();

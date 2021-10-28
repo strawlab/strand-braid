@@ -5,13 +5,7 @@ use chrono::{DateTime, Utc};
 
 use flydra_types::{CamNum, Data2dDistortedRow};
 
-use crate::peek2;
-
-use crate::argmin::Argmin;
-
-use crate::frame_reader::FrameReader;
-
-use crate::frame::Frame;
+use crate::{argmin::Argmin, frame_reader::FrameReader, peek2};
 
 fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) -> bool {
     let dist = a.signed_duration_since(*b);
@@ -25,8 +19,8 @@ struct BraidArchivePerCam {
     cur_offset: usize,
 }
 
-// Iterate across multiple movies with a simultaneously recorded .braidz file
-// used to synchronize the frames.
+/// Iterate across multiple movies with a simultaneously recorded .braidz file
+/// used to synchronize the frames.
 pub struct BraidArchiveSyncData<'a> {
     per_cam: Vec<BraidArchivePerCam>,
     data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
@@ -131,7 +125,7 @@ impl<'a> BraidArchiveSyncData<'a> {
 }
 
 impl<'a> Iterator for BraidArchiveSyncData<'a> {
-    type Item = Vec<Option<Result<Frame>>>;
+    type Item = crate::OutFrameIterType;
     fn next(&mut self) -> std::option::Option<Self::Item> {
         let data2d = &self.data2d;
         let sync_threshold = self.sync_threshold;
@@ -147,7 +141,7 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
             let result = Some(
                 self.per_cam
                     .iter_mut()
-                    .map(|this_cam| -> Option<Result<Frame>> {
+                    .map(|this_cam| {
                         let cam_rows = data2d.get(&this_cam.cam_num).unwrap();
 
                         let mut row = None;
@@ -197,7 +191,10 @@ impl<'a> Iterator for BraidArchiveSyncData<'a> {
                         if found {
                             n_cams_this_frame += 1;
                             // Take this MKV frame image data.
-                            this_cam.frame_reader.next()
+                            this_cam
+                                .frame_reader
+                                .next()
+                                .map(crate::OutFramePerCamInput::new)
                         } else {
                             None
                         }
