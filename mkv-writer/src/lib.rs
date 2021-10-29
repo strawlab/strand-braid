@@ -290,7 +290,16 @@ where
                                 let params =
                                     param_builder.set_encode_config(encoder_config).build()?;
 
-                                encoder.initialize(&params)?;
+                                match encoder.initialize(&params) {
+                                    Ok(()) => Ok(()),
+                                    Err(e) => {
+                                        log::error!(
+                                            "failed initializing nvenc with params: {:?}",
+                                            params
+                                        );
+                                        Err(e)
+                                    }
+                                }?;
 
                                 let input_buffers: Vec<InputBuffer<'lib>> = (0..num_bufs)
                                     .map(|_| {
