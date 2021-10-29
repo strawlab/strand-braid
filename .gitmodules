@@ -1,9 +1,6 @@
 [submodule "image-tracker/ros_flydra"]
 	path = image-tracker/ros_flydra
 	url = https://github.com/strawlab/ros_flydra
-[submodule "image-tracker/triggerbox"]
-	path = image-tracker/triggerbox
-	url = https://github.com/strawlab/triggerbox
 [submodule "_submodules/flydra"]
 	path = _submodules/flydra
 	url = https://github.com/strawlab/flydra
