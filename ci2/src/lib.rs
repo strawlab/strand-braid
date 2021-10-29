@@ -107,22 +107,6 @@ pub trait CameraInfo {
 }
 
 // ---------------------------
-// FrameROI
-
-/// A region of interest within a sensor.
-#[derive(Debug, Clone)]
-pub struct FrameROI {
-    /// the column offset of the current frame relative to sensor
-    pub xmin: u32,
-    /// the row offset of the current frame relative to sensor
-    pub ymin: u32,
-    /// number of columns in the image
-    pub width: u32,
-    /// number of rows in the image
-    pub height: u32,
-}
-
-// ---------------------------
 // Camera
 
 pub trait Camera: CameraInfo {
