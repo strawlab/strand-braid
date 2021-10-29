@@ -21,6 +21,8 @@ pub enum Error {
     UnimplementedPixelFormat(PixFmt),
     #[error("unimplemented ROI width conversion")]
     UnimplementedRoiWidthConversion,
+    #[error("ROI size exceeds original image")]
+    RoiExceedsOriginal,
     #[error("invalid allocated buffer size")]
     InvalidAllocatedBufferSize,
     #[error("invalid allocated buffer stride")]
@@ -467,40 +469,94 @@ where
     FMT: PixelFormat,
 {
     let fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
-
-    match fmt {
-        formats::pixel_format::PixFmt::BayerRG8
-        | formats::pixel_format::PixFmt::BayerGB8
-        | formats::pixel_format::PixFmt::BayerGR8
-        | formats::pixel_format::PixFmt::BayerBG8
-        | formats::pixel_format::PixFmt::Mono8 => {
-            if frame.width() as usize == frame.stride() {
-                // The stride is already the width.
-                Ok(CowImage::Reinterpreted(force_pixel_format_ref(frame)))
-            } else {
-                // The stride is not the width.
-                use itertools::izip;
-                let dest_stride = frame.width() as usize;
-                let mut dest_buf = vec![0u8; frame.height() as usize * dest_stride];
-
-                for (src_row, dest_row) in izip![
-                    frame.image_data().chunks_exact(frame.stride()),
-                    dest_buf.chunks_exact_mut(dest_stride),
-                ] {
-                    dest_row[..dest_stride].copy_from_slice(&src_row[..dest_stride]);
-                }
-
-                // Return the new buffer as a new image.
-                Ok(CowImage::Owned(SimpleFrame {
-                    width: frame.width(),
-                    height: frame.height(),
-                    stride: frame.width() as u32,
-                    image_data: dest_buf,
-                    fmt: std::marker::PhantomData,
-                }))
-            }
+    let bytes_per_pixel = fmt.bits_per_pixel() as usize / 8;
+    let dest_stride = frame.width() as usize * bytes_per_pixel;
+    if dest_stride == frame.stride() {
+        Ok(CowImage::Reinterpreted(force_pixel_format_ref(frame)))
+    } else {
+        if frame.stride() < dest_stride {
+            return Err(Error::InvalidAllocatedBufferStride);
         }
-        _ => todo!(),
+        // allocate output
+        let mut dest_buf = vec![0u8; frame.height() as usize * dest_stride];
+        // trim input slice to height
+        let valid_data = &frame.image_data()[..frame.stride() * frame.height() as usize];
+        valid_data
+            .chunks_exact(frame.stride())
+            .zip(dest_buf.chunks_exact_mut(dest_stride))
+            .for_each(|(src_row_full, dest_row)| {
+                dest_row[..dest_stride].copy_from_slice(&src_row_full[..dest_stride]);
+            });
+        // Return the new buffer as a new image.
+        Ok(CowImage::Owned(SimpleFrame {
+            width: frame.width(),
+            height: frame.height(),
+            stride: dest_stride as u32,
+            image_data: dest_buf,
+            fmt: std::marker::PhantomData,
+        }))
+    }
+}
+
+/// An RoiImage maintains a reference to the original image but views a
+/// subregion of the original data.
+pub struct RoiImage<'a, F> {
+    data: &'a [u8],
+    w: u32,
+    h: u32,
+    stride: usize,
+    fmt: std::marker::PhantomData<F>,
+}
+
+impl<'a, F> RoiImage<'a, F>
+where
+    F: PixelFormat,
+{
+    /// Create a new `RoiImage` referencing the original `frame`.
+    pub fn new(
+        frame: &'a dyn ImageStride<F>,
+        w: u32,
+        h: u32,
+        x: u32,
+        y: u32,
+    ) -> Result<RoiImage<'a, F>> {
+        let stride = frame.stride();
+        let fmt = machine_vision_formats::pixel_format::pixfmt::<F>().unwrap();
+        let col_offset = x as usize * fmt.bits_per_pixel() as usize / 8;
+        if col_offset >= stride {
+            return Err(Error::RoiExceedsOriginal);
+        }
+        let offset = y as usize * stride + col_offset;
+        Ok(RoiImage {
+            data: &frame.image_data()[offset..],
+            w,
+            h,
+            stride,
+            fmt: std::marker::PhantomData,
+        })
+    }
+}
+
+impl<'a, F> Stride for RoiImage<'a, F> {
+    fn stride(&self) -> usize {
+        self.stride
+    }
+}
+
+impl<'a, F> ImageData<F> for RoiImage<'a, F> {
+    fn width(&self) -> u32 {
+        self.w
+    }
+    fn height(&self) -> u32 {
+        self.h
+    }
+    fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
+        let image_data = self.data;
+        ImageBufferRef::new(image_data)
+    }
+    fn buffer(self) -> ImageBuffer<F> {
+        let copied = self.data.to_vec();
+        ImageBuffer::new(copied)
     }
 }
 
@@ -871,6 +927,104 @@ where
 mod tests {
     use crate::*;
 
+    fn imstr<F>(frame: &dyn ImageStride<F>) -> String
+    where
+        F: PixelFormat,
+    {
+        let fmt = machine_vision_formats::pixel_format::pixfmt::<F>().unwrap();
+        let bytes_per_pixel = fmt.bits_per_pixel() as usize / 8;
+
+        let valid_data = &frame.image_data()[..frame.stride() * frame.height() as usize];
+        valid_data
+            .chunks_exact(frame.stride())
+            .map(|row| {
+                let image_row = &row[..frame.width() as usize * bytes_per_pixel];
+                image_row
+                    .chunks_exact(fmt.bits_per_pixel() as usize / 8)
+                    .map(|x| format!("{:?}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn check_roi_mono8() {
+        // Create an image where stride is larger than width.
+        const STRIDE: usize = 10;
+        const W: u32 = 8;
+        const H: u32 = 6;
+        // Create buffer with value of `255` everywhere.
+        let mut image_data = vec![255; H as usize * STRIDE];
+        // Set the image part of the buffer to `col*H + row`.
+        for row in 0..H as usize {
+            let start_idx = row * STRIDE;
+            for col in 0..W as usize {
+                image_data[start_idx + col] = (row * W as usize + col) as u8;
+            }
+        }
+        let frame: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
+            width: W,
+            height: H,
+            stride: STRIDE as u32,
+            image_data,
+            fmt: std::marker::PhantomData,
+        };
+        println!("frame: {:?}", frame.image_data());
+        println!("frame: \n{}", imstr(&frame));
+        let roi = RoiImage::new(&frame, 6, 2, 1, 1).unwrap();
+        println!("roi: {:?}", roi.image_data());
+        println!("roi: \n{}", imstr(&roi));
+        let small = super::remove_padding(&roi).unwrap();
+        println!("small: {:?}", small.image_data());
+        println!("small: \n{}", imstr(&small));
+        assert_eq!(
+            small.image_data(),
+            &[9, 10, 11, 12, 13, 14, 17, 18, 19, 20, 21, 22]
+        );
+    }
+
+    #[test]
+    fn check_roi_rgb8() {
+        // Create an image where stride is larger than width.
+        const STRIDE: usize = 30;
+        const W: u32 = 8;
+        const H: u32 = 6;
+        // Create buffer with value of `255` everywhere.
+        let mut image_data = vec![255; H as usize * STRIDE];
+        for row in 0..H as usize {
+            let start_idx = row * STRIDE;
+            for col in 0..W as usize {
+                let col_offset = col * 3;
+                image_data[start_idx + col_offset] = ((row * W as usize + col) * 3) as u8;
+                image_data[start_idx + col_offset + 1] = ((row * W as usize + col) * 3) as u8 + 1;
+                image_data[start_idx + col_offset + 2] = ((row * W as usize + col) * 3) as u8 + 2;
+            }
+        }
+        let frame: SimpleFrame<formats::pixel_format::RGB8> = SimpleFrame {
+            width: W,
+            height: H,
+            stride: STRIDE as u32,
+            image_data,
+            fmt: std::marker::PhantomData,
+        };
+        println!("frame: {:?}", frame.image_data());
+        println!("frame: \n{}", imstr(&frame));
+        let roi = RoiImage::new(&frame, 6, 2, 1, 1).unwrap();
+        println!("roi: {:?}", roi.image_data());
+        println!("roi: \n{}", imstr(&roi));
+        let small = super::remove_padding(&roi).unwrap();
+        println!("small: {:?}", small.image_data());
+        println!("small: \n{}", imstr(&small));
+        assert_eq!(
+            small.image_data(),
+            &[
+                27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 51, 52, 53,
+                54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68
+            ]
+        );
+    }
     #[test]
     fn check_stride_conversion_to_image() {
         // Create an image where stride is larger than width.
