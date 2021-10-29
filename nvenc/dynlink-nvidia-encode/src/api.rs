@@ -2,7 +2,12 @@ use crate::ffi::*;
 use crate::load::SharedLibrary;
 use crate::{NvInt, NvencError};
 use std::ptr::addr_of_mut;
-use std::{mem::MaybeUninit, pin::Pin, rc::Rc};
+use std::{
+    fmt::{Debug, Formatter},
+    mem::MaybeUninit,
+    pin::Pin,
+    rc::Rc,
+};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -543,6 +548,44 @@ pub struct InitParams {
     encode_config: EncodeConfig,
 }
 
+impl Debug for InitParams {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let p = &self.init_params;
+        write!(
+            f,
+            "InitParams{{version: {}, encodeGUID: {}, encodeWidth: {}, encodeHeight: {}, darWidth: {}, darHeight: {}, enablePTD: {}, presetGUID: {}, encodeConfig: {:?}, frameRateNum: {}, frameRateDen: {} }}",
+            p.version,
+            guid_string(&p.encodeGUID),
+            p.encodeWidth,
+            p.encodeHeight,
+            p.darWidth,
+            p.darHeight,
+            p.enablePTD,
+            guid_string(&p.presetGUID),
+            self.encode_config,
+            p.frameRateNum,
+            p.frameRateDen,
+        )
+    }
+}
+
+fn guid_string(guid: &GUID) -> String {
+    format!(
+        "{{ 0x{:x}, 0x{:x}, 0x{:x}, {} }}",
+        guid.Data1,
+        guid.Data2,
+        guid.Data3,
+        arr_string(&guid.Data4)
+    )
+}
+
+fn arr_string(arr: &[u8; 8]) -> String {
+    format!(
+        "{{ 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x} }}",
+        arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7]
+    )
+}
+
 pub struct InitParamsBuilder {
     init_params: std::mem::MaybeUninit<NV_ENC_INITIALIZE_PARAMS>,
     encode_config: Option<EncodeConfig>,
@@ -643,6 +686,16 @@ impl InitParamsBuilder {
 /// Encoder configuration for a encode session
 pub struct EncodeConfig {
     config: NV_ENC_CONFIG,
+}
+
+impl Debug for EncodeConfig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{{rcParams.rateControlMode: {}, rcParams.averageBitRate: {}, rcParams.maxBitRate: {} }}",
+        self.config.rcParams.rateControlMode,
+        self.config.rcParams.averageBitRate,
+        self.config.rcParams.maxBitRate,
+    )
+    }
 }
 
 impl EncodeConfig {
