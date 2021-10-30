@@ -175,6 +175,8 @@ impl<'lib> Encoder<'lib> {
 
     // TODO: return an InitializedEncoder type (forces the encoder to be initialized).
     pub fn initialize(&self, init_params: &InitParams) -> Result<(), NvencError> {
+        // There seem to be under-documented minimum width requirements.
+        // https://forums.developer.nvidia.com/t/minimum-width-in-turing-gpus/155566
         let func = load_func!(self.parent.inner, nvEncInitializeEncoder)?;
         // We can safely assume the params won't be changed by the API
         // according to the API documentation
