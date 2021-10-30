@@ -325,7 +325,7 @@ fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
     h=HdrHistogram(1,100000,2)
     rdr = HistogramLogReader('reprojection_distance_100x_pixels.hlog', h)
     h1 = rdr.get_next_interval_histogram()
-    print(h1.get_total_count())"
+    print(h1.get_total_count())
     */
 
     let mut buf = vec![];
