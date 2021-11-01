@@ -575,7 +575,7 @@ impl Debug for InitParams {
         let p = &self.init_params;
         write!(
             f,
-            "InitParams{{version: {}, encodeGUID: {}, encodeWidth: {}, encodeHeight: {}, darWidth: {}, darHeight: {}, enablePTD: {}, presetGUID: {}, encodeConfig: {:?}, frameRateNum: {}, frameRateDen: {} }}",
+            "InitParams{{version: {}, encodeGUID: {}, encodeWidth: {}, encodeHeight: {}, darWidth: {}, darHeight: {}, enablePTD: {}, presetGUID: {}, encodeConfig: {:?}, frameRateNum: {}, frameRateDen: {}, maxEncodeWidth: {}, maxEncodeHeight: {} }}",
             p.version,
             guid_string(&p.encodeGUID),
             p.encodeWidth,
@@ -587,6 +587,8 @@ impl Debug for InitParams {
             self.encode_config,
             p.frameRateNum,
             p.frameRateDen,
+            p.maxEncodeWidth,
+            p.maxEncodeHeight,
         )
     }
 }
@@ -627,6 +629,8 @@ impl InitParamsBuilder {
             addr_of_mut!((*ptr).darWidth).write(width);
             addr_of_mut!((*ptr).darHeight).write(height);
             addr_of_mut!((*ptr).enablePTD).write(1);
+            addr_of_mut!((*ptr).maxEncodeWidth).write(width);
+            addr_of_mut!((*ptr).maxEncodeHeight).write(height);
         }
         Self {
             init_params: uninit,
