@@ -438,10 +438,10 @@ fn convert_empty_to_save(frame_data: &FrameData) -> Data2dDistortedRowF32 {
 /// find all subsets of orig_set
 ///
 /// translated from python version by Alex Martelli:
-/// https://web.archive.org/web/20070331175701/http://mail.python.org/pipermail/python-list/2001-January/067815.html
+/// <https://web.archive.org/web/20070331175701/http://mail.python.org/pipermail/python-list/2001-January/067815.html>
 ///
 /// This is also called the power set:
-/// http://en.wikipedia.org/wiki/Power_set
+/// <http://en.wikipedia.org/wiki/Power_set>
 pub fn set_of_subsets<K, V>(orig_set: &BTreeMap<K, V>) -> BTreeSet<BTreeSet<K>>
 where
     K: Clone + Ord,
