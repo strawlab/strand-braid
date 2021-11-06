@@ -11,6 +11,12 @@ pub enum ContrastPolarity {
     DetectAbsDiff,
 }
 
+/// Configuration parameters for feature detection.
+///
+/// These parameters are used in the 2D feature detection step. As such, they
+/// are used to parameterize how incoming images are analyzed so that relevant
+/// features are extracted and sent onwards for consideration as candidates for
+/// 3D tracking.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImPtDetectCfg {
