@@ -365,6 +365,77 @@ deploy-freemovr-calibration-webapp:
     - build-freemovr-calibration-webapp
   when: manual
 
+build-api-docs:
+  image: ubuntu:focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    # build docs for braid-run
+    - cd $CI_PROJECT_DIR/braid/braid-run
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal"
+    - cd ../..
+
+    # remove potential old output directory
+    - rm -rf build
+
+    # rename directory
+    - mv target/doc build
+  artifacts:
+    paths:
+      - build/
+    name: "api-docs-${CI_COMMIT_SHA}"
+
+stage-api-docs:
+  stage: deploy
+  image: ubuntu:focal
+  script:
+    - apt-get update && apt-get install -y rsync openssh-client
+    - mkdir ~/.ssh
+    - chmod 0700 ~/.ssh
+    - echo "|1|zo8kIvGXE6Nf3WNYrk/IwXyNt18=|cMmSpBho6sRzu8Z4+LNSFAFY4L8= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGs/hBRnah/Zi6behPr3X+wamzb6wzwj/rxQAwWX6uXwu/enV2zfyM5TzeAL3PbWXbLsb5bLumCHIDUg15UMLK8=" >> ~/.ssh/known_hosts
+    - echo "|1|c1I4D0LzU1HjupN0Wc9Md1QIYVE=|ITvXx3AglaDGm8hhfahKF52hmGU= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGs/hBRnah/Zi6behPr3X+wamzb6wzwj/rxQAwWX6uXwu/enV2zfyM5TzeAL3PbWXbLsb5bLumCHIDUg15UMLK8=" >> ~/.ssh/known_hosts
+    - echo "$SSH_STRAWLAB_ORG_STAGING" > ~/.ssh/id_rsa
+    - chmod go-rx ~/.ssh/id_rsa
+    - rsync -azP --delete build/ strawlab-org-staging@strawlab-org-staging.strawlab-internal.de:strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs
+  environment:
+    name: strand-braid-api-docs-staging
+    url: http://strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/
+  dependencies:
+    - build-api-docs
+
+publish-api-docs:
+  # To deploy API docs in the Gitlab CI userinterface for the pipeline, click on
+  # this job (not the "play" button but the name of the unstarted job). This
+  # will bring up a screen in which variables can be manually entered. Create a
+  # variable with key STRAWLAB_ORG_SSH_PRIVATE_KEY in which the value is the SSH
+  # private key for the user below. In case accidentally deployment was
+  # triggered without entering the variable, delete the job log and the gitlab
+  # screen will be available again.
+  stage: deploy
+  image: ubuntu:focal
+  script:
+    - apt-get update && apt-get install -y rsync openssh-client
+    - mkdir ~/.ssh
+    - chmod 0700 ~/.ssh
+    - echo "|1|TVmVl2hQiIk/4ulpa2dBYJ/e/W4=|vTZrgQJrQr9SIzhO/pHBYI18jdY= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
+    - echo "|1|FvMsl+rOqeqmmsYydYgAnmSEBBM=|AEa3BGJtS84WFATwXAN+G1jOnss= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
+    # Because the gitlab UI does not allow multiline inputs, the key was encoded
+    # with `cat dreamhost | base64 | tr "\n" " "`. Take the gitlab CI variable
+    # with key STRAWLAB_ORG_SSH_PRIVATE_KEY, save to private SSH key.
+    - echo "$STRAWLAB_ORG_SSH_PRIVATE_KEY" | tr " " "\n" | base64 --decode  > ~/.ssh/id_rsa
+    - chmod go-rx ~/.ssh/id_rsa
+    - cat ~/.ssh/id_rsa
+    - rsync -azP --delete build/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs
+  environment:
+    name: strand-braid-api-docs
+    url: https://strawlab.org/strand-braid-api-docs/
+  dependencies:
+    - build-api-docs
+  when: manual
+
 strand-cam-pylon-linux:
   stage: build
   tags:
