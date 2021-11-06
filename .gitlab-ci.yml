@@ -399,7 +399,7 @@ stage-api-docs:
     - echo "|1|c1I4D0LzU1HjupN0Wc9Md1QIYVE=|ITvXx3AglaDGm8hhfahKF52hmGU= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGs/hBRnah/Zi6behPr3X+wamzb6wzwj/rxQAwWX6uXwu/enV2zfyM5TzeAL3PbWXbLsb5bLumCHIDUg15UMLK8=" >> ~/.ssh/known_hosts
     - echo "$SSH_STRAWLAB_ORG_STAGING" > ~/.ssh/id_rsa
     - chmod go-rx ~/.ssh/id_rsa
-    - rsync -azP --delete build/ strawlab-org-staging@strawlab-org-staging.strawlab-internal.de:strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs
+    - rsync -az --delete build/ strawlab-org-staging@strawlab-org-staging.strawlab-internal.de:strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs
   environment:
     name: strand-braid-api-docs-staging
     url: http://strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/
@@ -428,7 +428,7 @@ publish-api-docs:
     - echo "$STRAWLAB_ORG_SSH_PRIVATE_KEY" | tr " " "\n" | base64 --decode  > ~/.ssh/id_rsa
     - chmod go-rx ~/.ssh/id_rsa
     - cat ~/.ssh/id_rsa
-    - rsync -azP --delete build/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs
+    - rsync -az --delete build/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs
   environment:
     name: strand-braid-api-docs
     url: https://strawlab.org/strand-braid-api-docs/
