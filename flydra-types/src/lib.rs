@@ -350,10 +350,17 @@ pub struct TextlogRow {
 
 /// Tracking parameters
 ///
-/// This is the implementation for (de)serialization. See
-/// `TrackingParamsInner3D` and `TrackingParamsInnerFlat3D` for actual tracking
-/// usage. We have these two implementations so that we can have a compile-time
-/// switch for 3d vs 2d tracking but a common format for serialization.
+/// This is the definition used for saving these parameters to files. (In other
+/// words, this definition is used for serialization and de-serialization.) For
+/// usage when tracking, these parameters get converted to a different type. The
+/// exact type used depends on what type of tracking is being performed. For
+/// full 3D tracking, the [TrackingParamsInner3D] type is used. For tracking on
+/// a flat 2D surface, [TrackingParamsInnerFlat3D] is used.
+///
+/// By making use of a common type for serialization, we avoid the use of a
+/// multiple implementations which are switched at compile-time. Instead, we
+/// choose at runtime which type of tracking, and consequently which type is
+/// used for tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingParams {
     /// kalman filter parameter
