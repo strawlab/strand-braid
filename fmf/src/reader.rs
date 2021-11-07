@@ -1,4 +1,3 @@
-use chrono;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -130,7 +129,7 @@ impl FMFReader {
         let f = &mut self.f;
 
         let timestamp_f64 = f.read_f64::<LittleEndian>()?;
-        let host_timestamp_local = f64_to_datetime(timestamp_f64);
+        let host_timestamp = f64_to_datetime(timestamp_f64);
 
         let datasize = (self.chunksize - 8) as usize;
         let mut image_data: Vec<u8> = vec![0; datasize];
@@ -148,9 +147,8 @@ impl FMFReader {
         let host_framenumber = self.count;
         self.count += 1;
 
-        // TODO XXX FIXME: check this timezone code is actually reasonable.
         let extra = Box::new(BasicExtra {
-            host_timestamp: host_timestamp_local.with_timezone(&chrono::Utc),
+            host_timestamp,
             host_framenumber,
         });
 
