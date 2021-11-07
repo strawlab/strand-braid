@@ -1,4 +1,4 @@
-use formats::{ImageData, PixFmt, PixelFormat, Stride};
+use formats::{ImageBufferMutRef, ImageData, PixFmt, PixelFormat, Stride};
 use machine_vision_formats as formats;
 
 use timestamped_frame::{ExtraTimeData, HostTimeData};
@@ -137,6 +137,8 @@ impl DynamicFrame {
     ///
     /// If the image is a different pixel format than requested, None will be
     /// returned.
+    ///
+    /// To convert the image data if necessary, use [Self::into_pixel_format].
     pub fn as_basic<FMT>(self) -> Option<BasicFrame<FMT>>
     where
         FMT: PixelFormat,
@@ -159,6 +161,62 @@ impl DynamicFrame {
             None
         }
     }
+
+    /// Return the image as a `BasicFrame` converting the data to the requested
+    /// pixel format as necessary.
+    ///
+    /// To avoid converting the data, use [Self::as_basic].
+    pub fn into_pixel_format<FMT>(self) -> Result<BasicFrame<FMT>, convert_image::Error>
+    where
+        FMT: PixelFormat,
+    {
+        let pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
+        if pixfmt == self.pixel_format() {
+            // Fast path. Simply return the data.
+            let width = self.width();
+            let height = self.height();
+            let stride = self.stride() as u32;
+            let (image_data, extra) = self.into_data_extra();
+            Ok(BasicFrame {
+                width,
+                height,
+                stride,
+                extra,
+                image_data,
+                pixel_format: std::marker::PhantomData,
+            })
+        } else {
+            let width = self.width();
+            let height = self.height();
+            let extra = match_all_dynamic_fmts!(&self, x, { x.extra.clone() });
+
+            let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+
+            // Allocate buffer for new image.
+            let dest_stride = dest_fmt.bits_per_pixel() as usize * width as usize / 8;
+            let dest_size = height as usize * dest_stride;
+            let mut dest_buf = vec![0u8; dest_size];
+            let mut dest: ImageBufferMutRef<FMT> = ImageBufferMutRef::new(&mut dest_buf);
+
+            match_all_dynamic_fmts!(
+                &self,
+                x,
+                convert_image::convert_into(x, &mut dest, dest_stride)?
+            );
+
+            let image_data = dest_buf;
+
+            Ok(BasicFrame {
+                width,
+                height,
+                stride: dest_stride as u32,
+                extra,
+                image_data,
+                pixel_format: std::marker::PhantomData,
+            })
+        }
+    }
+
     pub fn pixel_format(&self) -> PixFmt {
         use DynamicFrame::*;
         match self {
