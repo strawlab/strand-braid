@@ -409,7 +409,7 @@ impl<R: Read + Seek> IncrementalParser<R, FullyParsed> {
 
 impl<R: Read + Seek, S: ParseState> IncrementalParser<R, S> {
     /// Consume and return the raw storage archive.
-    pub fn zip_struct(self) -> zip_or_dir::ZipDirArchive<R> {
+    pub fn into_inner(self) -> zip_or_dir::ZipDirArchive<R> {
         self.archive
     }
 

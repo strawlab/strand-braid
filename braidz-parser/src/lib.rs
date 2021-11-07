@@ -153,8 +153,13 @@ impl From<&HistogramLog> for HistogramSummary {
 
 impl<R: Read + Seek> BraidzArchive<R> {
     /// Consume and return the raw storage archive.
-    pub fn zip_struct(self) -> zip_or_dir::ZipDirArchive<R> {
+    pub fn into_inner(self) -> zip_or_dir::ZipDirArchive<R> {
         self.archive
+    }
+
+    /// Display the path to the archive.
+    pub fn display(&self) -> std::path::Display {
+        self.archive.display()
     }
 }
 
