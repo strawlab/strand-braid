@@ -9,7 +9,7 @@ use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 
-use crate::Frame;
+use crate::{Frame, MovieReader};
 
 /// Convert a Result<T,E> into Option<Result<T,E>> and return Some(Err(E)) on error.
 macro_rules! try_iter {
@@ -27,7 +27,7 @@ macro_rules! try_iter {
 ///
 /// Since the ffmpeg api reads packet-by-packet, we need something to return
 /// frame-by-frame. This must necessarily decode the packets into frames.
-pub struct FrameReader {
+pub struct FfmpegFrameReader {
     /// The filename of the file
     pub filename: String,
     /// Creation time of this particular frame reader
@@ -48,7 +48,7 @@ pub struct FrameReader {
     pub title: Option<String>,
 }
 
-impl FrameReader {
+impl FfmpegFrameReader {
     pub fn new(filename: &str) -> Result<Self> {
         let ictx = ffmpeg::format::input(&filename)
             .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
@@ -132,13 +132,21 @@ impl FrameReader {
     }
 }
 
-impl std::iter::Iterator for FrameReader {
-    type Item = Result<Frame>;
+impl MovieReader for FfmpegFrameReader {
+    fn title(&self) -> Option<&str> {
+        self.title.as_ref().map(|x| x.as_str())
+    }
+    fn filename(&self) -> &str {
+        &self.filename
+    }
+    fn creation_time(&self) -> &DateTime<Utc> {
+        &self.creation_time
+    }
 
     /// Get the next frame
     ///
     /// Iterate over packets but return frames
-    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
+    fn next_frame(&mut self) -> Option<Result<Frame>> {
         // Do we already have a frame waiting?
         if let Some(frame) = self.frame_queue.pop_front() {
             // If yes, return it.

@@ -16,8 +16,8 @@ mod peek2;
 
 mod argmin;
 
-mod frame_reader;
-use frame_reader::FrameReader;
+mod ffmpeg_frame_reader;
+use ffmpeg_frame_reader::FfmpegFrameReader;
 
 mod frame;
 pub use frame::Frame;
@@ -62,13 +62,13 @@ pub type OutFrameIterType = Vec<OutFramePerCamInput>;
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
-    readers: Vec<peek2::Peek2<FrameReader>>,
-) -> Vec<peek2::Peek2<FrameReader>> {
+    readers: Vec<peek2::Peek2<Box<dyn MovieReader>>>,
+) -> Vec<peek2::Peek2<Box<dyn MovieReader>>> {
     // Advance each reader until upcoming frame is not before the start time.
     readers
         .into_iter()
         .map(|mut reader| {
-            log::debug!("filename: {}", reader.as_ref().filename);
+            log::debug!("filename: {}", reader.as_ref().filename());
 
             // Get information for first frame
             let p1_pts_chrono = reader.peek1().unwrap().as_ref().unwrap().pts_chrono;
@@ -137,7 +137,7 @@ struct PerCamRender {
 }
 
 impl PerCamRender {
-    fn new(rdr: &peek2::Peek2<FrameReader>) -> Self {
+    fn new(rdr: &peek2::Peek2<Box<dyn MovieReader>>) -> Self {
         let peek1 = rdr.peek1().unwrap().as_ref().unwrap();
         let width = peek1.width() as usize;
         let height = peek1.height() as usize;
@@ -185,21 +185,21 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     // Open a frame reader for each source.
     let readers = filenames
         .iter()
-        .map(|f| FrameReader::new(f))
+        .map(|f| open_movie(f))
         .collect::<Result<Vec<_>>>()?;
 
     for (cam_name, reader) in camera_names.iter_mut().zip(readers.iter()) {
         if cam_name.is_none() {
-            if let Some(title) = &reader.title {
+            if let Some(title) = &reader.title() {
                 // The title of the video segment defaults to the camera name,
                 // so here we read the title. Braidz files save the camera name
                 // as the "ROS" version, so we have to convert to that form.
-                let raw = RawCamName::new(title.clone());
+                let raw = RawCamName::new(title.to_string());
                 let ros = raw.to_ros();
                 let ros_cam_name = ros.as_str();
                 log::info!(
                     "In video {}, camera name from title: {}",
-                    reader.filename,
+                    reader.filename(),
                     ros_cam_name
                 );
                 *cam_name = Some(ros_cam_name.to_string());
@@ -211,9 +211,10 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
     // This time is where we will start from.
     let approx_start_time = readers
         .iter()
-        .map(|rdr| rdr.creation_time)
+        .map(|rdr| rdr.creation_time())
         .max()
-        .ok_or_else(|| anyhow::anyhow!("Zero file inputs. Cannot find start."))?;
+        .ok_or_else(|| anyhow::anyhow!("Zero file inputs. Cannot find start."))?
+        .clone();
 
     log::info!("start time: {}", approx_start_time);
 
@@ -580,6 +581,24 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
     my_mkv_writer.finish()?;
     Ok(())
+}
+
+pub trait MovieReader {
+    fn title(&self) -> Option<&str>;
+    fn filename(&self) -> &str;
+    fn creation_time(&self) -> &DateTime<Utc>;
+    fn next_frame(&mut self) -> Option<Result<Frame>>;
+}
+
+fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
+    Ok(Box::new(FfmpegFrameReader::new(filename)?))
+}
+
+impl Iterator for dyn MovieReader {
+    type Item = Result<Frame>;
+    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
+        self.next_frame()
+    }
 }
 
 fn main() -> Result<()> {

@@ -1,11 +1,11 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::{peek2::Peek2, FrameReader};
+use crate::{peek2::Peek2, MovieReader};
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
 pub struct SyncedIter {
-    frame_readers: Vec<Peek2<FrameReader>>,
+    frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
@@ -16,7 +16,7 @@ pub struct SyncedIter {
 
 impl SyncedIter {
     pub fn new(
-        frame_readers: Vec<Peek2<FrameReader>>,
+        frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
     ) -> Result<Self> {

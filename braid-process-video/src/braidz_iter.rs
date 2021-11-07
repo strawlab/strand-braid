@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 
 use flydra_types::{CamNum, Data2dDistortedRow};
 
-use crate::{argmin::Argmin, frame_reader::FrameReader, peek2};
+use crate::{argmin::Argmin, peek2, MovieReader};
 
 fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) -> bool {
     let dist = a.signed_duration_since(*b);
@@ -13,7 +13,7 @@ fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) ->
 }
 
 struct BraidArchivePerCam<'a> {
-    frame_reader: crate::peek2::Peek2<FrameReader>,
+    frame_reader: crate::peek2::Peek2<Box<dyn MovieReader>>,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
@@ -32,7 +32,7 @@ impl<'a> BraidArchiveSyncData<'a> {
         archive: &'a braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
         camera_names: &[Option<String>],
-        frame_readers: Vec<peek2::Peek2<FrameReader>>,
+        frame_readers: Vec<peek2::Peek2<Box<dyn MovieReader>>>,
         sync_threshold: chrono::Duration,
     ) -> Result<Self> {
         assert_eq!(camera_names.len(), frame_readers.len());
