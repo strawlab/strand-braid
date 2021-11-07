@@ -23,6 +23,8 @@ macro_rules! bf {
     }};
 }
 
+const TIMESTAMP_SIZE: usize = 8;
+
 /// Return an DynamicFrame variant according to $pixfmt.
 #[macro_export]
 macro_rules! to_dynamic {
@@ -52,11 +54,10 @@ pub struct FMFReader {
     pixel_format: PixFmt,
     height: u32,
     width: u32,
-    chunksize: u64,
-    // n_frames: u64,
-    // pos: usize,
-    // frame0_pos: usize,
+    image_data_size: usize,
+    n_frames: usize,
     count: usize,
+    did_error: bool,
 }
 
 impl FMFReader {
@@ -93,9 +94,11 @@ impl FMFReader {
         pos += 4;
         let width = f.read_u32::<LittleEndian>()?;
         pos += 4;
-        let chunksize = f.read_u64::<LittleEndian>()?;
+        let chunksize: usize = f.read_u64::<LittleEndian>()?.try_into().unwrap();
+        assert!(chunksize > TIMESTAMP_SIZE);
+        let image_data_size = chunksize - TIMESTAMP_SIZE;
         pos += 8;
-        let _n_frames = f.read_u64::<LittleEndian>()?;
+        let n_frames = f.read_u64::<LittleEndian>()?.try_into().unwrap();
         pos += 8;
         let _frame0_pos = pos;
         let count = 0;
@@ -105,8 +108,10 @@ impl FMFReader {
             pixel_format,
             height,
             width,
-            chunksize,
-            /*n_frames, pos, frame0_pos,*/ count,
+            image_data_size,
+            n_frames,
+            count,
+            did_error: false,
         })
     }
 
@@ -126,18 +131,18 @@ impl FMFReader {
     }
 
     fn next_frame(&mut self) -> FMFResult<DynamicFrame> {
+        debug_assert!(self.count < self.n_frames);
+
         let f = &mut self.f;
 
-        let timestamp_f64 = f.read_f64::<LittleEndian>()?;
+        let mut timestamp_data: Vec<u8> = vec![0; TIMESTAMP_SIZE];
+        f.read_exact(&mut timestamp_data)?;
+
+        let mut image_data: Vec<u8> = vec![0; self.image_data_size];
+        f.read_exact(&mut image_data)?;
+
+        let timestamp_f64 = timestamp_data.as_slice().read_f64::<LittleEndian>()?;
         let host_timestamp = f64_to_datetime(timestamp_f64);
-
-        let datasize = (self.chunksize - 8) as usize;
-        let mut image_data: Vec<u8> = vec![0; datasize];
-        let actual_data_len = f.read(&mut image_data)?;
-
-        if actual_data_len < datasize {
-            return Err(FMFError::PrematureFileEnd);
-        }
 
         let width = self.width;
         let height = self.height;
@@ -157,11 +162,22 @@ impl FMFReader {
 }
 
 impl Iterator for FMFReader {
-    type Item = DynamicFrame;
+    type Item = FMFResult<DynamicFrame>;
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_frame() {
-            Ok(f) => Some(f),
-            Err(_) => None,
+        if self.did_error {
+            // Encountered error. Do not read more.
+            return None;
         }
+
+        if self.count >= self.n_frames {
+            // Done reading all frames. Do not read more.
+            return None;
+        }
+
+        let frame = self.next_frame();
+        if frame.is_err() {
+            self.did_error = true;
+        }
+        Some(frame)
     }
 }

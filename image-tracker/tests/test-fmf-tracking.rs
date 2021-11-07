@@ -48,6 +48,7 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
     .unwrap();
 
     for frame in reader {
+        let frame = frame?;
         println!(
             "frame {:?}: {:?}",
             frame.extra().host_framenumber(),

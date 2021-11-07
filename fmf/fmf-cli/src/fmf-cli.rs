@@ -324,6 +324,7 @@ fn info(path: PathBuf) -> Result<()> {
     }
     let reader = fmf::FMFReader::new(&path)?;
     for (fno, frame) in reader.enumerate() {
+        let frame = frame?;
         let i = Info {
             width: frame.width(),
             stride: frame.stride(),
@@ -364,6 +365,7 @@ fn export_fmf(
     let mut writer = fmf::FMFWriter::new(f)?;
 
     for frame in reader {
+        let frame = frame?;
         let fts = frame.extra().host_timestamp();
         let frame: DynamicFrame = match forced_input_pixel_format {
             Some(forced_input_pixel_format) => frame.force_pixel_format(forced_input_pixel_format),
@@ -450,6 +452,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
     let reader = fmf::FMFReader::new(&path)?;
 
     for (i, frame) in reader.enumerate() {
+        let frame = frame?;
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
         let frame = convert_to_rgb8(&frame)?;
@@ -598,6 +601,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
     let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, nv_enc)?;
 
     for (fno, fmf_frame) in reader.enumerate() {
+        let fmf_frame = fmf_frame?;
         debug!("saving frame {}", fno);
         let ts = fmf_frame.extra().host_timestamp();
         match fmf_frame {
@@ -728,6 +732,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
     out_fd.write_all(buf.as_bytes())?;
 
     for frame in reader {
+        let frame = frame?;
         let buf = format!("{magic}\n", magic = Y4M_FRAME_MAGIC);
         out_fd.write_all(buf.as_bytes())?;
 
