@@ -652,7 +652,7 @@ mod tests {
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, None).unwrap();
         let running_mean = arange_float(0.1, 123.456);
 
-        let running_mean = running_mean.into_basic::<Mono32f>().unwrap();
+        let running_mean = running_mean.as_basic::<Mono32f>().unwrap();
 
         writer.add_keyframe(b"mean", &running_mean).unwrap();
         let f = writer.close().unwrap();

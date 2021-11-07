@@ -137,7 +137,7 @@ impl DynamicFrame {
     ///
     /// If the image is a different pixel format than requested, None will be
     /// returned.
-    pub fn into_basic<FMT>(self) -> Option<BasicFrame<FMT>>
+    pub fn as_basic<FMT>(self) -> Option<BasicFrame<FMT>>
     where
         FMT: PixelFormat,
     {
