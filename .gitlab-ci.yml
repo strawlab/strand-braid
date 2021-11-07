@@ -380,7 +380,7 @@ build-api-docs:
 
     # remove potential old output directory
     - rm -rf build
-    - mkdir -p build/latest
+    - mkdir build
 
     # rename directory
     - mv target/doc build/latest
@@ -403,7 +403,7 @@ stage-api-docs:
     - rsync -az --delete build/latest/ strawlab-org-staging@strawlab-org-staging.strawlab-internal.de:strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/latest
   environment:
     name: strand-braid-api-docs-staging
-    url: http://strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/
+    url: http://strawlab-org-staging.strawlab-internal.de/strand-braid-api-docs/latest
   dependencies:
     - build-api-docs
 
@@ -432,7 +432,7 @@ publish-api-docs:
     - rsync -az --delete build/latest/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs/latest
   environment:
     name: strand-braid-api-docs
-    url: https://strawlab.org/strand-braid-api-docs/
+    url: https://strawlab.org/strand-braid-api-docs/latest
   dependencies:
     - build-api-docs
   when: manual
