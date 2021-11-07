@@ -9,7 +9,7 @@ use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 
-use crate::{Frame, MovieReader};
+use crate::{frame::RawFrameSource, Frame, MovieReader};
 
 /// Convert a Result<T,E> into Option<Result<T,E>> and return Some(Err(E)) on error.
 macro_rules! try_iter {
@@ -118,11 +118,8 @@ impl FfmpegFrameReader {
             let frame_data = {
                 let mut rgb_frame = Video::empty();
                 self.scaler.run(&decoded, &mut rgb_frame)?;
-                Frame {
-                    pts,
-                    pts_chrono,
-                    rgb_frame,
-                }
+                let data = RawFrameSource::Ffmpeg(rgb_frame);
+                Frame { pts_chrono, data }
             };
             self.frame_queue.push_back(frame_data);
             frame_available = true;

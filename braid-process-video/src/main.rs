@@ -19,6 +19,9 @@ mod argmin;
 mod ffmpeg_frame_reader;
 use ffmpeg_frame_reader::FfmpegFrameReader;
 
+mod fmf_frame_reader;
+use fmf_frame_reader::FmfFrameReader;
+
 mod frame;
 pub use frame::Frame;
 
@@ -190,6 +193,9 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
 
     for (cam_name, reader) in camera_names.iter_mut().zip(readers.iter()) {
         if cam_name.is_none() {
+            // Camera name was not specified manually in the config.
+
+            // First, try to read from metadata embedded in the movie.
             if let Some(title) = &reader.title() {
                 // The title of the video segment defaults to the camera name,
                 // so here we read the title. Braidz files save the camera name
@@ -203,6 +209,15 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                     ros_cam_name
                 );
                 *cam_name = Some(ros_cam_name.to_string());
+            }
+
+            // If we could not read from metadata, see if we can read from
+            // filename.
+            if cam_name.is_none() {
+                // This remains to be implemented. Filename may be like
+                // `movie20211107_141720_Basler-22445994.fmf`. This would be
+                // particularly useful for FMF files, because they do not have
+                // metadata like the camera name.
             }
         }
     }
@@ -591,7 +606,11 @@ pub trait MovieReader {
 }
 
 fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
-    Ok(Box::new(FfmpegFrameReader::new(filename)?))
+    if filename.to_lowercase().ends_with(".fmf") {
+        Ok(Box::new(FmfFrameReader::new(filename)?))
+    } else {
+        Ok(Box::new(FfmpegFrameReader::new(filename)?))
+    }
 }
 
 impl Iterator for dyn MovieReader {

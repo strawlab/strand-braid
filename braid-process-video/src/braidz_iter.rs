@@ -49,7 +49,12 @@ impl<'a> BraidArchiveSyncData<'a> {
         // Get earliest starting video
         let i = t0.iter().argmin().unwrap();
         let earliest_start_rdr = &frame_readers[i];
-        let earliest_start_cam_name = &camera_names[i].as_ref().unwrap();
+        let earliest_start_cam_name = &camera_names[i].as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Camera name for '{}' could not be guessed. Specify manually.",
+                earliest_start_rdr.as_ref().filename()
+            )
+        })?;
         let earliest_start = earliest_start_rdr
             .peek1()
             .unwrap()
@@ -63,7 +68,13 @@ impl<'a> BraidArchiveSyncData<'a> {
             .unwrap();
 
         // Now get data2d row with this timestamp to find the synchronized frame number.
-        let cam_rows = data2d.get(earliest_start_cam_num).unwrap();
+        let cam_rows = data2d.get(earliest_start_cam_num).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No data2d in braidz file '{}' for camera '{}'.",
+                archive.display(),
+                earliest_start_cam_name,
+            )
+        })?;
         let mut found_frame = None;
 
         for row in cam_rows.iter() {
