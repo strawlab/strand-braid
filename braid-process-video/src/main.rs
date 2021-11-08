@@ -406,7 +406,8 @@ fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         if let Some(ref mut fd) = &mut debug_fd {
             writeln!(fd, "frame {} ----------", out_fno)?;
         }
-        if out_fno % 100 == 0 {
+
+        if out_fno % cfg.log_interval_frames.unwrap_or(100) == 0 {
             log::info!("frame {}", out_fno);
         }
 

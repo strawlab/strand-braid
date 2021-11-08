@@ -91,6 +91,8 @@ pub struct BraidRetrackVideoConfig {
     pub start_frame: Option<usize>,
     /// maximum number of frames to render
     pub max_num_frames: Option<usize>,
+    /// Every `log_interval_frames` a status message will be displayed.
+    pub log_interval_frames: Option<usize>,
     pub input_braidz: Option<String>,
     pub output: Vec<OutputConfig>,
     pub input_video: Vec<VideoSourceConfig>,
@@ -103,6 +105,7 @@ impl Default for BraidRetrackVideoConfig {
             frame_duration_microsecs: None,
             start_frame: None,
             max_num_frames: None,
+            log_interval_frames: None,
             input_braidz: None,
             output: vec![OutputConfig::default()],
             input_video: vec![
