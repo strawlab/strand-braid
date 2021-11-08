@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use ordered_float::NotNan;
 use structopt::StructOpt;
 
+#[cfg(feature = "read-mkv")]
 use ffmpeg_next as ffmpeg;
 
 use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageStride};
@@ -16,7 +17,9 @@ mod peek2;
 
 mod argmin;
 
+#[cfg(feature = "read-mkv")]
 mod ffmpeg_frame_reader;
+#[cfg(feature = "read-mkv")]
 use ffmpeg_frame_reader::FfmpegFrameReader;
 
 mod fmf_frame_reader;
@@ -168,7 +171,8 @@ impl PerCamRender {
     }
 }
 
-fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
+pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
+    #[cfg(feature = "read-mkv")]
     ffmpeg::init().unwrap();
 
     // Get sources.
@@ -612,7 +616,15 @@ fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
     } else if filename.to_lowercase().ends_with(".fmf.gz") {
         Ok(Box::new(FmfFrameReader::new(filename)?))
     } else {
-        Ok(Box::new(FfmpegFrameReader::new(filename)?))
+        #[cfg(feature = "read-mkv")]
+        {
+            Ok(Box::new(FfmpegFrameReader::new(filename)?))
+        }
+
+        #[cfg(not(feature = "read-mkv"))]
+        {
+            anyhow::bail!("File not .fmf or .fmf.gz but not compiled 'read-mkv' feature.")
+        }
     }
 }
 

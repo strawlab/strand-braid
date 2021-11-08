@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+#[cfg(feature = "read-mkv")]
 use ffmpeg_next::util::frame::video::Video;
 use machine_vision_formats::{pixel_format::RGB8, ImageBuffer, ImageBufferRef, ImageData, Stride};
 
@@ -7,6 +8,7 @@ use timestamped_frame::ExtraTimeData;
 
 pub enum RawFrameSource {
     /// ffmpeg data
+    #[cfg(feature = "read-mkv")]
     Ffmpeg(Video),
     /// fmf data
     Fmf(BasicFrame<RGB8>),
@@ -47,18 +49,21 @@ impl std::fmt::Debug for Frame {
 impl ImageData<RGB8> for Frame {
     fn width(&self) -> u32 {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.width(),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.width(),
         }
     }
     fn height(&self) -> u32 {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.height(),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.height(),
         }
     }
     fn buffer_ref(&self) -> ImageBufferRef<'_, RGB8> {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => ImageBufferRef {
                 pixel_format: std::marker::PhantomData,
                 data: rgb_frame.data(0),
@@ -74,18 +79,21 @@ impl ImageData<RGB8> for Frame {
 impl ImageData<RGB8> for &Frame {
     fn width(&self) -> u32 {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.width(),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.width(),
         }
     }
     fn height(&self) -> u32 {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.height(),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.height(),
         }
     }
     fn buffer_ref(&self) -> ImageBufferRef<'_, RGB8> {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => ImageBufferRef {
                 pixel_format: std::marker::PhantomData,
                 data: rgb_frame.data(0),
@@ -101,6 +109,7 @@ impl ImageData<RGB8> for &Frame {
 impl Stride for Frame {
     fn stride(&self) -> usize {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.stride(0),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.stride(),
         }
@@ -110,6 +119,7 @@ impl Stride for Frame {
 impl Stride for &Frame {
     fn stride(&self) -> usize {
         match &self.data {
+            #[cfg(feature = "read-mkv")]
             RawFrameSource::Ffmpeg(rgb_frame) => rgb_frame.stride(0),
             RawFrameSource::Fmf(rgb_frame) => rgb_frame.stride(),
         }
