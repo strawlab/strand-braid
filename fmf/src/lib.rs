@@ -94,12 +94,14 @@ struct FMFWriterInner<F: Write + Seek> {
 }
 
 // Things to improve in FMF v 4:
+//  * Specify a [file signature](https://en.wikipedia.org/wiki/List_of_file_signatures).
 //  * Specify that timestamp is in UTC. (Provide timezone in header?)
 //  * Provide magic number at start of file.
 //  * Allow ability to save arbitrary (timestamp,event) data or
 //    (timestamp,value) data
 //  * Save camera device timestamps and host computer timestamps and experiment
 //    timestamps (or minimally specify which)
+//  * Allow metadata such as camera name.
 //
 // Note also the file replacing-fmf.md which discusses eliminating FMF
 // completely.

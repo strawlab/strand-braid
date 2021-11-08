@@ -1,7 +1,9 @@
 ## Should there even be an FMF v 4?
 
 Should there even be an FMF v 4? Why not use a standard video container which
-supports timestamps?
+supports timestamps? For the question of whether a standard video container that
+supports timestamps, see
+[this](https://video.stackexchange.com/questions/34298).
 
 ## webm and matroska
 
