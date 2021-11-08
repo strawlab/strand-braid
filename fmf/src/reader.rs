@@ -50,7 +50,7 @@ macro_rules! to_dynamic {
 }
 
 pub struct FMFReader {
-    f: File,
+    f: Box<dyn Read>,
     pixel_format: PixFmt,
     height: u32,
     width: u32,
@@ -62,12 +62,24 @@ pub struct FMFReader {
 
 impl FMFReader {
     pub fn new<P: AsRef<Path>>(path: P) -> FMFResult<FMFReader> {
-        let mut f = File::open(&path).map_err(|e| FMFError::IoPath {
-            source: e,
-            path: path.as_ref().display().to_string(),
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
-        })?;
+        let extension = path.as_ref().extension().map(|x| x.to_str()).flatten();
+        let mut f: Box<dyn Read> = if extension == Some("gz") {
+            let gz_fd = std::fs::File::open(&path).map_err(|e| FMFError::IoPath {
+                source: e,
+                path: path.as_ref().display().to_string(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            })?;
+            let decoder = libflate::gzip::Decoder::new(gz_fd)?;
+            Box::new(decoder)
+        } else {
+            Box::new(File::open(&path).map_err(|e| FMFError::IoPath {
+                source: e,
+                path: path.as_ref().display().to_string(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            })?)
+        };
 
         // version
         let mut pos = 0;
