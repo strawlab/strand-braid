@@ -20,8 +20,8 @@ use bui_backend_types::CallbackDataAndSession;
 
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
-    BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, FlydraPacketCodec,
-    HttpApiCallback, HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
+    BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback,
+    HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
 };
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
@@ -283,34 +283,40 @@ pub struct StartupPhase1 {
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
     triggerbox_rx: Option<channellib::Receiver<braid_triggerbox::Cmd>>,
-    flydra1: bool,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
     model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     signal_all_cams_present: Arc<AtomicBool>,
     signal_all_cams_synced: Arc<AtomicBool>,
+    raw_packet_logger: RawPacketLogger,
 }
 
 pub async fn pre_run(
     handle: &tokio::runtime::Handle,
-    cal_fname: Option<std::path::PathBuf>,
-    output_base_dirname: std::path::PathBuf,
-    opt_tracking_params: Option<flydra2::SwitchingTrackingParams>,
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    camdata_addr_unspecified: &str,
     configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
-    flydra1: bool,
-    http_api_server_addr: String,
-    http_api_server_token: Option<String>,
-    model_pose_server_addr: std::net::SocketAddr,
-    save_empty_data2d: bool,
+    mainbrain_config: &braid_config_data::MainbrainConfig,
     jwt_secret: Option<Vec<u8>>,
     all_expected_cameras: std::collections::BTreeSet<RosCamName>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    saving_program_name: &str,
 ) -> Result<StartupPhase1> {
+    use std::convert::TryInto;
+    let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
+    let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
+    let opt_tracking_params: Option<flydra2::SwitchingTrackingParams> =
+        Some(mainbrain_config.tracking_params.clone().try_into()?);
+
+    let camdata_addr_unspecified: &str = &mainbrain_config.lowlatency_camdata_udp_addr;
+
+    let http_api_server_addr: String = mainbrain_config.http_api_server_addr.clone();
+    let http_api_server_token: Option<String> = mainbrain_config.http_api_server_token.clone();
+    let model_pose_server_addr: std::net::SocketAddr = mainbrain_config.model_server_addr.clone();
+    let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
+
     info!("saving to directory: {}", output_base_dirname.display());
 
     let (quit_trigger, valve) = stream_cancel::Valve::new();
@@ -396,6 +402,7 @@ pub async fn pre_run(
         save_data_tx,
         save_data_rx,
         save_empty_data2d,
+        saving_program_name,
         ignore_latency,
     )?;
     let write_controller = coord_processor.get_write_controller();
@@ -531,6 +538,15 @@ pub async fn pre_run(
     )
     .await?;
 
+    // This creates a debug logger when `packet_capture_dump_fname` is not
+    // `None`.
+    let raw_packet_logger = RawPacketLogger::new(
+        mainbrain_config
+            .packet_capture_dump_fname
+            .as_ref()
+            .map(|x| x.as_path()),
+    )?;
+
     let is_loopback = my_app.inner.local_addr().ip().is_loopback();
     let mainbrain_server_info =
         flydra_types::BuiServerInfo::new(my_app.inner.local_addr().clone(), my_app.inner.token());
@@ -553,14 +569,81 @@ pub async fn pre_run(
         handle: handle.clone(),
         trigger_cfg,
         triggerbox_rx,
-        flydra1,
         model_pose_server_addr,
         coord_processor,
         valve,
         model_server_shutdown_rx,
         signal_all_cams_present,
         signal_all_cams_synced,
+        raw_packet_logger,
     })
+}
+
+use flydra_types::HostClock;
+use serde::Serialize;
+
+/// Format for debugging raw packet data direct from Strand Cam.
+#[derive(Serialize)]
+struct RawPacketLogRow {
+    cam_name: String,
+    #[serde(with = "flydra_types::timestamp_opt_f64")]
+    timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
+    #[serde(with = "flydra_types::timestamp_f64")]
+    cam_received_time: FlydraFloatTimestampLocal<HostClock>,
+    device_timestamp: Option<std::num::NonZeroU64>,
+    block_id: Option<std::num::NonZeroU64>,
+    framenumber: i32,
+    n_frames_skipped: u32,
+    done_camnode_processing: f64,
+    preprocess_stamp: f64,
+    cam_num: Option<flydra_types::CamNum>,
+    synced_frame: Option<SyncFno>,
+}
+
+/// Logger for debugging raw packet data direct from Strand Cam.
+struct RawPacketLogger {
+    fd: Option<csv::Writer<std::fs::File>>,
+}
+
+impl RawPacketLogger {
+    /// Create a new logger for debugging raw packet data.
+    ///
+    /// If `fname` argument is None, this does very little.
+    fn new(fname: Option<&std::path::Path>) -> Result<Self> {
+        let fd = fname
+            .map(|x| std::fs::File::create(x))
+            .transpose()?
+            .map(|fd| csv::Writer::from_writer(fd));
+        Ok(Self { fd })
+    }
+
+    /// Log debug data for raw packets.
+    ///
+    /// If no filename was given to `Self::new`, this does very little.
+    fn log_raw_packets(
+        &mut self,
+        packet: &flydra_types::FlydraRawUdpPacket,
+        cam_num: Option<flydra_types::CamNum>,
+        synced_frame: Option<SyncFno>,
+    ) -> Result<()> {
+        if let Some(ref mut fd) = self.fd {
+            let row = RawPacketLogRow {
+                cam_name: packet.cam_name.clone(),
+                timestamp: packet.timestamp.clone(),
+                cam_received_time: packet.cam_received_time.clone(),
+                device_timestamp: packet.device_timestamp.clone(),
+                block_id: packet.block_id.clone(),
+                framenumber: packet.framenumber.clone(),
+                n_frames_skipped: packet.n_frames_skipped.clone(),
+                done_camnode_processing: packet.done_camnode_processing.clone(),
+                preprocess_stamp: packet.preprocess_stamp.clone(),
+                cam_num,
+                synced_frame,
+            };
+            fd.serialize(row)?;
+        }
+        Ok(())
+    }
 }
 
 pub async fn run(phase1: StartupPhase1) -> Result<()> {
@@ -576,13 +659,13 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let rt_handle3 = rt_handle2.clone();
     let trigger_cfg = phase1.trigger_cfg;
     let triggerbox_rx = phase1.triggerbox_rx;
-    let flydra1 = phase1.flydra1;
     let model_pose_server_addr = phase1.model_pose_server_addr;
     let mut coord_processor = phase1.coord_processor;
     let valve = phase1.valve;
     let model_server_shutdown_rx = phase1.model_server_shutdown_rx;
     let signal_all_cams_present = phase1.signal_all_cams_present;
     let signal_all_cams_synced = phase1.signal_all_cams_synced;
+    let mut raw_packet_logger = phase1.raw_packet_logger;
 
     let signal_triggerbox_connected = Arc::new(AtomicBool::new(false));
     let triggerbox_cmd = my_app.triggerbox_cmd.clone();
@@ -696,8 +779,24 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let tx = my_app.triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
 
+            let (rate_cmd, rate_actual) = make_trig_fps_cmd(*fps as f64);
+
+            let max_triggerbox_measurement_error =
+                cfg.max_triggerbox_measurement_error.unwrap_or_else(|| {
+                    flydra_types::TriggerboxConfig::default()
+                        .max_triggerbox_measurement_error
+                        .unwrap()
+                });
+
             tx.send(Cmd::StopPulsesAndReset).cb_ok();
-            tx.send(make_trig_fps_cmd(*fps as f64)).cb_ok();
+            info!(
+                "Triggerbox request {} fps, actual frame rate will be {} fps. Will \
+                accept maximum timestamp error of {} microseconds.",
+                fps,
+                rate_actual,
+                max_triggerbox_measurement_error.as_micros(),
+            );
+            tx.send(rate_cmd)?;
             tx.send(Cmd::StartPulses).cb_ok();
 
             let mut expected_framerate = expected_framerate_arc.write();
@@ -712,6 +811,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 Some(triggerbox_data_tx.into_inner()),
                 *query_dt,
                 None,
+                max_triggerbox_measurement_error,
             )?;
 
             _triggerbox_thread_control = Some(control);
@@ -752,28 +852,11 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 >,
             > + Send
             + Unpin,
-    > = match flydra1 {
-        true => {
-            let codec = FlydraPacketCodec::default();
-            // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
+    > = {
+        let codec = CborPacketCodec::default();
+        let stream = UdpFramed::new(camdata_socket, codec);
 
-            // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
-            let stream = UdpFramed::new(camdata_socket, codec);
-
-            // let (_sink, stream) = UdpFramed::new(camdata_socket, FlydraPacketCodec::default()).split();
-            // let stream = futures::compat::Compat01As03::new(stream);
-            Box::new(stream)
-        }
-        false => {
-            let codec = CborPacketCodec::default();
-            // let (_sink, stream) = tokio::codec::Framed::new( camdata_socket, codec ).split();
-            // let (_sink, stream) = UdpFramed::new( camdata_socket, codec ).split();
-            let stream = UdpFramed::new(camdata_socket, codec);
-
-            // let (_sink, stream) = UdpFramed::new(camdata_socket, CborPacketCodec::default()).split();
-            // let stream = futures::compat::Compat01As03::new(stream);
-            Box::new(stream)
-        }
+        Box::new(stream)
     };
 
     // Initiate camera synchronization on startup
@@ -851,8 +934,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         let ros_cam_name = RosCamName::new(packet.cam_name.clone());
         live_stats_collector2.register_new_frame_data(&ros_cam_name, packet.points.len());
 
-        let http_session_handler3 = http_session_handler2.clone();
-
         let sync_time_min = match &trigger_cfg {
             TriggerType::TriggerboxV1(_) => {
                 // Using trigger box
@@ -864,16 +945,16 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             }
         };
 
-        let synced_frame = match cam_manager2.got_new_frame_live(
+        let synced_frame = cam_manager2.got_new_frame_live(
             &packet,
             &sync_pulse_pause_started_arc,
             sync_time_min,
             std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
             |name, frame| {
                 let name2 = name.clone();
-                let mut http_session_handler4 = http_session_handler3.clone();
+                let mut http_session_handler3 = http_session_handler2.clone();
                 let fut_no_err = async move {
-                    match http_session_handler4.send_frame_offset(&name2, frame).await {
+                    match http_session_handler3.send_frame_offset(&name2, frame).await {
                         Ok(_http_response) => {}
                         Err(e) => {
                             error!("Error sending frame offset: {}", e);
@@ -882,23 +963,32 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 };
                 rt_handle.spawn(fut_no_err); // TODO: spawn
             },
-        ) {
-            Some(v) => v,
-            None => {
-                return futures::future::ready(None);
-            } // cannot compute synced_frame number, drop this data
-        };
+        );
 
-        let trigger_timestamp = {
-            let time_model = time_model_arc.read();
-            compute_trigger_timestamp(&time_model, synced_frame)
-        };
+        let cam_num = cam_manager.cam_num(&ros_cam_name);
 
-        let cam_num = match cam_manager.cam_num(&ros_cam_name) {
+        raw_packet_logger
+            .log_raw_packets(&packet, cam_num, synced_frame)
+            .unwrap();
+
+        let cam_num = match cam_num {
             Some(cam_num) => cam_num,
             None => {
-                error!("Unknown camera name '{}'.", ros_cam_name.as_str());
-                panic!("unknown camera name");
+                debug!("Unknown camera name '{}'.", ros_cam_name.as_str());
+                // Cannot compute cam_num, drop this data.
+                return futures::future::ready(None);
+            }
+        };
+
+        let (synced_frame, trigger_timestamp) = match synced_frame {
+            Some(synced_frame) => {
+                let time_model = time_model_arc.read();
+                let trigger_timestamp = compute_trigger_timestamp(&time_model, synced_frame);
+                (synced_frame, trigger_timestamp)
+            }
+            None => {
+                // cannot compute synced_frame number, drop this data
+                return futures::future::ready(None);
             }
         };
 
@@ -908,6 +998,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             synced_frame,
             trigger_timestamp,
             packet.cam_received_time,
+            packet.device_timestamp,
+            packet.block_id,
         );
 
         assert!(packet.points.len() < u8::max_value() as usize);

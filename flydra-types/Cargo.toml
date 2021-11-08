@@ -32,4 +32,6 @@ with-dns=["dns-lookup"]
 with-tokio-codec=["tokio-util", "bytes", "serde_cbor"]
 
 [dev-dependencies]
+anyhow = "1"
 serde_cbor = "0.9"
+csv = "1.0"

@@ -22,9 +22,29 @@
 
 * April Tag detection works in Windows.
 
+* For debugging, enable ability to capture raw feature detections directly from
+  Strand Cam in Braid by the new configuration parameter
+  `packet_capture_dump_fname` which specifies a filename into which the data is
+  stored.
+
 ### Fixed
 
+* Fixed computation of triggerbox pulse time and consequently estimated latency.
+  There were two problems in the previous implementation, and both are now
+  fixed. First, the triggerbox firmware has a bug in which two pulses are
+  counted before electrical pulses were actually, physically emitted from the
+  device. Secondly, the braid-triggerbox crate prior to 0.2.1 mis-calculated the
+  estimated time at which the trigger pulse counter was read.
+
 * Fixed segmentation fault that sometimes happened on program exit.
+
+### Changed
+
+* Removed runtime compatibility with old flydra v1 camera nodes and mainbrain.
+  This had not been tested in many releases and likely didn't work anyway. This
+  required some custom serialization and deserialization code, which has now
+  been removed. (Braid communication between Strand Cam and the mainbrain is
+  currently done with CBOR encoded data.)
 
 ## 0.10.1 - 2021-07-26
 

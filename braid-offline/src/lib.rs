@@ -205,6 +205,7 @@ pub async fn kalmanize<Q, R>(
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
+    saving_program_name: &str,
 ) -> Result<(), Error>
 where
     Q: AsRef<std::path::Path>,
@@ -261,6 +262,7 @@ where
         save_data_tx,
         save_data_rx,
         save_empty_data2d,
+        saving_program_name,
         ignore_latency,
     )?;
 
@@ -416,6 +418,8 @@ where
                         .clone();
                     let trigger_timestamp = cam_rows[0].timestamp.clone();
                     let cam_received_timestamp = cam_rows[0].cam_received_timestamp.clone();
+                    let device_timestamp = cam_rows[0].device_timestamp.clone();
+                    let block_id = cam_rows[0].block_id.clone();
                     let points = cam_rows
                         .iter()
                         .enumerate()
@@ -430,6 +434,8 @@ where
                         synced_frame,
                         trigger_timestamp,
                         cam_received_timestamp,
+                        device_timestamp,
+                        block_id,
                     );
                     let fdp = FrameDataAndPoints { frame_data, points };
                     // block until sent

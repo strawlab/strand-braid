@@ -37,6 +37,7 @@ impl WritingState {
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         mut tracking_params: Arc<SwitchingTrackingParams>,
         save_empty_data2d: bool,
+        saving_program_name: String,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
         let local = cfg.local;
@@ -76,6 +77,7 @@ impl WritingState {
                 git_revision: git_revision.clone(),
                 original_recording_time: local,
                 save_empty_data2d,
+                saving_program_name,
             };
             let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
@@ -441,6 +443,7 @@ pub(crate) fn writer_thread_main(
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<SwitchingTrackingParams>,
     save_empty_data2d: bool,
+    saving_program_name: &str,
     ignore_latency: bool,
 ) -> Result<()> {
     use crate::SaveToDiskMsg::*;
@@ -563,6 +566,7 @@ pub(crate) fn writer_thread_main(
                             &recon,
                             tracking_params.clone(),
                             save_empty_data2d,
+                            saving_program_name.to_string(),
                         )?);
                     }
                     StopSavingCsv => {
@@ -653,6 +657,7 @@ mod test {
                 &None,
                 tracking_params,
                 save_empty_data2d,
+                format!("{}:{}", file!(), line!()),
             )
             .unwrap();
 

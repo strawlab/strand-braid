@@ -152,6 +152,7 @@ async fn kalmanize_2d<R>(
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
     row_filters: &[RowFilter],
+    saving_program_name: &str,
 ) -> Result<()>
 where
     R: BufRead,
@@ -191,6 +192,7 @@ where
         braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
+        saving_program_name,
     )
     .await?;
 
@@ -422,6 +424,8 @@ fn convert_row(
     Data2dDistortedRow {
         area: strand_cam_row.central_moment.unwrap_or(std::f64::NAN),
         cam_received_timestamp: get_timestamp(&strand_cam_row, ts0),
+        device_timestamp: None,
+        block_id: None,
         camn: flydra_types::CamNum(0),
         cur_val: 255,
         frame: strand_cam_row.frame,
@@ -466,6 +470,7 @@ pub fn parse_configs_and_run<R>(
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
     row_filters: &[RowFilter],
+    saving_program_name: &str,
 ) -> Result<()>
 where
     R: BufRead,
@@ -497,5 +502,6 @@ where
         &calibration_params,
         rt_handle,
         row_filters,
+        saving_program_name,
     ))
 }

@@ -81,6 +81,11 @@ pub use error::{file_error, wrap_error, Error};
 
 pub type Result<M> = std::result::Result<M, Error>;
 
+// The first trigger pulse is labelled with this pulsenumber. Due to the
+// behavior of the triggerbox, the first pulse physically leaving the device
+// already has pulsenumber 2.
+pub const TRIGGERBOX_FIRST_PULSE: u64 = 2;
+
 pub(crate) fn generate_observation_model<R>(
     cam: &flydra_mvg::MultiCamera<R>,
     state: &Vector6<R>,
@@ -340,6 +345,10 @@ pub struct FrameData {
     pub trigger_timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     /// time at which camnode got frame
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
+    /// timestamp from the camera
+    pub device_timestamp: Option<std::num::NonZeroU64>,
+    /// frame number from the camera
+    pub block_id: Option<std::num::NonZeroU64>,
     time_delta: SyncedFrameCount,
     tdpt: TimeDataPassthrough,
 }
@@ -352,6 +361,8 @@ impl FrameData {
         synced_frame: SyncFno,
         trigger_timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
         cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
+        device_timestamp: Option<std::num::NonZeroU64>,
+        block_id: Option<std::num::NonZeroU64>,
     ) -> Self {
         let time_delta = Self::make_time_delta(synced_frame, trigger_timestamp.clone());
         let tdpt = TimeDataPassthrough::new(synced_frame, &trigger_timestamp);
@@ -361,6 +372,8 @@ impl FrameData {
             synced_frame,
             trigger_timestamp,
             cam_received_timestamp,
+            device_timestamp,
+            block_id,
             time_delta,
             tdpt,
         }
@@ -405,6 +418,8 @@ fn convert_to_save(frame_data: &FrameData, input: &NumberedRawUdpPoint) -> Data2
         frame: frame_data.synced_frame.0 as i64,
         timestamp: frame_data.trigger_timestamp.clone(),
         cam_received_timestamp: frame_data.cam_received_timestamp.clone(),
+        device_timestamp: frame_data.device_timestamp.clone(),
+        block_id: frame_data.block_id.clone(),
         x: input.pt.x0_abs as f32,
         y: input.pt.y0_abs as f32,
         area: input.pt.area as f32,
@@ -423,6 +438,8 @@ fn convert_empty_to_save(frame_data: &FrameData) -> Data2dDistortedRowF32 {
         frame: frame_data.synced_frame.0 as i64,
         timestamp: frame_data.trigger_timestamp.clone(),
         cam_received_timestamp: frame_data.cam_received_timestamp.clone(),
+        device_timestamp: frame_data.device_timestamp.clone(),
+        block_id: frame_data.block_id.clone(),
         x: std::f32::NAN,
         y: std::f32::NAN,
         area: std::f32::NAN,
@@ -768,6 +785,7 @@ impl CoordProcessor {
         save_data_tx: channellib::Sender<SaveToDiskMsg>,
         save_data_rx: channellib::Receiver<SaveToDiskMsg>,
         save_empty_data2d: bool,
+        saving_program_name: &str,
         ignore_latency: bool,
     ) -> Result<Self> {
         trace!("CoordProcessor using {:?}", recon);
@@ -780,6 +798,8 @@ impl CoordProcessor {
         let tracking_params2 = tracking_params.clone();
         let writer_thread_builder = std::thread::Builder::new().name("writer_thread".to_string());
         let cam_manager2 = cam_manager.clone();
+        let saving_program_name = saving_program_name.to_string();
+        // Should we use tokio spawn_blocking here?
         let writer_thread_handle = Some(writer_thread_builder.spawn(move || {
             run_func(|| {
                 writer_thread_main(
@@ -788,6 +808,7 @@ impl CoordProcessor {
                     recon2.clone(),
                     tracking_params2,
                     save_empty_data2d,
+                    &saving_program_name,
                     ignore_latency,
                 )
             })
@@ -980,6 +1001,8 @@ fn test_csv_nan() {
         frame: 2,
         timestamp: None,
         cam_received_timestamp: FlydraFloatTimestampLocal::from_dt(&chrono::Local::now()),
+        device_timestamp: None,
+        block_id: None,
         x: std::f32::NAN,
         y: std::f32::NAN,
         area: 1.0,

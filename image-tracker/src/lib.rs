@@ -31,9 +31,8 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
-    get_start_ts, serialize_packet, FlydraFloatTimestampLocal, FlydraRawUdpPacket,
-    FlydraRawUdpPoint, ImageProcessingSteps, MainbrainBuiLocation, RawCamName,
-    RealtimePointsDestAddr, RosCamName,
+    get_start_ts, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
+    ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -123,38 +122,6 @@ impl PointInfo {
             size,
         )
     }
-}
-
-fn init_ros(
-    orig_cam_name: RawCamName,
-    _version_str: String,
-    _width: u32,
-    _height: u32,
-    _hack_binning: Option<u8>,
-    _http_camserver_info: flydra_types::CamHttpServerInfo,
-    _ros_periodic_update_interval: std::time::Duration,
-    mainbrain_internal_addr: Option<MainbrainBuiLocation>,
-    camdata_addr: Option<RealtimePointsDestAddr>,
-) -> Result<(
-    RosCamName,
-    Option<RealtimePointsDestAddr>,
-    std::marker::PhantomData<()>,
-    std::marker::PhantomData<()>,
-    PeriodicUpdateFreqType,
-    Option<MainbrainBuiLocation>,
-)> {
-    let ros_cam_name = orig_cam_name.to_ros();
-    let tx_to_ros = std::marker::PhantomData {};
-    let rx_from_ros = std::marker::PhantomData {};
-    let ros_image_update_period = std::marker::PhantomData {};
-    Ok((
-        ros_cam_name,
-        camdata_addr,
-        tx_to_ros,
-        rx_from_ros,
-        ros_image_update_period,
-        mainbrain_internal_addr,
-    ))
 }
 
 struct TrackingState {
@@ -525,11 +492,6 @@ fn to_f64(dtl: DateTime<Utc>) -> f64 {
     datetime_conversion::datetime_to_f64(&dtl)
 }
 
-type RxFromRosType = std::marker::PhantomData<()>;
-type TxToRosType = std::marker::PhantomData<()>;
-type CamArgsTxType = std::marker::PhantomData<()>;
-type PeriodicUpdateFreqType = std::marker::PhantomData<()>;
-
 fn save_bg_data(
     ufmf_writer: &mut ufmf::UFMFWriter<std::fs::File>,
     state_background: &background_model::BackgroundModel,
@@ -547,23 +509,16 @@ pub struct FlyTracker {
     ros_cam_name: RosCamName,
     cfg: ImPtDetectCfg,
     expected_framerate: Option<f32>,
-    #[allow(dead_code)]
-    rx_from_ros: RxFromRosType,
-    tx_to_ros: TxToRosType,
-    camdata_dest_addr: Option<RealtimePointsDestAddr>,
     roi_sz: FastImageSize,
     #[allow(dead_code)]
     last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<Chan1, u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
     coord_socket: Option<DatagramSocket>,
-    use_cbor_packets: bool,
-    cam_args_tx: CamArgsTxType,
     clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
     hack_binning: Option<u8>,
     acquisition_histogram: AcquisitionHistogram,
-    ros_image_update_period: PeriodicUpdateFreqType,
     #[cfg(feature = "debug-images")]
     debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
 }
@@ -602,12 +557,17 @@ impl AcquisitionHistogram {
         }
         let msecs = duration_secs * 1000.0;
         if msecs < 0.0 {
-            error!(
-                "{} frame {} acquisition duration negative? ({} msecs)",
-                self.ros_cam_name.as_str(),
-                frameno,
-                msecs
-            );
+            if msecs < -5.0 {
+                // A little bit of deviation is expected occasionally due to
+                // noise in fitting the time measurements, so do not log warning
+                // unless it exceeds 5 msec.
+                error!(
+                    "{} frame {} acquisition duration negative? ({} msecs)",
+                    self.ros_cam_name.as_str(),
+                    frameno,
+                    msecs
+                );
+            }
             return;
         }
         let bin_num = if msecs > NUM_MSEC_BINS as f64 {
@@ -668,11 +628,70 @@ impl AcquisitionHistogram {
     }
 }
 
+fn open_destination_addr(
+    camdata_addr: Option<RealtimePointsDestAddr>,
+) -> Result<Option<DatagramSocket>> {
+    Ok(match camdata_addr {
+        None => None,
+        Some(ref dest_addr) => {
+            info!("Sending detected coordinates to: {:?}", dest_addr);
+            let mut result = None;
+            let timeout = std::time::Duration::new(0, 1);
+
+            match dest_addr {
+                #[cfg(feature = "flydra-uds")]
+                &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
+                    let socket = unix_socket::UnixDatagram::unbound()?;
+                    socket.set_write_timeout(Some(timeout))?;
+                    info!("UDS connecting to {:?}", uds.filename);
+                    socket.connect(&uds.filename)?;
+                    result = Some(DatagramSocket::Uds(socket));
+                }
+                #[cfg(not(feature = "flydra-uds"))]
+                &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
+                    return Err(Error::UnixDomainSocketsNotSupported(
+                        #[cfg(feature = "backtrace")]
+                        Backtrace::capture(),
+                    ));
+                }
+                &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
+                    let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
+                    for dest_addr in dest.to_socket_addrs()? {
+                        // Let OS choose what port to use.
+                        let mut src_addr = dest_addr.clone();
+                        src_addr.set_port(0);
+                        if !dest_addr.ip().is_loopback() {
+                            // Let OS choose what IP to use, but preserve V4 or V6.
+                            match src_addr {
+                                SocketAddr::V4(_) => {
+                                    src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                                }
+                                SocketAddr::V6(_) => {
+                                    src_addr
+                                        .set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
+                                }
+                            }
+                        }
+
+                        let sock = UdpSocket::bind(src_addr)?;
+                        sock.set_write_timeout(Some(timeout))?;
+                        debug!("UDP connecting to {}", dest);
+                        sock.connect(&dest)?;
+                        result = Some(DatagramSocket::Udp(sock));
+                        break;
+                    }
+                }
+            }
+            result
+        }
+    })
+}
+
 impl FlyTracker {
     #[allow(unused_variables)]
     pub fn new(
         handle: &tokio::runtime::Handle,
-        cam_name: &RawCamName,
+        orig_cam_name: &RawCamName,
         w: u32,
         h: u32,
         cfg: ImPtDetectCfg,
@@ -680,10 +699,9 @@ impl FlyTracker {
         version_str: String,
         frame_offset: Option<u64>,
         http_camserver_info: flydra_types::CamHttpServerInfo,
-        use_cbor_packets: bool,
         ros_periodic_update_interval: std::time::Duration,
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
-        mainbrain_internal_addr: Option<MainbrainBuiLocation>,
+        api_http_address: Option<MainbrainBuiLocation>,
         camdata_addr: Option<RealtimePointsDestAddr>,
         transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
         valve: stream_cancel::Valve,
@@ -725,26 +743,7 @@ impl FlyTracker {
             }
         };
 
-        let orig_cam_name = cam_name.clone();
-
-        let (
-            ros_cam_name,
-            camdata_dest_addr,
-            tx_to_ros,
-            rx_from_ros,
-            ros_image_update_period,
-            api_http_address,
-        ) = init_ros(
-            orig_cam_name.clone(),
-            version_str,
-            w,
-            h,
-            hack_binning,
-            http_camserver_info.clone(),
-            ros_periodic_update_interval,
-            mainbrain_internal_addr,
-            camdata_addr,
-        )?;
+        let ros_cam_name = orig_cam_name.to_ros();
 
         if let Some(api_http_address) = api_http_address {
             debug!(
@@ -762,6 +761,7 @@ impl FlyTracker {
                 transmit_current_image_rx,
             );
 
+            let orig_cam_name = orig_cam_name.clone();
             let f2 = async move {
                 let result = fut.await;
                 info!(
@@ -779,9 +779,8 @@ impl FlyTracker {
             handle.spawn(Box::pin(f2));
         }
 
-        debug!("sending tracked points to {:?}", camdata_dest_addr);
-
-        let cam_args_tx = std::marker::PhantomData {};
+        debug!("sending tracked points to {:?}", camdata_addr);
+        let coord_socket = open_destination_addr(camdata_addr)?;
 
         let acquisition_histogram = AcquisitionHistogram::new(&ros_cam_name);
 
@@ -789,27 +788,20 @@ impl FlyTracker {
             ros_cam_name,
             cfg,
             expected_framerate: None,
-            rx_from_ros,
-            tx_to_ros,
-            camdata_dest_addr,
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
             last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
-            coord_socket: None,
-            use_cbor_packets,
-            cam_args_tx,
+            coord_socket,
             clock_model: None,
             frame_offset,
             hack_binning,
             acquisition_histogram,
-            ros_image_update_period,
             #[cfg(feature = "debug-images")]
             debug_thread_cjh,
         };
 
         result.reload_config()?;
-        result.reload_destination_addr()?;
         Ok(result)
     }
 
@@ -825,64 +817,6 @@ impl FlyTracker {
     }
     fn reload_config(&mut self) -> Result<()> {
         self.mask_image = Some(compute_mask_image(&self.roi_sz, &self.cfg.valid_region)?);
-        Ok(())
-    }
-    fn reload_destination_addr(&mut self) -> Result<()> {
-        self.coord_socket = match self.camdata_dest_addr {
-            None => None,
-            Some(ref dest_addr) => {
-                info!("Sending detected coordinates to: {:?}", dest_addr);
-                let mut result = None;
-                let timeout = std::time::Duration::new(0, 1);
-
-                match dest_addr {
-                    #[cfg(feature = "flydra-uds")]
-                    &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
-                        let socket = unix_socket::UnixDatagram::unbound()?;
-                        socket.set_write_timeout(Some(timeout))?;
-                        info!("UDS connecting to {:?}", uds.filename);
-                        socket.connect(&uds.filename)?;
-                        result = Some(DatagramSocket::Uds(socket));
-                    }
-                    #[cfg(not(feature = "flydra-uds"))]
-                    &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                        return Err(Error::UnixDomainSocketsNotSupported(
-                            #[cfg(feature = "backtrace")]
-                            Backtrace::capture(),
-                        ));
-                    }
-                    &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
-                        let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
-                        for dest_addr in dest.to_socket_addrs()? {
-                            // Let OS choose what port to use.
-                            let mut src_addr = dest_addr.clone();
-                            src_addr.set_port(0);
-                            if !dest_addr.ip().is_loopback() {
-                                // Let OS choose what IP to use, but preserve V4 or V6.
-                                match src_addr {
-                                    SocketAddr::V4(_) => {
-                                        src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
-                                    }
-                                    SocketAddr::V6(_) => {
-                                        src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(
-                                            0, 0, 0, 0, 0, 0, 0, 0,
-                                        )));
-                                    }
-                                }
-                            }
-
-                            let coord_socket = UdpSocket::bind(src_addr)?;
-                            coord_socket.set_write_timeout(Some(timeout))?;
-                            debug!("UDP connecting to {}", dest);
-                            coord_socket.connect(&dest)?;
-                            result = Some(DatagramSocket::Udp(coord_socket));
-                            break;
-                        }
-                    }
-                }
-                result
-            }
-        };
         Ok(())
     }
 
@@ -910,10 +844,15 @@ impl FlyTracker {
         Ok(())
     }
 
+    /// Detect features of interest and update background model.
+    ///
+    /// If `self.coord_socket` is set, send the detected features using it.
     pub fn process_new_frame(
         &mut self,
         frame: &DynamicFrame,
         ufmf_state: UfmfState,
+        device_timestamp: Option<std::num::NonZeroU64>,
+        block_id: Option<std::num::NonZeroU64>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
@@ -1000,6 +939,8 @@ impl FlyTracker {
             cam_name: self.ros_cam_name.as_str().to_string(),
             timestamp: opt_trigger_stamp.clone(),
             cam_received_time: acquire_stamp,
+            device_timestamp,
+            block_id,
             framenumber: frame.extra().host_framenumber() as i32,
             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
             done_camnode_processing: 0.0,
@@ -1179,10 +1120,8 @@ impl FlyTracker {
                 sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
                 if let Some(ref coord_socket) = self.coord_socket {
-                    let data: Vec<u8> = match self.use_cbor_packets {
-                        true => serde_cbor::ser::to_vec_packed_sd(&packet)?,
-                        false => serialize_packet(&packet, self.hack_binning)?,
-                    };
+                    // Send the data to the mainbrain
+                    let data: Vec<u8> = serde_cbor::ser::to_vec_packed_sd(&packet)?;
                     coord_socket.send_complete(&data)?;
                 }
                 sample_vec.push((dur_to_f64(q1.elapsed()), line!()));

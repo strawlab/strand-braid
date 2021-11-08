@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
         opts,
         rt_handle,
         save_performance_histograms,
+        "braid offline-retrack",
     )
     .await?;
     Ok(())

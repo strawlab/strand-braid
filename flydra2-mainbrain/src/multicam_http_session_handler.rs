@@ -104,6 +104,9 @@ impl HttpSessionHandler {
             let mut name_to_session = name_to_session_arc.write();
             name_to_session.remove(&cam_name_str);
             self.cam_manager.remove(&cam_name_str);
+            // TODO: we should cancel the stream of incoming frames so that they
+            // don't get processed after we have removed this camera
+            // information.
         }
 
         let result = session.post("callback", body).await;

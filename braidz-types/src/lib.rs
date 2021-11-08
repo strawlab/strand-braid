@@ -13,7 +13,16 @@ pub struct BraidMetadata {
     pub git_revision: String,
     pub original_recording_time: Option<chrono::DateTime<chrono::Local>>,
     pub save_empty_data2d: bool,
-    // pub saving_program_name: String, // TODO: add when we bump BraidMetadataSchemaTag
+    /// The name of the saving program.
+    ///
+    /// This is new in schema 3 and the default value
+    /// when loading old files is "".
+    #[serde(default = "default_saving_program_name")]
+    pub saving_program_name: String,
+}
+
+fn default_saving_program_name() -> String {
+    "".to_string()
 }
 
 /// A summary of a braidz file (or braid directory).

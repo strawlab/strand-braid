@@ -369,45 +369,53 @@ impl ConnectedCamerasManager {
                         if let Some(pulse_time) = *sync_pulse_pause_started {
                             let elapsed = pulse_time.elapsed();
                             if sync_time_min < elapsed && elapsed < sync_time_max {
-                                // Camera is not synchronized, but we are expecting a sync pulse.
-                                // Therefore, synchronize the camera now.
-                                new_frame0 = Some(cam_frame);
+                                // Camera is not synchronized, but we are
+                                // expecting a sync pulse. Therefore,
+                                // synchronize the camera now.
+                                new_frame0 = Some(cam_frame - crate::TRIGGERBOX_FIRST_PULSE);
 
-                                // synced_frame is, by definition, zero for this cam_frame.
-                                synced_frame = Some(0);
+                                // // `synced_frame` is the first pulsenumber.
+                                synced_frame = Some(crate::TRIGGERBOX_FIRST_PULSE);
                             } else if std::time::Duration::from_millis(50) < elapsed {
+                                // If we are 50 msec into the pause but we get a
+                                // frame but it hasn't get been sync_time_min,
+                                // we should complain.
                                 got_frame_during_sync_time = true;
                             }
                         }
                     }
                     Synchronized(frame0) => {
-                        // The camera is already synchronized, return synced frame number
-                        let corrected_frame_number = cam_frame - frame0;
-                        if corrected_frame_number == u64::MAX {
-                            // We have seen a bug in which the frame number is
-                            // `u64::MAX`. This checks if this obviously wrong
-                            // frame number is introduced after the present
-                            // location or before. In any case, if we are
-                            // getting frame numbers like this, clearly we
-                            // cannot track anymore, so panicing here only
-                            // raises the issue slightly earlier.
-                            panic!(
-                                "Impossible frame number. cam_name: {}, cam_frame: {}, frame0: {}",
-                                ros_cam_name.as_str(),
-                                cam_frame,
-                                frame0
-                            );
+                        if cam_frame >= frame0 {
+                            // The camera is already synchronized, return synced frame number
+                            let corrected_frame_number = cam_frame - frame0;
+
+                            // if corrected_frame_number > crate::TRIGGERBOX_FIRST_PULSE {
+                            if corrected_frame_number == u64::MAX {
+                                // We have seen a bug in which the frame number is
+                                // `u64::MAX`. This checks if this obviously wrong
+                                // frame number is introduced after the present
+                                // location or before. In any case, if we are
+                                // getting frame numbers like this, clearly we
+                                // cannot track anymore, so panicing here only
+                                // raises the issue slightly earlier.
+                                panic!(
+                                    "Impossible frame number. cam_name: {}, cam_frame: {}, frame0: {}",
+                                    ros_cam_name.as_str(),
+                                    cam_frame,
+                                    frame0,
+                                );
+                            }
+                            //     synced_frame =
+                            //         Some(corrected_frame_number - crate::TRIGGERBOX_FIRST_PULSE);
+                            // }
+                            synced_frame = Some(corrected_frame_number);
                         }
-                        synced_frame = Some(corrected_frame_number);
                     }
                 };
-            } else {
-                // This is a new camera to us, but we should already know it.
-                panic!(
-                    "register_new_camera() has not been called for camera {}",
-                    ros_cam_name.as_str()
-                );
             }
+            // If we do not know the camera, it is because we are shutting down
+            // and have already removed the camera and thus we should ignore
+            // this new data.
         }
 
         if got_frame_during_sync_time {
@@ -453,11 +461,11 @@ impl ConnectedCamerasManager {
             self.notify_cam_changed_listeners();
 
             // Do notifications associated with synchronization.
-            send_new_frame_offset(&ros_cam_name, cam_frame);
+            send_new_frame_offset(&ros_cam_name, frame0);
             info!(
-                "cam {} synchronized. frame_offset: {}",
+                "cam {} synchronized. frame0: {}",
                 ros_cam_name.as_str(),
-                cam_frame
+                frame0,
             );
             do_check_if_all_cameras_synchronized = true;
         }
