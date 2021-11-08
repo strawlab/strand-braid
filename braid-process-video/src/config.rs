@@ -175,10 +175,11 @@ impl VideoSourceConfig {
 impl Validate for VideoSourceConfig {
     fn validate(&mut self) -> Result<()> {
         if !(self.filename.to_lowercase().ends_with(".mkv")
-            || self.filename.to_lowercase().ends_with(".fmf"))
+            || self.filename.to_lowercase().ends_with(".fmf")
+            || self.filename.to_lowercase().ends_with(".fmf.gz"))
         {
             anyhow::bail!(
-                "Video source filename \"{}\" does not end with \".mkv\" or \".fmf\".",
+                "Video source filename \"{}\" does not end with \".mkv\", \".fmf\", or \".fmf.gz\".",
                 self.filename
             )
         }

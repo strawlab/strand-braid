@@ -609,6 +609,8 @@ pub trait MovieReader {
 fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
     if filename.to_lowercase().ends_with(".fmf") {
         Ok(Box::new(FmfFrameReader::new(filename)?))
+    } else if filename.to_lowercase().ends_with(".fmf.gz") {
+        Ok(Box::new(FmfFrameReader::new(filename)?))
     } else {
         Ok(Box::new(FfmpegFrameReader::new(filename)?))
     }
