@@ -43,6 +43,7 @@ async fn track_small_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResul
         valve,
         #[cfg(feature = "debug-images")]
         Some(shutdown_rx),
+        None,
     )
     .unwrap();
 

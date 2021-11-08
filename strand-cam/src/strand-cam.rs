@@ -644,6 +644,7 @@ fn frame_process_thread(
     valve: stream_cancel::Valve,
     #[cfg(feature = "debug-images")]
     debug_image_server_shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    acquisition_duration_allowed_imprecision_msec: Option<f64>,
 ) -> anyhow::Result<()>
 {
 
@@ -729,6 +730,7 @@ fn frame_process_thread(
         valve.clone(),
         #[cfg(feature = "debug-images")]
         debug_image_server_shutdown_rx,
+        acquisition_duration_allowed_imprecision_msec,
     )?;
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
@@ -2396,6 +2398,15 @@ pub struct StrandCamArgs {
 
     /// If not Enable, limit framerate (FPS) at startup.
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
+
+    /// Threshold duration before logging error (msec).
+    ///
+    /// If the image acquisition timestamp precedes the computed trigger
+    /// timestamp, clearly an error has happened. This error must lie in the
+    /// computation of the trigger timestamp. This specifies the threshold error
+    /// at which an error is logged. (The underlying source of such errors
+    /// remains unknown.)
+    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -2450,6 +2461,7 @@ impl Default for StrandCamArgs {
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
             model_server_addr: flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
+            acquisition_duration_allowed_imprecision_msec: Some(5.0),
         }
     }
 }
@@ -2949,6 +2961,7 @@ pub async fn setup_app(
         let is_starting = Arc::new(true);
         let is_starting_weak = Arc::downgrade(&is_starting);
 
+        let acquisition_duration_allowed_imprecision_msec = args.acquisition_duration_allowed_imprecision_msec;
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature="flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
@@ -3018,6 +3031,7 @@ pub async fn setup_app(
                     valve2,
                     #[cfg(feature = "debug-images")]
                     Some(debug_image_shutdown_rx),
+                    acquisition_duration_allowed_imprecision_msec,
                 ));
         })?;
         debug!("waiting for frame acquisition thread to start");

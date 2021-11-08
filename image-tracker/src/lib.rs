@@ -521,6 +521,7 @@ pub struct FlyTracker {
     acquisition_histogram: AcquisitionHistogram,
     #[cfg(feature = "debug-images")]
     debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
+    acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 #[derive(Debug)]
@@ -539,16 +540,21 @@ struct AcquisitionHistogram {
     msec_bins: Vec<u32>,
     longest_frame: u64,
     longest_time: f64,
+    acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 impl AcquisitionHistogram {
-    fn new(ros_cam_name: &RosCamName) -> Self {
+    fn new(
+        ros_cam_name: &RosCamName,
+        acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    ) -> Self {
         Self {
             ros_cam_name: ros_cam_name.clone(),
             start: std::time::Instant::now(),
             msec_bins: vec![0; NUM_MSEC_BINS],
             longest_frame: 0,
             longest_time: 0.0,
+            acquisition_duration_allowed_imprecision_msec,
         }
     }
     fn push_new_sample(&mut self, duration_secs: f64, frameno: u64) {
@@ -557,16 +563,20 @@ impl AcquisitionHistogram {
         }
         let msecs = duration_secs * 1000.0;
         if msecs < 0.0 {
-            if msecs < -5.0 {
-                // A little bit of deviation is expected occasionally due to
-                // noise in fitting the time measurements, so do not log warning
-                // unless it exceeds 5 msec.
-                error!(
-                    "{} frame {} acquisition duration negative? ({} msecs)",
-                    self.ros_cam_name.as_str(),
-                    frameno,
-                    msecs
-                );
+            if let Some(acquisition_duration_allowed_imprecision_msec) =
+                self.acquisition_duration_allowed_imprecision_msec
+            {
+                if msecs < acquisition_duration_allowed_imprecision_msec {
+                    // A little bit of deviation is expected occasionally due to
+                    // noise in fitting the time measurements, so do not log warning
+                    // unless it exceeds 5 msec.
+                    error!(
+                        "{} frame {} acquisition duration negative? ({} msecs)",
+                        self.ros_cam_name.as_str(),
+                        frameno,
+                        msecs
+                    );
+                }
             }
             return;
         }
@@ -708,6 +718,7 @@ impl FlyTracker {
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
         >,
+        acquisition_duration_allowed_imprecision_msec: Option<f64>,
     ) -> Result<Self> {
         #[cfg(feature = "debug-images")]
         let debug_thread_cjh = rt_image_viewer::initialize_rt_image_viewer(
@@ -782,7 +793,8 @@ impl FlyTracker {
         debug!("sending tracked points to {:?}", camdata_addr);
         let coord_socket = open_destination_addr(camdata_addr)?;
 
-        let acquisition_histogram = AcquisitionHistogram::new(&ros_cam_name);
+        let acquisition_histogram =
+            AcquisitionHistogram::new(&ros_cam_name, acquisition_duration_allowed_imprecision_msec);
 
         let mut result = Self {
             ros_cam_name,
@@ -799,6 +811,7 @@ impl FlyTracker {
             acquisition_histogram,
             #[cfg(feature = "debug-images")]
             debug_thread_cjh,
+            acquisition_duration_allowed_imprecision_msec,
         };
 
         result.reload_config()?;
@@ -879,7 +892,10 @@ impl FlyTracker {
 
         if self.acquisition_histogram.is_old() {
             self.acquisition_histogram.show_stats();
-            self.acquisition_histogram = AcquisitionHistogram::new(&self.ros_cam_name);
+            self.acquisition_histogram = AcquisitionHistogram::new(
+                &self.ros_cam_name,
+                self.acquisition_duration_allowed_imprecision_msec,
+            );
         }
 
         sample_vec.push((dur_to_f64(q1.elapsed()), line!()));

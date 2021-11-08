@@ -44,6 +44,7 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
         valve,
         #[cfg(feature = "debug-images")]
         Some(shutdown_rx),
+        None,
     )
     .unwrap();
 

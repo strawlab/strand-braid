@@ -113,6 +113,14 @@ pub struct MainbrainConfig {
     pub jwt_secret: Option<String>,
     /// For debugging: filename to store captured packet data.
     pub packet_capture_dump_fname: Option<std::path::PathBuf>,
+    /// Threshold duration before logging error (msec).
+    ///
+    /// If the image acquisition timestamp precedes the computed trigger
+    /// timestamp, clearly an error has happened. This error must lie in the
+    /// computation of the trigger timestamp. This specifies the threshold error
+    /// at which an error is logged. (The underlying source of such errors
+    /// remains unknown.)
+    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 impl std::default::Default for MainbrainConfig {
@@ -130,6 +138,7 @@ impl std::default::Default for MainbrainConfig {
             save_empty_data2d: true,
             jwt_secret: None,
             packet_capture_dump_fname: None,
+            acquisition_duration_allowed_imprecision_msec: Some(5.0),
         }
     }
 }

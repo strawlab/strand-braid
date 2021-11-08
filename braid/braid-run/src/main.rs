@@ -33,6 +33,7 @@ fn launch_strand_cam(
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    acquisition_duration_allowed_imprecision_msec: Option<f64>,
 ) -> Result<StrandCamApp> {
     let tracker_cfg_src =
         ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
@@ -63,6 +64,7 @@ fn launch_strand_cam(
         show_url: false,
         force_camera_sync_mode,
         software_limit_framerate,
+        acquisition_duration_allowed_imprecision_msec,
     };
 
     let (_, _, fut, app) = handle.block_on(strand_cam::setup_app(handle.clone(), args))?;
@@ -136,6 +138,9 @@ fn main() -> Result<()> {
     let addr_info_ip = AddrInfoIP::from_socket_addr(&camdata_addr);
 
     let cfg_cameras = cfg.cameras;
+    let acquisition_duration_allowed_imprecision_msec =
+        cfg.mainbrain.acquisition_duration_allowed_imprecision_msec;
+
     let handle = runtime.handle().clone();
     let _enter_guard = runtime.enter();
     let _strand_cams = cfg_cameras
@@ -150,6 +155,7 @@ fn main() -> Result<()> {
                     Some(mainbrain_server_info.clone()),
                     force_camera_sync_mode,
                     software_limit_framerate.clone(),
+                    acquisition_duration_allowed_imprecision_msec,
                 ))
             } else {
                 log::info!("Not starting remote camera \"{}\"", camera.name);
