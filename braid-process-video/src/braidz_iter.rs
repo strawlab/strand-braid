@@ -37,6 +37,25 @@ impl<'a> BraidArchiveSyncData<'a> {
     ) -> Result<Self> {
         assert_eq!(camera_names.len(), frame_readers.len());
 
+        let camera_names: Vec<Result<String>> = camera_names
+            .iter()
+            .zip(frame_readers.iter())
+            .map(|(camera_name, rdr)| {
+                Ok(camera_name
+                    .as_ref()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Camera name for '{}' could not be guessed. Specify manually.",
+                            rdr.as_ref().filename()
+                        )
+                    })?
+                    .clone())
+            })
+            .collect();
+
+        let camera_names: Result<Vec<String>> = camera_names.into_iter().collect();
+        let camera_names: Vec<String> = camera_names?;
+
         // The readers will all have the current read position at
         // `approx_start_time` when this is called.
 
@@ -49,12 +68,7 @@ impl<'a> BraidArchiveSyncData<'a> {
         // Get earliest starting video
         let i = t0.iter().argmin().unwrap();
         let earliest_start_rdr = &frame_readers[i];
-        let earliest_start_cam_name = &camera_names[i].as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "Camera name for '{}' could not be guessed. Specify manually.",
-                earliest_start_rdr.as_ref().filename()
-            )
-        })?;
+        let earliest_start_cam_name = &camera_names[i];
         let earliest_start = earliest_start_rdr
             .peek1()
             .unwrap()
@@ -64,7 +78,7 @@ impl<'a> BraidArchiveSyncData<'a> {
         let earliest_start_cam_num = archive
             .cam_info
             .camid2camn
-            .get(*earliest_start_cam_name)
+            .get(earliest_start_cam_name)
             .unwrap();
 
         // Now get data2d row with this timestamp to find the synchronized frame number.
@@ -93,16 +107,11 @@ impl<'a> BraidArchiveSyncData<'a> {
         }
         let found_frame = found_frame.unwrap();
 
-        // let cam_nums: Vec<CamNum> = camera_names
         let per_cam = camera_names
             .iter()
             .zip(frame_readers.into_iter())
             .map(|(cam_name, frame_reader)| {
-                let cam_num = *archive
-                    .cam_info
-                    .camid2camn
-                    .get(cam_name.as_ref().unwrap())
-                    .unwrap();
+                let cam_num = *archive.cam_info.camid2camn.get(cam_name).unwrap();
 
                 let cam_rows = data2d.get(&cam_num).unwrap();
                 for row in cam_rows.iter() {
