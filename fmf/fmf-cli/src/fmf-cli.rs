@@ -231,6 +231,10 @@ struct ExportMkv {
     #[structopt(long = "codec", default_value = "vp9")]
     codec: Codec,
 
+    /// title stored in MKV metadata
+    #[structopt(long = "title")]
+    title: Option<String>,
+
     /// clip the width of the incoming frames to be divisible by this number
     #[structopt(long = "clip-divisible", default_value = "1")]
     clip_so_width_is_divisible_by: u8,
@@ -585,6 +589,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
         writing_application: Some("fmf-cli".to_string()),
+        title: x.title,
         ..Default::default()
     };
 
