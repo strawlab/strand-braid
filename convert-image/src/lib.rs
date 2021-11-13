@@ -1307,21 +1307,6 @@ fn downsample_plane(arr: &[u8], h: usize, w: usize) -> Vec<u8> {
     result
 }
 
-/// Copy any type implementing `ImageStride<FMT>` into an nv12 buffer.
-///
-/// The encoded image is placed into the buffer specified by `dest`. It
-/// will have stride `dest_stride`.
-pub fn encode_into_nv12<FMT>(
-    frame: &dyn ImageStride<FMT>,
-    dest: &mut ImageBufferMutRef<NV12>,
-    dest_stride: usize,
-) -> Result<()>
-where
-    FMT: PixelFormat,
-{
-    convert_into(frame, dest, dest_stride)
-}
-
 fn encode_into_nv12_inner<FMT>(
     frame: &dyn ImageStride<FMT>,
     dest: &mut ImageBufferMutRef<NV12>,

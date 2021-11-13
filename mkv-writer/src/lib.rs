@@ -6,13 +6,14 @@ use std::rc::Rc;
 extern crate log;
 
 use ci2_remote_control::MkvRecordingConfig;
-use convert_image::encode_into_nv12;
+use convert_image::convert_into;
 
 #[cfg(feature = "vpx")]
 use convert_image::{encode_y4m_frame, Y4MColorspace};
 
 use machine_vision_formats::{
-    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
+    pixel_format::NV12, ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride,
+    PixelFormat, Stride,
 };
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
@@ -578,8 +579,8 @@ where
                 let mut inbuf = vram_buf.in_buf.lock()?;
                 let dest_stride = inbuf.pitch();
                 let dptr = inbuf.mem_mut();
-                let mut dest = ImageBufferMutRef::new(dptr);
-                encode_into_nv12(raw_frame, &mut dest, dest_stride)?;
+                let mut dest: ImageBufferMutRef<NV12> = ImageBufferMutRef::new(dptr);
+                convert_into(raw_frame, &mut dest, dest_stride)?;
                 // Now vram_buf.in_buf has the nv12 encoded data.
                 dest_stride
             };
