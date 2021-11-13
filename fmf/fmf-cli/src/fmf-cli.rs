@@ -3,11 +3,11 @@ extern crate log;
 
 use anyhow::Result;
 
-use basic_frame::{match_all_dynamic_fmts, BasicExtra, DynamicFrame};
+use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::MkvRecordingConfig;
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
 use machine_vision_formats::{
-    pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, ImageStride, Stride,
+    pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, Stride,
 };
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
@@ -422,14 +422,6 @@ fn import_webm(x: ImportWebm) -> Result<()> {
     // Ok(())
 }
 
-fn convert_to_rgb8(
-    frame: &DynamicFrame,
-) -> std::result::Result<Box<dyn ImageStride<pixel_format::RGB8> + '_>, convert_image::Error> {
-    let f: Box<dyn ImageStride<_>> =
-        match_all_dynamic_fmts!(frame, x, Box::new(convert_image::convert(x)?));
-    Ok(f)
-}
-
 fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
     use std::io::Write;
 
@@ -459,8 +451,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
         let frame = frame?;
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
-        let frame = convert_to_rgb8(&frame)?;
-        let buf = convert_image::frame_to_image(frame.as_ref(), opts)?;
+        let buf = match_all_dynamic_fmts!(frame, x, convert_image::frame_to_image(&x, opts))?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
     }
@@ -609,39 +600,10 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
         let fmf_frame = fmf_frame?;
         debug!("saving frame {}", fno);
         let ts = fmf_frame.extra().host_timestamp();
-        match fmf_frame {
-            DynamicFrame::Mono8(mono_frame) => {
-                let fmf_frame_clipped =
-                    mono_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
-            }
-            other_frame => {
-                let host_framenumber = other_frame.extra().host_framenumber();
-                let host_timestamp = other_frame.extra().host_timestamp();
-                let rgb_frame = convert_to_rgb8(&other_frame)?;
-                let rgb_frame = {
-                    let width = rgb_frame.width();
-                    let height = rgb_frame.height();
-                    let stride = rgb_frame.stride() as u32;
-                    let image_data = rgb_frame.buffer_ref().data.to_vec(); // copy data
-                    let extra = Box::new(BasicExtra {
-                        host_framenumber,
-                        host_timestamp,
-                    });
-                    basic_frame::BasicFrame::<pixel_format::RGB8> {
-                        width,
-                        height,
-                        stride,
-                        extra,
-                        image_data,
-                        pixel_format: std::marker::PhantomData,
-                    }
-                };
-                let fmf_frame_clipped =
-                    rgb_frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-                my_mkv_writer.write(&fmf_frame_clipped, ts)?;
-            }
-        }
+        match_all_dynamic_fmts!(fmf_frame, frame, {
+            let frame_clipped = frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
+            my_mkv_writer.write(&frame_clipped, ts)?;
+        });
     }
 
     debug!("finishing file");
