@@ -234,10 +234,6 @@ struct ExportMkv {
     /// title stored in MKV metadata
     #[structopt(long = "title")]
     title: Option<String>,
-
-    /// clip the width of the incoming frames to be divisible by this number
-    #[structopt(long = "clip-divisible", default_value = "1")]
-    clip_so_width_is_divisible_by: u8,
 }
 
 #[derive(Debug)]
@@ -601,8 +597,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
         debug!("saving frame {}", fno);
         let ts = fmf_frame.extra().host_timestamp();
         match_all_dynamic_fmts!(fmf_frame, frame, {
-            let frame_clipped = frame.clip_to_power_of_2(x.clip_so_width_is_divisible_by);
-            my_mkv_writer.write(&frame_clipped, ts)?;
+            my_mkv_writer.write(&frame, ts)?;
         });
     }
 
