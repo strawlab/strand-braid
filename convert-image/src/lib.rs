@@ -1178,6 +1178,23 @@ mod tests {
             }
         }
     }
+
+    #[ignore]
+    #[test]
+    // Test MONO8->RGB8->MONO8. Currently failing.
+    fn test_mono8_rgb_roundtrip() -> Result<()> {
+        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
+            width: 256,
+            height: 1,
+            stride: 256,
+            image_data: (0u8..=255u8).collect(),
+            fmt: std::marker::PhantomData,
+        };
+        let rgb = convert::<_, formats::pixel_format::RGB8>(&orig)?;
+        let actual = convert::<_, formats::pixel_format::Mono8>(&rgb)?;
+        assert_eq!(orig.image_data(), actual.image_data());
+        Ok(())
+    }
 }
 
 /// Defines the colorspace used by the [encode_y4m_frame] function.
