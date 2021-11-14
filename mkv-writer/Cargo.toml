@@ -8,6 +8,7 @@ edition = "2018"
 log = "0.4"
 chrono = "0.4.6"
 webm = "1"
+# Idea: use https://github.com/rust-av/vpx-rs/, which also has decoder support.
 vpx-encode = {version="0.6", features=["vp9"], optional=true}
 thiserror = "1.0.28"
 machine-vision-formats = "0.1"
