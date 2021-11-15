@@ -353,12 +353,12 @@ fn mono_into_rgb(
         return Err(Error::InvalidAllocatedBufferSize);
     }
 
-    use itertools::izip;
     let w = frame.width() as usize;
-    for (src_row, dest_row) in izip![
-        frame.image_data().chunks_exact(frame.stride()),
-        dest.data.chunks_exact_mut(dest_stride),
-    ] {
+    for (src_row, dest_row) in frame
+        .image_data()
+        .chunks_exact(frame.stride())
+        .zip(dest.data.chunks_exact_mut(dest_stride))
+    {
         for (dest_pix, src_pix) in dest_row[..(w * 3)].chunks_exact_mut(3).zip(&src_row[..w]) {
             dest_pix[0] = *src_pix;
             dest_pix[1] = *src_pix;
@@ -415,19 +415,19 @@ fn rgb8_into_mono8(
         return Err(Error::InvalidAllocatedBufferSize);
     }
 
-    use itertools::izip;
     let w = frame.width() as usize;
-    for (src_row, dest_row) in izip![
-        frame.image_data().chunks_exact(frame.stride()),
-        dest.data.chunks_exact_mut(dest_stride),
-    ] {
+    for (src_row, dest_row) in frame
+        .image_data()
+        .chunks_exact(frame.stride())
+        .zip(dest.data.chunks_exact_mut(dest_stride))
+    {
         let y_iter = src_row[..w * 3]
             .chunks_exact(3)
             .map(|rgb| RGB888toY4(rgb[0], rgb[1], rgb[2]));
 
         let dest_iter = dest_row[0..w].iter_mut();
 
-        for (ydest, y) in izip![dest_iter, y_iter] {
+        for (ydest, y) in dest_iter.zip(y_iter) {
             *ydest = y;
         }
     }
