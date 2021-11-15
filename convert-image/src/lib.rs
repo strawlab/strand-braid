@@ -122,12 +122,14 @@ fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
 #[allow(non_snake_case)]
 #[inline]
 fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
+    // Assumes gamma pre-corrected RGB input, output is full-swing Y'UV. Done
+    // using "Full swing for BT.601" at http://en.wikipedia.org/wiki/YUV.
     let Y = RGB888toY4(R, G, B);
     let R = R as i32;
     let G = G as i32;
     let B = B as i32;
-    let U = ((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128;
-    let V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+    let U = ((-43 * R - 84 * G + 127 * B + 128) >> 8) + 128;
+    let V = ((127 * R - 106 * G - 21 * B + 128) >> 8) + 128;
     YUV444 {
         Y: Y as u8,
         U: U as u8,
@@ -138,10 +140,12 @@ fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
 #[allow(non_snake_case)]
 #[inline]
 fn RGB888toY4(R: u8, G: u8, B: u8) -> u8 {
+    // Assumes gamma pre-corrected RGB input, output is full-swing Y'UV. Done
+    // using "Full swing for BT.601" at http://en.wikipedia.org/wiki/YUV.
     let R = R as i32;
     let G = G as i32;
     let B = B as i32;
-    let Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+    let Y = (77 * R + 150 * G + 29 * B + 128) >> 8;
     Y as u8
 }
 
@@ -1179,7 +1183,6 @@ mod tests {
         }
     }
 
-    #[ignore]
     #[test]
     // Test MONO8->RGB8->MONO8. Currently failing.
     fn test_mono8_rgb_roundtrip() -> Result<()> {
