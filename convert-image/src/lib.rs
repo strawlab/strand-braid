@@ -106,18 +106,56 @@ fn clamp(i: i32) -> u8 {
 }
 
 #[allow(non_snake_case)]
+#[inline]
+#[rustfmt::skip]
 fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
     // see http://en.wikipedia.org/wiki/YUV
-    let C: i32 = Y as i32 - 16;
+
+    let C: i32 = Y as i32;
     let D: i32 = U as i32 - 128;
     let E: i32 = V as i32 - 128;
 
-    let R: u8 = clamp((298 * C + 409 * E + 128) >> 8);
-    let G: u8 = clamp((298 * C - 100 * D - 208 * E + 128) >> 8);
-    let B: u8 = clamp((298 * C + 516 * D + 128) >> 8);
+    let yscale = 257; // 256 or 257 seem to work.
+
+    // // luma good, +V  { Y: 100, U: 128, V: 71 }
+    // let eratio: f64 = 350.0/-175.0;
+    // let escale: f64 = -180.0;
+
+    // // too dark, -V   { Y: 99, U: 128, V: 68 }
+    // let eratio: f64 = 350.0/-175.0;
+    // let escale: f64 = -190.0;
+
+    // // too bright, -V { Y: 101, U: 127, V: 67 }
+    // let eratio: f64 = 330.0/-175.0;
+    // let escale: f64 = -200.0;
+
+    // too bright, -V { Y: 101, U: 127, V: 67 }
+    let eratio: f64 = 330.0/-175.0;
+    let escale: f64 = -200.0;
+
+
+    let R: u8 = clamp((yscale * C               + (eratio * escale * E as f64) as i32   + 128) >> 8);
+    let G: u8 = clamp((yscale * C   - 100 * D   + (escale * E as f64) as i32   + 128) >> 8);
+    let B: u8 = clamp((yscale * C   + 516 * D               + 128) >> 8);
 
     RGB888 { R, G, B }
 }
+
+// #[allow(non_snake_case)]
+// #[inline]
+// fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
+//     // see http://en.wikipedia.org/wiki/YUV
+
+//     let y = Y as f64 / 255.0;
+//     let u = (U as f64 - 128.0) / 255.0;
+//     let v: f64 = (V as f64 - 128.0) / 255.0;
+
+//     let R: u8 = clamp((298 * C + 409 * E + 128) >> 8);
+//     let G: u8 = clamp((298 * C - 100 * D - 208 * E + 128) >> 8);
+//     let B: u8 = clamp((298 * C + 516 * D + 128) >> 8);
+
+//     RGB888 { R, G, B }
+// }
 
 #[allow(non_snake_case)]
 #[inline]
@@ -1146,11 +1184,74 @@ mod tests {
 
     #[test]
     fn test_rgb_yuv_roundtrip() {
+        let yuv = YUV444 {
+            Y: 0,
+            U: 128,
+            V: 128,
+        };
+        let rgb = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+        let yuv2 = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+        println!("yuv: {:?}, rgb: {:?}, yuv: {:?}", yuv, rgb, yuv2);
+        assert_eq!(yuv, yuv2);
+
+        let yuv = YUV444 {
+            Y: 100,
+            U: 128,
+            V: 128,
+        };
+        let rgb = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+        let yuv2 = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+        println!("yuv: {:?}, rgb: {:?}, yuv: {:?}", yuv, rgb, yuv2);
+        assert_eq!(yuv, yuv2);
+
+        let yuv = YUV444 {
+            Y: 255,
+            U: 128,
+            V: 128,
+        };
+        let rgb = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+        let yuv2 = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+        println!("yuv: {:?}, rgb: {:?}, yuv: {:?}", yuv, rgb, yuv2);
+        assert_eq!(yuv, yuv2);
+
+        let yuv = YUV444 {
+            Y: 100,
+            U: 128,
+            V: 118,
+        };
+        let rgb = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+        let yuv2 = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+        println!("yuv: {:?}, rgb: {:?}, yuv: {:?}", yuv, rgb, yuv2);
+        assert_eq!(yuv, yuv2);
+
+        let yuv = YUV444 {
+            Y: 100,
+            U: 128,
+            V: 70,
+        };
+        let rgb = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+        let yuv2 = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+        println!("yuv: {:?}, rgb: {:?}, yuv: {:?}", yuv, rgb, yuv2);
+        assert_eq!(yuv, yuv2);
+
+        println!("------------------");
+
+        for b in (0..=255).step_by(10) {
+            for g in (0..=255).step_by(10) {
+                for r in (0..=255).step_by(10) {
+                    let rgb = RGB888 { R: r, G: g, B: b };
+                    let yuv = RGB888toYUV444(rgb.R, rgb.G, rgb.B);
+                    let rgb2 = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+                    println!("rgb: {:?}, yuv: {:?}, rgb2: {:?}", rgb, yuv, rgb2);
+                    assert_eq!(rgb, rgb2);
+                }
+            }
+        }
+
         let black_rgb = RGB888 { R: 0, G: 0, B: 0 };
         let black_yuv = RGB888toYUV444(black_rgb.R, black_rgb.G, black_rgb.B);
         let black_rgb2 = YUV444toRGB888(black_yuv.Y, black_yuv.U, black_yuv.V);
         assert_eq!(black_rgb, black_rgb2);
-
         let white_rgb = RGB888 {
             R: 255,
             G: 255,
