@@ -2,7 +2,11 @@
 
 ### Added
 
-* New program `braid-process-video` to process recorded MKV videos.
+* New program `braid-process-video` to process multiple simultaneously recorded
+  MKV and FMF videos. Optionally, when a simultaneously recorded .braidz file is
+  available, the data in the .braidz is used to directly indicated temporally
+  synchronized frames. Without the .braidz file, an algorithm attempts to match
+  frames acquired exactly synchronously, but the algorithm is imperfect.
 
 * MKV videos now save timestamps with microsecond precision. (Previously was
   millisecond precision.)
