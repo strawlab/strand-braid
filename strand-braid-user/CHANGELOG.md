@@ -7,6 +7,13 @@
 * MKV videos now save timestamps with microsecond precision. (Previously was
   millisecond precision.)
 
+* Support for "remote cameras" in Braid by setting `remote_camera = true` in the
+  `[[cameras]]` in the Braid configuration TOML file. This does not attempt to
+  start the camera directly from Braid but rather waits for a network connection
+  from a computer running a Braid-tuned variant of Strand Camera. One or more
+  instances of Strand Camera can thus be running on computers other than the
+  computer on which Braid is running.
+
 * MKV videos now save the camera name as metadata in the segment title field.
 
 * MKV, FMF, and uFMF videos have the camera name in the filename when saved with
