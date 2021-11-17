@@ -48,4 +48,4 @@ Due to the use of the Vimba API, any camera which can be used in the Vimba
 Viewer can be used in principle. In practice, we intend to use the following
 cameras:
 
-* Allied Vision Albium 1800 U-240m
+* Allied Vision Alvium 1800 U-240m
