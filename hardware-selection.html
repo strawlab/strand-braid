@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Installation - User's Guide for Braid and Strand Camera</title>
+        <title>Hardware selection - User's Guide for Braid and Strand Camera</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">6.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">7.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html" class="active"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">6.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">7.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,32 +167,64 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<h2><a class="header" href="#software-installation" id="software-installation">Software installation</a></h2>
-<h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
-<h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
-<p>Currently only Basler cameras are supported. We use Basler's Pylon library to
-access the cameras.</p>
-<p>Support for other cameras is planned.</p>
-<h3><a class="header" href="#trigger-box" id="trigger-box">Trigger box</a></h3>
-<p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
-hardware to synchronize the cameras. This is based on an Arduino
-microcontroller.</p>
-<h3><a class="header" href="#trigger-cables" id="trigger-cables">Trigger cables</a></h3>
-<p>TODO: write this and describe how to check everything is working.</p>
+                        <h1><a class="header" href="#hardware-selection" id="hardware-selection">Hardware selection</a></h1>
+<h2><a class="header" href="#pc-requirements" id="pc-requirements">PC requirements</a></h2>
+<ul>
+<li>Fast CPU. Currently an Intel CPU is recommended due to the use of the Intel
+Integrated Performance Primitives Library.</li>
+<li>Memory usage is not expected to be particularly high, because processing
+occurs in realtime.</li>
+<li>Sufficient and fast interfaces to cameras. If your cameras are USB3 or Gigabit
+ethernet, your computer needs to support enough bandwith.</li>
+<li>Disk space and speed. For realtime tracking, the tracking data is only modest
+in size and so no particularly high performance requirements exist. For
+streaming uncompressed raw video to disk (with the FMF format), very fast
+disks and lots of disk space are required. As an alternative, compressed
+videos can be saved to the MKV format. This requires either substantial CPU
+usage (VP8 or VP9 encoding) or NVIDIA hardware (h264 encoding with NVENC, see below).</li>
+</ul>
+<h3><a class="header" href="#hardware-accelerated-video-encoding-using-nvidia-video-cards" id="hardware-accelerated-video-encoding-using-nvidia-video-cards">Hardware-accelerated video encoding using nvidia video cards</a></h3>
+<p>NVIDIA video encoding hardware is optionally used to encode h264 videos in the
+MKV format. This is very nice because it takes almost no CPU and full framerate
+videos can be recorded from your cameras during live tracking with little or no
+loss of performance. This depends on NVIDIA's library called NVENC. Please see
+NVIDIA's site for <a href="https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new">supported
+hardware</a>.
+Note in particular the limit of three encode sessions with the consumer
+(GeForce) hardware that does not exist on many of their professional (Quadro)
+cards.</p>
+<h2><a class="header" href="#camera-requirements" id="camera-requirements">Camera requirements</a></h2>
+<p>Currently, Basler cameras using the Pylon API are the only supported cameras. We
+plan to support cameras from Allied Vision using the Vimba API in late 2021 or 2022.</p>
+<h3><a class="header" href="#basler-cameras" id="basler-cameras">Basler cameras</a></h3>
+<p>Due to the use of the Pylon API, any camera which can be used in the Pylon
+Viewer can be used in principle. In practice, we reguarly test with the
+following cameras:</p>
+<ul>
+<li>Basler a2A1920-160umPRO</li>
+<li>Basler a2A1920-160umBAS</li>
+<li>Basler acA1300-200um</li>
+</ul>
+<h3><a class="header" href="#allied-vision-cameras-planned-for-late-2021-or-2022" id="allied-vision-cameras-planned-for-late-2021-or-2022">Allied Vision cameras (Planned for late 2021 or 2022)</a></h3>
+<p>Due to the use of the Vimba API, any camera which can be used in the Vimba
+Viewer can be used in principle. In practice, we intend to use the following
+cameras:</p>
+<ul>
+<li>Allied Vision Albium 1800 U-240m</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="hardware-selection.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braid-and-strand-camera.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="braidz-files.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -204,13 +236,13 @@ microcontroller.</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="hardware-selection.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braid-and-strand-camera.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="braidz-files.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
