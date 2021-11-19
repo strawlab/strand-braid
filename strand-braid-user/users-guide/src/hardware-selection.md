@@ -2,6 +2,8 @@
 
 ## PC requirements
 
+* Supports Ubuntu 20.04 amd64 operating system. This is currently our only
+  supported platform.
 * Fast CPU. Currently an Intel CPU is recommended due to the use of the Intel
   Integrated Performance Primitives Library.
 * Memory usage is not expected to be particularly high, because processing
