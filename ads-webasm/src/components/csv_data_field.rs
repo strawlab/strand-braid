@@ -1,5 +1,9 @@
-use yew::prelude::*;
-use yew::services::reader::{File, FileData, ReaderService, ReaderTask};
+use std::collections::HashMap;
+use web_sys::{Event, HtmlInputElement};
+use yew::{html, Callback, Component, Context, Html, Properties, TargetCast};
+
+use gloo_file::callbacks::FileReader;
+use gloo_file::File;
 
 #[derive(PartialEq, Clone)]
 pub struct CsvData<RowType> {
@@ -80,18 +84,20 @@ where
     RowType: 'static + Clone + PartialEq,
     for<'de> RowType: serde::Deserialize<'de>,
 {
-    link: ComponentLink<Self>,
-    tasks: Vec<ReaderTask>,
-    onfile: Option<Callback<MaybeCsvData<RowType>>>,
+    readers: HashMap<String, FileReader>,
+    _row_type: std::marker::PhantomData<RowType>,
 }
 
 pub enum Msg {
-    Loaded(FileData),
+    Loaded(String, Vec<u8>),
     Files(Vec<File>),
 }
 
-#[derive(PartialEq, Clone, Properties)]
-pub struct Props<RowType: Clone> {
+#[derive(PartialEq, Properties)]
+pub struct Props<RowType>
+where
+    RowType: PartialEq,
+{
     pub onfile: Option<Callback<MaybeCsvData<RowType>>>,
 }
 
@@ -103,57 +109,61 @@ where
     type Message = Msg;
     type Properties = Props<RowType>;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
-            tasks: vec![],
-            onfile: props.onfile,
+            readers: HashMap::default(),
+            _row_type: std::marker::PhantomData,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Loaded(file) => {
-                let file = parse_csv(file.name, &file.content);
-                if let Some(ref mut callback) = self.onfile {
+            Msg::Loaded(file_name, data) => {
+                self.readers.remove(&file_name);
+                let file = parse_csv(file_name, &data);
+                if let Some(ref callback) = ctx.props().onfile {
                     callback.emit(file);
                 }
             }
             Msg::Files(files) => {
                 for file in files.into_iter() {
-                    let task =
-                        ReaderService::read_file(file, self.link.callback(Msg::Loaded)).unwrap();
-                    self.tasks.push(task);
+                    let file_name = file.name();
+                    let task = {
+                        let file_name = file_name.clone();
+                        let link = ctx.link().clone();
+                        gloo_file::callbacks::read_as_bytes(&file, move |res| {
+                            link.send_message(Msg::Loaded(
+                                file_name,
+                                res.expect("failed to read file"),
+                            ))
+                        })
+                    };
+                    self.readers.insert(file_name, task);
                 }
             }
         }
         true
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        // self.parsed_local = props.current.into();
-        self.onfile = props.onfile;
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <input type="file"
-                class="custom-file-upload-input"
-                multiple=false
-                accept=".csv"
-                onchange=self.link.callback(|value| {
-                    let mut result = Vec::new();
-                    if let ChangeData::Files(files) = value {
-                        let files = js_sys::try_iter(&files)
-                            .unwrap()
-                            .unwrap()
-                            .into_iter()
-                            .map(|v| File::from(v.unwrap()));
-                        result.extend(files);
-                    }
-                    Msg::Files(result)
-                })
+                <input type="file"
+                    class="custom-file-upload-input"
+                    multiple=false
+                    onchange={ctx.link().callback(move |e: Event| {
+                        let mut result = Vec::new();
+                        let input: HtmlInputElement = e.target_unchecked_into();
+
+                        if let Some(files) = input.files() {
+                            let files = js_sys::try_iter(&files)
+                                .unwrap()
+                                .unwrap()
+                                .map(|v| web_sys::File::from(v.unwrap()))
+                                .map(File::from);
+                            result.extend(files);
+                        }
+                        Msg::Files(result)
+                    })}
                 />
         }
     }

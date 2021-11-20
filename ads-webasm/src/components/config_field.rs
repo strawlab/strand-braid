@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml;
-use yew::prelude::*;
+use web_sys::HtmlInputElement;
+use yew::{classes, html, Callback, Component, Context, Html, InputEvent, Properties, TargetCast};
 use yew_tincture::components::Button;
 
 pub struct ConfigField<Cfg>
@@ -8,12 +9,8 @@ where
     Cfg: Clone + PartialEq + Serialize + 'static,
     for<'de> Cfg: Deserialize<'de>,
 {
-    link: ComponentLink<Self>,
     local_copy: String,
     parsed_local: Result<Option<Cfg>, serde_yaml::Error>,
-    server_version: Option<Cfg>,
-    rows: u16,
-    onsignal: Option<Callback<String>>,
     local_changes_pending: bool,
 }
 
@@ -23,8 +20,11 @@ pub enum Msg {
     ToServer,
 }
 
-#[derive(PartialEq, Clone, Properties)]
-pub struct Props<Cfg: Clone> {
+#[derive(PartialEq, Properties)]
+pub struct Props<Cfg>
+where
+    Cfg: PartialEq,
+{
     pub server_version: Option<Cfg>,
     pub rows: u16,
     pub onsignal: Option<Callback<String>>,
@@ -40,11 +40,11 @@ pub struct Props<Cfg: Clone> {
 //     }
 // }
 
-fn to_string<Cfg>(server_version: &Option<Cfg>) -> String
+fn to_string<Cfg>(server_version: Option<&Cfg>) -> String
 where
     Cfg: Serialize,
 {
-    if let Some(ref sv) = server_version {
+    if let Some(sv) = server_version {
         serde_yaml::to_string(sv).unwrap()
     } else {
         // What to do here? This is the case when self.server_version is
@@ -61,23 +61,19 @@ where
     type Message = Msg;
     type Properties = Props<Cfg>;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let local_copy = to_string(&props.server_version);
+    fn create(ctx: &Context<Self>) -> Self {
+        let local_copy = to_string(ctx.props().server_version.as_ref());
 
         let mut result = Self {
-            link,
             local_copy,
             parsed_local: serde_yaml::from_str(""), // result.parsed_local replaced below
-            server_version: props.server_version.clone(),
-            rows: props.rows,
-            onsignal: props.onsignal,
             local_changes_pending: false,
         };
         result.parse_local(); // result.parsed_local replaced here
         result
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::OnTextareaInput(new_local) => {
                 self.local_changes_pending = true;
@@ -85,10 +81,10 @@ where
                 self.parse_local();
             }
             Msg::ToBrowser => {
-                self.copy_server_to_browser();
+                self.copy_server_to_browser(ctx.props().server_version.clone());
             }
             Msg::ToServer => {
-                if let Some(ref mut callback) = self.onsignal {
+                if let Some(ref callback) = ctx.props().onsignal {
                     callback.emit(self.local_copy.clone());
                 }
                 self.local_changes_pending = false;
@@ -97,17 +93,17 @@ where
         true
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.server_version = props.server_version.clone();
-        self.rows = props.rows;
-        self.onsignal = props.onsignal;
-        if !self.local_changes_pending {
-            self.copy_server_to_browser();
-        }
-        true
-    }
+    // fn change(&mut self, props: Self::Properties) -> ShouldRender {
+    //     self.server_version = props.server_version.clone();
+    //     self.rows = props.rows;
+    //     self.onsignal = props.onsignal;
+    //     if !self.local_changes_pending {
+    //         self.copy_server_to_browser(ctx.props().server_version.as_str());
+    //     }
+    //     true
+    // }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let maybe_error_div = match self.parsed_local {
             Ok(ref _v) => {
                 html! {
@@ -123,36 +119,47 @@ where
                 }
             }
         };
-        let server_version_str = to_string(&self.server_version);
+        let server_version_str = to_string(ctx.props().server_version.as_ref());
         html! {
             <div class="config-field-editor" >
-                <div class=classes!("config-field-left-col","config-field-col") >
+                <div class={classes!("config-field-left-col","config-field-col")} >
                     <div class="config-field-label" >
                         <label>{"Edit configuration"}</label>
                     </div>
                     <div class="config-field-textarea-div" >
-                        <textarea rows=format!("{}",self.rows)  value=self.local_copy.clone()
+                        <textarea
+                            rows={format!("{}",ctx.props().rows)}
+                            value={self.local_copy.clone()}
                             class="config-field-textarea"
-                            oninput=self.link.callback(|e: InputData| Msg::OnTextareaInput(e.value))
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                let input: HtmlInputElement = e.target_unchecked_into();
+                                Msg::OnTextareaInput(input.value())
+                            })}
                             />
                     </div>
                     { maybe_error_div }
                 </div>
-                <div class=classes!("config-field-middle-col","config-field-col") >
+                <div class={classes!("config-field-middle-col","config-field-col")}>
                     <div class="config-field-btns" >
                         <div class="config-field-btn-to-browser" >
-                            <Button title="<-"  onsignal=self.link.callback(|_| Msg::ToBrowser) />
+                            <Button
+                                title="<-"
+                                onsignal={ctx.link().callback(|_| Msg::ToBrowser)}
+                            />
                         </div>
-                        <div class="config-field-btn-to-server" >
-                            <Button title="->"  onsignal=self.link.callback(|_| Msg::ToServer) />
+                        <div class="config-field-btn-to-server">
+                            <Button
+                                title="->"
+                                onsignal={ctx.link().callback(|_| Msg::ToServer)}
+                            />
                         </div>
                     </div>
                 </div>
-                <div class=classes!("config-field-right-col","config-field-col") >
+                <div class={classes!("config-field-right-col","config-field-col")}>
                     <div class="config-field-label" >
                         <label>{"Current configuration"}</label>
                     </div>
-                    <div class="config-field-on-server" >
+                    <div class="config-field-on-server">
                         {&server_version_str}
                     </div>
                 </div>
@@ -173,9 +180,9 @@ where
         }
     }
 
-    fn copy_server_to_browser(&mut self) {
+    fn copy_server_to_browser(&mut self, server_version: Option<Cfg>) {
         // When the server version changes, update our local copy to it.
-        self.parsed_local = Ok(self.server_version.clone());
-        self.local_copy = to_string(&self.server_version);
+        self.local_copy = to_string(server_version.as_ref());
+        self.parsed_local = Ok(server_version);
     }
 }

@@ -12,11 +12,11 @@ bytesize = "1.0"
 log = "0.4"
 wasm-logger = "0.2.0"
 
+gloo = "0.4"
+gloo-file = "0.1"
 yew = "0.18"
 
 wasm-bindgen = "^0.2.45"
-web-sys = {version="^0.3.28", features=["Blob", "DateTimeValue", "File",
-    "FileList", "FileReader", "HtmlInputElement", "DataTransfer", "DragEvent"]}
 js-sys = "0.3.28"
 plotters = "0.3"
 plotters-canvas = "0.3"
@@ -28,6 +28,20 @@ mvg = {path="../mvg", features=["serde-serialize"]}
 zip-or-dir = {path="../zip-or-dir"}
 braidz-types = {path="../braidz-types"}
 braidz-parser = {path="../braidz-parser"}
+
+[dependencies.web-sys]
+version="0.3.28"
+features=[
+    "Blob",
+    "DateTimeValue",
+    "Event",
+    "File",
+    "FileList",
+    "FileReader",
+    "HtmlInputElement",
+    "DataTransfer",
+    "DragEvent",
+]
 
 [features]
 backtrace = ["mvg/backtrace"]

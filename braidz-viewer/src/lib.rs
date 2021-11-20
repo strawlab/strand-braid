@@ -1,12 +1,13 @@
 #![recursion_limit = "1024"]
 
-use std::time::Duration;
+use std::collections::HashMap;
+
+use gloo::timers::callback::Timeout;
+use gloo_file::{callbacks::FileReader, File};
 
 use wasm_bindgen::prelude::*;
 
 use yew::prelude::*;
-use yew::services::reader::{File, FileData, ReaderTask};
-use yew::services::{Task, TimeoutService};
 
 use plotters::{
     drawing::IntoDrawingArea,
@@ -17,7 +18,7 @@ use plotters_canvas::CanvasBackend;
 
 use serde::{Deserialize, Serialize};
 
-use web_sys::{self, console::log_1};
+use web_sys::{self, console::log_1, Event, HtmlInputElement};
 
 // -----------------------------------------------------------------------------
 
@@ -64,21 +65,16 @@ impl std::fmt::Display for MyError {
 // -----------------------------------------------------------------------------
 
 struct Model {
-    link: ComponentLink<Self>,
-    tasks: Vec<ReaderTask>,
-    _job: Option<Box<dyn Task>>,
+    timeout: Option<Timeout>,
+    readers: HashMap<String, FileReader>,
     braidz_file: MaybeValidBraidzFile,
     did_error: bool,
 }
 
-#[derive(Clone)]
 pub enum Msg {
-    // Render,
-    // Render2d,
     RenderAll,
     FileChanged(File),
-    // BraidzFile(MaybeValidBraidzFile),
-    Loaded(FileData),
+    Loaded(String, Vec<u8>),
     FileDropped(DragEvent),
     FileDraggedOver(DragEvent),
 }
@@ -87,40 +83,31 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
-            tasks: vec![],
-            _job: None,
+            timeout: None,
             braidz_file: MaybeValidBraidzFile::default(),
+            readers: HashMap::default(),
             did_error: false,
         }
     }
 
-    fn change(&mut self, _: ()) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            // Msg::Render => update_canvas(&mut model),
-            // Msg::Render2d => update_2d_canvas(&mut model),
             Msg::RenderAll => {
                 update_2d_canvas(self);
                 update_canvas(self);
             }
-            Msg::Loaded(file) => {
-                let FileData { name, content } = file;
-                let filename = name;
-                let rbuf = content;
+            Msg::Loaded(filename, rbuf) => {
                 let filesize = rbuf.len() as u64;
 
                 let cur = zip_or_dir::ZipDirArchive::from_zip(
                     std::io::Cursor::new(rbuf),
                     filename.clone(),
                 )
-                .unwrap();
+                .unwrap_throw();
 
+                self.readers.remove(&filename);
                 let file = match braidz_parser::braidz_parse(cur) {
                     Ok(archive) => {
                         let v = ValidBraidzFile {
@@ -138,45 +125,38 @@ impl Component for Model {
                 // Render plots after delay (so canvas is in DOM). TODO: make
                 // this more robust by triggering the render once the canvas is
                 // added to the DOM.
-                let handle = TimeoutService::spawn(
-                    Duration::from_millis(100),
-                    self.link.callback(|_| Msg::RenderAll),
-                );
-                self._job = Some(Box::new(handle));
+                let handle = {
+                    let link = ctx.link().clone();
+                    Timeout::new(3, move || link.send_message(Msg::RenderAll))
+                };
 
-                // This can be replaced by `Vec::drain_filter()` when that is stable.
-                let mut i = 0;
-                while i != self.tasks.len() {
-                    if !self.tasks[i].is_active() {
-                        let _ = self.tasks.remove(i);
-                    } else {
-                        i += 1;
-                    }
-                }
+                self.timeout = Some(handle);
             }
             Msg::FileChanged(file) => {
-                let file: File = file; // type annotation for IDE
-                let task = {
-                    let callback = self.link.callback(Msg::Loaded);
-                    yew::services::reader::ReaderService::read_file(file, callback).unwrap()
-                };
-                self.tasks.push(task);
+                let filename = file.name();
+                let link = ctx.link().clone();
+                let filename2 = filename.clone();
+                let reader = gloo_file::callbacks::read_as_bytes(&file, move |res| {
+                    link.send_message(Msg::Loaded(filename2, res.expect("failed to read file")))
+                });
+                self.readers.insert(filename, reader);
             }
             Msg::FileDropped(evt) => {
                 evt.prevent_default();
-                let files = evt.data_transfer().unwrap().files();
+                let files = evt.data_transfer().unwrap_throw().files();
                 // log_1(&format!("files dropped: {:?}", files).into());
                 if let Some(files) = files {
                     let mut result = Vec::new();
                     let files = js_sys::try_iter(&files)
-                        .unwrap()
-                        .unwrap()
+                        .unwrap_throw()
+                        .unwrap_throw()
                         .into_iter()
-                        .map(|v| File::from(v.unwrap()));
+                        .map(|v| web_sys::File::from(v.unwrap_throw()))
+                        .map(File::from);
                     result.extend(files);
                     assert!(result.len() == 1);
-                    self.link
-                        .send_message(Msg::FileChanged(result.pop().unwrap()));
+                    ctx.link()
+                        .send_message(Msg::FileChanged(result.pop().unwrap_throw()));
                 }
             }
             Msg::FileDraggedOver(evt) => {
@@ -186,7 +166,7 @@ impl Component for Model {
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         use crate::MaybeValidBraidzFile::*;
         let braidz_file_part = match &self.braidz_file {
             &Valid(ref fd) => detail_table_valid(&fd),
@@ -228,15 +208,16 @@ impl Component for Model {
             empty()
         };
 
-        let spinner_div_class = if self.tasks.len() > 0 {
-            "compute-modal"
-        } else {
-            "display-none"
-        };
+        // let spinner_div_class = if self.tasks.len() > 0 {
+        //     "compute-modal"
+        // } else {
+        //     "display-none"
+        // };
+        let spinner_div_class = "display-none";
 
         html! {
             <div id="page-container">
-                <div class=spinner_div_class>
+                <div class={spinner_div_class}>
                     <div class="compute-modal-inner">
                         <p>
                             {"Loading file."}
@@ -257,24 +238,31 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div ondrop=self.link.callback(|e| Msg::FileDropped(e))
-                                         ondragover=self.link.callback(|e| Msg::FileDraggedOver(e))
-                                         class="file-upload-div">
-                        <label class=classes!("btn","custum-file-uplad")>{"Select a BRAIDZ file."}
-                            <input type="file" class="custom-file-upload-input" accept=".braidz"
-                            onchange=self.link.callback(move |value| {
-                                let mut result = Vec::new();
-                                if let ChangeData::Files(files) = value {
-                                    let files = js_sys::try_iter(&files)
-                                        .unwrap()
-                                        .unwrap()
-                                        .into_iter()
-                                        .map(|v| File::from(v.unwrap()));
-                                    result.extend(files);
-                                }
-                                assert!(result.len()==1);
-                                Msg::FileChanged(result.pop().unwrap())
-                            })/>
+                    <div ondrop={ctx.link().callback(|e| Msg::FileDropped(e))}
+                                         ondragover={ctx.link().callback(|e| Msg::FileDraggedOver(e))}
+                                         class={"file-upload-div"}>
+                        <label class={classes!("btn","custum-file-uplad")}>{"Select a BRAIDZ file."}
+                            <input
+                                type="file"
+                                class={"custom-file-upload-input"}
+                                accept={".braidz"}
+                                multiple=false
+                                onchange={ctx.link().callback(move |e: Event| {
+                                    let mut result = Vec::new();
+                                    let input: HtmlInputElement = e.target_unchecked_into();
+
+                                    if let Some(files) = input.files() {
+                                        let files = js_sys::try_iter(&files)
+                                            .unwrap_throw()
+                                            .unwrap_throw()
+                                            .map(|v| web_sys::File::from(v.unwrap_throw()))
+                                            .map(File::from);
+                                        result.extend(files);
+                                    }
+                                    assert!(result.len()==1);
+                                    Msg::FileChanged(result.pop().unwrap_throw())
+                                })}
+                            />
                         </label>
                     </div>
                     <div>
@@ -311,7 +299,7 @@ fn update_2d_canvas(model: &mut Model) {
                     return;
                 };
                 let root = backend.into_drawing_area();
-                root.fill(&WHITE).unwrap();
+                root.fill(&WHITE).unwrap_throw();
 
                 match &fd.archive.data2d_distorted {
                     &Some(ref d2d) => {
@@ -326,7 +314,7 @@ fn update_2d_canvas(model: &mut Model) {
                                 frame_lim[0] as i64..frame_lim[1] as i64,
                                 0.0..*seq.max_pixel,
                             )
-                            .unwrap();
+                            .unwrap_throw();
 
                         chart
                             .configure_mesh()
@@ -335,7 +323,7 @@ fn update_2d_canvas(model: &mut Model) {
                             .x_desc("Frame")
                             .y_desc("Pixel")
                             .draw()
-                            .unwrap();
+                            .unwrap_throw();
 
                         chart
                             .draw_series(
@@ -344,7 +332,7 @@ fn update_2d_canvas(model: &mut Model) {
                                     .zip(seq.xdata.iter())
                                     .map(|(frame, x)| Circle::new((*frame, **x), 2, RED.filled())),
                             )
-                            .unwrap();
+                            .unwrap_throw();
 
                         chart
                             .draw_series(
@@ -352,7 +340,7 @@ fn update_2d_canvas(model: &mut Model) {
                                     Circle::new((*frame, **y), 2, GREEN.filled())
                                 }),
                             )
-                            .unwrap();
+                            .unwrap_throw();
                     }
                     &None => {
                         log_1(&("no data2d_distorted - cannot plot".into()));
@@ -411,14 +399,14 @@ fn update_canvas(model: &mut Model) {
         let root = backend.into_drawing_area();
         let _font: FontDesc = ("Arial", 20.0).into();
 
-        root.fill(&WHITE).unwrap();
+        root.fill(&WHITE).unwrap_throw();
 
         let mut chart = ChartBuilder::on(&root)
             // .caption(format!("y=x^{}", pow), font)
             .x_label_area_size(30)
             .y_label_area_size(30)
             .build_cartesian_2d(xlim.clone(), ylim)
-            .unwrap();
+            .unwrap_throw();
 
         chart
             .configure_mesh()
@@ -427,7 +415,7 @@ fn update_canvas(model: &mut Model) {
             .x_desc("x (m)")
             .y_desc("y (m)")
             .draw()
-            .unwrap();
+            .unwrap_throw();
 
         if let Some(ref traj) = trajectories {
             for (_obj_id, traj_data) in traj.iter() {
@@ -439,25 +427,25 @@ fn update_canvas(model: &mut Model) {
                             .map(|pt| (pt[0] as f64, pt[1] as f64)),
                         &RED,
                     ))
-                    .unwrap();
+                    .unwrap_throw();
             }
         }
     }
 
     // side1 view
     if do_3d_plots {
-        let backend = CanvasBackend::new(SIDE1VIEW).unwrap();
+        let backend = CanvasBackend::new(SIDE1VIEW).unwrap_throw();
         let root = backend.into_drawing_area();
         let _font: FontDesc = ("Arial", 20.0).into();
 
-        root.fill(&WHITE).unwrap();
+        root.fill(&WHITE).unwrap_throw();
 
         let mut chart = ChartBuilder::on(&root)
             // .caption(format!("y=x^{}", pow), font)
             .x_label_area_size(30)
             .y_label_area_size(30)
             .build_cartesian_2d(xlim, zlim)
-            .unwrap();
+            .unwrap_throw();
 
         chart
             .configure_mesh()
@@ -466,7 +454,7 @@ fn update_canvas(model: &mut Model) {
             .x_desc("x (m)")
             .y_desc("z (m)")
             .draw()
-            .unwrap();
+            .unwrap_throw();
 
         if let Some(ref traj) = trajectories {
             for (_obj_id, traj_data) in traj.iter() {
@@ -478,7 +466,7 @@ fn update_canvas(model: &mut Model) {
                             .map(|pt| (pt[0] as f64, pt[2] as f64)),
                         &RED,
                     ))
-                    .unwrap();
+                    .unwrap_throw();
             }
         }
     }

@@ -130,9 +130,9 @@ impl DrawableShape {
 /// internal type for using in javascript. convert from `DrawlableShape`.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct CanvasDrawableShape {
-    shape: Shape,
-    stroke_style: String,
-    line_width: f32,
+    pub shape: Shape,
+    pub stroke_style: String,
+    pub line_width: f32,
 }
 
 impl From<DrawableShape> for CanvasDrawableShape {

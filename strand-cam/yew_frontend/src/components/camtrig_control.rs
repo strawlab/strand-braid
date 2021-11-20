@@ -4,17 +4,13 @@ use yew_tincture::components::CheckboxLabel;
 
 use super::led_control::{ChangeLedState, ChangeLedStateValue, LedControl};
 
-pub struct CamtrigControl {
-    link: ComponentLink<Self>,
-    device_state: DeviceState,
-    onsignal: Option<Callback<ToDevice>>,
-}
+pub struct CamtrigControl {}
 
 pub enum Msg {
     LedStateChange(ChangeLedState),
 }
 
-#[derive(PartialEq, Clone, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct Props {
     pub device_state: DeviceState,
     pub onsignal: Option<Callback<ToDevice>>,
@@ -24,19 +20,15 @@ impl Component for CamtrigControl {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            link,
-            device_state: props.device_state,
-            onsignal: props.onsignal,
-        }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::LedStateChange(command) => {
-                if let Some(ref mut callback) = self.onsignal {
-                    let mut next_state = self.device_state.clone();
+                if let Some(ref callback) = ctx.props().onsignal {
+                    let mut next_state = ctx.props().device_state.clone();
                     {
                         let mut chan_ref: &mut ChannelState = match command.channel_num {
                             1 => &mut next_state.ch1,
@@ -62,29 +54,23 @@ impl Component for CamtrigControl {
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.device_state = props.device_state;
-        self.onsignal = props.onsignal;
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
                 <CheckboxLabel label="LED control" initially_checked=true />
                 <div>
                     <div class="leds-controllers">
                         <LedControl
-                            channel=self.device_state.ch1.clone()
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
+                            channel={ctx.props().device_state.ch1.clone()}
+                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
                         />
                         <LedControl
-                            channel=self.device_state.ch2.clone()
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
+                            channel={ctx.props().device_state.ch2.clone()}
+                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
                         />
                         <LedControl
-                            channel=self.device_state.ch3.clone()
-                            onsignal=self.link.callback(|x| Msg::LedStateChange(x))
+                            channel={ctx.props().device_state.ch3.clone()}
+                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
                         />
                     </div>
                 </div>

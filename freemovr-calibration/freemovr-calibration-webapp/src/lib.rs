@@ -1,17 +1,17 @@
 #![recursion_limit = "1024"]
 
-extern crate yew;
-
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 use log::info;
-use yew::prelude::*;
+use yew::{classes, html, Component, Context, Html};
+use yew_agent::{Agent, AgentLink, Bridge, Bridged, HandlerId, Public};
 
 use ads_webasm::components::{CsvDataField, MaybeCsvData, ObjWidget};
 use yew_tincture::components::{Button, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::obj_widget::MaybeValidObjFile;
+
 use freemovr_calibration::types::{
     CompleteCorrespondance, SimpleDisplay, SimpleUVCorrespondance, VDispInfo,
 };
@@ -41,7 +41,6 @@ impl std::fmt::Display for MyError {
 }
 
 pub struct Model {
-    link: ComponentLink<Self>,
     worker: Box<dyn Bridge<MyWorker>>,
     obj_file: MaybeValidObjFile,
     csv_file: MaybeCsvData<SimpleUVCorrespondance>,
@@ -77,12 +76,11 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let callback = link.callback(|v| Msg::DataReceived(v));
+    fn create(ctx: &Context<Self>) -> Self {
+        let callback = ctx.link().callback(|v| Msg::DataReceived(v));
         let worker = MyWorker::bridge(callback);
 
         Self {
-            link,
             worker,
             n_computing_exr: 0,
             n_computing_csv: 0,
@@ -98,11 +96,7 @@ impl Component for Model {
         }
     }
 
-    fn change(&mut self, _props: ()) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::ObjFile(obj_file) => {
                 self.computed_exr = None;
@@ -193,7 +187,7 @@ impl Component for Model {
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let obj_file_state = format!("{}", self.obj_file);
         let csv_file_state = format!("{}", self.csv_file);
         let stage_2_csv_file_state = format!("{}", self.stage_2_csv_file);
@@ -231,7 +225,7 @@ impl Component for Model {
 
         html! {
             <div>
-                <div class=spinner_div_class>
+                <div class={spinner_div_class}>
                     <div class="compute-modal-inner">
                         <p>
                             {"Performing computation."}
@@ -257,10 +251,10 @@ impl Component for Model {
                 </p>
 
                 <h2>{"Input: Display Surface Model"}</h2>
-                <label class=classes!("btn", "custom-file-upload")>
+                <label class={classes!("btn", "custom-file-upload")}>
                     {"Select an OBJ file."}
                     <ObjWidget
-                        onfile=self.link.callback(|obj_file| Msg::ObjFile(obj_file))
+                        onfile={ctx.link().callback(|obj_file| Msg::ObjFile(obj_file))}
                         />
                 </label>
                 <p>
@@ -271,21 +265,21 @@ impl Component for Model {
                 <p>{"Enter the size of your display in pixels (e.g. 1024 x 768)."}</p>
                 <label>{"width"}
                     <TypedInput<usize>
-                        storage=self.display_width.clone()
+                        storage={self.display_width.clone()}
                         />
                 </label>
                 <label>{"height"}
                     <TypedInput<usize>
-                        storage=self.display_height.clone()
+                        storage={self.display_height.clone()}
                         />
                 </label>
 
                 <h2>{"Input: Corresponding Points"}</h2>
                 <p>{"The file must be a CSV file with columns: display_x, display_y, texture_u, texture_v."}</p>
-                <label class=classes!("btn", "custom-file-upload")>
+                <label class={classes!("btn", "custom-file-upload")}>
                     {"Select a CSV file."}
                     <CsvDataField<SimpleUVCorrespondance>
-                        onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file))
+                        onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
                         />
                 </label>
                 <p>
@@ -298,13 +292,13 @@ impl Component for Model {
                 </div>
                 <Button
                     title="Compute EXR"
-                    onsignal=self.link.callback(|()| Msg::ComputeExr)
-                    disabled=!can_compute_pinhole_calibration
+                    onsignal={ctx.link().callback(|()| Msg::ComputeExr)}
+                    disabled={!can_compute_pinhole_calibration}
                     />
                 <Button
                     title="Download EXR"
-                    onsignal=self.link.callback(|()| Msg::DownloadExr)
-                    disabled=self.computed_exr.is_none()
+                    onsignal={ctx.link().callback(|()| Msg::DownloadExr)}
+                    disabled={self.computed_exr.is_none()}
                     />
 
 
@@ -322,24 +316,23 @@ impl Component for Model {
                     </div>
                     <Button
                         title="Compute Corresponding Points"
-                        onsignal=self.link.callback(|()| Msg::ComputeCorrespondingCsv)
-                        disabled=!can_compute_pinhole_calibration
+                        onsignal={ctx.link().callback(|()| Msg::ComputeCorrespondingCsv)}
+                        disabled={!can_compute_pinhole_calibration}
                         />
                     <Button
                         title="Download Corresponding Points"
-                        onsignal=self.link.callback(|()| Msg::DownloadCorrespondingCsv)
-                        disabled=self.computed_csv.is_none()
+                        onsignal={ctx.link().callback(|()| Msg::DownloadCorrespondingCsv)}
+                        disabled={self.computed_csv.is_none()}
                         />
-
 
                     <h3>{"Step 2: Edit the Corresponding Points"}</h3>
                     <p>{"With your own program, edit the CSV file you downloaded above."}</p>
 
                     <h3>{"Step 3: Upload the Corresponding Points"}</h3>
-                    <label class=classes!("btn", "custom-file-upload")>
+                    <label class={classes!("btn", "custom-file-upload")}>
                         {"Select a CSV file."}
                         <CsvDataField<CompleteCorrespondance>
-                            onfile=self.link.callback(|csv_file| Msg::CsvFile2(csv_file))
+                            onfile={ctx.link().callback(|csv_file| Msg::CsvFile2(csv_file))}
                             />
                     </label>
                     <p>
@@ -352,13 +345,13 @@ impl Component for Model {
                     </div>
                     <Button
                         title="Compute EXR"
-                        onsignal=self.link.callback(|()| Msg::ComputeExr2)
-                        disabled=!can_compute_stage_2_exr
+                        onsignal={ctx.link().callback(|()| Msg::ComputeExr2)}
+                        disabled={!can_compute_stage_2_exr}
                         />
                     <Button
                         title="Download EXR"
-                        onsignal=self.link.callback(|()| Msg::DownloadExr2)
-                        disabled=self.computed_stage_2_exr.is_none()
+                        onsignal={ctx.link().callback(|()| Msg::DownloadExr2)}
+                        disabled={self.computed_stage_2_exr.is_none()}
                         />
 
                 </div>
@@ -426,31 +419,34 @@ fn download_file(orig_buf: &[u8], filename: &str) {
         &array,
         web_sys::BlobPropertyBag::new().type_(mime_type),
     )
-    .unwrap();
-    let data_url = web_sys::Url::create_object_url_with_blob(&blob).unwrap();
-    let document = web_sys::window().unwrap().document().unwrap();
+    .unwrap_throw();
+    let data_url = web_sys::Url::create_object_url_with_blob(&blob).unwrap_throw();
+    let document = web_sys::window().unwrap_throw().document().unwrap_throw();
     let anchor = document
         .create_element("a")
-        .unwrap()
+        .unwrap_throw()
         .dyn_into::<web_sys::HtmlAnchorElement>()
-        .unwrap();
+        .unwrap_throw();
 
     anchor.set_href(&data_url);
     anchor.set_download(&filename);
     anchor.set_target("_blank");
 
-    anchor.style().set_property("display", "none").unwrap();
-    let body = document.body().unwrap();
-    body.append_child(&anchor).unwrap();
+    anchor
+        .style()
+        .set_property("display", "none")
+        .unwrap_throw();
+    let body = document.body().unwrap_throw();
+    body.append_child(&anchor).unwrap_throw();
 
     anchor.click();
 
-    body.remove_child(&anchor).unwrap();
-    web_sys::Url::revoke_object_url(&data_url).unwrap();
+    body.remove_child(&anchor).unwrap_throw();
+    web_sys::Url::revoke_object_url(&data_url).unwrap_throw();
 }
 
 pub struct MyWorker {
-    link: yew::worker::AgentLink<Self>,
+    link: AgentLink<Self>,
 }
 
 pub enum MyWorkerMsg {}
@@ -469,14 +465,14 @@ pub enum MyWorkerResponse {
     AdvancedExrData(Result<Vec<u8>, String>),
 }
 
-impl yew::worker::Agent for MyWorker {
-    type Reach = yew::worker::Public<Self>;
+impl Agent for MyWorker {
+    type Reach = Public<Self>;
 
     type Message = MyWorkerMsg;
     type Input = MyWorkerRequest;
     type Output = MyWorkerResponse;
 
-    fn create(link: yew::worker::AgentLink<Self>) -> Self {
+    fn create(link: AgentLink<Self>) -> Self {
         Self { link }
     }
 
@@ -484,7 +480,7 @@ impl yew::worker::Agent for MyWorker {
         match msg {}
     }
 
-    fn handle_input(&mut self, msg: Self::Input, who: yew::worker::HandlerId) {
+    fn handle_input(&mut self, msg: Self::Input, who: HandlerId) {
         let (save_debug_images, show_mask) = (false, false);
 
         match msg {
@@ -526,7 +522,7 @@ impl yew::worker::Agent for MyWorker {
             }
             MyWorkerRequest::CalcCsv(src_data) => {
                 use freemovr_calibration::PinholeCal;
-                let trimesh = src_data.geom_as_trimesh().unwrap();
+                let trimesh = src_data.geom_as_trimesh().unwrap_throw();
 
                 let pinhole_fits = src_data.pinhole_fits();
                 assert!(pinhole_fits.len() == 1);
@@ -588,9 +584,12 @@ impl yew::worker::Agent for MyWorker {
     }
 
     fn name_of_resource() -> &'static str {
-        // Due to https://github.com/yewstack/yew/issues/2056 , this currently
-        // must be the absolute path (relative to origin) of the worker.
-        // Ideally, we will fix this.
+        // This is the relative path.
         "native_worker.js"
+    }
+
+    fn resource_path_is_relative() -> bool {
+        // allow relocating with URL hierarchy
+        true
     }
 }

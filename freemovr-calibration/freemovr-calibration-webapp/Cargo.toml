@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 yew = "0.18"
+yew-agent = {git="https://github.com/yewstack/yew", rev="916dc2e907a49f5be15ffde13c6494ca673d5999"}
 yew-tincture = "0.1"
 js-sys = "0.3"
 wasm-bindgen = "0.2"

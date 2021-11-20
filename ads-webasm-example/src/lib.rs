@@ -28,7 +28,6 @@ struct CsvRowType {
 }
 
 struct Model {
-    link: ComponentLink<Self>,
     csv_file: MaybeCsvData<CsvRowType>,
     cfg: MyConfig,
     raw_u8: TypedInputStorage<u8>,
@@ -45,10 +44,9 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         let cfg = MyConfig { value: 123 };
         Self {
-            link,
             csv_file: MaybeCsvData::Empty,
             cfg,
             raw_u8: TypedInputStorage::empty(),
@@ -57,11 +55,7 @@ impl Component for Model {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::AddOne => {
                 if let Ok(prev) = self.raw_f32.parsed() {
@@ -104,7 +98,7 @@ impl Component for Model {
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let csv_file_state = format!("{}", self.csv_file);
 
         // It would be nice to make a `Collapsible` class, but this requires a
@@ -118,19 +112,19 @@ impl Component for Model {
                <div>
                    <RecordingPathWidget
                        label="Record file directory"
-                       value=self.record_filename.clone()
-                       ontoggle=self.link.callback(|checked| {Msg::DoRecordFile(checked)})
+                       value={self.record_filename.clone()}
+                       ontoggle={ctx.link().callback(|checked| {Msg::DoRecordFile(checked)})}
                        />
                </div>
 
 
-               <Button title="Add 1.0 to f32 float" onsignal=self.link.callback(|_| Msg::AddOne)/>
+               <Button title="Add 1.0 to f32 float" onsignal={ctx.link().callback(|_| Msg::AddOne)}/>
 
                <div>
                    <label>{"u8 int"}
                    <TypedInput<u8>
-                       storage=self.raw_u8.clone()
-                       on_input=self.link.callback(|v| Msg::SetU8(v))
+                       storage={self.raw_u8.clone()}
+                       on_input={ctx.link().callback(|v| Msg::SetU8(v))}
                        />
                    </label>
                </div>
@@ -139,8 +133,8 @@ impl Component for Model {
                <div>
                    <label>{"f32 float"}
                    <TypedInput<f32>
-                       storage=self.raw_f32.clone()
-                       on_input=self.link.callback(|v| Msg::SetF32(v))
+                       storage={self.raw_f32.clone()}
+                       on_input={ctx.link().callback(|v| Msg::SetF32(v))}
                        />
                    </label>
                </div>
@@ -148,10 +142,10 @@ impl Component for Model {
 
                <div>
                    <h2>{"Data Upload"}</h2>
-                   <label class=classes!("btn", "custom-file-upload")>
+                   <label class={classes!("btn", "custom-file-upload")}>
                        {"Select a CSV file."}
                        <CsvDataField<CsvRowType>
-                           onfile=self.link.callback(|csv_file| Msg::CsvFile(csv_file))
+                           onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
                            />
                    </label>
                    <p>
@@ -163,9 +157,9 @@ impl Component for Model {
 
                <div>
                    <ConfigField<MyConfig>
-                        server_version=Some(self.cfg.clone())
+                        server_version={Some(self.cfg.clone())}
                         rows=20
-                        onsignal=self.link.callback(|s| {Msg::SetConfigString(s)})
+                        onsignal={ctx.link().callback(|s| {Msg::SetConfigString(s)})}
                         />
                </div>
 

@@ -1,17 +1,22 @@
+use std::{
+    error::Error,
+    fmt::{self, Debug, Display, Formatter},
+};
+
 use serde::{Deserialize, Serialize};
 
+use gloo_events::EventListener;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Event, EventSource, MessageEvent};
 
 use flydra_types::{CamHttpServerInfo, CamInfo, HttpApiCallback, HttpApiShared};
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-use yew::format::Json;
 use yew::prelude::*;
-use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};
-
-use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
 
 // -----------------------------------------------------------------------------
 
@@ -35,80 +40,91 @@ impl std::fmt::Display for MyError {
 // Model
 
 struct Model {
-    link: ComponentLink<Self>,
-    _ft: Option<FetchTask>,
     shared: Option<HttpApiShared>,
-    es: EventSourceTask,
+    es: EventSource,
     fail_msg: String,
     html_page_title: Option<String>,
     recording_path: Option<RecordingPath>,
+    _listener: EventListener,
 }
 
 // -----------------------------------------------------------------------------
 
-// Update
-
 enum Msg {
-    /// Trigger a check of the event source state.
-    EsCheckState,
-
-    // Connected(JsValue),
-    // ServerMessage(MessageEvent),
-    // Error(JsValue),
     NewServerState(HttpApiShared),
-    FailedDecode(String),
+    FailedDecode(serde_json::Error),
     DoRecordCsvTables(bool),
-    // Fetched(fetch::ResponseDataResult<()>),
-    Ignore,
+    SendMessageFetchState(FetchState),
 }
+
+// -----------------------------------------------------------------------------
+
+pub enum FetchState {
+    Fetching,
+    Success,
+    Failed(FetchError),
+}
+
+// -----------------------------------------------------------------------------
+
+/// Something wrong has occurred while fetching an external resource.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FetchError {
+    err: JsValue,
+}
+impl Display for FetchError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.err, f)
+    }
+}
+impl Error for FetchError {}
+
+impl From<JsValue> for FetchError {
+    fn from(value: JsValue) -> Self {
+        Self { err: value }
+    }
+}
+
+// -----------------------------------------------------------------------------
 
 impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let task = {
-            let data_callback = link.callback(|Json(data)| {
-                match data {
-                    Ok(data_result) => Msg::NewServerState(data_result),
-                    Err(e) => {
-                        log::error!("{}", e);
-                        Msg::FailedDecode(format!("{}", e)) //.to_string())
-                    }
-                }
+    fn create(ctx: &Context<Self>) -> Self {
+        let es = EventSource::new(flydra_types::BRAID_EVENTS_URL_PATH)
+            .map_err(|js_value: JsValue| {
+                let err: js_sys::Error = js_value.dyn_into().unwrap_throw();
+                err
+            })
+            .unwrap_throw();
+        let cb = ctx
+            .link()
+            .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
+                Ok(msg) => Msg::NewServerState(msg),
+                Err(e) => Msg::FailedDecode(e),
             });
-            let notification = link.callback(|status| {
-                if status == EventSourceStatus::Error {
-                    log::error!("event source error");
-                }
-                Msg::EsCheckState
+        let listener =
+            EventListener::new(&es, flydra_types::BRAID_EVENT_NAME, move |event: &Event| {
+                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
+                let text = event.data().as_string().unwrap_throw();
+                cb.emit(text);
             });
-            let mut task = EventSourceService::new()
-                .connect(flydra_types::BRAID_EVENTS_URL_PATH, notification)
-                .unwrap();
-            task.add_event_listener(flydra_types::BRAID_EVENT_NAME, data_callback);
-            task
-        };
 
         Self {
-            link,
-            _ft: None,
             shared: None,
-            es: task,
+            es,
             fail_msg: "".to_string(),
             html_page_title: None,
             recording_path: None,
+            _listener: listener,
         }
     }
 
-    fn change(&mut self, _: ()) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::EsCheckState => {
-                return true;
+            Msg::SendMessageFetchState(_fetch_state) => {
+                return false;
             }
             Msg::NewServerState(data_result) => {
                 self.recording_path = data_result.csv_tables_dirname.clone();
@@ -125,26 +141,31 @@ impl Component for Model {
                 };
 
                 if update_title {
-                    let doc = web_sys::window().unwrap().document().unwrap();
+                    let doc = web_sys::window().unwrap_throw().document().unwrap_throw();
                     doc.set_title(&title);
                     self.html_page_title = Some(title);
                 }
             }
-            Msg::FailedDecode(s) => {
-                self.fail_msg = s;
+            Msg::FailedDecode(err) => {
+                let err: anyhow::Error = err.into();
+                self.fail_msg = format!("{}", err);
             }
             Msg::DoRecordCsvTables(val) => {
-                self._ft = self.send_message(&HttpApiCallback::DoRecordCsvTables(val));
-                return false; // don't update DOM, do that on return
-            }
-            Msg::Ignore => {
-                return false;
+                ctx.link().send_future(async move {
+                    match post_callback(&HttpApiCallback::DoRecordCsvTables(val)).await {
+                        Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                        Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+                    }
+                });
+                ctx.link()
+                    .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
+                return false; // Don't update DOM, do that when backend notifies us of new state.
             }
         }
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div id="page-container">
                 <div id="content-wrap">
@@ -153,7 +174,7 @@ impl Component for Model {
                     </h1>
                     <img src="braid-logo-no-text.png" width="523" height="118" class="center"/>
                     {self.disconnected_dialog()}
-                    {self.view_shared()}
+                    {self.view_shared(ctx)}
                     <footer id="footer">
                         {format!(
                             "Braid frontend date: {} (revision {})",
@@ -172,35 +193,7 @@ impl Component for Model {
 // View
 
 impl Model {
-    fn send_message(&mut self, args: &HttpApiCallback) -> Option<yew::services::fetch::FetchTask> {
-        let post_request = Request::post("callback")
-            .header("Content-Type", "application/json;charset=UTF-8")
-            .body(Json(&args))
-            .expect("Failed to build request.");
-
-        let callback =
-            self.link
-                .callback(move |response: Response<Json<Result<(), anyhow::Error>>>| {
-                    if let (meta, Json(Ok(_body))) = response.into_parts() {
-                        if meta.status.is_success() {
-                            return Msg::Ignore;
-                        }
-                    }
-                    log::error!("failed sending message");
-                    Msg::Ignore
-                });
-        let mut options = FetchOptions::default();
-        options.credentials = Some(Credentials::SameOrigin);
-        match FetchService::fetch_with_options(post_request, options, callback) {
-            Ok(task) => Some(task),
-            Err(err) => {
-                log::error!("sending message failed with error: {}", err);
-                None
-            }
-        }
-    }
-
-    fn view_shared(&self) -> Html {
+    fn view_shared(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref value) = self.shared {
             let record_widget = if value.all_expected_cameras_are_synced
                 && value.clock_model_copy.is_some()
@@ -208,8 +201,8 @@ impl Model {
                 html! {
                     <RecordingPathWidget
                     label="Record .braidz file"
-                    value=self.recording_path.clone()
-                    ontoggle=self.link.callback(|checked| {Msg::DoRecordCsvTables(checked)})
+                    value={self.recording_path.clone()}
+                    ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
                     />
                 }
             } else {
@@ -250,7 +243,8 @@ impl Model {
     }
 
     fn disconnected_dialog(&self) -> Html {
-        if self.es.ready_state() == ReadyState::Open {
+        // 0: connecting, 1: open, 2: closed
+        if self.es.ready_state() != 2 {
             html! {
                <div>
                  { "" }
@@ -325,7 +319,7 @@ fn view_cam_list(cams: &Vec<CamInfo>) -> Html {
             let stats = format!("{:?}", cci.recent_stats);
             html! {
                 <li>
-                    <a href=cam_url>{cci.name.as_str()}</a>
+                    <a href={cam_url}>{cci.name.as_str()}</a>
                     {" "}
                     {state}
                     {" "}
@@ -361,7 +355,7 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
         let url = format!("http://{}:{}/", ip, addr.port());
         html! {
             <div>
-                <a href=url>
+                <a href={url}>
                     {"Model server"}
                 </a>
             </div>
@@ -373,6 +367,30 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
             </p>
         }
     }
+}
+
+// -----------------------------------------------------------------------------
+
+async fn post_callback(msg: &HttpApiCallback) -> Result<(), FetchError> {
+    use web_sys::{Request, RequestInit, Response};
+    let mut opts = RequestInit::new();
+    opts.method("POST");
+    // opts.mode(web_sys::RequestMode::Cors);
+    // opts.headers("Content-Type", "application/json;charset=UTF-8")
+    // set SameOrigin
+    let buf = serde_json::to_string(&msg).unwrap_throw();
+    opts.body(Some(&JsValue::from_str(&buf)));
+
+    let url = "callback";
+    let request = Request::new_with_str_and_init(url, &opts)?;
+
+    let window = gloo_utils::window();
+    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
+    let resp: Response = resp_value.dyn_into().unwrap_throw();
+
+    let text = JsFuture::from(resp.text()?).await?;
+    let _text_string = text.as_string().unwrap_throw();
+    Ok(())
 }
 
 // -----------------------------------------------------------------------------

@@ -15,9 +15,6 @@ pub enum ChangeLedStateValue {
 }
 
 pub struct LedControl {
-    link: ComponentLink<Self>,
-    channel: ChannelState,
-    onsignal: Option<Callback<ChangeLedState>>,
     pulse_duration_ticks: u16,
 }
 
@@ -40,33 +37,30 @@ impl Component for LedControl {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
-            channel: props.channel,
-            onsignal: props.onsignal,
             pulse_duration_ticks: 500,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clicked(mut on_state) => {
                 if let OnState::PulseTrain(ref mut pulse_train_params) = on_state {
                     pulse_train_params.pulse_dur_ticks = self.pulse_duration_ticks.into();
                 };
-                if let Some(ref mut callback) = self.onsignal {
+                if let Some(ref callback) = ctx.props().onsignal {
                     let state = ChangeLedState {
-                        channel_num: self.channel.num,
+                        channel_num: ctx.props().channel.num,
                         what: ChangeLedStateValue::NewOnState(on_state),
                     };
                     callback.emit(state);
                 }
             }
             Msg::SetIntensityPercent(percent_value) => {
-                if let Some(ref mut callback) = self.onsignal {
+                if let Some(ref callback) = ctx.props().onsignal {
                     let state = ChangeLedState {
-                        channel_num: self.channel.num,
+                        channel_num: ctx.props().channel.num,
                         what: ChangeLedStateValue::NewIntensity(
                             (MAX_INTENSITY * percent_value / 100.0) as u16,
                         ),
@@ -81,39 +75,33 @@ impl Component for LedControl {
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.channel = props.channel;
-        self.onsignal = props.onsignal;
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="led-control">
-                <h3>{"LED "}{format!("{}", self.channel.num)}</h3>
+                <h3>{"LED "}{format!("{}", ctx.props().channel.num)}</h3>
                 <EnumToggle<OnState>
-                    value=self.channel.on_state
-                    onsignal=self.link.callback(|variant| Msg::Clicked(variant))
+                    value={ctx.props().channel.on_state}
+                    onsignal={ctx.link().callback(|variant| Msg::Clicked(variant))}
                 />
                 <h3>{"Intensity"}</h3>
                 <RangedValue
                     unit="percent"
                     min=0.0
                     max=100.0
-                    current=(self.channel.intensity as f32)/MAX_INTENSITY*100.0
-                    current_value_label=LAST_DETECTED_VALUE_LABEL
+                    current={(ctx.props().channel.intensity as f32)/MAX_INTENSITY*100.0}
+                    current_value_label={LAST_DETECTED_VALUE_LABEL}
                     placeholder="intensity"
-                    onsignal=self.link.callback(|v| {Msg::SetIntensityPercent(v)})
+                    onsignal={ctx.link().callback(|v| {Msg::SetIntensityPercent(v)})}
                     />
                 <h3>{"Pulse duration"}</h3>
                 <RangedValue
                     unit="clock ticks"
                     min=1.0
-                    max=std::u16::MAX as f32
-                    current=self.pulse_duration_ticks as f32
-                    current_value_label=LAST_DETECTED_VALUE_LABEL
+                    max={std::u16::MAX as f32}
+                    current={self.pulse_duration_ticks as f32}
+                    current_value_label={LAST_DETECTED_VALUE_LABEL}
                     placeholder="clock ticks"
-                    onsignal=self.link.callback(|v| {Msg::SetPulseDurationTicks(v)})
+                    onsignal={ctx.link().callback(|v| {Msg::SetPulseDurationTicks(v)})}
                     />
             </div>
         }

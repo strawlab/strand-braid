@@ -9,9 +9,9 @@ use wasm_bindgen::JsCast;
 use nalgebra::geometry::{Point2, Point3};
 
 use yew::prelude::*;
+use yew_tincture::components::Button;
 
 use ads_webasm::components::{CsvData, CsvDataField, MaybeCsvData};
-use yew_tincture::components::Button;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MyError {
@@ -135,7 +135,6 @@ pub fn get_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError> {
 }
 
 pub struct Model {
-    link: ComponentLink<Self>,
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
     per_camera_2d: BTreeMap<String, (AprilConfig, CsvData<DetectionSerializer>)>,
     computed_calibration: Option<CalibrationResult>,
@@ -154,18 +153,14 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
             fiducial_3d_coords: MaybeCsvData::Empty,
             per_camera_2d: BTreeMap::new(),
             computed_calibration: None,
         }
     }
-    fn change(&mut self, _props: ()) -> ShouldRender {
-        false
-    }
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Fiducial3dCoordsData(csv_file) => {
                 self.computed_calibration = None;
@@ -221,8 +216,7 @@ impl Component for Model {
         }
         true
     }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let fiducial_3d_coords_file_state = format!("{}", self.fiducial_3d_coords);
 
         let compute_button_title = format!(
@@ -248,10 +242,10 @@ impl Component for Model {
                {"here"}</a>{"."}</p>
             <h2>{"Input: 3D coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file with columns: id, x, y, z."}</p>
-            <label class=classes!("btn", "custom-file-upload")>
+            <label class={classes!("btn", "custom-file-upload")}>
                 {"Upload a 3D coordinate CSV file."}
                 <CsvDataField<Fiducial3DCoords>
-                    onfile=self.link.callback(Msg::Fiducial3dCoordsData)
+                    onfile={ctx.link().callback(Msg::Fiducial3dCoordsData)}
                     />
             </label>
             <p>
@@ -261,19 +255,19 @@ impl Component for Model {
             <h2>{"Input: Automatically detected camera coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Required \
                  columns: id, h02, h12 where (h02,h12) is tag center.)"}</p>
-            <label class=classes!("btn", "custom-file-upload")>
+            <label class={classes!("btn", "custom-file-upload")}>
                 {"Upload a camera coordinate CSV file."}
                 <CsvDataField<DetectionSerializer>
-                    onfile=self.link.callback(Msg::DetectionSerializerData)
+                    onfile={ctx.link().callback(Msg::DetectionSerializerData)}
                     />
             </label>
-            {self.view_camera_data()}
+            {self.view_camera_data(ctx)}
 
             <h2>{"Compute calibration"}</h2>
             <Button
-                title=compute_button_title
-                onsignal=self.link.callback(|()| Msg::ComputeCal)
-                disabled=!self.can_compute_xml_calibration()
+                title={compute_button_title}
+                onsignal={ctx.link().callback(|()| Msg::ComputeCal)}
+                disabled={!self.can_compute_xml_calibration()}
                 />
             {self.view_calibration_quality()}
             <h2>{"Download calibration"}</h2>
@@ -285,13 +279,13 @@ impl Component for Model {
             </div>
             <Button
                 title="Download XML calibration"
-                onsignal=self.link.callback(|()| Msg::DownloadXmlCal)
-                disabled=self.computed_calibration.is_none()
+                onsignal={ctx.link().callback(|()| Msg::DownloadXmlCal)}
+                disabled={self.computed_calibration.is_none()}
                 />
             <Button
                 title="Download PyMVG JSON calibration"
-                onsignal=self.link.callback(|()| Msg::DownloadPymvgCal)
-                disabled=self.computed_calibration.is_none()
+                onsignal={ctx.link().callback(|()| Msg::DownloadPymvgCal)}
+                disabled={self.computed_calibration.is_none()}
                 />
             <footer id="footer">{format!("Tool date: {} (revision {})",
                 env!("GIT_DATE"),
@@ -339,7 +333,7 @@ impl Model {
             }
         }
     }
-    fn view_camera_data(&self) -> Html {
+    fn view_camera_data(&self, ctx: &Context<Self>) -> Html {
         if self.per_camera_2d.is_empty() {
             return html! {
                 <p>{"No camera data loaded"}</p>
@@ -356,7 +350,7 @@ impl Model {
                         {format!("{}: {} detections (file: {})",cam_name,csv_data.rows().len(), csv_data.filename())}
                         <Button
                             title="Remove"
-                            onsignal=self.link.callback(move |()| Msg::RemoveCamera(cam_name.clone()))
+                            onsignal={ctx.link().callback(move |()| Msg::RemoveCamera(cam_name.clone()))}
                         />
                     </li>
                 }

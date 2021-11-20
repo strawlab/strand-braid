@@ -112,4 +112,5 @@ debug = true
 
 [patch.crates-io]
 webm = { git = "https://github.com/strawlab/rust-webm", rev="a28b3e27f3e1e6d086732fb63a1a765e1af4e5ba"}
-yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="eec5433a380f4324ad6e1f579e315d598c41b57e"}
+yew-tincture = {git="https://drandrewstraw@dev.azure.com/drandrewstraw/yew-tincture/_git/yew-tincture", rev="cb69592dd98c812cdac251dd2dd2399486e0741a"}
+yew = {git="https://github.com/yewstack/yew", rev="916dc2e907a49f5be15ffde13c6494ca673d5999"}

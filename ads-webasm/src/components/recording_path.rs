@@ -1,19 +1,14 @@
 use chrono;
 use rust_cam_bui_types::RecordingPath;
-use yew::prelude::*;
+use yew::{classes, html, Callback, Component, Context, Html, Properties};
 
-pub struct RecordingPathWidget {
-    link: ComponentLink<Self>,
-    label: String,
-    ontoggle: Option<Callback<bool>>,
-    value: Option<RecordingPath>,
-}
+pub struct RecordingPathWidget {}
 
 pub enum Msg {
     Toggled(bool),
 }
 
-#[derive(PartialEq, Clone, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct Props {
     pub label: String,
     pub ontoggle: Option<Callback<bool>>,
@@ -24,19 +19,14 @@ impl Component for RecordingPathWidget {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            link,
-            label: props.label,
-            ontoggle: props.ontoggle,
-            value: props.value,
-        }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Toggled(checked) => {
-                if let Some(ref mut callback) = self.ontoggle {
+                if let Some(ref callback) = ctx.props().ontoggle {
                     callback.emit(checked);
                 }
             }
@@ -44,16 +34,9 @@ impl Component for RecordingPathWidget {
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.label = props.label;
-        self.ontoggle = props.ontoggle;
-        self.value = props.value;
-        true
-    }
-
-    fn view(&self) -> Html {
-        let new_value: bool = self.value.is_none();
-        let (blinker_class, label_class, widget_inner_class) = if self.value.is_some() {
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let new_value: bool = ctx.props().value.is_none();
+        let (blinker_class, label_class, widget_inner_class) = if ctx.props().value.is_some() {
             (
                 "recording-path-blinker-on",
                 "recording-path-label-on",
@@ -66,7 +49,7 @@ impl Component for RecordingPathWidget {
                 "recording-path-widget-inner-off",
             )
         };
-        let path_disp = match self.value {
+        let path_disp = match ctx.props().value {
             Some(ref rp) => {
                 let timeval_utc = rp.start_time();
 
@@ -93,18 +76,18 @@ impl Component for RecordingPathWidget {
         };
         html! {
             <span>
-                <label class=label_class >{ &self.label }
+                <label class={label_class} >{ &ctx.props().label }
                     <input type="checkbox"
-                        checked=self.value.is_some()
-                        onclick=self.link.callback(move |_| Msg::Toggled(new_value))
+                        checked={ctx.props().value.is_some()}
+                        onclick={ctx.link().callback(move |_| Msg::Toggled(new_value))}
                         class="recording-path-checkbox"
                         />
-                    <span class="recording-path-widget" >
-                        <span class=classes!("recording-path-widget-inner", widget_inner_class)>
+                    <span class="recording-path-widget">
+                        <span class={classes!("recording-path-widget-inner", widget_inner_class)}>
                         </span>
                     </span>
                 </label>
-                <span class=blinker_class><span></span></span>
+                <span class={blinker_class}><span></span></span>
                 { path_disp }
             </span>
         }

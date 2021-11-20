@@ -1,20 +1,24 @@
-use super::FirehoseImageData;
-
-#[derive(Clone, PartialEq, Default)]
+#[derive(PartialEq)]
 pub struct VideoData {
-    inner: Option<FirehoseImageData>,
+    inner: Option<http_video_streaming_types::ToClient>,
 }
 
 impl VideoData {
-    pub fn new(data: FirehoseImageData) -> Self {
-        Self { inner: Some(data) }
+    pub fn new(inner: Option<http_video_streaming_types::ToClient>) -> Self {
+        Self { inner }
     }
 
     pub fn frame_number(&self) -> Option<u64> {
-        self.inner.as_ref().map(|x| x.fno)
+        let result = self.inner.as_ref().map(|x| x.fno);
+        log::info!("frame_number {:?}", result);
+        result
     }
 
-    pub fn inner(self) -> Option<FirehoseImageData> {
-        self.inner
+    pub fn as_ref(&self) -> Option<&http_video_streaming_types::ToClient> {
+        self.inner.as_ref()
+    }
+
+    pub fn take(&mut self) -> Option<http_video_streaming_types::ToClient> {
+        self.inner.take()
     }
 }

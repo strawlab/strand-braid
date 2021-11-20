@@ -1,6 +1,12 @@
 #![recursion_limit = "1000"]
 
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    cell::RefCell,
+    error::Error,
+    fmt::{self, Debug, Display, Formatter},
+    net::{IpAddr, SocketAddr},
+    rc::Rc,
+};
 
 use ci2_remote_control::CamArg;
 
@@ -12,12 +18,20 @@ use camtrig_comms::ToDevice as ToCamtrigDevice;
 type ToCamtrigDevice = std::marker::PhantomData<u8>;
 
 use serde::{Deserialize, Serialize};
+
+use gloo_events::EventListener;
 use wasm_bindgen::prelude::*;
-use yew::format::Json;
+use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Event, EventSource, MessageEvent};
+
 use yew::prelude::*;
 
 use ads_webasm::components::{EnumToggle, VecToggle};
+
+use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::ToClient as FirehoseImageData;
+
 use strand_cam_storetype::CallbackType;
 use strand_cam_storetype::StoreType as ServerState;
 #[cfg(feature = "flydratrax")]
@@ -30,9 +44,9 @@ use ci2_types::AutoMode;
 use image_tracker_types::ImPtDetectCfg;
 use yew_tincture::components::{TypedInput, TypedInputStorage};
 
-use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
+// use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
 
-use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
+// use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
 
 use ads_webasm::video_data::VideoData;
 
@@ -50,10 +64,8 @@ use components::CamtrigControl;
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
 enum Msg {
-    /// Trigger a check of the event source state.
-    EsCheckState,
-
     NewImageFrame(FirehoseImageData),
+    RenderedImage(FirehoseCallbackInner),
 
     NewServerState(Box<ServerState>),
 
@@ -132,21 +144,48 @@ enum Msg {
     SetPostTriggerBufferSize(usize),
     PostTriggerMkvRecording,
 
-    // UpdateConnectionState(ReadyState),
-    Ignore,
+    SendMessageFetchState(FetchState),
 }
 
+// -----------------------------------------------------------------------------
+
+pub enum FetchState {
+    Fetching,
+    Success,
+    Failed(FetchError),
+}
+
+// -----------------------------------------------------------------------------
+
+/// Something wrong has occurred while fetching an external resource.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FetchError {
+    err: JsValue,
+}
+impl Display for FetchError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.err, f)
+    }
+}
+impl Error for FetchError {}
+
+impl From<JsValue> for FetchError {
+    fn from(value: JsValue) -> Self {
+        Self { err: value }
+    }
+}
+
+// -----------------------------------------------------------------------------
+
 struct Model {
-    /// Keep task to prevent it from being dropped.
-    #[allow(dead_code)]
-    ft: Option<FetchTask>,
-    video_data: VideoData,
+    video_data: Rc<RefCell<VideoData>>,
 
     server_state: Option<Box<ServerState>>,
     json_decode_err: Option<String>,
     html_page_title: Option<String>,
-    es: EventSourceTask,
-    link: ComponentLink<Self>,
+    es: EventSource,
+    _data_listener: EventListener,
+    _stream_listener: EventListener,
 
     csv_recording_rate: RecordingFrameRate,
     #[cfg(feature = "checkercal")]
@@ -168,51 +207,76 @@ impl Component for Model {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let task = {
-            let data_callback = link.callback(|Json(data)| match data {
-                Ok(data_result) => Msg::NewServerState(Box::new(data_result)),
-                Err(e) => {
-                    log::error!("in data callback: {}", e);
-                    Msg::FailedCallbackJsonDecode(format!("{}", e))
-                }
-            });
-            let stream_callback = link.callback(|Json(data)| match data {
-                Ok(image_result) => Msg::NewImageFrame(image_result),
-                Err(e) => {
-                    log::error!("in stream callback: {}", e);
-                    Msg::FailedCallbackJsonDecode(format!("{}", e))
-                }
-            });
-            let notification = link.callback(|status| {
-                if status == EventSourceStatus::Error {
-                    log::error!("event source error");
-                }
-                Msg::EsCheckState
-            });
-            let mut task = EventSourceService::new()
-                .connect(
-                    strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
-                    notification,
-                )
-                .unwrap();
-            task.add_event_listener(strand_cam_storetype::STRAND_CAM_EVENT_NAME, data_callback);
-            task.add_event_listener(
-                http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
-                stream_callback,
-            );
-            task
-        };
+    fn create(ctx: &Context<Self>) -> Self {
+        let es = EventSource::new(strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH)
+            .map_err(|js_value: JsValue| {
+                let err: js_sys::Error = js_value.dyn_into().unwrap_throw();
+                err
+            })
+            .unwrap_throw();
+        let data_callback =
+            ctx.link()
+                .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
+                    Ok(msg) => Msg::NewServerState(msg),
+                    Err(e) => {
+                        log::error!("in data callback: {}", e);
+                        Msg::FailedCallbackJsonDecode(format!("{}", e))
+                    }
+                });
+        let stream_callback =
+            ctx.link()
+                .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
+                    Ok(image_result) => Msg::NewImageFrame(image_result),
+                    Err(e) => {
+                        log::error!("in stream callback: {}", e);
+                        Msg::FailedCallbackJsonDecode(format!("{}", e))
+                    }
+                });
+
+        let data_listener = EventListener::new(
+            &es,
+            strand_cam_storetype::STRAND_CAM_EVENT_NAME,
+            move |event: &Event| {
+                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
+                let text = event.data().as_string().unwrap_throw();
+                data_callback.emit(text);
+            },
+        );
+
+        let stream_listener = EventListener::new(
+            &es,
+            http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
+            move |event: &Event| {
+                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
+                let text = event.data().as_string().unwrap_throw();
+                stream_callback.emit(text);
+            },
+        );
+
+        // let task = {
+        //     // let notification = link.callback(|status| {
+        //     //     if status == EventSourceStatus::Error {
+        //     //         log::error!("event source error");
+        //     //     }
+        //     //     Msg::EsCheckState
+        //     // });
+        //     // let mut task = EventSourceService::new()
+        //     //     .connect(
+        //     //         strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
+        //     //         notification,
+        //     //     )
+        //     //     .unwrap();
+        //     task
+        // };
 
         Self {
-            ft: None,
-            video_data: VideoData::default(),
-
+            video_data: Rc::new(RefCell::new(VideoData::new(None))),
             server_state: None,
             json_decode_err: None,
             html_page_title: None,
-            es: task,
-            link,
+            es,
+            _data_listener: data_listener,
+            _stream_listener: stream_listener,
             csv_recording_rate: RecordingFrameRate::Unlimited,
             #[cfg(feature = "checkercal")]
             checkerboard_width: TypedInputStorage::empty(),
@@ -230,17 +294,16 @@ impl Component for Model {
         }
     }
 
-    fn change(&mut self, _: ()) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::EsCheckState => {
-                return true;
+            Msg::SendMessageFetchState(_fetch_state) => {
+                return false;
             }
             Msg::NewImageFrame(in_msg) => {
-                self.video_data = VideoData::new(in_msg);
+                *self.video_data.borrow_mut() = VideoData::new(Some(in_msg));
+            }
+            Msg::RenderedImage(fci) => {
+                self.send_message(CallbackType::FirehoseNotify(fci), ctx);
             }
             Msg::NewServerState(response) => {
                 // Set the html page title once.
@@ -298,9 +361,9 @@ impl Component for Model {
                 } else {
                     Some(5)
                 };
-                self.ft = send_cam_message(
+                self.send_cam_message(
                     CamArg::SetIngoreFutureFrameProcessingErrors(limit_duration),
-                    self,
+                    ctx,
                 );
                 return false; // don't update DOM, do that on return
             }
@@ -308,47 +371,47 @@ impl Component for Model {
                 self.ignore_all_future_frame_processing_errors = val;
             }
             Msg::SetGainAuto(v) => {
-                self.ft = send_cam_message(CamArg::SetGainAuto(v), self);
+                self.send_cam_message(CamArg::SetGainAuto(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetGainValue(v) => {
-                self.ft = send_cam_message(CamArg::SetGain(v), self);
+                self.send_cam_message(CamArg::SetGain(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetExposureAuto(v) => {
-                self.ft = send_cam_message(CamArg::SetExposureAuto(v), self);
+                self.send_cam_message(CamArg::SetExposureAuto(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetExposureValue(v) => {
-                self.ft = send_cam_message(CamArg::SetExposureTime(v), self);
+                self.send_cam_message(CamArg::SetExposureTime(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetFrameRateLimitEnabled(v) => {
-                self.ft = send_cam_message(CamArg::SetFrameRateLimitEnabled(v), self);
+                self.send_cam_message(CamArg::SetFrameRateLimitEnabled(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetFrameRateLimit(v) => {
-                self.ft = send_cam_message(CamArg::SetFrameRateLimit(v), self);
+                self.send_cam_message(CamArg::SetFrameRateLimit(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
             Msg::SetObjDetectionConfig(v) => {
-                self.ft = send_cam_message(CamArg::SetObjDetectionConfig(v), self);
+                self.send_cam_message(CamArg::SetObjDetectionConfig(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             #[cfg(feature = "flydratrax")]
             Msg::CamArgSetKalmanTrackingConfig(v) => {
-                self.ft = send_cam_message(CamArg::CamArgSetKalmanTrackingConfig(v), self);
+                self.send_cam_message(CamArg::CamArgSetKalmanTrackingConfig(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             #[cfg(feature = "flydratrax")]
             Msg::CamArgSetLedProgramConfig(v) => {
-                self.ft = send_cam_message(CamArg::CamArgSetLedProgramConfig(v), self);
+                self.send_cam_message(CamArg::CamArgSetLedProgramConfig(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
             Msg::ToggleObjDetection(v) => {
-                self.ft = send_cam_message(CamArg::SetIsDoingObjDetection(v), self);
+                self.send_cam_message(CamArg::SetIsDoingObjDetection(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
@@ -358,7 +421,7 @@ impl Component for Model {
                 } else {
                     ci2_remote_control::CsvSaveConfig::NotSaving
                 };
-                self.ft = send_cam_message(CamArg::SetIsSavingObjDetectionCsv(cfg), self);
+                self.send_cam_message(CamArg::SetIsSavingObjDetectionCsv(cfg), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
@@ -367,47 +430,47 @@ impl Component for Model {
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleTagFamily(v) => {
-                self.ft = send_cam_message(CamArg::ToggleAprilTagFamily(v), self);
+                self.send_cam_message(CamArg::ToggleAprilTagFamily(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleAprilTagDetection(v) => {
-                self.ft = send_cam_message(CamArg::ToggleAprilTagDetection(v), self);
+                self.send_cam_message(CamArg::ToggleAprilTagDetection(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleAprilTagDetectionSaveCsv(v) => {
-                self.ft = send_cam_message(CamArg::SetIsRecordingAprilTagCsv(v), self);
+                self.send_cam_message(CamArg::SetIsRecordingAprilTagCsv(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleImOpsDetection(v) => {
-                self.ft = send_cam_message(CamArg::ToggleImOpsDetection(v), self);
+                self.send_cam_message(CamArg::ToggleImOpsDetection(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetImOpsDestination(v) => {
-                self.ft = send_cam_message(CamArg::SetImOpsDestination(v), self);
+                self.send_cam_message(CamArg::SetImOpsDestination(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetImOpsSource(v) => {
-                self.ft = send_cam_message(CamArg::SetImOpsSource(v), self);
+                self.send_cam_message(CamArg::SetImOpsSource(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetImOpsCenterX(v) => {
-                self.ft = send_cam_message(CamArg::SetImOpsCenterX(v), self);
+                self.send_cam_message(CamArg::SetImOpsCenterX(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetImOpsCenterY(v) => {
-                self.ft = send_cam_message(CamArg::SetImOpsCenterY(v), self);
+                self.send_cam_message(CamArg::SetImOpsCenterY(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::SetImOpsTheshold(v) => {
-                self.ft = send_cam_message(CamArg::SetImOpsThreshold(v), self);
+                self.send_cam_message(CamArg::SetImOpsThreshold(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleFmfRecordingFrameRate(v) => {
-                self.ft = send_cam_message(CamArg::SetRecordingFps(v), self);
+                self.send_cam_message(CamArg::SetRecordingFps(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleMkvRecordingFrameRate(v) => {
-                self.ft = send_cam_message(CamArg::SetMkvRecordingFps(v), self);
+                self.send_cam_message(CamArg::SetMkvRecordingFps(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleMkvBitrate(v) => {
@@ -421,7 +484,7 @@ impl Component for Model {
                     ci2_remote_control::MkvCodec::VP9(ref mut o) => o.bitrate = v.to_u32(),
                     ci2_remote_control::MkvCodec::H264(ref mut o) => o.bitrate = v.to_u32(),
                 }
-                self.ft = send_cam_message(CamArg::SetMkvRecordingConfig(old_config), self);
+                self.send_cam_message(CamArg::SetMkvRecordingConfig(old_config), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleMkvCodec(idx) => {
@@ -441,7 +504,7 @@ impl Component for Model {
                         max_framerate: old_config.max_framerate.clone(),
                         ..Default::default()
                     };
-                    self.ft = send_cam_message(CamArg::SetMkvRecordingConfig(cfg), self);
+                    self.send_cam_message(CamArg::SetMkvRecordingConfig(cfg), ctx);
                 }
                 return false; // don't update DOM, do that on return
             }
@@ -454,71 +517,71 @@ impl Component for Model {
                     if let ci2_remote_control::MkvCodec::H264(ref mut opts) = &mut cfg.codec {
                         opts.cuda_device = cuda_device;
                     }
-                    self.ft = send_cam_message(CamArg::SetMkvRecordingConfig(cfg), self);
+                    self.send_cam_message(CamArg::SetMkvRecordingConfig(cfg), ctx);
                 }
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleFmfSave(v) => {
-                self.ft = send_cam_message(CamArg::SetIsRecordingFmf(v), self);
+                self.send_cam_message(CamArg::SetIsRecordingFmf(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
             Msg::ToggleUfmfSave(v) => {
-                self.ft = send_cam_message(CamArg::SetIsRecordingUfmf(v), self);
+                self.send_cam_message(CamArg::SetIsRecordingUfmf(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleMkvSave(v) => {
-                self.ft = send_cam_message(CamArg::SetIsRecordingMkv(v), self);
+                self.send_cam_message(CamArg::SetIsRecordingMkv(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
             Msg::TakeCurrentImageAsBackground => {
-                self.ft = self.send_message(&CallbackType::TakeCurrentImageAsBackground);
+                self.send_message(CallbackType::TakeCurrentImageAsBackground, ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
             Msg::ClearBackground(value) => {
-                self.ft = self.send_message(&CallbackType::ClearBackground(value));
+                self.send_message(CallbackType::ClearBackground(value), ctx);
                 return false; // don't update DOM, do that on return
             }
             #[cfg(feature = "with_camtrig")]
             Msg::CamtrigControlEvent(command) => {
-                self.ft = self.send_message(&CallbackType::ToCamtrig(command));
+                self.send_message(CallbackType::ToCamtrig(command), ctx);
                 return false; // don't update DOM, do that on return
             }
             #[cfg(feature = "checkercal")]
             Msg::ToggleCheckerboardDetection(val) => {
-                self.ft = send_cam_message(CamArg::ToggleCheckerboardDetection(val), self);
+                self.send_cam_message(CamArg::ToggleCheckerboardDetection(val), ctx);
                 return false;
             }
             #[cfg(feature = "checkercal")]
             Msg::ToggleCheckerboardDebug(val) => {
-                self.ft = send_cam_message(CamArg::ToggleCheckerboardDebug(val), self);
+                self.send_cam_message(CamArg::ToggleCheckerboardDebug(val), ctx);
                 return false;
             }
             #[cfg(feature = "checkercal")]
             Msg::SetCheckerboardWidth(val) => {
-                self.ft = send_cam_message(CamArg::SetCheckerboardWidth(val), self);
+                self.send_cam_message(CamArg::SetCheckerboardWidth(val), ctx);
                 return false;
             }
             #[cfg(feature = "checkercal")]
             Msg::SetCheckerboardHeight(val) => {
-                self.ft = send_cam_message(CamArg::SetCheckerboardHeight(val), self);
+                self.send_cam_message(CamArg::SetCheckerboardHeight(val), ctx);
                 return false;
             }
             #[cfg(feature = "checkercal")]
             Msg::PerformCheckerboardCalibration => {
-                self.ft = send_cam_message(CamArg::PerformCheckerboardCalibration, self);
+                self.send_cam_message(CamArg::PerformCheckerboardCalibration, ctx);
                 return false;
             }
             #[cfg(feature = "checkercal")]
             Msg::ClearCheckerboards => {
-                self.ft = send_cam_message(CamArg::ClearCheckerboards, self);
+                self.send_cam_message(CamArg::ClearCheckerboards, ctx);
                 return false;
             }
 
             Msg::SetPostTriggerBufferSize(val) => {
-                self.ft = send_cam_message(CamArg::SetPostTriggerBufferSize(val), self);
+                self.send_cam_message(CamArg::SetPostTriggerBufferSize(val), ctx);
                 return false;
             }
 
@@ -529,36 +592,32 @@ impl Component for Model {
                     ci2_remote_control::MkvRecordingConfig::default()
                 };
 
-                self.ft = send_cam_message(CamArg::PostTrigger(mkv_recording_config), self);
+                self.send_cam_message(CamArg::PostTrigger(mkv_recording_config), ctx);
                 return false; // don't update DOM, do that on return
-            }
-
-            Msg::Ignore => {
-                return false;
             }
         }
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let strand_cam_name = get_strand_cam_name(self.server_state.as_ref().map(AsRef::as_ref));
         html! {
             <div>
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ℹ"}</span></a></h1>
                 <img src="strand-camera-no-text.png" width="521" height="118" class="center" />
                 { self.disconnected_dialog() }
-                { self.frame_processing_error_dialog() }
+                { self.frame_processing_error_dialog(ctx) }
                 { self.camtrig_failed() }
                 <div class="wrapper">
-                    { self.view_video() }
-                    { self.view_decode_error() }
-                    { self.view_camtrig() }
-                    { self.view_led_triggering() }
-                    { self.view_mkv_recording_options() }
-                    { self.view_post_trigger_options() }
-                    { self.point_detection_ui() }
-                    { self.apriltag_detection_ui() }
-                    { self.im_ops_ui() }
+                    { self.view_video(ctx) }
+                    { self.view_decode_error(ctx) }
+                    { self.view_camtrig(ctx) }
+                    { self.view_led_triggering(ctx) }
+                    { self.view_mkv_recording_options(ctx) }
+                    { self.view_post_trigger_options(ctx) }
+                    { self.point_detection_ui(ctx) }
+                    { self.apriltag_detection_ui(ctx) }
+                    { self.im_ops_ui(ctx) }
                     { self.checkerboard_calibration_ui() }
 
                     <div class="wrap-collapsible">
@@ -567,13 +626,13 @@ impl Component for Model {
                             <p>{"Set values on the camera itself."}</p>
                         </div>
                         <div>
-                            { self.view_gain() }
-                            { self.view_exposure() }
-                            { self.view_frame_rate_limit() }
+                            { self.view_gain(ctx) }
+                            { self.view_exposure(ctx) }
+                            { self.view_frame_rate_limit(ctx) }
                         </div>
                     </div>
-                    { self.view_fmf_recording_options() }
-                    { self.view_kalman_tracking() }
+                    { self.view_fmf_recording_options(ctx) }
+                    { self.view_kalman_tracking(ctx) }
                 </div>
                 <footer id="footer">
                 {format!(
@@ -589,12 +648,25 @@ impl Component for Model {
 }
 
 impl Model {
-    fn view_decode_error(&self) -> Html {
+    fn send_message(&self, val: CallbackType, ctx: &Context<Self>) {
+        ctx.link().send_future(async move {
+            match post_message(&val).await {
+                Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+            }
+        });
+    }
+
+    fn send_cam_message(&self, args: CamArg, ctx: &Context<Self>) {
+        self.send_message(CallbackType::ToCamera(args), ctx);
+    }
+
+    fn view_decode_error(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref json_decode_err) = self.json_decode_err {
             html! {
                 <div>
                     <p>{"Error decoding callback JSON from server: "}{json_decode_err}</p>
-                    <p><Button title="Dismiss" onsignal=self.link.callback(|_| Msg::DismissJsonDecodeError) /></p>
+                    <p><Button title={"Dismiss"} onsignal={ctx.link().callback(|_| Msg::DismissJsonDecodeError)} /></p>
                 </div>
             }
         } else {
@@ -603,13 +675,13 @@ impl Model {
     }
 
     #[cfg(feature = "with_camtrig")]
-    fn view_camtrig(&self) -> Html {
+    fn view_camtrig(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if let Some(ref device_state) = shared.camtrig_device_state {
                 return html! {
                     <CamtrigControl
-                        device_state=device_state.clone()
-                        onsignal=self.link.callback(|x| Msg::CamtrigControlEvent(x))
+                        device_state={device_state.clone()}
+                        onsignal={ctx.link().callback(|x| Msg::CamtrigControlEvent(x))}
                     />
                 };
             }
@@ -620,23 +692,24 @@ impl Model {
     }
 
     #[cfg(not(feature = "with_camtrig"))]
-    fn view_camtrig(&self) -> Html {
+    fn view_camtrig(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <div>{""}</div>
         }
     }
 
-    fn view_video(&self) -> Html {
+    fn view_video(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             let title = format!("Live view - {}", shared.camera_name);
-            let frame_number = self.video_data.frame_number().unwrap_or(0);
             html! {
-                <VideoField title=title
-                    video_data=self.video_data.clone()
-                    frame_number=frame_number
-                    width=shared.image_width
-                    height=shared.image_height
-                    measured_fps=shared.measured_fps
+                <VideoField title={title}
+                    video_data={self.video_data.clone()}
+                    width={shared.image_width}
+                    height={shared.image_height}
+                    measured_fps={shared.measured_fps}
+                    onrendered={ctx.link().callback(|im_data2| {
+                        Msg::RenderedImage(im_data2)
+                    })}
                 />
             }
         } else {
@@ -649,7 +722,8 @@ impl Model {
     }
 
     fn disconnected_dialog(&self) -> Html {
-        if self.es.ready_state() == ReadyState::Open {
+        // 0: connecting, 1: open, 2: closed
+        if self.es.ready_state() != 2 {
             html! {
                <div>
                  { "" }
@@ -666,7 +740,7 @@ impl Model {
         }
     }
 
-    fn frame_processing_error_dialog(&self) -> Html {
+    fn frame_processing_error_dialog(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if shared.had_frame_processing_error {
                 return {
@@ -675,13 +749,13 @@ impl Model {
                         <h1> { "Error: frame processing too slow" } </h1>
                         <p>{"Processing of image frames is taking too long. Reduce the computational cost of image processing."}</p>
                         <p><Toggle
-                                label="Ignore all future errors"
-                                value=self.ignore_all_future_frame_processing_errors
-                                ontoggle=self.link.callback(|checked| {
+                                label={"Ignore all future errors"}
+                                value={self.ignore_all_future_frame_processing_errors}
+                                ontoggle={ctx.link().callback(|checked| {
                                     Msg::SetIgnoreAllFutureErrors(checked)
-                                })
+                                })}
                             /></p>
-                        <p><Button title="Dismiss" onsignal=self.link.callback(|_| Msg::DismissProcessingErrorModal) /></p>
+                        <p><Button title={"Dismiss"} onsignal={ctx.link().callback(|_| Msg::DismissProcessingErrorModal)} /></p>
                     </div>
                     }
                 };
@@ -726,7 +800,7 @@ impl Model {
         }
     }
 
-    fn view_mkv_recording_options(&self) -> Html {
+    fn view_mkv_recording_options(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             let available_codecs = shared.available_codecs();
 
@@ -745,9 +819,9 @@ impl Model {
                 html! {<div>
                     <h5>{"NVIDIA device to use for H264 encoding"}</h5>
                     <VecToggle<String>
-                        values=shared.cuda_devices.clone()
-                        selected_idx=selected_cuda_idx as usize
-                        onsignal=self.link.callback(|item| Msg::ToggleCudaDevice(item as i32))
+                        values={shared.cuda_devices.clone()}
+                        selected_idx={selected_cuda_idx as usize}
+                        onsignal={ctx.link().callback(|item| Msg::ToggleCudaDevice(item as i32))}
                     />
                 </div>}
             } else {
@@ -766,33 +840,33 @@ impl Model {
 
                         <div>
                             <RecordingPathWidget
-                                label="Record MKV file"
-                                value=shared.is_recording_mkv.clone()
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleMkvSave(checked)})
+                                label={"Record MKV file"}
+                                value={shared.is_recording_mkv.clone()}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleMkvSave(checked)})}
                                 />
                         </div>
                         <div>
                             <h5>{"MKV Max Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
-                                value=shared.mkv_recording_config.max_framerate.clone()
-                                onsignal=self.link.callback(Msg::ToggleMkvRecordingFrameRate)
+                                value={shared.mkv_recording_config.max_framerate.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleMkvRecordingFrameRate)}
                             />
                         </div>
 
                         <div>
                             <h5>{"MKV Codec"}</h5>
                             <VecToggle<CodecSelection>
-                                values=available_codecs
-                                selected_idx=selected_idx
-                                onsignal=self.link.callback(Msg::ToggleMkvCodec)
+                                values={available_codecs}
+                                selected_idx={selected_idx}
+                                onsignal={ctx.link().callback(Msg::ToggleMkvCodec)}
                             />
                         </div>
 
                         <div>
                             <h5>{"MKV Bitrate"}</h5>
                             <EnumToggle<BitrateSelection>
-                                value=get_bitrate(&shared.mkv_recording_config.codec).unwrap()
-                                onsignal=self.link.callback(Msg::ToggleMkvBitrate)
+                                value={get_bitrate(&shared.mkv_recording_config.codec).unwrap()}
+                                onsignal={ctx.link().callback(Msg::ToggleMkvBitrate)}
                             />
                         </div>
 
@@ -808,7 +882,7 @@ impl Model {
         }
     }
 
-    fn view_post_trigger_options(&self) -> Html {
+    fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
                 <CheckboxLabel label="Post Triggering" initially_checked=true />
@@ -819,12 +893,12 @@ impl Model {
                 <div>
                     <label>{"buffer size (number of frames) "}
                         <TypedInput<usize>
-                            storage=self.post_trigger_buffer_size_local.clone()
-                            on_send_valid=self.link.callback(Msg::SetPostTriggerBufferSize)
+                            storage={self.post_trigger_buffer_size_local.clone()}
+                            on_send_valid={ctx.link().callback(Msg::SetPostTriggerBufferSize)}
                             />
                     </label>
 
-                    <Button title="Post Trigger MKV Recording" onsignal=self.link.callback(|_| Msg::PostTriggerMkvRecording)/>
+                    <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
                     {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
 
                 </div>
@@ -832,15 +906,15 @@ impl Model {
         }
     }
 
-    fn view_fmf_recording_options(&self) -> Html {
+    fn view_fmf_recording_options(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             let ufmf_div = if shared.has_image_tracker_compiled {
                 html! {
                     <div>
                     <RecordingPathWidget
-                        label="Record µFMF file"
-                        value=shared.is_recording_ufmf.clone()
-                        ontoggle=self.link.callback(|checked| {Msg::ToggleUfmfSave(checked)})
+                        label={"Record µFMF file"}
+                        value={shared.is_recording_ufmf.clone()}
+                        ontoggle={ctx.link().callback(|checked| {Msg::ToggleUfmfSave(checked)})}
                         />
                     </div>
                 }
@@ -858,16 +932,16 @@ impl Model {
                         { ufmf_div }
                         <div>
                             <RecordingPathWidget
-                                label="Record FMF file (warning: huge files)"
-                                value=shared.is_recording_fmf.clone()
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleFmfSave(checked)})
+                                label={"Record FMF file (warning: huge files)"}
+                                value={shared.is_recording_fmf.clone()}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleFmfSave(checked)})}
                                 />
                         </div>
                         <div>
                             <h5>{"Record FMF Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
-                                value=shared.recording_framerate.clone()
-                                onsignal=self.link.callback(Msg::ToggleFmfRecordingFrameRate)
+                                value={shared.recording_framerate.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleFmfRecordingFrameRate)}
                             />
                         </div>
                     </div>
@@ -880,7 +954,7 @@ impl Model {
         }
     }
 
-    fn apriltag_detection_ui(&self) -> Html {
+    fn apriltag_detection_ui(&self, ctx: &Context<Self>) -> Html {
         let no_tag_result = html! {
             <div>
             </div>
@@ -894,25 +968,25 @@ impl Model {
                         <div>
                             <h5>{"Tag Family"}</h5>
                             <EnumToggle<TagFamily>
-                                value=ts.april_family.clone()
-                                onsignal=self.link.callback(Msg::ToggleTagFamily)
+                                value={ts.april_family.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleTagFamily)}
                             />
                         </div>
                         <div>
 
                             <div>
                                 <Toggle
-                                    label="Enable detection"
-                                    value=ts.do_detection
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetection(checked)})
+                                    label={"Enable detection"}
+                                    value={ts.do_detection}
+                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleAprilTagDetection(checked)})}
                                     />
                             </div>
 
                             <div>
                                 <RecordingPathWidget
-                                    label="Record detections to CSV file"
-                                    value=ts.is_recording_csv.clone()
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleAprilTagDetectionSaveCsv(checked)})
+                                    label={"Record detections to CSV file"}
+                                    value={ts.is_recording_csv.clone()}
+                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleAprilTagDetectionSaveCsv(checked)})}
                                     />
                             </div>
                         </div>
@@ -927,7 +1001,7 @@ impl Model {
         }
     }
 
-    fn im_ops_ui(&self) -> Html {
+    fn im_ops_ui(&self, ctx: &Context<Self>) -> Html {
         let empty = html! {
             <div>
             </div>
@@ -944,17 +1018,17 @@ impl Model {
                     <div>
                         <div>
                             <Toggle
-                                label="Enable detection"
-                                value=shared.im_ops_state.do_detection
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleImOpsDetection(checked)})
+                                label={"Enable detection"}
+                                value={shared.im_ops_state.do_detection}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleImOpsDetection(checked)})}
                                 />
                         </div>
 
                         <div>
                             <label>{"Destination (IP:Port)"}
                                 <TypedInput<SocketAddr>
-                                    storage=self.im_ops_destination_local.clone()
-                                    on_send_valid=self.link.callback(Msg::SetImOpsDestination)
+                                    storage={self.im_ops_destination_local.clone()}
+                                    on_send_valid={ctx.link().callback(Msg::SetImOpsDestination)}
                                     />
                             </label>
                         </div>
@@ -963,8 +1037,8 @@ impl Model {
                         <div>
                             <label>{"Source (IP)"}
                                 <TypedInput<IpAddr>
-                                    storage=self.im_ops_source_local.clone()
-                                    on_send_valid=self.link.callback(Msg::SetImOpsSource)
+                                    storage={self.im_ops_source_local.clone()}
+                                    on_send_valid={ctx.link().callback(Msg::SetImOpsSource)}
                                     />
                             </label>
                         </div>
@@ -973,8 +1047,8 @@ impl Model {
                         <div>
                             <label>{"Center X"}
                                 <TypedInput<u32>
-                                    storage=self.im_ops_center_x.clone()
-                                    on_send_valid=self.link.callback(Msg::SetImOpsCenterX)
+                                    storage={self.im_ops_center_x.clone()}
+                                    on_send_valid={ctx.link().callback(Msg::SetImOpsCenterX)}
                                     />
                             </label>
                         </div>
@@ -982,8 +1056,8 @@ impl Model {
                         <div>
                             <label>{"Center Y"}
                                 <TypedInput<u32>
-                                    storage=self.im_ops_center_y.clone()
-                                    on_send_valid=self.link.callback(Msg::SetImOpsCenterY)
+                                    storage={self.im_ops_center_y.clone()}
+                                    on_send_valid={ctx.link().callback(Msg::SetImOpsCenterY)}
                                     />
                             </label>
                         </div>
@@ -991,8 +1065,8 @@ impl Model {
                         <div>
                             <label>{"Threshold"}
                                 <TypedInput<u8>
-                                    storage=self.im_ops_threshold.clone()
-                                    on_send_valid=self.link.callback(Msg::SetImOpsTheshold)
+                                    storage={self.im_ops_threshold.clone()}
+                                    on_send_valid={ctx.link().callback(Msg::SetImOpsTheshold)}
                                     />
                             </label>
                         </div>
@@ -1005,7 +1079,7 @@ impl Model {
         }
     }
 
-    fn point_detection_ui(&self) -> Html {
+    fn point_detection_ui(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if shared.has_image_tracker_compiled {
                 let cfg_clone = shared.im_pt_detect_cfg.clone();
@@ -1016,50 +1090,50 @@ impl Model {
 
                             <div>
                                 <Toggle
-                                    label="Enable object detection"
-                                    value=shared.is_doing_object_detection
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetection(checked)})
+                                    label={"Enable object detection"}
+                                    value={shared.is_doing_object_detection}
+                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetection(checked)})}
                                     />
                             </div>
 
                             <div>
                                 <RecordingPathWidget
-                                    label="Record CSV file"
-                                    value=shared.is_saving_im_pt_detect_csv.clone()
-                                    ontoggle=self.link.callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)})
+                                    label={"Record CSV file"}
+                                    value={shared.is_saving_im_pt_detect_csv.clone()}
+                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)})}
                                     />
                             </div>
 
                             <div>
                                 <h5>{"CSV Max Rate"}</h5>
                                 <EnumToggle<RecordingFrameRate>
-                                    value=self.csv_recording_rate.clone()
-                                    onsignal=self.link.callback(Msg::ToggleCsvRecordingRate)
+                                    value={self.csv_recording_rate.clone()}
+                                    onsignal={ctx.link().callback(Msg::ToggleCsvRecordingRate)}
                                 />
                             </div>
 
                             <div>
                                 <Toggle
-                                    label="Update background model"
-                                    value=shared.im_pt_detect_cfg.do_update_background_model
-                                    ontoggle=self.link.callback(move |checked| {
+                                    label={"Update background model"}
+                                    value={shared.im_pt_detect_cfg.do_update_background_model}
+                                    ontoggle={ctx.link().callback(move |checked| {
                                         let mut cfg_clone2 = cfg_clone.clone();
                                         cfg_clone2.do_update_background_model = checked;
                                         let cfg_str = serde_yaml::to_string(&cfg_clone2).unwrap();
                                         Msg::SetObjDetectionConfig(cfg_str)
-                                    })
+                                    })}
                                     />
                             </div>
                             <div>
                                 <h5>{"Detailed configuration"}</h5>
                                 <ConfigField<ImPtDetectCfg>
-                                    server_version=Some(shared.im_pt_detect_cfg.clone())
-                                    rows=16
-                                    onsignal=self.link.callback(|cfg| {Msg::SetObjDetectionConfig(cfg)})
+                                    server_version={Some(shared.im_pt_detect_cfg.clone())}
+                                    rows={16}
+                                    onsignal={ctx.link().callback(|cfg| {Msg::SetObjDetectionConfig(cfg)})}
                                     />
                                 <div class="reset-background-btn">
-                                    <Button title="Take Current Image As Background" onsignal=self.link.callback(|_| Msg::TakeCurrentImageAsBackground)/>
-                                    <Button title="Set background to mid-gray" onsignal=self.link.callback(|_| Msg::ClearBackground(127.0))/>
+                                    <Button title={"Take Current Image As Background"} onsignal={ctx.link().callback(|_| Msg::TakeCurrentImageAsBackground)}/>
+                                    <Button title={"Set background to mid-gray"} onsignal={ctx.link().callback(|_| Msg::ClearBackground(127.0))}/>
                                 </div>
                             </div>
                         </div>
@@ -1097,22 +1171,22 @@ impl Model {
 
                 html! {
                     <div class="wrap-collapsible">
-                        <CheckboxLabel label="Checkerboard Calibration" />
+                        <CheckboxLabel label={"Checkerboard Calibration"} />
                         <div>
                             <p>{"This enables estimation of lens distortion parameters."}</p>
                         </div>
                         <div>
 
                             <Toggle
-                                label="Enable checkerboard calibration"
-                                value=shared.checkerboard_data.enabled
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDetection(checked)})
+                                label={"Enable checkerboard calibration"}
+                                value={shared.checkerboard_data.enabled}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDetection(checked)})}
                                 />
 
                             <Toggle
-                                label="Save debug information"
-                                value=shared.checkerboard_save_debug.is_some()
-                                ontoggle=self.link.callback(|checked| {Msg::ToggleCheckerboardDebug(checked)})
+                                label={"Save debug information"}
+                                value={shared.checkerboard_save_debug.is_some()}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDebug(checked)})}
                                 />
 
                             <div>{checkerboard_debug}</div>
@@ -1121,14 +1195,14 @@ impl Model {
                             <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7 for a standard chessboard)."}</p>
                             <label>{"width"}
                                 <TypedInput<u32>
-                                    storage=self.checkerboard_width.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardWidth(v))
+                                    storage={self.checkerboard_width.clone()}
+                                    on_send_valid={ctx.link().callback(|v| Msg::SetCheckerboardWidth(v))}
                                     />
                             </label>
                             <label>{"height"}
                                 <TypedInput<u32>
-                                    storage=self.checkerboard_height.clone()
-                                    on_send_valid=self.link.callback(|v| Msg::SetCheckerboardHeight(v))
+                                    storage={self.checkerboard_height.clone()}
+                                    on_send_valid={ctx.link().callback(|v| Msg::SetCheckerboardHeight(v))}
                                     />
                             </label>
 
@@ -1139,15 +1213,15 @@ impl Model {
                             </div>
 
                             <Button
-                                title="Clear Checkerboards"
-                                onsignal=self.link.callback(move |_| Msg::ClearCheckerboards)
+                                title={"Clear Checkerboards"}
+                                onsignal={ctx.link().callback(move |_| Msg::ClearCheckerboards)}
                                 />
 
                             <Button
-                                title="Perform and Save Calibration"
-                                disabled=disabled
-                                is_active=is_active
-                                onsignal=self.link.callback(move |_| Msg::PerformCheckerboardCalibration)
+                                title={"Perform and Save Calibration"}
+                                disabled={disabled}
+                                is_active={is_active}
+                                onsignal={ctx.link().callback(move |_| Msg::PerformCheckerboardCalibration)}
                                 />
 
                         </div>
@@ -1167,7 +1241,8 @@ impl Model {
         }
     }
 
-    fn view_kalman_tracking(&self) -> Html {
+    #[allow(unused_variables)]
+    fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
         #[cfg(feature = "flydratrax")]
         {
             if let Some(ref shared) = self.server_state {
@@ -1178,9 +1253,9 @@ impl Model {
                             <div>
                                 <h5>{"Kalman tracking configuration"}</h5>
                                 <ConfigField<KalmanTrackingConfig>
-                                    server_version=Some(shared.kalman_tracking_config.clone())
+                                    server_version={Some(shared.kalman_tracking_config.clone())}
                                     rows=5
-                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)})
+                                    onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)})}
                                     />
                             </div>
                         </div>
@@ -1200,7 +1275,8 @@ impl Model {
         }
     }
 
-    fn view_led_triggering(&self) -> Html {
+    #[allow(unused_variables)]
+    fn view_led_triggering(&self, ctx: &Context<Self>) -> Html {
         #[cfg(feature = "flydratrax")]
         {
             if let Some(ref shared) = self.server_state {
@@ -1211,9 +1287,9 @@ impl Model {
                             <div>
                                 <h5>{"Led program configuration"}</h5>
                                 <ConfigField<LedProgramConfig>
-                                    server_version=Some(shared.led_program_config.clone())
+                                    server_version={Some(shared.led_program_config.clone())}
                                     rows=7
-                                    onsignal=self.link.callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)})
+                                    onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)})}
                                     />
                             </div>
                     </div>
@@ -1232,22 +1308,22 @@ impl Model {
         }
     }
 
-    fn view_gain(&self) -> Html {
+    fn view_gain(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if let Some(gain_auto) = shared.gain_auto {
                 return html! {
-                    <div class=classes!("gain-main","cam-range-main")>
+                    <div class={classes!("gain-main","cam-range-main")}>
                         <h3>{ "Gain" }</h3>
                         <div class="cam-range-inner">
-                            <AutoModeSelect mode=gain_auto onsignal=self.link.callback(|g| {Msg::SetGainAuto(g)}) />
+                            <AutoModeSelect mode={gain_auto} onsignal={ctx.link().callback(|g| {Msg::SetGainAuto(g)})} />
                             <RangedValue
-                                unit=shared.gain.unit.clone()
-                                min=shared.gain.min as f32
-                                max=shared.gain.max as f32
-                                current=shared.gain.current as f32
-                                current_value_label=LAST_DETECTED_VALUE_LABEL
-                                placeholder=shared.gain.name.clone()
-                                onsignal=self.link.callback(|v| {Msg::SetGainValue(v as f64)})
+                                unit={shared.gain.unit.clone()}
+                                min={shared.gain.min as f32}
+                                max={shared.gain.max as f32}
+                                current={shared.gain.current as f32}
+                                current_value_label={LAST_DETECTED_VALUE_LABEL}
+                                placeholder={shared.gain.name.clone()}
+                                onsignal={ctx.link().callback(|v| {Msg::SetGainValue(v as f64)})}
                                 />
                         </div>
                     </div>
@@ -1259,22 +1335,22 @@ impl Model {
         }
     }
 
-    fn view_exposure(&self) -> Html {
+    fn view_exposure(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if let Some(exposure_auto) = shared.exposure_auto {
                 return html! {
-                    <div class=classes!("exposure-main","cam-range-main")>
+                    <div class={classes!("exposure-main","cam-range-main")}>
                         <h3>{ "Exposure Time" }</h3>
                         <div class="cam-range-inner">
-                            <AutoModeSelect mode=exposure_auto onsignal=self.link.callback(|g| {Msg::SetExposureAuto(g)}) />
+                            <AutoModeSelect mode={exposure_auto} onsignal={ctx.link().callback(|g| {Msg::SetExposureAuto(g)}) }/>
                             <RangedValue
-                                unit=shared.exposure_time.unit.clone()
-                                min=shared.exposure_time.min as f32
-                                max=shared.exposure_time.max as f32
-                                current=shared.exposure_time.current as f32
-                                current_value_label=LAST_DETECTED_VALUE_LABEL
-                                placeholder=shared.exposure_time.name.clone()
-                                onsignal=self.link.callback(|v| {Msg::SetExposureValue(v as f64)})
+                                unit={shared.exposure_time.unit.clone()}
+                                min={shared.exposure_time.min as f32}
+                                max={shared.exposure_time.max as f32}
+                                current={shared.exposure_time.current as f32}
+                                current_value_label={LAST_DETECTED_VALUE_LABEL}
+                                placeholder={shared.exposure_time.name.clone()}
+                                onsignal={ctx.link().callback(|v| {Msg::SetExposureValue(v as f64)})}
                                 />
                         </div>
                     </div>
@@ -1286,11 +1362,11 @@ impl Model {
         }
     }
 
-    fn view_frame_rate_limit(&self) -> Html {
+    fn view_frame_rate_limit(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if let Some(ref frl) = shared.frame_rate_limit {
                 html! {
-                    <div class=classes!("frame-rate-main","cam-range-main")>
+                    <div class={classes!("frame-rate-main","cam-range-main")}>
                         <h3>{ "Maximum Frame Rate" }</h3>
                             <div class="auto-mode-container">
                                 <div class="auto-mode-label">
@@ -1298,20 +1374,20 @@ impl Model {
                                 </div>
                                 <div class="auto-mode-buttons">
                                     <EnumToggle<bool>
-                                        value=shared.frame_rate_limit_enabled
-                                        onsignal=self.link.callback(Msg::SetFrameRateLimitEnabled)
+                                        value={shared.frame_rate_limit_enabled}
+                                        onsignal={ctx.link().callback(Msg::SetFrameRateLimitEnabled)}
                                     />
                                 </div>
                             </div>
                         <div class="cam-range-inner">
                             <RangedValue
-                                unit=frl.unit.clone()
-                                min=frl.min as f32
-                                max=frl.max as f32
-                                current=frl.current as f32
-                                current_value_label=LAST_DETECTED_VALUE_LABEL
-                                placeholder=frl.name.clone()
-                                onsignal=self.link.callback(|v| {Msg::SetFrameRateLimit(v as f64)})
+                                unit={frl.unit.clone()}
+                                min={frl.min as f32}
+                                max={frl.max as f32}
+                                current={frl.current as f32}
+                                current_value_label={LAST_DETECTED_VALUE_LABEL}
+                                placeholder={frl.name.clone()}
+                                onsignal={ctx.link().callback(|v| {Msg::SetFrameRateLimit(v as f64)})}
                                 />
                         </div>
                     </div>
@@ -1329,10 +1405,6 @@ impl Model {
     }
 }
 
-fn send_cam_message(args: CamArg, model: &mut Model) -> Option<FetchTask> {
-    model.send_message(&CallbackType::ToCamera(args))
-}
-
 fn to_rate(rate_enum: &RecordingFrameRate) -> Option<f32> {
     match rate_enum {
         RecordingFrameRate::Fps1 => Some(1.0),
@@ -1347,38 +1419,64 @@ fn to_rate(rate_enum: &RecordingFrameRate) -> Option<f32> {
     }
 }
 
-impl Model {
-    fn send_message(&mut self, args: &CallbackType) -> Option<yew::services::fetch::FetchTask> {
-        let post_request = Request::post("callback")
-            .header("Content-Type", "application/json;charset=UTF-8")
-            .body(Json(&args))
-            .expect("Failed to build request.");
+// impl Model {
+//     fn send_message(&mut self, args: &CallbackType) -> Option<yew::services::fetch::FetchTask> {
+//         let post_request = Request::post("callback")
+//             .header("Content-Type", "application/json;charset=UTF-8")
+//             .body(Json(&args))
+//             .expect("Failed to build request.");
 
-        let callback =
-            self.link
-                .callback(move |response: Response<Json<Result<(), anyhow::Error>>>| {
-                    if let (meta, Json(Ok(_body))) = response.into_parts() {
-                        if meta.status.is_success() {
-                            return Msg::Ignore;
-                        }
-                    }
-                    log::error!("failed sending message");
-                    Msg::Ignore
-                });
-        let options = FetchOptions {
-            credentials: Some(Credentials::SameOrigin),
-            ..Default::default()
-        };
+//         let callback =
+//             self.link
+//                 .callback(move |response: Response<Json<Result<(), anyhow::Error>>>| {
+//                     if let (meta, Json(Ok(_body))) = response.into_parts() {
+//                         if meta.status.is_success() {
+//                             return Msg::Ignore;
+//                         }
+//                     }
+//                     log::error!("failed sending message");
+//                     Msg::Ignore
+//                 });
+//         let options = FetchOptions {
+//             credentials: Some(Credentials::SameOrigin),
+//             ..Default::default()
+//         };
 
-        match FetchService::fetch_with_options(post_request, options, callback) {
-            Ok(task) => Some(task),
-            Err(err) => {
-                log::error!("sending message failed with error: {}", err);
-                None
-            }
-        }
-    }
+//         match FetchService::fetch_with_options(post_request, options, callback) {
+//             Ok(task) => Some(task),
+//             Err(err) => {
+//                 log::error!("sending message failed with error: {}", err);
+//                 None
+//             }
+//         }
+//     }
+// }
+
+// -----------------------------------------------------------------------------
+
+async fn post_message(msg: &CallbackType) -> Result<(), FetchError> {
+    use web_sys::{Request, RequestInit, Response};
+    let mut opts = RequestInit::new();
+    opts.method("POST");
+    // opts.mode(web_sys::RequestMode::Cors);
+    // opts.headers("Content-Type", "application/json;charset=UTF-8")
+    // set SameOrigin
+    let buf = serde_json::to_string(&msg).unwrap_throw();
+    opts.body(Some(&JsValue::from_str(&buf)));
+
+    let url = "callback";
+    let request = Request::new_with_str_and_init(url, &opts)?;
+
+    let window = gloo_utils::window();
+    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
+    let resp: Response = resp_value.dyn_into().unwrap_throw();
+
+    let text = JsFuture::from(resp.text()?).await?;
+    let _text_string = text.as_string().unwrap_throw();
+    Ok(())
 }
+
+// -----------------------------------------------------------------------------
 
 fn get_strand_cam_name(server_state: Option<&ServerState>) -> &'static str {
     if server_state.map(|x| x.is_braid).unwrap_or(false) {

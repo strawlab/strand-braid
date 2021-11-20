@@ -1,25 +1,25 @@
+use std::{cell::RefCell, rc::Rc};
+
+use crate::video_data::VideoData;
 use bui_backend_types;
+use gloo::timers::callback::Timeout;
 use serde::{Deserialize, Serialize};
-use video_data::VideoData;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
-use yew::prelude::*;
+use yew::{html, Callback, Component, Context, Html, MouseEvent, Properties};
 
 use yew_tincture::components::CheckboxLabel;
 
-use http_video_streaming_types::{CanvasDrawableShape, DrawableShape, Point, StrokeStyle};
+use http_video_streaming_types::{CanvasDrawableShape, FirehoseCallbackInner, Point, StrokeStyle};
 
-const PLAYING_FPS: f32 = 10.0;
-const PAUSED_FPS: f32 = 0.1;
+const PLAYING_FPS: f64 = 10.0;
+const PAUSED_FPS: f64 = 0.1;
 
 #[derive(Debug)]
 struct MouseCoords {
     x: f64,
     y: f64,
 }
-
-// js_serializable!(MouseCoords);
-// js_deserializable!(MouseCoords);
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ImData2 {
@@ -31,79 +31,70 @@ pub struct ImData2 {
     pub name: Option<String>,
 }
 
-// js_serializable!(ImData2);
-// js_deserializable!(ImData2);
-
 #[derive(Debug, PartialEq, Clone)]
 struct LoadedFrame {
     handle: JsValue,
     in_msg: ImData2,
 }
 
-// js_serializable!(LoadedFrame);
-// js_deserializable!(LoadedFrame);
-
 pub struct VideoField {
+    image: web_sys::HtmlImageElement,
     show_div: bool, // synchronized to whether we are visible
-    title: String,
     css_id: String,
-    last_frame_render_msec: f64,
-    width: u32,
-    height: u32,
+    last_frame_render: f64,
     mouse_xy: Option<MouseCoords>,
-    frame_number: u64,
-    measured_fps: f32,
-    link: ComponentLink<VideoField>,
     green_stroke: StrokeStyle,
+    green: JsValue,
+    rendered_frame_number: Option<u64>,
+    timeout: Option<Timeout>,
 }
 
 pub enum Msg {
-    FrameLoaded(JsValue),
+    FrameLoaded(ImData2),
+    NotifySender(FirehoseCallbackInner),
     MouseMove(MouseEvent),
     ToggleCollapsed(bool),
 }
 
-#[derive(PartialEq, Clone, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct Props {
     pub title: String,
-    pub video_data: VideoData,
+    pub video_data: Rc<RefCell<VideoData>>,
     pub width: u32,
     pub height: u32,
-    pub frame_number: u64,
     pub measured_fps: f32,
+    pub onrendered: Option<Callback<FirehoseCallbackInner>>,
 }
 
 impl Component for VideoField {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            title: props.title,
+            image: web_sys::HtmlImageElement::new().unwrap_throw(),
             css_id: uuid::Uuid::new_v4().to_string(),
-            last_frame_render_msec: 0.0,
-            width: props.width,
-            height: props.height,
+            last_frame_render: 0.0,
             mouse_xy: None,
-            frame_number: 0,
-            measured_fps: props.measured_fps,
             show_div: true,
-            link,
             green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
+            green: JsValue::from("7fff7f"),
+            rendered_frame_number: None,
+            timeout: None,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::MouseMove(mminfo) => {
                 let client_x = mminfo.client_x() as f64;
                 let client_y = mminfo.client_y() as f64;
-                let document = web_sys::window().unwrap().document().unwrap();
-                let canvas = document.get_element_by_id(&self.css_id).unwrap();
+                let document = gloo_utils::document();
+                let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
                 let canvas: web_sys::HtmlCanvasElement = canvas
                     .dyn_into::<web_sys::HtmlCanvasElement>()
                     .map_err(|_| ())
-                    .unwrap();
+                    .unwrap_throw();
                 let rect = canvas.get_bounding_client_rect(); // abs. size of element
                 let scale_x = canvas.width() as f64 / rect.width(); // relationship bitmap vs. element for X
                 let scale_y = canvas.height() as f64 / rect.height(); // relationship bitmap vs. element for Y
@@ -119,105 +110,112 @@ impl Component for VideoField {
             Msg::ToggleCollapsed(checked) => {
                 self.show_div = checked;
             }
-            Msg::FrameLoaded(handle) => {
-                // Now the onload event has fired
-                let rs_max_framerate = match self.show_div {
-                    true => PLAYING_FPS,
-                    false => PAUSED_FPS,
+            Msg::FrameLoaded(im_data) => {
+                self.draw_frame_canvas(&im_data);
+
+                // Wait before returning request for new frame to throttle view.
+                let wait_msecs = {
+                    let now = js_sys::Date::now(); // in milliseconds
+                    let max_framerate = match self.show_div {
+                        true => PLAYING_FPS,
+                        false => PAUSED_FPS,
+                    };
+                    let desired_dt = 1.0 / max_framerate * 1000.0; // convert to msec
+                    let desired_now = self.last_frame_render + desired_dt;
+                    let wait = desired_now - now;
+                    self.last_frame_render = now;
+                    wait.round() as i64
                 };
 
-                self.last_frame_render_msec = do_frame_loaded(
-                    rs_max_framerate,
-                    &self.css_id,
-                    self.last_frame_render_msec,
-                    handle,
-                );
+                let fno = im_data.fno;
+                let fci = FirehoseCallbackInner {
+                    ck: im_data.ck,
+                    fno: im_data.fno as usize,
+                    name: im_data.name.clone(),
+                    ts_rfc3339: im_data.ts_rfc3339,
+                };
+
+                if wait_msecs > 0 {
+                    let millis = wait_msecs as u32;
+                    let handle = {
+                        let link = ctx.link().clone();
+                        Timeout::new(millis, move || link.send_message(Msg::NotifySender(fci)))
+                    };
+                    self.timeout = Some(handle);
+                } else {
+                    self.timeout = None;
+                    ctx.link().send_message(Msg::NotifySender(fci));
+                }
+
+                self.rendered_frame_number = Some(fno);
+            }
+            Msg::NotifySender(fci) => {
+                self.timeout = None;
+                if let Some(ref callback) = ctx.props().onrendered {
+                    callback.emit(fci);
+                }
             }
         }
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.title = props.title;
-        self.width = props.width;
-        self.height = props.height;
-        self.frame_number = props.frame_number;
-        self.measured_fps = props.measured_fps;
-        if let Some(in_msg) = props.video_data.inner() {
-            let data_url = in_msg.firehose_frame_data_url;
-            let mut draw_shapes = in_msg.annotations;
+    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+        let mut video_data = ctx.props().video_data.borrow_mut();
+        if let Some(in_msg) = video_data.take() {
+            // Here we copy the image data. Todo: can we avoid this?
+            let data_url = in_msg.firehose_frame_data_url.clone();
+            let mut draw_shapes = in_msg.annotations.clone();
             if let Some(ref valid_display) = in_msg.valid_display {
                 let line_width = 5.0;
-                let green_shape =
-                    DrawableShape::from_shape(valid_display, &self.green_stroke, line_width);
+                let green_shape = http_video_streaming_types::DrawableShape::from_shape(
+                    valid_display,
+                    &self.green_stroke,
+                    line_width,
+                );
                 draw_shapes.push(green_shape);
             }
             let in_msg2 = ImData2 {
                 ck: in_msg.ck,
                 fno: in_msg.fno,
-                found_points: in_msg.found_points,
-                name: in_msg.name,
+                found_points: in_msg.found_points.clone(),
+                name: in_msg.name.clone(),
                 ts_rfc3339: in_msg.ts_rfc3339,
                 draw_shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
             };
-            let in_msg2 = JsValue::from_serde(&in_msg2).unwrap();
 
-            let callback = self.link.callback(Msg::FrameLoaded);
+            let callback = ctx
+                .link()
+                .callback(move |_| Msg::FrameLoaded(in_msg2.clone()));
 
-            // This is typically hidden in a task. Can we make this a Task?
-            let callback2 = Closure::once_into_js(move |v: JsValue| {
-                callback.emit(v);
-            });
+            let on_load_closure = Closure::wrap(Box::new(move || {
+                callback.emit(0u8); // dummy arg for callback
+            }) as Box<dyn FnMut()>);
 
-            // let callback2 = Closure::once(move |v: JsValue| {
-            //     callback.emit(v);
-            // });
-
-            // let callback2 = Closure::wrap(Box::new(move |v: JsValue| {
-            //     callback.emit(v);
-            // }) as Box<dyn FnMut(JsValue)>);
-
-            // let img = web_sys::HtmlImageElement::new().unwrap();
-            // img.set_src(&data_url);
-            // img.set_onload(Some(callback2.as_ref().unchecked_ref()));
-
-            set_frame_load_callback(data_url, in_msg2, callback2);
-
-            // js! {
-            //     @(no_return)
-            //     let img = new Image();
-            //     let data_url = @{data_url};
-            //     let in_msg2 = @{in_msg2};
-            //     let jscallback = @{callback2};
-            //     img.src = data_url;
-            //     img.onload = function () {
-            //         let handle = {
-            //             img,
-            //             in_msg2,
-            //         };
-
-            //         jscallback(handle);
-            //         jscallback.drop();
-            //     };
-            // };
+            self.image.set_src(&data_url);
+            self.image
+                .set_onload(Some(on_load_closure.as_ref().unchecked_ref()));
+            on_load_closure.forget();
         }
         true
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
               <CheckboxLabel
-                label=self.title.clone()
-                initially_checked=self.show_div
-                oncheck=self.link.callback(Msg::ToggleCollapsed)
+                label={ctx.props().title.clone()}
+                initially_checked={self.show_div}
+                oncheck={ctx.link().callback(Msg::ToggleCollapsed)}
                 />
               <div>
-                <canvas width=format!("{}",self.width) height=format!("{}",self.height)
-                    id=self.css_id.clone() class="video-field-canvas"
-                    onmousemove=self.link.callback(Msg::MouseMove)
+                <canvas
+                    width={format!("{}",ctx.props().width)}
+                    height={format!("{}",ctx.props().height)}
+                    id={self.css_id.clone()}
+                    class="video-field-canvas"
+                    onmousemove={ctx.link().callback(Msg::MouseMove)}
                     />
-                { self.view_text() }
+                { self.view_text(ctx) }
               </div>
             </div>
         }
@@ -225,28 +223,101 @@ impl Component for VideoField {
 }
 
 impl VideoField {
-    fn view_text(&self) -> Html {
+    fn view_text(&self, ctx: &Context<Self>) -> Html {
         let mouse_str = if let Some(ref mouse_pos) = self.mouse_xy {
             format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
         } else {
             "".to_string()
         };
-        let fno_str = format!("{}", self.frame_number);
+        let fno_str = format!("{}", self.rendered_frame_number.unwrap_or(0));
         html! {
             <div class="video-field-text">
                 <div class="video-field-fno">{"frame: "}{ &fno_str }</div>
                 <div class="video-field-mousepos">{"mouse: "}{ &mouse_str }</div>
                 <div class="video-field-fps">
-                    {"frames per second: "}{ format!("{:.1}", self.measured_fps) }
+                    {"frames per second: "}{ format!("{:.1}", ctx.props().measured_fps) }
                 </div>
             </div>
         }
     }
-}
 
-#[wasm_bindgen(module = "/src/components/video_field.js")]
-extern "C" {
-    fn set_frame_load_callback(data_url: String, in_msg2: JsValue, jscallback: JsValue);
-    fn do_frame_loaded(fps: f32, css_id: &str, last_frame_render_msec: f64, handle: JsValue)
-        -> f64;
+    fn draw_frame_canvas(&self, in_msg: &ImData2) {
+        let document = gloo_utils::document();
+        let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap_throw();
+        let ctx = web_sys::CanvasRenderingContext2d::from(JsValue::from(
+            canvas.get_context("2d").unwrap_throw().unwrap_throw(),
+        ));
+
+        ctx.draw_image_with_html_image_element(&self.image, 0.0, 0.0)
+            .unwrap_throw();
+
+        ctx.set_stroke_style(&self.green);
+        ctx.set_line_width(1.0);
+
+        for pt in in_msg.found_points.iter() {
+            ctx.begin_path();
+            ctx.arc(
+                // circle
+                pt.x as f64,
+                pt.y as f64,
+                30.0,
+                0.0,
+                std::f64::consts::PI * 2.0,
+            )
+            .unwrap_throw();
+
+            let r: f64 = 30.0;
+            if let Some(theta) = pt.theta {
+                let theta = theta as f64;
+                let dx = r * theta.cos();
+                let dy = r * theta.sin();
+                ctx.move_to(pt.x as f64 - dx, pt.y as f64 - dy);
+                ctx.line_to(pt.x as f64 + dx, pt.y as f64 + dy);
+            }
+
+            ctx.close_path();
+            ctx.stroke();
+        }
+
+        for drawable_shape in in_msg.draw_shapes.iter() {
+            ctx.set_stroke_style(&drawable_shape.stroke_style.clone().into());
+            ctx.set_line_width(drawable_shape.line_width as f64);
+            use http_video_streaming_types::Shape;
+            match &drawable_shape.shape {
+                Shape::Everything => {}
+                Shape::Circle(circle) => {
+                    ctx.begin_path();
+                    ctx.arc(
+                        // circle
+                        circle.center_x as f64,
+                        circle.center_y as f64,
+                        circle.radius as f64,
+                        0.0,
+                        std::f64::consts::PI * 2.0,
+                    )
+                    .unwrap_throw();
+                    ctx.close_path();
+                    ctx.stroke();
+                }
+                Shape::Polygon(polygon) => {
+                    let p = &polygon.points[..];
+                    if p.len() > 1 {
+                        ctx.begin_path();
+
+                        ctx.move_to(p[0].0 as f64, p[0].1 as f64);
+                        for pp in &p[1..] {
+                            ctx.line_to(pp.0 as f64, pp.1 as f64);
+                        }
+
+                        ctx.close_path();
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+    }
 }

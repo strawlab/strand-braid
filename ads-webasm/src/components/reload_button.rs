@@ -1,16 +1,13 @@
-use yew::prelude::*;
+use yew::{html, Component, Context, Html, Properties};
 use yew_tincture::components::Button;
 
-pub struct ReloadButton {
-    link: ComponentLink<Self>,
-    label: String,
-}
+pub struct ReloadButton {}
 
 pub enum Msg {
     Clicked,
 }
 
-#[derive(PartialEq, Clone, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct Props {
     pub label: String,
 }
@@ -19,31 +16,26 @@ impl Component for ReloadButton {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            link,
-            label: props.label,
-        }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clicked => {
-                let window = web_sys::window().unwrap();
+                let window = gloo_utils::window();
                 window.location().reload().unwrap();
             }
         }
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.label = props.label;
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <Button title=self.label.clone() onsignal=self.link.callback(|_| Msg::Clicked)/>
+            <Button
+                title={ctx.props().label.clone()}
+                onsignal={ctx.link().callback(|_| Msg::Clicked)}
+            />
         }
     }
 }

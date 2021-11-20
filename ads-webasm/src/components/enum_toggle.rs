@@ -1,7 +1,7 @@
 use enum_iter::EnumIter;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use yew::prelude::*;
+use yew::{html, Callback, Component, Context, Html, Properties};
 use yew_tincture::components::Button;
 
 pub struct EnumToggle<T>
@@ -9,19 +9,17 @@ where
     T: EnumIter + Default + Clone + PartialEq + Serialize + 'static + fmt::Display,
     for<'de> T: Deserialize<'de>,
 {
-    link: ComponentLink<Self>,
-    value: T,
-    onsignal: Option<Callback<T>>,
+    _type: std::marker::PhantomData<T>,
 }
 
 pub enum Msg<T> {
     Clicked(T),
 }
 
-#[derive(PartialEq, Clone, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct Props<T>
 where
-    T: Default + Clone,
+    T: Default + Clone + PartialEq,
 {
     pub value: T,
     pub onsignal: Option<Callback<T>>,
@@ -35,18 +33,16 @@ where
     type Message = Msg<T>;
     type Properties = Props<T>;
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
-            value: props.value,
-            onsignal: props.onsignal,
+            _type: std::marker::PhantomData,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clicked(variant) => {
-                if let Some(ref callback) = self.onsignal {
+                if let Some(ref callback) = ctx.props().onsignal {
                     callback.emit(variant)
                 }
             }
@@ -54,23 +50,17 @@ where
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.value = props.value;
-        self.onsignal = props.onsignal;
-        true
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let all_rendered = T::variants().iter().map(|variant| {
             let name = format!("{}", variant);
-            let is_active = &self.value == variant;
+            let is_active = &ctx.props().value == variant;
             let disabled = is_active; // do not allow clicking currently active state
             html! {
                 <Button
-                    title=name
-                    disabled=disabled
-                    is_active=is_active
-                    onsignal=self.link.callback(move |_| Msg::Clicked(variant.clone()))
+                    title={name}
+                    disabled={disabled}
+                    is_active={is_active}
+                    onsignal={ctx.link().callback(move |_| Msg::Clicked(variant.clone()))}
                 />
             }
         });
