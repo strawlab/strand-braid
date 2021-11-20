@@ -1,8 +1,8 @@
-use super::Button;
 use enum_iter::EnumIter;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use yew::prelude::*;
+use yew_tincture::components::Button;
 
 pub struct EnumToggle<T>
 where

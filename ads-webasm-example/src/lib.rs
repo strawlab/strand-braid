@@ -6,11 +6,9 @@ use wasm_bindgen::prelude::*;
 use rust_cam_bui_types::RecordingPath;
 use yew::prelude::*;
 
-use ads_webasm::components::{
-    ConfigField, CsvDataField, MaybeCsvData, RecordingPathWidget, TypedInput,
-};
+use ads_webasm::components::{ConfigField, CsvDataField, MaybeCsvData, RecordingPathWidget};
 use yew_tincture::components::CheckboxLabel;
-use yew_tincture::components::{Button, RawAndParsed, TypedInputStorage};
+use yew_tincture::components::{Button, RawAndParsed, TypedInput, TypedInputStorage};
 
 enum Msg {
     AddOne,

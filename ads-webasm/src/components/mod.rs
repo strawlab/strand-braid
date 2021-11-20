@@ -1,12 +1,6 @@
 mod video_field;
 pub use self::video_field::VideoField;
 
-mod button;
-pub use self::button::Button;
-
-mod typed_input;
-pub use self::typed_input::{TypedInput, TypedInputStorage};
-
 mod ranged_value;
 pub use self::ranged_value::RangedValue;
 

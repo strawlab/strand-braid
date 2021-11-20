@@ -40,8 +40,9 @@ mod components;
 use crate::components::AutoModeSelect;
 
 use ads_webasm::components::{
-    Button, ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle, VideoField,
+    ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle, VideoField,
 };
+use yew_tincture::components::Button;
 
 #[cfg(feature = "with_camtrig")]
 use components::CamtrigControl;

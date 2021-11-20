@@ -1,7 +1,7 @@
-use super::button::Button;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use yew::prelude::*;
+use yew_tincture::components::Button;
 
 pub struct ConfigField<Cfg>
 where

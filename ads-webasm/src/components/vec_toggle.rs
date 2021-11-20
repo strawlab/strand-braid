@@ -1,6 +1,6 @@
-use super::Button;
 use std::fmt;
 use yew::prelude::*;
+use yew_tincture::components::Button;
 
 pub struct VecToggle<T>
 where

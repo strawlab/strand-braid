@@ -1,5 +1,5 @@
-use super::button::Button;
 use yew::prelude::*;
+use yew_tincture::components::Button;
 
 pub struct ReloadButton {
     link: ComponentLink<Self>,

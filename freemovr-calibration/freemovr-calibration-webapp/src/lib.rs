@@ -8,9 +8,8 @@ use wasm_bindgen::JsCast;
 use log::info;
 use yew::prelude::*;
 
-use ads_webasm::components::{
-    Button, CsvDataField, MaybeCsvData, ObjWidget, TypedInput, TypedInputStorage,
-};
+use ads_webasm::components::{CsvDataField, MaybeCsvData, ObjWidget};
+use yew_tincture::components::{Button, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::obj_widget::MaybeValidObjFile;
 use freemovr_calibration::types::{

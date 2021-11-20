@@ -10,7 +10,8 @@ use nalgebra::geometry::{Point2, Point3};
 
 use yew::prelude::*;
 
-use ads_webasm::components::{Button, CsvData, CsvDataField, MaybeCsvData};
+use ads_webasm::components::{CsvData, CsvDataField, MaybeCsvData};
+use yew_tincture::components::Button;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MyError {
