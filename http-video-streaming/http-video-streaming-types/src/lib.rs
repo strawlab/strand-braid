@@ -14,7 +14,13 @@ pub struct Point {
 pub struct ToClient {
     pub firehose_frame_data_url: String,
     pub found_points: Vec<Point>,
+    /// Indicates which region of the entire image is "valid".
+    ///
+    /// For example, when tracking, there can be image regions in which tracking
+    /// is not desired. This is useful so the client can display what regions
+    /// are valid.
     pub valid_display: Option<Shape>,
+    /// Annotations associated with this particular image, e.g. from tracking.
     pub annotations: Vec<DrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
