@@ -2396,7 +2396,10 @@ pub struct StrandCamArgs {
     /// If set, camera acquisition will external trigger.
     pub force_camera_sync_mode: bool,
 
-    /// If not Enable, limit framerate (FPS) at startup.
+    /// If enabled, limit framerate (FPS) at startup.
+    ///
+    /// Despite the name ("software"), this actually sets the hardware
+    /// acquisition rate via the `AcquisitionFrameRate` camera parameter.
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
 
     /// Threshold duration before logging error (msec).
