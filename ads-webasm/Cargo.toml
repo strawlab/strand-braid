@@ -9,7 +9,7 @@ log = "0.4"
 yew = "0.18"
 js-sys = "0.3"
 gloo = "0.4"
-gloo-file = "0.1"
+gloo-file = "0.2"
 gloo-utils = "0.1"
 wasm-bindgen = { version = "0.2.58"}
 http = "0.2"
