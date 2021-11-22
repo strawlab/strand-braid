@@ -354,6 +354,12 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     // ----- end: weakly typed but easier to implement API -----
 
+    fn node_map_load_file<P: AsRef<std::path::Path>>(&self, settings_file: P) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        pylon_cxx::NodeMap::load(&*camera, &settings_file, true).map_pylon_err()?;
+        Ok(())
+    }
+
     /// Return the sensor width in pixels
     fn width(&self) -> ci2::Result<u32> {
         Ok(self

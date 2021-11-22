@@ -33,6 +33,7 @@ fn launch_strand_cam(
     mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    camera_settings_filename: Option<std::path::PathBuf>,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 ) -> Result<StrandCamApp> {
     let tracker_cfg_src =
@@ -64,6 +65,7 @@ fn launch_strand_cam(
         show_url: false,
         force_camera_sync_mode,
         software_limit_framerate,
+        camera_settings_filename,
         acquisition_duration_allowed_imprecision_msec,
     };
 
@@ -146,6 +148,7 @@ fn main() -> Result<()> {
     let _strand_cams = cfg_cameras
         .into_iter()
         .filter_map(|camera| {
+            let camera_settings_filename = camera.camera_settings_filename.clone();
             if !camera.remote_camera {
                 let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
                 Some(launch_strand_cam(
@@ -155,6 +158,7 @@ fn main() -> Result<()> {
                     Some(mainbrain_server_info.clone()),
                     force_camera_sync_mode,
                     software_limit_framerate.clone(),
+                    camera_settings_filename,
                     acquisition_duration_allowed_imprecision_msec,
                 ))
             } else {

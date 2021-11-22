@@ -197,6 +197,15 @@ impl BraidConfig2 {
         // fixup self.mainbrain.output_base_dirname
         fixup_relative_path(&mut self.mainbrain.output_base_dirname, &dirname)?;
 
+        // fixup self.cameras.camera_settings_filename
+        for camera_config in self.cameras.iter_mut() {
+            if let Some(ref mut camera_settings_filename) =
+                camera_config.camera_settings_filename.as_mut()
+            {
+                fixup_relative_path(camera_settings_filename, &dirname)?;
+            }
+        }
+
         Ok(())
     }
 }

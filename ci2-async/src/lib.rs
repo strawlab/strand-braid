@@ -235,6 +235,11 @@ where
 
     // ----- end: weakly typed but easier to implement API -----
 
+    fn node_map_load_file<P: AsRef<std::path::Path>>(&self, settings_file: P) -> Result<()> {
+        let c = self.camera.lock();
+        c.node_map_load_file(settings_file)
+    }
+
     fn width(&self) -> ci2::Result<u32> {
         let c = self.camera.lock();
         c.width()

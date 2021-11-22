@@ -117,6 +117,8 @@ pub trait Camera: CameraInfo {
 
     // ----- end: weakly typed but easier to implement API -----
 
+    fn node_map_load_file<P: AsRef<std::path::Path>>(&self, settings_file: P) -> Result<()>;
+
     /// Return the sensor width in pixels
     fn width(&self) -> Result<u32>;
     /// Return the sensor height in pixels

@@ -17,6 +17,8 @@ use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
+use anyhow::Context;
+
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
 
@@ -2402,6 +2404,9 @@ pub struct StrandCamArgs {
     /// acquisition rate via the `AcquisitionFrameRate` camera parameter.
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
 
+    /// Filename of vendor-specific camera settings file.
+    pub camera_settings_filename: Option<std::path::PathBuf>,
+
     /// Threshold duration before logging error (msec).
     ///
     /// If the image acquisition timestamp precedes the computed trigger
@@ -2458,6 +2463,7 @@ impl Default for StrandCamArgs {
             plugin_wait_dur: std::time::Duration::from_millis(5),
             force_camera_sync_mode: false,
             software_limit_framerate: StartSoftwareFrameRateLimit::NoChange,
+            camera_settings_filename: None,
             #[cfg(feature = "flydratrax")]
             flydratrax_calibration_source: CalSource::PseudoCal,
             #[cfg(feature = "flydratrax")]
@@ -2558,54 +2564,69 @@ pub async fn setup_app(
     info!("  got camera {}", raw_name);
     let cam_name = RawCamName::new(raw_name);
 
-    for pixfmt in cam.possible_pixel_formats()?.iter() {
-        debug!("  possible pixel format: {}", pixfmt);
-    }
+    let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
+    if let Some(camera_settings_filename) = &args.camera_settings_filename {
+        cam.node_map_load_file(&camera_settings_filename)
+            .with_context(|| {
+                format!(
+                    "Failed to load settings from file \"{}\"",
+                    camera_settings_filename.display()
+                )
+            })?;
+        (false, false)
+    } else {
 
-    if let Some(ref pixfmt_str) = args.pixel_format {
-        use std::str::FromStr;
-        let pixfmt = PixFmt::from_str(pixfmt_str)
-            .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
-        info!("  setting pixel format: {}", pixfmt);
-        cam.set_pixel_format(pixfmt)?;
-    }
-
-    debug!("  current pixel format: {}", cam.pixel_format()?);
-
-    let (frame_rate_limit_supported, mut frame_rate_limit_enabled) = {
-        // This entire section should be removed and converted to a query
-        // of the cameras capabilities.
-
-        // Save the value of whether the frame rate limiter is enabled.
-        let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
-        debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
-
-        // Check if we can set the frame rate, first by setting a limit to be on.
-        let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
-            Ok(()) => {
-                debug!("set set_acquisition_frame_rate_enable true");
-                // Then by setting a limit to be off.
-                match cam.set_acquisition_frame_rate_enable(false) {
-                    Ok(()) => {debug!("{}:{}",file!(),line!());true},
-                    Err(e) => {debug!("err {} {}:{}",e, file!(),line!());false},
-                }
-            },
-            Err(e) => {debug!("err {} {}:{}",e,file!(),line!());false},
-        };
-
-        if frame_rate_limit_supported {
-            // Restore the state of the frame rate limiter.
-            cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
-            debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+        for pixfmt in cam.possible_pixel_formats()?.iter() {
+            debug!("  possible pixel format: {}", pixfmt);
         }
 
+        if let Some(ref pixfmt_str) = args.pixel_format {
+            use std::str::FromStr;
+            let pixfmt = PixFmt::from_str(pixfmt_str)
+                .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
+            info!("  setting pixel format: {}", pixfmt);
+            cam.set_pixel_format(pixfmt)?;
+        }
+
+        debug!("  current pixel format: {}", cam.pixel_format()?);
+
+        let (frame_rate_limit_supported, frame_rate_limit_enabled) = {
+            // This entire section should be removed and converted to a query
+            // of the cameras capabilities.
+
+            // Save the value of whether the frame rate limiter is enabled.
+            let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+            debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+
+            // Check if we can set the frame rate, first by setting a limit to be on.
+            let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
+                Ok(()) => {
+                    debug!("set set_acquisition_frame_rate_enable true");
+                    // Then by setting a limit to be off.
+                    match cam.set_acquisition_frame_rate_enable(false) {
+                        Ok(()) => {debug!("{}:{}",file!(),line!());true},
+                        Err(e) => {debug!("err {} {}:{}",e, file!(),line!());false},
+                    }
+                },
+                Err(e) => {debug!("err {} {}:{}",e,file!(),line!());false},
+            };
+
+            if frame_rate_limit_supported {
+                // Restore the state of the frame rate limiter.
+                cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
+                debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+            }
+
+            (frame_rate_limit_supported, frame_rate_limit_enabled)
+        };
+
+        match cam.feature_enum_set("AcquisitionMode", "Continuous") {
+            Ok(()) => {}
+            Err(e) => {debug!("Ignoring error when setting AcquisitionMode: {}",e);}
+        }
         (frame_rate_limit_supported, frame_rate_limit_enabled)
     };
 
-    match cam.feature_enum_set("AcquisitionMode", "Continuous") {
-        Ok(()) => {}
-        Err(e) => {debug!("Ignoring error when setting AcquisitionMode: {}",e);}
-    }
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
     let (tx_frame, rx_frame) = channellib::bounded::<Msg>(20);
@@ -2718,17 +2739,19 @@ pub async fn setup_app(
         cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
     }
 
-    if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &args.software_limit_framerate {
-        // Set the camera.
-        cam.set_acquisition_frame_rate(*fps_limit).unwrap();
-        cam.set_acquisition_frame_rate_enable(true).unwrap();
-        // Store the values we set.
-        if let Some(ref mut ranged) = frame_rate_limit {
-            ranged.current = cam.acquisition_frame_rate()?;
-        } else {
-            panic!("cannot set software frame rate limit");
+    if args.camera_settings_filename.is_none() {
+        if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &args.software_limit_framerate {
+            // Set the camera.
+            cam.set_acquisition_frame_rate(*fps_limit).unwrap();
+            cam.set_acquisition_frame_rate_enable(true).unwrap();
+            // Store the values we set.
+            if let Some(ref mut ranged) = frame_rate_limit {
+                ranged.current = cam.acquisition_frame_rate()?;
+            } else {
+                panic!("cannot set software frame rate limit");
+            }
+            frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
         }
-        frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
     }
 
     let trigger_mode = cam.trigger_mode()?;

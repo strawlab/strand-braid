@@ -160,6 +160,8 @@ fn return_false() -> bool {
 pub struct BraidCameraConfig {
     /// The name of the camera (e.g. "Basler-22005677")
     pub name: String,
+    /// Filename of vendor-specific camera settings file.
+    pub camera_settings_filename: Option<std::path::PathBuf>,
     /// The pixel format to use.
     pub pixel_format: Option<String>,
     /// Configuration for detecting points.
@@ -177,6 +179,7 @@ impl BraidCameraConfig {
     pub fn default_absdiff_config(name: String) -> Self {
         Self {
             name,
+            camera_settings_filename: None,
             pixel_format: None,
             point_detection_config: im_pt_detect_config::default_absdiff(),
             raise_grab_thread_priority: false,
