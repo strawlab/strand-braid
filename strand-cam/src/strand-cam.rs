@@ -2566,13 +2566,14 @@ pub async fn setup_app(
 
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
     if let Some(camera_settings_filename) = &args.camera_settings_filename {
-        cam.node_map_load_file(&camera_settings_filename)
-            .with_context(|| {
-                format!(
-                    "Failed to load settings from file \"{}\"",
-                    camera_settings_filename.display()
-                )
-            })?;
+        let settings = std::fs::read_to_string(camera_settings_filename).with_context(|| {
+            format!(
+                "Failed to read camera settings from file \"{}\"",
+                camera_settings_filename.display()
+            )
+        })?;
+
+        cam.node_map_load(&settings)?;
         (false, false)
     } else {
 

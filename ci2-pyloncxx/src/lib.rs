@@ -385,13 +385,23 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     // ----- end: weakly typed but easier to implement API -----
 
-    fn node_map_load_file<P: AsRef<std::path::Path>>(&self, settings_file: P) -> ci2::Result<()> {
+    fn node_map_load(&self, settings: &str) -> ci2::Result<()> {
+
+        // It seems that sometimes the Pylon PFS files may have CRLF line
+        // endings but loading from a string only works with LF line endings. So
+        // here we convert line endings to LF only.
+        let settings_lf_only = settings.lines().collect::<Vec<_>>().join("\n");
+
         let camera = self.inner.lock();
         camera
             .node_map()
-            .load(&settings_file, true)
+            .load_from_string(settings_lf_only, true)
             .map_pylon_err()?;
         Ok(())
+    }
+    fn node_map_save(&self) -> ci2::Result<String> {
+        let camera = self.inner.lock();
+        camera.node_map().save_to_string().map_pylon_err()
     }
 
     /// Return the sensor width in pixels
