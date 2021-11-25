@@ -38,6 +38,10 @@
   `packet_capture_dump_fname` which specifies a filename into which the data is
   stored.
 
+* Basler cameras automatically set the stream grabber `MaxTransferSize`
+  parameter to its maximum possible value. This can be disabled by setting the
+  `DISABLE_SET_MAX_TRANSFER_SIZE` environment variable.
+
 ### Fixed
 
 * Fixed computation of triggerbox pulse time and consequently estimated latency.

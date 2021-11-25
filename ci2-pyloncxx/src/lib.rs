@@ -285,6 +285,36 @@ impl<'a> WrappedCamera<'a> {
                     Err(_) => (false),
                 };
 
+                let set_max_transfer_size = match std::env::var_os("DISABLE_SET_MAX_TRANSFER_SIZE")
+                {
+                    Some(v) => &v == "0",
+                    None => true,
+                };
+
+                if set_max_transfer_size {
+                    // Set stream grabber MaxTransferSize. This is a
+                    // Basler-specific quirk and so to avoid introducing a
+                    // Basler-specific API, we do this always (unless the user
+                    // sets the environment variable to disable it).
+
+                    let mut node = cam
+                        .stream_grabber_node_map()
+                        .integer_node("MaxTransferSize")
+                        .map_pylon_err()?;
+
+                    if let Ok(max_size) = node.max() {
+                        // If this node exists, we want to set it. If we cannot
+                        // open the node (because, e.g. the stream grabber is
+                        // for GigE not USB3), don't bother.
+                        node.set_value(max_size).map_pylon_err()?;
+                        log::debug!(
+                            "For camera {}, set stream grabber MaxTransferSize to {}",
+                            name,
+                            max_size
+                        );
+                    }
+                }
+
                 let grab_result =
                     Arc::new(Mutex::new(pylon_cxx::GrabResult::new().map_pylon_err()?));
                 return Ok(Self {
