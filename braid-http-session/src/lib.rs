@@ -95,18 +95,10 @@ impl MainbrainSession {
 
     pub async fn register_flydra_camnode(
         &mut self,
-        orig_cam_name: flydra_types::RawCamName,
-        http_camserver_info: flydra_types::CamHttpServerInfo,
-        ros_cam_name: flydra_types::RosCamName,
+        msg: &flydra_types::RegisterNewCamera,
     ) -> Result<(), hyper::Error> {
-        let msg = flydra_types::RegisterNewCamera {
-            orig_cam_name,
-            http_camserver_info,
-            ros_cam_name,
-        };
-
         debug!("register_flydra_camnode with message {:?}", msg);
-        let msg = flydra_types::HttpApiCallback::NewCamera(msg);
+        let msg = flydra_types::HttpApiCallback::NewCamera(msg.clone());
         let bytes = serde_json::to_vec(&msg).unwrap();
         self.do_post(bytes).await
     }

@@ -719,6 +719,8 @@ impl FlyTracker {
             tokio::sync::oneshot::Receiver<()>,
         >,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
+        // settings_on_start: String,
+        new_cam_data: flydra_types::RegisterNewCamera,
     ) -> Result<Self> {
         #[cfg(feature = "debug-images")]
         let debug_thread_cjh = rt_image_viewer::initialize_rt_image_viewer(
@@ -766,9 +768,7 @@ impl FlyTracker {
 
             let fut = register_node_and_update_image(
                 api_http_address,
-                orig_cam_name.clone(),
-                http_camserver_info,
-                ros_cam_name,
+                new_cam_data,
                 transmit_current_image_rx,
             );
 
@@ -1168,24 +1168,20 @@ impl FlyTracker {
 
 async fn register_node_and_update_image(
     api_http_address: flydra_types::MainbrainBuiLocation,
-    orig_cam_name: flydra_types::RawCamName,
-    http_camserver_info: flydra_types::CamHttpServerInfo,
-    ros_cam_name: RosCamName,
+    msg: flydra_types::RegisterNewCamera,
     mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<()> {
     let mut mainbrain_session =
         braid_http_session::mainbrain_future_session(api_http_address).await?;
-    mainbrain_session
-        .register_flydra_camnode(orig_cam_name, http_camserver_info, ros_cam_name.clone())
-        .await?;
+    mainbrain_session.register_flydra_camnode(&msg).await?;
     while let Some(image_png_vecu8) = transmit_current_image_rx.next().await {
         mainbrain_session
-            .update_image(ros_cam_name.clone(), image_png_vecu8)
+            .update_image(msg.ros_cam_name.clone(), image_png_vecu8)
             .await?;
     }
     info!(
         "done listening for background images from {}",
-        ros_cam_name.as_str()
+        msg.ros_cam_name.as_str()
     );
     Ok(())
 }

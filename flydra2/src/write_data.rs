@@ -3,6 +3,8 @@ use log::info;
 
 use std::{io::Write, sync::Arc};
 
+use flydra_types::{BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, IMAGES_DIRNAME};
+
 struct WritingState {
     output_dirname: std::path::PathBuf,
     /// The readme file in the output directory.
@@ -43,7 +45,7 @@ impl WritingState {
         let local = cfg.local;
         let git_revision = cfg.git_rev;
         let fps = cfg.fps;
-        let images = cfg.images;
+        let per_cam_data = cfg.per_cam_data;
 
         // Any changes to what is saved should update BraidMetadataSchemaTag.
 
@@ -91,11 +93,29 @@ impl WritingState {
             image_path.push(IMAGES_DIRNAME);
             std::fs::create_dir_all(&image_path)?;
 
-            for (fname, tup) in images.into_iter() {
-                let mut fullpath = image_path.clone();
-                fullpath.push(fname);
-                let mut fd = std::fs::File::create(&fullpath)?;
-                fd.write_all(&tup)?;
+            for cam in per_cam_data.iter() {
+                if let Some(ref buf) = &cam.current_image_png {
+                    let fname = format!("{}.png", cam.ros_cam_name.as_str());
+                    let fullpath = image_path.clone().join(fname);
+                    let mut fd = std::fs::File::create(&fullpath)?;
+                    fd.write_all(&buf)?;
+                }
+            }
+        }
+
+        // write camera settings
+        {
+            let mut settings_path = output_dirname.clone();
+            settings_path.push(CAM_SETTINGS_DIRNAME);
+            std::fs::create_dir_all(&settings_path)?;
+
+            for cam in per_cam_data.iter() {
+                if let Some(sd) = &cam.settings_data {
+                    let fname = format!("{}.{}", cam.ros_cam_name.as_str(), sd.settings_file_ext);
+                    let fullpath = settings_path.clone().join(fname);
+                    let mut fd = std::fs::File::create(&fullpath)?;
+                    fd.write_all(sd.settings_on_start.as_bytes())?;
+                }
             }
         }
 
@@ -639,7 +659,7 @@ mod test {
                 local: None,
                 git_rev: "<impossible git rev>".into(),
                 fps: None,
-                images: std::collections::BTreeMap::new(),
+                per_cam_data: Vec::new(),
                 print_stats: false,
                 save_performance_histograms: false,
             };

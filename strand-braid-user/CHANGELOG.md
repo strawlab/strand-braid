@@ -18,6 +18,10 @@
   instances of Strand Camera can thus be running on computers other than the
   computer on which Braid is running.
 
+* Braid stores the camera settings for each camera determined with Strand Camera
+  was started into the newly created `cam_settings` directory inside the
+  `.braidz` file.
+
 * MKV videos now save the camera name as metadata in the segment title field.
 
 * MKV, FMF, and uFMF videos have the camera name in the filename when saved with

@@ -386,4 +386,8 @@ where
     fn camera(&mut self, name: &str) -> Result<C> {
         self.cam_module.camera(name)
     }
+
+    fn settings_file_extension(&self) -> &str {
+        self.cam_module.settings_file_extension()
+    }
 }

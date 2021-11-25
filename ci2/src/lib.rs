@@ -94,6 +94,12 @@ pub trait CameraModule {
     fn name(&self) -> &str;
     fn camera_infos(&self) -> Result<Vec<Box<dyn CameraInfo>>>;
     fn camera(&mut self, name: &str) -> Result<Self::CameraType>;
+
+    /// The file extension for node map settings.
+    ///
+    /// The strings used in [Camera::node_map_load] and [Camera::node_map_save]
+    /// would typically be stored in files with this extension.
+    fn settings_file_extension(&self) -> &str;
 }
 
 // ---------------------------
@@ -118,8 +124,14 @@ pub trait Camera: CameraInfo {
     // ----- end: weakly typed but easier to implement API -----
 
     /// Load camera settings from an implementation-dependent settings string.
+    ///
+    /// This would typically be read from a file with extension given by
+    /// [CameraModule::settings_file_extension].
     fn node_map_load(&self, settings: &str) -> Result<()>;
     /// Read camera settings to an implementation-dependent settings string.
+    ///
+    /// This would typically be saved to a file with extension given by
+    /// [CameraModule::settings_file_extension].
     fn node_map_save(&self) -> Result<String>;
 
     /// Return the sensor width in pixels

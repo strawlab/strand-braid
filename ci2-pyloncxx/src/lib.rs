@@ -110,6 +110,9 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
     fn camera(self: &mut &'a WrappedModule, name: &str) -> ci2::Result<Self::CameraType> {
         WrappedCamera::new(&self.pylon_auto_init, name)
     }
+    fn settings_file_extension(&self) -> &str {
+        "pfs"
+    }
 }
 
 /// Raw data and associated metadata from an acquired frame.

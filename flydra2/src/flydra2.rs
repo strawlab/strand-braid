@@ -50,7 +50,6 @@ mod bundled_data;
 mod contiguous_stream;
 mod frame_bundler;
 
-pub use flydra_types::{BRAID_SCHEMA, IMAGES_DIRNAME};
 use flydra_types::{RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME};
 
 #[cfg(feature = "full-3d")]
@@ -711,7 +710,7 @@ pub struct StartSavingCsvConfig {
     pub local: Option<chrono::DateTime<chrono::Local>>,
     pub git_rev: String,
     pub fps: Option<f32>,
-    pub images: ImageDictType,
+    pub per_cam_data: Vec<flydra_types::PerCamSaveData>,
     pub print_stats: bool,
     pub save_performance_histograms: bool,
 }
@@ -721,9 +720,6 @@ pub struct StartSavingCsvConfig {
 pub struct CoordProcessorControl {
     save_data_tx: channellib::Sender<SaveToDiskMsg>,
 }
-
-// TODO: also include a timestamp?
-pub type ImageDictType = BTreeMap<String, Vec<u8>>;
 
 impl CoordProcessorControl {
     pub fn new(save_data_tx: channellib::Sender<SaveToDiskMsg>) -> Self {

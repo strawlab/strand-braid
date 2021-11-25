@@ -17,7 +17,7 @@ use flydra2::{
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
-use flydra_types::{RawCamName, RosCamName, SyncFno};
+use flydra_types::{PerCamSaveData, RawCamName, RosCamName, SyncFno, IMAGES_DIRNAME};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -268,7 +268,7 @@ where
 
     for cam_name in recon.cam_names() {
         let mut old_image_fname = data_src.path_starter();
-        old_image_fname.push(flydra2::IMAGES_DIRNAME);
+        old_image_fname.push(IMAGES_DIRNAME);
         old_image_fname.push(cam_name);
         old_image_fname.set_extension("png");
 
@@ -278,7 +278,7 @@ where
         }
 
         let mut new_image_fname: std::path::PathBuf = output_dirname.to_path_buf();
-        new_image_fname.push(flydra2::IMAGES_DIRNAME);
+        new_image_fname.push(IMAGES_DIRNAME);
         std::fs::create_dir_all(&new_image_fname)?; // Create dir if needed.
         new_image_fname.push(&cam_name);
         new_image_fname.set_extension("png");
@@ -303,35 +303,33 @@ where
         }
     };
 
-    let mut images = flydra2::ImageDictType::new();
-    {
-        // let mut image_filenames: Vec<zip_or_dir::PathLike<R>> = images_dirname.list_dir()?;
-        let mut relnames = {
-            let mut images_dirname = data_src.path_starter();
-            images_dirname.push(flydra2::IMAGES_DIRNAME);
+    let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
 
-            // If no images are present, just skip them.
-            match images_dirname.list_paths() {
-                Ok(relnames) => relnames,
-                Err(zip_or_dir::Error::NotDirectory) => vec![],
-                Err(e) => return Err(e.into()),
-            }
-        };
+    let per_cam_data: Vec<PerCamSaveData> = match images_dirname.list_paths() {
+        Ok(relnames) => relnames
+            .iter()
+            .map(|relname| {
+                assert_eq!(relname.extension(), Some(std::ffi::OsStr::new("png")));
+                let ros_cam_name =
+                    RosCamName::new(relname.file_stem().unwrap().to_str().unwrap().to_string());
 
-        for relname in relnames.iter_mut() {
-            let fname_str = format!("{}", relname.display());
-
-            let mut fname = data_src.path_starter();
-            fname.push(flydra2::IMAGES_DIRNAME);
-            fname.push(&fname_str);
-
-            let mut fd = fname.open()?;
-            let mut buf = vec![];
-            fd.read_to_end(&mut buf)?;
-
-            images.insert(fname_str, buf);
-        }
-    }
+                let fname = data_src.path_starter().join(IMAGES_DIRNAME).join(relname);
+                let buf = {
+                    let mut fd = fname.open().unwrap();
+                    let mut buf = vec![];
+                    fd.read_to_end(&mut buf).unwrap();
+                    buf
+                };
+                PerCamSaveData {
+                    ros_cam_name,
+                    current_image_png: Some(buf),
+                    settings_data: None,
+                }
+            })
+            .collect(),
+        Err(zip_or_dir::Error::NotDirectory) => vec![],
+        Err(e) => return Err(e.into()),
+    };
 
     // read the cam_info CSV file
     let mut cam_info_fname = data_src.path_starter();
@@ -357,7 +355,7 @@ where
         local: None,
         git_rev: env!("GIT_HASH").to_string(),
         fps: Some(fps as f32),
-        images,
+        per_cam_data,
         print_stats: true,
         save_performance_histograms,
     };

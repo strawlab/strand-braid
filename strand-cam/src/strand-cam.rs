@@ -647,10 +647,11 @@ fn frame_process_thread(
     #[cfg(feature = "debug-images")]
     debug_image_server_shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    new_cam_data: flydra_types::RegisterNewCamera,
 ) -> anyhow::Result<()>
 {
 
-    let ros_cam_name: RosCamName = cam_name.to_ros();
+    let ros_cam_name: RosCamName = new_cam_data.ros_cam_name.clone();
 
     #[cfg(feature = "posix_sched_fifo")]
     {
@@ -733,6 +734,7 @@ fn frame_process_thread(
         #[cfg(feature = "debug-images")]
         debug_image_server_shutdown_rx,
         acquisition_duration_allowed_imprecision_msec,
+        new_cam_data,
     )?;
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
@@ -1698,15 +1700,17 @@ fn frame_process_thread(
                                 my_dir.push(dirname);
 
                                 warn!("unimplemented setting of FPS and camera images");
+
+                                // We could and should add this data here:
                                 let expected_fps = None;
-                                let images = flydra2::ImageDictType::new();
+                                let per_cam_data = Vec::new();
 
                                 let cfg = flydra2::StartSavingCsvConfig {
                                     out_dir: my_dir.clone(),
                                     local: Some(local),
                                     git_rev: env!("GIT_HASH").to_string(),
                                     fps: expected_fps,
-                                    images,
+                                    per_cam_data,
                                     print_stats: false,
                                     save_performance_histograms: true,
                                 };
@@ -2541,6 +2545,8 @@ pub async fn setup_app(
         None => cam_infos[0].name(),
     };
 
+    let settings_file_ext = (&*CAMLIB).settings_file_extension().into();
+
     let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
         Err(e) => {
@@ -2627,6 +2633,8 @@ pub async fn setup_app(
         }
         (frame_rate_limit_supported, frame_rate_limit_enabled)
     };
+
+    let settings_on_start = cam.node_map_save()?;
 
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
@@ -3016,6 +3024,16 @@ pub async fn setup_app(
             (model_server, flydratrax_calibration_source)
         };
 
+        let new_cam_data = flydra_types::RegisterNewCamera {
+            ros_cam_name: cam_name.to_ros(),
+            http_camserver_info: Some(CamHttpServerInfo::Server(http_camserver_info.clone())),
+            settings_data: Some(flydra_types::PerCamSettingsData {
+                orig_cam_name: cam_name.clone(),
+                settings_on_start,
+                settings_file_ext,
+            }),
+        };
+
         let valve2 = valve.clone();
         let cam_name2 = cam_name.clone();
         let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
@@ -3059,6 +3077,7 @@ pub async fn setup_app(
                     #[cfg(feature = "debug-images")]
                     Some(debug_image_shutdown_rx),
                     acquisition_duration_allowed_imprecision_msec,
+                    new_cam_data,
                 ));
         })?;
         debug!("waiting for frame acquisition thread to start");

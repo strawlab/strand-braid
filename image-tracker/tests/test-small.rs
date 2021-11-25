@@ -24,6 +24,12 @@ async fn track_small_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResul
     #[cfg(feature = "debug-images")]
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
+    let new_cam_data = flydra_types::RegisterNewCamera {
+        ros_cam_name: flydra_types::RosCamName::new("camera1".into()),
+        http_camserver_info: None,
+        settings_data: None,
+    };
+
     let mut ft = FlyTracker::new(
         &handle,
         &RawCamName::new("small-test-image".to_string()),
@@ -44,6 +50,7 @@ async fn track_small_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResul
         #[cfg(feature = "debug-images")]
         Some(shutdown_rx),
         None,
+        new_cam_data,
     )
     .unwrap();
 

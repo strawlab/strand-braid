@@ -50,4 +50,8 @@ async fn test_covariance() {
     )
     .await
     .unwrap();
+
+    // Check that braidz parser can open our new file.
+    let _archive =
+        braidz_parser::braidz_parse_path(&output_root.path().join("output.braidz")).unwrap();
 }

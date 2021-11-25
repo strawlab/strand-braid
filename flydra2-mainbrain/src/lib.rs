@@ -21,8 +21,9 @@ use bui_backend_types::CallbackDataAndSession;
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback,
-    HttpApiShared, RosCamName, SyncFno, TriggerType, Triggerbox,
+    HttpApiShared, PerCamSaveData, RosCamName, SyncFno, TriggerType, Triggerbox,
 };
+
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
 
@@ -71,7 +72,7 @@ async fn new_http_api_app(
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
-    current_images_arc: Arc<RwLock<flydra2::ImageDictType>>,
+    per_cam_data_arc: Arc<RwLock<Vec<PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
 ) -> Result<HttpApiApp> {
@@ -157,7 +158,7 @@ async fn new_http_api_app(
     let expected_framerate_arc2 = expected_framerate_arc.clone();
     let output_base_dirname2 = output_base_dirname.clone();
     let write_controller_arc2 = write_controller_arc.clone();
-    let current_images_arc2 = current_images_arc.clone();
+    let per_cam_data_arc2 = per_cam_data_arc.clone();
     let shared_data = inner.shared_arc().clone();
 
     // Create a Stream to handle callbacks from clients.
@@ -170,20 +171,44 @@ async fn new_http_api_app(
             match msg.payload {
                 NewCamera(cam_info) => {
                     debug!("got NewCamera {:?}", cam_info);
+                    let http_camserver_info = cam_info.http_camserver_info.unwrap();
+                    let cam_settings_data = cam_info.settings_data.unwrap();
                     let mut cam_manager3 = cam_manager2.clone();
                     cam_manager3.register_new_camera(
-                        &cam_info.orig_cam_name,
-                        &cam_info.http_camserver_info,
+                        &cam_settings_data.orig_cam_name,
+                        &http_camserver_info,
                         &cam_info.ros_cam_name,
                     );
+
+                    let mut current_cam_data = per_cam_data_arc2.write();
+                    for this_cam_data in current_cam_data.iter() {
+                        if &this_cam_data.ros_cam_name == &cam_info.ros_cam_name {
+                            panic!("camera already known");
+                        }
+                    }
+                    current_cam_data.push(PerCamSaveData {
+                        ros_cam_name: cam_info.ros_cam_name.clone(),
+                        current_image_png: None,
+                        settings_data: Some(cam_settings_data),
+                    })
                 }
                 UpdateCurrentImage(image_info) => {
                     // new image from camera
-                    // (This replaces old FromRosThread::DoSendImage)
-                    debug!("got new image for camera {:?}", image_info.ros_cam_name);
-                    let mut current_images = current_images_arc2.write();
-                    let fname = format!("{}.png", image_info.ros_cam_name);
-                    current_images.insert(fname, image_info.current_image_png);
+                    debug!(
+                        "got new image for camera {:?}",
+                        image_info.ros_cam_name.as_str()
+                    );
+                    let mut current_cam_data = per_cam_data_arc2.write();
+                    let mut found = false;
+                    for this_cam_data in current_cam_data.iter_mut() {
+                        if this_cam_data.ros_cam_name != image_info.ros_cam_name {
+                            continue;
+                        }
+                        this_cam_data.current_image_png = Some(image_info.current_image_png);
+                        found = true;
+                        break;
+                    }
+                    assert_eq!(found, true);
                 }
                 DoRecordCsvTables(value) => {
                     debug!("got DoRecordCsvTables({})", value);
@@ -192,7 +217,7 @@ async fn new_http_api_app(
                         expected_framerate_arc2.clone(),
                         output_base_dirname2.clone(),
                         write_controller_arc2.clone(),
-                        current_images_arc2.clone(),
+                        per_cam_data_arc2.clone(),
                         shared_data.clone(),
                     );
                 }
@@ -480,7 +505,7 @@ pub async fn pre_run(
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
-    let current_images_arc = Arc::new(RwLock::new(flydra2::ImageDictType::new()));
+    let per_cam_data_arc = Arc::new(RwLock::new(Vec::<PerCamSaveData>::new()));
 
     use std::net::ToSocketAddrs;
     let http_api_server_addr = http_api_server_addr.to_socket_addrs()?.next().unwrap();
@@ -532,7 +557,7 @@ pub async fn pre_run(
         expected_framerate_arc,
         output_base_dirname.clone(),
         write_controller_arc.clone(),
-        current_images_arc.clone(),
+        per_cam_data_arc.clone(),
         force_camera_sync_mode,
         software_limit_framerate,
     )
@@ -1143,7 +1168,7 @@ fn toggle_saving_csv_tables(
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
-    current_images_arc: Arc<RwLock<flydra2::ImageDictType>>,
+    per_cam_data_arc: Arc<RwLock<Vec<PerCamSaveData>>>,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
 ) {
     if start_saving {
@@ -1153,14 +1178,14 @@ fn toggle_saving_csv_tables(
         let mut my_dir = output_base_dirname.clone();
         my_dir.push(dirname);
         let write_controller = write_controller_arc.write();
-        let current_images = current_images_arc.read();
-        let images = (*current_images).clone();
+        let per_cam_data_ref = per_cam_data_arc.read();
+        let per_cam_data = (*per_cam_data_ref).clone();
         let cfg = flydra2::StartSavingCsvConfig {
             out_dir: my_dir.clone(),
             local: Some(local),
             git_rev: env!("GIT_HASH").to_string(),
             fps: *expected_framerate,
-            images,
+            per_cam_data,
             print_stats: false,
             save_performance_histograms: true,
         };
