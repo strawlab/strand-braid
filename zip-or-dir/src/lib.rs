@@ -216,7 +216,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     /// backslashes even though the zip file itself will
     /// have paths with forward slashes.
     pub fn list_paths<P: AsRef<Path> + std::fmt::Debug>(
-        &mut self,
+        &self,
         relname: Option<P>,
     ) -> Result<Vec<PathBuf>> {
         // create the path we are looking for
@@ -227,7 +227,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
         let mut result = vec![];
         let mut unique_single_components = std::collections::BTreeSet::new();
 
-        match &mut self.zip_archive {
+        match &self.zip_archive {
             Some(zip_archive) => {
                 // full zip fname, relative name
                 let mut suffixes: Vec<PathBuf> = vec![];
@@ -396,7 +396,7 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
         self.parent.is_file(&self.relname)
     }
     /// Lists, non-recursively, the paths in this directory.
-    pub fn list_paths(&mut self) -> Result<Vec<PathBuf>> {
+    pub fn list_paths(&self) -> Result<Vec<PathBuf>> {
         self.parent.list_paths(Some(&self.relname))
     }
 }
