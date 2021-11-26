@@ -361,13 +361,13 @@ pub struct PathLike<'a, R: Read + Seek> {
 }
 
 impl<'a, R: Read + Seek> PathLike<'a, R> {
-    pub fn push(&mut self, p: &str) {
+    pub fn push<P: AsRef<std::path::Path>>(&mut self, p: P) {
         match self.parent.zip_archive {
             Some(_) => self.relname.slash_push(p),
             None => self.relname.push(p),
         }
     }
-    pub fn join(mut self, p: &str) -> Self {
+    pub fn join<P: AsRef<std::path::Path>>(mut self, p: P) -> Self {
         self.push(p);
         self
     }
