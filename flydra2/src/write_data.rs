@@ -98,7 +98,7 @@ impl WritingState {
                     let fname = format!("{}.png", cam.ros_cam_name.as_str());
                     let fullpath = image_path.clone().join(fname);
                     let mut fd = std::fs::File::create(&fullpath)?;
-                    fd.write_all(&buf)?;
+                    fd.write_all(buf)?;
                 }
             }
         }

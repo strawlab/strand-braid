@@ -237,9 +237,10 @@ impl ConnectedCamerasManager {
 
             let mut inner = this.inner.write();
 
-            if inner.ccis.get(&ros_cam_name).is_some() {
-                panic!("camera connecting again?");
-            }
+            assert!(
+                !inner.ccis.contains_key(&ros_cam_name),
+                "camera connecting again?"
+            );
 
             let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name)
             {
@@ -296,9 +297,11 @@ impl ConnectedCamerasManager {
             // This scope is for the write lock on self.inner. Keep it minimal.
             let mut inner = self.inner.write();
 
-            if inner.ccis.contains_key(&ros_cam_name) {
-                panic!("camera {} already connected", ros_cam_name);
-            }
+            assert!(
+                !inner.ccis.contains_key(&ros_cam_name),
+                "camera {} already connected",
+                ros_cam_name
+            );
 
             let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name)
             {

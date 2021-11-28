@@ -400,9 +400,7 @@ pub struct FrameDataAndPoints {
 }
 
 fn safe_u8(val: usize) -> u8 {
-    if val > u8::max_value() as usize {
-        panic!("value out of range");
-    }
+    assert!(val <= u8::max_value() as usize, "value out of range");
     val as u8
 }
 
@@ -417,8 +415,8 @@ fn convert_to_save(frame_data: &FrameData, input: &NumberedRawUdpPoint) -> Data2
         frame: frame_data.synced_frame.0 as i64,
         timestamp: frame_data.trigger_timestamp.clone(),
         cam_received_timestamp: frame_data.cam_received_timestamp.clone(),
-        device_timestamp: frame_data.device_timestamp.clone(),
-        block_id: frame_data.block_id.clone(),
+        device_timestamp: frame_data.device_timestamp,
+        block_id: frame_data.block_id,
         x: input.pt.x0_abs as f32,
         y: input.pt.y0_abs as f32,
         area: input.pt.area as f32,
@@ -437,8 +435,8 @@ fn convert_empty_to_save(frame_data: &FrameData) -> Data2dDistortedRowF32 {
         frame: frame_data.synced_frame.0 as i64,
         timestamp: frame_data.trigger_timestamp.clone(),
         cam_received_timestamp: frame_data.cam_received_timestamp.clone(),
-        device_timestamp: frame_data.device_timestamp.clone(),
-        block_id: frame_data.block_id.clone(),
+        device_timestamp: frame_data.device_timestamp,
+        block_id: frame_data.block_id,
         x: std::f32::NAN,
         y: std::f32::NAN,
         area: std::f32::NAN,
@@ -927,9 +925,12 @@ impl CoordProcessor {
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
         while let Some(bundle) = contiguous_stream.next().await {
-            if bundle.frame() < prev_frame {
-                panic!("Frame number decreasing? The previously received frame was {}, but now have {}", prev_frame, bundle.frame());
-            }
+            assert!(
+                !(bundle.frame() < prev_frame),
+                "Frame number decreasing? The previously received frame was {}, but now have {}",
+                prev_frame,
+                bundle.frame()
+            );
             prev_frame = bundle.frame();
 
             if let Some(model_collection) = self.mc2.take() {

@@ -132,15 +132,14 @@ impl BundledAllCamsOneFrameDistorted {
             .collect();
         fdp.points = no_nans;
         let is_new = self.cameras.inner.insert(fdp.frame_data.cam_num.0);
-        if !is_new {
-            panic!(
-                "Received data twice: camera={}, orig frame={}. \
+        assert!(
+            is_new,
+            "Received data twice: camera={}, orig frame={}. \
                 new frame={}",
-                fdp.frame_data.cam_name,
-                self.frame().0,
-                fdp.frame_data.synced_frame.0
-            );
-        }
+            fdp.frame_data.cam_name,
+            self.frame().0,
+            fdp.frame_data.synced_frame.0
+        );
         if self.tdpt.timestamp.is_none() {
             self.tdpt.timestamp = fdp.frame_data.trigger_timestamp.clone();
         }
