@@ -2,6 +2,8 @@
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
+use std::path::PathBuf;
+
 use clap::Arg;
 
 use strand_cam::{run_app, StrandCamArgs};
@@ -173,6 +175,12 @@ fn parse_args(
                     .takes_value(true),
             )
             .arg(
+                Arg::with_name("camera_settings_filename")
+                    .long("camera-settings-filename")
+                    .help("Path to file with camera settings which will be loaded.")
+                    .takes_value(true),
+            )
+            .arg(
                 Arg::with_name("http_server_addr")
                     .long("http-server-addr")
                     .help("The port to open the HTTP server.")
@@ -306,6 +314,9 @@ fn parse_args(
         .to_string();
 
     let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
+    let camera_settings_filename = matches
+        .value_of("camera_settings_filename")
+        .map(|s| PathBuf::from(s));
 
     #[cfg(feature = "flydratrax")]
     let camera_xml_calibration = matches
@@ -319,7 +330,6 @@ fn parse_args(
 
     #[cfg(feature = "flydratrax")]
     let flydratrax_calibration_source = {
-        use std::path::PathBuf;
         match (camera_xml_calibration, camera_pymvg_calibration) {
             (None, None) => strand_cam::CalSource::PseudoCal,
             (Some(xml_fname), None) => strand_cam::CalSource::XmlFile(PathBuf::from(xml_fname)),
@@ -496,6 +506,7 @@ fn parse_args(
         apriltag_csv_filename_template,
         force_camera_sync_mode,
         software_limit_framerate,
+        camera_settings_filename,
         ..defaults
     })
 }

@@ -18,6 +18,11 @@
   instances of Strand Camera can thus be running on computers other than the
   computer on which Braid is running.
 
+* Implement loading all camera node map settings from a file. For Braid, this is
+  specified in the `[[cameras]]` section with the `camera_settings_filename`
+  key. For Strand Cam, set this with the `--camera-settings-filename`
+  command-line argument.
+
 * Braid stores the camera settings for each camera determined with Strand Camera
   was started into the newly created `cam_settings` directory inside the
   `.braidz` file.
