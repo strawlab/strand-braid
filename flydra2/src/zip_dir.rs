@@ -20,7 +20,15 @@ where
     for entry in it {
         let path = entry.path();
         let name = path.strip_prefix(prefix.as_ref()).unwrap();
-        let name_string = name.to_str().unwrap().to_string();
+
+        // Join path components with forward slash ("/") because this is how zip
+        // files stores them. This is important because on Windows path
+        // components are separated with back slash ("\").
+        let name_string = name
+            .components()
+            .map(|c| c.as_os_str().to_str().unwrap())
+            .collect::<Vec<&str>>()
+            .join("/");
 
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
