@@ -64,6 +64,7 @@ strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 tempfile = "3"
 approx = "0.5"
 download-verify = {path="../download-verify"}
+anyhow = "1"
 
 [features]
 default = ["full-3d", "bundle_files"]
