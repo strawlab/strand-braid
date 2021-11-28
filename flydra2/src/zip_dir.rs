@@ -10,7 +10,7 @@ use std::path::Path;
 pub(crate) fn zip_dir<T, P>(
     it: &mut dyn Iterator<Item = walkdir::DirEntry>,
     prefix: P,
-    mut zipw: ZipWriter<T>,
+    mut zipw: &mut ZipWriter<T>,
     options: FileOptions,
 ) -> ZipResult<()>
 where
@@ -28,12 +28,41 @@ where
             zipw.start_file(name_string, options)?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zipw)?;
-        } else if !name.as_os_str().is_empty() {
+        } else if !name_string.is_empty() {
             // Only if not root! Avoids path spec / warning
             // and mapname conversion failed error on unzip
             zipw.add_directory(name_string, options)?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
         }
     }
-    zipw.finish()?;
     Result::Ok(())
+}
+
+#[test]
+fn test_nested_names() -> anyhow::Result<()> {
+    let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
+    let file1 = output_root.path().join("file1.txt");
+    std::fs::write(file1, "file 1 contents")?;
+    let subdir1 = output_root.path().join("subdir1");
+    std::fs::create_dir_all(&subdir1)?;
+    let file2 = subdir1.join("file2.txt");
+    std::fs::write(file2, "file 2 contents")?;
+
+    let mut zipw = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let walkdir = walkdir::WalkDir::new(&output_root);
+    let mut file_iter = walkdir.into_iter().map(|x| x.unwrap());
+    zip_dir(
+        &mut file_iter,
+        output_root,
+        &mut zipw,
+        FileOptions::default(),
+    )?;
+
+    let buf = zipw.finish()?.into_inner();
+    let zip_archive = zip::ZipArchive::new(std::io::Cursor::new(&buf[..]))?;
+    let mut fnames: std::collections::BTreeSet<&str> = zip_archive.file_names().collect();
+    assert_eq!(fnames.remove("file1.txt"), true);
+    assert_eq!(fnames.remove("subdir1/"), true);
+    assert_eq!(fnames.remove("subdir1/file2.txt"), true);
+    assert_eq!(fnames.len(), 0);
+    Ok(())
 }

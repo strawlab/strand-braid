@@ -351,6 +351,7 @@ impl Drop for WritingState {
             }
         }
 
+        // Compress the saved directory into a .braidz file.
         {
             // TODO: read all the (forward) kalman estimates and smooth them to
             // an additional file. If we do it here, it is done after the
@@ -402,7 +403,7 @@ impl Drop for WritingState {
                     files.insert(0, entry);
                 }
 
-                let zipw = zip::ZipWriter::new(file);
+                let mut zipw = zip::ZipWriter::new(file);
                 // Since most of our files are already compressed as .gz files,
                 // we do not bother attempting to compress again. This would
                 // cost significant computation but wouldn't save much space.
@@ -416,8 +417,9 @@ impl Drop for WritingState {
                     .large_file(true)
                     .unix_permissions(0o755);
 
-                zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, zipw, options)
+                zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, &mut zipw, options)
                     .expect("zip_dir");
+                zipw.finish().unwrap();
             }
 
             // Release the file so we no longer have exclusive access to the
