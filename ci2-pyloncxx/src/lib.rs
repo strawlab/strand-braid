@@ -404,7 +404,7 @@ impl<'a> WrappedCamera<'a> {
         if self.is_sfnc2 {
             "ExposureTime"
         } else {
-            "ExposureTimeAbs"
+            "ExposureTimeRaw"
         }
     }
 
@@ -529,32 +529,63 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     // Settings: Exposure Time ----------------------------
     /// value given in microseconds
+
     fn exposure_time(&self) -> ci2::Result<f64> {
         let camera = self.inner.lock();
-        let node = camera
-            .node_map()
-            .float_node(self.exposure_time_param_name())
-            .map_pylon_err()?;
-        node.value().map_pylon_err()
+        let name = self.exposure_time_param_name();
+        if self.is_sfnc2 {
+            camera
+                .node_map()
+                .float_node(name)
+                .map_pylon_err()?
+                .value()
+                .map_pylon_err()
+        } else {
+            camera
+                .node_map()
+                .integer_node(name)
+                .map_pylon_err()?
+                .value()
+                .map_pylon_err()
+                .map(|x| x as f64)
+        }
     }
+
     /// value given in microseconds
     fn exposure_time_range(&self) -> ci2::Result<(f64, f64)> {
         let camera = self.inner.lock();
-        let node = camera
-            .node_map()
-            .float_node(self.exposure_time_param_name())
-            .map_pylon_err()?;
-        Ok((node.min().map_pylon_err()?, node.max().map_pylon_err()?))
+        let name = self.exposure_time_param_name();
+        if self.is_sfnc2 {
+            let node = camera.node_map().float_node(name).map_pylon_err()?;
+            Ok((node.min().map_pylon_err()?, node.max().map_pylon_err()?))
+        } else {
+            let node = camera.node_map().integer_node(name).map_pylon_err()?;
+            Ok((
+                node.min().map_pylon_err()? as f64,
+                node.max().map_pylon_err()? as f64,
+            ))
+        }
     }
+
     /// value given in microseconds
     fn set_exposure_time(&mut self, value: f64) -> ci2::Result<()> {
-        self.inner
-            .lock()
-            .node_map()
-            .float_node(self.exposure_time_param_name())
-            .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), value)
-            .map_pylon_err()
+        let camera = self.inner.lock();
+        let name = self.exposure_time_param_name();
+        if self.is_sfnc2 {
+            camera
+                .node_map()
+                .float_node(name)
+                .map_pylon_err()?
+                .set_value_pfs(&mut self.pfs_cache.lock(), value)
+                .map_pylon_err()
+        } else {
+            camera
+                .node_map()
+                .integer_node(name)
+                .map_pylon_err()?
+                .set_value_pfs(&mut self.pfs_cache.lock(), value.round() as i64)
+                .map_pylon_err()
+        }
     }
 
     // Settings: Exposure Time Auto Mode ----------------------------
