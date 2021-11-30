@@ -19,7 +19,7 @@ pub enum Hash {
     Sha256(String),
 }
 
-/// Download a file to disk if neccessary and validate it.
+/// Download a file to disk if necessary and validate it.
 ///
 /// Currently, this is done in one big chuck and thus enough memory
 /// is necessary to load the entire file. A future update could
@@ -31,12 +31,17 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
 ) -> Result<(), DlError> {
     // If the file already exists,
     if dest.as_ref().exists() {
-        // // read it,
-        // let mut bytes: Vec<u8> = Vec::new();
-        // std::fs::File::open(dest)?.read_to_end(&mut bytes)?;
-        // // and validate that it matches the checksum.
-        // validate(&bytes, &hash)?;
+        // read it,
+        let mut bytes: Vec<u8> = Vec::new();
+        std::fs::File::open(dest)?.read_to_end(&mut bytes)?;
+        // and validate that it matches the checksum.
+        validate(&bytes, &hash)?;
     } else {
+        // create the dir, if it does not already exist.
+        if let Some(dest_dir) = dest.as_ref().parent() {
+            std::fs::create_dir_all(dest_dir)?;
+        }
+
         // If the file does not exist, download the contents,
         let response = ureq::get(url)
             .timeout_connect(10_000) // max 10 seconds
