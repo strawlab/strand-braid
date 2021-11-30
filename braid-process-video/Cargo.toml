@@ -29,7 +29,7 @@ braidz-parser = {path="../braidz-parser"}
 flydra-types = {path="../flydra-types"}
 convert-image = { path = "../convert-image" }
 datetime-conversion = {path="../datetime-conversion"}
-basic-frame = {path="../basic-frame"}
+basic-frame = {path="../basic-frame", features=["convert-image"]}
 fmf = {path="../fmf"}
 timestamped-frame = {path="../timestamped-frame"}
 

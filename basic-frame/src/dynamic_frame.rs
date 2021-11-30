@@ -1,4 +1,4 @@
-use formats::{ImageBufferMutRef, ImageData, PixFmt, PixelFormat, Stride};
+use formats::{ImageData, PixFmt, PixelFormat, Stride};
 use machine_vision_formats as formats;
 
 use timestamped_frame::{ExtraTimeData, HostTimeData};
@@ -162,6 +162,7 @@ impl DynamicFrame {
         }
     }
 
+    #[cfg(feature="convert-image")]
     /// Return the image as a `BasicFrame` converting the data to the requested
     /// pixel format as necessary.
     ///
@@ -196,6 +197,7 @@ impl DynamicFrame {
             let dest_stride = dest_fmt.bits_per_pixel() as usize * width as usize / 8;
             let dest_size = height as usize * dest_stride;
             let mut dest_buf = vec![0u8; dest_size];
+            use formats::ImageBufferMutRef;
             let mut dest: ImageBufferMutRef<FMT> = ImageBufferMutRef::new(&mut dest_buf);
 
             match_all_dynamic_fmts!(

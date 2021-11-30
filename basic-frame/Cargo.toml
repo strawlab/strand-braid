@@ -8,4 +8,4 @@ edition = "2018"
 chrono = "0.4"
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
-convert-image = {path = "../convert-image" }
+convert-image = {path = "../convert-image", optional=true }
