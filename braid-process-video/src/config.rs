@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OutputConfig {
-    /// The type of output desired. Currently only type "mkv" is supported.
+    /// The type of output desired. Currently only type "video" is supported.
     #[serde(rename = "type")]
     pub type_: String,
     /// The filename of the output desired.

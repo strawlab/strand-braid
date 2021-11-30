@@ -32,7 +32,9 @@ mod braidz_iter;
 mod synced_iter;
 
 mod config;
-use config::{BraidRetrackVideoConfig, OutputVideoConfig, Validate};
+pub use config::{
+    BraidRetrackVideoConfig, OutputConfig, OutputVideoConfig, Validate, VideoSourceConfig,
+};
 
 mod tiny_skia_frame;
 
@@ -356,6 +358,11 @@ pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         .as_ref()
         .unwrap_or(&default_video_options);
 
+    // Create output dir if needed.
+    let output_filename = std::path::PathBuf::from(&output.filename);
+    if let Some(dest_dir) = output_filename.parent() {
+        std::fs::create_dir_all(dest_dir)?;
+    }
     let out_fd = std::fs::File::create(&output.filename)?;
 
     let opts = ci2_remote_control::VP9Options { bitrate: 10000 };
