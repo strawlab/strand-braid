@@ -5,6 +5,8 @@ pub(crate) struct PfsCache {
     headers: Vec<String>,
     /// All nodes, with preserved order.
     nodes: Vec<(String, String)>,
+    /// Whether there is a single key per PFS
+    strict: bool,
 }
 
 impl PfsCache {
@@ -40,7 +42,13 @@ impl PfsCache {
             nodes.push((key, value));
         }
 
-        Ok(Self { headers, nodes })
+        let strict = key_unique_check.len() == nodes.len();
+
+        Ok(Self {
+            headers,
+            nodes,
+            strict,
+        })
     }
     pub(crate) fn to_string(&self) -> String {
         // Again, I could not find any documentation about the PFS (Pylon
@@ -52,19 +60,21 @@ impl PfsCache {
         out_lines.join("\n")
     }
     pub(crate) fn update(&mut self, key: &str, value: String) {
-        let mut value = Some(value);
         let mut found = false;
         for node in self.nodes.iter_mut() {
             if &node.0 == key {
+                if found && self.strict {
+                    panic!("Key \"{}\" exists more than once in PFS.", key);
+                }
                 found = true;
-                node.1 = value.take().unwrap();
+                node.1 = value.clone();
             }
         }
         if !found {
             log::warn!(
                 "Attemped to store {}:{} to cache, but key not in cache.",
                 key,
-                value.unwrap()
+                value,
             );
         }
     }
