@@ -7,6 +7,7 @@ edition = "2018"
 [[bin]]
 name = "freemovr-calibration"
 path = "src/main.rs"
+doc = false
 
 [dependencies]
 anyhow = "1"

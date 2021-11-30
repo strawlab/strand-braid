@@ -7,6 +7,7 @@ edition = "2018"
 [[bin]]
 name = "ci2"
 path = "src/ci2-cli.rs"
+doc = false
 
 [dependencies]
 log = "0.4"

@@ -20,3 +20,7 @@ flydra-types = {path="../flydra-types"}
 image-tracker-types = {path = "../image-tracker/image-tracker-types"}
 im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
 braid-config-data = {path = "../braid-config-data"}
+
+[[bin]]
+name = "write-debian-changelog"
+doc = false
