@@ -623,17 +623,15 @@ braid-offline-ubuntu2004:
     - cd $CI_PROJECT_DIR/braid-offline
     # force recomputing git version tag
     - touch Cargo.toml
-    - cd packaging
-    - make
-    - mkdir -p $CI_PROJECT_DIR/braid-offline-linux-build
-    - cp *.deb $CI_PROJECT_DIR/braid-offline-linux-build
-    - cp *.changes $CI_PROJECT_DIR/braid-offline-linux-build
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
+    - cargo build --release
+    - find ../target/release/ -maxdepth 1 -type f  -executable -print0 | xargs -0 rm -f
+    - cargo build --release
 
+    - mkdir -p $CI_PROJECT_DIR/build
+    - find ../target/release/ -maxdepth 1 -type f  -executable -print0 | xargs -0 mv -t $CI_PROJECT_DIR/build/
   artifacts:
     paths:
-      - braid-offline-linux-build/
+      - build/
     name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-process-video-ubuntu2004:
@@ -1044,3 +1042,39 @@ build-fmf-cli-ubuntu2004:
     paths:
       - fmf-cli-focal
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
+
+strand-braid-ubuntu-focal:
+  # This builds the main Strand and Braid release for Ubuntu Focal (20.04).
+  rules:
+  - if: '$CI_COMMIT_TAG != null'
+  image: ubuntu:focal
+  script:
+    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
+    # package list here is probably more than needed, but should contain the required subset.
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl
+
+    # Download pylon and install 6
+    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
+    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+
+    - mkdir -p strand-braid-ubuntu-focal-${CI_COMMIT_TAG}
+
+    - cd $CI_PROJECT_DIR/_packaging
+    - pwd
+    - ls -l ../build
+    - ldd ../build/strand-cam-camtrig-pylon
+    - ldd ../build/strand-cam-pylon
+    - make
+    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
+    - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
+    - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
+    - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/*.deb
+  needs:
+    - strand-cam-pylon-ubuntu2004
+    - strand-cam-camtrig-pylon-ubuntu2004
+    - braid-offline-ubuntu2004
+  artifacts:
+    paths:
+      - strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
+    name: "strand-braid-ubuntu-focal-${CI_COMMIT_TAG}"

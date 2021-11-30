@@ -1,7 +1,0 @@
-compute-flydra1-compat
-offline-retrack
-debian/.debhelper
-debian/braid-offline
-debian/braid-offline.debhelper.log
-debian/braid-offline.substvars
-debian/files

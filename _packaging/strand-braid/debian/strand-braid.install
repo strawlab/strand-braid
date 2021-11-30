@@ -1,0 +1,5 @@
+offline-retrack usr/bin
+compute-flydra1-compat usr/bin
+strand-cam-pylon usr/bin
+strand-cam-camtrig-pylon usr/bin
+strand-cam-offline-kalmanize usr/bin

@@ -1,0 +1,5 @@
+debian/.debhelper
+debian/strand-braid
+debian/strand-braid.debhelper.log
+debian/strand-braid.substvars
+debian/files
