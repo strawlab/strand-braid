@@ -458,12 +458,21 @@ hmm_files = set(converted) - set(all_files)
 if len(hmm_files) > 0:
     raise RuntimeError("Delete file(s) that do not exist? %s" % hmm_files)
 
+cam_settings_glob = os.path.join(data_dir, "cam_settings", "*")
+cam_settings_files = glob.glob(cam_settings_glob)
+
+feature_detect_glob = os.path.join(data_dir, "feature_detect_settings", "*")
+feature_detect_files = glob.glob(feature_detect_glob)
+
 unconverted = [
     os.path.join(data_dir, "braid_metadata.yml"),
     os.path.join(data_dir, "README.md"),
     os.path.join(data_dir, "reprojection_distance_100x_pixels.hlog"),
     os.path.join(data_dir, "reconstruct_latency_usec.hlog"),
 ]
+unconverted.extend(cam_settings_files)
+unconverted.extend(feature_detect_files)
+
 leftover_files = set(all_files) - (set(converted) | set(unconverted))
 if len(leftover_files) > 0:
     print("ERROR: unconverted file(s) detected: %s" % leftover_files, file=sys.stderr)

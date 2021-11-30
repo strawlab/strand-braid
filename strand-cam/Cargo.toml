@@ -113,8 +113,6 @@ braid-config = ["braid-config-data"]
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
     "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
 
-send-bg-images-to-mainbrain = []
-
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
 
 cfg-pt-detect-src-prefs = []

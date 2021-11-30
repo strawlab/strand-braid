@@ -8,7 +8,7 @@ extern crate log;
 use std::backtrace::Backtrace;
 
 use borrow_fastimage::BorrowedFrame;
-use futures::{channel::mpsc, stream::StreamExt};
+use futures::{channel::mpsc, SinkExt};
 
 use machine_vision_formats as formats;
 use serde::Serialize;
@@ -16,8 +16,10 @@ use serde::Serialize;
 use chrono::{DateTime, Utc};
 #[cfg(feature = "debug-images")]
 use std::cell::RefCell;
-use std::fs::File;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::{
+    fs::File,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket},
+};
 
 use ci2_remote_control::CamArg;
 use fastimage::{
@@ -32,7 +34,7 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 use basic_frame::DynamicFrame;
 use flydra_types::{
     get_start_ts, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
-    ImageProcessingSteps, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
+    ImageProcessingSteps, RawCamName, RealtimePointsDestAddr, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -522,6 +524,9 @@ pub struct FlyTracker {
     #[cfg(feature = "debug-images")]
     debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
+
+    transmit_feature_detect_settings_tx: Option<mpsc::Sender<image_tracker_types::ImPtDetectCfg>>,
+    handle: tokio::runtime::Handle,
 }
 
 #[derive(Debug)]
@@ -711,16 +716,15 @@ impl FlyTracker {
         http_camserver_info: flydra_types::CamHttpServerInfo,
         ros_periodic_update_interval: std::time::Duration,
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
-        api_http_address: Option<MainbrainBuiLocation>,
         camdata_addr: Option<RealtimePointsDestAddr>,
-        transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
+        transmit_feature_detect_settings_tx: Option<
+            mpsc::Sender<image_tracker_types::ImPtDetectCfg>,
+        >,
         valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
         >,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
-        // settings_on_start: String,
-        new_cam_data: flydra_types::RegisterNewCamera,
     ) -> Result<Self> {
         #[cfg(feature = "debug-images")]
         let debug_thread_cjh = rt_image_viewer::initialize_rt_image_viewer(
@@ -758,38 +762,6 @@ impl FlyTracker {
 
         let ros_cam_name = orig_cam_name.to_ros();
 
-        if let Some(api_http_address) = api_http_address {
-            debug!(
-                "opening connection to mainbrain api http server {}",
-                api_http_address.0.guess_base_url_with_token()
-            );
-
-            let ros_cam_name = orig_cam_name.to_ros();
-
-            let fut = register_node_and_update_image(
-                api_http_address,
-                new_cam_data,
-                transmit_current_image_rx,
-            );
-
-            let orig_cam_name = orig_cam_name.clone();
-            let f2 = async move {
-                let result = fut.await;
-                info!(
-                    "background image handler for camera '{}' is done.",
-                    orig_cam_name.as_str()
-                );
-                match result {
-                    Ok(()) => {}
-                    Err(e) => {
-                        error!("error: {} ({}:{})", e, file!(), line!());
-                    }
-                }
-            };
-
-            handle.spawn(Box::pin(f2));
-        }
-
         debug!("sending tracked points to {:?}", camdata_addr);
         let coord_socket = open_destination_addr(camdata_addr)?;
 
@@ -812,6 +784,8 @@ impl FlyTracker {
             #[cfg(feature = "debug-images")]
             debug_thread_cjh,
             acquisition_duration_allowed_imprecision_msec,
+            transmit_feature_detect_settings_tx,
+            handle: handle.clone(),
         };
 
         result.reload_config()?;
@@ -828,7 +802,13 @@ impl FlyTracker {
         self.cfg = cfg;
         self.reload_config()
     }
+
     fn reload_config(&mut self) -> Result<()> {
+        // Send updated feature detection parameters
+        if let Some(ref mut sender) = &mut self.transmit_feature_detect_settings_tx {
+            self.handle.block_on(sender.send(self.cfg.clone()))?;
+        }
+
         self.mask_image = Some(compute_mask_image(&self.roi_sz, &self.cfg.valid_region)?);
         Ok(())
     }
@@ -1164,26 +1144,6 @@ impl FlyTracker {
 
         Ok((results, new_ufmf_state))
     }
-}
-
-async fn register_node_and_update_image(
-    api_http_address: flydra_types::MainbrainBuiLocation,
-    msg: flydra_types::RegisterNewCamera,
-    mut transmit_current_image_rx: mpsc::Receiver<Vec<u8>>,
-) -> Result<()> {
-    let mut mainbrain_session =
-        braid_http_session::mainbrain_future_session(api_http_address).await?;
-    mainbrain_session.register_flydra_camnode(&msg).await?;
-    while let Some(image_png_vecu8) = transmit_current_image_rx.next().await {
-        mainbrain_session
-            .update_image(msg.ros_cam_name.clone(), image_png_vecu8)
-            .await?;
-    }
-    info!(
-        "done listening for background images from {}",
-        msg.ros_cam_name.as_str()
-    );
-    Ok(())
 }
 
 pub fn compute_mask_image(

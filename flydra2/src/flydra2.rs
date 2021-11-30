@@ -708,7 +708,7 @@ pub struct StartSavingCsvConfig {
     pub local: Option<chrono::DateTime<chrono::Local>>,
     pub git_rev: String,
     pub fps: Option<f32>,
-    pub per_cam_data: Vec<flydra_types::PerCamSaveData>,
+    pub per_cam_data: BTreeMap<RosCamName, flydra_types::PerCamSaveData>,
     pub print_stats: bool,
     pub save_performance_histograms: bool,
 }

@@ -17,7 +17,10 @@ use flydra2::{
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
-use flydra_types::{PerCamSaveData, RawCamName, RosCamName, SyncFno, IMAGES_DIRNAME};
+use flydra_types::{
+    PerCamSaveData, RawCamName, RosCamName, SyncFno, FEATURE_DETECT_SETTINGS_DIRNAME,
+    IMAGES_DIRNAME,
+};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -305,7 +308,7 @@ where
 
     let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
 
-    let per_cam_data: Vec<PerCamSaveData> = match images_dirname.list_paths() {
+    let per_cam_data: BTreeMap<RosCamName, PerCamSaveData> = match images_dirname.list_paths() {
         Ok(relnames) => relnames
             .iter()
             .map(|relname| {
@@ -313,21 +316,42 @@ where
                 let ros_cam_name =
                     RosCamName::new(relname.file_stem().unwrap().to_str().unwrap().to_string());
 
-                let fname = data_src.path_starter().join(IMAGES_DIRNAME).join(relname);
-                let buf = {
-                    let mut fd = fname.open().unwrap();
+                let png_fname = data_src.path_starter().join(IMAGES_DIRNAME).join(relname);
+                let current_image_png = {
+                    let mut fd = png_fname.open().unwrap();
                     let mut buf = vec![];
                     fd.read_to_end(&mut buf).unwrap();
                     buf
                 };
-                PerCamSaveData {
+
+                let mut current_feature_detect_settings_fname = data_src
+                    .path_starter()
+                    .join(FEATURE_DETECT_SETTINGS_DIRNAME)
+                    .join(format!("{}.toml", ros_cam_name.as_str()));
+
+                let current_feature_detect_settings =
+                    if current_feature_detect_settings_fname.exists() {
+                        let mut fd = current_feature_detect_settings_fname.open().unwrap();
+                        let mut buf = vec![];
+                        fd.read_to_end(&mut buf).unwrap();
+                        toml::from_slice(&buf).unwrap()
+                    } else {
+                        im_pt_detect_config::default_absdiff()
+                    };
+
+                (
                     ros_cam_name,
-                    current_image_png: Some(buf),
-                    settings_data: None,
-                }
+                    PerCamSaveData {
+                        current_image_png,
+                        cam_settings_data: None,
+                        feature_detect_settings: Some(flydra_types::UpdateFeatureDetectSettings {
+                            current_feature_detect_settings,
+                        }),
+                    },
+                )
             })
             .collect(),
-        Err(zip_or_dir::Error::NotDirectory) => vec![],
+        Err(zip_or_dir::Error::NotDirectory) => Default::default(),
         Err(e) => return Err(e.into()),
     };
 

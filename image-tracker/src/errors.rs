@@ -67,5 +67,5 @@ pub enum Error {
         backtrace: Backtrace,
     },
     #[error("{0}")]
-    HyperError(#[from] hyper::Error),
+    FuturesSendError(#[from] futures::channel::mpsc::SendError),
 }

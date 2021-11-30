@@ -30,6 +30,7 @@ zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}
 channellib = {path="../channellib"}
+im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}

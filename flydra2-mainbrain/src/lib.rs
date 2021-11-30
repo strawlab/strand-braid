@@ -72,7 +72,7 @@ async fn new_http_api_app(
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
-    per_cam_data_arc: Arc<RwLock<Vec<PerCamSaveData>>>,
+    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
 ) -> Result<HttpApiApp> {
@@ -172,25 +172,28 @@ async fn new_http_api_app(
                 NewCamera(cam_info) => {
                     debug!("got NewCamera {:?}", cam_info);
                     let http_camserver_info = cam_info.http_camserver_info.unwrap();
-                    let cam_settings_data = cam_info.settings_data.unwrap();
+                    let cam_settings_data = cam_info.cam_settings_data.unwrap();
                     let mut cam_manager3 = cam_manager2.clone();
                     cam_manager3.register_new_camera(
-                        &cam_settings_data.orig_cam_name,
+                        &cam_info.orig_cam_name,
                         &http_camserver_info,
                         &cam_info.ros_cam_name,
                     );
 
                     let mut current_cam_data = per_cam_data_arc2.write();
-                    for this_cam_data in current_cam_data.iter() {
-                        if &this_cam_data.ros_cam_name == &cam_info.ros_cam_name {
-                            panic!("camera already known");
-                        }
+                    if current_cam_data
+                        .insert(
+                            cam_info.ros_cam_name.clone(),
+                            PerCamSaveData {
+                                cam_settings_data: Some(cam_settings_data),
+                                feature_detect_settings: None,
+                                current_image_png: cam_info.current_image_png,
+                            },
+                        )
+                        .is_some()
+                    {
+                        panic!("camera {} already known", cam_info.ros_cam_name.as_str());
                     }
-                    current_cam_data.push(PerCamSaveData {
-                        ros_cam_name: cam_info.ros_cam_name.clone(),
-                        current_image_png: None,
-                        settings_data: Some(cam_settings_data),
-                    })
                 }
                 UpdateCurrentImage(image_info) => {
                     // new image from camera
@@ -199,17 +202,26 @@ async fn new_http_api_app(
                         image_info.ros_cam_name.as_str()
                     );
                     let mut current_cam_data = per_cam_data_arc2.write();
-                    let mut found = false;
-                    for this_cam_data in current_cam_data.iter_mut() {
-                        if this_cam_data.ros_cam_name != image_info.ros_cam_name {
-                            continue;
-                        }
-                        this_cam_data.current_image_png = Some(image_info.current_image_png);
-                        found = true;
-                        break;
-                    }
-                    assert_eq!(found, true);
+                    current_cam_data
+                        .get_mut(&image_info.ros_cam_name)
+                        .unwrap()
+                        .current_image_png = image_info.inner.current_image_png;
                 }
+                UpdateCamSettings(cam_settings) => {
+                    let mut current_cam_data = per_cam_data_arc2.write();
+                    current_cam_data
+                        .get_mut(&cam_settings.ros_cam_name)
+                        .unwrap()
+                        .cam_settings_data = Some(cam_settings.inner);
+                }
+                UpdateFeatureDetectSettings(feature_detect_settings) => {
+                    let mut current_cam_data = per_cam_data_arc2.write();
+                    current_cam_data
+                        .get_mut(&feature_detect_settings.ros_cam_name)
+                        .unwrap()
+                        .feature_detect_settings = Some(feature_detect_settings.inner);
+                }
+
                 DoRecordCsvTables(value) => {
                     debug!("got DoRecordCsvTables({})", value);
                     toggle_saving_csv_tables(
@@ -505,7 +517,7 @@ pub async fn pre_run(
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
-    let per_cam_data_arc = Arc::new(RwLock::new(Vec::<PerCamSaveData>::new()));
+    let per_cam_data_arc = Arc::new(RwLock::new(Default::default()));
 
     use std::net::ToSocketAddrs;
     let http_api_server_addr = http_api_server_addr.to_socket_addrs()?.next().unwrap();
@@ -1168,7 +1180,7 @@ fn toggle_saving_csv_tables(
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
-    per_cam_data_arc: Arc<RwLock<Vec<PerCamSaveData>>>,
+    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
 ) {
     if start_saving {

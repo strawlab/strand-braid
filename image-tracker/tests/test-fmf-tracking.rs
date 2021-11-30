@@ -16,7 +16,6 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
 
     let ros_periodic_update_interval = std::time::Duration::from_secs(1);
 
-    let (_, fake_rx) = futures::channel::mpsc::channel(10);
     let (_, valve) = stream_cancel::Valve::new();
 
     #[cfg(feature = "debug-images")]
@@ -24,12 +23,6 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
 
     #[cfg(feature = "debug-images")]
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
-    let new_cam_data = flydra_types::RegisterNewCamera {
-        ros_cam_name: flydra_types::RosCamName::new("camera1".into()),
-        http_camserver_info: None,
-        settings_data: None,
-    };
 
     let mut ft = FlyTracker::new(
         &handle,
@@ -46,12 +39,10 @@ async fn track_fmf_with_error(handle: tokio::runtime::Handle) -> fmf::FMFResult<
         addr,
         None,
         None,
-        fake_rx,
         valve,
         #[cfg(feature = "debug-images")]
         Some(shutdown_rx),
         None,
-        new_cam_data,
     )
     .unwrap();
 

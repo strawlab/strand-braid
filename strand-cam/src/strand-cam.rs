@@ -229,7 +229,6 @@ pub enum StrandCamError {
         #[cfg_attr(feature = "backtrace", backtrace)]
         flydra2::Error,
     ),
-    #[cfg(feature = "flydratrax")]
     #[error("futures mpsc send error: {0}")]
     FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
     #[cfg(feature = "fiducial")]
@@ -245,6 +244,8 @@ pub enum StrandCamError {
     #[cfg(feature = "braid-config")]
     #[error("A camera name is required")]
     CameraNameRequired,
+    #[error("hyper error: {0}")]
+    HyperError(#[from] hyper::Error),
 }
 
 pub struct CloseAppOnThreadExit {
@@ -600,6 +601,44 @@ struct FlydraConfigState {
 
 type CollectedCornersArc = Arc<RwLock<Vec<Vec<(f32, f32)>>>>;
 
+async fn register_node_and_update_image(
+    api_http_address: flydra_types::MainbrainBuiLocation,
+    msg: flydra_types::RegisterNewCamera,
+    mut transmit_msg_rx: mpsc::Receiver<flydra_types::HttpApiCallback>,
+) -> Result<()> {
+    let mut mainbrain_session =
+        braid_http_session::mainbrain_future_session(api_http_address).await?;
+    mainbrain_session.register_flydra_camnode(&msg).await?;
+    while let Some(msg) = transmit_msg_rx.next().await {
+        mainbrain_session.send_message(msg).await?;
+    }
+    Ok(())
+}
+
+async fn convert_stream(
+    ros_cam_name: RosCamName,
+    mut transmit_feature_detect_settings_rx: mpsc::Receiver<image_tracker_types::ImPtDetectCfg>,
+    mut transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
+) -> Result<()> {
+    while let Some(val) = transmit_feature_detect_settings_rx.next().await {
+        let msg =
+            flydra_types::HttpApiCallback::UpdateFeatureDetectSettings(flydra_types::PerCam {
+                ros_cam_name: ros_cam_name.clone(),
+                inner: flydra_types::UpdateFeatureDetectSettings {
+                    current_feature_detect_settings: val,
+                },
+            });
+        transmit_msg_tx.send(msg).await?;
+    }
+    Ok(())
+}
+
+struct MainbrainInfo {
+    mainbrain_internal_addr: MainbrainBuiLocation,
+    transmit_msg_rx: mpsc::Receiver<flydra_types::HttpApiCallback>,
+    transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
+}
+
 // We perform image analysis in its own thread.
 // We want to remove rustfmt::skip attribute. There is a bug similar to
 // https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
@@ -622,7 +661,7 @@ fn frame_process_thread(
     incoming_frame_rx: channellib::Receiver<Msg>,
     cam_args_tx: mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
-    cfg: ImPtDetectCfg,
+    im_pt_detect_cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: channellib::Sender<AnnotatedFrame>,
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
@@ -637,7 +676,7 @@ fn frame_process_thread(
     ros_periodic_update_interval: std::time::Duration,
     #[cfg(feature = "debug-images")]
     debug_addr: std::net::SocketAddr,
-    mainbrain_internal_addr: Option<MainbrainBuiLocation>,
+    mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
     camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     do_process_frame_callback: bool,
@@ -719,22 +758,42 @@ fn frame_process_thread(
         frame_offset = None;
     }
 
-    let (mut transmit_current_image_tx, transmit_current_image_rx) =
-        mpsc::channel::<Vec<u8>>(10);
+    let (transmit_feature_detect_settings_tx, transmit_msg_tx) = if let Some(info) = mainbrain_info {
+
+        let addr = info.mainbrain_internal_addr;
+        let transmit_msg_tx = info.transmit_msg_tx.clone();
+
+        let (mut transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
+            mpsc::channel::<image_tracker_types::ImPtDetectCfg>(10);
+
+        my_runtime.spawn(convert_stream( ros_cam_name.clone(), transmit_feature_detect_settings_rx, transmit_msg_tx.clone() ));
+
+        let transmit_msg_rx = info.transmit_msg_rx;
+        my_runtime.spawn(register_node_and_update_image(addr,
+            new_cam_data,
+            // current_image_png,
+            transmit_msg_rx,
+        ));
+
+        (Some(transmit_feature_detect_settings_tx), Some(info.transmit_msg_tx))
+    } else {
+        (None, None)
+    };
+
     #[allow(clippy::redundant_clone)]
     let http_camserver = CamHttpServerInfo::Server(http_camserver_info.clone());
     #[cfg(feature="image_tracker")]
-    let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, cfg,
+    let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, im_pt_detect_cfg.clone(),
         Some(cam_args_tx.clone()), version_str, frame_offset, http_camserver,
         ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
         debug_addr,
-        mainbrain_internal_addr, camdata_addr, transmit_current_image_rx,
+        camdata_addr,
+        transmit_feature_detect_settings_tx,
         valve.clone(),
         #[cfg(feature = "debug-images")]
         debug_image_server_shutdown_rx,
         acquisition_duration_allowed_imprecision_msec,
-        new_cam_data,
     )?;
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
@@ -1611,7 +1670,6 @@ fn frame_process_thread(
                     })
                     .collect();
 
-                #[cfg(feature="send-bg-images-to-mainbrain")]
                 {
                     // send current image every 2 seconds
                     let mut timer = current_image_timer_arc.write();
@@ -1621,23 +1679,22 @@ fn frame_process_thread(
                         *timer = std::time::Instant::now();
                         // encode frame to png buf
 
-                        let buf = match_all_dynamic_fmts!(&frame, x, {
-                            convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
-                        });
+                        if let Some(mut transmit_msg_tx) = transmit_msg_tx.clone() {
+                            let ros_cam_name = ros_cam_name.clone();
+                            let current_image_png = match_all_dynamic_fmts!(&frame, x, {
+                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png).unwrap()
+                            });
 
-                        // send to UpdateCurrentImage
-                        match transmit_current_image_tx.try_send(buf) {
-                            Ok(()) => {}, // frame put in channel ok
-                            Err(e) => {
-                                if e.is_full() {
-                                    // channel was full
-                                    error!("not updating image on braid due to backpressure");
-                                }
-                                if e.is_disconnected() {
-                                    debug!("update image on braid listener disconnected");
-                                    return Err(StrandCamError::BraidUpdateImageListenerDisconnected.into());
-                                }
-                            }
+                            my_runtime.spawn(async move {
+                                let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(
+                                    flydra_types::PerCam {
+                                        ros_cam_name,
+                                        inner: flydra_types::UpdateImage {
+                                            current_image_png,
+                                        },
+                                    });
+                                transmit_msg_tx.send(msg).await.unwrap();
+                            });
                         }
                     }
                 }
@@ -1703,7 +1760,7 @@ fn frame_process_thread(
 
                                 // We could and should add this data here:
                                 let expected_fps = None;
-                                let per_cam_data = Vec::new();
+                                let per_cam_data = Default::default();
 
                                 let cfg = flydra2::StartSavingCsvConfig {
                                     out_dir: my_dir.clone(),
@@ -2545,7 +2602,7 @@ pub async fn setup_app(
         None => cam_infos[0].name(),
     };
 
-    let settings_file_ext = (&*CAMLIB).settings_file_extension().into();
+    let settings_file_ext = (&*CAMLIB).settings_file_extension().to_string();
 
     let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
@@ -2569,6 +2626,7 @@ pub async fn setup_app(
     let raw_name = cam.name().to_string();
     info!("  got camera {}", raw_name);
     let cam_name = RawCamName::new(raw_name);
+    let ros_cam_name = cam_name.to_ros();
 
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
     if let Some(camera_settings_filename) = &args.camera_settings_filename {
@@ -2663,6 +2721,10 @@ pub async fn setup_app(
     let image_width = frame.width();
     let image_height = frame.height();
 
+    let current_image_png = match_all_dynamic_fmts!(&frame, x, {
+        convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
+    });
+
     #[cfg(feature = "posix_sched_fifo")]
     let process_frame_priority = args.process_frame_priority;
 
@@ -2704,7 +2766,18 @@ pub async fn setup_app(
     #[cfg(feature="image_tracker")]
     let im_pt_detect_cfg = tracker_cfg.clone();
 
-    let mainbrain_internal_addr = args.mainbrain_internal_addr.clone();
+    let mainbrain_info = args.mainbrain_internal_addr.map(|addr| {
+        let ( transmit_msg_tx, transmit_msg_rx) =
+            mpsc::channel::<flydra_types::HttpApiCallback>(10);
+
+        MainbrainInfo {
+            mainbrain_internal_addr: addr,
+            transmit_msg_rx,
+            transmit_msg_tx,
+        }
+    });
+
+    let transmit_msg_tx = mainbrain_info.as_ref().map(|i| i.transmit_msg_tx.clone());
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
     #[cfg(feature = "with_camtrig")]
@@ -2742,10 +2815,19 @@ pub async fn setup_app(
         None
     };
 
+    let current_cam_settings_extension = settings_file_ext.to_string();
+
     if args.force_camera_sync_mode {
         // The trigger selector must be set before the trigger mode.
         cam.set_trigger_selector(ci2_types::TriggerSelector::FrameStart).unwrap();
         cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
+        send_cam_settings_to_braid(
+            &cam.node_map_save()?,
+            transmit_msg_tx.as_ref(),
+            &current_cam_settings_extension,
+            &ros_cam_name)
+            .map(|fut|
+                rt_handle.spawn( fut  ));
     }
 
     if args.camera_settings_filename.is_none() {
@@ -3025,13 +3107,15 @@ pub async fn setup_app(
         };
 
         let new_cam_data = flydra_types::RegisterNewCamera {
-            ros_cam_name: cam_name.to_ros(),
+            orig_cam_name: cam_name.clone(),
+            ros_cam_name: ros_cam_name.clone(),
             http_camserver_info: Some(CamHttpServerInfo::Server(http_camserver_info.clone())),
-            settings_data: Some(flydra_types::PerCamSettingsData {
-                orig_cam_name: cam_name.clone(),
-                settings_on_start,
-                settings_file_ext,
-            }),
+            cam_settings_data: Some(flydra_types::UpdateCamSettings {
+                    current_cam_settings_buf: settings_on_start,
+                    current_cam_settings_extension: settings_file_ext,
+                },
+            ),
+            current_image_png,
         };
 
         let valve2 = valve.clone();
@@ -3067,7 +3151,7 @@ pub async fn setup_app(
                     ros_periodic_update_interval,
                     #[cfg(feature = "debug-images")]
                     debug_addr,
-                    mainbrain_internal_addr,
+                    mainbrain_info,
                     camdata_addr,
                     camtrig_heartbeat_update_arc2,
                     do_process_frame_callback,
@@ -3285,6 +3369,13 @@ pub async fn setup_app(
                 CamArg::SetExposureTime(v) => {
                     match cam.set_exposure_time(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.exposure_time.current = v);
                         }
@@ -3296,6 +3387,13 @@ pub async fn setup_app(
                 CamArg::SetGain(v) => {
                     match cam.set_gain(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.gain.current = v);
                         }
@@ -3307,6 +3405,13 @@ pub async fn setup_app(
                 CamArg::SetGainAuto(v) => {
                     match cam.set_gain_auto(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.gain_auto() {
@@ -3349,6 +3454,13 @@ pub async fn setup_app(
                 CamArg::SetExposureAuto(v) => {
                     match cam.set_exposure_auto(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.exposure_auto() {
@@ -3370,6 +3482,13 @@ pub async fn setup_app(
                 CamArg::SetFrameRateLimitEnabled(v) => {
                     match cam.set_acquisition_frame_rate_enable(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate_enable() {
@@ -3390,6 +3509,13 @@ pub async fn setup_app(
                 CamArg::SetFrameRateLimit(v) => {
                     match cam.set_acquisition_frame_rate(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate() {
@@ -3415,6 +3541,13 @@ pub async fn setup_app(
                 CamArg::SetTriggerMode(v) => {
                     match cam.set_trigger_mode(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.trigger_mode = v);
                         }
@@ -3426,6 +3559,13 @@ pub async fn setup_app(
                 CamArg::SetTriggerSelector(v) => {
                     match cam.set_trigger_selector(v) {
                         Ok(()) => {
+                            send_cam_settings_to_braid(
+                                &cam.node_map_save().unwrap(),
+                                transmit_msg_tx.as_ref(),
+                                &current_cam_settings_extension,
+                                &ros_cam_name)
+                                .map(|fut|
+                                    rt_handle.spawn( fut  ));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.trigger_selector = v);
                         }
@@ -4172,5 +4312,32 @@ fn make_family(family: &ci2_remote_control::TagFamily) -> apriltag::Family {
         FamilyCircle49h12 => apriltag::Family::new_tag_circle_49h12(),
         FamilyCustom48h12 => apriltag::Family::new_tag_custom_48h12(),
         FamilyStandard52h13 => apriltag::Family::new_tag_standard_52h13(),
+    }
+}
+
+fn send_cam_settings_to_braid(
+    cam_settings: &str,
+    transmit_msg_tx: Option<&mpsc::Sender<flydra_types::HttpApiCallback>>,
+    current_cam_settings_extension: &str,
+    ros_cam_name: &RosCamName,
+) -> Option<impl std::future::Future<Output = ()>> {
+    if let Some(transmit_msg_tx) = transmit_msg_tx {
+        let current_cam_settings_buf = cam_settings.to_string();
+        let current_cam_settings_extension = current_cam_settings_extension.to_string();
+        let ros_cam_name = ros_cam_name.clone();
+        let mut transmit_msg_tx = transmit_msg_tx.clone();
+        let fut = async move {
+            let msg = flydra_types::HttpApiCallback::UpdateCamSettings(flydra_types::PerCam {
+                ros_cam_name,
+                inner: flydra_types::UpdateCamSettings {
+                    current_cam_settings_buf,
+                    current_cam_settings_extension,
+                },
+            });
+            transmit_msg_tx.send(msg).await.unwrap();
+        };
+        Some(fut)
+    } else {
+        None
     }
 }

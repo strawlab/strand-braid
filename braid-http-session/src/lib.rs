@@ -99,8 +99,7 @@ impl MainbrainSession {
     ) -> Result<(), hyper::Error> {
         debug!("register_flydra_camnode with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::NewCamera(msg.clone());
-        let bytes = serde_json::to_vec(&msg).unwrap();
-        self.do_post(bytes).await
+        self.send_message(msg).await
     }
 
     pub async fn update_image(
@@ -108,13 +107,21 @@ impl MainbrainSession {
         ros_cam_name: flydra_types::RosCamName,
         current_image_png: Vec<u8>,
     ) -> Result<(), hyper::Error> {
-        let msg = flydra_types::UpdateImage {
+        let msg = flydra_types::PerCam {
             ros_cam_name,
+            inner: flydra_types::UpdateImage {
             current_image_png,
-        };
+        }};
 
         debug!("update_image with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(msg);
+        self.send_message(msg).await
+    }
+
+    pub async fn send_message(
+        &mut self,
+        msg: flydra_types::HttpApiCallback,
+    ) -> Result<(), hyper::Error> {
         let bytes = serde_json::to_vec(&msg).unwrap();
         self.do_post(bytes).await
     }

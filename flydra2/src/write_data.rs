@@ -3,7 +3,9 @@ use log::info;
 
 use std::{io::Write, sync::Arc};
 
-use flydra_types::{BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, IMAGES_DIRNAME};
+use flydra_types::{
+    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+};
 
 struct WritingState {
     output_dirname: std::path::PathBuf,
@@ -93,28 +95,58 @@ impl WritingState {
             image_path.push(IMAGES_DIRNAME);
             std::fs::create_dir_all(&image_path)?;
 
-            for cam in per_cam_data.iter() {
-                if let Some(ref buf) = &cam.current_image_png {
-                    let fname = format!("{}.png", cam.ros_cam_name.as_str());
-                    let fullpath = image_path.clone().join(fname);
-                    let mut fd = std::fs::File::create(&fullpath)?;
-                    fd.write_all(buf)?;
-                }
+            for (ros_cam_name, data) in per_cam_data.iter() {
+                let buf = data.current_image_png.as_slice();
+                let fname = format!("{}.png", ros_cam_name.as_str());
+                let fullpath = image_path.clone().join(fname);
+                let mut fd = std::fs::File::create(&fullpath)?;
+                fd.write_all(buf)?;
             }
         }
 
         // write camera settings
         {
-            let mut settings_path = output_dirname.clone();
-            settings_path.push(CAM_SETTINGS_DIRNAME);
-            std::fs::create_dir_all(&settings_path)?;
+            let mut cam_settings_path = output_dirname.clone();
+            cam_settings_path.push(CAM_SETTINGS_DIRNAME);
+            if per_cam_data
+                .iter()
+                .any(|(_, x)| x.cam_settings_data.is_some())
+            {
+                std::fs::create_dir_all(&cam_settings_path)?;
+            }
 
-            for cam in per_cam_data.iter() {
-                if let Some(sd) = &cam.settings_data {
-                    let fname = format!("{}.{}", cam.ros_cam_name.as_str(), sd.settings_file_ext);
-                    let fullpath = settings_path.clone().join(fname);
+            for (ros_cam_name, cam) in per_cam_data.iter() {
+                if let Some(data) = &cam.cam_settings_data {
+                    let fname = format!(
+                        "{}.{}",
+                        ros_cam_name.as_str(),
+                        data.current_cam_settings_extension
+                    );
+                    let fullpath = cam_settings_path.clone().join(fname);
                     let mut fd = std::fs::File::create(&fullpath)?;
-                    fd.write_all(sd.settings_on_start.as_bytes())?;
+                    fd.write_all(data.current_cam_settings_buf.as_bytes())?;
+                }
+            }
+        }
+
+        // write feature detection settings
+        {
+            let mut feature_detect_settings_path = output_dirname.clone();
+            feature_detect_settings_path.push(FEATURE_DETECT_SETTINGS_DIRNAME);
+            if per_cam_data
+                .iter()
+                .any(|(_, x)| x.feature_detect_settings.is_some())
+            {
+                std::fs::create_dir_all(&feature_detect_settings_path)?;
+            }
+
+            for (ros_cam_name, cam) in per_cam_data.iter() {
+                if let Some(data) = &cam.feature_detect_settings {
+                    let buf = toml::to_vec(&data.current_feature_detect_settings)?;
+                    let fname = format!("{}.toml", ros_cam_name.as_str());
+                    let fullpath = feature_detect_settings_path.clone().join(fname);
+                    let mut fd = std::fs::File::create(&fullpath)?;
+                    fd.write_all(&buf)?;
                 }
             }
         }
@@ -659,7 +691,7 @@ mod test {
                 local: None,
                 git_rev: "<impossible git rev>".into(),
                 fps: None,
-                per_cam_data: Vec::new(),
+                per_cam_data: Default::default(),
                 print_stats: false,
                 save_performance_histograms: false,
             };

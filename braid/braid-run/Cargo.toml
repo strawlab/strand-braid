@@ -20,7 +20,7 @@ braid-config-data = {path="../../braid-config-data"}
 image-tracker = {path = "../../image-tracker"}
 im-pt-detect-config = {path = "../../image-tracker/im-pt-detect-config"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
-strand-cam = {path="../../strand-cam", default-features = false, features=["imtrack-absdiff", "start-object-detection", "initially-unsychronized", "send-bg-images-to-mainbrain"] }
+strand-cam = {path="../../strand-cam", default-features = false, features=["imtrack-absdiff", "start-object-detection", "initially-unsychronized"] }
 flydra-types = {path="../../flydra-types"}
 flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
 flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}

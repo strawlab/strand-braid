@@ -36,6 +36,7 @@ pub const BRAID_METADATA_YML_FNAME: &str = "braid_metadata.yml";
 pub const README_MD_FNAME: &str = "README.md";
 pub const IMAGES_DIRNAME: &str = "images";
 pub const CAM_SETTINGS_DIRNAME: &str = "cam_settings";
+pub const FEATURE_DETECT_SETTINGS_DIRNAME: &str = "feature_detect_settings";
 pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
 pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
 
@@ -191,36 +192,43 @@ impl BraidCameraConfig {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PerCamSaveData {
-    pub ros_cam_name: RosCamName,
-    pub current_image_png: Option<Vec<u8>>,
-    pub settings_data: Option<PerCamSettingsData>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct PerCamSettingsData {
-    /// The raw name of the camera as given by the camera itself.
-    pub orig_cam_name: RawCamName,
-    /// Implementation-dependent file extension used for camera settings file.
-    pub settings_file_ext: String,
-    /// Implementation-dependent dump of camera settings at the moment it was started.
-    pub settings_on_start: String,
+    pub current_image_png: Vec<u8>,
+    pub cam_settings_data: Option<UpdateCamSettings>,
+    pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RegisterNewCamera {
+    /// The name of the camera as returned by the camera
+    pub orig_cam_name: RawCamName,
     /// The name of the camera used in ROS (e.g. with '-' converted to '_').
     pub ros_cam_name: RosCamName,
     /// Location of the camera control HTTP server.
     pub http_camserver_info: Option<CamHttpServerInfo>,
-    /// Additional data about the camera settings.
-    pub settings_data: Option<PerCamSettingsData>,
+    /// The camera settings.
+    pub cam_settings_data: Option<UpdateCamSettings>,
+    /// The current image.
+    pub current_image_png: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct UpdateImage {
-    /// The name of the camera.
-    pub ros_cam_name: RosCamName,
+    /// The current image.
     pub current_image_png: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct UpdateCamSettings {
+    /// The current camera settings
+    pub current_cam_settings_buf: String,
+    /// The filename extension for the camera settings
+    pub current_cam_settings_extension: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct UpdateFeatureDetectSettings {
+    /// The current feature detection settings.
+    pub current_feature_detect_settings: image_tracker_types::ImPtDetectCfg,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -594,11 +602,24 @@ pub enum HttpApiCallback {
     /// Called from strand-cam to register a camera
     NewCamera(RegisterNewCamera),
     /// Called from strand-cam to update the current image
-    UpdateCurrentImage(UpdateImage),
+    UpdateCurrentImage(PerCam<UpdateImage>),
+    /// Called from strand-cam to update the current camera settings (e.g.
+    /// exposure time)
+    UpdateCamSettings(PerCam<UpdateCamSettings>),
+    /// Called from strand-cam to update the current feature detection settings
+    /// (e.g. threshold different)
+    UpdateFeatureDetectSettings(PerCam<UpdateFeatureDetectSettings>),
     /// Start or stop recording data (csv tables)
     DoRecordCsvTables(bool),
     /// set uuid in the experiment_info table
     SetExperimentUuid(String),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct PerCam<T> {
+    /// The name of the camera used in ROS (e.g. with '-' converted to '_').
+    pub ros_cam_name: RosCamName,
+    pub inner: T,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
