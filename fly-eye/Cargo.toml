@@ -22,13 +22,10 @@ machine-vision-formats = "0.1"
 machine-vision-shaders = { path = "../machine-vision-shaders" }
 crossbeam-ok = {path="../crossbeam-ok"}
 ci2 = { path = "../ci2" }
-ci2-flycap2 = { path = "../ci2-flycap2", optional = true }
 channellib = {path="../channellib"}
 
 [features]
 default = ["fly-eye"]
-
-camsrc_flycap2 = ["ci2-flycap2"]
 
 fly-eye = []
 screen-quad = []

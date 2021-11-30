@@ -12,8 +12,6 @@ extern crate log;
 
 #[cfg(feature = "backend_aravis")]
 use ci2_aravis as backend;
-#[cfg(feature = "backend_flycap2")]
-use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 

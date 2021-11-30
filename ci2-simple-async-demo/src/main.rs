@@ -6,8 +6,6 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[cfg(feature = "backend_aravis")]
 use ci2_aravis as backend;
-#[cfg(feature = "backend_flycap2")]
-use ci2_flycap2 as backend;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
 
@@ -28,12 +26,7 @@ pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
     );
 }
 
-#[cfg(feature = "backend_flycap2")]
-pub fn print_backend_specific_data(frame: &DynamicFrame) {
-    // do nothing for now.
-}
-
-#[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_flycap2")))]
+#[cfg(not(any(feature = "backend_pyloncxx")))]
 pub fn print_backend_specific_data(_extra: &dyn HostTimeData) {
     // do nothing
 }
