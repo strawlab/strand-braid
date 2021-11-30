@@ -31,6 +31,11 @@
   Strand Camera was started into the newly created `feature_detect_settings`
   directory inside the `.braidz` file.
 
+* On linux, Basler Pylon backend checks for resource limits for USB memory
+  (`/sys/module/usbcore/parameters/usbfs_memory_mb`) and file descriptors
+  (`ulimit`) warns if they are likely too low and suggests how to increase
+  limits.
+
 * MKV videos now save the camera name as metadata in the segment title field.
 
 * MKV, FMF, and uFMF videos have the camera name in the filename when saved with

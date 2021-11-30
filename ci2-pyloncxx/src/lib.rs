@@ -320,6 +320,52 @@ impl<'a> WrappedCamera<'a> {
                             name,
                             max_size
                         );
+
+                        #[cfg(target_os = "linux")]
+                        {
+                            // This seems to be a USB camera, let's also check /sys/module/usbcore/parameters/usbfs_memory_mb
+                            let fname = "/sys/module/usbcore/parameters/usbfs_memory_mb";
+                            match std::fs::read_to_string(&fname) {
+                                Ok(usbfs_memory_mb) => {
+                                    let usbfs_memory_mb: i64 =
+                                        usbfs_memory_mb.trim().parse().unwrap();
+                                    let desired_mb = 1000;
+                                    if usbfs_memory_mb < desired_mb {
+                                        log::warn!("You seem to be using a USB3 camera on linux but the file \"{}\" \
+                                        is set to only {}. For best performance, consider setting it to {}. \
+                                        For more information, see \
+                                        https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/how-can-i-set-the-usbfs-on-linux-or-linux-for-arm-to-prevent-image-losses-with-pylon-and-usb-cameras/29826/.",
+                                        fname, usbfs_memory_mb, desired_mb);
+                                    } else {
+                                        log::debug!(
+                                            "File \"{}\" indicates a value of {}.",
+                                            fname,
+                                            usbfs_memory_mb
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!("Could not read {} to check USB subsystem memory due to error: {}", fname, e);
+                                }
+                            }
+
+                            // While we are at it, let's check max number of open file descriptors.
+                            // one greater than the maximum file descriptor number that can be opened by this process.
+                            match rlimit::Resource::NOFILE.get() {
+                                Ok((soft, _hard)) => {
+                                    let desired = 4096;
+                                    if soft < desired {
+                                        log::warn!("You seem to be using linux but you have only {} file descriptors available. \
+                                        For best performance, set this to at least {}. See https://github.com/basler/pypylon/issues/80#issuecomment-461727225 \
+                                        for more information. Hint: use 'ulimit -n 4096' to update.",
+                                        soft, desired);
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!("Could not check max number of open file descriptors due to error: {}", e);
+                                }
+                            }
+                        }
                     }
                 }
 
