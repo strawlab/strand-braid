@@ -36,3 +36,7 @@ timestamped-frame = {path="../timestamped-frame"}
 [features]
 default = ["read-mkv"]
 read-mkv = ["ffmpeg-next"]
+
+[dev-dependencies]
+download-verify = {path="../download-verify"}
+serde_json = "1"
