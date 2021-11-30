@@ -1210,16 +1210,7 @@ fn toggle_saving_csv_tables(
             });
         }
 
-        // TODO: set filename in shared data.
-
-        // let data_file_topic = format!("/{}/data_file", rosname2);
-        // // TODO: create data_file_pub only once
-        // let mut data_file_pub = rosrust::publish(&data_file_topic).unwrap();
-        // data_file_pub.set_latching(true);
-        // let msg = msg::std_msgs::String { data: my_dir.to_string_lossy().into() };
-        // data_file_pub.send(msg).unwrap();
-
-        info!("saving data to {:?}", my_dir);
+        info!("saving data to {}", my_dir.display());
     } else {
         let write_controller = write_controller_arc.write();
         write_controller.stop_saving_data();
@@ -1230,13 +1221,6 @@ fn toggle_saving_csv_tables(
                 store.csv_tables_dirname = None;
             });
         }
-
-        // let data_file_topic = format!("/{}/data_file", rosname2);
-        // // TODO: create data_file_pub only once
-        // let mut data_file_pub = rosrust::publish(&data_file_topic).unwrap();
-        // data_file_pub.set_latching(true);
-        // let msg = msg::std_msgs::String { data: "".to_string() };
-        // data_file_pub.send(msg).unwrap();
 
         info!("stopping saving");
     }
