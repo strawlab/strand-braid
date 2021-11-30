@@ -6,7 +6,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 [dependencies]
 libc = "0.2"
 
-[target.'cfg(target_os = "linux")'.build-dependencies]
+[target.'cfg(target_family = "unix")'.build-dependencies]
 posix-scheduler-build = {path="posix-scheduler-build"}
 
 [features]
