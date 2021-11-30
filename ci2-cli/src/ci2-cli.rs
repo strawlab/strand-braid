@@ -70,11 +70,7 @@ fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()
 
         match cam.next_frame() {
             Ok(frame) => {
-                info!(
-                    "got frame: {}x{}",
-                    frame.width(),
-                    frame.height(),
-                );
+                info!("got frame: {}x{}", frame.width(), frame.height(),);
             }
             Err(ci2::Error::SingleFrameError(s)) => {
                 error!("SingleFrameError({})", s);
