@@ -1,3 +1,4 @@
+#[cfg(target_family = "unix")]
 use std::os::unix::io::RawFd;
 
 #[derive(Debug)]
@@ -6,6 +7,7 @@ pub enum Error {
     Timeout,
 }
 
+#[cfg(target_family = "unix")]
 pub fn block_or_timeout(fd: RawFd, timeout_ms: u32) -> Result<(), Error> {
     let mut timeout = libc::timeval {
         tv_sec: (timeout_ms / 1000) as libc::time_t,
