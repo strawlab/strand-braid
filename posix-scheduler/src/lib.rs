@@ -1,6 +1,6 @@
 extern crate libc;
 
-use std::io::{Result, Error};
+use std::io::{Error, Result};
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 
@@ -8,10 +8,10 @@ macro_rules! syscall {
     ($ex:expr) => {{
         let result = unsafe { $ex };
         if result == -1 {
-            return Err(Error::last_os_error())
+            return Err(Error::last_os_error());
         }
         result
-    }}
+    }};
 }
 
 /// Get the scheduling policy
@@ -20,7 +20,11 @@ pub fn sched_getscheduler(pid: libc::pid_t) -> Result<libc::c_int> {
 }
 
 /// Set the scheduling policy and static scheduling priority
-pub fn sched_setscheduler(pid: libc::pid_t, policy: libc::c_int, priority: libc::c_int) -> Result<()> {
+pub fn sched_setscheduler(
+    pid: libc::pid_t,
+    policy: libc::c_int,
+    priority: libc::c_int,
+) -> Result<()> {
     let sched_params = libc::sched_param {
         sched_priority: priority,
     };
