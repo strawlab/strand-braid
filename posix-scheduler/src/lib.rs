@@ -2,6 +2,7 @@ extern crate libc;
 
 use std::io::{Error, Result};
 
+#[cfg(target_os = "linux")]
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 
 macro_rules! syscall {
@@ -14,11 +15,13 @@ macro_rules! syscall {
     }};
 }
 
+#[cfg(target_os = "linux")]
 /// Get the scheduling policy
 pub fn sched_getscheduler(pid: libc::pid_t) -> Result<libc::c_int> {
     Ok(syscall!(libc::sched_getscheduler(pid)))
 }
 
+#[cfg(target_os = "linux")]
 /// Set the scheduling policy and static scheduling priority
 pub fn sched_setscheduler(
     pid: libc::pid_t,
@@ -33,11 +36,13 @@ pub fn sched_setscheduler(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 /// Get the program scheduling priority
 pub fn getpriority(which: libc::c_uint, who: libc::id_t) -> Result<libc::c_int> {
     Ok(syscall!(libc::getpriority(which, who)))
 }
 
+#[cfg(target_os = "linux")]
 /// Set the program scheduling priority
 pub fn setpriority(which: libc::c_uint, who: libc::id_t, prio: libc::c_int) -> Result<()> {
     syscall!(libc::setpriority(which, who, prio));

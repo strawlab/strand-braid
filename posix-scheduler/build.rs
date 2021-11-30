@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 extern crate posix_scheduler_build;
 
 use std::env;
@@ -5,8 +6,13 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
+#[cfg(target_os = "linux")]
 use posix_scheduler_build::*;
 
+#[cfg(not(target_os = "linux"))]
+fn main() {}
+
+#[cfg(target_os = "linux")]
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("consts.rs");
