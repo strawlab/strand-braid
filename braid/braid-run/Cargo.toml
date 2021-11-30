@@ -29,7 +29,7 @@ rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
 
 [features]
-default = ["stand-cam-posix-sched-fifo", "fiducial", "jemalloc"]
+default = ["stand-cam-posix-sched-fifo", "fiducial"]
 
 backtrace = ["flydra2/backtrace", "strand-cam/backtrace", "image-tracker/backtrace"]
 

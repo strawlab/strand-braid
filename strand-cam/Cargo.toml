@@ -103,7 +103,7 @@ braid-http-session = {path="../braid-http-session"}
 bui-backend-codegen = {version="0.9", default-features = false}
 
 [features]
-default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs", "jemalloc"]
+default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
