@@ -460,6 +460,8 @@ strand-cam-pylon-linux:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace" --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
     - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
@@ -487,6 +489,8 @@ strand-cam-pylon-ubuntu2004:
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
@@ -555,6 +559,8 @@ strand-cam-camtrig-pylon-ubuntu2004:
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
   artifacts:
@@ -605,6 +611,8 @@ strand-cam-camtrig-pylon-linux:
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
   artifacts:
@@ -624,11 +632,11 @@ braid-offline-ubuntu2004:
     # force recomputing git version tag
     - touch Cargo.toml
     - cargo build --release
-    - find ../target/release/ -maxdepth 1 -type f  -executable -print0 | xargs -0 rm -f
-    - cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - find ../target/release/ -maxdepth 1 -type f  -executable -print0 | xargs -0 mv -t $CI_PROJECT_DIR/build/
+    - cp ../target/release/braid-offline-retrack $CI_PROJECT_DIR/build/
+    - cp ../target/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
+    - cp ../target/release/write-debian-changelog $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
@@ -648,28 +656,23 @@ braid-process-video-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test
 
-    # force recomputing git version tag
     - touch Cargo.toml
-    - cd packaging
-    - make
-    - mkdir -p $CI_PROJECT_DIR/braid-process-video-build
-    - cp *.deb $CI_PROJECT_DIR/braid-process-video-build
-    - cp *.changes $CI_PROJECT_DIR/braid-process-video-build
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
+    - cargo build --release --features read-mkv
 
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
   artifacts:
     paths:
-      - braid-process-video-build/
+      - build/
     name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
 
 slow-braid-process-video-test:
   image: ubuntu:focal
   when: manual
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential
+    - cc --version
 
     - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
     - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
@@ -680,7 +683,7 @@ slow-braid-process-video-test:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release -- --ignored
+    - cargo test --release --features read-mkv -- --ignored
 
 braidz-cli-ubuntu2004:
   image: ubuntu:focal
@@ -693,18 +696,35 @@ braidz-cli-ubuntu2004:
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     # force recomputing git version tag
     - touch Cargo.toml
-    - cd packaging
-    - make
-    - ldd braidz-cli/braidz-cli
-    - mkdir -p $CI_PROJECT_DIR/braidz-cli-linux-build
-    - cp *.deb $CI_PROJECT_DIR/braidz-cli-linux-build
-    - cp *.changes $CI_PROJECT_DIR/braidz-cli-linux-build
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
+    - cargo build --release
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
   artifacts:
     paths:
-      - braidz-cli-linux-build/
+      - build/
     name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
+
+fmf-cli-ubuntu2004:
+  image: ubuntu:focal
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config
+
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
+    - curl --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+
+    - cd $CI_PROJECT_DIR/fmf/fmf-cli
+    - cargo build --release --features nv-h264,import-webm
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../../target/release/fmf $CI_PROJECT_DIR/build
+  artifacts:
+    paths:
+      - build/
+    name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-webapps:
   image: rust:1.56.0
@@ -785,9 +805,11 @@ braid-pylon-ubuntu1604:
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
 
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
     - ls -l ../target/release
-    - cd packaging
+    - cd $CI_PROJECT_DIR/braid/packaging
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
     - make
     - mkdir -p $CI_PROJECT_DIR/braid-pylon-linux-build
@@ -819,13 +841,15 @@ braid-pylon-ubuntu2004:
     - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
     - ./build.sh
 
-    # build braid-run
+    - mkdir -p $CI_PROJECT_DIR/build
+
+    # build braid-run (pylon)
     - cd $CI_PROJECT_DIR/braid/braid-run
     # force recomputing git version tag
     - touch build.rs
-
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
     - ldd ../../target/release/braid-run
+    - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
     # build braid
     - cd $CI_PROJECT_DIR/braid
@@ -833,76 +857,39 @@ braid-pylon-ubuntu2004:
     - touch build.rs
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
-
-    - ../target/release/write-debian-changelog braid-pylon focal > ../target/release/braid.changelog
-    - ls -l ../target/release
-    - cd packaging
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-    - make
-    - mkdir -p $CI_PROJECT_DIR/braid-pylon-focal-build
-    - cp *.deb $CI_PROJECT_DIR/braid-pylon-focal-build
-    - cp *.changes $CI_PROJECT_DIR/braid-pylon-focal-build
-    - ls -lh *.deb
-    - ls -l *.deb
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
-    - dpkg --info *.deb
+    - cp ../target/release/braid $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-default-config $CI_PROJECT_DIR/build
 
   artifacts:
     paths:
-      - braid-pylon-focal-build/
+      - build/
     name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
-braid-pylon5-ubuntu2004:
+braid-strand-cam-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/install-pylon5.sh
-    - export PYLON_VERSION=5
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
 
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
-    - ./build.sh
+    - mkdir -p $CI_PROJECT_DIR/build
 
-    # build braid-run
-    - cd $CI_PROJECT_DIR/braid/braid-run
+    # build braid-strand-cam-pylon
+    - cd $CI_PROJECT_DIR/strand-cam
     # force recomputing git version tag
     - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon5/lib64" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
-    - ldd ../../target/release/braid-run
-
-    # build braid
-    - cd $CI_PROJECT_DIR/braid
-    # force recomputing git version tag
-    - touch build.rs
-    - NUM_JOBS=2 cargo build --release
-    - ldd ../target/release/braid
-
-    - ../target/release/write-debian-changelog braid-pylon5 focal > ../target/release/braid.changelog
-    - ls -l ../target/release
-    - cd packaging
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-    - make braid-pylon5_VERSION_amd64.deb
-    - mkdir -p $CI_PROJECT_DIR/braid-pylon5-focal-build
-    - cp *.deb $CI_PROJECT_DIR/braid-pylon5-focal-build
-    - cp *.changes $CI_PROJECT_DIR/braid-pylon5-focal-build
-    - ls -lh *.deb
-    - ls -l *.deb
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
-    - dpkg --info *.deb
-
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-feature=+sse2 -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal braid-config imtrack-absdiff start-object-detection initially-unsychronized" --release
+    - ldd ../target/release/strand-cam
+    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/braid-strand-cam-pylon
   artifacts:
     paths:
-      - braid-pylon5-focal-build/
-    name: "braid-pylon5-ubuntu2004-${CI_COMMIT_SHA}"
+      - build/
+    name: "braid-strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 camtrig-linux:
   image: rust:1.56.0
@@ -991,34 +978,6 @@ deploy-braid-pylon-ubuntu1604:
     - braid-pylon-ubuntu1604
   when: manual
 
-# deploy-braid-offline-ubuntu1604:
-#   tags:
-#     - aptly.strawlab.org-deployer
-#   script:
-#     # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-#     - aptly repo add strawlab-xenial braid-offline-linux-build/
-#     - aptly publish update xenial filesystem:deploy:xenial
-#   environment:
-#     name: strawlab aptly web server
-#     url: https://aptly.strawlab.org/
-#   needs:
-#     - braid-offline-ubuntu1604
-#   when: manual
-
-# deploy-braidz-cli-ubuntu1604:
-#   tags:
-#     - aptly.strawlab.org-deployer
-#   script:
-#     # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-#     - aptly repo add strawlab-xenial braidz-cli-linux-build/
-#     - aptly publish update xenial filesystem:deploy:xenial
-#   environment:
-#     name: strawlab aptly web server
-#     url: https://aptly.strawlab.org/
-#   needs:
-#     - braidz-cli-ubuntu1604
-#   when: manual
-
 deploy-strand-cam-internal-ubuntu1604:
   tags:
     - aptly.strawlab.org-deployer
@@ -1061,14 +1020,11 @@ build-fmf-cli-ubuntu2004:
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 strand-braid-ubuntu-focal:
-  # This builds the main Strand and Braid release for Ubuntu Focal (20.04).
-  rules:
-  - if: '$CI_COMMIT_TAG != null'
   image: ubuntu:focal
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
     # Download pylon and install 6
     - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
@@ -1088,9 +1044,14 @@ strand-braid-ubuntu-focal:
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/*.deb
   needs:
+    - braid-offline-ubuntu2004
+    - braid-process-video-ubuntu2004
+    - braid-pylon-ubuntu2004
+    - braid-strand-cam-pylon-ubuntu2004
+    - braidz-cli-ubuntu2004
+    - fmf-cli-ubuntu2004
     - strand-cam-pylon-ubuntu2004
     - strand-cam-camtrig-pylon-ubuntu2004
-    - braid-offline-ubuntu2004
   artifacts:
     paths:
       - strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/

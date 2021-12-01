@@ -1,7 +1,0 @@
-braidz-cli
-debian/.debhelper
-debian/braidz-cli
-debian/braidz-cli.debhelper.log
-debian/braidz-cli.substvars
-debian/files
-debian/debhelper-build-stamp

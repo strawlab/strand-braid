@@ -1,5 +1,14 @@
+braid usr/bin
+braid-default-config usr/bin
 braid-offline-retrack usr/bin
+braid-process-video usr/bin
+braid-pylon usr/bin
+braid-run usr/bin
+braid-show-config usr/bin
+braid-strand-cam-pylon usr/bin
+braidz-cli usr/bin
 compute-flydra1-compat usr/bin
-strand-cam-pylon usr/bin
+fmf usr/bin
 strand-cam-camtrig-pylon usr/bin
 strand-cam-offline-kalmanize usr/bin
+strand-cam-pylon usr/bin

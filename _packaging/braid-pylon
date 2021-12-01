@@ -1,0 +1,7 @@
+#!/bin/bash
+set -o errexit
+
+# This is a backwards compatibility script to run `braid` when `braid-pylon` is
+# called.
+
+braid $*

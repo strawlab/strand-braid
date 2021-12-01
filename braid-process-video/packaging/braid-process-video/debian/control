@@ -1,9 +1,0 @@
-Source: braid-process-video
-Maintainer: Andrew Straw <strawman@astraw.com>
-Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.1
-
-Package: braid-process-video
-Architecture: any
-Description: process recorded videos using the braid multi-camera framework
-Depends: ${shlibs:Depends}
