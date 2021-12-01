@@ -16,7 +16,9 @@
   start the camera directly from Braid but rather waits for a network connection
   from a computer running a Braid-tuned variant of Strand Camera. One or more
   instances of Strand Camera can thus be running on computers other than the
-  computer on which Braid is running.
+  computer on which Braid is running. To start Strand Camera as a remote camera
+  for Braid, run `braid-strand-cam-pylon` with the command line argument
+  `--braid_addr` specifying `IP:Port` address of Braid.
 
 * Implement loading all camera node map settings from a file. For Braid, this is
   specified in the `[[cameras]]` section with the `camera_settings_filename`
