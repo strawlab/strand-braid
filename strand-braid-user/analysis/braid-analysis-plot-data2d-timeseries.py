@@ -16,7 +16,8 @@ def open_filename_or_url(filename_or_url):
     else:
         # Idea for one day: implement HTTP file object reader that implements
         # seek using HTTP range requests.
-        fileobj = urllib.request.urlopen(filename_or_url)
+        req = urllib.request.Request(filename_or_url, headers={'User-Agent' : "IPYNB"}) 
+        fileobj = urllib.request.urlopen(req)
         fileobj_with_seek = io.BytesIO(fileobj.read())
     return fileobj_with_seek
 
