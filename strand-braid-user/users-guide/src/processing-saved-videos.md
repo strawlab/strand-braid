@@ -7,15 +7,15 @@ produce various outputs.
 
 ![braid-process-video.png](braid-process-video.png)
 
-As shown in the figure, this program takes `.mkv` video files saved by Braid and
-a configuration file and then creates an output `.mkv` which stitches the input
-`.mkv` files together. Optionally, it can also plot 2D detections from a
-`.braidz` file on top of the raw video.
+As shown in the figure, this program takes `.mkv` (or `.fmf`) video input files
+saved by Braid and a configuration file and then creates an output `.mkv` video
+which stitches the input videos together. Optionally, it can also plot 2D
+detections from a `.braidz` file on top of the raw video.
 
 ## Note
 
-- The `.mkv` video inputs must be saved by Braid to ensure that the timestamps
-  for each frame in the file are correctly stored.
+- The input videos must be saved by Braid to ensure that the timestamps for each
+  frame in the file are correctly stored.
 
 ## Example usage
 
