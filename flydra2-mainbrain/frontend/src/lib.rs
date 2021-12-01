@@ -177,8 +177,8 @@ impl Component for Model {
                     {self.view_shared(ctx)}
                     <footer id="footer">
                         {format!(
-                            "Braid frontend date: {} (revision {})",
-                            env!("GIT_DATE"),
+                            "Braid version: {} (revision {})",
+                            env!("CARGO_PKG_VERSION"),
                             env!("GIT_HASH")
                         )}
                     </footer>
