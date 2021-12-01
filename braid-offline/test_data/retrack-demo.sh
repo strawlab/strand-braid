@@ -10,7 +10,7 @@ NGCU=../strand-braid-user
 python $NGCU/scripts/export_h5_to_csv.py "$BASE.h5"
 # Retrack .csv files
 cargo build
-RUST_LOG=flydra2=trace ../target/debug/offline-retrack -d "$BASE" -o "$RETRACKED"
+RUST_LOG=flydra2=trace ../target/debug/braid-offline-retrack -d "$BASE" -o "$RETRACKED"
 
 # Convert to pytables .h5 format
 rm -f "$RETRACKED.braidz.h5"

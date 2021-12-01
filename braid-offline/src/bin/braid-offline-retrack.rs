@@ -5,7 +5,7 @@ use log::info;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "offline-retrack")]
+#[structopt(name = "braid-offline-retrack")]
 struct Opt {
     /// Input .braid directory
     #[structopt(short = "d", parse(from_os_str))]

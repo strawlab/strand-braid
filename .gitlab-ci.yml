@@ -86,9 +86,9 @@ test_flydra2:
     # test 3D retracking
     - PATH="../target/release:$PATH" cargo test --release
     # test 2D retracking
-    - PATH="../target/release:$PATH" cargo run --no-default-features --features "flat-3d flydra2/bundle_files" --bin offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
+    - PATH="../target/release:$PATH" cargo run --no-default-features --features "flat-3d flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
     # TODO: test 3D retracking using `rust-cam-testing-data`
-    # cargo run --bin offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
+    # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_1_56:
   image: rust:1.56.0
