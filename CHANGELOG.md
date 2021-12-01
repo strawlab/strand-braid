@@ -2,6 +2,10 @@
 
 ### Added
 
+* The software is released now as a single `.deb` package for Ubuntu 20.04 which
+  includes the main applications (Braid and Strand Camera) in addition to
+  numerous smaller utility programs.
+
 * New program `braid-process-video` to process multiple simultaneously recorded
   MKV and FMF videos. Optionally, when a simultaneously recorded .braidz file is
   available, the data in the .braidz is used to directly indicated temporally
