@@ -15,14 +15,10 @@
 * MKV videos now save timestamps with microsecond precision. (Previously was
   millisecond precision.)
 
-* Support for "remote cameras" in Braid by setting `remote_camera = true` in the
-  `[[cameras]]` in the Braid configuration TOML file. This does not attempt to
-  start the camera directly from Braid but rather waits for a network connection
-  from a computer running a Braid-tuned variant of Strand Camera. One or more
-  instances of Strand Camera can thus be running on computers other than the
-  computer on which Braid is running. To start Strand Camera as a remote camera
-  for Braid, run `braid-strand-cam-pylon` with the command line argument
-  `--braid_addr` specifying `IP:Port` address of Braid.
+* Support for "remote cameras" in Braid. A remote camera can be used to connect
+  cameras on separate computers over the network to an instance of Braid. One or
+  more instances of Strand Camera can thus run on computers other than the
+  computer on which Braid is running.
 
 * Implement loading all camera node map settings from a file. For Braid, this is
   specified in the `[[cameras]]` section with the `camera_settings_filename`
