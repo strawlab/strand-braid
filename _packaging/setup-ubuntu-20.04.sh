@@ -35,7 +35,7 @@ echo "b47f14efcb5cb35e7a17300094e2e5c7daba8bbdc6610a0463f5933cda61a1de /tmp/libv
 apt-get install /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
 
 # Download pylon and install 6
-# When updating this, also update the file ubuntu-2004-installer-zip-readme.txt
+# When updating this, also update the file ubuntu-2004-installer-zip-readme.txt and the Pylon version specified in strand-braid/debian/control
 curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
 apt-get install /tmp/pylon_6.1.1.19861-deb0_amd64.deb

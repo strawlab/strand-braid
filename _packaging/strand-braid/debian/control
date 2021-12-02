@@ -1,10 +1,10 @@
 Source: strand-braid
 Maintainer: Andrew Straw <strawman@astraw.com>
-Build-Depends: debhelper (>= 9), pylon (>=6)
+Build-Depends: debhelper (>= 9), pylon (=6.1.1.19861-deb0)
 Standards-Version: 3.9.1
 
 Package: strand-braid
 Architecture: any
 Description: Strand and Braid camera tracking software
-Depends: ${shlibs:Depends}, pylon (>=6)
+Depends: ${shlibs:Depends}, pylon (=6.1.1.19861-deb0)
 Conflicts: flydra2 (<< 0.20.31), strand-cam-camtrig-pylon, strand-cam-pylon, camtrig, braid-pylon, braid-pylon5, braid-process-video, braidz-cli, braid-offline
