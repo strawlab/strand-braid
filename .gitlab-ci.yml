@@ -1019,7 +1019,7 @@ build-fmf-cli-ubuntu2004:
       - fmf-cli-focal
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
-strand-braid-ubuntu-focal:
+strand-braid-ubuntu-2004:
   image: ubuntu:focal
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
@@ -1031,7 +1031,7 @@ strand-braid-ubuntu-focal:
     - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
     - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
 
-    - mkdir -p strand-braid-ubuntu-focal-${CI_COMMIT_TAG}
+    - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
 
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
@@ -1040,9 +1040,11 @@ strand-braid-ubuntu-focal:
     - ldd ../build/strand-cam-pylon
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
-    - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
-    - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
-    - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/*.deb
+    - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
+    # TODO: make a README in $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
+    # saying that pylon debian packages should also be installed.
+    - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
+    - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
     - braid-offline-ubuntu2004
     - braid-process-video-ubuntu2004
@@ -1052,7 +1054,10 @@ strand-braid-ubuntu-focal:
     - fmf-cli-ubuntu2004
     - strand-cam-pylon-ubuntu2004
     - strand-cam-camtrig-pylon-ubuntu2004
+  # For releases, we should upload the .zip to the github releases page, as the
+  # zip (but not the deb) will include that this is for "ubuntu-2004" in the
+  # filename.
   artifacts:
     paths:
-      - strand-braid-ubuntu-focal-${CI_COMMIT_TAG}/
-    name: "strand-braid-ubuntu-focal-${CI_COMMIT_TAG}"
+      - strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
+    name: "strand-braid-ubuntu-2004-${CI_COMMIT_TAG}"
