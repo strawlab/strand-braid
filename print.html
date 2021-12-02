@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">6.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">7.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">6.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">7.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">8.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">9.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -593,6 +593,29 @@ are performed in the <code>estsimt</code> function in
 <a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid
 can track objects in water. To enable this, place the string
 <code>&lt;water&gt;1.333&lt;/water&gt;</code> in the XML camera calibration file.</p>
+<h1><a class="header" href="#remote-cameras-for-braid" id="remote-cameras-for-braid">Remote Cameras for Braid</a></h1>
+<h2><a class="header" href="#what-are-remote-cameras" id="what-are-remote-cameras">What are &quot;remote cameras&quot;?</a></h2>
+<p>A remote camera, in the context of Braid, can be used to connect cameras on
+separate computers over the network to an instance of Braid. One or more
+instances of Strand Camera can thus run on computers other than the computer on
+which Braid is running.</p>
+<h2><a class="header" href="#starting-a-remote-camera" id="starting-a-remote-camera">Starting a remote camera</a></h2>
+<p>If a particular camera is marked by setting <code>remote_camera = true</code> in the
+<code>[[cameras]]</code> section of the Braid configuration TOML file, <code>braid run</code> does not
+attempt to start the camera but rather waits for a network connection from a
+Braid-tuned variant of Strand Camera. Only once all cameras listed in the TOML
+file have connected will Braid synchronize the cameras and allow recording of
+data.</p>
+<p>To start Strand Camera as a remote camera for Braid, run
+<code>braid-strand-cam-pylon</code> (to start a Braid-specific version of Strand Camera)
+with the command line argument specifying the URL for the braid HTTP address.
+The camera should also be specified on the command line, along with any other
+options.</p>
+<p>In the following example, the Strand Camera will open the camera named
+<code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.
+Strand Camera will itself open the user interface at <code>http://127.0.0.1:12345/</code>.</p>
+<pre><code>braid-strand-cam-pylon --camera-name Basler-12345 --http-server-addr 127.0.0.1:12345 http://127.0.0.1:44444
+</code></pre>
 <h1><a class="header" href="#scripting-with-python" id="scripting-with-python">Scripting with Python</a></h1>
 <p>Everything in Strand Cam and Braid that can be controlled from the web browser
 can also be controlled from a Python script. The general technique is to use a
@@ -615,14 +638,14 @@ directory.</p>
 <p>The <code>braid-process-video</code> program will takes video files and process them to
 produce various outputs.</p>
 <p><img src="braid-process-video.png" alt="braid-process-video.png" /></p>
-<p>As shown in the figure, this program takes <code>.mkv</code> video files saved by Braid and
-a configuration file and then creates an output <code>.mkv</code> which stitches the input
-<code>.mkv</code> files together. Optionally, it can also plot 2D detections from a
-<code>.braidz</code> file on top of the raw video.</p>
+<p>As shown in the figure, this program takes <code>.mkv</code> (or <code>.fmf</code>) video input files
+saved by Braid and a configuration file and then creates an output <code>.mkv</code> video
+which stitches the input videos together. Optionally, it can also plot 2D
+detections from a <code>.braidz</code> file on top of the raw video.</p>
 <h2><a class="header" href="#note" id="note">Note</a></h2>
 <ul>
-<li>The <code>.mkv</code> video inputs must be saved by Braid to ensure that the timestamps
-for each frame in the file are correctly stored.</li>
+<li>The input videos must be saved by Braid to ensure that the timestamps for each
+frame in the file are correctly stored.</li>
 </ul>
 <h2><a class="header" href="#example-usage" id="example-usage">Example usage</a></h2>
 <p>Here is an example configuration file <code>braid-bundle-videos.toml</code>:</p>

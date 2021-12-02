@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Installation - User's Guide for Braid and Strand Camera</title>
+        <title>Braid: Remote cameras - User's Guide for Braid and Strand Camera</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">6.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">7.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">8.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">9.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html" class="active"><strong aria-hidden="true">6.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">7.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">8.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">9.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,32 +167,42 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<h2><a class="header" href="#software-installation" id="software-installation">Software installation</a></h2>
-<h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
-<h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
-<p>Currently only Basler cameras are supported. We use Basler's Pylon library to
-access the cameras.</p>
-<p>Support for other cameras is planned.</p>
-<h3><a class="header" href="#trigger-box" id="trigger-box">Trigger box</a></h3>
-<p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
-hardware to synchronize the cameras. This is based on an Arduino
-microcontroller.</p>
-<h3><a class="header" href="#trigger-cables" id="trigger-cables">Trigger cables</a></h3>
-<p>TODO: write this and describe how to check everything is working.</p>
+                        <h1><a class="header" href="#remote-cameras-for-braid" id="remote-cameras-for-braid">Remote Cameras for Braid</a></h1>
+<h2><a class="header" href="#what-are-remote-cameras" id="what-are-remote-cameras">What are &quot;remote cameras&quot;?</a></h2>
+<p>A remote camera, in the context of Braid, can be used to connect cameras on
+separate computers over the network to an instance of Braid. One or more
+instances of Strand Camera can thus run on computers other than the computer on
+which Braid is running.</p>
+<h2><a class="header" href="#starting-a-remote-camera" id="starting-a-remote-camera">Starting a remote camera</a></h2>
+<p>If a particular camera is marked by setting <code>remote_camera = true</code> in the
+<code>[[cameras]]</code> section of the Braid configuration TOML file, <code>braid run</code> does not
+attempt to start the camera but rather waits for a network connection from a
+Braid-tuned variant of Strand Camera. Only once all cameras listed in the TOML
+file have connected will Braid synchronize the cameras and allow recording of
+data.</p>
+<p>To start Strand Camera as a remote camera for Braid, run
+<code>braid-strand-cam-pylon</code> (to start a Braid-specific version of Strand Camera)
+with the command line argument specifying the URL for the braid HTTP address.
+The camera should also be specified on the command line, along with any other
+options.</p>
+<p>In the following example, the Strand Camera will open the camera named
+<code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.
+Strand Camera will itself open the user interface at <code>http://127.0.0.1:12345/</code>.</p>
+<pre><code>braid-strand-cam-pylon --camera-name Basler-12345 --http-server-addr 127.0.0.1:12345 http://127.0.0.1:44444
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="hardware-selection.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braid_calibration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="braidz-files.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="scripting-with-python.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -204,13 +214,13 @@ microcontroller.</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="hardware-selection.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braid_calibration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="braidz-files.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="scripting-with-python.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
