@@ -9,7 +9,7 @@
 * Memory usage is not expected to be particularly high, because processing
   occurs in realtime.
 * Sufficient and fast interfaces to cameras. If your cameras are USB3 or Gigabit
-  ethernet, your computer needs to support enough bandwith.
+  ethernet, your computer needs to support enough bandwidth.
 * Disk space and speed. For realtime tracking, the tracking data is only modest
   in size and so no particularly high performance requirements exist. For
   streaming uncompressed raw video to disk (with the FMF format), very fast
@@ -37,12 +37,13 @@ plan to support cameras from Allied Vision using the Vimba API in late 2021 or 2
 ### Basler cameras
 
 Due to the use of the Pylon API, any camera which can be used in the Pylon
-Viewer can be used in principle. In practice, we reguarly test with the
+Viewer can be used in principle. In practice, we regularly test with the
 following cameras:
 
 * Basler a2A1920-160umPRO
 * Basler a2A1920-160umBAS
 * Basler acA1300-200um
+* Basler acA640-120gm
 
 ### Allied Vision cameras (Planned for late 2021 or 2022)
 
