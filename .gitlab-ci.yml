@@ -1041,8 +1041,8 @@ strand-braid-ubuntu-2004:
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
-    # TODO: make a README in $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
-    # saying that pylon debian packages should also be installed.
+
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-2004-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/README.txt
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
