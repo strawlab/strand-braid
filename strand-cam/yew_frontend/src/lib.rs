@@ -618,7 +618,7 @@ impl Component for Model {
                     { self.point_detection_ui(ctx) }
                     { self.apriltag_detection_ui(ctx) }
                     { self.im_ops_ui(ctx) }
-                    { self.checkerboard_calibration_ui() }
+                    { self.checkerboard_calibration_ui(ctx) }
 
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Camera Settings" initially_checked=true />
@@ -1146,7 +1146,8 @@ impl Model {
         }
     }
 
-    fn checkerboard_calibration_ui(&self) -> Html {
+    #[cfg_attr(not(feature = "checkercal"), allow(unused_variables))]
+    fn checkerboard_calibration_ui(&self, ctx: &Context<Self>) -> Html {
         #[cfg(feature = "checkercal")]
         {
             if let Some(ref shared) = self.server_state {
@@ -1241,7 +1242,7 @@ impl Model {
         }
     }
 
-    #[allow(unused_variables)]
+    #[cfg_attr(not(feature = "flydratrax"), allow(unused_variables))]
     fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
         #[cfg(feature = "flydratrax")]
         {
@@ -1275,7 +1276,7 @@ impl Model {
         }
     }
 
-    #[allow(unused_variables)]
+    #[cfg_attr(not(feature = "flydratrax"), allow(unused_variables))]
     fn view_led_triggering(&self, ctx: &Context<Self>) -> Html {
         #[cfg(feature = "flydratrax")]
         {

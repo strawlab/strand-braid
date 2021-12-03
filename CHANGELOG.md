@@ -1,3 +1,10 @@
+## unreleased
+
+### Fixed
+
+* Restore the checkerboard calibration to the web browser UI. (This was
+  inadvertently disabled in a code reorganization.)
+
 ## 0.11.0 - 2021-12-02
 
 ### Added

@@ -11,6 +11,7 @@ use ci2_remote_control::{MkvRecordingConfig, RecordingFrameRate, TagFamily};
 use image_tracker_types::ImPtDetectCfg;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RangedValue {
     pub name: String,
     pub unit: String,
@@ -35,6 +36,7 @@ pub const STRAND_CAM_EVENTS_URL_PATH: &str = "/strand-cam-events";
 pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StoreType {
     pub is_braid: bool,
     /// is saving MKV file
@@ -98,6 +100,7 @@ pub struct StoreType {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ApriltagState {
     pub do_detection: bool,
     pub april_family: TagFamily,
@@ -105,6 +108,7 @@ pub struct ApriltagState {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImOpsState {
     pub do_detection: bool,
     pub destination: SocketAddr,
@@ -132,6 +136,7 @@ pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &str = "apriltags%Y%m%d_%H%M%S.csv.gz";
 
 #[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum LEDTriggerMode {
     Off, // could probably be better named "Unchanging" or "Constant"
     PositionTriggered,
@@ -139,6 +144,7 @@ pub enum LEDTriggerMode {
 
 #[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KalmanTrackingConfig {
     pub enabled: bool,
     pub arena_diameter_meters: f32,
@@ -158,6 +164,7 @@ impl std::default::Default for KalmanTrackingConfig {
 
 #[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LedProgramConfig {
     pub led_trigger_mode: LEDTriggerMode,
     pub led_on_shape_pixels: Shape,
@@ -185,6 +192,7 @@ impl std::default::Default for LedProgramConfig {
 
 #[cfg(feature = "checkercal")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CheckerboardCalState {
     pub enabled: bool,
     pub num_checkerboards_collected: u32,
@@ -205,6 +213,7 @@ impl CheckerboardCalState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub enum CallbackType {
     ToCamera(ci2_remote_control::CamArg),
     FirehoseNotify(FirehoseCallbackInner),

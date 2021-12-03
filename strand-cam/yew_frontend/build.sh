@@ -1,7 +1,7 @@
 #!/bin/bash -x
 set -o errexit
 
-wasm-pack build --target web
+wasm-pack build --release --target web -- --features checkercal
 
 cd pkg
 ln -sf ../static/index.html

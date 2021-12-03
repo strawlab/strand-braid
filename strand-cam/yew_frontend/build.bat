@@ -7,7 +7,7 @@ REM copy static\index.html dist
 REM copy static\style.css dist
 REM copy static\strand-camera-no-text.png dist
 
-wasm-pack build --target web
+wasm-pack build --target web -- --features checkercal
 
 mkdir pkg
 copy static\index.html pkg
