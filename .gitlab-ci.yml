@@ -228,9 +228,7 @@ strand-cam-ubuntu2004-debs:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl
 
     # Download pylon and install 6
-    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
 
     - mkdir -p $CI_PROJECT_DIR/rust-cam-focal-debs-build
 
@@ -1027,9 +1025,7 @@ strand-braid-ubuntu-2004:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
     # Download pylon and install 6
-    - curl --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
 
     - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
 

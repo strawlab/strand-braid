@@ -6,5 +6,5 @@ and Braid (https://strawlab.org/braid/) software packages.
 ## Prerequisites
 
 To install, you must first install the package
-`pylon_6.1.1.19861-deb0_amd64.deb`. Download from
+`pylon_6.2.0.21487-deb0_amd64.deb`. Download from
 https://www.baslerweb.com/en/sales-support/downloads/software-downloads/
