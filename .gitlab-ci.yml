@@ -220,37 +220,6 @@ strand-cam-ubuntu1604-debs:
       - rust-cam-xenial-debs-build/
     name: "strand-cam-ubuntu1604-debs-${CI_COMMIT_SHA}"
 
-strand-cam-ubuntu2004-debs:
-  image: ubuntu:focal
-  script:
-    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
-    # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl
-
-    # Download pylon and install 6
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
-
-    - mkdir -p $CI_PROJECT_DIR/rust-cam-focal-debs-build
-
-    - cd strand-cam/packaging
-    - pwd
-    - ls -l ../../build
-    - ldd ../../build/strand-cam-camtrig-pylon
-    - ldd ../../build/strand-cam-pylon
-    - make
-    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
-    - cp -a *.changes $CI_PROJECT_DIR/rust-cam-focal-debs-build/
-    - cp -a *.deb $CI_PROJECT_DIR/rust-cam-focal-debs-build/
-    - ls -lh $CI_PROJECT_DIR/rust-cam-focal-debs-build/
-    - cd ../..
-  needs:
-    - strand-cam-pylon-ubuntu2004
-    - strand-cam-camtrig-pylon-ubuntu2004
-  artifacts:
-    paths:
-      - rust-cam-focal-debs-build/
-    name: "strand-cam-ubuntu2004-debs-${CI_COMMIT_SHA}"
-
 # internal-strand-cam-xenial-deb-packages:
 #   tags:
 #       - pylon
