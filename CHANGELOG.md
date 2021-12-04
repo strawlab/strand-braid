@@ -1,5 +1,14 @@
 ## unreleased
 
+### Added
+
+* Update build for Ubuntu 20.04 `.deb` to specify the exact Pylon version
+  dependency to the package manager.
+
+### Changed
+
+* Update build for Ubuntu 20.04 `.deb` to use Pylon 6.2.0.
+
 ### Fixed
 
 * Restore the checkerboard calibration to the web browser UI. (This was
