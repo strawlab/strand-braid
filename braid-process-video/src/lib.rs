@@ -498,72 +498,76 @@ pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
             let svg_width = cum_width + n_frames * 2 * composite_margin_pixels;
             let svg_height = cum_height + 2 * composite_margin_pixels;
             wtr.elem("svg", |d| {
-                d.attr("xmlns", "http://www.w3.org/2000/svg")
-                    .attr("xmlns:xlink", "http://www.w3.org/1999/xlink")
-                    .attr("viewBox", format_args!("0 0 {} {}", svg_width, svg_height));
-            })
+                d.attr("xmlns", "http://www.w3.org/2000/svg")?;
+                d.attr("xmlns:xlink", "http://www.w3.org/1999/xlink")?;
+                d.attr("viewBox", format_args!("0 0 {} {}", svg_width, svg_height))
+            })?
             .build(|w| {
                 // write a background white rectangle.
                 w.single("rect", |d| {
-                    d.attr("x", 0)
-                        .attr("y", 0)
-                        .attr("width", svg_width)
-                        .attr("height", svg_height)
-                        .attr("style", "fill:white");
-                });
+                    d.attr("x", 0)?;
+                    d.attr("y", 0)?;
+                    d.attr("width", svg_width)?;
+                    d.attr("height", svg_height)?;
+                    d.attr("style", "fill:white")
+                })?;
 
-                w.elem("g", |_| {}).build(|w| {
+                w.elem("g", |_| Ok(()))?.build(|w| {
                     let mut curx = 0;
                     for (cam_idx, per_cam) in per_cam_data.into_iter().enumerate() {
                         curx += composite_margin_pixels;
 
                         // Clip to the camera image size.
                         w.elem("clipPath", |d| {
-                            d.attr("id", format!("clip-path-{}", cam_idx));
-                        })
+                            d.attr("id", format!("clip-path-{}", cam_idx))
+                        })?
                         .build(|w| {
                             w.single("rect", |d| {
-                                d.attr("x", 0)
-                                    .attr("y", 0)
-                                    .attr("width", per_cam.width)
-                                    .attr("height", per_cam.height);
-                            });
-                        });
+                                d.attr("x", 0)?;
+                                d.attr("y", 0)?;
+                                d.attr("width", per_cam.width)?;
+                                d.attr("height", per_cam.height)
+                            })?;
+                            Ok(())
+                        })?;
 
                         w.elem("g", |d| {
                             d.attr(
                                 "transform",
                                 format!("translate({},{})", curx, composite_margin_pixels),
-                            )
-                            .attr("clip-path", format!("url(#clip-path-{})", cam_idx));
-                        })
+                            )?;
+                            d.attr("clip-path", format!("url(#clip-path-{})", cam_idx))
+                        })?
                         .build(|w| {
                             if let Some(ref bytes) = per_cam.png_buf {
                                 let png_base64_buf = base64::encode(&bytes);
                                 let data_url = format!("data:image/png;base64,{}", png_base64_buf);
                                 w.single("image", |d| {
-                                    d.attr("x", 0)
-                                        .attr("y", 0)
-                                        .attr("width", per_cam.width)
-                                        .attr("height", per_cam.height)
-                                        .attr("xlink:href", data_url);
-                                });
+                                    d.attr("x", 0)?;
+                                    d.attr("y", 0)?;
+                                    d.attr("width", per_cam.width)?;
+                                    d.attr("height", per_cam.height)?;
+                                    d.attr("xlink:href", data_url)
+                                })?;
                             }
 
                             for xy in per_cam.points.iter() {
                                 w.single("circle", |d| {
-                                    d.attr("cx", xy.0.as_ref())
-                                        .attr("cy", xy.1.as_ref())
-                                        .attr("r", &feature_radius)
-                                        .attr("style", &feature_style);
-                                });
+                                    d.attr("cx", xy.0.as_ref())?;
+                                    d.attr("cy", xy.1.as_ref())?;
+                                    d.attr("r", &feature_radius)?;
+                                    d.attr("style", &feature_style)
+                                })?;
                             }
-                        });
+                            Ok(())
+                        })?;
 
                         curx += per_cam.width + composite_margin_pixels;
                     }
-                });
-            });
+                    Ok(())
+                })?;
+                Ok(())
+            })?;
             // Get the SVG file contents.
             let fmt_wtr = wtr.into_writer();
             let svg_buf = {
