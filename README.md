@@ -27,6 +27,10 @@ analysis.
 
 * [User's Guide](https://strawlab.github.io/strand-braid/)
 
+## Discussion
+
+* [Google Group: multi-camera software from the Straw Lab](https://groups.google.com/g/multicams)
+
 ## License
 
 This software is developed by Prof. Dr. Andrew Straw at the University of
