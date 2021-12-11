@@ -66,3 +66,18 @@ enabled by placing the string `<water>1.333</water>` the XML camera calibration
 file. This will automatically utilize the refractive boundary model described
 above with a value for the refractive index of 1.333 for the medium at z<0. As
 1.333 is the refractive index of water, it is a model of refraction in water.
+
+## Tracking multiple objects in 3D
+
+It is possible to use Braid to track two or more objects in 3D. Typically this
+requires the per-camera, 2D object detection to be set to also detect multiple
+objects. Thus, the parameter `max_num_points` in the Object Detection
+configuration of Strand Camera should be set to at least the number of objects
+that should be tracked.
+
+To maintain object identity over time, such that a single trajectory is recorded
+for a single animal, Braid uses a simple data association algorithm which
+assumes independent movement of the tracked objects. This is sufficient in many
+cases for tracking animals even when they interact strongly with each other, but
+it is typically be necessary to tune relevant tracking and data association
+parameters to get the best performance possible.
