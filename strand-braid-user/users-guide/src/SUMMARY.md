@@ -10,4 +10,5 @@
 - [Braid: Remote cameras](./braid_remote_cameras.md)
 - [Scripting with Python](./scripting-with-python.md)
 - [Processing saved videos](./processing-saved-videos.md)
+  - [Fly Movie Format](./fmf_format.md)
 - [Troubleshooting](./troubleshooting.md)
