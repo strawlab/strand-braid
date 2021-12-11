@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Braid: Remote cameras - User's Guide for Braid and Strand Camera</title>
+        <title>Parameters for Object Detection and Tracking - User's Guide for Braid and Strand Camera</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="object_detection.html"><strong aria-hidden="true">5.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">6.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html" class="active"><strong aria-hidden="true">7.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">8.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">9.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">10.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="object_detection.html" class="active"><strong aria-hidden="true">5.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">6.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">7.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">8.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">9.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">10.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,42 +167,56 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#remote-cameras-for-braid" id="remote-cameras-for-braid">Remote Cameras for Braid</a></h1>
-<h2><a class="header" href="#what-are-remote-cameras" id="what-are-remote-cameras">What are &quot;remote cameras&quot;?</a></h2>
-<p>A remote camera, in the context of Braid, can be used to connect cameras on
-separate computers over the network to an instance of Braid. One or more
-instances of Strand Camera can thus run on computers other than the computer on
-which Braid is running.</p>
-<h2><a class="header" href="#starting-a-remote-camera" id="starting-a-remote-camera">Starting a remote camera</a></h2>
-<p>If a particular camera is marked by setting <code>remote_camera = true</code> in the
-<code>[[cameras]]</code> section of the Braid configuration TOML file, <code>braid run</code> does not
-attempt to start the camera but rather waits for a network connection from a
-Braid-tuned variant of Strand Camera. Only once all cameras listed in the TOML
-file have connected will Braid synchronize the cameras and allow recording of
-data.</p>
-<p>To start Strand Camera as a remote camera for Braid, run
-<code>braid-strand-cam-pylon</code> (to start a Braid-specific version of Strand Camera)
-with the command line argument specifying the URL for the braid HTTP address.
-The camera should also be specified on the command line, along with any other
-options.</p>
-<p>In the following example, the Strand Camera will open the camera named
-<code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.
-Strand Camera will itself open the user interface at <code>http://127.0.0.1:12345/</code>.</p>
-<pre><code>braid-strand-cam-pylon --camera-name Basler-12345 --http-server-addr 127.0.0.1:12345 http://127.0.0.1:44444
-</code></pre>
+                        <h1><a class="header" href="#setting-and-optimizing-parameters-for-3d-tracking" id="setting-and-optimizing-parameters-for-3d-tracking">Setting and optimizing parameters for 3D Tracking</a></h1>
+<h2><a class="header" href="#object-detection" id="object-detection">Object Detection</a></h2>
+<p>The basis of 3D Tracking is a 2D object detection procedure, usually performed
+on simultaneously acquired images from at least two cameras.</p>
+<p>Object detection is based on background subtraction and feature extraction. In
+Braid, these parameters are typically set in the .toml config file specified
+when starting the program. When not explicitly specified, default parameters are
+used. Within Strand Camera, including when run from within Braid, these
+parameters can be set in a running instance. The parameters are specified in a
+camera-specific way, meaning that each camera can have its own parameter values.</p>
+<p>In Strand Camera, the option <code>Record CSV file</code> will record the object detection
+results in CSV format with a header including the object detection parameters in
+use at the start of the recording.</p>
+<p>The details on implementation and parameters can be found in the
+<a href="https://strawlab.org/strand-braid-api-docs/latest/image_tracker_types/struct.ImPtDetectCfg.html">ImPtDetectCfg</a>
+section of the API.</p>
+<p>A more technical account of this procedure can be found in <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw et al. (2011)</a>.</p>
+<!--
+### Optimization
+
+ To debug these values for your setup, I recommend saving data to using flydra and inspecting the 2D points detected. I find the flydra_analysis_plot_timeseries_2d_3d program to be most helpful for this. Flydra was designed to accept quite a few false positives at the 2D stage to avoid having any missed detections, so I would err on the side of accepting too many, rather than too few, 2D features detected. Of course too many 2D detections is also problematic, so this requires some tuning. Hopefully the defaults are a good start for your lighting setup.
+
+There is unfortunately no easy procedure for optimizing parameters. For optimizing 2D feature detection parameters, one should examine the features detected in the 2D view (e.g. with the braidz viewer website or relevant notebooks) and make sure that detections are present at times and locations where they should be and absent from times and locations where they should not be.
+
+-->
+<h2><a class="header" href="#3d-tracking" id="3d-tracking">3D Tracking</a></h2>
+<p>3D tracking is based on data association, which links 2D features from
+individual cameras to a 3D model, and an Extended Kalman Filter, which updates
+the estimated position and velocity of the 3D model from the 2D features.</p>
+<p>The implementation details for the 3D tracking procedures can be found in the
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html">TrackingParams</a>
+section of the API.</p>
+<!--
+### Optimization
+
+For the 3D parameters, this is more difficult. I think I have some emails from the past year or two with Floris van Breugel where I discussed this. Let me see if I can find those.
+-->
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="braid_calibration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braid_3d_tracking.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="scripting-with-python.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="braid_calibration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -214,13 +228,13 @@ Strand Camera will itself open the user interface at <code>http://127.0.0.1:1234
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="braid_calibration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braid_3d_tracking.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="scripting-with-python.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="braid_calibration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

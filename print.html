@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">5.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">6.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">7.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">8.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">9.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="object_detection.html"><strong aria-hidden="true">5.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">6.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">7.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">8.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">9.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">10.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -374,6 +374,43 @@ enabled by placing the string <code>&lt;water&gt;1.333&lt;/water&gt;</code> the 
 file. This will automatically utilize the refractive boundary model described
 above with a value for the refractive index of 1.333 for the medium at z&lt;0. As
 1.333 is the refractive index of water, it is a model of refraction in water.</p>
+<h1><a class="header" href="#setting-and-optimizing-parameters-for-3d-tracking" id="setting-and-optimizing-parameters-for-3d-tracking">Setting and optimizing parameters for 3D Tracking</a></h1>
+<h2><a class="header" href="#object-detection" id="object-detection">Object Detection</a></h2>
+<p>The basis of 3D Tracking is a 2D object detection procedure, usually performed
+on simultaneously acquired images from at least two cameras.</p>
+<p>Object detection is based on background subtraction and feature extraction. In
+Braid, these parameters are typically set in the .toml config file specified
+when starting the program. When not explicitly specified, default parameters are
+used. Within Strand Camera, including when run from within Braid, these
+parameters can be set in a running instance. The parameters are specified in a
+camera-specific way, meaning that each camera can have its own parameter values.</p>
+<p>In Strand Camera, the option <code>Record CSV file</code> will record the object detection
+results in CSV format with a header including the object detection parameters in
+use at the start of the recording.</p>
+<p>The details on implementation and parameters can be found in the
+<a href="https://strawlab.org/strand-braid-api-docs/latest/image_tracker_types/struct.ImPtDetectCfg.html">ImPtDetectCfg</a>
+section of the API.</p>
+<p>A more technical account of this procedure can be found in <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw et al. (2011)</a>.</p>
+<!--
+### Optimization
+
+ To debug these values for your setup, I recommend saving data to using flydra and inspecting the 2D points detected. I find the flydra_analysis_plot_timeseries_2d_3d program to be most helpful for this. Flydra was designed to accept quite a few false positives at the 2D stage to avoid having any missed detections, so I would err on the side of accepting too many, rather than too few, 2D features detected. Of course too many 2D detections is also problematic, so this requires some tuning. Hopefully the defaults are a good start for your lighting setup.
+
+There is unfortunately no easy procedure for optimizing parameters. For optimizing 2D feature detection parameters, one should examine the features detected in the 2D view (e.g. with the braidz viewer website or relevant notebooks) and make sure that detections are present at times and locations where they should be and absent from times and locations where they should not be.
+
+-->
+<h2><a class="header" href="#3d-tracking" id="3d-tracking">3D Tracking</a></h2>
+<p>3D tracking is based on data association, which links 2D features from
+individual cameras to a 3D model, and an Extended Kalman Filter, which updates
+the estimated position and velocity of the 3D model from the 2D features.</p>
+<p>The implementation details for the 3D tracking procedures can be found in the
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html">TrackingParams</a>
+section of the API.</p>
+<!--
+### Optimization
+
+For the 3D parameters, this is more difficult. I think I have some emails from the past year or two with Floris van Breugel where I discussed this. Let me see if I can find those.
+-->
 <h1><a class="header" href="#calibration-in-braid" id="calibration-in-braid">Calibration in Braid</a></h1>
 <h2><a class="header" href="#what-is-a-calibration" id="what-is-a-calibration">What is a calibration?</a></h2>
 <p>In our usage here, we refer to a calibration as a model of a camera which allows
