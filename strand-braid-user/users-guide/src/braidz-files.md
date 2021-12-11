@@ -9,10 +9,23 @@ An online viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.
 
 ## Analysis scripts
 
+Scripts to analyze your `.braidz` files can be found at [github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
+
+### Latency Analysis
+
+To analyze the latency of your setup with Braid, you can use the Jupyter Notebook `braid-latency-analysis.ipynb`.
+
+### Content analysis
+
+The Jupyter Notebook `braidz-contents.ipynb` can be used to view the Kalman estimates, the raw 2D detections, data on the association of cameras, and data on associations between 2D detection and 3D Tracking in your `.braidz` file.
+
+## Plotting
+
 The following plots were made with the file
 [20201112_133722.braidz](http://strawlab-cdn.com/assets/20201112_133722.braidz).
 The scripts can be accessed at
 [github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
+A Jupyter Notebook to create all of these plots can be found in `braid-plotting.ipynb` in the same folder.
 
 ### `braid-analysis-plot-data2d-timeseries.py`
 
