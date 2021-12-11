@@ -6,4 +6,5 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo build --release --features nv-h264,backtrace
+@REM by requiring the `backtrace` feature here, we also require the use of nightly rust.
+cargo build --release --features nv-h264,mkv-writer/vpx,backtrace

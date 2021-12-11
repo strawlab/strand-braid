@@ -685,7 +685,7 @@ fmf-cli-ubuntu2004:
     - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release --features nv-h264,import-webm
+    - cargo build --release --features nv-h264,import-webm,mkv-writer/vpx
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/fmf $CI_PROJECT_DIR/build
   artifacts:

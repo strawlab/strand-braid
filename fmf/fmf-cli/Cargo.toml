@@ -1,6 +1,6 @@
 [package]
 name = "fmf-cli"
-version = "0.1.0"
+version =  "0.11.1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 autobins = false
 edition = "2018"
@@ -27,7 +27,7 @@ basic-frame = { path = "../../basic-frame" }
 simple-frame = { path = "../../simple-frame" }
 
 webm = {version="1", optional=true}
-mkv-writer = { path = "../../mkv-writer"}
+mkv-writer = { path = "../../mkv-writer", default-features=false}
 ci2-remote-control = { path = "../../ci2-remote-control"}
 
 nvenc = {path="../../nvenc",optional=true}
