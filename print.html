@@ -727,12 +727,12 @@ filename = 'movie20211011_163228.mkv'
 <h2><a class="header" href="#todo" id="todo">TODO</a></h2>
 <p>There are many more options which can be configured in the <code>.toml</code> configuration
 file and they should be documented.</p>
-<h1><a class="header" href="#fly-movie-format---simple-uncompressed-movie-storage-format" id="fly-movie-format---simple-uncompressed-movie-storage-format">Fly Movie Format - simple, uncompressed movie storage format</a></h1>
-<p>The primary design goals of FlyMovieFormat are:</p>
+<h1><a class="header" href="#fmf-fly-movie-format---simple-uncompressed-movie-storage-format" id="fmf-fly-movie-format---simple-uncompressed-movie-storage-format">FMF (Fly Movie Format) - simple, uncompressed movie storage format</a></h1>
+<p>The primary design goals of FMF files are:</p>
 <ul>
 <li>Single pass, low CPU overhead writing of lossless movies for realtime streaming applications</li>
 <li>Precise timestamping for correlation with other activities</li>
-<li>Simple format that can be read from Python, C, and MATLAB®.</li>
+<li>Simple format that can be written and read from a variety of languages.</li>
 </ul>
 <p>These goals are achieved via using a very simple format. After an initial header
 containing meta-data such as image size and color coding scheme (e.g.
@@ -761,10 +761,10 @@ repository</a>.</p>
 repository</a>.</p>
 <h2><a class="header" href="#converting-movies-to-and-from-fmf-format-with-the-fmf-command-line-program" id="converting-movies-to-and-from-fmf-format-with-the-fmf-command-line-program">Converting movies to and from FMF format with the <code>fmf</code> command line program</a></h2>
 <p>The <code>fmf</code> command line program from
-https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli can be used for a
-variety of tasks with <code>.fmf</code> files, especially converting to and from other
-formats.</p>
-<p>Here is the output <code>fmf --help</code></p>
+<a href="https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli">https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli</a>
+can be used for a variety of tasks with <code>.fmf</code> files, especially converting to
+and from other formats.</p>
+<p>Here is the output <code>fmf --help</code>:</p>
 <pre><code>strawlab@flycube10:~$
 fmf 0.1.0
 work with .fmf (fly movie format) files
@@ -788,43 +788,70 @@ SUBCOMMANDS:
     info             print information about an fmf file
 </code></pre>
 <p>See https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli for more information.</p>
-<h2><a class="header" href="#file-structure" id="file-structure">File structure</a></h2>
-<ul>
-<li>header (either version 1 or version 3)</li>
-<li>arbitrary number of timestamp and frame pairs (“frame chunks”)</li>
-</ul>
-<h3><a class="header" href="#fmf-header-version-3" id="fmf-header-version-3">.fmf header version 3</a></h3>
-<table><thead><tr><th>Typecode</th><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td>I</td><td>version</td><td>Version number (3)</td></tr>
-<tr><td>I</td><td>lenformat</td><td>Length of the subsequent format string</td></tr>
-<tr><td>*B</td><td>format</td><td>string containing format, e.g. ‘MONO8’ or ‘YUV422’</td></tr>
-<tr><td>I</td><td>bpp</td><td>Bits per pixel, e.g. 8</td></tr>
-<tr><td>II</td><td>framesize</td><td>Number of rows and columns in each frame</td></tr>
-<tr><td>Q</td><td>chunksize</td><td>Bytes per “chunk” (timestamp + frame)</td></tr>
-<tr><td>Q</td><td>n_frames</td><td>Number of frames (0=unknown, read file to find out)</td></tr>
+<h2><a class="header" href="#file-structure" id="file-structure">File Structure</a></h2>
+<table><thead><tr><th>FMF File structure</th></tr></thead><tbody>
+<tr><td>Header</td></tr>
+<tr><td>Frame chunk 0</td></tr>
+<tr><td>Frame chunk 1</td></tr>
+<tr><td>Frame chunk 2</td></tr>
+<tr><td>...</td></tr>
+<tr><td>Frame chunk N</td></tr>
 </tbody></table>
-<h3><a class="header" href="#fmf-header-version-1" id="fmf-header-version-1">.fmf header version 1</a></h3>
-<p>This version is deprecated and no new files with this format should be written.</p>
-<p>Only supports MONO8 format.</p>
-<table><thead><tr><th>Typecode</th><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td>I</td><td>version</td><td>Version number (1)</td></tr>
-<tr><td>II</td><td>framesize</td><td>Number of rows and columns in each frame</td></tr>
-<tr><td>Q</td><td>chunksize</td><td>Bytes per “chunk” (timestamp + frame)</td></tr>
-<tr><td>Q</td><td>n_frames</td><td>Number of frames (0=unknown, read file to find out)</td></tr>
+<p>The chunk size is specified in the header and is equal to the raw frame pixel
+data size plus 8 bytes for the timestamp. Thus a 640 pixel wide, 480 pixel high
+MONO8 format image would have a <code>chunksize</code> of 307208 (equal to 640 * 480 + 8).</p>
+<p>Because the chunk size is constant for all frames, any chunk can be accessed by
+computing its position and seeking to that location. For the same reason, the
+image data within FMF files can be memory mapped.</p>
+<h3><a class="header" href="#header-version-3" id="header-version-3">Header Version 3</a></h3>
+<p>This is the preferred header for all new FMF files.</p>
+<table><thead><tr><th>Start position</th><th>Type</th><th>Name</th><th>Description</th></tr></thead><tbody>
+<tr><td>0</td><td>u32</td><td>version</td><td>Version number (3)</td></tr>
+<tr><td>4</td><td>u32</td><td>lenformat</td><td>Length of the subsequent format string</td></tr>
+<tr><td>8</td><td>[u8; N]</td><td>format</td><td>ASCII string of N characters containing pixel format, e.g. <code>MONO8</code> or <code>YUV422</code></td></tr>
+<tr><td>8+N</td><td>u32</td><td>bpp</td><td>Bits per pixel, e.g. 8</td></tr>
+<tr><td>12+N</td><td>u32</td><td>height</td><td>Number of rows of image data</td></tr>
+<tr><td>16+N</td><td>u32</td><td>width</td><td>Number of columns of image data</td></tr>
+<tr><td>20+N</td><td>u64</td><td>chunksize</td><td>Bytes per &quot;chunk&quot; (timestamp + frame)</td></tr>
+<tr><td>28+N</td><td>u64</td><td>n_frames</td><td>Number of frame chunks (0=unknown, read file to find out)</td></tr>
 </tbody></table>
-<h3><a class="header" href="#fmf-frame-chunks" id="fmf-frame-chunks">.fmf frame chunks</a></h3>
-<table><thead><tr><th>Typecode</th><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td>d</td><td>timestamp</td><td>Timestamp (seconds in current epoch)</td></tr>
-<tr><td>*B</td><td>frame</td><td>Image data, rows*columns bytes, row major ordering</td></tr>
+<p>For the <code>format</code> field, the following pixel formats are known:</p>
+<table><thead><tr><th>Format string</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>MONO8</code></td><td>Monochrome data, 8 bits per pixel</td></tr>
+<tr><td><code>RAW8:RGGB</code></td><td>Raw Bayer mosaic data, RGGB pattern, 8 bits per pixel</td></tr>
+<tr><td><code>RAW8:GBRG</code></td><td>Raw Bayer mosaic data, GBRG pattern, 8 bits per pixel</td></tr>
+<tr><td><code>RAW8:GRBG</code></td><td>Raw Bayer mosaic data, GRBG pattern, 8 bits per pixel</td></tr>
+<tr><td><code>RAW8:BGGR</code></td><td>Raw Bayer mosaic data, BGGR pattern, 8 bits per pixel</td></tr>
+<tr><td><code>YUV422</code></td><td>Packed YUV encoded data, 16 bits per pixel</td></tr>
+<tr><td><code>RGB8</code></td><td>Packed RGB encoded data, 24 bits per pixel</td></tr>
 </tbody></table>
-<h3><a class="header" href="#typecodes-used-above" id="typecodes-used-above">Typecodes used above</a></h3>
+<p>This list of pixel formats is not exhaustive and other formats can be added.</p>
+<h3><a class="header" href="#header-version-1" id="header-version-1">Header Version 1</a></h3>
+<p>⚠ This version is deprecated and no new files with this format should be written. ⚠</p>
+<p>Only supports MONO8 pixel format.</p>
+<table><thead><tr><th>Start position</th><th>Type</th><th>Name</th><th>Description</th></tr></thead><tbody>
+<tr><td>0</td><td>u32</td><td>version</td><td>Version number (1)</td></tr>
+<tr><td>4</td><td>u32</td><td>height</td><td>Number of rows of image data</td></tr>
+<tr><td>8</td><td>u32</td><td>width</td><td>Number of columns of image data</td></tr>
+<tr><td>12</td><td>u64</td><td>chunksize</td><td>Bytes per &quot;chunk&quot; (timestamp + frame)</td></tr>
+<tr><td>20</td><td>u64</td><td>n_frames</td><td>Number of frames (0=unknown, read file to find out)</td></tr>
+</tbody></table>
+<h3><a class="header" href="#frame-chunks" id="frame-chunks">Frame Chunks</a></h3>
+<p>Frame chunks have an identical format in FMF v1 and v3 files. From a given
+camera pixel format and size, they are constant in size and thus the Nth frame
+can be accessed by seeking to <code>frame0_offset + n*chunksize</code>. The image data is
+uncompressed raw image data as read directly from the camera.</p>
+<table><thead><tr><th>Start position within chunk</th><th>Type</th><th>Name</th><th>Description</th></tr></thead><tbody>
+<tr><td>0</td><td>f64</td><td>timestamp</td><td>Timestamp (seconds in current epoch)</td></tr>
+<tr><td>8</td><td>[u8; N]</td><td>image_data</td><td>Image data</td></tr>
+</tbody></table>
+<h3><a class="header" href="#types-used-above" id="types-used-above">Types used above</a></h3>
 <p>All numbers are little-endian (Intel standard).</p>
-<table><thead><tr><th>Typecode</th><th>description</th><th>bytes</th><th>C type</th></tr></thead><tbody>
-<tr><td>B 	uint8</td><td>1</td><td>unsigned char</td><td></td></tr>
-<tr><td>I 	uint32</td><td>4</td><td>unsigned int</td><td></td></tr>
-<tr><td>Q 	uint64</td><td>8</td><td>unsigned long long (__int64 on Windows)</td><td></td></tr>
-<tr><td>d 	double64</td><td>8</td><td>double</td><td></td></tr>
-<tr><td>*B</td><td>data</td><td>an unsigned char buffer of arbitrary length</td><td></td></tr>
+<table><thead><tr><th>Type</th><th>size (in bytes)</th><th>description</th></tr></thead><tbody>
+<tr><td>[u8; N]</td><td>N</td><td>variable length buffer of characters</td></tr>
+<tr><td>u32</td><td>4</td><td>unsigned 32 bit integer</td></tr>
+<tr><td>u64</td><td>8</td><td>unsigned 64 bit integer</td></tr>
+<tr><td>f64</td><td>8</td><td>64 bit floating point number</td></tr>
 </tbody></table>
 <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <h2><a class="header" href="#synchronization-problems" id="synchronization-problems">synchronization problems</a></h2>
