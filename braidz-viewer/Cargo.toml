@@ -14,7 +14,7 @@ wasm-logger = "0.2.0"
 
 gloo = "0.4"
 gloo-file = "0.2"
-yew = "0.18"
+yew = "0.19"
 
 wasm-bindgen = "^0.2.45"
 js-sys = "0.3.28"

@@ -172,7 +172,7 @@ impl Component for Model {
                     <h1 style="text-align: center;">{"Braid "}
                         <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ℹ"}</span></a>
                     </h1>
-                    <img src="braid-logo-no-text.png" width="523" height="118" class="center"/>
+                    <img src="braid-logo-no-text.png" width="523" height="118" class="center" alt="Braid logo"/>
                     {self.disconnected_dialog()}
                     {self.view_shared(ctx)}
                     <footer id="footer">

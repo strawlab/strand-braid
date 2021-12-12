@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
-yew = "0.18"
+yew = "0.19"
 js-sys = "0.3"
 gloo = "0.4"
 gloo-file = "0.2"

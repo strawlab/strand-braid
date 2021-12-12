@@ -604,7 +604,7 @@ impl Component for Model {
         html! {
             <div>
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ℹ"}</span></a></h1>
-                <img src="strand-camera-no-text.png" width="521" height="118" class="center" />
+                <img src="strand-camera-no-text.png" width="521" height="118" class="center" alt="Strand Camera logo"/>
                 { self.disconnected_dialog() }
                 { self.frame_processing_error_dialog(ctx) }
                 { self.camtrig_failed() }
