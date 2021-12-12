@@ -40,11 +40,11 @@ This program is packaged with the Strand Camera and Braid for Ubuntu 20.04
 starting with `strand-braid` version 0.11.0 available at the [`strand-braid`
 releases page](https://github.com/strawlab/strand-braid/releases).
 
-On Windows, the program can be built when [the Rust toolchain is
-installed](https://rustup.rs/) and then by running the following command from
-the Windows command line:
+The program can be built from source when [the Rust toolchain is
+installed](https://rustup.rs/) and by running the following command from the
+command line:
 
-    .\windows-pure-rust.bat
+    cargo build --release --no-default-features
 
 To compile for Windows with support for the VP8 and VP9 codecs, inspect the
 contents of the `windows-build.bat` file to figure out the required
