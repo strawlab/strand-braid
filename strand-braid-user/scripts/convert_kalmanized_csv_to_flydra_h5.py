@@ -137,20 +137,27 @@ def do_ml_estimates(data_dir, h5file):
         print("no kalman estimates, not converting ML_estimates")
         return []
 
-    # This file was used to create the vlarray_csv file
+    # The data_association.csv file was used to create the vlarray_csv file in
+    # compute-flydra1-compat. However, it is possible that the vl_array_csv file
+    # and the ML_estimates.csv file do not exist because no data would have been
+    # saved in them. So below we consider the case that those files do not
+    # exist, which should not be an error.
+
     orig_src_fname = os.path.join(data_dir, "data_association.csv")
     orig_src_fname = pick_csvgz_or_csv(orig_src_fname)
     ml_estimates_2d_idxs_fname = os.path.join(
         computed_dir(data_dir), "ML_estimates_2d_idxs.vlarray_csv"
     )
-    h5_2d_obs = h5file.create_vlarray(
-        h5file.root,
-        "ML_estimates_2d_idxs",
-        flydra_kalman_utils.ML_estimates_2d_idxs_type(),
-        "camns and idxs",
-    )
-    if ml_estimates_2d_idxs_fname is not None:
+    converted = [orig_src_fname]
+    h5_2d_obs = None
+    if os.path.exists(ml_estimates_2d_idxs_fname):
         with open(ml_estimates_2d_idxs_fname, mode="r") as fd:
+            h5_2d_obs = h5file.create_vlarray(
+                h5file.root,
+                "ML_estimates_2d_idxs",
+                flydra_kalman_utils.ML_estimates_2d_idxs_type(),
+                "camns and idxs",
+            )
             for input_line in fd:
                 try:
                     camns_and_idxs = [int(x) for x in mysplit(input_line.strip(), ",")]
@@ -158,21 +165,24 @@ def do_ml_estimates(data_dir, h5file):
                     print("bad line: %r" % input_line)
                     raise
                 h5_2d_obs.append(camns_and_idxs)
+        converted.append(ml_estimates_2d_idxs_fname)
 
-    ml_estimates_fname = os.path.join(computed_dir(data_dir), "ML_estimates.csv")
-    ml_estimates_fname = pick_csvgz_or_csv(ml_estimates_fname)
-    assert os.path.exists(ml_estimates_fname)
+    if h5_2d_obs is not None:
+        ml_estimates_fname = os.path.join(computed_dir(data_dir), "ML_estimates.csv")
+        ml_estimates_fname = pick_csvgz_or_csv(ml_estimates_fname)
+        print("ml_estimates_fname",ml_estimates_fname)
+        assert os.path.exists(ml_estimates_fname)
 
-    ml_estimates_df = pd.read_csv(ml_estimates_fname)
-    data = convert_pd_to_np(ml_estimates_df)
-    h5file.create_table(
-        h5file.root,
-        "ML_estimates",
-        description=data,
-        title="observations of tracked object",
-    )
-    return [orig_src_fname, ml_estimates_2d_idxs_fname, ml_estimates_fname]
-
+        ml_estimates_df = pd.read_csv(ml_estimates_fname)
+        data = convert_pd_to_np(ml_estimates_df)
+        converted.append(ml_estimates_fname)
+        h5file.create_table(
+            h5file.root,
+            "ML_estimates",
+            description=data,
+            title="observations of tracked object",
+        )
+    return converted
 
 def compute_mean_fps(data_dir, h5file):
     global d2d_r0, d2d_r1
