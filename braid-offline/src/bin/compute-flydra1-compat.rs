@@ -147,20 +147,14 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
 }
 
 /// Save data associations. Requires `frame` in `kalman_estimates_reader` to be ascending.
-fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
+fn save_data_association_ascending<R1: Read, R2: Read>(
     kalman_estimates_reader: csv::Reader<R1>,
     data_assoc_reader: csv::Reader<R2>,
-    mut ml_estimates_wtr: csv::Writer<WT>,
     dirpath: std::path::PathBuf,
 ) -> Result<()> {
+    let mut wtrs = None;
+
     let mut twod_idxs_wtr_idx = 0;
-    let mut twod_idxs_wtr = {
-        let mut csv_path = dirpath;
-        csv_path.push(COMPUTED_DIRNAME);
-        csv_path.push(TWOD_IDXS_FNAME);
-        csv_path.set_extension("vlarray_csv");
-        std::fs::File::create(&csv_path)?
-    };
 
     let mut da_iter = data_assoc_reader.into_deserialize::<DataAssocRow>();
     let mut da_row_frame_iter = AscendingGroupIter::new(&mut da_iter).early_eof_ok();
@@ -233,6 +227,37 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
         }
 
         for kest_row in kest_rows.rows {
+            if wtrs.is_none() {
+                {
+                    // create dir if needed
+                    let mut csv_save_pathbuf = dirpath.clone();
+                    csv_save_pathbuf.push(COMPUTED_DIRNAME);
+                    std::fs::create_dir_all(&csv_save_pathbuf)?;
+                }
+
+                // The first time here we create files and csv::Writer instances.
+                let twod_idxs_wtr = {
+                    let mut csv_path = dirpath.clone();
+                    csv_path.push(COMPUTED_DIRNAME);
+                    csv_path.push(TWOD_IDXS_FNAME);
+                    csv_path.set_extension("vlarray_csv");
+                    std::fs::File::create(&csv_path)?
+                };
+
+                let ml_estimates_wtr = {
+                    let mut csv_path = dirpath.clone();
+                    csv_path.push(COMPUTED_DIRNAME);
+                    csv_path.push(ML_ESTIMATES_FNAME);
+                    csv_path.set_extension("csv");
+                    let fd = std::fs::File::create(&csv_path)?;
+                    csv::Writer::from_writer(fd)
+                };
+
+                wtrs = Some((twod_idxs_wtr, ml_estimates_wtr));
+            };
+
+            let (ref mut twod_idxs_wtr, ref mut ml_estimates_wtr) = wtrs.as_mut().unwrap();
+
             let obj_id = kest_row.obj_id;
             let da_rows = da_by_obj_id.remove(&obj_id);
 
@@ -268,93 +293,11 @@ fn save_data_association_ascending<R1: Read, R2: Read, WT: Write>(
                 hz_line4: nan,
                 hz_line5: nan,
             };
+
             ml_estimates_wtr.serialize(row)?;
 
             twod_idxs_wtr_idx += 1;
         }
-    }
-
-    Ok(())
-}
-
-/// Save data associations. Caches all data association data.
-fn _save_data_association_cache_all<R1: Read, R2: Read, WT: Write>(
-    kalman_estimates_reader: csv::Reader<R1>,
-    data_assoc_reader: csv::Reader<R2>,
-    mut ml_estimates_wtr: csv::Writer<WT>,
-    dirpath: std::path::PathBuf,
-) -> Result<()> {
-    // Load all data association results into memory.
-    let mut da_index = BTreeMap::new();
-    let da_iter = data_assoc_reader.into_deserialize();
-    let mut all_da_rows = Vec::new();
-    for (row_num, row) in da_iter.enumerate() {
-        let row: DataAssocRow = row?;
-        {
-            let key = (row.obj_id, row.frame);
-            let entry = da_index.entry(key).or_insert_with(Vec::new);
-            entry.push(row_num);
-        }
-        all_da_rows.push(row);
-    }
-
-    // Cache a couple values.
-    let nan: f32 = std::f32::NAN;
-    let empty_vec = vec![];
-
-    let mut twod_idxs_wtr = {
-        let mut csv_path = dirpath;
-        csv_path.push(COMPUTED_DIRNAME);
-        csv_path.push(TWOD_IDXS_FNAME);
-        csv_path.set_extension("vlarray_csv");
-        std::fs::File::create(&csv_path)?
-    };
-
-    // Iterate through all estimates.
-    let kalman_estimates_iter = kalman_estimates_reader.into_deserialize();
-    for (twod_idxs_wtr_idx, kest_row) in kalman_estimates_iter.enumerate() {
-        let kest_row: KalmanEstimatesRow = kest_row?;
-
-        let obj_id = kest_row.obj_id;
-
-        let da_key = (kest_row.obj_id, kest_row.frame);
-        let da_row_nums = da_index.get(&da_key);
-
-        let da_row_nums = match da_row_nums {
-            Some(rns) => rns,
-            None => &empty_vec, //vec![],
-        };
-
-        // Get the corresponding data association data for this frame.
-        let da_rows = da_row_nums
-            .iter()
-            .map(|row_idx: &usize| all_da_rows[*row_idx].clone());
-
-        let camns_and_idxs = da_rows
-            .into_iter()
-            .flat_map(|x| vec![x.cam_num.0, x.pt_idx].into_iter());
-
-        let csvs = camns_and_idxs
-            .into_iter()
-            .map(|x| format!("{}", x))
-            .join(",");
-        writeln!(twod_idxs_wtr, "{}", csvs)?;
-
-        let row: FilteredObservations = FilteredObservations {
-            obj_id,
-            frame: kest_row.frame,
-            x: nan,
-            y: nan,
-            z: nan,
-            obs_2d_idx: twod_idxs_wtr_idx as u64, // index into ML_estimates_2d_idxs sequence
-            hz_line0: nan,
-            hz_line1: nan,
-            hz_line2: nan,
-            hz_line3: nan,
-            hz_line4: nan,
-            hz_line5: nan,
-        };
-        ml_estimates_wtr.serialize(row)?;
     }
 
     Ok(())
@@ -379,29 +322,7 @@ fn add_ml_estimates_tables(dirname: &std::path::Path) -> Result<()> {
         csv::Reader::from_reader(rdr)
     };
 
-    {
-        // create dir if needed
-        let mut csv_save_pathbuf = dirpath.clone();
-        csv_save_pathbuf.push(COMPUTED_DIRNAME);
-        std::fs::create_dir_all(&csv_save_pathbuf)?;
-    }
-
-    let ml_estimates_wtr = {
-        let mut csv_path = dirpath.clone();
-        csv_path.push(COMPUTED_DIRNAME);
-        csv_path.push(ML_ESTIMATES_FNAME);
-        csv_path.set_extension("csv");
-        let fd = std::fs::File::create(&csv_path)?;
-        csv::Writer::from_writer(fd)
-    };
-
-    save_data_association_ascending(
-        kalman_estimates_reader,
-        data_assoc_reader,
-        ml_estimates_wtr,
-        dirpath,
-    )?;
-    // save_data_association_cache_all(kalman_estimates_reader,data_assoc_reader,ml_estimates_wtr,dirpath.clone())?;
+    save_data_association_ascending(kalman_estimates_reader, data_assoc_reader, dirpath)?;
 
     Ok(())
 }
