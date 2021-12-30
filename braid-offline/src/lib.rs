@@ -4,7 +4,9 @@ use log::{debug, info, warn};
 
 use std::{
     collections::BTreeMap,
+    fs::File,
     io::{Read, Seek, Write},
+    path::{Path, PathBuf},
 };
 
 use flydra_types::CamInfoRow;
@@ -211,12 +213,12 @@ pub async fn kalmanize<Q, R>(
     saving_program_name: &str,
 ) -> Result<(), Error>
 where
-    Q: AsRef<std::path::Path>,
+    Q: AsRef<Path>,
     R: 'static + Read + Seek + Send,
 {
     let output_braidz = output_braidz.as_ref();
     let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
-        let mut output_dirname: std::path::PathBuf = output_braidz.to_path_buf();
+        let mut output_dirname: PathBuf = output_braidz.to_path_buf();
         output_dirname.set_extension("braid");
         output_dirname
     } else {
@@ -280,7 +282,7 @@ where
             continue;
         }
 
-        let mut new_image_fname: std::path::PathBuf = output_dirname.to_path_buf();
+        let mut new_image_fname: PathBuf = output_dirname.to_path_buf();
         new_image_fname.push(IMAGES_DIRNAME);
         std::fs::create_dir_all(&new_image_fname)?; // Create dir if needed.
         new_image_fname.push(&cam_name);
@@ -529,30 +531,38 @@ where
 fn copy_to<R, P>(mut reader: R, dest: P) -> flydra2::Result<()>
 where
     R: Read,
-    P: AsRef<std::path::Path>,
+    P: AsRef<Path>,
 {
     let mut buf = vec![];
-    let mut new_file = std::fs::File::create(dest)?;
+    let mut new_file = File::create(dest)?;
     reader.read_to_end(&mut buf)?;
     new_file.write_all(&buf)?;
     new_file.flush()?;
     Ok(())
 }
 
-/// Load .csv or .csv.gz file
+fn open_buffered<P: AsRef<Path>>(p: &P) -> std::io::Result<std::io::BufReader<File>> {
+    Ok(std::io::BufReader::new(File::open(p.as_ref())?))
+}
+
+/// Load .csv or .csv.gz file.
+///
+/// This function should only be used in the `braid-offline` crate. This
+/// function would ideally not be marked `pub` but due to visibility rules, it
+/// must be marked `pub` do use it in the `compute-flydra1-compat` binary.
 ///
 /// This should not be used in the general case but only for special cases where
 /// a raw directory is being used, such as specifically when modifying a
 /// directory under construction. For the general reading case, prefer
 /// `braidz_parser` crate (or the `zip_or_dir` if it may not be a valid braidz
 /// archive) crate.
-pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> flydra2::Result<Box<dyn std::io::Read>> {
-    let gz_fname = std::path::PathBuf::from(csv_path).with_extension("csv.gz");
+pub fn pick_csvgz_or_csv(csv_path: &Path) -> flydra2::Result<Box<dyn Read>> {
+    let gz_fname = PathBuf::from(csv_path).with_extension("csv.gz");
 
     if csv_path.exists() {
-        std::fs::File::open(&csv_path)
+        open_buffered(&csv_path)
             .map(|fd| {
-                let rdr: Box<dyn std::io::Read> = Box::new(fd); // type erasure
+                let rdr: Box<dyn Read> = Box::new(fd); // type erasure
                 rdr
             })
             .map_err(|e| {
@@ -560,7 +570,7 @@ pub fn pick_csvgz_or_csv(csv_path: &std::path::Path) -> flydra2::Result<Box<dyn 
             })
     } else {
         // This gives us an error corresponding to a non-existing .gz file.
-        let gz_fd = std::fs::File::open(&gz_fname).map_err(|e| {
+        let gz_fd = open_buffered(&gz_fname).map_err(|e| {
             flydra2::file_error("opening", format!("opening {}", gz_fname.display()), e)
         })?;
         let decoder = libflate::gzip::Decoder::new(gz_fd)?;
