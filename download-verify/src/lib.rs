@@ -32,8 +32,7 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
     // If the file already exists,
     if dest.as_ref().exists() {
         // read it,
-        let mut bytes: Vec<u8> = Vec::new();
-        std::fs::File::open(dest)?.read_to_end(&mut bytes)?;
+        let bytes = std::fs::read(dest)?;
         // and validate that it matches the checksum.
         validate(&bytes, &hash)?;
     } else {
