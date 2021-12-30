@@ -7,8 +7,6 @@ use anyhow::Context;
 
 use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
-use std::io::Read;
-
 use structopt::StructOpt;
 
 lazy_static! {
@@ -72,26 +70,21 @@ fn open_files_and_run() -> anyhow::Result<()> {
             opt.calibration_params.display()
         );
         // read the calibration parameters
-        let mut file = std::fs::File::open(&opt.calibration_params)
+        std::fs::read_to_string(&opt.calibration_params)
             .map_err(anyhow::Error::from)
             .context(format!(
                 "loading calibration parameters {}",
                 opt.calibration_params.display()
-            ))?;
-        let mut buf = String::new();
-        Read::read_to_string(&mut file, &mut buf)?;
-        buf
+            ))?
     };
 
     let tracking_params_buf = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
-            let mut file = std::fs::File::open(&fname)
+            let buf = std::fs::read_to_string(&fname)
                 .map_err(anyhow::Error::from)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
-            let mut buf = String::new();
-            Read::read_to_string(&mut file, &mut buf)?;
             Some(buf)
         }
         None => None,
