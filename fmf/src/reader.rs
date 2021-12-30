@@ -1,6 +1,4 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+use std::{fs::File, io::Read, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 
@@ -49,6 +47,10 @@ macro_rules! to_dynamic {
     }};
 }
 
+fn open_buffered<P: AsRef<Path>>(p: &P) -> std::io::Result<std::io::BufReader<File>> {
+    Ok(std::io::BufReader::new(File::open(p.as_ref())?))
+}
+
 pub struct FMFReader {
     f: Box<dyn Read>,
     pixel_format: PixFmt,
@@ -64,7 +66,7 @@ impl FMFReader {
     pub fn new<P: AsRef<Path>>(path: P) -> FMFResult<FMFReader> {
         let extension = path.as_ref().extension().map(|x| x.to_str()).flatten();
         let mut f: Box<dyn Read> = if extension == Some("gz") {
-            let gz_fd = std::fs::File::open(&path).map_err(|e| FMFError::IoPath {
+            let gz_fd = open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
                 #[cfg(feature = "backtrace")]
@@ -73,7 +75,7 @@ impl FMFReader {
             let decoder = libflate::gzip::Decoder::new(gz_fd)?;
             Box::new(decoder)
         } else {
-            Box::new(File::open(&path).map_err(|e| FMFError::IoPath {
+            Box::new(open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
                 #[cfg(feature = "backtrace")]
