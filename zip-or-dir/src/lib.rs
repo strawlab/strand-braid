@@ -192,10 +192,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                 let zipfile = zip_archive.by_name(relname_str)?;
                 Ok(BufReader::new(Box::new(zipfile)))
             }
-            None => {
-                let file = std::fs::File::open(&dirpath)?;
-                Ok(BufReader::new(Box::new(file)))
-            }
+            None => Ok(BufReader::new(Box::new(std::fs::File::open(&dirpath)?))),
         }
     }
 

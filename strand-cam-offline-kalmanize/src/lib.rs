@@ -460,7 +460,7 @@ pub struct PseudoCalParams {
 
 /// Parse the configuration strings and run the kalman tracker
 ///
-/// - `output_dirname` is used to initially create a "braid dir" (typically
+/// - `output_braidz` is used to initially create a "braid dir" (typically
 ///   ending with `.braid` in the name). Upon closing, this directory will be
 ///   converted to a file that ends with `.braidz`.
 pub fn parse_configs_and_run<R>(

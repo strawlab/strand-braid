@@ -47,11 +47,8 @@ async fn main() -> anyhow::Result<()> {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
-            let mut file = std::fs::File::open(&fname)
-                .map_err(anyhow::Error::from)
+            let buf = std::fs::read_to_string(&fname)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
-            let mut buf = String::new();
-            std::io::Read::read_to_string(&mut file, &mut buf)?;
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
             tracking_params.try_into()?
         }
