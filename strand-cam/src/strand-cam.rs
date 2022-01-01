@@ -671,7 +671,6 @@ fn frame_process_thread(
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
     process_frame_priority: Option<(i32,i32)>,
-    ros_periodic_update_interval: std::time::Duration,
     #[cfg(feature = "debug-images")]
     debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
@@ -778,16 +777,14 @@ fn frame_process_thread(
         (None, None)
     };
 
-    #[allow(clippy::redundant_clone)]
-    let http_camserver = CamHttpServerInfo::Server(http_camserver_info.clone());
     #[cfg(feature="image_tracker")]
     let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, im_pt_detect_cfg.clone(),
-        Some(cam_args_tx.clone()), version_str, frame_offset, http_camserver,
-        ros_periodic_update_interval,
+        frame_offset,
         #[cfg(feature = "debug-images")]
         debug_addr,
         camdata_addr,
         transmit_feature_detect_settings_tx,
+        #[cfg(feature = "debug-images")]
         valve.clone(),
         #[cfg(feature = "debug-images")]
         debug_image_server_shutdown_rx,
@@ -2435,7 +2432,6 @@ pub struct StrandCamArgs {
     #[cfg(feature = "posix_sched_fifo")]
     pub process_frame_priority: Option<(i32, i32)>,
     pub camtrig_device_path: Option<String>,
-    pub ros_periodic_update_interval: std::time::Duration,
     #[cfg(feature = "debug-images")]
     pub debug_addr: std::net::SocketAddr,
     pub mainbrain_internal_addr: Option<MainbrainBuiLocation>,
@@ -2510,7 +2506,6 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "posix_sched_fifo")]
             process_frame_priority: None,
             camtrig_device_path: None,
-            ros_periodic_update_interval: std::time::Duration::from_millis(4500),
             #[cfg(feature = "debug-images")]
             debug_addr: std::str::FromStr::from_str(DEBUG_ADDR_DEFAULT).unwrap(),
             mainbrain_internal_addr: None,
@@ -2733,7 +2728,6 @@ pub async fn setup_app(
 
     #[cfg(feature = "debug-images")]
     let debug_addr = args.debug_addr;
-    let ros_periodic_update_interval = args.ros_periodic_update_interval;
     #[cfg(feature="image_tracker")]
     let tracker_cfg_src = args.tracker_cfg_src;
 
@@ -3146,7 +3140,6 @@ pub async fn setup_app(
                     is_starting,
                     http_camserver_info2,
                     process_frame_priority,
-                    ros_periodic_update_interval,
                     #[cfg(feature = "debug-images")]
                     debug_addr,
                     mainbrain_info,

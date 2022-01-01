@@ -85,10 +85,6 @@ fn parse_sched_policy_priority(_matches: &clap::ArgMatches) -> Result<Option<(i3
     Ok(None)
 }
 
-fn parse_ros_periodic_update_interval(_matches: &clap::ArgMatches) -> Result<u8> {
-    Ok(1)
-}
-
 #[cfg(target_os = "macos")]
 #[cfg(feature = "with_camtrig")]
 const DEFAULT_CAMTRIG_PATH: &str = "/dev/tty.usbmodem1423";
@@ -379,9 +375,6 @@ fn parse_args(
         .unwrap();
 
     let process_frame_priority = parse_sched_policy_priority(&matches)?;
-    let ros_periodic_update_interval = parse_ros_periodic_update_interval(&matches)?;
-    let ros_periodic_update_interval =
-        std::time::Duration::from_secs(ros_periodic_update_interval as u64);
 
     let camtrig_device_path = parse_camtrig_device(&matches)?;
 
@@ -490,7 +483,6 @@ fn parse_args(
         camtrig_device_path,
         #[cfg(feature = "posix_sched_fifo")]
         process_frame_priority,
-        ros_periodic_update_interval,
         #[cfg(feature = "debug-images")]
         debug_addr,
         mainbrain_internal_addr,

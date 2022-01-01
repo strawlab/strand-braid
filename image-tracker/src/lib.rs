@@ -21,7 +21,6 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket},
 };
 
-use ci2_remote_control::CamArg;
 use fastimage::{
     ipp_ctypes, ripp, AlgorithmHint, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion,
     FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
@@ -173,16 +172,11 @@ impl TrackingState {
         raw_im_full: &S1,
         cfg: &ImPtDetectCfg,
         maybe_mask_image: Option<&S2>,
-        q1: &std::time::Instant,
-        sample_vec: &mut Vec<(f64, u32)>,
     ) -> Result<Vec<PointInfo>>
     where
         S1: FastImage<D = u8, C = Chan1>,
         S2: FastImage<D = u8, C = Chan1>,
     {
-        // let q1 = std::time::Instant::now();
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
-
         let mut all_points_found = Vec::new();
 
         // Create ROI views of the entire frame. At the moment, this is a low cost noop. However,
@@ -227,8 +221,6 @@ impl TrackingState {
                 )?;
             }
         }
-        // let qe1 = dur_to_f64(q1.elapsed());
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
 
         image_debug!(&absdiff_im_roi_view, "absdiff_im_roi_view");
 
@@ -242,9 +234,6 @@ impl TrackingState {
             )?;
         }
 
-        // let qe2 = dur_to_f64(q1.elapsed());
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
-
         if cfg.use_cmp {
             // clip the minimum comparison value to diff_threshold
             ripp::threshold_val_8u_c1ir(
@@ -255,24 +244,14 @@ impl TrackingState {
                 CompareOp::Less,
             )?;
         }
-        // let qe3 = dur_to_f64(q1.elapsed());
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
 
         let origin = fastimage::Point::new(0, 0);
 
         let mut cmpdiff_im_roi_view =
             MutableFastImageView::view_region(&mut self.cmpdiff_im, &self.background.current_roi);
 
-        // let mut qe4 = Vec::new();
-        // let mut qe5 = Vec::new();
-        // let mut qe6 = Vec::new();
-        // let mut qe7 = Vec::new();
-        // let mut qe8 = Vec::new();
-        // let mut qe9 = Vec::new();
         let mut n_found_points = 0;
         while n_found_points < cfg.max_num_points {
-            // qe4.push( dur_to_f64(q1.elapsed()) );
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
             let mut max_std_diff = 0;
 
             let (max_abs_diff, max_loc) = {
@@ -295,8 +274,6 @@ impl TrackingState {
                     // value at maximum difference from std
                     let max_abs_diff = absdiff_im_roi_view
                         .pixel_slice(max_loc.y() as usize, max_loc.x() as usize)[0];
-                    // qe5.push( dur_to_f64(q1.elapsed()) );
-                    sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
                     (max_abs_diff, max_loc)
                 } else {
                     ripp::max_indx_8u_c1r(&absdiff_im_roi_view, self.background.current_roi.size())?
@@ -312,9 +289,6 @@ impl TrackingState {
                     break; // no valid point found
                 }
             };
-
-            // qe6.push( dur_to_f64(q1.elapsed()) );
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
 
             // TODO: absdiff_im_roi2_view is a view into absdiff_im_roi_view, eliminate
             // global coords here.
@@ -354,14 +328,9 @@ impl TrackingState {
                     CompareOp::Less,
                 )?;
 
-                // qe7.push( dur_to_f64(q1.elapsed()) );
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
-
                 {
                     ripp::moments_8u_c1r(&absdiff_im_roi2_view, &roi2_sz, &mut self.moments)?;
                     let mu00 = self.moments.spatial(0, 0, 0, &origin)?;
-                    // qe8.push( dur_to_f64(q1.elapsed()) );
-                    sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
 
                     if mu00 == 0.0 {
                         break; // no valid point found
@@ -394,9 +363,6 @@ impl TrackingState {
                             .pixel_slice(max_loc.y() as usize, max_loc.x() as usize)[0]
                             as f64;
 
-                        // qe9.push( dur_to_f64(q1.elapsed()) );
-                        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 20000));
-
                         all_points_found.push(PointInfo {
                             inner: flydra_types::FlydraRawUdpPoint {
                                 x0_abs,
@@ -418,8 +384,6 @@ impl TrackingState {
                 ripp::set_8u_c1r(0, &mut absdiff_im_roi2_view, &roi2_sz)?;
             }
         }
-        // trace!("frame {}: {:.1} {:.1} {:.1} qe4 {:?} qe5 {:?} qe6 {:?} qe7 {:?} qe8 {:?} qe9 {:?}",
-        //     corrected_framenumber, qe1, qe2, qe3, qe4, qe5, qe6, qe7, qe8, qe9 );
         Ok(all_points_found)
     }
 }
@@ -506,6 +470,11 @@ fn save_bg_data(
     Ok(())
 }
 
+/// Implementation of low-latency feature detector.
+///
+/// Maintains compatibility with old flydra camera node.
+///
+/// Most work is done in [Self::process_new_frame].
 #[allow(dead_code)]
 pub struct FlyTracker {
     ros_cam_name: RosCamName,
@@ -703,24 +672,23 @@ fn open_destination_addr(
 }
 
 impl FlyTracker {
-    #[allow(unused_variables)]
+    /// Create new [FlyTracker].
+    ///
+    /// If the `camdata_addr` argument is not None, it is used to set
+    /// open a socket (`self.coord_socket`) to send the detected feature information.
     pub fn new(
         handle: &tokio::runtime::Handle,
         orig_cam_name: &RawCamName,
         w: u32,
         h: u32,
         cfg: ImPtDetectCfg,
-        cam_args_tx: Option<mpsc::Sender<CamArg>>,
-        version_str: String,
         frame_offset: Option<u64>,
-        http_camserver_info: flydra_types::CamHttpServerInfo,
-        ros_periodic_update_interval: std::time::Duration,
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         camdata_addr: Option<RealtimePointsDestAddr>,
         transmit_feature_detect_settings_tx: Option<
             mpsc::Sender<image_tracker_types::ImPtDetectCfg>,
         >,
-        valve: stream_cancel::Valve,
+        #[cfg(feature = "debug-images")] valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
             tokio::sync::oneshot::Receiver<()>,
         >,
@@ -839,7 +807,12 @@ impl FlyTracker {
 
     /// Detect features of interest and update background model.
     ///
-    /// If `self.coord_socket` is set, send the detected features using it.
+    /// If `self.coord_socket` is set, send the detected features using it. The
+    /// same results are also returned as a [FlydraRawUdpPacket] in the returned
+    /// output tuple.
+    ///
+    /// A ufmf file can be updated by setting the `ufmf_state` argument to a
+    /// value other than [UfmfState::Stopped].
     pub fn process_new_frame(
         &mut self,
         frame: &DynamicFrame,
@@ -850,8 +823,6 @@ impl FlyTracker {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
-        let q1 = std::time::Instant::now();
-        let mut sample_vec = Vec::new();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
         let opt_trigger_stamp = get_start_ts(
             self.clock_model.as_ref(),
@@ -877,8 +848,6 @@ impl FlyTracker {
                 self.acquisition_duration_allowed_imprecision_msec,
             );
         }
-
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         let preprocess_stamp = to_f64(process_new_frame_start);
         // let preprocess_duration = preprocess_stamp - acquire_stamp;
@@ -913,9 +882,7 @@ impl FlyTracker {
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
         );
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
         image_debug!(&raw_im_full, "raw_im_full");
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
         if *raw_im_full.size() != self.roi_sz {
             return Err(Error::ImageSizeChanged(
@@ -945,7 +912,6 @@ impl FlyTracker {
             points: vec![],
         };
 
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
         let (results, next_background_update_state) = match current_update_state {
             BackgroundAcquisitionState::TemporaryHold => {
                 panic!("unreachable");
@@ -1040,24 +1006,18 @@ impl FlyTracker {
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }
             BackgroundAcquisitionState::NormalUpdates(mut state) => {
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
                 let got_new_bg_data = state.background.poll_complete_updates();
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
                 if state.frames_since_background_update >= self.cfg.bg_update_interval {
-                    sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
                     if self.cfg.do_update_background_model {
-                        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
                         packet.image_processing_steps |= ImageProcessingSteps::BGUPDATE;
                         // defer processing bg images until after this frame data sent
                         saved_bg_image = Some(frame);
-                        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
                     }
                     state.frames_since_background_update = 0;
                 } else {
                     state.frames_since_background_update += 1;
                 }
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
                 // The following can take 40+ msec? e.g. 2018-08-29T08:41:19.582785551Z
                 let points = if let Some(ref mask_image) = self.mask_image {
                     state.do_work(
@@ -1065,8 +1025,6 @@ impl FlyTracker {
                         &raw_im_full,
                         &self.cfg,
                         Some(mask_image),
-                        &q1,
-                        &mut sample_vec,
                     )?
                 } else {
                     state.do_work::<_, FastImageData<Chan1, u8>>(
@@ -1074,11 +1032,8 @@ impl FlyTracker {
                         &raw_im_full,
                         &self.cfg,
                         None,
-                        &q1,
-                        &mut sample_vec,
                     )?
                 };
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
                 let radius = self.cfg.feature_window_size;
                 let point_data: Vec<_> = points
@@ -1113,30 +1068,23 @@ impl FlyTracker {
                 //         preprocess_duration*1000.0,
                 //         process_duration*1000.0);
 
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
-
                 if let Some(ref coord_socket) = self.coord_socket {
                     // Send the data to the mainbrain
                     let data: Vec<u8> = serde_cbor::ser::to_vec_packed_sd(&packet)?;
                     coord_socket.send_complete(&data)?;
                 }
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
 
+                // let (results, next_background_update_state) =
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }
         };
         self.background_update_state = next_background_update_state;
 
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
-
         if let Some(frame) = saved_bg_image {
             if let BackgroundAcquisitionState::NormalUpdates(ref mut state) =
                 self.background_update_state
             {
-                state
-                    .background
-                    .start_bg_update(frame, &self.cfg, &q1, &mut sample_vec)?;
-                sample_vec.push((dur_to_f64(q1.elapsed()), line!()));
+                state.background.start_bg_update(frame, &self.cfg)?;
             } else {
                 panic!("unreachable");
             }
@@ -1196,8 +1144,4 @@ pub fn compute_mask_image(
     }
 
     Ok(mask_image)
-}
-
-pub(crate) fn dur_to_f64(duration: std::time::Duration) -> f64 {
-    (duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9) * 1000.0
 }

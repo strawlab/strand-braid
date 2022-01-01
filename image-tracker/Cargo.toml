@@ -20,6 +20,8 @@ tokio = {version="1.0.1", default-features=false, features=["rt"]}
 stream-cancel = "0.8"
 nalgebra = "0.29"
 ncollide2d = "0.32"
+ipp-sys = "0.4.4"
+
 fastimage = { version = "0.1", path = "../fastimage" }
 ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }
@@ -48,8 +50,8 @@ fmf = { path = "../fmf" }
 download-verify = {path="../download-verify"}
 env_logger = "0.8"
 im-pt-detect-config = {path = "im-pt-detect-config"}
-ipp-sys = "0.4.4"
 tokio = {version="1.0.1", default-features=false, features=["macros"]}
+anyhow = "1"
 
 [features]
 flydra-uds=["unix_socket"]

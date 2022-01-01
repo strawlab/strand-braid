@@ -177,21 +177,14 @@ impl BackgroundModel {
         &mut self,
         frame: &DynamicFrame,
         cfg: &ImPtDetectCfg,
-        q1: &std::time::Instant,
-        sample_vec: &mut Vec<(f64, u32)>,
     ) -> Result<()> {
-        sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
         if self.tx_to_worker.is_full() {
             error!("not updating background image because pipe full");
         } else {
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
             // let frame = fi_to_frame(raw_im_full)?;
             let frame_copy = frame.clone();
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
             let cfg = cfg.clone();
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
             self.tx_to_worker.send((frame_copy, cfg)).cb_ok();
-            sample_vec.push((dur_to_f64(q1.elapsed()), line!() + 10000));
         }
         Ok(())
     }
@@ -234,12 +227,6 @@ impl BackgroundModelWorker {
     where
         S: FastImage<C = Chan1, D = u8>,
     {
-        #[inline]
-        fn dur_to_f64(duration: std::time::Duration) -> f64 {
-            duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
-        }
-
-        let q1 = std::time::Instant::now();
         let (w, h) = (self.current_roi.width(), self.current_roi.height());
 
         ripp::add_weighted_8u32f_c1ir(
@@ -254,10 +241,6 @@ impl BackgroundModelWorker {
             self.current_roi.size(),
             RoundMode::Near,
         )?;
-
-        let qe1 = dur_to_f64(q1.elapsed());
-        // image_debug!(&self.mean_im, "mean_im");
-        let qe2 = dur_to_f64(q1.elapsed());
 
         let mut this_squared = FastImageData::copy_from_8u32f_c1(raw_im_full)?;
         ripp::sqr_32f_c1ir(&mut this_squared, self.current_roi.size())?;
@@ -280,15 +263,11 @@ impl BackgroundModelWorker {
             self.current_roi.size(),
         )?;
 
-        let qe3 = dur_to_f64(q1.elapsed());
-
         // running_stdframe = self.cfg.n_sigma * sqrt(|std2|)
         let mut running_stdframe = FastImageData::<Chan1, f32>::new(w, h, 0.0)?;
         ripp::abs_32f_c1r(&std2, &mut running_stdframe, self.current_roi.size())?;
         ripp::sqrt_32f_c1ir(&mut running_stdframe, self.current_roi.size())?;
         ripp::mul_c_32f_c1ir(cfg.n_sigma, &mut running_stdframe, self.current_roi.size())?;
-
-        let qe4 = dur_to_f64(q1.elapsed());
 
         // now we do hack, erm, heuristic for bright points, which aren't gaussian.
         let mut noisy_pixels_mask = FastImageData::<Chan1, u8>::new(w, h, 0)?;
@@ -299,8 +278,6 @@ impl BackgroundModelWorker {
             self.current_roi.size(),
             CompareOp::Greater,
         )?;
-
-        let qe5 = dur_to_f64(q1.elapsed());
 
         ripp::convert_32f8u_c1r(
             &running_stdframe,
@@ -314,21 +291,6 @@ impl BackgroundModelWorker {
             self.current_roi.size(),
             &noisy_pixels_mask,
         )?;
-        let qe6 = dur_to_f64(q1.elapsed());
-
-        // image_debug!(&self.cmp_im, "cmp_im");
-
-        let qe7 = dur_to_f64(q1.elapsed());
-        debug!(
-            "{:.1} {:.1} {:.1} {:.1} {:.1} {:.1} {:.1}",
-            qe1 * 1000.0,
-            qe2 * 1000.0,
-            qe3 * 1000.0,
-            qe4 * 1000.0,
-            qe5 * 1000.0,
-            qe6 * 1000.0,
-            qe7 * 1000.0
-        );
         Ok(())
     }
 }

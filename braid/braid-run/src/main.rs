@@ -55,7 +55,6 @@ fn launch_strand_cam(
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
             .to_string(),
-        ros_periodic_update_interval: std::time::Duration::from_millis(9999), // not actually used
         tracker_cfg_src,
         raise_grab_thread_priority: camera.raise_grab_thread_priority,
         #[cfg(feature = "stand-cam-posix-sched-fifo")]
