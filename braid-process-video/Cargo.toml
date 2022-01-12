@@ -16,7 +16,7 @@ toml = "0.5"
 machine-vision-formats = "0.1.1"
 structopt = "0.3"
 resvg = "0.19"
-tagger = "3.3"
+tagger = "4.0"
 tiny-skia = "0.6.1"
 usvg = { version = "0.19.0", default-features = false }
 image = {version="0.23", default-features=false, features=["png"]}
