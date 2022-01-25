@@ -228,7 +228,7 @@ struct ExportMkv {
     bitrate: u32,
 
     /// video codec
-    #[structopt(long = "codec", default_value = "vp9")]
+    #[structopt(long = "codec", default_value = "vp9", help=VALID_CODECS)]
     codec: Codec,
 
     /// title stored in MKV metadata
@@ -244,15 +244,22 @@ enum Codec {
     H264,
 }
 
+#[cfg(not(feature = "nv-h264"))]
+const VALID_CODECS: &str = "Codec must be one of: vp8 vp9";
+
+#[cfg(feature = "nv-h264")]
+const VALID_CODECS: &str = "Codec must be one of: vp8 vp9 h264";
+
 impl std::str::FromStr for Codec {
     type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "vp8" | "Vp8" | "VP8" => Ok(Codec::Vp8),
-            "vp9" | "Vp9" | "VP9" => Ok(Codec::Vp9),
+        let s = s.to_lowercase();
+        match s.as_str() {
+            "vp8" => Ok(Codec::Vp8),
+            "vp9" => Ok(Codec::Vp9),
             #[cfg(feature = "nv-h264")]
-            "h264" | "H264" => Ok(Codec::H264),
-            c => Err(format!("unknown codec: {}", c)),
+            "h264" => Ok(Codec::H264),
+            c => Err(format!("unknown codec: {} ({})", c, VALID_CODECS)),
         }
     }
 }
