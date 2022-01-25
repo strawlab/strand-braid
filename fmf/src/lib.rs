@@ -26,8 +26,8 @@ pub enum FMFError {
     #[error("unimplemented pixel_format {0}")]
     UnimplementedPixelFormat(PixFmt),
 
-    #[error("unimplemented version")]
-    UnimplementedVersion,
+    #[error("Unimplemented FMF file version {0}. Only FMF v3 files supported.")]
+    UnimplementedVersion(u32),
     #[error("premature file end")]
     PrematureFileEnd,
     #[error("unknown format {0}")]
@@ -37,8 +37,13 @@ pub enum FMFError {
     #[error("already closed")]
     AlreadyClosed,
 
-    #[error("{0}")]
-    Io(std::io::Error),
+    #[error("{source}")]
+    Io {
+        #[from]
+        source: std::io::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
 
     #[error("From {path}: {source}")]
     IoPath {
@@ -51,12 +56,6 @@ pub enum FMFError {
 
     #[error("{0}")]
     Cell(std::cell::BorrowMutError),
-}
-
-impl From<std::io::Error> for FMFError {
-    fn from(orig: std::io::Error) -> FMFError {
-        FMFError::Io(orig)
-    }
 }
 
 impl From<std::cell::BorrowMutError> for FMFError {

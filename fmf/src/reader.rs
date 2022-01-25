@@ -88,7 +88,7 @@ impl FMFReader {
         let version = f.read_u32::<LittleEndian>()?;
         pos += 4;
         if version != 3 {
-            return Err(FMFError::UnimplementedVersion);
+            return Err(FMFError::UnimplementedVersion(version));
         }
 
         // format
