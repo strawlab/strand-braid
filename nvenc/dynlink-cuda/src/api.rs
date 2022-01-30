@@ -1,7 +1,7 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
-use std::mem::zeroed;
+use std::mem::MaybeUninit;
 
 use crate::error::CudaError;
 use crate::ffi::*;
@@ -59,7 +59,8 @@ impl<'lib> LibCuda<'lib> {
         Ok(value)
     }
     pub fn new_device(&self, i: i32) -> Result<CudaDevice, CudaError> {
-        let mut inner: CUdevice = unsafe { zeroed() };
+        let inner = MaybeUninit::zeroed();
+        let mut inner: CUdevice = unsafe { inner.assume_init() };
         api_call!((*self.cuDeviceGet)(&mut inner, i));
         Ok(CudaDevice {
             parent: self,
@@ -97,7 +98,8 @@ impl<'a> CudaDevice<'a> {
         Ok(r)
     }
     pub fn into_context(self) -> Result<CudaContext<'a>, CudaError> {
-        let mut context: CUcontext = unsafe { zeroed() };
+        let context = MaybeUninit::zeroed();
+        let mut context: CUcontext = unsafe { context.assume_init() };
         api_call!((*self.parent.cuCtxCreate_v2)(&mut context, 0, self.inner));
         Ok(CudaContext {
             _parent: self.parent,
