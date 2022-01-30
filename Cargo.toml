@@ -78,7 +78,6 @@ members = [
     "refraction",
     "rt-image-viewer",
     "rt-image-viewer/storetype",
-    "select",
     "simple-frame",
     "simple-obj-parse",
     "strand-cam",
