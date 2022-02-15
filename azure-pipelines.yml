@@ -9,7 +9,7 @@ jobs:
       vmImage: 'ubuntu-16.04'
     steps:
       - script: |
-          curl --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+          curl --show-error --fail --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
           sudo dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
         displayName: install libvpx
       - script: |
@@ -27,7 +27,7 @@ jobs:
       vmImage: 'macOS-10.14'
     steps:
       - script: |
-          curl --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-1.8.0.sierra.bottle.tar.gz > /tmp/libvpx-1.8.0.sierra.bottle.tar.gz
+          curl --show-error --fail --silent https://s3.eu-central-1.amazonaws.com/blobs.strawlab.org/libvpx-1.8.0.sierra.bottle.tar.gz > /tmp/libvpx-1.8.0.sierra.bottle.tar.gz
           sudo mkdir -p /opt
           sudo tar xvzf /tmp/libvpx-1.8.0.sierra.bottle.tar.gz -C /opt
           # TODO delete next line

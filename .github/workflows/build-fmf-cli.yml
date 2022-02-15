@@ -76,7 +76,7 @@ jobs:
       - name: download and extract libvpx
         run: |
           cd /tmp
-          curl --silent -O -L https://strawlab-cdn.com/assets/libvpx-1.8.1.sierra.bottle.tar.gz
+          curl --show-error --fail --silent -O -L https://strawlab-cdn.com/assets/libvpx-1.8.1.sierra.bottle.tar.gz
           sudo mkdir -p /opt
           sudo tar xvzf /tmp/libvpx-1.8.1.sierra.bottle.tar.gz -C /opt
       - name: Setup Rust
