@@ -595,3 +595,9 @@ mod tests {
         assert_eq!(spatial_moment_10(&im), 448.0);
     }
 }
+
+#[cfg(feature = "packed_simd")]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
+
+#[cfg(not(feature = "packed_simd"))]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
