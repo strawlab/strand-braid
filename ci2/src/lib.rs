@@ -192,6 +192,20 @@ pub trait Camera: CameraInfo {
     fn acquisition_mode(&self) -> Result<AcquisitionMode>;
     fn set_acquisition_mode(&mut self, _: AcquisitionMode) -> Result<()>;
 
+    // Set external triggering ------------------------------
+    /// Set the camera to use external triggering using default parameters.
+    ///
+    /// The default parameters may vary by camera backend will ideally use
+    /// a hardware trigger to trigger the start of each frame.
+    fn start_default_external_triggering(&mut self) -> Result<()> {
+        // This is the generic default implementation which may be overriden by
+        // implementors.
+
+        // The trigger selector must be set before the trigger mode.
+        self.set_trigger_selector(TriggerSelector::FrameStart)?;
+        self.set_trigger_mode(TriggerMode::On)
+    }
+
     // Acquisition ----------------------------
     fn acquisition_start(&mut self) -> Result<()>;
     fn acquisition_stop(&mut self) -> Result<()>;

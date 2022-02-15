@@ -305,6 +305,11 @@ where
         c.set_gain_auto(value)
     }
 
+    fn start_default_external_triggering(&mut self) -> ci2::Result<()> {
+        let mut c = self.camera.lock();
+        c.start_default_external_triggering()
+    }
+
     fn trigger_mode(&self) -> ci2::Result<ci2::TriggerMode> {
         let c = self.camera.lock();
         c.trigger_mode()

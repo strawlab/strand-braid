@@ -2815,9 +2815,7 @@ pub async fn setup_app(
     let current_cam_settings_extension = settings_file_ext.to_string();
 
     if args.force_camera_sync_mode {
-        // The trigger selector must be set before the trigger mode.
-        cam.set_trigger_selector(ci2_types::TriggerSelector::FrameStart).unwrap();
-        cam.set_trigger_mode(ci2::TriggerMode::On).unwrap();
+        cam.start_default_external_triggering().unwrap();
         send_cam_settings_to_braid(
             &cam.node_map_save()?,
             transmit_msg_tx.as_ref(),
