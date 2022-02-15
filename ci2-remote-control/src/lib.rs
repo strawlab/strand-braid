@@ -260,8 +260,6 @@ pub enum CamArg {
     SetFrameOffset(u64),
     SetClockModel(Option<ClockModel>),
     SetFormatStr(String),
-    SetTriggerMode(ci2_types::TriggerMode),
-    SetTriggerSelector(ci2_types::TriggerSelector),
     ToggleCheckerboardDetection(bool),
     ToggleCheckerboardDebug(bool),
     SetCheckerboardWidth(u32),

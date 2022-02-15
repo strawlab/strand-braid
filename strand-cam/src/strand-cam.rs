@@ -3531,43 +3531,6 @@ pub async fn setup_app(
                         }
                     }
                 }
-
-                CamArg::SetTriggerMode(v) => {
-                    match cam.set_trigger_mode(v) {
-                        Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|tracker| tracker.trigger_mode = v);
-                        }
-                        Err(e) => {
-                            error!("setting trigger_mode: {:?}", e);
-                        }
-                    }
-                }
-                CamArg::SetTriggerSelector(v) => {
-                    match cam.set_trigger_selector(v) {
-                        Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|tracker| tracker.trigger_selector = v);
-                        }
-                        Err(e) => {
-                            error!("setting trigger_selector: {:?}", e);
-                        }
-                    }
-                }
                 CamArg::SetFrameOffset(fo) => {
                     tx_frame2.send(Msg::SetFrameOffset(fo)).cb_ok();
                 }
