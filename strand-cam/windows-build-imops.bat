@@ -11,7 +11,7 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo build --no-default-features --features bundle_files,backend_pyloncxx --release  || goto :error
+cargo build --no-default-features --features bundle_files,backend_pyloncxx,imops/packed_simd --release  || goto :error
 
 goto :EOF
 

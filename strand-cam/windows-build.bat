@@ -18,6 +18,6 @@ set VPX_STATIC=1
 set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
-cargo build --no-default-features --features bundle_files,backend_pyloncxx,checkercal,backtrace,ci2-pyloncxx/backtrace --release
+cargo build --no-default-features --features bundle_files,backend_pyloncxx,checkercal,backtrace,ci2-pyloncxx/backtrace,imops/packed_simd --release
 
 copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world320.dll ..\target\release\
