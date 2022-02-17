@@ -285,7 +285,7 @@ build-freemovr-calibration-webapp:
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install wasm-bindgen-cli --version 0.2.74 --force
+    - cargo install wasm-bindgen-cli --version 0.2.79 --force
     - wasm-bindgen --version
 
     - cd freemovr-calibration/freemovr-calibration-webapp
