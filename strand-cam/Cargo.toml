@@ -99,6 +99,8 @@ ads-apriltag = {path="../apriltag", optional=true}
 channellib = {path="../channellib"}
 braid-http-session = {path="../braid-http-session"}
 
+target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f523ed819bd1d92519416cb79e36fd74fe"}
+
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}
 

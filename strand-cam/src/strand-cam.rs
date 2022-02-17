@@ -2574,6 +2574,9 @@ pub async fn setup_app(
     -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, StrandCamApp)>
 {
 
+    let target_feature_string = target_features::target_features().join(", ");
+    info!("Compiled with features: {}", target_feature_string);
+
     if !imops::COMPILED_WITH_SIMD_SUPPORT {
         warn!("Package 'imops' was not compiled with packed_simd support. Image processing with imops will be slow.");
     }
