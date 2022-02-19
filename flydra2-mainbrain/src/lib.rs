@@ -864,7 +864,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let gain = 1.0 / cfg.framerate;
 
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-            // let local = now.with_timezone(&chrono::Local);
             let offset = datetime_conversion::datetime_to_f64(&now);
 
             (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
