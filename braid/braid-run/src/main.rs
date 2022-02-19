@@ -101,14 +101,10 @@ fn main() -> Result<()> {
 
     let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
         TriggerType::TriggerboxV1(_) => (true, flydra_types::StartSoftwareFrameRateLimit::NoChange),
-        TriggerType::FakeSync(cfg) => {
-            let software_limit_framerate = if let Some(fps) = cfg.fps {
-                flydra_types::StartSoftwareFrameRateLimit::Enable(fps)
-            } else {
-                flydra_types::StartSoftwareFrameRateLimit::NoChange
-            };
-            (false, software_limit_framerate)
-        }
+        TriggerType::FakeSync(cfg) => (
+            false,
+            flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.framerate),
+        ),
     };
     let show_tracking_params = false;
 

@@ -1,3 +1,9 @@
+## unreleased
+
+### Changed
+
+* Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
+
 ## 0.11.1 - 2021-12-04
 
 ### Added

@@ -17,5 +17,5 @@ name = "DEV_1AB22C00D794"
 remote_camera = true
 
 [trigger]
-fps = 50.0
+framerate = 50.0
 trigger_type = "FakeSync"

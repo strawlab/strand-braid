@@ -859,9 +859,9 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             signal_triggerbox_connected.store(true, Ordering::SeqCst);
 
             let mut expected_framerate = expected_framerate_arc.write();
-            *expected_framerate = Some(cfg.fps as f32);
+            *expected_framerate = Some(cfg.framerate as f32);
 
-            let gain = 1.0 / cfg.fps as f64;
+            let gain = 1.0 / cfg.framerate;
 
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
             // let local = now.with_timezone(&chrono::Local);

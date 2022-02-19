@@ -791,12 +791,12 @@ const fn default_query_dt() -> std::time::Duration {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FakeSyncConfig {
-    pub fps: f64,
+    pub framerate: f64,
 }
 
 impl Default for FakeSyncConfig {
     fn default() -> Self {
-        Self { fps: 95.0 }
+        Self { framerate: 95.0 }
     }
 }
 
