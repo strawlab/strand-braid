@@ -239,7 +239,6 @@ pub enum StrandCamError {
     #[error("{0}")]
     SerialportError(#[from] serialport::Error),
 
-    #[cfg(feature = "braid-config")]
     #[error("A camera name is required")]
     CameraNameRequired,
     #[error("hyper error: {0}")]
@@ -686,6 +685,7 @@ fn frame_process_thread(
     new_cam_data: flydra_types::RegisterNewCamera,
 ) -> anyhow::Result<()>
 {
+    let is_braid = camdata_addr.is_some();
 
     let ros_cam_name: RosCamName = new_cam_data.ros_cam_name.clone();
 
@@ -742,18 +742,16 @@ fn frame_process_thread(
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
     #[cfg(feature="image_tracker")]
     #[allow(unused_assignments)]
-    let mut is_doing_object_detection = false;
+    let mut is_doing_object_detection = is_braid;
     let version_str = env!("CARGO_PKG_VERSION").to_string();
 
-    #[allow(unused_mut)]
     #[allow(unused_assignments)]
-    let mut frame_offset = Some(0);
-
-    #[cfg(feature = "initially-unsychronized")]
-    {
+    let frame_offset = if is_braid {
         // We start initially unsynchronized. We wait for synchronizaton.
-        frame_offset = None;
-    }
+        None
+    } else {
+        Some(0)
+    };
 
     let (transmit_feature_detect_settings_tx, transmit_msg_tx) = if let Some(info) = mainbrain_info {
 
@@ -812,11 +810,6 @@ fn frame_process_thread(
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
     std::mem::drop(is_starting); // signal that we are we are no longer starting
-
-    #[cfg(feature = "start-object-detection")]
-    {
-        is_doing_object_detection = true;
-    }
 
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
@@ -1057,8 +1050,7 @@ fn frame_process_thread(
         match msg {
             Msg::Store(stor) => {
                 // We get the shared store once at startup.
-                #[cfg(feature = "start-object-detection")]
-                {
+                if is_braid {
                     let mut tracker = stor.write();
                     tracker.modify(|tracker| {
                         tracker.is_doing_object_detection = true;
@@ -2400,6 +2392,7 @@ fn display_qr_url(url: &str) {
 }
 
 #[cfg(feature = "image_tracker")]
+#[derive(Debug)]
 /// Defines whether runtime changes from the user are persisted to disk.
 ///
 /// If they are persisted to disk, upon program re-start, the disk
@@ -2439,6 +2432,8 @@ enum ToDevice {
     Centroid(MomentCentroid),
 }
 
+// #[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct StrandCamArgs {
     /// A handle to the tokio runtime.
     pub handle: Option<tokio::runtime::Handle>,

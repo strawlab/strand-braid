@@ -191,13 +191,13 @@ fn parse_args(
                     .takes_value(true),
             );
 
-        #[cfg(not(feature = "braid-config"))]
+        // #[cfg(not(feature = "braid-config"))]
         {
             parser = parser
                 .arg(
                     Arg::with_name("pixel_format")
                         .long("pixel-format")
-                        .help("The desired pixel format.")
+                        .help("The desired pixel format. (incompatible with braid).")
                         .takes_value(true),
                 )
                 .arg(
@@ -205,7 +205,7 @@ fn parse_args(
                         .long("jwt-secret")
                         .help(
                             "Specifies the JWT secret. Falls back to the JWT_SECRET \
-                    environment variable if unspecified.",
+                    environment variable if unspecified. (incompatible with braid).",
                         )
                         .global(true)
                         .takes_value(true),
@@ -213,14 +213,15 @@ fn parse_args(
                 .arg(
                     Arg::with_name("force_camera_sync_mode")
                         .long("force_camera_sync_mode")
-                        .help("Force the camera to synchronize to external trigger"),
+                        .help("Force the camera to synchronize to external trigger. (incompatible with braid)."),
                 );
         }
 
-        #[cfg(feature = "braid-config")]
+        // #[cfg(feature = "braid-config")]
         {
             parser = parser.arg(
                 Arg::with_name("braid_addr")
+                    .long("braid_addr")
                     .help("Braid HTTP API address (IP:Port)")
                     .takes_value(true),
             );
@@ -384,77 +385,78 @@ fn parse_args(
         .map(|s| s.parse().unwrap())
         .expect("required debug_addr");
 
-    #[cfg(feature = "braid-config")]
-    let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, remote_info) = {
-        let braid_addr = matches
-            .value_of("braid_addr")
-            .ok_or_else(|| anyhow::anyhow!("expected braid_addr"))?
-            .to_string();
-        log::info!("Will connect to braid at \"{}\"", braid_addr);
-        let mainbrain_internal_addr = flydra_types::MainbrainBuiLocation(
-            flydra_types::BuiServerInfo::parse_url_with_token(&braid_addr)?,
-        );
+    let braid_addr: Option<String> = matches
+        .value_of("braid_addr").map(Into::into);
 
-        let mut mainbrain_session = handle.block_on(
-            braid_http_session::mainbrain_future_session(mainbrain_internal_addr.clone()),
-        )?;
+    let (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src) = if let Some(braid_addr) = braid_addr {
 
-        let camera_name = camera_name
-            .as_ref()
-            .ok_or(strand_cam::StrandCamError::CameraNameRequired)?;
+        for argname in &["pixel_format", "JWT_SECRET", "force_camera_sync_mode"] {
+            if matches.value_of(argname).is_some() {
+                anyhow::bail!("'{}' cannot be set from the command line when calling strand-cam from braid.", argname);
+            }
+        }
 
-        let camera_name = flydra_types::RawCamName::new(camera_name.to_string());
+        let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, remote_info) = {
+            log::info!("Will connect to braid at \"{}\"", braid_addr);
+            let mainbrain_internal_addr = flydra_types::MainbrainBuiLocation(
+                flydra_types::BuiServerInfo::parse_url_with_token(&braid_addr)?,
+            );
 
-        let remote_info = handle.block_on(mainbrain_session.get_remote_info(&camera_name))?;
+            let mut mainbrain_session = handle.block_on(
+                braid_http_session::mainbrain_future_session(mainbrain_internal_addr.clone()),
+            )?;
 
-        let camdata_addr = {
-            let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
-            let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
-            let camdata_addr = Some(flydra_types::RealtimePointsDestAddr::IpAddr(
-                addr_info_ip.clone(),
-            ));
-            camdata_addr
+            let camera_name = camera_name
+                .as_ref()
+                .ok_or(strand_cam::StrandCamError::CameraNameRequired)?;
+
+            let camera_name = flydra_types::RawCamName::new(camera_name.to_string());
+
+            let remote_info = handle.block_on(mainbrain_session.get_remote_info(&camera_name))?;
+
+            let camdata_addr = {
+                let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
+                let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
+                let camdata_addr = Some(flydra_types::RealtimePointsDestAddr::IpAddr(
+                    addr_info_ip.clone(),
+                ));
+                camdata_addr
+            };
+
+            let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangesNotSavedToDisk(
+                remote_info.config.point_detection_config.clone(),
+            );
+
+
+            (
+                Some(mainbrain_internal_addr),
+                camdata_addr,
+                tracker_cfg_src,
+                remote_info,
+            )
         };
 
-        let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangesNotSavedToDisk(
-            remote_info.config.point_detection_config.clone(),
-        );
+        let pixel_format = remote_info.config.pixel_format;
+        let force_camera_sync_mode = remote_info.force_camera_sync_mode;
+        let software_limit_framerate = remote_info.software_limit_framerate;
+        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src)
+    } else {
+        // not braid
 
-        (
-            Some(mainbrain_internal_addr),
-            camdata_addr,
-            tracker_cfg_src,
-            remote_info,
-        )
+        let mainbrain_internal_addr = None;
+        let camdata_addr = None;
+        let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
+        let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
+        let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
+
+        #[cfg(feature = "image_tracker")]
+        let tracker_cfg_src = get_tracker_cfg(&matches)?;
+
+        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src)
     };
-
-    #[cfg(feature = "braid-config")]
-    let force_camera_sync_mode = remote_info.force_camera_sync_mode;
-
-    #[cfg(not(feature = "braid-config"))]
-    let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
 
     log::warn!("force_camera_sync_mode: {}", force_camera_sync_mode);
-
-    #[cfg(feature = "braid-config")]
-    let pixel_format = remote_info.config.pixel_format;
-
-    #[cfg(not(feature = "braid-config"))]
-    let (mainbrain_internal_addr, camdata_addr, pixel_format) = {
-        let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
-        (None, None, pixel_format)
-    };
-
-    #[cfg(not(feature = "braid-config"))]
-    let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
-
-    #[cfg(feature = "braid-config")]
-    let software_limit_framerate = remote_info.software_limit_framerate;
-
     log::warn!("software_limit_framerate: {:?}", software_limit_framerate);
-
-    #[cfg(all(feature = "image_tracker", not(feature = "braid-config")))]
-    let tracker_cfg_src = get_tracker_cfg(&matches)?;
 
     let show_url = true;
 

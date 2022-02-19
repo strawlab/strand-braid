@@ -83,7 +83,7 @@ approx = { version = "0.5", optional = true }
 human-panic = "1.0.3"
 byteorder = "1.4"
 
-braid-config-data = {path="../braid-config-data", optional=true}
+braid-config-data = {path="../braid-config-data"}
 rt-image-viewer = {path="../rt-image-viewer", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}
 camcal = {path="../camcal", optional=true}
@@ -109,8 +109,6 @@ bui-backend-codegen = {version="0.9", default-features = false}
 default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
-
-braid-config = ["braid-config-data"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
     "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
@@ -145,9 +143,6 @@ with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/
 flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg", "flydra-mvg/backtrace",
     "approx", "strand-cam-storetype/flydratrax", "alga",
     "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
-
-start-object-detection = ["image_tracker"]
-initially-unsychronized = []
 
 # build with the image-tracker, which also requires IPP, fastimage, etc.
 image_tracker = ["image-tracker", "image-tracker/backtrace"]
