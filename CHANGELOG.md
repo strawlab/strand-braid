@@ -3,6 +3,10 @@
 ### Changed
 
 * Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
+* Braid no longer runs an in-process strand-cam but rather launches a child
+  process for each camera. This will enable future support of other camera
+  drivers and will enable braid to run with cameras from multiple vendors. This
+  builds off the remote camera support.
 
 ## 0.11.1 - 2021-12-04
 
