@@ -26,8 +26,8 @@ pub async fn mainbrain_future_session(
 
 /// This allows communicating with the Mainbrain over HTTP RPC.
 ///
-/// This will take the place of ROS for camera -> mainbrain command and control
-/// communication.
+/// This replaced the old ROS layer for camera -> mainbrain command and control
+/// communication from flydra.
 #[derive(Clone)]
 pub struct MainbrainSession {
     inner: InsecureSession,
