@@ -192,61 +192,11 @@ test_fastimage:
     - export RUSTFLAGS="-D warnings"
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
-strand-cam-ubuntu1604-debs:
-  tags:
-    - ubuntu-16.04
+camtrig-ubuntu2004-debs:
+  image: ubuntu:focal
   script:
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - mkdir -p $CI_PROJECT_DIR/rust-cam-xenial-debs-build
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-
-    - cd strand-cam/packaging
-    - pwd
-    - ls -l ../../build
-    - ldd ../../build/strand-cam-camtrig-pylon
-    - ldd ../../build/strand-cam-pylon
-    - make
-    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
-    - cp -a *.changes $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - cp -a *.deb $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - ls -lh $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - cd ../..
-  needs:
-    - strand-cam-pylon-linux
-    - strand-cam-camtrig-pylon-linux
-  artifacts:
-    paths:
-      - rust-cam-xenial-debs-build/
-    name: "strand-cam-ubuntu1604-debs-${CI_COMMIT_SHA}"
-
-# internal-strand-cam-xenial-deb-packages:
-#   tags:
-#       - pylon
-#   script:
-#     - mkdir -p $CI_PROJECT_DIR/internal_debs
-#     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper devscripts
-
-#     - cd strand-cam/packaging
-#     - make strand-cam-camtrig-pylon_VERSION_amd64.deb
-#     - cp -a *.changes $CI_PROJECT_DIR/internal_debs/
-#     - cp -a *.deb $CI_PROJECT_DIR/internal_debs/
-#     - cd ../..
-# needs:
-#   - strand-cam-camtrig-pylon-linux
-# artifacts:
-#   paths:
-#     - internal_debs/
-#   name: "rust-cam-internal_debs-${CI_COMMIT_SHA}"
-
-camtrig-ubuntu1604-debs:
-  tags:
-    - ubuntu-16.04
-  script:
-    - mkdir -p $CI_PROJECT_DIR/xenial-camtrig-debs
+    - _packaging/setup-ubuntu-20.04.sh
+    - mkdir -p $CI_PROJECT_DIR/focal-camtrig-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
     - cd camtrig
@@ -254,16 +204,16 @@ camtrig-ubuntu1604-debs:
     - cp $CI_PROJECT_DIR/camtrig-firmware-${CI_COMMIT_SHA}.bin ./camtrig-firmware.bin
     - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
     - cd ..
-    - cp -a camtrig*.changes $CI_PROJECT_DIR/xenial-camtrig-debs/
-    - cp -a camtrig*.deb $CI_PROJECT_DIR/xenial-camtrig-debs/
+    - cp -a camtrig*.changes $CI_PROJECT_DIR/focal-camtrig-debs/
+    - cp -a camtrig*.deb $CI_PROJECT_DIR/focal-camtrig-debs/
 
   needs:
     - camtrig-linux
     - camtrig-firmware
   artifacts:
     paths:
-      - xenial-camtrig-debs/
-    name: "rust-cam-xenial-camtrig-debs-${CI_COMMIT_SHA}"
+      - focal-camtrig-debs/
+    name: "rust-cam-focal-camtrig-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
   image: rust:1.56.0
@@ -392,53 +342,6 @@ publish-api-docs:
     - build-api-docs
   when: manual
 
-strand-cam-pylon-linux:
-  tags:
-    - rust
-    - ipp
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
-
-    - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - export RUSTFLAGS="-D warnings"
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-pylon-linux-${CI_COMMIT_SHA}"
-
 strand-cam-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
@@ -518,58 +421,6 @@ strand-cam-camtrig-pylon-ubuntu2004:
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
-
-strand-cam-camtrig-pylon-linux:
-  tags:
-    - rust
-    - ipp
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
-    - export RUSTFLAGS="-D warnings"
-
-    # TODO: include firmware bundled
-    - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    - cd ../strand-cam-offline-kalmanize
-    - cargo build --release
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
-    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
   artifacts:
     paths:
@@ -712,65 +563,6 @@ braid-webapps:
     - ./build.sh
     - cd ..
 
-braid-pylon-ubuntu1604:
-  tags:
-    - rust
-    - ipp
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - rustc --version
-    # - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
-
-    - export RUSTFLAGS="-D warnings"
-
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
-
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
-    - ./build.sh
-
-    # build braid-run
-    - cd $CI_PROJECT_DIR/braid/braid-run
-    # force recomputing git version tag
-    - touch build.rs
-
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files jemalloc backtrace" --release
-    - ldd ../../target/release/braid-run
-
-    # build braid
-    - cd $CI_PROJECT_DIR/braid
-    # force recomputing git version tag
-    - touch build.rs
-    - NUM_JOBS=2 cargo build --release
-    - ldd ../target/release/braid
-
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
-    - ls -l ../target/release
-    - cd $CI_PROJECT_DIR/braid/packaging
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-    - make
-    - mkdir -p $CI_PROJECT_DIR/braid-pylon-linux-build
-    - cp *.deb $CI_PROJECT_DIR/braid-pylon-linux-build
-    - cp *.changes $CI_PROJECT_DIR/braid-pylon-linux-build
-    - ls -lh *.deb
-    - ls -l *.deb
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
-    - dpkg --info *.deb
-
-  artifacts:
-    paths:
-      - braid-pylon-linux-build/
-    name: "braid-pylon-ubuntu1604-${CI_COMMIT_SHA}"
-
 braid-ubuntu2004:
   image: ubuntu:focal
   variables:
@@ -878,62 +670,6 @@ camtrig-firmware:
     name: "camtrig-firmware-${CI_COMMIT_SHA}"
 
 # -------
-
-# deploy-strand-cam:
-#   tags:
-#     - debs.strawlab.org-deployer
-#   script:
-#     - $HOME/bin/process_and_upload $CI_PROJECT_DIR/rust-cam-xenial-debs-build /debs.strawlab.org-mirror/debs.strawlab.org
-#   environment:
-#     name: production
-#     url: http://debs.strawlab.org/xenial/
-#   needs:
-#     - xenial-deb-packagescurl --show-error --fail --silent
-#   when: manual
-#   # only:curl --show-error --fail --silent
-#   # - master
-
-deploy-camtrig-ubuntu1604:
-  tags:
-    - debs.strawlab.org-deployer
-  script:
-    - $HOME/bin/process_and_upload $CI_PROJECT_DIR/xenial-camtrig-debs /debs.strawlab.org-mirror/debs.strawlab.org
-  environment:
-    name: production
-    url: http://debs.strawlab.org/xenial/
-  needs:
-    - camtrig-ubuntu1604-debs
-  when: manual
-  # only:
-  # - master
-
-deploy-braid-pylon-ubuntu1604:
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial braid-pylon-linux-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  needs:
-    - braid-pylon-ubuntu1604
-  when: manual
-
-deploy-strand-cam-internal-ubuntu1604:
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial rust-cam-xenial-debs-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  needs:
-    - strand-cam-ubuntu1604-debs
-  when: manual
 
 strand-braid-ubuntu-2004:
   image: ubuntu:focal
