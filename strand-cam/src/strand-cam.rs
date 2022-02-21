@@ -2404,6 +2404,7 @@ pub enum ImPtDetectCfgSource {
 }
 
 #[cfg(feature = "plugin-process-frame")]
+#[derive(Debug)]
 pub struct ProcessFrameCbData {
     pub func_ptr: plugin_defs::ProcessFrameFunc,
     pub data_handle: plugin_defs::DataHandle,
@@ -2496,6 +2497,7 @@ pub struct StrandCamArgs {
 
 pub type SaveEmptyData2dType = bool;
 
+#[derive(Debug)]
 pub enum CalSource {
     /// Use circular tracking region to create calibration
     PseudoCal,
