@@ -570,7 +570,7 @@ braid-ubuntu2004:
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
+    # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
     - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
