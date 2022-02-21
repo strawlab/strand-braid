@@ -330,7 +330,7 @@ build-api-docs:
 
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal"
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files jemalloc backtrace"
     - cd ../..
 
     # remove potential old output directory
@@ -732,21 +732,7 @@ braid-pylon-ubuntu1604:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
+    # - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
 
     - export RUSTFLAGS="-D warnings"
 
@@ -757,8 +743,6 @@ braid-pylon-ubuntu1604:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - wasm-pack --version
 
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-
     # build mainbrain web frontend
     - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
     - ./build.sh
@@ -768,7 +752,7 @@ braid-pylon-ubuntu1604:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files jemalloc backtrace" --release
     - ldd ../../target/release/braid-run
 
     # build braid
@@ -808,19 +792,17 @@ braid-pylon-ubuntu2004:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-
     # build mainbrain web frontend
     - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
     - ./build.sh
 
     - mkdir -p $CI_PROJECT_DIR/build
 
-    # build braid-run (pylon)
+    # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
     # force recomputing git version tag
     - touch build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files jemalloc backtrace" --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
