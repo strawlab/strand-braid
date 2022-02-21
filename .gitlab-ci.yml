@@ -206,7 +206,6 @@ camtrig-ubuntu2004-debs:
     - cd ..
     - cp -a camtrig*.changes $CI_PROJECT_DIR/focal-camtrig-debs/
     - cp -a camtrig*.deb $CI_PROJECT_DIR/focal-camtrig-debs/
-
   needs:
     - camtrig-linux
     - camtrig-firmware
@@ -671,6 +670,7 @@ camtrig-firmware:
 
 # -------
 
+# build the final downloadable .deb
 strand-braid-ubuntu-2004:
   image: ubuntu:focal
   script:
@@ -678,7 +678,7 @@ strand-braid-ubuntu-2004:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
-    # Download pylon and install 6
+    # Download pylon and install 6 so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
 
     - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
