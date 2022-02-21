@@ -175,6 +175,7 @@ test_image_tracker:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -185,6 +186,7 @@ test_fastimage:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -443,6 +445,7 @@ strand-cam-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -513,6 +516,7 @@ strand-cam-camtrig-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
