@@ -787,7 +787,7 @@ braid-pylon-ubuntu1604:
       - braid-pylon-linux-build/
     name: "braid-pylon-ubuntu1604-${CI_COMMIT_SHA}"
 
-braid-pylon-ubuntu2004:
+braid-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -823,7 +823,7 @@ braid-pylon-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
+    name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
 
 # braid-strand-cam-pylon-ubuntu2004:
 #   image: ubuntu:focal
@@ -978,7 +978,7 @@ strand-braid-ubuntu-2004:
   needs:
     - braid-offline-ubuntu2004
     - braid-process-video-ubuntu2004
-    - braid-pylon-ubuntu2004
+    - braid-ubuntu2004
     # - braid-strand-cam-pylon-ubuntu2004
     - braidz-cli-ubuntu2004
     - fmf-cli-ubuntu2004
