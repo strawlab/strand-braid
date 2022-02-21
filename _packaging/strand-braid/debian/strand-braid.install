@@ -5,7 +5,6 @@ braid-process-video usr/bin
 braid-pylon usr/bin
 braid-run usr/bin
 braid-show-config usr/bin
-braid-strand-cam-pylon usr/bin
 braidz-cli usr/bin
 compute-flydra1-compat usr/bin
 fmf usr/bin
