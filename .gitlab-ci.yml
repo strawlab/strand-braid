@@ -459,7 +459,7 @@ strand-cam-pylon-ubuntu2004:
     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
       - build/
