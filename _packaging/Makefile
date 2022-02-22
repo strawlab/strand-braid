@@ -17,16 +17,10 @@ strand-braid/strand-cam-pylon:
 	# Move this file back
 	mv strand-braid/write-debian-changelog $(BUILD_DIR)
 
-strand-braid/braid-pylon: braid-pylon
-	# Backwards compat
-	cp braid-pylon $@
-	chmod a+x $@
-	chmod go-w $@
-
 strand-braid/debian/changelog:
 	mkdir -p strand-braid/debian
 	$(BUILD_DIR)/write-debian-changelog strand-braid focal > strand-braid/debian/changelog
 
 # The full deb
-strand-braid_VERSION_amd64.deb: strand-braid/debian/changelog strand-braid/braid-pylon strand-braid/strand-cam-pylon
+strand-braid_VERSION_amd64.deb: strand-braid/debian/changelog strand-braid/strand-cam-pylon
 	cd strand-braid && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us

@@ -2,7 +2,6 @@ braid usr/bin
 braid-default-config usr/bin
 braid-offline-retrack usr/bin
 braid-process-video usr/bin
-braid-pylon usr/bin
 braid-run usr/bin
 braid-show-config usr/bin
 braidz-cli usr/bin
