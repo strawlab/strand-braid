@@ -175,6 +175,13 @@ pub struct BraidCameraConfig {
     /// If true, do not start camera in local braid but wait for connection.
     #[serde(default = "return_false")]
     pub remote_camera: bool,
+    /// Which backend to use. Currently supported: "pylon" or "vimba".
+    #[serde(default = "default_backend")]
+    pub backend: String,
+}
+
+fn default_backend() -> String {
+    "pylon".to_string()
 }
 
 impl BraidCameraConfig {
@@ -186,6 +193,7 @@ impl BraidCameraConfig {
             point_detection_config: im_pt_detect_config::default_absdiff(),
             raise_grab_thread_priority: false,
             remote_camera: false,
+            backend: default_backend(),
         }
     }
 }

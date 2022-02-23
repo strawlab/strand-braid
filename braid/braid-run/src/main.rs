@@ -79,7 +79,11 @@ fn launch_strand_cam(
 
     let braid_run_exe = std::env::current_exe().unwrap();
     let exe_dir = braid_run_exe.parent().expect("Executable must be in some directory");
-    let exe = exe_dir.join("strand-cam.exe");
+    #[cfg(target_os="windows")]
+    let ext = ".exe";
+    #[cfg(not(target_os="windows"))]
+    let ext = "";
+    let exe = exe_dir.join(format!("strand-cam-{}{}", camera.backend.as_str(), ext));
     println!("exe: {}", exe.display());
 
     let mut exec = std::process::Command::new(exe);
