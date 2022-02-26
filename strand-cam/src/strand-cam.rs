@@ -2548,7 +2548,7 @@ impl Default for StrandCamArgs {
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
             model_server_addr: flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
-            acquisition_duration_allowed_imprecision_msec: Some(5.0),
+            acquisition_duration_allowed_imprecision_msec: flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }

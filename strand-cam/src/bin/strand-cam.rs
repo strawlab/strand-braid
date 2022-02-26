@@ -388,9 +388,11 @@ fn parse_args(
     let braid_addr: Option<String> = matches
         .value_of("braid_addr").map(Into::into);
 
-    let (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src) = if let Some(braid_addr) = braid_addr {
+    let (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src, acquisition_duration_allowed_imprecision_msec) = if let Some(braid_addr) = braid_addr {
 
-        for argname in &["pixel_format", "JWT_SECRET", "force_camera_sync_mode"] {
+        for argname in &["pixel_format", "JWT_SECRET", "force_camera_sync_mode", "camera_settings_filename"] {
+            // Typically these values are not relevant or are set via
+            // [flydra_types::RemoteCameraInfoResponse].
             if matches.value_of(argname).is_some() {
                 anyhow::bail!("'{}' cannot be set from the command line when calling strand-cam from braid.", argname);
             }
@@ -439,7 +441,9 @@ fn parse_args(
         let pixel_format = remote_info.config.pixel_format;
         let force_camera_sync_mode = remote_info.force_camera_sync_mode;
         let software_limit_framerate = remote_info.software_limit_framerate;
-        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src)
+        let acquisition_duration_allowed_imprecision_msec = remote_info.config.acquisition_duration_allowed_imprecision_msec;
+
+        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src, acquisition_duration_allowed_imprecision_msec)
     } else {
         // not braid
 
@@ -452,11 +456,9 @@ fn parse_args(
         #[cfg(feature = "image_tracker")]
         let tracker_cfg_src = get_tracker_cfg(&matches)?;
 
-        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src)
+        let acquisition_duration_allowed_imprecision_msec = flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC;
+        (mainbrain_internal_addr, camdata_addr, pixel_format, force_camera_sync_mode, software_limit_framerate, tracker_cfg_src, acquisition_duration_allowed_imprecision_msec)
     };
-
-    log::warn!("force_camera_sync_mode: {}", force_camera_sync_mode);
-    log::warn!("software_limit_framerate: {:?}", software_limit_framerate);
 
     let show_url = true;
 
@@ -501,6 +503,7 @@ fn parse_args(
         force_camera_sync_mode,
         software_limit_framerate,
         camera_settings_filename,
+        acquisition_duration_allowed_imprecision_msec,
         ..defaults
     })
 }

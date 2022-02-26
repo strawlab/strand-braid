@@ -138,7 +138,7 @@ impl std::default::Default for MainbrainConfig {
             save_empty_data2d: true,
             jwt_secret: None,
             packet_capture_dump_fname: None,
-            acquisition_duration_allowed_imprecision_msec: Some(5.0),
+            acquisition_duration_allowed_imprecision_msec: flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }

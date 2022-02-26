@@ -153,6 +153,8 @@ pub struct RemoteCameraInfoResponse {
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
 }
 
+pub const DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC: Option<f64> = Some(5.0);
+
 fn return_false() -> bool {
     false
 }
@@ -178,6 +180,7 @@ pub struct BraidCameraConfig {
     /// Which backend to use. Currently supported: "pylon"
     #[serde(default)]
     pub backend: CameraBackend,
+    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 #[derive(Deserialize,Serialize,Debug,Clone,PartialEq)]
@@ -210,6 +213,7 @@ impl BraidCameraConfig {
             raise_grab_thread_priority: false,
             remote_camera: false,
             backend: Default::default(),
+            acquisition_duration_allowed_imprecision_msec: DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }
