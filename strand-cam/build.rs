@@ -26,10 +26,7 @@ const BACKEND: &str = "pyloncxx";
 const BACKEND: &str = "aravis";
 
 fn main() {
-    #[cfg(not(any(
-        feature = "backend_pyloncxx",
-        feature = "backend_aravis"
-    )))]
+    #[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_aravis")))]
     compile_error!("no backend selected.");
 
     let git_rev = git_hash();

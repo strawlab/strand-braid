@@ -183,7 +183,7 @@ pub struct BraidCameraConfig {
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
-#[derive(Deserialize,Serialize,Debug,Clone,PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum CameraBackend {
     Pylon,
@@ -198,7 +198,7 @@ impl Default for CameraBackend {
 impl CameraBackend {
     pub fn as_str(&self) -> &str {
         match self {
-            CameraBackend::Pylon => "pylon"
+            CameraBackend::Pylon => "pylon",
         }
     }
 }
@@ -213,7 +213,8 @@ impl BraidCameraConfig {
             raise_grab_thread_priority: false,
             remote_camera: false,
             backend: Default::default(),
-            acquisition_duration_allowed_imprecision_msec: DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
+            acquisition_duration_allowed_imprecision_msec:
+                DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }

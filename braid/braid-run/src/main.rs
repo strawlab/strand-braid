@@ -9,9 +9,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{
-    MainbrainBuiLocation, RawCamName, TriggerType,
-};
+use flydra_types::{MainbrainBuiLocation, RawCamName, TriggerType};
 // use strand_cam::ImPtDetectCfgSource;
 
 use braid::braid_start;
@@ -30,7 +28,6 @@ fn launch_strand_cam(
     camera: BraidCameraConfig,
     mainbrain_internal_addr: MainbrainBuiLocation,
 ) -> Result<()> {
-
     // On initial startup strand cam queries for
     // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
     // provide much info.
@@ -38,26 +35,28 @@ fn launch_strand_cam(
     let base_url = mainbrain_internal_addr.0.base_url();
 
     let braid_run_exe = std::env::current_exe().unwrap();
-    let exe_dir = braid_run_exe.parent().expect("Executable must be in some directory");
-    #[cfg(target_os="windows")]
+    let exe_dir = braid_run_exe
+        .parent()
+        .expect("Executable must be in some directory");
+    #[cfg(target_os = "windows")]
     let ext = ".exe";
-    #[cfg(not(target_os="windows"))]
+    #[cfg(not(target_os = "windows"))]
     let ext = "";
     let exe = exe_dir.join(format!("strand-cam-{}{}", camera.backend.as_str(), ext));
     debug!("strand cam executable name: \"{}\"", exe.display());
 
     let mut exec = std::process::Command::new(exe);
-    exec.args(["--camera-name",
+    exec.args([
+        "--camera-name",
         &camera.name,
         "--http-server-addr",
         "127.0.0.1:0",
         "--no-browser",
         "--braid_addr",
-        &base_url]);
+        &base_url,
+    ]);
     debug!("exec: {:?}", exec);
-    let mut obj = exec
-        .spawn()
-        .unwrap();
+    let mut obj = exec.spawn().unwrap();
     debug!("obj: {:?}", obj);
 
     std::thread::spawn(move || {
@@ -136,10 +135,7 @@ fn main() -> Result<()> {
         .into_iter()
         .filter_map(|camera| {
             if !camera.remote_camera {
-                Some(launch_strand_cam(
-                    camera,
-                    mainbrain_server_info.clone(),
-                ))
+                Some(launch_strand_cam(camera, mainbrain_server_info.clone()))
             } else {
                 log::info!("Not starting remote camera \"{}\"", camera.name);
                 None
