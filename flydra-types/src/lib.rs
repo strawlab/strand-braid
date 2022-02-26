@@ -105,8 +105,8 @@ impl RawCamName {
         RawCamName(s)
     }
     pub fn to_ros(&self) -> RosCamName {
-        let ros_name: String = self.0.replace("-", "_");
-        let ros_name: String = ros_name.replace(" ", "_");
+        let ros_name: String = self.0.replace('-', "_");
+        let ros_name: String = ros_name.replace(' ', "_");
         RosCamName::new(ros_name)
     }
     pub fn as_str(&self) -> &str {
