@@ -188,11 +188,8 @@ impl BraidConfig2 {
         let (dirname, _orig_path) = split_path(orig_path);
 
         // fixup self.mainbrain.cal_fname
-        match self.mainbrain.cal_fname.as_mut() {
-            Some(cal_fname) => {
-                fixup_relative_path(cal_fname, &dirname)?;
-            }
-            None => {}
+        if let Some(cal_fname) = self.mainbrain.cal_fname.as_mut() {
+            fixup_relative_path(cal_fname, &dirname)?;
         }
 
         // fixup self.mainbrain.output_base_dirname
