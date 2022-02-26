@@ -611,24 +611,16 @@ impl<T: Counter> StartedHistogram<T> {
     }
 }
 
+#[derive(Default)]
 struct HistogramWritingState {
     current_store: Option<StartedHistogram<u64>>,
     histograms: Vec<IntervalHistogram<u64>>,
 }
 
-impl Default for HistogramWritingState {
-    fn default() -> Self {
-        Self {
-            current_store: None,
-            histograms: vec![],
-        }
-    }
-}
-
 fn save_hlog(
     output_dirname: &std::path::Path,
     fname: &str,
-    histograms: &mut Vec<IntervalHistogram<u64>>,
+    histograms: &mut [IntervalHistogram<u64>],
     file_start_time: std::time::SystemTime,
 ) {
     // Write the reconstruction latency histograms to disk.

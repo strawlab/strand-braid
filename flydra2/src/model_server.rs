@@ -9,8 +9,6 @@ use futures::stream::StreamExt;
 use hyper::header::ACCEPT;
 use hyper::{Method, Response, StatusCode};
 use parking_lot::Mutex;
-#[cfg(feature = "serve_files")]
-use std::io::Read;
 use std::sync::Arc;
 
 use crate::{Result, TimeDataPassthrough};

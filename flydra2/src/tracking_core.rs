@@ -731,7 +731,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
 
                 trace!(
                     "wantedness (N x M where N is num live models and M is num points)\n{}",
-                    pretty_print!(&wantedness)
+                    pretty_print!(wantedness)
                 );
 
                 // Consume all incoming points either into a observation or into unconsumed_points.

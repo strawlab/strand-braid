@@ -52,12 +52,12 @@ impl BundledAllCamsOneFrameUndistorted {
         // let i0 = std::str::from_utf8(vec![b" "; indent].as_slice()).unwrap();
         let i0 = " ".repeat(indent);
         writeln!(
-            &mut f,
+            f,
             "{}BundledBundledAllCamsOneFrameUndistorted, frame {}",
             i0, self.tdpt.frame.0
         )?;
         for cam_data in self.inner.iter() {
-            writeln!(&mut f, "{}  frame {}", i0, self.tdpt.frame.0)?;
+            writeln!(f, "{}  frame {}", i0, self.tdpt.frame.0)?;
             cam_data.pretty_format(&mut f, indent + 4)?;
         }
         // writeln!(&mut f, "{}  frame {}", i0, stdpt.frame.0)?;
@@ -89,7 +89,7 @@ impl OneCamOneFrameUndistorted {
         // let i0 = std::str::from_utf8(vec![b" "; indent].as_slice()).unwrap();
         let i0 = " ".repeat(indent);
         for pt in self.undistorted.iter() {
-            writeln!(&mut f, "{} {:?}", i0, pt)?;
+            writeln!(f, "{} {:?}", i0, pt)?;
             // cam_data.pretty_format(f, indent+4);
         }
         Ok(())
