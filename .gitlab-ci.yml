@@ -601,31 +601,6 @@ braid-ubuntu2004:
       - build/
     name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
 
-# braid-strand-cam-pylon-ubuntu2004:
-#   image: ubuntu:focal
-#   variables:
-#     GIT_SUBMODULE_STRATEGY: recursive
-#   script:
-#     - _packaging/setup-ubuntu-20.04.sh
-#     - export PATH="$PATH:$CARGO_HOME/bin"
-#     - export RUSTFLAGS="-D warnings"
-
-#     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-
-#     - mkdir -p $CI_PROJECT_DIR/build
-
-#     # build braid-strand-cam-pylon
-#     - cd $CI_PROJECT_DIR/strand-cam
-#     # force recomputing git version tag
-#     - touch build.rs
-#     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal imtrack-absdiff" --release
-#     - ldd ../target/release/strand-cam
-#     - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/braid-strand-cam-pylon
-#   artifacts:
-#     paths:
-#       - build/
-#     name: "braid-strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
-
 camtrig-linux:
   image: rust:1.56.0
   script:
