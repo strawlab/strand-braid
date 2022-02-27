@@ -110,11 +110,6 @@ name = "strand-cam-pylon"
 path = "src/bin/strand-cam.rs"
 required-features = ["backend_pyloncxx"]
 
-[[bin]]
-name = "strand-cam-camtrig-pylon"
-path = "src/bin/strand-cam.rs"
-required-features = ["backend_pyloncxx", "with_camtrig"]
-
 [features]
 default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]
 
