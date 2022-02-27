@@ -415,7 +415,7 @@ strand-cam-camtrig-pylon-ubuntu2004:
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
+    - cp ../target/release/strand-cam-camtrig-pylon $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --bin write-debian-changelog
