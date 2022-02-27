@@ -310,6 +310,11 @@ where
         c.start_default_external_triggering()
     }
 
+    fn set_software_frame_rate_limit(&mut self, fps_limit: f64) -> ci2::Result<()> {
+        let mut c = self.camera.lock();
+        c.set_software_frame_rate_limit(fps_limit)
+    }
+
     fn trigger_mode(&self) -> ci2::Result<ci2::TriggerMode> {
         let c = self.camera.lock();
         c.trigger_mode()

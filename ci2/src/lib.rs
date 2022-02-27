@@ -206,6 +206,13 @@ pub trait Camera: CameraInfo {
         self.set_trigger_mode(TriggerMode::On)
     }
 
+    fn set_software_frame_rate_limit(&mut self, fps_limit: f64) -> Result<()> {
+        // This is the generic default implementation which may be overriden by
+        // implementors.
+        self.set_acquisition_frame_rate_enable(true)?;
+        self.set_acquisition_frame_rate(fps_limit)
+    }
+
     // Acquisition ----------------------------
     fn acquisition_start(&mut self) -> Result<()>;
     fn acquisition_stop(&mut self) -> Result<()>;

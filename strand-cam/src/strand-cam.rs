@@ -2850,8 +2850,7 @@ pub async fn setup_app(
     if args.camera_settings_filename.is_none() {
         if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &args.software_limit_framerate {
             // Set the camera.
-            cam.set_acquisition_frame_rate(*fps_limit).unwrap();
-            cam.set_acquisition_frame_rate_enable(true).unwrap();
+            cam.set_software_frame_rate_limit(*fps_limit).unwrap();
             // Store the values we set.
             if let Some(ref mut ranged) = frame_rate_limit {
                 ranged.current = cam.acquisition_frame_rate()?;
