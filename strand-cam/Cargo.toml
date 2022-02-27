@@ -105,6 +105,11 @@ target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}
 
+[[bin]]
+name = "strand-cam-pylon"
+path = "src/bin/strand-cam.rs"
+required-features = ["backend_pyloncxx"]
+
 [features]
 default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]
 

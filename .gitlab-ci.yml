@@ -361,7 +361,7 @@ strand-cam-pylon-ubuntu2004:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
+    - cp ../target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --bin write-debian-changelog
     - ../target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
