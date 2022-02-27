@@ -103,6 +103,9 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
 
+/// default strand-cam HTTP port when not running in Braid.
+const DEFAULT_HTTP_ADDR: &str = "127.0.0.1:3440";
+
 pub const DEBUG_ADDR_DEFAULT: &str = "127.0.0.1:8877";
 
 pub const APP_INFO: AppInfo = AppInfo {
@@ -2444,7 +2447,7 @@ pub struct StrandCamArgs {
     pub secret: Option<Vec<u8>>,
     pub camera_name: Option<String>,
     pub pixel_format: Option<String>,
-    pub http_server_addr: String,
+    pub http_server_addr: Option<String>,
     pub no_browser: bool,
     pub mkv_filename_template: String,
     pub fmf_filename_template: String,
@@ -2516,7 +2519,7 @@ impl Default for StrandCamArgs {
             secret: None,
             camera_name: None,
             pixel_format: None,
-            http_server_addr: "127.0.0.1:0".to_string(),
+            http_server_addr: None,
             no_browser: true,
             mkv_filename_template: "movie%Y%m%d_%H%M%S.%f.mkv".to_string(),
             fmf_filename_template: "movie%Y%m%d_%H%M%S.fmf".to_string(),
@@ -2636,16 +2639,6 @@ pub async fn setup_app(
         Err(e) => {
             let msg = format!("{}",e);
             error!("{}", msg);
-            if msg.contains("Device is exclusively opened by another client") {
-                if !args.no_browser {
-                    let url = format!("http://{}", &args.http_server_addr);
-                    open_browser(url)?;
-                    // Sleep to prevent process exit before browser open.
-                    std::thread::sleep(std::time::Duration::from_millis(10000));
-                } else {
-                    info!("not opening browser");
-                }
-            }
             return Err(e.into());
         }
     };
@@ -3047,12 +3040,20 @@ pub async fn setup_app(
     #[cfg(feature="debug-images")]
     let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
+    let http_server_addr = if let Some(http_server_addr) = args.http_server_addr.as_ref() {
+        // In braid, this will be `127.0.0.1:0` to get a free port.
+        http_server_addr.clone()
+    } else {
+        // This will be `127.0.0.1:3440` to get a free port.
+        DEFAULT_HTTP_ADDR.to_string()
+    };
+
     let (firehose_callback_rx, my_app) =
     StrandCamApp::new(
         rt_handle.clone(),
         shared_store_arc.clone(),
         secret,
-        &args.http_server_addr,
+        &http_server_addr,
         config,
         cam_args_tx2.clone(),
         #[cfg(feature = "with_camtrig")]

@@ -178,7 +178,6 @@ fn parse_args(
                 Arg::with_name("http_server_addr")
                     .long("http-server-addr")
                     .help("The port to open the HTTP server.")
-                    .default_value("127.0.0.1:3440")
                     .takes_value(true),
             )
             .arg(
@@ -346,10 +345,7 @@ fn parse_args(
         .map_err(|e| anyhow::anyhow!("{}", e))?
         .into();
 
-    let http_server_addr = matches
-        .value_of("http_server_addr")
-        .ok_or_else(|| anyhow::anyhow!("expected http_server_addr"))?
-        .to_string();
+    let http_server_addr: Option<String> = matches.value_of("http_server_addr").map(Into::into);
 
     let no_browser = match matches.occurrences_of("no_browser") {
         0 => match matches.occurrences_of("browser") {
@@ -393,12 +389,15 @@ fn parse_args(
         software_limit_framerate,
         tracker_cfg_src,
         acquisition_duration_allowed_imprecision_msec,
+        http_server_addr,
+        no_browser,
     ) = if let Some(braid_addr) = braid_addr {
         for argname in &[
             "pixel_format",
             "JWT_SECRET",
             "force_camera_sync_mode",
             "camera_settings_filename",
+            "http_server_addr",
         ] {
             // Typically these values are not relevant or are set via
             // [flydra_types::RemoteCameraInfoResponse].
@@ -464,6 +463,8 @@ fn parse_args(
             software_limit_framerate,
             tracker_cfg_src,
             acquisition_duration_allowed_imprecision_msec,
+            Some("127.0.0.1:0".to_string()),
+            true,
         )
     } else {
         // not braid
@@ -486,6 +487,8 @@ fn parse_args(
             software_limit_framerate,
             tracker_cfg_src,
             acquisition_duration_allowed_imprecision_msec,
+            http_server_addr,
+            no_browser,
         )
     };
 

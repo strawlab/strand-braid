@@ -46,15 +46,7 @@ fn launch_strand_cam(
     debug!("strand cam executable name: \"{}\"", exe.display());
 
     let mut exec = std::process::Command::new(exe);
-    exec.args([
-        "--camera-name",
-        &camera.name,
-        "--http-server-addr",
-        "127.0.0.1:0",
-        "--no-browser",
-        "--braid_addr",
-        &base_url,
-    ]);
+    exec.args(["--camera-name", &camera.name, "--braid_addr", &base_url]);
     debug!("exec: {:?}", exec);
     let mut obj = exec.spawn().unwrap();
     debug!("obj: {:?}", obj);
