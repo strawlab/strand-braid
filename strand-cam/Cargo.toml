@@ -111,7 +111,7 @@ path = "src/bin/strand-cam.rs"
 required-features = ["backend_pyloncxx"]
 
 [features]
-default = ["image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]
+default = ["image_tracker", "imtrack-absdiff"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
@@ -119,8 +119,6 @@ backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace
     "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
 
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
-
-cfg-pt-detect-src-prefs = []
 
 plugin-process-frame = ["plugin-defs"]
 flydra-uds = ["image-tracker/flydra-uds"]

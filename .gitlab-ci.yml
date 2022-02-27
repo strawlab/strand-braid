@@ -410,7 +410,7 @@ strand-cam-camtrig-pylon-ubuntu2004:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
     - cd ../strand-cam-offline-kalmanize
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path

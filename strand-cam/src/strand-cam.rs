@@ -71,8 +71,10 @@ use flydra_types::{
     RosCamName, StartSoftwareFrameRateLimit,
 };
 
+use image_tracker_types::ImPtDetectCfg;
+
 #[cfg(feature = "image_tracker")]
-use image_tracker::{FlyTracker, ImPtDetectCfg, UfmfState};
+use image_tracker::{FlyTracker, UfmfState};
 
 use strand_cam_csv_config_types::CameraCfgFview2_0_26;
 #[cfg(feature = "image_tracker")]
@@ -2391,7 +2393,6 @@ fn display_qr_url(url: &str) {
     writeln!(stdout_handle).expect("write failed");
 }
 
-#[cfg(feature = "image_tracker")]
 #[derive(Debug)]
 /// Defines whether runtime changes from the user are persisted to disk.
 ///

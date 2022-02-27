@@ -8,7 +8,6 @@ use clap::Arg;
 
 use strand_cam::{run_app, StrandCamArgs};
 
-#[cfg(feature = "cfg-pt-detect-src-prefs")]
 use strand_cam::APP_INFO;
 
 type Result<T> = std::result::Result<T, anyhow::Error>;
@@ -111,7 +110,6 @@ fn parse_camtrig_device(_matches: &clap::ArgMatches) -> Result<Option<String>> {
     Ok(None)
 }
 
-#[cfg(feature = "cfg-pt-detect-src-prefs")]
 fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<strand_cam::ImPtDetectCfgSource> {
     let ai = (&APP_INFO, "object-detection".to_string());
     let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangedSavedToDisk(ai);
@@ -476,7 +474,6 @@ fn parse_args(
         let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
         let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
 
-        #[cfg(feature = "image_tracker")]
         let tracker_cfg_src = get_tracker_cfg(&matches)?;
 
         let acquisition_duration_allowed_imprecision_msec =
@@ -499,6 +496,9 @@ fn parse_args(
     #[cfg(feature = "fiducial")]
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
+
+    #[cfg(not(feature = "image_tracker"))]
+    std::mem::drop(tracker_cfg_src); // prevent compiler warning of unused variable
 
     let defaults = StrandCamArgs::default();
 
