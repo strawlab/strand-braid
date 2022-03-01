@@ -216,6 +216,26 @@ led-box-ubuntu2004-debs:
       - focal-led-box-debs/
     name: "rust-cam-focal-led-box-debs-${CI_COMMIT_SHA}"
 
+led-box-standalone-ubuntu2004-deb:
+  image: ubuntu:focal
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+    - cd led-box-standalone
+    - cargo build --release
+    - cp $CI_PROJECT_DIR/target/release/led-box-standalone ./
+    - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+    - cd ..
+    - cp -a led-box-standalone*.changes $CI_PROJECT_DIR/led-box-standalone-debs/
+    - cp -a led-box-standalone*.deb $CI_PROJECT_DIR/led-box-standalone-debs/
+  artifacts:
+    paths:
+      - led-box-standalone-debs/
+    name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
+
 build-freemovr-calibration:
   image: rust:1.56.0
   script:

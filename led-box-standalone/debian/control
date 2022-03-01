@@ -1,0 +1,9 @@
+Source: led-box-standalone
+Maintainer: Andrew Straw <strawman@astraw.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.1
+
+Package: led-box-standalone
+Architecture: any
+Description: LED lighting controller
+Depends: ${shlibs:Depends}

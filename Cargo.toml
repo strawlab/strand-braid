@@ -63,6 +63,7 @@ members = [
     "imagesrc",
     "imagesrc-gst",
     "imops",
+    "led-box-standalone",
     "machine-vision-shaders",
     "mkv-writer",
     "mvg",
