@@ -758,8 +758,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     };
                     write_controller.append_trigger_clock_info_message(msg2);
                 }
-                Err(e) => {
-                    let _: channellib::RecvError = e;
+                Err(recv_err) => {
+                    error!("trigger clock data channel receive error: {:?}", recv_err);
                     break;
                 }
             };
