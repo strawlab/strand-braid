@@ -17,7 +17,7 @@ toml = "0.5"
 regex = "1.0"
 url = "2"
 flydra-types = {path="../flydra-types", features=["with-dns"]}
-braid-triggerbox = "0.2.1"
+braid-triggerbox = "0.3.4"
 flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
 chrono = "0.4"
 futures = "0.3"
@@ -49,7 +49,6 @@ ci2-remote-control = {path = "../ci2-remote-control"}
 datetime-conversion = {path = "../datetime-conversion"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 channellib = {path="../channellib"}
-crossbeam-ok = {path="../crossbeam-ok"}
 
 [build-dependencies]
 bui-backend-codegen = {version="0.9", default-features = false}

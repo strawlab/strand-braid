@@ -29,7 +29,6 @@ use rust_cam_bui_types::RecordingPath;
 
 mod multicam_http_session_handler;
 pub use crate::multicam_http_session_handler::HttpSessionHandler;
-use crossbeam_ok::CrossbeamOk;
 
 lazy_static::lazy_static! {
     static ref EVENTS_PREFIX: String = format!("/{}", flydra_types::BRAID_EVENTS_URL_PATH);
@@ -52,7 +51,7 @@ enum MainbrainError {
 struct HttpApiApp {
     inner: BuiAppInner<HttpApiShared, HttpApiCallback>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
@@ -67,7 +66,7 @@ async fn new_http_api_app(
     camdata_addr: String,
     configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
+    triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
@@ -319,7 +318,7 @@ pub struct StartupPhase1 {
     handle: tokio::runtime::Handle,
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
-    triggerbox_rx: Option<channellib::Receiver<braid_triggerbox::Cmd>>,
+    triggerbox_rx: Option<tokio::sync::mpsc::Receiver<braid_triggerbox::Cmd>>,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
     model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -493,7 +492,7 @@ pub async fn pre_run(
 
     let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
         TriggerType::TriggerboxV1(_) => {
-            let (tx, rx) = channellib::unbounded();
+            let (tx, rx) = tokio::sync::mpsc::channel(20);
             (Some(tx), Some(rx), false)
         }
         TriggerType::FakeSync(_) => (None, None, true),
@@ -731,43 +730,33 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         version: env!("CARGO_PKG_VERSION").into(),
     };
 
-    let (triggerbox_data_tx, triggerbox_data_rx) =
-        channellib::unbounded::<braid_triggerbox::TriggerClockInfoRow>();
+    let (triggerbox_data_tx, mut triggerbox_data_rx) =
+        tokio::sync::mpsc::channel::<braid_triggerbox::TriggerClockInfoRow>(20);
 
-    // TODO: convert this to a tokio task rather than its own thread.
-    let write_controller_arc2 = write_controller_arc.clone();
-    let signal_triggerbox_connected2 = signal_triggerbox_connected.clone();
-    let triggerbox_data_thread_builder =
-        std::thread::Builder::new().name("triggerbox_data_thread".to_string());
-    let _triggerbox_data_thread_handle = Some(triggerbox_data_thread_builder.spawn(move || {
+    {
+        let write_controller_arc = write_controller_arc.clone();
+        let signal_triggerbox_connected = signal_triggerbox_connected.clone();
+
         let mut has_triggerbox_connected = false;
-        loop {
-            match triggerbox_data_rx.recv() {
-                Ok(msg) => {
-                    if !has_triggerbox_connected {
-                        has_triggerbox_connected = true;
-                        info!("triggerbox is connected.");
-                        signal_triggerbox_connected2.store(true, Ordering::SeqCst);
-                    }
-                    let write_controller = write_controller_arc2.write();
-                    let msg2 = flydra_types::TriggerClockInfoRow {
-                        start_timestamp: msg.start_timestamp.into(),
-                        framecount: msg.framecount,
-                        tcnt: msg.tcnt,
-                        stop_timestamp: msg.stop_timestamp.into(),
-                    };
-                    write_controller.append_trigger_clock_info_message(msg2);
+        let triggerbox_future = async move {
+            while let Some(msg) = triggerbox_data_rx.recv().await {
+                if !has_triggerbox_connected {
+                    has_triggerbox_connected = true;
+                    info!("triggerbox is connected.");
+                    signal_triggerbox_connected.store(true, Ordering::SeqCst);
                 }
-                Err(recv_err) => {
-                    error!("trigger clock data channel receive error: {:?}", recv_err);
-                    break;
-                }
-            };
-        }
-        error!("done listening for trigger clock data: sender hung up.");
-    })?);
-
-    let mut _triggerbox_thread_control = None;
+                let write_controller = write_controller_arc.write();
+                let msg2 = flydra_types::TriggerClockInfoRow {
+                    start_timestamp: msg.start_timestamp.into(),
+                    framecount: msg.framecount,
+                    tcnt: msg.tcnt,
+                    stop_timestamp: msg.stop_timestamp.into(),
+                };
+                write_controller.append_trigger_clock_info_message(msg2);
+            }
+        };
+        tokio::spawn(triggerbox_future);
+    }
 
     let tracker = my_app.inner.shared_arc().clone();
 
@@ -807,11 +796,11 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     // if let Some(ref cfg) = trigger_cfg {
     match &trigger_cfg {
         TriggerType::TriggerboxV1(cfg) => {
-            let device = cfg.device_fname.clone();
+            let device_fname = cfg.device_fname.clone();
             let fps = &cfg.framerate;
             let query_dt = &cfg.query_dt;
 
-            use braid_triggerbox::{launch_background_thread, make_trig_fps_cmd, Cmd};
+            use braid_triggerbox::{make_trig_fps_cmd, Cmd};
 
             let tx = my_app.triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
@@ -825,33 +814,39 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                         .unwrap()
                 });
 
-            tx.send(Cmd::StopPulsesAndReset).cb_ok();
+            // queue several commands for the triggerbox on initial start.
+            tx.send(Cmd::StopPulsesAndReset).await?;
             info!(
-                "Triggerbox request {} fps, actual frame rate will be {} fps. Will \
+                "Triggerbox at {} request {} fps, actual frame rate will be {} fps. Will \
                 accept maximum timestamp error of {} microseconds.",
+                device_fname,
                 fps,
                 rate_actual,
                 max_triggerbox_measurement_error.as_micros(),
             );
-            tx.send(rate_cmd)?;
-            tx.send(Cmd::StartPulses).cb_ok();
+            tx.send(rate_cmd).await?;
+            tx.send(Cmd::StartPulses).await?;
 
             let mut expected_framerate = expected_framerate_arc.write();
             *expected_framerate = Some(rate_actual as f32);
 
             // triggerbox_cmd = Some(tx);
 
-            let (control, _handle) = launch_background_thread(
+            let triggerbox = braid_triggerbox::TriggerboxDevice::new(
                 on_new_clock_model,
-                device,
-                cmd_rx.into_inner(),
-                Some(triggerbox_data_tx.into_inner()),
-                *query_dt,
+                device_fname,
+                cmd_rx,
+                Some(triggerbox_data_tx),
                 None,
                 max_triggerbox_measurement_error,
-            )?;
-
-            _triggerbox_thread_control = Some(control);
+            )
+            .await?;
+            let query_dt2 = query_dt.clone();
+            let fut = async move {
+                let result = triggerbox.run_forever(query_dt2).await;
+                error!("triggerbox result: {:?}", result);
+            };
+            let _join_handle = tokio::spawn(fut);
         }
         TriggerType::FakeSync(cfg) => {
             info!("No triggerbox configuration. Using fake synchronization.");
@@ -914,7 +909,9 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     sync_pulse_pause_started_arc2.clone(),
                     cam_manager2.clone(),
                     time_model_arc2.clone(),
-                );
+                )
+                .await
+                .unwrap();
                 break;
             }
         }
@@ -1225,12 +1222,12 @@ fn toggle_saving_csv_tables(
     }
 }
 
-fn synchronize_cameras(
-    triggerbox_cmd: Option<channellib::Sender<braid_triggerbox::Cmd>>,
+async fn synchronize_cameras(
+    triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-) {
+) -> Result<()> {
     info!("preparing to synchronize cameras");
 
     // This time must be prior to actually resetting sync data.
@@ -1248,26 +1245,29 @@ fn synchronize_cameras(
     }
 
     if let Some(tx) = triggerbox_cmd {
-        begin_cam_sync_triggerbox_in_process(tx);
+        begin_cam_sync_triggerbox_in_process(tx).await?;
     } else {
         info!("Using fake synchronization method.");
     }
+    Ok(())
 }
 
-fn begin_cam_sync_triggerbox_in_process(tx: channellib::Sender<braid_triggerbox::Cmd>) {
+async fn begin_cam_sync_triggerbox_in_process(
+    tx: tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>,
+) -> Result<()> {
     // This is the case when the triggerbox is within this process.
     info!("preparing for triggerbox to temporarily stop sending pulses");
 
     info!("requesting triggerbox to stop sending pulses");
     use braid_triggerbox::Cmd::*;
-    tx.send(StopPulsesAndReset).cb_ok();
-    // TODO FIXME: fire a tokio_timer to sleep and then to then after it returns.
-    // This is probably really bad.
-    std::thread::sleep(std::time::Duration::from_secs(
+    tx.send(StopPulsesAndReset).await?;
+    tokio::time::sleep(std::time::Duration::from_secs(
         SYNCHRONIZE_DURATION_SEC as u64,
-    ));
-    tx.send(StartPulses).cb_ok();
+    ))
+    .await;
+    tx.send(StartPulses).await?;
     info!("requesting triggerbox to start sending pulses again");
+    Ok(())
 }
 
 /// run a function returning Result<()> and handle errors.
