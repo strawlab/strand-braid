@@ -344,7 +344,7 @@ where
                 (
                     ros_cam_name,
                     PerCamSaveData {
-                        current_image_png,
+                        current_image_png: current_image_png.into(),
                         cam_settings_data: None,
                         feature_detect_settings: Some(flydra_types::UpdateFeatureDetectSettings {
                             current_feature_detect_settings,

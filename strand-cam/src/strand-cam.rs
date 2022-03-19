@@ -1682,7 +1682,7 @@ fn frame_process_thread(
                                     flydra_types::PerCam {
                                         ros_cam_name,
                                         inner: flydra_types::UpdateImage {
-                                            current_image_png,
+                                            current_image_png: current_image_png.into(),
                                         },
                                     });
                                 transmit_msg_tx.send(msg).await.unwrap();
@@ -3139,7 +3139,7 @@ pub async fn setup_app(
                     current_cam_settings_extension: settings_file_ext,
                 },
             ),
-            current_image_png,
+            current_image_png: current_image_png.into(),
         };
 
         let valve2 = valve.clone();

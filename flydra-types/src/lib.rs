@@ -221,7 +221,7 @@ impl BraidCameraConfig {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PerCamSaveData {
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
     pub cam_settings_data: Option<UpdateCamSettings>,
     pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
 }
@@ -237,13 +237,36 @@ pub struct RegisterNewCamera {
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
     /// The current image.
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct UpdateImage {
     /// The current image.
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
+}
+
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
+pub struct PngImageData {
+    pub data: Vec<u8>,
+}
+
+impl From<Vec<u8>> for PngImageData {
+    fn from(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+}
+
+impl PngImageData {
+    pub fn as_slice(&self) -> &[u8] {
+        self.data.as_slice()
+    }
+}
+
+impl std::fmt::Debug for PngImageData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PngImageData{{..}}",)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

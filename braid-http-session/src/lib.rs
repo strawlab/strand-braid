@@ -105,13 +105,12 @@ impl MainbrainSession {
     pub async fn update_image(
         &mut self,
         ros_cam_name: flydra_types::RosCamName,
-        current_image_png: Vec<u8>,
+        current_image_png: flydra_types::PngImageData,
     ) -> Result<(), hyper::Error> {
         let msg = flydra_types::PerCam {
             ros_cam_name,
-            inner: flydra_types::UpdateImage {
-            current_image_png,
-        }};
+            inner: flydra_types::UpdateImage { current_image_png },
+        };
 
         debug!("update_image with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(msg);
