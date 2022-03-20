@@ -9,7 +9,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{MainbrainBuiLocation, RawCamName, TriggerType};
+use flydra_types::{MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType};
 // use strand_cam::ImPtDetectCfgSource;
 
 use braid::braid_start;
@@ -42,7 +42,11 @@ fn launch_strand_cam(
     let ext = ".exe";
     #[cfg(not(target_os = "windows"))]
     let ext = "";
-    let exe = exe_dir.join(format!("strand-cam-{}{}", camera.backend.as_str(), ext));
+    let exe = exe_dir.join(format!(
+        "{}{}",
+        camera.start_backend.strand_cam_exe_name().unwrap(),
+        ext
+    ));
     debug!("strand cam executable name: \"{}\"", exe.display());
 
     let mut exec = std::process::Command::new(exe);
@@ -68,7 +72,11 @@ fn main() -> Result<()> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
-    let n_local_cameras = cfg.cameras.iter().filter(|c| !c.remote_camera).count();
+    let n_local_cameras = cfg
+        .cameras
+        .iter()
+        .filter(|c| c.start_backend != StartCameraBackend::Remote)
+        .count();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -126,7 +134,7 @@ fn main() -> Result<()> {
     let _strand_cams = cfg_cameras
         .into_iter()
         .filter_map(|camera| {
-            if !camera.remote_camera {
+            if camera.start_backend != StartCameraBackend::Remote {
                 Some(launch_strand_cam(camera, mainbrain_server_info.clone()))
             } else {
                 log::info!("Not starting remote camera \"{}\"", camera.name);

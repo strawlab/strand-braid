@@ -7,6 +7,9 @@
   process for each camera. This will enable future support of other camera
   drivers and will enable braid to run with cameras from multiple vendors. This
   builds off the remote camera support.
+* Remote cameras for braid are specified using `start_backend = "remote"` in the
+  `[[cameras]]` section of the Braid `.toml` configuration file. (To update, replace
+  `remote_camera = true` with `start_backend = "remote"`.)
 
 ## 0.11.1 - 2021-12-04
 

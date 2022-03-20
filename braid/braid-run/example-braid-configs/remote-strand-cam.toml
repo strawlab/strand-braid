@@ -14,7 +14,7 @@ name = "Basler-40116277"
 
 [[cameras]]
 name = "DEV_1AB22C00D794"
-remote_camera = true
+start_backend = "remote"
 
 [trigger]
 framerate = 50.0

@@ -174,31 +174,32 @@ pub struct BraidCameraConfig {
     /// Whether to raise the priority of the grab thread.
     #[serde(default = "return_false")]
     pub raise_grab_thread_priority: bool,
-    /// If true, do not start camera in local braid but wait for connection.
-    #[serde(default = "return_false")]
-    pub remote_camera: bool,
     /// Which backend to use. Currently supported: "pylon"
     #[serde(default)]
-    pub backend: CameraBackend,
+    pub start_backend: StartCameraBackend,
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum CameraBackend {
+pub enum StartCameraBackend {
+    /// Do not start a camera locally. Rather, wait for a remote camera to connect.
+    Remote,
+    /// Start a Pylon camera locally using `strand-cam-pylon` program.
     Pylon,
 }
 
-impl Default for CameraBackend {
-    fn default() -> CameraBackend {
-        CameraBackend::Pylon
+impl Default for StartCameraBackend {
+    fn default() -> StartCameraBackend {
+        StartCameraBackend::Pylon
     }
 }
 
-impl CameraBackend {
-    pub fn as_str(&self) -> &str {
+impl StartCameraBackend {
+    pub fn strand_cam_exe_name(&self) -> Option<&str> {
         match self {
-            CameraBackend::Pylon => "pylon",
+            StartCameraBackend::Remote => None,
+            StartCameraBackend::Pylon => Some("strand-cam-pylon"),
         }
     }
 }
@@ -211,8 +212,7 @@ impl BraidCameraConfig {
             pixel_format: None,
             point_detection_config: im_pt_detect_config::default_absdiff(),
             raise_grab_thread_priority: false,
-            remote_camera: false,
-            backend: Default::default(),
+            start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
                 DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
