@@ -8,7 +8,6 @@ homepage = "https://strawlab.org/braid"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-jemallocator = {version="0.3", optional=true}
 log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
 structopt = "0.3"
@@ -27,8 +26,6 @@ ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
 
 [features]
 backtrace = ["flydra2/backtrace"]
-
-jemalloc = ["jemallocator"]
 
 # BUI frontend
 bundle_files = ["flydra2-mainbrain/bundle_files"]

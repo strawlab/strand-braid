@@ -281,7 +281,7 @@ build-api-docs:
 
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files jemalloc backtrace"
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files backtrace"
     - cd ../..
 
     # remove potential old output directory
@@ -582,7 +582,7 @@ braid-ubuntu2004:
     - cd $CI_PROJECT_DIR/braid/braid-run
     # force recomputing git version tag
     - touch build.rs
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files jemalloc backtrace" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 

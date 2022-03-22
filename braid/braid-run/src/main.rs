@@ -1,11 +1,6 @@
 #[macro_use]
 extern crate log;
 
-// For some reason, using Jemalloc prevents "corrupted size vs prev_size" error.
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
 use anyhow::Result;
 use structopt::StructOpt;
 
