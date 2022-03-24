@@ -163,11 +163,12 @@ test_crates_rust_nightly:
   script:
     - export RUSTFLAGS="-D warnings"
 
-    - rustup update --no-self-update nightly
+    # Use known good nightly
+    - rustup update --no-self-update nightly-2022-03-21
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly test --no-default-features --features std,packed_simd
+    - cargo +nightly-2022-03-21 test --no-default-features --features std,packed_simd
     - cd ..
 
 test_image_tracker:

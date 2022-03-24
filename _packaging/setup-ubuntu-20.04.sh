@@ -17,9 +17,10 @@ chmod a+x install-ipp-2019.sh
 cd /
 rm -rf /tmp/download-ipp
 
-# Install nightly Rust
+# Install nightly Rust. Use specific "known good" version of nightly because
+# occasionally breakage happens.
 cd /tmp
-curl -O --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly
+curl -O --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2022-03-21
 
 # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
 # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
