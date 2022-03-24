@@ -23,6 +23,7 @@ flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 
 ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
+ci2-vimba = {path="../../ci2-vimba", optional=true}
 
 [features]
 backtrace = ["flydra2/backtrace"]

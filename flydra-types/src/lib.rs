@@ -187,6 +187,8 @@ pub enum StartCameraBackend {
     Remote,
     /// Start a Pylon camera locally using `strand-cam-pylon` program.
     Pylon,
+    /// Start a Vimba camera locally using `strand-cam-vimba` program.
+    Vimba,
 }
 
 impl Default for StartCameraBackend {
@@ -200,6 +202,7 @@ impl StartCameraBackend {
         match self {
             StartCameraBackend::Remote => None,
             StartCameraBackend::Pylon => Some("strand-cam-pylon"),
+            StartCameraBackend::Vimba => Some("strand-cam-vimba"),
         }
     }
 }

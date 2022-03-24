@@ -1,0 +1,32 @@
+[package]
+name = "ci2-vimba"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vimba = {path="../vimba"}
+log = "0.4"
+thiserror = "1"
+anyhow = "1"
+machine-vision-formats = "0.1"
+chrono = "0.4"
+parking_lot = "0.9"
+lazy_static = "1"
+tempfile = "3.3.0"
+
+vimba-sys = "0.1.1"
+
+ci2 = { path = "../ci2" }
+basic-frame = {path="../basic-frame"}
+timestamped-frame = { path = "../timestamped-frame" }
+channellib = {path = "../channellib"}
+
+[dev-dependencies]
+env_logger = "0.8"
+anyhow = "1"
+timestamped-frame = { path = "../timestamped-frame" }
+
+[features]
+backtrace = ["ci2/backtrace", "vimba/backtrace"]

@@ -42,6 +42,7 @@ ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
+ci2-vimba = { path = "../ci2-vimba", optional = true }
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-remote-control = { path = "../ci2-remote-control" }
 machine-vision-formats = "0.1"
@@ -110,6 +111,11 @@ name = "strand-cam-pylon"
 path = "src/bin/strand-cam.rs"
 required-features = ["backend_pyloncxx"]
 
+[[bin]]
+name = "strand-cam-vimba"
+path = "src/bin/strand-cam.rs"
+required-features = ["backend_vimba"]
+
 [features]
 default = ["image_tracker", "imtrack-absdiff"]
 
@@ -134,6 +140,7 @@ serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files"]#, "
 
 # Backend choice
 backend_pyloncxx = ["ci2-pyloncxx"]
+backend_vimba = ["ci2-vimba"]
 # backend_aravis = ["ci2-aravis"]
 
 # Tune defaults in image-tracker
@@ -153,3 +160,7 @@ image_tracker = ["image-tracker", "image-tracker/backtrace"]
 debug-images = ["image-tracker/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
+
+# TODO:
+# fix so this is not needed in linux: `export LD_LIBRARY_PATH=/opt/vimba/Vimba_5_1/Tools/Viewer/Bin/x86_64bit`
+# Also this reduces warnings in linux: sudo adduser strawlab video

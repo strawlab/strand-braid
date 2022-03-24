@@ -378,6 +378,38 @@ strand-cam-pylon-ubuntu2004:
       - build/
     name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
+strand-cam-vimba-ubuntu2004:
+  image: ubuntu:focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-20.04-vimba.sh
+    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - export RUSTFLAGS="-D warnings"
+
+    - rustc --version
+
+    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
+    # force recomputing git version tag
+    - touch build.rs
+
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_vimba ipp-sys/2019 checkercal fiducial backtrace ci2-vimba/backtrace imops/packed_simd" --release
+    - ldd ../target/release/strand-cam-vimba
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/strand-cam-vimba $CI_PROJECT_DIR/build
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --bin write-debian-changelog
+    - ../target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-vimba-ubuntu2004-${CI_COMMIT_SHA}"
+
 py-strandcam-pylon-linux:
   image: ubuntu:focal
   script:
@@ -669,6 +701,8 @@ strand-braid-ubuntu-2004:
 
     # Download pylon and install 6 so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
+    # Download vimba and install
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-vimba.sh
 
     - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
 
@@ -677,6 +711,7 @@ strand-braid-ubuntu-2004:
     - ls -l ../build
     - ldd ../build/strand-cam-camtrig-pylon
     - ldd ../build/strand-cam-pylon
+    - ldd ../build/strand-cam-vimba
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -691,6 +726,7 @@ strand-braid-ubuntu-2004:
     # - braid-strand-cam-pylon-ubuntu2004
     - braidz-cli-ubuntu2004
     - fmf-cli-ubuntu2004
+    - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
     - strand-cam-camtrig-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the

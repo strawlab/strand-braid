@@ -1,15 +1,23 @@
 ## unreleased
 
+### Added
+
+* Added support from Allied Vision Technologies cameras using the Vimba driver.
+  In the braid .toml configuration file, specify the camera with `start_backend =
+  "vimba"`.
+
 ### Changed
 
 * Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
 * Braid no longer runs an in-process strand-cam but rather launches a child
-  process for each camera. This will enable future support of other camera
-  drivers and will enable braid to run with cameras from multiple vendors. This
-  builds off the remote camera support.
+  process for each camera. This enables support of other camera drivers and will
+  enable braid to run with cameras from multiple vendors. This builds off the
+  remote camera support.
 * Remote cameras for braid are specified using `start_backend = "remote"` in the
-  `[[cameras]]` section of the Braid `.toml` configuration file. (To update, replace
-  `remote_camera = true` with `start_backend = "remote"`.)
+  `[[cameras]]` section of the Braid `.toml` configuration file. (To update,
+  replace `remote_camera = true` with `start_backend = "remote"`. The default
+  setting is now `start_backend = "pylon"` to enable Basler Pylon cameras to
+  continue with existing Braid `.toml` configuration files.)
 
 ## 0.11.1 - 2021-12-04
 

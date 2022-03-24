@@ -10,3 +10,7 @@ fmf usr/bin
 strand-cam-camtrig-pylon usr/bin
 strand-cam-offline-kalmanize usr/bin
 strand-cam-pylon usr/bin
+strand-cam-vimba usr/bin
+
+# # Commented out because we do not want to distribute this library:
+# libVimbaC.so usr/lib/strand-braid

@@ -14,6 +14,8 @@ extern crate log;
 use ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
+#[cfg(feature = "backend_vimba")]
+use ci2_vimba as backend;
 
 use anyhow::Context;
 
@@ -1128,7 +1130,13 @@ fn frame_process_thread(
                     (pylon_extra.device_timestamp, pylon_extra.block_id)
                 };
 
-                #[cfg(not(feature="backend_pyloncxx"))]
+                #[cfg(feature="backend_vimba")]
+                let (device_timestamp, block_id): (u64, u64) = {
+                    let vimba_extra = extra.as_any().downcast_ref::<ci2_vimba::VimbaExtra>().unwrap();
+                    (vimba_extra.device_timestamp, vimba_extra.frame_id)
+                };
+
+                #[cfg(not(any(feature="backend_pyloncxx", feature="backend_vimba")))]
                 let (device_timestamp, block_id): (u64, u64) = (0,0);
 
                 let device_timestamp = std::num::NonZeroU64::new(device_timestamp);

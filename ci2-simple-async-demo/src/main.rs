@@ -8,6 +8,8 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 use ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
+#[cfg(feature = "backend_vimba")]
+use ci2_vimba as backend;
 
 lazy_static::lazy_static! {
     static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
@@ -26,7 +28,20 @@ pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
     );
 }
 
-#[cfg(not(any(feature = "backend_pyloncxx")))]
+#[cfg(feature = "backend_vimba")]
+pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
+    // Downcast to vimba specific type.
+    let vimba_extra = extra
+        .as_any()
+        .downcast_ref::<ci2_vimba::VimbaExtra>()
+        .unwrap();
+    println!(
+        "    device_timestamp: {}, frame_id: {}",
+        vimba_extra.device_timestamp, vimba_extra.frame_id
+    );
+}
+
+#[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_vimba")))]
 pub fn print_backend_specific_data(_extra: &dyn HostTimeData) {
     // do nothing
 }

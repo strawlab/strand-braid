@@ -1,0 +1,20 @@
+[package]
+name = "vimba"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+vimba-sys = "0.1.1"
+thiserror = "1"
+machine-vision-formats = "0.1"
+log = "0.4"
+
+[dev-dependencies]
+anyhow="1"
+env_logger = "0.8"
+lazy_static = "1"
+tokio = {version="1", features=["sync","macros","rt-multi-thread","time"]}
+channellib = {path="../channellib"}
+
+[features]
+backtrace = []
