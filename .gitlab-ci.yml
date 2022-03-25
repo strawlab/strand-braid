@@ -283,8 +283,13 @@ build-api-docs:
 
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files backtrace"
+    - NUM_JOBS=2 cargo doc --no-default-features --features serve_files
     - cd ../..
+
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - cd $CI_PROJECT_DIR/strand-cam
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 NUM_JOBS=2 cargo doc --features serve_files,backend_pyloncxx,ipp-sys/2019,fiducial,checkercal
+    - cd ..
 
     # remove potential old output directory
     - rm -rf build
@@ -349,6 +354,7 @@ strand-cam-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -442,6 +448,9 @@ braid-offline-ubuntu2004:
     - cd $CI_PROJECT_DIR/braid-offline
     # force recomputing git version tag
     - touch Cargo.toml
+    - cargo build --release
+
+    - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
