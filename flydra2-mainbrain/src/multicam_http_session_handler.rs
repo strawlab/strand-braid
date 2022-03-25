@@ -149,16 +149,51 @@ impl HttpSessionHandler {
         self.post(cam_name, args).await
     }
 
-    pub async fn send_quit_all(&mut self) -> Result<(), hyper::Error> {
-        let cam_names = self.cam_manager.all_ros_cam_names();
+    async fn send_quit(&mut self, cam_name: &RosCamName) -> Result<(), hyper::Error> {
+        info!("for cam {}, sending quit", cam_name.as_str());
+        let args = ci2_remote_control::CamArg::DoQuit;
 
-        for cam_name in cam_names.iter() {
-            info!("for cam {}, sending quit", cam_name.as_str());
-            let args = ci2_remote_control::CamArg::DoQuit;
-            // TODO parallelize waiting on all cameras at once
-            self.post(cam_name, args).await?;
+        let cam_result = self.post(cam_name, args).await;
+        match cam_result {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!(
+                    "Ignoring error while sending quit command to {}: {}",
+                    cam_name, e
+                );
+                Err(e)
+            }
         }
-        Ok(())
+    }
+
+    pub async fn send_quit_all(&mut self) {
+        use futures::{stream, StreamExt};
+        // Based on https://stackoverflow.com/a/51047786
+        const CONCURRENT_REQUESTS: usize = 5;
+        let results = stream::iter(self.cam_manager.all_ros_cam_names())
+            .map(|cam_name| {
+                let mut session = self.clone();
+                let cam_name = cam_name.clone();
+                async move {
+                    session
+                        .send_quit(&cam_name)
+                        .await
+                        .map_err(|e| (cam_name, e))
+                }
+            })
+            .buffer_unordered(CONCURRENT_REQUESTS);
+
+        results
+            .for_each(|r| async {
+                match r {
+                    Ok(()) => {}
+                    Err((cam_name, e)) => warn!(
+                        "Ignoring error When sending quit command to camera {}: {}",
+                        cam_name, e
+                    ),
+                }
+            })
+            .await;
     }
 
     pub async fn send_clock_model_to_all(
