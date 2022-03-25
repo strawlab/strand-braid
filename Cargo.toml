@@ -91,6 +91,7 @@ members = [
     "ufmf",
     "mkv-writer",
     "withkey",
+    "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
 ]
