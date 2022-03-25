@@ -47,6 +47,8 @@ test_crates:
     - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
 
+    # Test Pylon stuff
+    - _packaging/setup-ubuntu-20.04-pylon.sh
     - cd ci2-simple-demo
     - cargo test --features backend_pyloncxx
     - cd ..
@@ -374,6 +376,7 @@ py-strandcam-pylon-linux:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -402,6 +405,7 @@ strand-cam-camtrig-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
