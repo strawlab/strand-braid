@@ -42,44 +42,34 @@
 #![no_main]
 #![no_std]
 
-#[cfg(feature = "itm")]
-extern crate panic_itm;
+use defmt_rtt as _; // global logger
+use panic_probe as _;
 
-#[cfg(feature = "semihosting")]
-extern crate panic_semihosting;
-
-#[cfg(feature = "itm")]
-use cortex_m::iprintln;
-
-#[cfg(not(feature = "itm"))]
-macro_rules! iprintln {
-    ($channel:expr) => {};
-    ($channel:expr, $fmt:expr) => {};
-    ($channel:expr, $fmt:expr, $($arg:tt)*) => {};
-}
-
+use stm32f3xx_hal;
 use stm32f3xx_hal as stm32_hal;
 
 use embedded_hal::PwmPin;
 
-use camtrig_firmware::WrappedTx;
-
-use cast::{u16, u32};
-use stm32_hal::stm32::Interrupt;
+use cast::u16;
 
 use embedded_hal::digital::v2::OutputPin;
 
 use stm32_hal::flash::FlashExt;
-use stm32_hal::gpio::gpioa::PA8;
 use stm32_hal::gpio::GpioExt;
-use stm32_hal::prelude::_stm32f3xx_hal_rcc_RccExt;
+use stm32_hal::gpio::{self, gpioa::PA8, AF7};
+use stm32f3xx_hal::prelude::*;
 
+use embedded_time::{
+    duration::Microseconds,
+    rate::{Hertz, Rate},
+};
 use stm32_hal::gpio::{Output, PushPull};
+use stm32_hal::pac::{self, USART2};
 use stm32_hal::pwm::tim3;
-use stm32_hal::serial::{self, Rx, Serial};
-use stm32_hal::stm32::{self, USART2};
-use stm32_hal::time::{Hertz, U32Ext};
+use stm32_hal::serial::{Event, Rx, Serial, Tx};
 use stm32_hal::timer::{self, Timer};
+
+use defmt::{error, info, trace, warn};
 
 use rtic::Mutex;
 
@@ -90,140 +80,130 @@ use camtrig_comms::{
 };
 
 const ZERO_INTENSITY: u16 = 0;
-const DEFAULT_CAM_TRIG_FREQ: Hertz = Hertz(100);
-const SERVICE_LED_PULSE_TRAIN_FREQ: Hertz = Hertz(100);
 const LED_PWM_FREQ: Hertz = Hertz(500);
-const CAMTRIG_FREQ: Hertz = Hertz(10000); // 0.1 msec cam trig pulses
 
-pub type CamtrigPinType = PA8<Output<PushPull>>;
+#[rtic::app(device = stm32f3xx_hal::pac, peripherals = true)]
+mod app {
+    use super::*;
 
-/// compound type to lock tim1 and trigger count access together
-pub struct Timer1TriggerCount {
-    tim1: Timer<stm32::TIM1>,
-    trigger_count: u64,
-}
-
-#[cfg(feature = "itm")]
-type ItmType = cortex_m::peripheral::ITM;
-
-#[cfg(not(feature = "itm"))]
-type ItmType = ();
-
-#[rtic::app(device = stm32f3xx_hal::stm32, peripherals = true)]
-const APP: () = {
     // Late resources
-    struct Resources {
+    #[shared]
+    struct Shared {
         inner_led_state: InnerLedState,
-        led_pulse_clock_count: u16,
+        // led_pulse_clock_count: u16,
         rxtx: mini_rxtx::MiniTxRx<
-            Rx<USART2>,
-            WrappedTx,
-            heapless::consts::U128,
-            heapless::consts::U128,
+            Rx<USART2, gpio::PA3<AF7<PushPull>>>,
+            // WrappedTx,
+            Tx<USART2, gpio::PA2<AF7<PushPull>>>,
+            128,
+            128,
         >,
-        trigger_count_timer1: Timer1TriggerCount,
-        timer2: Timer<stm32::TIM2>,
-        timer7: Timer<stm32::TIM7>,
-        camtrig_pin: CamtrigPinType,
         green_led: camtrig_firmware::led::UserLED,
-        pwm3_ch1: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::TIM3_CH1, stm32_hal::pwm::WithPins>,
-        pwm3_ch2: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::TIM3_CH2, stm32_hal::pwm::WithPins>,
-        pwm3_ch3: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::TIM3_CH3, stm32_hal::pwm::WithPins>,
-        pwm3_ch4: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::TIM3_CH4, stm32_hal::pwm::WithPins>,
-        itm: ItmType,
+        pwm3_ch1: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch1, stm32_hal::pwm::WithPins>,
+        pwm3_ch2: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch2, stm32_hal::pwm::WithPins>,
+        pwm3_ch3: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch3, stm32_hal::pwm::WithPins>,
+        pwm3_ch4: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch4, stm32_hal::pwm::WithPins>,
     }
 
+    #[local]
+    struct Local {}
+
     #[init]
-    fn init(c: init::Context) -> init::LateResources {
+    fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
         // Device specific peripherals
-        let device: stm32_hal::stm32::Peripherals = c.device;
+        info!("hello from f303");
 
-        #[cfg(feature = "itm")]
-        let mut itm = c.core.ITM;
-
-        #[cfg(not(feature = "itm"))]
-        let itm = ();
-
-        iprintln!(&mut itm.stim[0], "hello from f303");
-
-        let mut flash = device.FLASH.constrain();
-        let mut rcc = device.RCC.constrain();
-        let mut gpioa = device.GPIOA.split(&mut rcc.ahb);
-        let mut gpiob = device.GPIOB.split(&mut rcc.ahb);
+        let mut flash = c.device.FLASH.constrain();
+        let mut rcc = c.device.RCC.constrain();
+        let mut gpioa = c.device.GPIOA.split(&mut rcc.ahb);
+        let mut gpiob = c.device.GPIOB.split(&mut rcc.ahb);
         let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
         // initialize serial
-        let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+        let tx = gpioa
+            .pa2
+            .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
         #[cfg(feature = "nucleo64")]
-        let rx = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+        let rx = gpioa
+            .pa3
+            .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
         #[cfg(feature = "nucleo32")]
-        let rx = gpioa.pa15.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+        let mut rx =
+            gpioa
+                .pa15
+                .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
-        let mut serial =
-            Serial::usart2(device.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1);
-        serial.listen(serial::Event::Rxne);
-        // serial.listen(serial::Event::Txe); // TODO I am confused why this is not needed.
-        let (tx, rx) = serial.split();
-
-        // initialize timer1
-        let mut timer1 = Timer::tim1(device.TIM1, DEFAULT_CAM_TRIG_FREQ, clocks, &mut rcc.apb2);
-        timer1.listen(timer::Event::Update);
-
-        // initialize timer2
-        let mut timer2 = Timer::tim2(
-            device.TIM2,
-            SERVICE_LED_PULSE_TRAIN_FREQ,
+        let mut serial = Serial::new(
+            c.device.USART2,
+            (tx, rx),
+            9_600_u32.Bd(),
             clocks,
             &mut rcc.apb1,
         );
-        timer2.listen(timer::Event::Update);
+        serial.enable_interrupt(Event::ReceiveDataRegisterNotEmpty);
+        // serial.enable_interrupt(Event::TransmitDataRegisterEmtpy); // TODO I am confused why this is not needed.
+        let (tx, rx) = serial.split();
 
-        iprintln!(&mut itm.stim[0], "initializing tim3 for pwm");
+        {
+            let pwm_freq_hz: Hertz = LED_PWM_FREQ.into();
+            info!(
+                "setting pwm to have resolution {}, freq {} Hz",
+                camtrig_comms::MAX_INTENSITY,
+                pwm_freq_hz.0,
+            );
+        }
 
         // initialize pwm3
-        let clock_freq = clocks.pclk1().0 * if clocks.ppre1() == 1 { 1 } else { 2 };
-
-        let ticks = clock_freq / LED_PWM_FREQ.0;
-
-        let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-        let arr = u16(ticks / u32(psc + 1)).unwrap(); // camtrig_comms::MAX_INTENSITY
-
-        let (ch1_no_pins, ch2_no_pins, ch3_no_pins, ch4_no_pins) = tim3(device.TIM3, arr, psc);
-
-        iprintln!(
-            &mut itm.stim[0],
-            "arr {}, camtrig_comms::MAX_INTENSITY {}",
-            arr,
-            camtrig_comms::MAX_INTENSITY
+        info!("initializing tim3 for pwm");
+        let tim3_channels = tim3(
+            c.device.TIM3,
+            camtrig_comms::MAX_INTENSITY, // resolution of duty cycle
+            LED_PWM_FREQ,                 // frequency of period
+            &clocks,                      // To get the timer's clock speed
         );
-        iprintln!(&mut itm.stim[0], "initializing pwm pins");
 
-        let pa6 = gpioa.pa6.into_af2(&mut gpioa.moder, &mut gpioa.afrl); // ch1
-        let pa7 = gpioa.pa7.into_af2(&mut gpioa.moder, &mut gpioa.afrl); // ch2
-        let pb0 = gpiob.pb0.into_af2(&mut gpiob.moder, &mut gpiob.afrl); // ch3
-        let pb1 = gpiob.pb1.into_af2(&mut gpiob.moder, &mut gpiob.afrl); // ch4
+        info!("initializing pwm pins");
+        let pa6 = gpioa
+            .pa6
+            .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl); // ch1
 
-        let mut pwm3_ch1 = ch1_no_pins.output_to_pa6(pa6);
-        let mut pwm3_ch2 = ch2_no_pins.output_to_pa7(pa7);
-        let mut pwm3_ch3 = ch3_no_pins.output_to_pb0(pb0);
-        let mut pwm3_ch4 = ch4_no_pins.output_to_pb1(pb1);
+        let pa7 = gpioa
+            .pa7
+            .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl); // ch2
+        let pb0 = gpiob
+            .pb0
+            .into_af_push_pull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl); // ch3
+        let pb1 = gpiob
+            .pb1
+            .into_af_push_pull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl); // ch4
+
+        let mut pwm3_ch1 = tim3_channels.0.output_to_pa6(pa6);
+        let mut pwm3_ch2 = tim3_channels.1.output_to_pa7(pa7);
+        let mut pwm3_ch3 = tim3_channels.2.output_to_pb0(pb0);
+        let mut pwm3_ch4 = tim3_channels.3.output_to_pb1(pb1);
+
+        pwm3_ch1.set_duty(ZERO_INTENSITY);
+        pwm3_ch2.set_duty(ZERO_INTENSITY);
+        pwm3_ch3.set_duty(ZERO_INTENSITY);
+        pwm3_ch4.set_duty(ZERO_INTENSITY);
+
+        info!("all PWM channels set to 0%");
 
         pwm3_ch1.enable();
         pwm3_ch2.enable();
         pwm3_ch3.enable();
         pwm3_ch4.enable();
-        // pwm3.listen() not called, so no interrupt will fire.
 
-        iprintln!(&mut itm.stim[0], "initializing timer7");
+        // info!("initializing timer7");
+        // // initialize timer7
+        // let mut timer7 = Timer::new(c.device.TIM7, clocks, &mut rcc.apb1);
+        // timer7.enable_interrupt(timer::Event::Update);
+        // timer7.start::<Microseconds>(CAMTRIG_FREQ.to_duration().unwrap());
 
-        // initialize timer7
-        let mut timer7 = Timer::tim7(device.TIM7, CAMTRIG_FREQ, clocks, &mut rcc.apb1);
-        timer7.listen(timer::Event::Update);
-
-        // initialize camera trigger pin
-        let camtrig_pin = gpioa
-            .pa8
-            .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
+        // // initialize camera trigger pin
+        // let camtrig_pin = gpioa
+        //     .pa8
+        //     .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
 
         #[cfg(feature = "nucleo64")]
         let mut green_led = gpioa
@@ -233,7 +213,7 @@ const APP: () = {
         let mut green_led = gpiob
             .pb3
             .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-        green_led.set_high().unwrap();
+        green_led.set_low().unwrap();
 
         {
             use stm32_hal::gpio::gpiob::PB4;
@@ -247,27 +227,30 @@ const APP: () = {
         }
 
         // initialization of late resources
-        init::LateResources {
-            inner_led_state: InnerLedState::default(),
-            led_pulse_clock_count: 0,
-            rxtx: mini_rxtx::MiniTxRx::new(WrappedTx { tx }, rx),
-            trigger_count_timer1: Timer1TriggerCount {
-                tim1: timer1,
-                trigger_count: 0,
+        (
+            Shared {
+                inner_led_state: InnerLedState::default(),
+                // led_pulse_clock_count: 0,
+                rxtx: mini_rxtx::MiniTxRx::new(tx, rx),
+                // trigger_count_timer1: Timer1TriggerCount {
+                //     tim1: timer1,
+                //     trigger_count: 0,
+                // },
+                // timer2,
+                // timer7,
+                // camtrig_pin,
+                green_led,
+                pwm3_ch1,
+                pwm3_ch2,
+                pwm3_ch3,
+                pwm3_ch4,
             },
-            timer2,
-            timer7,
-            camtrig_pin,
-            green_led,
-            pwm3_ch1,
-            pwm3_ch2,
-            pwm3_ch3,
-            pwm3_ch4,
-            itm,
-        }
+            Local {},
+            init::Monotonics(),
+        )
     }
 
-    #[idle(resources = [rxtx, trigger_count_timer1, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4])]
+    #[idle(shared = [rxtx, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4])]
     fn idle(mut c: idle::Context) -> ! {
         let mut decode_buf = [0u8; 256];
         let mut decoder = mini_rxtx::Decoder::new(&mut decode_buf);
@@ -275,48 +258,49 @@ const APP: () = {
 
         let mut current_device_state = DeviceState::default();
 
+        info!("starting idle loop");
         loop {
-            let maybe_byte = c.resources.rxtx.lock(|x| x.pump());
+            let maybe_byte = c.shared.rxtx.lock(|x| x.pump());
             if let Some(byte) = maybe_byte {
+                trace!("got byte: {}", byte);
                 // process byte
                 match decoder.consume::<camtrig_comms::ToDevice>(byte) {
                     Decoded::Msg(ToDevice::DeviceState(next_state)) => {
-                        // iprintln!(&itm.stim[0], "new state received");
+                        // info!("new state received");
 
-                        update_device_state(
-                            &mut current_device_state,
-                            &next_state,
-                            &mut c.resources,
-                        );
-                        // iprintln!(&itm.stim[0], "set new state");
+                        update_device_state(&mut current_device_state, &next_state, &mut c);
+                        // info!("set new state");
                     }
                     Decoded::Msg(ToDevice::EchoRequest8(buf)) => {
                         let response = FromDevice::EchoResponse8(buf);
                         let msg = mini_rxtx::serialize_msg(&response, &mut encode_buf).unwrap();
-                        c.resources.rxtx.lock(|sender| {
+                        c.shared.rxtx.lock(|sender| {
                             sender.send_msg(msg).unwrap();
                         });
 
-                        rtic::pend(Interrupt::USART2_EXTI26);
-                        // iprintln!(&itm.stim[0], "echo");
+                        // rtic::pend(pac::Interrupt::USART2_EXTI26);
+                        info!("echo");
                     }
                     Decoded::Msg(ToDevice::CounterInfoRequest(_tim_num)) => {
                         unimplemented!();
                     }
                     Decoded::Msg(ToDevice::TimerRequest) => {
                         let (trigger_count, tim1_cnt) = {
-                            c.resources.trigger_count_timer1.lock(|ddx| {
-                                let tim1_cnt = ddx.tim1.counter();
-                                (ddx.trigger_count.clone(), u16(tim1_cnt).unwrap())
-                            })
+                            todo!();
+                            // c.shared.trigger_count_timer1.lock(|ddx| {
+                            //     // let tim1_cnt = ddx.tim1.counter();
+                            //     let tim1_cnt: u32 = 0;
+                            //     error!("unimplemented: tim1.counter()");
+                            //     (ddx.trigger_count.clone(), u16(tim1_cnt).unwrap())
+                            // })
                         };
                         let response = FromDevice::TimerResponse((trigger_count, tim1_cnt));
                         let msg = mini_rxtx::serialize_msg(&response, &mut encode_buf).unwrap();
-                        c.resources.rxtx.lock(|sender| {
+                        c.shared.rxtx.lock(|sender| {
                             sender.send_msg(msg).unwrap();
                         });
-
-                        rtic::pend(Interrupt::USART2_EXTI26);
+                        info!("handle timer request");
+                        // rtic::pend(pac::Interrupt::USART2_EXTI26);
                     }
                     Decoded::FrameNotYetComplete => {
                         // Frame not complete yet, do nothing until next byte.
@@ -333,63 +317,209 @@ const APP: () = {
         }
     }
 
-    #[task(binds = USART2_EXTI26, resources = [rxtx])]
-    fn usart2_exti26(c: usart2_exti26::Context) {
-        c.resources.rxtx.on_interrupt();
+    #[task(binds = USART2_EXTI26, shared = [rxtx, green_led])]
+    fn usart2_exti26(mut c: usart2_exti26::Context) {
+        use stm32f3xx_hal::serial::Error::*;
+        c.shared.rxtx.lock(|x| match x.on_interrupt() {
+            Ok(()) => {}
+            Err(Framing) => {
+                error!("serial Framing error.");
+                // x.rx().clear_framing_error();
+            }
+            Err(Noise) => {
+                error!("serial Noise error");
+            }
+            Err(Overrun) => {
+                error!("serial Overrun error");
+            }
+            Err(Parity) => {
+                error!("serial Parity error");
+            }
+            Err(_) => {
+                error!("serial unknown error");
+            }
+        });
+        c.shared
+            .green_led
+            .lock(|green_led| green_led.set_high().unwrap());
     }
 
-    #[task(binds = TIM1_UP_TIM16, resources = [trigger_count_timer1, camtrig_pin, timer7])]
-    fn my_tim1_up_tim16(mut c: my_tim1_up_tim16::Context) {
-        c.resources
-            .trigger_count_timer1
-            .tim1
-            .clear_update_interrupt_flag();
+    // #[task(binds = TIM1_UP_TIM16, shared = [trigger_count_timer1, camtrig_pin, timer7])]
+    // fn my_tim1_up_tim16(ctx: my_tim1_up_tim16::Context) {
+    //     let trigger_count_timer1 = ctx.shared.trigger_count_timer1;
+    //     let camtrig_pin = ctx.shared.camtrig_pin;
+    //     let timer7 = ctx.shared.timer7;
 
-        c.resources.trigger_count_timer1.trigger_count += 1;
-        c.resources.camtrig_pin.set_high().unwrap();
-        c.resources.timer7.resume();
+    //     (trigger_count_timer1, camtrig_pin, timer7).lock(
+    //         |trigger_count_timer1, camtrig_pin, timer7| {
+    //             trigger_count_timer1.tim1.clear_event(timer::Event::Update);
+    //             trigger_count_timer1.trigger_count += 1;
+    //             camtrig_pin.set_high().unwrap();
+    //             timer7.start::<Microseconds>(CAMTRIG_FREQ.to_duration().unwrap());
+    //         },
+    //     );
+    // }
+
+    // #[task(binds = TIM2, shared = [timer2, led_pulse_clock_count, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4])]
+    // fn tim2(c: tim2::Context) {
+    //     let led_pulse_clock_count = c.shared.led_pulse_clock_count;
+    //     let timer2 = c.shared.timer2;
+    //     let pwm3_ch1 = c.shared.pwm3_ch1;
+    //     let pwm3_ch2 = c.shared.pwm3_ch2;
+    //     let pwm3_ch3 = c.shared.pwm3_ch3;
+    //     let pwm3_ch4 = c.shared.pwm3_ch4;
+    //     let inner_led_state = c.shared.inner_led_state;
+
+    //     (
+    //         timer2,
+    //         led_pulse_clock_count,
+    //         pwm3_ch1,
+    //         pwm3_ch2,
+    //         pwm3_ch3,
+    //         pwm3_ch4,
+    //         inner_led_state,
+    //     )
+    //         .lock(
+    //             |timer2,
+    //              led_pulse_clock_count,
+    //              pwm3_ch1,
+    //              pwm3_ch2,
+    //              pwm3_ch3,
+    //              pwm3_ch4,
+    //              inner_led_state| {
+    //                 timer2.clear_event(timer::Event::Update);
+    //                 *led_pulse_clock_count += 1;
+    //                 let clock_val = *led_pulse_clock_count;
+
+    //                 // service_channel_pulse_train(clock_val, pwm3_ch1, &mut inner_led_state.ch1);
+    //                 // service_channel_pulse_train(clock_val, pwm3_ch2, &mut inner_led_state.ch2);
+    //                 // service_channel_pulse_train(clock_val, pwm3_ch3, &mut inner_led_state.ch3);
+    //                 // service_channel_pulse_train(clock_val, pwm3_ch4, &mut inner_led_state.ch4);
+    //             },
+    //         );
+    // }
+
+    // #[task(binds = TIM7, shared = [timer7, camtrig_pin])]
+    // fn tim7(c: tim7::Context) {
+    //     let timer7 = c.shared.timer7;
+    //     let camtrig_pin = c.shared.camtrig_pin;
+
+    //     (timer7, camtrig_pin).lock(|timer7, camtrig_pin| {
+    //         timer7.clear_event(timer::Event::Update);
+    //         timer7.stop();
+    //         // timer7.reset_counter();
+
+    //         camtrig_pin.set_low().unwrap();
+    //     });
+    // }
+
+    // fn update_trigger_state(next_state: &TriggerState, ctx: &mut idle::Context) {
+    //     ctx.shared
+    //         .trigger_count_timer1
+    //         .lock(|trigger_count_timer1| {
+    //             match next_state.running {
+    //                 Running::Stopped => {
+    //                     trigger_count_timer1.tim1.stop();
+    //                 }
+    //                 Running::ConstantFreq(freq_hz) => {
+    //                     // XXX FIXME TODO check will this repeat, or is it single-shot?
+    //                     trigger_count_timer1
+    //                         .tim1
+    //                         .start::<Microseconds>(Hertz(freq_hz as u32).to_duration().unwrap());
+    //                 }
+    //             }
+    //         })
+    // }
+
+    fn update_led_state(next_state: &ChannelState, ctx: &mut idle::Context) {
+        let mut set_pwm3_now = None;
+        {
+            ctx.shared.inner_led_state.lock(|inner_led_state| {
+                // borrowck scope for mutable reference into current_state
+                let inner_led_chan_state: &mut InnerLedChannelState = match next_state.num {
+                    1 => &mut inner_led_state.ch1,
+                    2 => &mut inner_led_state.ch2,
+                    3 => &mut inner_led_state.ch3,
+                    4 => &mut inner_led_state.ch4,
+                    _ => panic!("unknown channel"),
+                };
+
+                // we can assume inner_led_chan_state corresponds to correct channel in next_state
+                // and thus we should ignore next_state.channel here
+
+                // Calculate pwm period required for desired intensity.
+                let pwm_period = match next_state.on_state {
+                    OnState::Off => ZERO_INTENSITY,
+                    OnState::ConstantOn => next_state.intensity,
+                    OnState::PulseTrain(_) => {
+                        todo!()
+                    } //next_state.intensity,
+                };
+
+                // Based on on_state, decide what to do.
+                match next_state.on_state {
+                    OnState::Off | OnState::ConstantOn => {
+                        set_pwm3_now = Some(pwm_period);
+                        // inner_led_chan_state.mode = Mode::Immediate(pwm_period);
+                        inner_led_chan_state.period = pwm_period;
+                    }
+                    OnState::PulseTrain(pt) => {
+                        todo!();
+                        // inner_led_chan_state.mode = Mode::StartingPulseTrain((pt, pwm_period));
+                    }
+                }
+            })
+        }
+        if let Some(pwm_period) = set_pwm3_now {
+            info!(
+                "setting channel {} to period {}",
+                next_state.num, pwm_period
+            );
+            match next_state.num {
+                1 => ctx.shared.pwm3_ch1.lock(|chan| chan.set_duty(pwm_period)),
+                2 => ctx.shared.pwm3_ch2.lock(|chan| chan.set_duty(pwm_period)),
+                3 => ctx.shared.pwm3_ch3.lock(|chan| chan.set_duty(pwm_period)),
+                4 => ctx.shared.pwm3_ch4.lock(|chan| chan.set_duty(pwm_period)),
+                _ => panic!("unknown channel"),
+            };
+        }
+        // rtic::pend(pac::Interrupt::TIM2);
     }
 
-    #[task(binds = TIM2, resources = [timer2, led_pulse_clock_count, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4])]
-    fn tim2(c: tim2::Context) {
-        c.resources.timer2.clear_update_interrupt_flag();
-
-        let clock_val = {
-            *c.resources.led_pulse_clock_count += 1;
-            *c.resources.led_pulse_clock_count
-        };
-
-        service_channel_pulse_train(
-            clock_val,
-            c.resources.pwm3_ch1,
-            &mut c.resources.inner_led_state.ch1,
-        );
-        service_channel_pulse_train(
-            clock_val,
-            c.resources.pwm3_ch2,
-            &mut c.resources.inner_led_state.ch2,
-        );
-        service_channel_pulse_train(
-            clock_val,
-            c.resources.pwm3_ch3,
-            &mut c.resources.inner_led_state.ch3,
-        );
-        service_channel_pulse_train(
-            clock_val,
-            c.resources.pwm3_ch4,
-            &mut c.resources.inner_led_state.ch4,
-        );
+    fn update_device_state(
+        current_state: &mut DeviceState,
+        next_state: &DeviceState,
+        mut ctx: &mut idle::Context,
+    ) {
+        if current_state.trig != next_state.trig {
+            warn!("ignoring requested camera trigger state change.");
+            trace!("current_state.trig: {}", current_state.trig);
+            trace!("next_state.trig: {}", next_state.trig);
+            // update_trigger_state(&next_state.trig, &mut ctx);
+            // current_state.trig = next_state.trig;
+        }
+        if current_state.ch1 != next_state.ch1 {
+            update_led_state(&next_state.ch1, &mut ctx);
+            current_state.ch1 = next_state.ch1;
+        }
+        if current_state.ch1 != next_state.ch1 {
+            update_led_state(&next_state.ch1, &mut ctx);
+            current_state.ch1 = next_state.ch1;
+        }
+        if current_state.ch2 != next_state.ch2 {
+            update_led_state(&next_state.ch2, &mut ctx);
+            current_state.ch2 = next_state.ch2;
+        }
+        if current_state.ch3 != next_state.ch3 {
+            update_led_state(&next_state.ch3, &mut ctx);
+            current_state.ch3 = next_state.ch3;
+        }
+        if current_state.ch4 != next_state.ch4 {
+            update_led_state(&next_state.ch4, &mut ctx);
+            current_state.ch4 = next_state.ch4;
+        }
     }
-
-    #[task(binds = TIM7, resources = [timer7, camtrig_pin])]
-    fn tim7(c: tim7::Context) {
-        c.resources.timer7.clear_update_interrupt_flag();
-        c.resources.timer7.stop();
-        c.resources.timer7.reset_counter();
-
-        c.resources.camtrig_pin.set_low().unwrap();
-    }
-};
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum MyChan {
@@ -399,131 +529,70 @@ enum MyChan {
     Ch4,
 }
 
-fn service_channel_pulse_train<X>(
-    clock_val: u16,
-    channel: &mut X,
-    inner_chan_state: &mut InnerLedChannelState,
-) where
-    X: PwmPin<Duty = u16>,
-{
-    let mut new_pwm3_info = None;
+// fn service_channel_pulse_train<X>(
+//     clock_val: u16,
+//     channel: &mut X,
+//     inner_chan_state: &mut InnerLedChannelState,
+// ) where
+//     X: PwmPin<Duty = u16>,
+// {
+//     // let mut new_pwm3_info = None;
 
-    {
-        let next_mode = match inner_chan_state.mode {
-            Mode::Immediate(v) => Mode::Immediate(v),
-            Mode::StartingPulseTrain((params, pwm_period)) => {
-                let stop_clock = clock_val + u16(params.pulse_dur_ticks).unwrap();
-                new_pwm3_info = Some((channel, pwm_period));
-                Mode::OngoingPulse((stop_clock, pwm_period))
-            }
-            Mode::OngoingPulse((stop_clock, pwm_period)) => {
-                // TODO deal with clock wraparound
-                // TODO deal with pulse trains not just single pulse
-                if clock_val >= stop_clock {
-                    new_pwm3_info = Some((channel, ZERO_INTENSITY));
-                    Mode::Immediate(ZERO_INTENSITY)
-                } else {
-                    Mode::OngoingPulse((stop_clock, pwm_period))
-                }
-            }
-        };
-        inner_chan_state.mode = next_mode;
-    }
+//     // {
+//     //     let next_mode = match inner_chan_state.mode {
+//     //         Mode::Immediate(v) => Mode::Immediate(v),
+//     //         // Mode::StartingPulseTrain((params, pwm_period)) => {
+//     //         //     let stop_clock = clock_val + u16(params.pulse_dur_ticks).unwrap();
+//     //         //     new_pwm3_info = Some((channel, pwm_period));
+//     //         //     Mode::OngoingPulse((stop_clock, pwm_period))
+//     //         // }
+//     //         // Mode::OngoingPulse((stop_clock, pwm_period)) => {
+//     //         //     // TODO deal with clock wraparound
+//     //         //     // TODO deal with pulse trains not just single pulse
+//     //         //     if clock_val >= stop_clock {
+//     //         //         new_pwm3_info = Some((channel, ZERO_INTENSITY));
+//     //         //         Mode::Immediate(ZERO_INTENSITY)
+//     //         //     } else {
+//     //         //         Mode::OngoingPulse((stop_clock, pwm_period))
+//     //         //     }
+//     //         // }
+//     //     };
+//     //     inner_chan_state.mode = next_mode;
+//     // }
 
-    if let Some((channel, pwm_period)) = new_pwm3_info {
-        // actually change LED intensity
-        channel.set_duty(pwm_period);
-    }
-}
-
-fn update_trigger_state(next_state: &TriggerState, resources: &mut idle::Resources) {
-    resources.trigger_count_timer1.lock(|trigger_count_timer1| {
-        match next_state.running {
-            Running::Stopped => {
-                trigger_count_timer1.tim1.stop();
-            }
-            Running::ConstantFreq(freq_hz) => {
-                let timeout = stm32_hal::time::Hertz(freq_hz as u32);
-                use embedded_hal::timer::CountDown;
-                // XXX FIXME TODO check will this repeat, or is it single-shot?
-                trigger_count_timer1.tim1.start(timeout);
-            }
-        }
-    })
-}
-
-fn update_led_state(next_state: &ChannelState, resources: &mut idle::Resources) {
-    let mut set_pwm3_now = None;
-    {
-        resources.inner_led_state.lock(|inner_led_state| {
-            // borrowck scope for mutable reference into current_state
-            let inner_led_chan_state: &mut InnerLedChannelState = match next_state.num {
-                1 => &mut inner_led_state.ch1,
-                2 => &mut inner_led_state.ch2,
-                3 => &mut inner_led_state.ch3,
-                4 => &mut inner_led_state.ch4,
-                _ => panic!("unknown channel"),
-            };
-
-            // we can assume inner_led_chan_state corresponds to correct channel in next_state
-            // and thus we should ignore next_state.channel here
-
-            // Calculate pwm period required for desired intensity.
-            let pwm_period = match next_state.on_state {
-                OnState::Off => 0,
-                OnState::ConstantOn => next_state.intensity,
-                OnState::PulseTrain(_) => next_state.intensity,
-            };
-
-            // Based on on_state, decide what to do.
-            match next_state.on_state {
-                OnState::Off | OnState::ConstantOn => {
-                    set_pwm3_now = Some(pwm_period);
-                    inner_led_chan_state.mode = Mode::Immediate(pwm_period);
-                }
-                OnState::PulseTrain(pt) => {
-                    inner_led_chan_state.mode = Mode::StartingPulseTrain((pt, pwm_period));
-                }
-            }
-        })
-    }
-    if let Some(pwm_period) = set_pwm3_now {
-        match next_state.num {
-            1 => resources.pwm3_ch1.lock(|chan| chan.set_duty(pwm_period)),
-            2 => resources.pwm3_ch2.lock(|chan| chan.set_duty(pwm_period)),
-            3 => resources.pwm3_ch3.lock(|chan| chan.set_duty(pwm_period)),
-            4 => resources.pwm3_ch4.lock(|chan| chan.set_duty(pwm_period)),
-            _ => panic!("unknown channel"),
-        };
-    }
-    rtic::pend(Interrupt::TIM2);
-}
+//     if let Some((channel, pwm_period)) = new_pwm3_info {
+//         // actually change LED intensity
+//         channel.set_duty(pwm_period);
+//     }
+// }
 
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 /// update the outer level state (On, ConstantOn, ) into the inner state machine.
 
-/// This keeps track of our actual low-level state
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum Mode {
-    Immediate(u16), // pwm_period
-    StartingPulseTrain((camtrig_comms::PulseTrainParams, u16)),
-    OngoingPulse((u16, u16)), // stop clock time
-}
+// /// This keeps track of our actual low-level state
+// #[derive(Debug, PartialEq, Clone, Copy)]
+// enum Mode {
+//     Immediate(u16), // pwm_period
+//     // StartingPulseTrain((camtrig_comms::PulseTrainParams, u16)),
+//     // OngoingPulse((u16, u16)), // stop clock time
+// }
 
 /// This keeps track of our actual low-level state
 #[derive(Debug, PartialEq, Clone, Copy)]
 struct InnerLedChannelState {
     tim3_channel: MyChan,
-    mode: Mode,
+    // mode: Mode,
+    period: u16,
 }
 
 impl InnerLedChannelState {
     const fn default(tim3_channel: MyChan) -> Self {
         Self {
             tim3_channel,
-            mode: Mode::Immediate(0),
+            period: 0,
+            // mode: Mode::Immediate(0),
         }
     }
 }
@@ -544,36 +613,5 @@ impl InnerLedState {
             ch3: InnerLedChannelState::default(MyChan::Ch3),
             ch4: InnerLedChannelState::default(MyChan::Ch4),
         }
-    }
-}
-
-fn update_device_state(
-    current_state: &mut DeviceState,
-    next_state: &DeviceState,
-    mut resources: &mut idle::Resources,
-) {
-    if current_state.trig != next_state.trig {
-        update_trigger_state(&next_state.trig, &mut resources);
-        current_state.trig = next_state.trig;
-    }
-    if current_state.ch1 != next_state.ch1 {
-        update_led_state(&next_state.ch1, &mut resources);
-        current_state.ch1 = next_state.ch1;
-    }
-    if current_state.ch1 != next_state.ch1 {
-        update_led_state(&next_state.ch1, &mut resources);
-        current_state.ch1 = next_state.ch1;
-    }
-    if current_state.ch2 != next_state.ch2 {
-        update_led_state(&next_state.ch2, &mut resources);
-        current_state.ch2 = next_state.ch2;
-    }
-    if current_state.ch3 != next_state.ch3 {
-        update_led_state(&next_state.ch3, &mut resources);
-        current_state.ch3 = next_state.ch3;
-    }
-    if current_state.ch4 != next_state.ch4 {
-        update_led_state(&next_state.ch4, &mut resources);
-        current_state.ch4 = next_state.ch4;
     }
 }
