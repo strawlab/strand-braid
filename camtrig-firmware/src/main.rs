@@ -13,20 +13,6 @@
 // * PA8 used as TIM1_CH1 for camera trigger (303re tim1_ch1, nucleo64 CN9-8, uno D7)
 // * Potential future enhancement: USB PA11, PA12 (CN10-14, CN10-12)
 
-// Design for nucleo32 stm32f303k8 board  ("nucleo32" feature):
-// * PA6, PA7, PB0, PB1 reserved for optogenetics and backlighting LED control
-//  (303k8 tim3 pwm ch1,ch2,ch3,ch4, nucleo32 CN4-7, CN4-6, CN3-6, CN3-9; nano a5, a6, d3, d6)
-// * PA2, PA15 used for serial comms (303k8 usart2, nucleo32 CN4-5, none)
-// * PB3 user LED on board (303k8 gpiob3, CN4-15)
-// * PB4 optional extra IR LED to check tracking latency
-// * PA8 used as TIM1_CH1 for camera trigger (303k8 tim1_ch1, nucleo32 CN3-12, nano D9)
-// * Future: PA12 extra LED on strawlab triggerbox board (nucleo32 CN3-5, nano D2)
-// * Future: PB3 SPI1_SCK to MCP4822 SCK (nucleo32 CN4-15, nano D13)
-// * Future: PB5 SPI1_MOSI to MCP4822 SDI (nucleo32 CN3-14, nano D11)
-// * Future: PA11 to MCP4822 CS (nucleo32 CN3-13, nano D10)
-// * Future: PF0 to MCP4822 LDAC (nucleo32 CN3-10, nano D7)
-// * No onboard USB
-
 // TODO:
 // NOTE added later than below: See this https://github.com/japaric/stm32f103xx-hal/issues/116
 // We have jitter on the order of 5 usec on the primary camera trigger which we could eliminate
@@ -58,7 +44,7 @@ use stm32_hal::gpio::{self, AF7};
 use stm32f3xx_hal::prelude::*;
 
 use embedded_time::rate::Hertz;
-use stm32_hal::gpio::PushPull;
+use stm32_hal::gpio::{Output, PushPull};
 use stm32_hal::pac::USART2;
 use stm32_hal::pwm::tim3;
 use stm32_hal::serial::{Event, Rx, Serial, Tx};
@@ -69,7 +55,10 @@ use rtic::Mutex;
 
 use mini_rxtx::Decoded;
 
+use crate::stm32_hal::gpio::gpioa::PA5;
 use camtrig_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
+
+pub type UserLED = PA5<Output<PushPull>>;
 
 const ZERO_INTENSITY: u16 = 0;
 const LED_PWM_FREQ: Hertz = Hertz(500);
@@ -88,7 +77,7 @@ mod app {
             128,
             128,
         >,
-        green_led: camtrig_firmware::led::UserLED,
+        green_led: UserLED,
         pwm3_ch1: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch1, stm32_hal::pwm::WithPins>,
         pwm3_ch2: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch2, stm32_hal::pwm::WithPins>,
         pwm3_ch3: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch3, stm32_hal::pwm::WithPins>,
@@ -113,15 +102,9 @@ mod app {
         let tx = gpioa
             .pa2
             .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-        #[cfg(feature = "nucleo64")]
         let rx = gpioa
             .pa3
             .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-        #[cfg(feature = "nucleo32")]
-        let mut rx =
-            gpioa
-                .pa15
-                .into_af_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
         let mut serial = Serial::new(
             c.device.USART2,
@@ -184,14 +167,9 @@ mod app {
         pwm3_ch3.enable();
         pwm3_ch4.enable();
 
-        #[cfg(feature = "nucleo64")]
         let mut green_led = gpioa
             .pa5
             .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
-        #[cfg(feature = "nucleo32")]
-        let mut green_led = gpiob
-            .pb3
-            .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
         green_led.set_low().unwrap();
 
         {
