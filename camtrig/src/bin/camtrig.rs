@@ -7,7 +7,7 @@ use tokio_serial::SerialPortBuilderExt;
 
 use camtrig::CamtrigCodec;
 use camtrig::{Error, Result};
-use camtrig_comms::{ChannelState, DeviceState, OnState, Running, ToDevice, TriggerState};
+use camtrig_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
@@ -31,26 +31,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
             println!("received: {:?}", msg);
         }
     };
-    tokio::spawn(printer);
-
-    // Create a stream to call our closure every second.
-    let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(1000));
-
-    let stream_future = async move {
-        loop {
-            interval_stream.tick().await;
-            // This closure is called once a second.
-
-            // let msg = ToDevice::EchoRequest8((1,2,3,4,5,6,7,8));
-            // let msg = ToDevice::CounterInfoRequest(1);
-            let msg = ToDevice::TimerRequest;
-            println!("sending: {:?}", msg);
-
-            writer.send(msg).await.unwrap();
-        }
-    };
-
-    stream_future.await;
+    printer.await;
 }
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {
@@ -68,29 +49,18 @@ async fn main() -> Result<()> {
 
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
-        .arg(clap::Arg::with_name("freq").long("freq").takes_value(true))
         .arg(
             clap::Arg::with_name("device")
                 .long("device")
                 .takes_value(true),
         )
         .arg(clap::Arg::with_name("all_leds_on").long("all-leds-on"))
+        .arg(clap::Arg::with_name("all_leds_off").long("all-leds-off"))
         .get_matches();
-
-    let freq_str = matches
-        .value_of("freq")
-        .ok_or(Error::CamtrigError("expected freq".into()))?;
-    let freq_hz: u16 = freq_str.parse()?;
-    println!("freq_hz: {}", freq_hz);
 
     let device_name = matches
         .value_of("device")
         .ok_or(Error::CamtrigError("expected device".into()))?;
-
-    let running = match freq_hz {
-        0 => Running::Stopped,
-        f => Running::ConstantFreq(f),
-    };
 
     let on_state = if matches.occurrences_of("all_leds_on") > 0 {
         OnState::ConstantOn
@@ -99,7 +69,6 @@ async fn main() -> Result<()> {
     };
 
     let next_state = DeviceState {
-        trig: TriggerState { running: running },
         ch1: make_chan(1, on_state),
         ch2: make_chan(2, on_state),
         ch3: make_chan(3, on_state),
