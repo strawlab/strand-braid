@@ -31,7 +31,33 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
             println!("received: {:?}", msg);
         }
     };
-    printer.await;
+    tokio::spawn(printer);
+
+    // Create a stream to call our closure every second.
+    let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(1000));
+
+    let stream_future = async move {
+        let start = std::time::Instant::now();
+        loop {
+            interval_stream.tick().await;
+            // This closure is called once a second.
+
+            let dur = start.elapsed();
+            let wrapped_dur_msec = dur.as_millis() % (u64::MAX as u128);
+            let mut d = vec![];
+            byteorder::WriteBytesExt::write_u64::<byteorder::LittleEndian>(
+                &mut d,
+                wrapped_dur_msec.try_into().unwrap(),
+            )
+            .unwrap();
+            let msg = ToDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+            println!("sending: {:?}", msg);
+
+            writer.send(msg).await.unwrap();
+        }
+    };
+
+    stream_future.await;
 }
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {

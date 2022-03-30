@@ -45,10 +45,7 @@ impl Component for LedControl {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Clicked(mut on_state) => {
-                if let OnState::PulseTrain(ref mut pulse_train_params) = on_state {
-                    pulse_train_params.pulse_dur_ticks = self.pulse_duration_ticks.into();
-                };
+            Msg::Clicked(on_state) => {
                 if let Some(ref callback) = ctx.props().onsignal {
                     let state = ChangeLedState {
                         channel_num: ctx.props().channel.num,

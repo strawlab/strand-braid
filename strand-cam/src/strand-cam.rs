@@ -1850,7 +1850,6 @@ fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16
     match ch.on_state {
         camtrig_comms::OnState::Off => 0,
         camtrig_comms::OnState::ConstantOn => ch.intensity,
-        camtrig_comms::OnState::PulseTrain(_) => ch.intensity,
     }
 }
 
@@ -2066,7 +2065,7 @@ fn run_camtrig(
     tx_cam_arg: mpsc::Sender<CamArg>,
 ) -> Result<SerialJoinHandles> {
     use camtrig::CamtrigCodec;
-    use camtrig_comms::{ChannelState, DeviceState, OnState, Running, TriggerState};
+    use camtrig_comms::{ChannelState, DeviceState, OnState};
 
     fn make_chan(num: u8, on_state: OnState) -> ChannelState {
         let intensity = camtrig_comms::MAX_INTENSITY;
@@ -2078,9 +2077,6 @@ fn run_camtrig(
     }
 
     let first_camtrig_state = DeviceState {
-        trig: TriggerState {
-            running: Running::ConstantFreq(1),
-        },
         ch1: make_chan(1, OnState::Off),
         ch2: make_chan(2, OnState::Off),
         ch3: make_chan(3, OnState::Off),
@@ -2131,6 +2127,8 @@ fn run_camtrig(
     let join_handle = std::thread::Builder::new()
         .name("serialport reader".to_string())
         .spawn(move || {
+            // TODO: use tokio async
+
             // camtrig ignore for now
 
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
@@ -2177,6 +2175,8 @@ fn run_camtrig(
     let join_handle = std::thread::Builder::new()
         .name("serialport writer".to_string())
         .spawn(move || {
+            // TODO: use tokio async
+
             // camtrig ignore for now
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
             let mut codec = CamtrigCodec::new();
@@ -2239,11 +2239,22 @@ fn run_camtrig(
         .spawn(move || {
             // camtrig ignore for now
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg, file!(), line!());
+            let start = std::time::Instant::now();
             while flag.is_alive() {
                 std::thread::sleep(std::time::Duration::from_millis(
                     CAMTRIG_HEARTBEAT_INTERVAL_MSEC,
                 ));
-                thread_closer.check(camtrig_tx_std.send(ToCamtrigDevice::TimerRequest));
+                let dur = start.elapsed();
+                let wrapped_dur_msec = dur.as_millis() % (u64::MAX as u128);
+                let mut d = vec![];
+                byteorder::WriteBytesExt::write_u64::<byteorder::LittleEndian>(
+                    &mut d,
+                    wrapped_dur_msec.try_into().unwrap(),
+                )
+                .unwrap();
+                thread_closer.check(camtrig_tx_std.send(ToCamtrigDevice::EchoRequest8((
+                    d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
+                ))));
             }
             thread_closer.success();
         })?
