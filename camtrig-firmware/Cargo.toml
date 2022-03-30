@@ -16,7 +16,6 @@ panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 # stm32f3xx-hal = {git="https://github.com/astraw/stm32f3xx-hal", features=["rt", "stm32f303"], rev="96aa9e655581e90a8c164da7a069ca6bc57774c1"}
 stm32f3xx-hal = {version="0.9.0", features=["rt", "stm32f303xe"]}
 nb = "1"
-cast = {version="0.2", default-features = false}
 byteorder = { version = "1", default-features = false }
 heapless = "0.7"
 camtrig-comms = {path="../camtrig-comms", features=["print-defmt"]}
