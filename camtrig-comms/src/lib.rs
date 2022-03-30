@@ -29,6 +29,7 @@ use enum_iter::EnumIter;
 pub const MAX_INTENSITY: u16 = 16000;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub enum ToDevice {
     DeviceState(DeviceState),
     EchoRequest8((u8, u8, u8, u8, u8, u8, u8, u8)),
@@ -37,6 +38,7 @@ pub enum ToDevice {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub enum FromDevice {
     DeviceState(DeviceState),
     EchoResponse8((u8, u8, u8, u8, u8, u8, u8, u8)),
@@ -45,6 +47,7 @@ pub enum FromDevice {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub struct CounterInfo {
     pub cnt: u16,
     pub psc: u16,
@@ -58,6 +61,7 @@ pub struct CounterInfo {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub struct DeviceState {
     pub trig: TriggerState,
     pub ch1: ChannelState,
@@ -85,6 +89,7 @@ impl Default for DeviceState {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub struct TriggerState {
     pub running: Running,
 }
@@ -98,6 +103,7 @@ impl TriggerState {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub struct ChannelState {
     pub num: u8,
     pub on_state: OnState,
@@ -121,6 +127,7 @@ impl Default for ChannelState {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub struct PulseTrainParams {
     pub n_pulses: u32,
     pub pulse_dur_ticks: u32,
@@ -140,6 +147,7 @@ impl Default for PulseTrainParams {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub enum OnState {
     Off,
     ConstantOn,
@@ -178,6 +186,7 @@ impl EnumIter for OnState {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub enum Running {
     Stopped,
     ConstantFreq(u16),
