@@ -5,6 +5,8 @@ use tokio_util::codec::Decoder;
 
 use tokio_serial::SerialPortBuilderExt;
 
+use log::{error, info};
+
 use camtrig::CamtrigCodec;
 use camtrig::{Error, Result};
 use camtrig_comms::{ChannelState, DeviceState, OnState, ToDevice};
@@ -23,12 +25,32 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     let (mut writer, mut reader) = CamtrigCodec::new().framed(port).split();
 
     let msg = ToDevice::DeviceState(*next_state);
-    println!("sending: {:?}", msg);
+    info!("sending: {:?}", msg);
     writer.send(msg).await.unwrap();
+
+    let start = std::time::Instant::now();
 
     let printer = async move {
         while let Some(msg) = reader.next().await {
-            println!("received: {:?}", msg);
+            match msg {
+                Ok(camtrig_comms::FromDevice::EchoResponse8(d)) => {
+                    let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
+                    let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
+                        byteorder::LittleEndian,
+                    >(&mut std::io::Cursor::new(buf))
+                    .unwrap();
+                    let now = start.elapsed();
+                    let now_millis: u64 =
+                        (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                    info!("round trip time: {} msec", now_millis - sent_millis);
+                }
+                Ok(msg) => {
+                    error!("unknown message received: {:?}", msg);
+                }
+                Err(e) => {
+                    panic!("unexpected error: {}: {:?}", e, e);
+                }
+            }
         }
     };
     tokio::spawn(printer);
@@ -37,21 +59,19 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(1000));
 
     let stream_future = async move {
-        let start = std::time::Instant::now();
         loop {
             interval_stream.tick().await;
             // This closure is called once a second.
 
-            let dur = start.elapsed();
-            let wrapped_dur_msec = dur.as_millis() % (u64::MAX as u128);
+            let now = start.elapsed();
+            let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
             let mut d = vec![];
-            byteorder::WriteBytesExt::write_u64::<byteorder::LittleEndian>(
-                &mut d,
-                wrapped_dur_msec.try_into().unwrap(),
-            )
-            .unwrap();
+            {
+                use byteorder::WriteBytesExt;
+                d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+            }
             let msg = ToDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
-            println!("sending: {:?}", msg);
+            info!("sending: {:?}", msg);
 
             writer.send(msg).await.unwrap();
         }
