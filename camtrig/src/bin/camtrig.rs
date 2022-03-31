@@ -91,7 +91,10 @@ fn make_chan(num: u8, on_state: OnState) -> ChannelState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_tracing_logger::init();
 
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
