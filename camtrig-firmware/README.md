@@ -8,7 +8,6 @@ Make sure the rust src is installed via rustup:
     rustup component add rust-src
     rustup target add thumbv7em-none-eabihf
 
-
 ## Debugging with Knurling (`probe-rs`)
 
 We use the Knurling project to facilitate debugging. `probe-rs` can be used to
