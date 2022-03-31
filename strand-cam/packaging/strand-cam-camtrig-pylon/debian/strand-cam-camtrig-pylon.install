@@ -1,4 +1,4 @@
-strand-cam-camtrig-pylon usr/bin
+strand-cam-led-box-pylon usr/bin
 strand-cam-offline-kalmanize usr/bin
-strand-cam-camtrig-pylon-icon.png usr/share/icons/hicolor/48x48/apps
-strand-cam-camtrig-pylon.desktop usr/share/applications
+strand-cam-led-box-pylon-icon.png usr/share/icons/hicolor/48x48/apps
+strand-cam-led-box-pylon.desktop usr/share/applications

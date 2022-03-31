@@ -84,8 +84,8 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-#[cfg(feature = "with_camtrig")]
-use strand_cam_storetype::ToCamtrigDevice;
+#[cfg(feature = "with_led_box")]
+use strand_cam_storetype::ToLedBoxDevice;
 use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
 
 #[cfg(feature = "flydratrax")]
@@ -137,8 +137,8 @@ mod flydratrax_handle_msg;
 
 mod post_trigger_buffer;
 
-#[cfg(feature = "with_camtrig")]
-const CAMTRIG_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
+#[cfg(feature = "with_led_box")]
+const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
 lazy_static::lazy_static! {
     static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
@@ -242,7 +242,7 @@ pub enum StrandCamError {
     #[error("thread done")]
     ThreadDone,
 
-    #[cfg(feature = "with_camtrig")]
+    #[cfg(feature = "with_led_box")]
     #[error("{0}")]
     SerialportError(#[from] serialport::Error),
 
@@ -286,7 +286,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
+    #[cfg(any(feature = "with_led_box", feature = "plugin-process-frame"))]
     fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
     where
         E: std::convert::Into<anyhow::Error>,
@@ -297,7 +297,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "with_camtrig", feature = "plugin-process-frame"))]
+    #[cfg(any(feature = "with_led_box", feature = "plugin-process-frame"))]
     fn fail(&self, e: anyhow::Error) -> ! {
         display_err(
             e,
@@ -671,8 +671,8 @@ fn frame_process_thread(
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
-    #[cfg(feature = "with_camtrig")]
-    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+    #[cfg(feature = "with_led_box")]
+    led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
@@ -681,7 +681,7 @@ fn frame_process_thread(
     debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
-    camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
+    led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     do_process_frame_callback: bool,
     collected_corners_arc: CollectedCornersArc,
     save_empty_data2d: SaveEmptyData2dType,
@@ -936,7 +936,7 @@ fn frame_process_thread(
                                 let (model_sender, model_receiver) = channellib::unbounded();
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
-                                let camtrig_tx_std2 = camtrig_tx_std.clone();
+                                let led_box_tx_std2 = led_box_tx_std.clone();
                                 let ssa2 = ssa.clone();
                                 let cam_args_tx2 = cam_args_tx.clone();
 
@@ -951,7 +951,7 @@ fn frame_process_thread(
                                     let kalman_tracking_config = kalman_tracking_config2.clone();
                                     thread_closer.maybe_err(flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
                                             model_receiver,
-                                            &mut led_state, ssa2, camtrig_tx_std2,
+                                            &mut led_state, ssa2, led_box_tx_std2,
                                             ).map_err(|e| anyhow::Error::new(Box::new(e))));
                                 })?;
 
@@ -1558,10 +1558,10 @@ fn frame_process_thread(
                                     let mut led1 = "".to_string();
                                     let mut led2 = "".to_string();
                                     let mut led3 = "".to_string();
-                                    #[cfg(feature="with_camtrig")]
+                                    #[cfg(feature="with_led_box")]
                                     {
                                         if let Some(ref store) = store_cache {
-                                            if let Some(ref device_state) = store.camtrig_device_state {
+                                            if let Some(ref device_state) = store.led_box_device_state {
                                                 led1 = format!("{}",get_intensity(&device_state,1));
                                                 led2 = format!("{}",get_intensity(&device_state,2));
                                                 led3 = format!("{}",get_intensity(&device_state,3));
@@ -1699,19 +1699,19 @@ fn frame_process_thread(
                     }
                 }
 
-                #[cfg(feature="with_camtrig")]
-                // check camtrig device heartbeat
+                #[cfg(feature="with_led_box")]
+                // check led_box device heartbeat
                 {
-                    let reader = camtrig_heartbeat_update_arc.read();
+                    let reader = led_box_heartbeat_update_arc.read();
                     let elapsed = reader.elapsed();
-                    if elapsed > std::time::Duration::from_millis(2*CAMTRIG_HEARTBEAT_INTERVAL_MSEC) {
+                    if elapsed > std::time::Duration::from_millis(2*LED_BOX_HEARTBEAT_INTERVAL_MSEC) {
 
-                        error!("No camtrig heatbeat for {:?}.", elapsed);
+                        error!("No led_box heatbeat for {:?}.", elapsed);
 
                         // No heartbeat within the specified interval.
                         if let Some(ref ssa) = shared_store_arc {
                             let mut tracker = ssa.write();
-                            tracker.modify(|store| store.camtrig_device_lost = true);
+                            tracker.modify(|store| store.led_box_device_lost = true);
                         }
                     }
                 }
@@ -1844,17 +1844,17 @@ fn frame_process_thread(
     Ok(())
 }
 
-#[cfg(feature = "with_camtrig")]
-fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16 {
-    let ch: &camtrig_comms::ChannelState = match chan_num {
+#[cfg(feature = "with_led_box")]
+fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16 {
+    let ch: &led_box_comms::ChannelState = match chan_num {
         1 => &device_state.ch1,
         2 => &device_state.ch2,
         3 => &device_state.ch3,
         c => panic!("unknown channel {}", c),
     };
     match ch.on_state {
-        camtrig_comms::OnState::Off => 0,
-        camtrig_comms::OnState::ConstantOn => ch.intensity,
+        led_box_comms::OnState::Off => 0,
+        led_box_comms::OnState::ConstantOn => ch.intensity,
     }
 }
 
@@ -1875,7 +1875,7 @@ impl StrandCamApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        #[cfg(feature = "with_camtrig")] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+        #[cfg(feature = "with_led_box")] led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
         tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -1943,12 +1943,12 @@ impl StrandCamApp {
                         #[cfg(feature = "image_tracker")]
                         tx_frame.send(Msg::ClearBackground(value)).cb_ok();
                     }
-                    CallbackType::ToCamtrig(camtrig_arg) => {
-                        info!("in camtrig callback: {:?}", camtrig_arg);
-                        #[cfg(feature = "with_camtrig")]
-                        camtrig_tx_std.send(camtrig_arg).cb_ok();
-                        #[cfg(not(feature = "with_camtrig"))]
-                        log::error!("ignoring command for camtrig: {:?}", camtrig_arg);
+                    CallbackType::ToLedBox(led_box_arg) => {
+                        info!("in led_box callback: {:?}", led_box_arg);
+                        #[cfg(feature = "with_led_box")]
+                        led_box_tx_std.send(led_box_arg).cb_ok();
+                        #[cfg(not(feature = "with_led_box"))]
+                        log::error!("ignoring command for led_box: {:?}", led_box_arg);
                     }
                 }
                 futures::future::ok(())
@@ -1982,24 +1982,24 @@ impl StrandCamApp {
         Ok((firehose_callback_rx, my_app))
     }
 
-    /// Spawn the camtrig thread (if compiled to do so).
+    /// Spawn the led_box thread (if compiled to do so).
     ///
-    /// In the case of #[cfg(feature="with-camtrig")], this will spawn
-    /// the serial thread that communicates with the camtrig device.
+    /// In the case of #[cfg(feature="with-led_box")], this will spawn
+    /// the serial thread that communicates with the led_box device.
     /// Otherwise, does very little and `sjh` is essentially empty.
-    #[cfg(feature = "with_camtrig")]
-    fn maybe_spawn_camtrig_thread(
+    #[cfg(feature = "with_led_box")]
+    fn maybe_spawn_led_box_thread(
         &self,
-        camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
-        camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
-        camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
+        led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
+        led_box_rx: channellib::Receiver<ToLedBoxDevice>,
+        led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
         cam_args_tx: mpsc::Sender<CamArg>,
     ) -> Result<SerialJoinHandles> {
-        run_camtrig(
+        run_led_box(
             self.inner.shared_arc().clone(), // shared_store_arc
-            camtrig_tx_std,
-            camtrig_rx,
-            camtrig_heartbeat_update_arc,
+            led_box_tx_std,
+            led_box_rx,
+            led_box_heartbeat_update_arc,
             cam_args_tx,
         )
     }
@@ -2012,14 +2012,14 @@ impl StrandCamApp {
     // }
 }
 
-#[cfg(feature = "with_camtrig")]
+#[cfg(feature = "with_led_box")]
 struct SerialJoinHandles {
     serial_read_cjh: ControlledJoinHandle<()>,
     serial_write_cjh: ControlledJoinHandle<()>,
     serial_heartbeat_cjh: ControlledJoinHandle<()>,
 }
 
-#[cfg(feature = "with_camtrig")]
+#[cfg(feature = "with_led_box")]
 impl SerialJoinHandles {
     fn close_and_join_all(self) -> std::thread::Result<()> {
         self.serial_read_cjh.close_and_join()?;
@@ -2061,19 +2061,19 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
     }
 }
 
-#[cfg(feature = "with_camtrig")]
-fn run_camtrig(
+#[cfg(feature = "with_led_box")]
+fn run_led_box(
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
-    camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
-    camtrig_rx: channellib::Receiver<ToCamtrigDevice>,
-    camtrig_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
+    led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
+    led_box_rx: channellib::Receiver<ToLedBoxDevice>,
+    led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
     tx_cam_arg: mpsc::Sender<CamArg>,
 ) -> Result<SerialJoinHandles> {
-    use camtrig::CamtrigCodec;
-    use camtrig_comms::{ChannelState, DeviceState, OnState};
+    use led_box::LedBoxCodec;
+    use led_box_comms::{ChannelState, DeviceState, OnState};
 
     fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-        let intensity = camtrig_comms::MAX_INTENSITY;
+        let intensity = led_box_comms::MAX_INTENSITY;
         ChannelState {
             num,
             intensity,
@@ -2081,7 +2081,7 @@ fn run_camtrig(
         }
     }
 
-    let first_camtrig_state = DeviceState {
+    let first_led_box_state = DeviceState {
         ch1: make_chan(1, OnState::Off),
         ch2: make_chan(2, OnState::Off),
         ch3: make_chan(3, OnState::Off),
@@ -2090,11 +2090,11 @@ fn run_camtrig(
 
     {
         let mut tracker = shared_store_arc.write();
-        tracker.modify(|shared| shared.camtrig_device_state = Some(first_camtrig_state.clone()));
+        tracker.modify(|shared| shared.led_box_device_state = Some(first_led_box_state.clone()));
     }
 
-    camtrig_tx_std
-        .send(ToCamtrigDevice::DeviceState(first_camtrig_state))
+    led_box_tx_std
+        .send(ToLedBoxDevice::DeviceState(first_led_box_state))
         .cb_ok();
 
     let settings = serialport::SerialPortSettings {
@@ -2110,14 +2110,14 @@ fn run_camtrig(
         let tracker = shared_store_arc.read();
         let shared = tracker.as_ref();
 
-        match shared.camtrig_device_path {
+        match shared.led_box_device_path {
             Some(ref serial_device) => {
                 // open with default settings 9600 8N1
                 serialport::open_with_settings(serial_device, &settings)?
             }
             None => {
                 return Err(StrandCamError::StringError(
-                    "no camtrig device path given".into(),
+                    "no led_box device path given".into(),
                 ));
             }
         }
@@ -2127,7 +2127,7 @@ fn run_camtrig(
     let mut reader_port = port.try_clone()?;
     let mut writer_port = port;
 
-    let start_camtrig_instant = std::time::Instant::now();
+    let start_led_box_instant = std::time::Instant::now();
 
     let (flag, control) = thread_control::make_pair();
     let tx_cam_arg2 = tx_cam_arg.clone();
@@ -2136,11 +2136,11 @@ fn run_camtrig(
         .spawn(move || {
             // TODO: use tokio async
 
-            // camtrig ignore for now
+            // led_box ignore for now
 
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
 
-            let mut codec = CamtrigCodec::new();
+            let mut codec = LedBoxCodec::new();
             let mut buf = bytes::BytesMut::with_capacity(1000);
             let mut read_buf = [0; 100];
 
@@ -2152,7 +2152,7 @@ fn run_camtrig(
                         use tokio_util::codec::Decoder;
                         if let Some(msg) = thread_closer.check(codec.decode(&mut buf)) {
                             match msg {
-                                camtrig_comms::FromDevice::EchoResponse8(d) => {
+                                led_box_comms::FromDevice::EchoResponse8(d) => {
                                     let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
                                     let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
                                         byteorder::LittleEndian,
@@ -2160,18 +2160,18 @@ fn run_camtrig(
                                         &mut std::io::Cursor::new(buf)
                                     )
                                     .unwrap();
-                                    let now = start_camtrig_instant.elapsed();
+                                    let now = start_led_box_instant.elapsed();
                                     let now_millis: u64 =
                                         (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                                     info!("round trip time: {} msec", now_millis - sent_millis);
 
-                                    // elsewhere check if this happens every CAMTRIG_HEARTBEAT_INTERVAL_MSEC or so.
-                                    let mut camtrig_heartbeat_update =
-                                        camtrig_heartbeat_update_arc.write();
-                                    *camtrig_heartbeat_update = std::time::Instant::now();
+                                    // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
+                                    let mut led_box_heartbeat_update =
+                                        led_box_heartbeat_update_arc.write();
+                                    *led_box_heartbeat_update = std::time::Instant::now();
                                 }
                                 msg => {
-                                    info!("unexpected message read from camtrig device: {:?}", msg);
+                                    info!("unexpected message read from led_box device: {:?}", msg);
                                 }
                             }
                         }
@@ -2199,15 +2199,15 @@ fn run_camtrig(
         .spawn(move || {
             // TODO: use tokio async
 
-            // camtrig ignore for now
+            // led_box ignore for now
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
-            let mut codec = CamtrigCodec::new();
+            let mut codec = LedBoxCodec::new();
             let mut buf = bytes::BytesMut::with_capacity(1000);
 
             while flag.is_alive() {
                 let mut msgs = Vec::new();
                 loop {
-                    match camtrig_rx.try_recv() {
+                    match led_box_rx.try_recv() {
                         Ok(msg) => msgs.push(msg),
                         Err(e) => {
                             if e.is_empty() {
@@ -2220,7 +2220,7 @@ fn run_camtrig(
                 }
 
                 let msg = match msgs.len() {
-                    0 => thread_closer.check(camtrig_rx.recv()),
+                    0 => thread_closer.check(led_box_rx.recv()),
                     1 => msgs[0],
                     _ => {
                         error!(
@@ -2232,15 +2232,15 @@ fn run_camtrig(
                     }
                 };
 
-                if let ToCamtrigDevice::DeviceState(ref next_state) = msg {
-                    // make an internal copy of state going to camtrig device
+                if let ToLedBoxDevice::DeviceState(ref next_state) = msg {
+                    // make an internal copy of state going to led_box device
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|shared| {
-                        shared.camtrig_device_state = Some(next_state.clone());
+                        shared.led_box_device_state = Some(next_state.clone());
                     });
                 }
 
-                info!("sending message to camtrig device: {:?}", msg);
+                info!("sending message to led_box device: {:?}", msg);
                 use bytes::buf::Buf;
                 use tokio_util::codec::Encoder;
                 thread_closer.check(codec.encode(msg, &mut buf));
@@ -2259,14 +2259,14 @@ fn run_camtrig(
     let join_handle = std::thread::Builder::new()
         .name("serialport timer".to_string())
         .spawn(move || {
-            // camtrig ignore for now
+            // led_box ignore for now
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg, file!(), line!());
             while flag.is_alive() {
                 std::thread::sleep(std::time::Duration::from_millis(
-                    CAMTRIG_HEARTBEAT_INTERVAL_MSEC,
+                    LED_BOX_HEARTBEAT_INTERVAL_MSEC,
                 ));
 
-                let now = start_camtrig_instant.elapsed();
+                let now = start_led_box_instant.elapsed();
                 let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                 let mut d = vec![];
                 {
@@ -2274,8 +2274,8 @@ fn run_camtrig(
                     d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
                 }
                 let msg =
-                    ToCamtrigDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
-                thread_closer.check(camtrig_tx_std.send(msg));
+                    ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+                thread_closer.check(led_box_tx_std.send(msg));
             }
             thread_closer.success();
         })?
@@ -2466,7 +2466,7 @@ pub struct StrandCamArgs {
     pub raise_grab_thread_priority: bool,
     #[cfg(feature = "posix_sched_fifo")]
     pub process_frame_priority: Option<(i32, i32)>,
-    pub camtrig_device_path: Option<String>,
+    pub led_box_device_path: Option<String>,
     #[cfg(feature = "debug-images")]
     pub debug_addr: std::net::SocketAddr,
     pub mainbrain_internal_addr: Option<MainbrainBuiLocation>,
@@ -2541,7 +2541,7 @@ impl Default for StrandCamArgs {
             raise_grab_thread_priority: false,
             #[cfg(feature = "posix_sched_fifo")]
             process_frame_priority: None,
-            camtrig_device_path: None,
+            led_box_device_path: None,
             #[cfg(feature = "debug-images")]
             debug_addr: std::str::FromStr::from_str(DEBUG_ADDR_DEFAULT).unwrap(),
             mainbrain_internal_addr: None,
@@ -2807,10 +2807,10 @@ pub async fn setup_app(
     let transmit_msg_tx = mainbrain_info.as_ref().map(|i| i.transmit_msg_tx.clone());
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
-    #[cfg(feature = "with_camtrig")]
-    let (camtrig_tx_std, camtrig_rx) = channellib::unbounded();
+    #[cfg(feature = "with_led_box")]
+    let (led_box_tx_std, led_box_rx) = channellib::unbounded();
 
-    let camtrig_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
+    let led_box_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
     let gain_ranged = RangedValue {
         name: "gain".into(),
@@ -3009,10 +3009,10 @@ pub async fn setup_app(
         kalman_tracking_config,
         #[cfg(feature="flydratrax")]
         led_program_config,
-        #[cfg(feature="with_camtrig")]
-        camtrig_device_lost: false,
-        camtrig_device_state: None,
-        camtrig_device_path: args.camtrig_device_path,
+        #[cfg(feature="with_led_box")]
+        led_box_device_lost: false,
+        led_box_device_state: None,
+        led_box_device_path: args.led_box_device_path,
         #[cfg(feature="checkercal")]
         checkerboard_data: strand_cam_storetype::CheckerboardCalState::new(),
         #[cfg(feature="checkercal")]
@@ -3063,8 +3063,8 @@ pub async fn setup_app(
         &http_server_addr,
         config,
         cam_args_tx2.clone(),
-        #[cfg(feature = "with_camtrig")]
-        camtrig_tx_std.clone(),
+        #[cfg(feature = "with_led_box")]
+        led_box_tx_std.clone(),
         tx_frame3,
         valve.clone(),
         shutdown_rx).await?;
@@ -3114,10 +3114,10 @@ pub async fn setup_app(
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature="flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
-        #[cfg(feature = "with_camtrig")]
-        let camtrig_tx_std = camtrig_tx_std.clone();
+        #[cfg(feature = "with_led_box")]
+        let led_box_tx_std = led_box_tx_std.clone();
         let http_camserver_info2 = http_camserver_info.clone();
-        let camtrig_heartbeat_update_arc2 = camtrig_heartbeat_update_arc.clone();
+        let led_box_heartbeat_update_arc2 = led_box_heartbeat_update_arc.clone();
         let cam_args_tx2 = cam_args_tx.clone();
 
         let handle2 = rt_handle.clone();
@@ -3174,8 +3174,8 @@ pub async fn setup_app(
                     plugin_handler_thread_tx,
                     plugin_result_rx,
                     plugin_wait_dur,
-                    #[cfg(feature = "with_camtrig")]
-                    camtrig_tx_std,
+                    #[cfg(feature = "with_led_box")]
+                    led_box_tx_std,
                     flag,
                     is_starting,
                     http_camserver_info2,
@@ -3184,7 +3184,7 @@ pub async fn setup_app(
                     debug_addr,
                     mainbrain_info,
                     camdata_addr,
-                    camtrig_heartbeat_update_arc2,
+                    led_box_heartbeat_update_arc2,
                     do_process_frame_callback,
                     collected_corners_arc2,
                     save_empty_data2d,
@@ -4132,15 +4132,15 @@ pub async fn setup_app(
 
     debug!("  running forever");
 
-    // In the case of #[cfg(feature="with-camtrig")], this will spawn
-    // the serial thread that communicates with the camtrig device.
+    // In the case of #[cfg(feature="with-led_box")], this will spawn
+    // the serial thread that communicates with the led_box device.
     // Otherwise, does very little and `sjh` is essentially empty.
-    #[cfg(feature = "with_camtrig")]
-    let sjh = my_app.maybe_spawn_camtrig_thread(camtrig_tx_std, camtrig_rx,
-        camtrig_heartbeat_update_arc, cam_args_tx.clone())?;
+    #[cfg(feature = "with_led_box")]
+    let sjh = my_app.maybe_spawn_led_box_thread(led_box_tx_std, led_box_rx,
+        led_box_heartbeat_update_arc, cam_args_tx.clone())?;
 
     let ajh = AllJoinHandles {
-        #[cfg(feature = "with_camtrig")]
+        #[cfg(feature = "with_led_box")]
         sjh,
         frame_process_cjh,
         video_streaming_cjh,
@@ -4199,7 +4199,7 @@ impl<T> ControlledJoinHandle<T> {
 }
 
 pub struct AllJoinHandles {
-    #[cfg(feature = "with_camtrig")]
+    #[cfg(feature = "with_led_box")]
     sjh: SerialJoinHandles,
     frame_process_cjh: ControlledJoinHandle<()>,
     video_streaming_cjh: ControlledJoinHandle<()>,
@@ -4209,7 +4209,7 @@ pub struct AllJoinHandles {
 
 impl AllJoinHandles {
     fn close_and_join_all(self) -> std::thread::Result<()> {
-        #[cfg(feature = "with_camtrig")]
+        #[cfg(feature = "with_led_box")]
         self.sjh.close_and_join_all()?;
         self.frame_process_cjh.close_and_join()?;
         self.video_streaming_cjh.close_and_join()?;
@@ -4225,7 +4225,7 @@ impl AllJoinHandles {
             #[cfg(feature = "plugin-process-frame")]
             self.plugin_streaming_cjh.control.clone(),
         ];
-        #[cfg(feature = "with_camtrig")]
+        #[cfg(feature = "with_led_box")]
         result.extend(self.sjh.stoppers().into_iter());
         result
     }

@@ -7,9 +7,9 @@ use tokio_serial::SerialPortBuilderExt;
 
 use log::{error, info};
 
-use camtrig::CamtrigCodec;
-use camtrig::{Error, Result};
-use camtrig_comms::{ChannelState, DeviceState, OnState, ToDevice};
+use led_box::LedBoxCodec;
+use led_box::{Error, Result};
+use led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
@@ -22,7 +22,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     port.set_exclusive(false)
         .expect("Unable to set serial port exclusive to false");
 
-    let (mut writer, mut reader) = CamtrigCodec::new().framed(port).split();
+    let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
 
     let msg = ToDevice::DeviceState(*next_state);
     info!("sending: {:?}", msg);
@@ -33,7 +33,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     let printer = async move {
         while let Some(msg) = reader.next().await {
             match msg {
-                Ok(camtrig_comms::FromDevice::EchoResponse8(d)) => {
+                Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
                     let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
                     let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
                         byteorder::LittleEndian,
@@ -81,7 +81,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
 }
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-    let intensity = camtrig_comms::MAX_INTENSITY;
+    let intensity = led_box_comms::MAX_INTENSITY;
     ChannelState {
         num,
         intensity,
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
 
     let device_name = matches
         .value_of("device")
-        .ok_or(Error::CamtrigError("expected device".into()))?;
+        .ok_or(Error::LedBoxError("expected device".into()))?;
 
     let on_state = if matches.occurrences_of("all_leds_on") > 0 {
         OnState::ConstantOn

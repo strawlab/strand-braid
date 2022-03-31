@@ -1,10 +1,10 @@
-use camtrig_comms::{ChannelState, DeviceState, ToDevice};
+use led_box_comms::{ChannelState, DeviceState, ToDevice};
 use yew::prelude::*;
 use yew_tincture::components::CheckboxLabel;
 
 use super::led_control::{ChangeLedState, ChangeLedStateValue, LedControl};
 
-pub struct CamtrigControl {}
+pub struct LedBoxControl {}
 
 pub enum Msg {
     LedStateChange(ChangeLedState),
@@ -16,7 +16,7 @@ pub struct Props {
     pub onsignal: Option<Callback<ToDevice>>,
 }
 
-impl Component for CamtrigControl {
+impl Component for LedBoxControl {
     type Message = Msg;
     type Properties = Props;
 

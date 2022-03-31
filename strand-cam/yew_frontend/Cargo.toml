@@ -30,7 +30,7 @@ http-video-streaming-types = {path = "../../http-video-streaming/http-video-stre
 ci2-types = {path="../../ci2/ci2-types"}
 ci2-remote-control = { path = "../../ci2-remote-control" }
 
-camtrig-comms = {path="../../camtrig-comms", optional=true}
+led-box-comms = {path="../../led-box-comms", optional=true}
 enum-iter = {path="../../enum-iter"}
 ads-webasm = {path="../../ads-webasm"}
 
@@ -58,5 +58,5 @@ features=[
 default = []
 checkercal = ["strand-cam-storetype/checkercal"]
 
-with_camtrig = ["strand-cam-storetype/with_camtrig", "camtrig-comms", "camtrig-comms"]
+with_led_box = ["strand-cam-storetype/with_led_box", "led-box-comms", "led-box-comms"]
 flydratrax = ["strand-cam-storetype/flydratrax"]

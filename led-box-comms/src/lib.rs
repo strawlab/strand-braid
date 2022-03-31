@@ -127,7 +127,7 @@ impl std::fmt::Display for OnState {
     }
 }
 
-// I found this necessary to avoid lifetime error in camtrig-firmware. Not
+// I found this necessary to avoid lifetime error in led-box-firmware. Not
 // sure why this needs to be allocated as with const to be 'static in this
 // case (but not in standard linux target).
 const ON_STATE_VARIANTS: [OnState; 2] = [OnState::Off, OnState::ConstantOn];

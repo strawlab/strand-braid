@@ -56,7 +56,7 @@ use rtic::Mutex;
 use mini_rxtx::Decoded;
 
 use crate::stm32_hal::gpio::gpioa::PA5;
-use camtrig_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
+use led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
 
 pub type UserLED = PA5<Output<PushPull>>;
 
@@ -121,7 +121,7 @@ mod app {
             let pwm_freq_hz: Hertz = LED_PWM_FREQ.into();
             info!(
                 "setting pwm to have resolution {}, freq {} Hz",
-                camtrig_comms::MAX_INTENSITY,
+                led_box_comms::MAX_INTENSITY,
                 pwm_freq_hz.0,
             );
         }
@@ -130,7 +130,7 @@ mod app {
         info!("initializing tim3 for pwm");
         let tim3_channels = tim3(
             c.device.TIM3,
-            camtrig_comms::MAX_INTENSITY, // resolution of duty cycle
+            led_box_comms::MAX_INTENSITY, // resolution of duty cycle
             LED_PWM_FREQ,                 // frequency of period
             &clocks,                      // To get the timer's clock speed
         );
@@ -213,7 +213,7 @@ mod app {
             if let Some(byte) = maybe_byte {
                 trace!("got byte: {}", byte);
                 // process byte
-                match decoder.consume::<camtrig_comms::ToDevice>(byte) {
+                match decoder.consume::<led_box_comms::ToDevice>(byte) {
                     Decoded::Msg(ToDevice::DeviceState(next_state)) => {
                         // info!("new state received");
 

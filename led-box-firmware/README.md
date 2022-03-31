@@ -4,7 +4,7 @@ Camera trigger firmware for Nucleo-F303RE
 
 Make sure the rust src is installed via rustup:
 
-    # In the directory with Cargo.toml for camtrig-firmware
+    # In the directory with Cargo.toml for led-box-firmware
     rustup component add rust-src
     rustup target add thumbv7em-none-eabihf
 

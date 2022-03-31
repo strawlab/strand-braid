@@ -1,5 +1,5 @@
 [package]
-name = "camtrig-firmware"
+name = "led-box-firmware"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 description = "firmware for Strawlab camera trigger device"
@@ -18,7 +18,7 @@ stm32f3xx-hal = {version="0.9.0", features=["rt", "stm32f303xe"]}
 nb = "1"
 byteorder = { version = "1", default-features = false }
 heapless = "0.7"
-camtrig-comms = {path="../camtrig-comms", features=["print-defmt"]}
+led-box-comms = {path="../led-box-comms", features=["print-defmt"]}
 mini-rxtx = "0.3"
 void = {version = "1.0.2", default-features = false}
 embedded-hal = "0.2.5"

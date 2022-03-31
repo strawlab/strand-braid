@@ -69,8 +69,8 @@ http-video-streaming = {path = "../http-video-streaming"}
 semver = { version = "1", features = ["serde"] }
 shellexpand = "2"
 imops = {path="../imops"}
-camtrig = {path="../camtrig", optional=true}
-camtrig-comms = {path="../camtrig-comms", optional=true}
+led-box = {path="../led-box", optional=true}
+led-box-comms = {path="../led-box-comms", optional=true}
 flydra-types = {path="../flydra-types", features=["with-dns"]}
 flydra2 = {path="../flydra2", default-features = false, optional=true}
 mvg = {path="../mvg", optional=true}
@@ -148,7 +148,7 @@ imtrack-dark-circle = []
 imtrack-absdiff = []
 
 # Other features
-with_camtrig = ["camtrig", "camtrig-comms", "serialport", "strand-cam-storetype/with_camtrig"]
+with_led_box = ["led-box", "led-box-comms", "serialport", "strand-cam-storetype/with_led_box"]
 
 flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg", "flydra-mvg/backtrace",
     "approx", "strand-cam-storetype/flydratrax", "alga",

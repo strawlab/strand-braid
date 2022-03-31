@@ -7,7 +7,7 @@ braid-show-config usr/bin
 braidz-cli usr/bin
 compute-flydra1-compat usr/bin
 fmf usr/bin
-strand-cam-camtrig-pylon usr/bin
+strand-cam-led-box-pylon usr/bin
 strand-cam-offline-kalmanize usr/bin
 strand-cam-pylon usr/bin
 strand-cam-vimba usr/bin

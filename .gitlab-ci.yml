@@ -194,27 +194,27 @@ test_fastimage:
     - export RUSTFLAGS="-D warnings"
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
-camtrig-ubuntu2004-debs:
+led-box-ubuntu2004-debs:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - mkdir -p $CI_PROJECT_DIR/focal-camtrig-debs
+    - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
-    - cd camtrig
-    - cp $CI_PROJECT_DIR/build/camtrig ./
-    - cp $CI_PROJECT_DIR/camtrig-firmware-${CI_COMMIT_SHA}.bin ./camtrig-firmware.bin
+    - cd led-box
+    - cp $CI_PROJECT_DIR/build/led-box ./
+    - cp $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin ./led-box-firmware.bin
     - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
     - cd ..
-    - cp -a camtrig*.changes $CI_PROJECT_DIR/focal-camtrig-debs/
-    - cp -a camtrig*.deb $CI_PROJECT_DIR/focal-camtrig-debs/
+    - cp -a led-box*.changes $CI_PROJECT_DIR/focal-led-box-debs/
+    - cp -a led-box*.deb $CI_PROJECT_DIR/focal-led-box-debs/
   needs:
-    - camtrig-linux
-    - camtrig-firmware
+    - led-box-linux
+    - led-box-firmware
   artifacts:
     paths:
-      - focal-camtrig-debs/
-    name: "rust-cam-focal-camtrig-debs-${CI_COMMIT_SHA}"
+      - focal-led-box-debs/
+    name: "rust-cam-focal-led-box-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
   image: rust:1.56.0
@@ -402,8 +402,8 @@ strand-cam-vimba-ubuntu2004:
     - ldd ../target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/strand-cam-vimba $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
     - ../target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
   artifacts:
     paths:
@@ -437,7 +437,7 @@ py-strandcam-pylon-linux:
     - touch rust/build.rs
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pyloncxx IPP_SYS=2019 python setup.py install
 
-strand-cam-camtrig-pylon-ubuntu2004:
+strand-cam-led-box-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -452,22 +452,22 @@ strand-cam-camtrig-pylon-ubuntu2004:
     # force recomputing git version tag
     - touch build.rs
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 checkercal fiducial with_led_box backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
     - cd ../strand-cam-offline-kalmanize
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    # Rename the target to `strand-cam-camtrig-pylon`.
-    - cp ../target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
+    # Rename the target to `strand-cam-led-box-pylon`.
+    - cp ../target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-led-box-pylon
     - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - ../target/release/write-debian-changelog strand-cam-led-box-pylon focal > $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
   artifacts:
     paths:
       - build/
-    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
+    name: "strand-cam-led-box-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-ubuntu2004:
   image: ubuntu:focal
@@ -646,29 +646,29 @@ braid-ubuntu2004:
       - build/
     name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
 
-camtrig-linux:
+led-box-linux:
   image: rust:1.56.0
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - export RUSTFLAGS="-D warnings"
 
-    - cd camtrig
+    - cd led-box
     - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/camtrig $CI_PROJECT_DIR/build/camtrig
+    - cp ../target/release/led-box $CI_PROJECT_DIR/build/led-box
   artifacts:
     paths:
       - build/
-    name: "camtrig-linux-${CI_COMMIT_SHA}"
+    name: "led-box-linux-${CI_COMMIT_SHA}"
 
-camtrig-firmware:
+led-box-firmware:
   image: rust:1.56.0
   script:
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
-    - cd camtrig-firmware
+    - cd led-box-firmware
 
     # Could do `cargo install cargo-binutils` instead of the following lines,
     # but then we'd build from source, which just takes longer.
@@ -680,14 +680,14 @@ camtrig-firmware:
     - rustup component add llvm-tools-preview
     - rustup component add rust-src
     - rustup target add thumbv7em-none-eabihf
-    - rm -f target_makefile/thumbv7em-none-eabihf/release/camtrig-firmware.bin
+    - rm -f target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin
     - touch Cargo.toml # ensure we rebuild it
     - make
-    - cp target_makefile/thumbv7em-none-eabihf/release/camtrig-firmware.bin $CI_PROJECT_DIR/camtrig-firmware-${CI_COMMIT_SHA}.bin
+    - cp target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin
   artifacts:
     paths:
-      - camtrig-firmware-${CI_COMMIT_SHA}.bin
-    name: "camtrig-firmware-${CI_COMMIT_SHA}"
+      - led-box-firmware-${CI_COMMIT_SHA}.bin
+    name: "led-box-firmware-${CI_COMMIT_SHA}"
 
 # -------
 
@@ -709,7 +709,7 @@ strand-braid-ubuntu-2004:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l ../build
-    - ldd ../build/strand-cam-camtrig-pylon
+    - ldd ../build/strand-cam-led-box-pylon
     - ldd ../build/strand-cam-pylon
     - ldd ../build/strand-cam-vimba
     - make
@@ -728,7 +728,7 @@ strand-braid-ubuntu-2004:
     - fmf-cli-ubuntu2004
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
-    - strand-cam-camtrig-pylon-ubuntu2004
+    - strand-cam-led-box-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.

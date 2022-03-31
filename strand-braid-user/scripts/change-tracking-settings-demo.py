@@ -55,7 +55,7 @@ class StrandCamProxy:
         thread.start()
 
     def get_led1_state(self):
-        return self.shared_state["camtrig_device_state"]["ch1"]
+        return self.shared_state["led_box_device_state"]["ch1"]
 
     def wait_until_first_update(self):
         while len(self.shared_state.keys()) == 0:

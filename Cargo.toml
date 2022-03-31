@@ -20,8 +20,8 @@ members = [
     "bui-backend-session",
     "bui-backend-session/demo",
     "camcal",
-    "camtrig",
-    "camtrig-comms",
+    "led-box",
+    "led-box-comms",
     "channellib",
     "ci2",
     "ci2/ci2-types",
@@ -100,7 +100,7 @@ members = [
 
 exclude = [
     "ANCIENT",
-    "camtrig-firmware",
+    "led-box-firmware",
     "ci2-aravis", # Exclude for now until we can update it
 ]
 

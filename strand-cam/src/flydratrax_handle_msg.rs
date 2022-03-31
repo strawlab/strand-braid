@@ -4,7 +4,7 @@ use crate::*;
 
 use flydra2::{SendKalmanEstimatesRow, SendType};
 
-#[cfg(feature = "with_camtrig")]
+#[cfg(feature = "with_led_box")]
 use strand_cam_storetype::LedProgramConfig;
 
 pub(crate) struct FlydraTraxServer {
@@ -35,7 +35,7 @@ pub fn flydratrax_handle_msg(
     model_receiver: channellib::Receiver<flydra2::SendType>,
     #[allow(unused_variables)] led_state: &mut bool,
     #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    #[allow(unused_variables)] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+    #[allow(unused_variables)] led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
@@ -100,7 +100,7 @@ pub fn flydratrax_handle_msg(
             SendType::EndOfFrame(_fno) => {}
         }
 
-        #[cfg(feature = "with_camtrig")]
+        #[cfg(feature = "with_led_box")]
         {
             let led_program_config: LedProgramConfig = {
                 let store = ssa2.read();
@@ -148,14 +148,14 @@ pub fn flydratrax_handle_msg(
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
-                let device_state: Option<camtrig_comms::DeviceState> = {
+                let device_state: Option<led_box_comms::DeviceState> = {
                     let tracker = ssa2.read();
-                    tracker.as_ref().camtrig_device_state.clone()
+                    tracker.as_ref().led_box_device_state.clone()
                 };
                 if let Some(mut device_state) = device_state {
                     let on_state = match next_led_state {
-                        true => camtrig_comms::OnState::ConstantOn,
-                        false => camtrig_comms::OnState::Off,
+                        true => led_box_comms::OnState::ConstantOn,
+                        false => led_box_comms::OnState::Off,
                     };
 
                     match led_program_config.led_channel_num {
@@ -172,8 +172,8 @@ pub fn flydratrax_handle_msg(
                             error!("unsupported LED channel: {:?}", other);
                         }
                     }
-                    let msg = camtrig_comms::ToDevice::DeviceState(device_state);
-                    camtrig_tx_std.send(msg).cb_ok();
+                    let msg = led_box_comms::ToDevice::DeviceState(device_state);
+                    led_box_tx_std.send(msg).cb_ok();
                 }
                 *led_state = next_led_state;
             }

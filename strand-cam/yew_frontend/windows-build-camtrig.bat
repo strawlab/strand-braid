@@ -1,4 +1,4 @@
-wasm-pack build --target web -- --features with_camtrig,flydratrax
+wasm-pack build --target web -- --features with_led_box,flydratrax
 
 mkdir pkg
 copy static\index.html pkg

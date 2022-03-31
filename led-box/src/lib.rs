@@ -5,8 +5,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("CamtrigError {0}")]
-    CamtrigError(String),
+    #[error("LedBoxError {0}")]
+    LedBoxError(String),
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0:?}")]
@@ -15,13 +15,13 @@ pub enum Error {
     ParseInt(#[from] std::num::ParseIntError),
 }
 
-/// wrap a CamtrigCodec into ToDevice and FromDevice types
-pub struct CamtrigCodec {
+/// wrap a LedBoxCodec into ToDevice and FromDevice types
+pub struct LedBoxCodec {
     send_buf: [u8; 128],
     decoder: mini_rxtx::StdDecoder,
 }
 
-impl CamtrigCodec {
+impl LedBoxCodec {
     pub fn new() -> Self {
         Self {
             send_buf: [0; 128],
@@ -30,8 +30,8 @@ impl CamtrigCodec {
     }
 }
 
-impl Decoder for CamtrigCodec {
-    type Item = camtrig_comms::FromDevice;
+impl Decoder for LedBoxCodec {
+    type Item = led_box_comms::FromDevice;
     type Error = Error;
 
     fn decode(&mut self, buf: &mut bytes::BytesMut) -> Result<Option<Self::Item>> {
@@ -52,10 +52,10 @@ impl Decoder for CamtrigCodec {
     }
 }
 
-impl Encoder<camtrig_comms::ToDevice> for CamtrigCodec {
+impl Encoder<led_box_comms::ToDevice> for LedBoxCodec {
     type Error = Error;
 
-    fn encode(&mut self, msg: camtrig_comms::ToDevice, buf: &mut bytes::BytesMut) -> Result<()> {
+    fn encode(&mut self, msg: led_box_comms::ToDevice, buf: &mut bytes::BytesMut) -> Result<()> {
         let serialized_msg =
             mini_rxtx::serialize_msg(&msg, &mut self.send_buf).expect("serialize_msg");
         buf.extend_from_slice(serialized_msg.framed_slice());

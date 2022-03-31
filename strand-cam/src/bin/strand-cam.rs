@@ -85,28 +85,28 @@ fn parse_sched_policy_priority(_matches: &clap::ArgMatches) -> Result<Option<(i3
 }
 
 #[cfg(target_os = "macos")]
-#[cfg(feature = "with_camtrig")]
-const DEFAULT_CAMTRIG_PATH: &str = "/dev/tty.usbmodem1423";
+#[cfg(feature = "with_led_box")]
+const DEFAULT_LED_BOX_PATH: &str = "/dev/tty.usbmodem1423";
 
 #[cfg(target_os = "linux")]
-#[cfg(feature = "with_camtrig")]
-const DEFAULT_CAMTRIG_PATH: &str = "/dev/ttyACM0";
+#[cfg(feature = "with_led_box")]
+const DEFAULT_LED_BOX_PATH: &str = "/dev/ttyACM0";
 
 #[cfg(target_os = "windows")]
-#[cfg(feature = "with_camtrig")]
-const DEFAULT_CAMTRIG_PATH: &str = r#"COM3"#;
+#[cfg(feature = "with_led_box")]
+const DEFAULT_LED_BOX_PATH: &str = r#"COM3"#;
 
-#[cfg(feature = "with_camtrig")]
-fn parse_camtrig_device(matches: &clap::ArgMatches) -> Result<Option<String>> {
-    let path = match matches.value_of("camtrig_device") {
-        Some(camtrig_device) => camtrig_device,
-        None => DEFAULT_CAMTRIG_PATH,
+#[cfg(feature = "with_led_box")]
+fn parse_led_box_device(matches: &clap::ArgMatches) -> Result<Option<String>> {
+    let path = match matches.value_of("led_box_device") {
+        Some(led_box_device) => led_box_device,
+        None => DEFAULT_LED_BOX_PATH,
     };
     Ok(Some(path.into()))
 }
 
-#[cfg(not(feature = "with_camtrig"))]
-fn parse_camtrig_device(_matches: &clap::ArgMatches) -> Result<Option<String>> {
+#[cfg(not(feature = "with_led_box"))]
+fn parse_led_box_device(_matches: &clap::ArgMatches) -> Result<Option<String>> {
     Ok(None)
 }
 
@@ -236,13 +236,13 @@ fn parse_args(
                     .takes_value(true));
         }
 
-        #[cfg(feature = "with_camtrig")]
+        #[cfg(feature = "with_led_box")]
         {
             parser = parser.arg(
-                Arg::with_name("camtrig_device")
-                    .long("camtrig-device")
-                    .help("The filename of the camtrig device")
-                    .default_value(DEFAULT_CAMTRIG_PATH)
+                Arg::with_name("led_box_device")
+                    .long("led-box-device")
+                    .help("The filename of the led_box device")
+                    .default_value(DEFAULT_LED_BOX_PATH)
                     .takes_value(true),
             )
         }
@@ -371,7 +371,7 @@ fn parse_args(
 
     let process_frame_priority = parse_sched_policy_priority(&matches)?;
 
-    let camtrig_device_path = parse_camtrig_device(&matches)?;
+    let led_box_device_path = parse_led_box_device(&matches)?;
 
     #[cfg(feature = "debug-images")]
     let debug_addr = matches
@@ -519,7 +519,7 @@ fn parse_args(
         tracker_cfg_src,
         csv_save_dir,
         raise_grab_thread_priority,
-        camtrig_device_path,
+        led_box_device_path,
         #[cfg(feature = "posix_sched_fifo")]
         process_frame_priority,
         #[cfg(feature = "debug-images")]

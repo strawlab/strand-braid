@@ -1,7 +1,7 @@
 #!/bin/bash -x
 set -o errexit
 
-wasm-pack build --target web -- --features with_camtrig,flydratrax,checkercal
+wasm-pack build --target web -- --features with_led_box,flydratrax,checkercal
 
 cd pkg
 ln -sf ../static/index.html

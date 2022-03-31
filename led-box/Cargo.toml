@@ -1,5 +1,5 @@
 [package]
-name = "camtrig"
+name = "led-box"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
@@ -7,7 +7,7 @@ rust-version = "1.56"
 
 [dependencies]
 clap = "2.25"
-camtrig-comms = {path="../camtrig-comms"}
+led-box-comms = {path="../led-box-comms"}
 thiserror = "1.0"
 log = "0.4"
 env-tracing-logger = {path="../env-tracing-logger"}
