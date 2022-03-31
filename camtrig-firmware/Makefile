@@ -1,7 +1,6 @@
 TARGET_DIR=target_makefile
 
-SRCS=src/bin/camtrig-firmware.rs src/lib.rs src/led.rs \
-	Cargo.toml
+SRCS=src/main.rs Cargo.toml
 
 all: $(TARGET_DIR)/thumbv7em-none-eabihf/release/camtrig-firmware.bin
 .PHONY: all

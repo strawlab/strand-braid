@@ -1850,7 +1850,6 @@ fn get_intensity(device_state: &camtrig_comms::DeviceState, chan_num: u8) -> u16
     match ch.on_state {
         camtrig_comms::OnState::Off => 0,
         camtrig_comms::OnState::ConstantOn => ch.intensity,
-        camtrig_comms::OnState::PulseTrain(_) => ch.intensity,
     }
 }
 
@@ -2066,7 +2065,7 @@ fn run_camtrig(
     tx_cam_arg: mpsc::Sender<CamArg>,
 ) -> Result<SerialJoinHandles> {
     use camtrig::CamtrigCodec;
-    use camtrig_comms::{ChannelState, DeviceState, OnState, Running, TriggerState};
+    use camtrig_comms::{ChannelState, DeviceState, OnState};
 
     fn make_chan(num: u8, on_state: OnState) -> ChannelState {
         let intensity = camtrig_comms::MAX_INTENSITY;
@@ -2078,9 +2077,6 @@ fn run_camtrig(
     }
 
     let first_camtrig_state = DeviceState {
-        trig: TriggerState {
-            running: Running::ConstantFreq(1),
-        },
         ch1: make_chan(1, OnState::Off),
         ch2: make_chan(2, OnState::Off),
         ch3: make_chan(3, OnState::Off),
@@ -2126,11 +2122,15 @@ fn run_camtrig(
     let mut reader_port = port.try_clone()?;
     let mut writer_port = port;
 
+    let start_camtrig_instant = std::time::Instant::now();
+
     let (flag, control) = thread_control::make_pair();
     let tx_cam_arg2 = tx_cam_arg.clone();
     let join_handle = std::thread::Builder::new()
         .name("serialport reader".to_string())
         .spawn(move || {
+            // TODO: use tokio async
+
             // camtrig ignore for now
 
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
@@ -2145,14 +2145,29 @@ fn run_camtrig(
                     Ok(n_bytes) => {
                         buf.extend_from_slice(&read_buf[..n_bytes]);
                         use tokio_util::codec::Decoder;
-                        if let Some(item) = thread_closer.check(codec.decode(&mut buf)) {
-                            info!("read from camtrig device: {:?}", item);
+                        if let Some(msg) = thread_closer.check(codec.decode(&mut buf)) {
+                            match msg {
+                                camtrig_comms::FromDevice::EchoResponse8(d) => {
+                                    let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
+                                    let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
+                                        byteorder::LittleEndian,
+                                    >(
+                                        &mut std::io::Cursor::new(buf)
+                                    )
+                                    .unwrap();
+                                    let now = start_camtrig_instant.elapsed();
+                                    let now_millis: u64 =
+                                        (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                                    info!("round trip time: {} msec", now_millis - sent_millis);
 
-                            {
-                                // elsewhere check if this happens every CAMTRIG_HEARTBEAT_INTERVAL_MSEC or so.
-                                let mut camtrig_heartbeat_update =
-                                    camtrig_heartbeat_update_arc.write();
-                                *camtrig_heartbeat_update = std::time::Instant::now();
+                                    // elsewhere check if this happens every CAMTRIG_HEARTBEAT_INTERVAL_MSEC or so.
+                                    let mut camtrig_heartbeat_update =
+                                        camtrig_heartbeat_update_arc.write();
+                                    *camtrig_heartbeat_update = std::time::Instant::now();
+                                }
+                                msg => {
+                                    info!("unexpected message read from camtrig device: {:?}", msg);
+                                }
                             }
                         }
                     }
@@ -2177,6 +2192,8 @@ fn run_camtrig(
     let join_handle = std::thread::Builder::new()
         .name("serialport writer".to_string())
         .spawn(move || {
+            // TODO: use tokio async
+
             // camtrig ignore for now
             let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
             let mut codec = CamtrigCodec::new();
@@ -2203,7 +2220,7 @@ fn run_camtrig(
                     _ => {
                         error!(
                             "error: falling behind sending messages. dropping all but most \
-                     recent. This is highly suboptimal and should be removed before using \
+                     recent. This is highly suboptimal and should be fixed before using \
                      to perform experiments."
                         );
                         msgs[msgs.len() - 1]
@@ -2243,7 +2260,17 @@ fn run_camtrig(
                 std::thread::sleep(std::time::Duration::from_millis(
                     CAMTRIG_HEARTBEAT_INTERVAL_MSEC,
                 ));
-                thread_closer.check(camtrig_tx_std.send(ToCamtrigDevice::TimerRequest));
+
+                let now = start_camtrig_instant.elapsed();
+                let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                let mut d = vec![];
+                {
+                    use byteorder::WriteBytesExt;
+                    d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+                }
+                let msg =
+                    ToCamtrigDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+                thread_closer.check(camtrig_tx_std.send(msg));
             }
             thread_closer.success();
         })?

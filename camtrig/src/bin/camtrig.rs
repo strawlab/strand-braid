@@ -5,9 +5,11 @@ use tokio_util::codec::Decoder;
 
 use tokio_serial::SerialPortBuilderExt;
 
+use log::{error, info};
+
 use camtrig::CamtrigCodec;
 use camtrig::{Error, Result};
-use camtrig_comms::{ChannelState, DeviceState, OnState, Running, ToDevice, TriggerState};
+use camtrig_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
@@ -23,12 +25,32 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     let (mut writer, mut reader) = CamtrigCodec::new().framed(port).split();
 
     let msg = ToDevice::DeviceState(*next_state);
-    println!("sending: {:?}", msg);
+    info!("sending: {:?}", msg);
     writer.send(msg).await.unwrap();
+
+    let start = std::time::Instant::now();
 
     let printer = async move {
         while let Some(msg) = reader.next().await {
-            println!("received: {:?}", msg);
+            match msg {
+                Ok(camtrig_comms::FromDevice::EchoResponse8(d)) => {
+                    let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
+                    let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
+                        byteorder::LittleEndian,
+                    >(&mut std::io::Cursor::new(buf))
+                    .unwrap();
+                    let now = start.elapsed();
+                    let now_millis: u64 =
+                        (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                    info!("round trip time: {} msec", now_millis - sent_millis);
+                }
+                Ok(msg) => {
+                    error!("unknown message received: {:?}", msg);
+                }
+                Err(e) => {
+                    panic!("unexpected error: {}: {:?}", e, e);
+                }
+            }
         }
     };
     tokio::spawn(printer);
@@ -41,10 +63,15 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
             interval_stream.tick().await;
             // This closure is called once a second.
 
-            // let msg = ToDevice::EchoRequest8((1,2,3,4,5,6,7,8));
-            // let msg = ToDevice::CounterInfoRequest(1);
-            let msg = ToDevice::TimerRequest;
-            println!("sending: {:?}", msg);
+            let now = start.elapsed();
+            let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+            let mut d = vec![];
+            {
+                use byteorder::WriteBytesExt;
+                d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+            }
+            let msg = ToDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+            info!("sending: {:?}", msg);
 
             writer.send(msg).await.unwrap();
         }
@@ -64,33 +91,25 @@ fn make_chan(num: u8, on_state: OnState) -> ChannelState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_tracing_logger::init();
 
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
-        .arg(clap::Arg::with_name("freq").long("freq").takes_value(true))
         .arg(
             clap::Arg::with_name("device")
                 .long("device")
                 .takes_value(true),
         )
         .arg(clap::Arg::with_name("all_leds_on").long("all-leds-on"))
+        .arg(clap::Arg::with_name("all_leds_off").long("all-leds-off"))
         .get_matches();
-
-    let freq_str = matches
-        .value_of("freq")
-        .ok_or(Error::CamtrigError("expected freq".into()))?;
-    let freq_hz: u16 = freq_str.parse()?;
-    println!("freq_hz: {}", freq_hz);
 
     let device_name = matches
         .value_of("device")
         .ok_or(Error::CamtrigError("expected device".into()))?;
-
-    let running = match freq_hz {
-        0 => Running::Stopped,
-        f => Running::ConstantFreq(f),
-    };
 
     let on_state = if matches.occurrences_of("all_leds_on") > 0 {
         OnState::ConstantOn
@@ -99,7 +118,6 @@ async fn main() -> Result<()> {
     };
 
     let next_state = DeviceState {
-        trig: TriggerState { running: running },
         ch1: make_chan(1, on_state),
         ch2: make_chan(2, on_state),
         ch3: make_chan(3, on_state),

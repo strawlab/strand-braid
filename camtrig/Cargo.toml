@@ -2,14 +2,15 @@
 name = "camtrig"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 
 [dependencies]
 clap = "2.25"
 camtrig-comms = {path="../camtrig-comms"}
 thiserror = "1.0"
 log = "0.4"
-env_logger = "0.8"
+env-tracing-logger = {path="../env-tracing-logger"}
 futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["macros","time","rt-multi-thread"]}
 tokio-util = {version="0.6", features=["codec"]}
@@ -17,3 +18,4 @@ bytes = "1.0"
 mini-rxtx = {version="0.1", features=["std"]}
 parking_lot = "0.11"
 tokio-serial = "5.4.0-beta4"
+byteorder = "1.4"

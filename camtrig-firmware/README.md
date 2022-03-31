@@ -8,15 +8,32 @@ Make sure the rust src is installed via rustup:
     rustup component add rust-src
     rustup target add thumbv7em-none-eabihf
 
-You may also find these Debian and Ubuntu packages useful:
-`gdb-arm-none-eabi openocd qemu-system-arm binutils-arm-none-eabi`.
 
-# debugging
+## Debugging with Knurling (`probe-rs`)
 
-    # openocd -f interface/stlink-v2-1.cfg -f target/stm32f3x.cfg
-    openocd -f board/st_nucleo_f3.cfg
+We use the Knurling project to facilitate debugging. `probe-rs` can be used to
+debug the device from a host computer and view log messages send using the
+`defmt` infrastructure.
 
-    arm-none-eabi-gdb target_makefile/thumbv7em-none-eabihf/debug/camtrig
+To see `defmt` messages, compile with the `DEFMT_LOG` environment variable
+set appropriately. (By default, `defmt` will show only error level messages.)
+
+Powershell (Windows)
+```
+$Env:DEFMT_LOG="trace"
+```
+
+Bash (Linux/macOS)
+```
+export DEFMT_LOG=trace
+```
+
+### Probe: onboard STLINKv2
+
+This is the easiest option and works with only a mini-USB cable to your device.
+If `probe-run` returns with `Error: The firmware on the probe is outdated`, you
+can update the STLINKv2 firmware on your Nucleo using a download from
+[st.com](https://www.st.com/en/development-tools/stsw-link007.html).
 
 # License
 
