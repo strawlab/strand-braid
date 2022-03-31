@@ -17,5 +17,5 @@ tokio-util = {version="0.6", features=["codec"]}
 bytes = "1.0"
 mini-rxtx = {version="0.1", features=["std"]}
 parking_lot = "0.11"
-tokio-serial = "5.4.0-beta4"
+tokio-serial = "5.4.3"
 byteorder = "1.4"
