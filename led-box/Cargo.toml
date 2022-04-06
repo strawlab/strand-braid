@@ -15,7 +15,7 @@ futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["macros","time","rt-multi-thread"]}
 tokio-util = {version="0.6", features=["codec"]}
 bytes = "1.0"
-mini-rxtx = {version="0.1", features=["std"]}
+mini-rxtx = {version="0.3", features=["std"]}
 parking_lot = "0.11"
 tokio-serial = "5.4.3"
 byteorder = "1.4"
