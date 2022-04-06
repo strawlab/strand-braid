@@ -465,9 +465,7 @@ pub async fn pre_run(
                 write_controller.stop_saving_data();
             }
 
-            http_session_handler2
-                .send_quit_all()
-                .await;
+            http_session_handler2.send_quit_all().await;
 
             // When we get here, we have successfully sent DoQuit to all cams.
             // We can now quit everything in the mainbrain.
