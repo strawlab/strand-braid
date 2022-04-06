@@ -2,7 +2,8 @@
 name = "strand-cam-pseudo-cal"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [dependencies]
 serde_json = "1.0.29"

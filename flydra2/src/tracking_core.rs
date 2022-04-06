@@ -736,7 +736,6 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
 
                 // Consume all incoming points either into a observation or into unconsumed_points.
 
-                use std::iter::FromIterator;
                 let mut unused_col_idxs =
                     std::collections::BTreeSet::from_iter(0..wantedness.ncols());
 

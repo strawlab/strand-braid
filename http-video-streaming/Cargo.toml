@@ -2,7 +2,8 @@
 name = "http-video-streaming"
 version = "0.1.0"
 authors = ["strawlab"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
 thiserror = "1.0.28"

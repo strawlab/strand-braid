@@ -1,5 +1,4 @@
 use anyhow::Context;
-use std::convert::TryInto;
 
 use log::info;
 use structopt::StructOpt;

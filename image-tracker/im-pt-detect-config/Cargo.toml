@@ -2,7 +2,8 @@
 name = "im-pt-detect-config"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
 image-tracker-types = {path="../image-tracker-types"}

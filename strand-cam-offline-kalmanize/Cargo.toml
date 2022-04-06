@@ -2,7 +2,8 @@
 name = "strand-cam-offline-kalmanize"
 version =  "0.11.1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [dependencies]
 log = { version = "0.4.5", features = ["release_max_level_debug"] }

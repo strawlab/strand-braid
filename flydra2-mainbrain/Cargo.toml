@@ -2,7 +2,8 @@
 name = "flydra2-mainbrain"
 version = "0.20.29"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }

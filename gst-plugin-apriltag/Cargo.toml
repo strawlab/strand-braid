@@ -4,7 +4,8 @@ description = "support for April Tag fiducial markers"
 version = "0.1.0"
 license = "BSD-2-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 repository = "https://github.com/strawlab/strand-braid"
 
 [lib]

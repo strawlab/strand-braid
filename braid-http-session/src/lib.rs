@@ -77,7 +77,6 @@ impl MainbrainSession {
         let body = resp.into_body();
         use futures::stream::StreamExt;
         let chunks: Vec<Result<hyper::body::Bytes, hyper::Error>> = body.collect().await;
-        use std::iter::FromIterator;
         let chunks: Result<Vec<hyper::body::Bytes>, hyper::Error> =
             Result::from_iter(chunks.into_iter());
         let chunks: Vec<hyper::body::Bytes> = chunks?;

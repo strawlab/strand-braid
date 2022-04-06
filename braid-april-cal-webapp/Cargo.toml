@@ -1,7 +1,8 @@
 [package]
 name = "braid-april-cal-webapp"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
