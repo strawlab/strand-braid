@@ -11,5 +11,5 @@ rust-version="1.60"
 afl = {version="0.8",optional=true}
 flydra-mvg = {path=".."}
 mvg = {path="../../mvg"}
-nalgebra = "0.29"
+nalgebra = "0.30"
 anyhow = "1.0"

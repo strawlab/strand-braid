@@ -6,6 +6,6 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-ncollide2d = "0.32"
+ncollide2d = "0.33"
 delaunator = "0.2.0"
-nalgebra = "0.29"
+nalgebra = "0.30"

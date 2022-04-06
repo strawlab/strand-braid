@@ -7,8 +7,8 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-nalgebra = "0.29"
-opencv-ros-camera = "0.11"
+nalgebra = "0.30"
+opencv-ros-camera = "0.12"
 serde = {version="1.0", features=["derive"]}
 
 opencv-calibrate = {path="../opencv-calibrate"}
