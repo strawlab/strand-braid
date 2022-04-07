@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 build = "build.rs"
 homepage = "https://strawlab.org/strand-cam"
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.60"
 
 [lib]
 path = "src/strand-cam.rs"
@@ -123,7 +123,9 @@ default = ["image_tracker", "imtrack-absdiff"]
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
-    "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace"]
+    "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace",
+    "image-tracker?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace",
+    "ci2-pyloncxx?/backtrace", "ci2-vimba?/backtrace"]
 
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
 
@@ -134,10 +136,8 @@ flydra-uds = ["image-tracker/flydra-uds"]
 posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 
 # Serve style
-# FIXME: temporarly remove "rt-image-viewer/bundle_files" from this list because it fails to build
-# if "debug-images" is not enabled.
-bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf" ]
-serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files"]#, "rt-image-viewer/serve_files"]
+bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
+serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2/serve_files"]
 
 # Backend choice
 backend_pyloncxx = ["ci2-pyloncxx"]
@@ -151,14 +151,14 @@ imtrack-absdiff = []
 # Other features
 with_led_box = ["led-box", "led-box-comms", "serialport", "strand-cam-storetype/with_led_box"]
 
-flydratrax = ["mvg", "mvg/backtrace", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg", "flydra-mvg/backtrace",
+flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
     "approx", "strand-cam-storetype/flydratrax", "alga",
-    "flydra2", "flydra2/backtrace", "flydra2/flat-3d", "flydra2/bundle_files", "image_tracker"]
+    "flydra2", "flydra2/flat-3d", "image_tracker"]
 
 # build with the image-tracker, which also requires IPP, fastimage, etc.
-image_tracker = ["image-tracker", "image-tracker/backtrace"]
+image_tracker = ["image-tracker"]
 
-debug-images = ["image-tracker/debug-images", "rt-image-viewer"]
+debug-images = ["image-tracker?/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
 
