@@ -1,0 +1,13 @@
+[package]
+name = "strand-cam-vimba"
+version =  "0.11.1" # braid release synchronized
+edition = "2021"
+rust-version = "1.60"
+
+[dependencies]
+anyhow = "1"
+
+imops = {path="../../imops", optional=true}
+ipp-sys = {version="0.4.4", optional=true}
+
+strand-cam = {path="..", default-features=false, features=["backend_vimba"]}

@@ -137,6 +137,8 @@ mod flydratrax_handle_msg;
 
 mod post_trigger_buffer;
 
+pub mod cli_app;
+
 #[cfg(feature = "with_led_box")]
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 

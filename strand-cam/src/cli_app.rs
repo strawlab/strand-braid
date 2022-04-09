@@ -6,9 +6,9 @@ use std::path::PathBuf;
 
 use clap::Arg;
 
-use strand_cam::{run_app, StrandCamArgs};
+use crate::{run_app, StrandCamArgs};
 
-use strand_cam::APP_INFO;
+use crate::APP_INFO;
 
 type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -20,7 +20,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
         .map(|s| s.into_bytes())
 }
 
-fn main() -> std::result::Result<(), anyhow::Error> {
+pub fn cli_main() -> std::result::Result<(), anyhow::Error> {
     human_panic::setup_panic!(human_panic::Metadata {
         version: format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")).into(),
         name: env!("CARGO_PKG_NAME").into(),
@@ -110,9 +110,9 @@ fn parse_led_box_device(_matches: &clap::ArgMatches) -> Result<Option<String>> {
     Ok(None)
 }
 
-fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<strand_cam::ImPtDetectCfgSource> {
+fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSource> {
     let ai = (&APP_INFO, "object-detection".to_string());
-    let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangedSavedToDisk(ai);
+    let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangedSavedToDisk(ai);
     Ok(tracker_cfg_src)
 }
 
@@ -253,7 +253,7 @@ fn parse_args(
                 Arg::with_name("debug_addr")
                     .long("debug-addr")
                     .help("The port to open the HTTP server for debug images.")
-                    .default_value(strand_cam::DEBUG_ADDR_DEFAULT)
+                    .default_value(crate::DEBUG_ADDR_DEFAULT)
                     .takes_value(true),
             )
         }
@@ -325,11 +325,9 @@ fn parse_args(
     #[cfg(feature = "flydratrax")]
     let flydratrax_calibration_source = {
         match (camera_xml_calibration, camera_pymvg_calibration) {
-            (None, None) => strand_cam::CalSource::PseudoCal,
-            (Some(xml_fname), None) => strand_cam::CalSource::XmlFile(PathBuf::from(xml_fname)),
-            (None, Some(json_fname)) => {
-                strand_cam::CalSource::PymvgJsonFile(PathBuf::from(json_fname))
-            }
+            (None, None) => crate::CalSource::PseudoCal,
+            (Some(xml_fname), None) => crate::CalSource::XmlFile(PathBuf::from(xml_fname)),
+            (None, Some(json_fname)) => crate::CalSource::PymvgJsonFile(PathBuf::from(json_fname)),
             (Some(_), Some(_)) => {
                 anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
             }
@@ -421,7 +419,7 @@ fn parse_args(
 
             let camera_name = camera_name
                 .as_ref()
-                .ok_or(strand_cam::StrandCamError::CameraNameRequired)?;
+                .ok_or(crate::StrandCamError::CameraNameRequired)?;
 
             let camera_name = flydra_types::RawCamName::new(camera_name.to_string());
 
@@ -436,7 +434,7 @@ fn parse_args(
                 camdata_addr
             };
 
-            let tracker_cfg_src = strand_cam::ImPtDetectCfgSource::ChangesNotSavedToDisk(
+            let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
                 remote_info.config.point_detection_config.clone(),
             );
 
