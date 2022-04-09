@@ -304,12 +304,18 @@ build-api-docs:
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
     - NUM_JOBS=2 cargo doc --no-default-features --features serve_files
-    - cd ../..
+    - cd $CI_PROJECT_DIR
 
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - cd $CI_PROJECT_DIR/strand-cam
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 NUM_JOBS=2 cargo doc --features serve_files,backend_pyloncxx,ipp-sys/2019,fiducial,checkercal
-    - cd ..
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      NUM_JOBS=2
+      cargo doc --features serve_files,backend_pyloncxx,ipp-sys/2019,fiducial,checkercal
+    - cd $CI_PROJECT_DIR
 
     # remove potential old output directory
     - rm -rf build
@@ -382,17 +388,23 @@ strand-cam-pylon-ubuntu2004:
 
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/backtrace imops/packed_simd" --release
+
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
-    - ../target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
       - build/
@@ -414,17 +426,23 @@ strand-cam-vimba-ubuntu2004:
 
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_vimba ipp-sys/2019 checkercal fiducial backtrace ci2-vimba/backtrace imops/packed_simd" --release
-    - ldd ../target/release/strand-cam-vimba
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/backtrace imops/packed_simd" --release
+
+    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam-vimba $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
-    - ../target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
   artifacts:
     paths:
       - build/
@@ -448,14 +466,20 @@ py-strandcam-pylon-linux:
     - cd py-strandcam
     - conda env create -f environment.yml
     - conda activate strandcam
-    - cd ..
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-    - cd ../py-strandcam
-    - touch rust/build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pyloncxx IPP_SYS=2019 python setup.py install
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
+
+    - cd $CI_PROJECT_DIR/py-strandcam
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      BACKEND=pyloncxx
+      IPP_SYS=2019
+      python setup.py install
 
 strand-cam-led-box-pylon-ubuntu2004:
   image: ubuntu:focal
@@ -468,21 +492,27 @@ strand-cam-led-box-pylon-ubuntu2004:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
+    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 checkercal fiducial with_led_box backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    - cd ../strand-cam-offline-kalmanize
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/with_led_box strand-cam/backtrace imops/packed_simd" --release
+
+    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-led-box-pylon`.
-    - cp ../target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-led-box-pylon
-    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-led-box-pylon
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
-    - ../target/release/write-debian-changelog strand-cam-led-box-pylon focal > $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-led-box-pylon focal > $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
   artifacts:
     paths:
@@ -498,8 +528,6 @@ braid-offline-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braid-offline
-    # force recomputing git version tag
-    - touch Cargo.toml
     - cargo build --release
 
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -528,8 +556,6 @@ braid-process-video-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-
-    - touch Cargo.toml
     - cargo build --release --features read-mkv
 
     - mkdir -p $CI_PROJECT_DIR/build
@@ -566,8 +592,6 @@ braidz-cli-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
-    # force recomputing git version tag
-    - touch Cargo.toml
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
@@ -645,16 +669,12 @@ braid-ubuntu2004:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    # force recomputing git version tag
-    - touch build.rs
     - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
     # build braid
     - cd $CI_PROJECT_DIR/braid
-    # force recomputing git version tag
-    - touch build.rs
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
     - cp ../target/release/braid $CI_PROJECT_DIR/build
@@ -701,7 +721,6 @@ led-box-firmware:
     - rustup component add rust-src
     - rustup target add thumbv7em-none-eabihf
     - rm -f target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin
-    - touch Cargo.toml # ensure we rebuild it
     - make
     - cp target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin
   artifacts:
