@@ -100,6 +100,20 @@ pub trait CameraModule {
     /// The strings used in [Camera::node_map_load] and [Camera::node_map_save]
     /// would typically be stored in files with this extension.
     fn settings_file_extension(&self) -> &str;
+
+    fn frame_info_extractor(&self) -> &'static dyn ExtractFrameInfo;
+}
+
+pub trait ExtractFrameInfo: Sync + Send {
+    fn extract_frame_info(
+        &self,
+        _frame: &DynamicFrame,
+    ) -> (
+        Option<std::num::NonZeroU64>,
+        Option<std::num::NonZeroU64>,
+        usize,
+        chrono::DateTime<chrono::Utc>,
+    );
 }
 
 // ---------------------------

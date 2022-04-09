@@ -1,14 +1,13 @@
 from setuptools import setup, find_packages
 import os
 
-backend = 'backend_' + os.environ['BACKEND']
 ipp_sys = os.environ['IPP_SYS']
 
 def build_native(spec):
     # Step 1: build the rust library
     build = spec.add_external_build(
         cmd=['cargo', 'build', '--release', '--features',
-            '%s ipp-sys/%s'%(backend,ipp_sys)],
+            'ipp-sys/%s'%(ipp_sys,)],
         path='./rust'
     )
 

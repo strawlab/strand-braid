@@ -20,7 +20,14 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
         .map(|s| s.into_bytes())
 }
 
-pub fn cli_main() -> std::result::Result<(), anyhow::Error> {
+pub fn cli_main<M, C>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+    app_name: &'static str,
+) -> std::result::Result<(), anyhow::Error>
+where
+    M: ci2::CameraModule<CameraType = C>,
+    C: 'static + ci2::Camera + Send,
+{
     human_panic::setup_panic!(human_panic::Metadata {
         version: format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")).into(),
         name: env!("CARGO_PKG_NAME").into(),
@@ -47,9 +54,9 @@ pub fn cli_main() -> std::result::Result<(), anyhow::Error> {
 
     let handle = runtime.handle();
 
-    let args = parse_args(handle)?;
+    let args = parse_args(handle, app_name)?;
 
-    run_app(args)
+    run_app(mymod, args, app_name)
 }
 
 fn get_cli_args() -> Vec<String> {
@@ -118,6 +125,7 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSo
 
 fn parse_args(
     handle: &tokio::runtime::Handle,
+    app_name: &str,
 ) -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let cli_args = get_cli_args();
 
@@ -127,7 +135,7 @@ fn parse_args(
 
     let matches = {
         #[allow(unused_mut)]
-        let mut parser = clap::App::new(env!("APP_NAME"))
+        let mut parser = clap::App::new(app_name)
             .version(version.as_str())
             .arg(
                 Arg::with_name("no_browser")

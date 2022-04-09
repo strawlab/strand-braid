@@ -7,7 +7,13 @@ rust-version = "1.60"
 [dependencies]
 anyhow = "1"
 
-imops = {path="../../imops", optional=true}
 ipp-sys = {version="0.4.4", optional=true}
 
-strand-cam = {path="..", default-features=false, features=["backend_vimba"]}
+imops = {path="../../imops", optional=true}
+ci2-async = { path = "../../ci2-async" }
+ci2-vimba = { path = "../../ci2-vimba" }
+
+strand-cam = {path="..", default-features=false}
+
+[features]
+backtrace = ["anyhow/backtrace", "strand-cam/backtrace", "ci2-vimba/backtrace"]

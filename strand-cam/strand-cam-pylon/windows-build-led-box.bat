@@ -21,6 +21,6 @@ set VPX_STATIC=1
 set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
-cargo build --no-default-features --features strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/with_led_box,ipp-sys/2019,strand-cam/imtrack-absdiff,strand-cam/image_tracker,strand-cam/checkercal,strand-cam/backtrace --release
+cargo build --no-default-features --features strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/with_led_box,ipp-sys/2019,strand-cam/imtrack-absdiff,strand-cam/image_tracker,strand-cam/checkercal,backtrace --release
 
 copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world320.dll ..\..\target\release\

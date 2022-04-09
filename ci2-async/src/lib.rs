@@ -400,4 +400,8 @@ where
     fn settings_file_extension(&self) -> &str {
         self.cam_module.settings_file_extension()
     }
+
+    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
+        self.cam_module.frame_info_extractor()
+    }
 }

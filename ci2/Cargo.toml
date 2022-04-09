@@ -8,6 +8,7 @@ rust-version="1.60"
 [dependencies]
 thiserror = "1.0.28"
 anyhow = "1.0"
+chrono = "0.4"
 
 machine-vision-formats = "0.1"
 ci2-types = {path="ci2-types"}

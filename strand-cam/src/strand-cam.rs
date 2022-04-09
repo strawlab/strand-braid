@@ -10,13 +10,6 @@
 #[macro_use]
 extern crate log;
 
-#[cfg(feature = "backend_aravis")]
-use ci2_aravis as backend;
-#[cfg(feature = "backend_pyloncxx")]
-extern crate ci2_pyloncxx as backend;
-#[cfg(feature = "backend_vimba")]
-use ci2_vimba as backend;
-
 use anyhow::Context;
 
 #[cfg(feature = "fiducial")]
@@ -141,10 +134,6 @@ pub mod cli_app;
 
 #[cfg(feature = "with_led_box")]
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
-
-lazy_static::lazy_static! {
-    static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
-}
 
 pub type Result<M> = std::result::Result<M, StrandCamError>;
 
@@ -692,6 +681,8 @@ fn frame_process_thread(
     debug_image_server_shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
     new_cam_data: flydra_types::RegisterNewCamera,
+    frame_info_extractor: &dyn ci2::ExtractFrameInfo,
+    app_name: &'static str,
 ) -> anyhow::Result<()>
 {
     let is_braid = camdata_addr.is_some();
@@ -1124,28 +1115,10 @@ fn frame_process_thread(
                 }
             }
             Msg::Mframe(frame) => {
-                let extra = frame.extra();
-
-                #[cfg(feature="backend_pyloncxx")]
-                let (device_timestamp, block_id): (u64, u64) = {
-                    let pylon_extra = extra.as_any().downcast_ref::<ci2_pyloncxx::PylonExtra>().unwrap();
-                    (pylon_extra.device_timestamp, pylon_extra.block_id)
-                };
-
-                #[cfg(feature="backend_vimba")]
-                let (device_timestamp, block_id): (u64, u64) = {
-                    let vimba_extra = extra.as_any().downcast_ref::<ci2_vimba::VimbaExtra>().unwrap();
-                    (vimba_extra.device_timestamp, vimba_extra.frame_id)
-                };
-
-                #[cfg(not(any(feature="backend_pyloncxx", feature="backend_vimba")))]
-                let (device_timestamp, block_id): (u64, u64) = (0,0);
-
-                let device_timestamp = std::num::NonZeroU64::new(device_timestamp);
-                let block_id = std::num::NonZeroU64::new(block_id);
+                let (device_timestamp, block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
 
                 if let Some(new_fps) = fps_calc
-                    .update(extra.host_framenumber(), extra.host_timestamp()) {
+                    .update(fno, stamp) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write();
                         tracker.modify(|tracker| {
@@ -1386,21 +1359,7 @@ fn frame_process_thread(
                     {
                     if is_doing_object_detection {
 
-                        #[cfg(feature = "backend_pyloncxx")]
-                        let (device_timestamp, block_id): (u64, u64) = {
-                            let pylon_extra = frame
-                                .extra()
-                                .as_any()
-                                .downcast_ref::<ci2_pyloncxx::PylonExtra>()
-                                .unwrap();
-                            (pylon_extra.device_timestamp, pylon_extra.block_id)
-                        };
-
-                        #[cfg(not(feature = "backend_pyloncxx"))]
-                        let (device_timestamp, block_id): (u64, u64) = (0, 0);
-
-                        let device_timestamp = std::num::NonZeroU64::new(device_timestamp);
-                        let block_id = std::num::NonZeroU64::new(block_id);
+                        let (device_timestamp, block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
 
                         let inner_ufmf_state = ufmf_state.take().unwrap();
                         // Detect features in the image and send them to the
@@ -1507,7 +1466,7 @@ fn frame_process_thread(
                                 // save configuration as commented yaml
                                 {
                                     let save_cfg = SaveCfgFview2_0_25 {
-                                        name: env!("APP_NAME").to_string(),
+                                        name: app_name.to_string(),
                                         version: env!("CARGO_PKG_VERSION").to_string(),
                                         git_hash: env!("GIT_HASH").to_string(),
                                     };
@@ -2297,10 +2256,11 @@ fn run_led_box(
 async fn check_version(
     client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
     known_version: Arc<RwLock<semver::Version>>,
+    app_name: &'static str,
 ) -> hyper::Result<()> {
-    let url = format!("https://version-check.strawlab.org/{}", env!("APP_NAME"));
+    let url = format!("https://version-check.strawlab.org/{}", app_name);
     let url = url.parse::<hyper::Uri>().unwrap();
-    let agent = format!("{}/{}", env!("APP_NAME"), *known_version.read());
+    let agent = format!("{}/{}", app_name, *known_version.read());
 
     let req = hyper::Request::builder()
         .uri(&url)
@@ -2360,9 +2320,7 @@ async fn check_version(
     if version.available > *known_v {
         info!(
             "New version of {} is available: {}. {}",
-            env!("APP_NAME"),
-            version.available,
-            version.message
+            app_name, version.available, version.message
         );
         *known_v = version.available;
     }
@@ -2568,7 +2526,15 @@ impl Default for StrandCamArgs {
     }
 }
 
-pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
+pub fn run_app<M, C>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+    args: StrandCamArgs,
+    app_name: &'static str,
+) -> std::result::Result<(), anyhow::Error>
+where
+    M: ci2::CameraModule<CameraType = C>,
+    C: 'static + ci2::Camera + Send,
+{
     let handle = args
         .handle
         .clone()
@@ -2577,7 +2543,7 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
     let my_handle = handle.clone();
 
     let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
-        handle.block_on(setup_app(my_handle, args))?;
+        handle.block_on(setup_app(mymod, my_handle, args, app_name))?;
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
@@ -2607,12 +2573,17 @@ pub fn run_app(args: StrandCamArgs) -> std::result::Result<(), anyhow::Error> {
 // rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
 // correct bug.
 #[rustfmt::skip]
-pub async fn setup_app(
+pub async fn setup_app<M,C>(
+    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     rt_handle: tokio::runtime::Handle,
-    args: StrandCamArgs)
+    args: StrandCamArgs,
+    app_name: &'static str,
+)
     -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, StrandCamApp)>
+    where
+        M: ci2::CameraModule<CameraType = C>,
+        C: 'static + ci2::Camera + Send,
 {
-
     let target_feature_string = target_features::target_features().join(", ");
     info!("Compiled with features: {}", target_feature_string);
 
@@ -2623,8 +2594,6 @@ pub async fn setup_app(
     debug!("CLI request for camera {:?}", args.camera_name);
 
     // -----------------------------------------------
-
-    let mut mymod = ci2_async::into_threaded_async(&*CAMLIB);
 
     info!("camera module: {}", mymod.name());
 
@@ -2642,7 +2611,8 @@ pub async fn setup_app(
         None => cam_infos[0].name(),
     };
 
-    let settings_file_ext = (&*CAMLIB).settings_file_extension().to_string();
+    let frame_info_extractor = mymod.frame_info_extractor();
+    let settings_file_ext = mymod.settings_file_extension().to_string();
 
     let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
@@ -3195,6 +3165,8 @@ pub async fn setup_app(
                     Some(debug_image_shutdown_rx),
                     acquisition_duration_allowed_imprecision_msec,
                     new_cam_data,
+                    frame_info_extractor,
+                    app_name,
                 ));
         })?;
         debug!("waiting for frame acquisition thread to start");
@@ -3322,7 +3294,7 @@ pub async fn setup_app(
         info!("Welcome to {} {}. For more details \
             contact Andrew Straw <straw@bio.uni-freiburg.de>. This program will check for new \
             versions automatically. To disable printing this message and checking for new \
-            versions, set the environment variable DISABLE_VERSION_CHECK=1.", env!("APP_NAME"),
+            versions, set the environment variable DISABLE_VERSION_CHECK=1.", app_name,
             app_version);
 
         // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
@@ -3344,7 +3316,7 @@ pub async fn setup_app(
                 let client = hyper::Client::builder()
                     .build::<_, hyper::Body>(https);
 
-                let r = check_version(client, known_version2.clone()).await;
+                let r = check_version(client, known_version2.clone(), app_name).await;
                 match r {
                     Ok(()) => {}
                     Err(e) => {error!("error checking version: {}",e);}

@@ -314,7 +314,7 @@ build-api-docs:
       PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
       IPP_STATIC=1
       NUM_JOBS=2
-      cargo doc --features serve_files,backend_pyloncxx,ipp-sys/2019,fiducial,checkercal
+      cargo doc --features serve_files,ipp-sys/2019,fiducial,checkercal
     - cd $CI_PROJECT_DIR
 
     # remove potential old output directory
@@ -397,7 +397,7 @@ strand-cam-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -435,7 +435,7 @@ strand-cam-vimba-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -477,7 +477,6 @@ py-strandcam-pylon-linux:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      BACKEND=pyloncxx
       IPP_SYS=2019
       python setup.py install
 
@@ -501,7 +500,7 @@ strand-cam-led-box-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/with_led_box strand-cam/backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/with_led_box backtrace imops/packed_simd" --release
 
     - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
     - cargo build --release

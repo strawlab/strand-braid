@@ -8,4 +8,4 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo build --no-default-features --features strand-cam/bundle_files,strand-cam/backtrace,imops/packed_simd --release
+cargo build --no-default-features --features strand-cam/bundle_files,backtrace,imops/packed_simd --release

@@ -182,6 +182,12 @@ pub unsafe extern "C" fn strandcam_err_clear() {
 #[error("strandcam panicked: {0}")]
 pub struct Panic(String);
 
+const APP_NAME: &str = "py-strandcam-pylon";
+
+lazy_static::lazy_static! {
+    static ref PYLON_MODULE: ci2_pyloncxx::WrappedModule = ci2_pyloncxx::new_module().unwrap();
+}
+
 /// Register a global process frame callback and run the app.
 #[no_mangle]
 pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(
@@ -195,7 +201,9 @@ pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(
         };
         let mut args = strand_cam::StrandCamArgs::default();
         args.process_frame_callback = Some(cb_data);
-        match strand_cam::run_app(args) {
+
+        let mymod = ci2_async::into_threaded_async(&*PYLON_MODULE);
+        match strand_cam::run_app(mymod, args, APP_NAME) {
             Ok(()) => {}
             Err(e) => {
                 set_last_error(e);

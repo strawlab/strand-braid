@@ -333,6 +333,39 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
     fn settings_file_extension(&self) -> &str {
         "xml"
     }
+
+    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
+        &*FRAME_INFO
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref FRAME_INFO: VimbaFrameInfo = VimbaFrameInfo {};
+}
+
+struct VimbaFrameInfo {}
+
+impl ci2::ExtractFrameInfo for VimbaFrameInfo {
+    fn extract_frame_info(
+        &self,
+        frame: &DynamicFrame,
+    ) -> (
+        Option<std::num::NonZeroU64>,
+        Option<std::num::NonZeroU64>,
+        usize,
+        chrono::DateTime<chrono::Utc>,
+    ) {
+        use timestamped_frame::ExtraTimeData;
+        let extra = frame.extra();
+
+        let vimba_extra = extra.as_any().downcast_ref::<VimbaExtra>().unwrap();
+        (
+            std::num::NonZeroU64::new(vimba_extra.device_timestamp),
+            std::num::NonZeroU64::new(vimba_extra.frame_id),
+            extra.host_framenumber(),
+            extra.host_timestamp(),
+        )
+    }
 }
 
 #[derive(Debug)]
