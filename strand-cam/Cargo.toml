@@ -122,7 +122,7 @@ posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 
 # Serve style
 bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
-serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2/serve_files"]
+serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2?/serve_files"]
 
 # Tune defaults in image-tracker
 imtrack-dark-circle = []
