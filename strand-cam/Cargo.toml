@@ -66,13 +66,13 @@ http-video-streaming = {path = "../http-video-streaming"}
 semver = { version = "1", features = ["serde"] }
 shellexpand = "2"
 imops = {path="../imops"}
-led-box = {path="../led-box", optional=true}
-led-box-comms = {path="../led-box-comms", optional=true}
+led-box = {path="../led-box"}
+led-box-comms = {path="../led-box-comms"}
 flydra-types = {path="../flydra-types", features=["with-dns"]}
 flydra2 = {path="../flydra2", default-features = false, optional=true}
 mvg = {path="../mvg", optional=true}
 flydra-mvg = {path="../flydra-mvg", optional=true}
-tokio-serial = { version = "5.4.3", optional = true }
+tokio-serial = { version = "5.4.3"}
 bytes = "1.0"
 nalgebra = {version="0.30", optional = true }
 opencv-ros-camera = "0.12"
@@ -127,9 +127,6 @@ serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "fl
 # Tune defaults in image-tracker
 imtrack-dark-circle = []
 imtrack-absdiff = []
-
-# Other features
-with_led_box = ["led-box", "led-box-comms", "tokio-serial", "strand-cam-storetype/with_led_box"]
 
 flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
     "approx", "strand-cam-storetype/flydratrax", "alga",

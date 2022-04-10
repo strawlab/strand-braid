@@ -10,12 +10,7 @@ use std::{
 
 use ci2_remote_control::CamArg;
 
-#[cfg(feature = "with_led_box")]
 use led_box_comms::ToDevice as ToLedBoxDevice;
-
-#[cfg(not(feature = "with_led_box"))]
-#[allow(dead_code)]
-type ToLedBoxDevice = std::marker::PhantomData<u8>;
 
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +53,6 @@ use ads_webasm::components::{
 };
 use yew_tincture::components::Button;
 
-#[cfg(feature = "with_led_box")]
 use components::LedBoxControl;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
@@ -125,7 +119,6 @@ enum Msg {
     // only used when image-tracker crate used
     ClearBackground(f32),
 
-    #[cfg(feature = "with_led_box")]
     LedBoxControlEvent(ToLedBoxDevice),
 
     #[cfg(feature = "checkercal")]
@@ -544,7 +537,6 @@ impl Component for Model {
                 self.send_message(CallbackType::ClearBackground(value), ctx);
                 return false; // don't update DOM, do that on return
             }
-            #[cfg(feature = "with_led_box")]
             Msg::LedBoxControlEvent(command) => {
                 self.send_message(CallbackType::ToLedBox(command), ctx);
                 return false; // don't update DOM, do that on return
@@ -674,7 +666,6 @@ impl Model {
         }
     }
 
-    #[cfg(feature = "with_led_box")]
     fn view_led_box(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             if let Some(ref device_state) = shared.led_box_device_state {
@@ -686,13 +677,6 @@ impl Model {
                 };
             }
         }
-        html! {
-            <div>{""}</div>
-        }
-    }
-
-    #[cfg(not(feature = "with_led_box"))]
-    fn view_led_box(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <div>{""}</div>
         }
@@ -767,16 +751,6 @@ impl Model {
         }
     }
 
-    #[cfg(not(feature = "with_led_box"))]
-    fn led_box_failed(&self) -> Html {
-        html! {
-            <div>
-                { "" }
-            </div>
-        }
-    }
-
-    #[cfg(feature = "with_led_box")]
     fn led_box_failed(&self) -> Html {
         let led_box_device_lost = if let Some(ref shared) = self.server_state {
             shared.led_box_device_lost

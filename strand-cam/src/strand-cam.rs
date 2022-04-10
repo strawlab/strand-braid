@@ -77,7 +77,6 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-#[cfg(feature = "with_led_box")]
 use strand_cam_storetype::ToLedBoxDevice;
 use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
 
@@ -132,7 +131,6 @@ mod post_trigger_buffer;
 
 pub mod cli_app;
 
-#[cfg(feature = "with_led_box")]
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
 pub type Result<M> = std::result::Result<M, StrandCamError>;
@@ -233,7 +231,6 @@ pub enum StrandCamError {
     #[error("thread done")]
     ThreadDone,
 
-    #[cfg(feature = "with_led_box")]
     #[error("{0}")]
     SerialportError(
         #[from]
@@ -281,7 +278,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "with_led_box", feature = "plugin-process-frame"))]
+    #[cfg(feature = "plugin-process-frame")]
     fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
     where
         E: std::convert::Into<anyhow::Error>,
@@ -292,7 +289,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(any(feature = "with_led_box", feature = "plugin-process-frame"))]
+    #[cfg(feature = "plugin-process-frame")]
     fn fail(&self, e: anyhow::Error) -> ! {
         display_err(
             e,
@@ -666,7 +663,6 @@ fn frame_process_thread(
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
-    #[cfg(feature = "with_led_box")]
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
@@ -676,7 +672,7 @@ fn frame_process_thread(
     debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
-    led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
+    led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     do_process_frame_callback: bool,
     collected_corners_arc: CollectedCornersArc,
     save_empty_data2d: SaveEmptyData2dType,
@@ -1522,7 +1518,6 @@ fn frame_process_thread(
                                     let mut led1 = "".to_string();
                                     let mut led2 = "".to_string();
                                     let mut led3 = "".to_string();
-                                    #[cfg(feature="with_led_box")]
                                     {
                                         if let Some(ref store) = store_cache {
                                             if let Some(ref device_state) = store.led_box_device_state {
@@ -1663,10 +1658,8 @@ fn frame_process_thread(
                     }
                 }
 
-                #[cfg(feature="with_led_box")]
                 // check led_box device heartbeat
-                {
-                    let reader = led_box_heartbeat_update_arc.read();
+                if let Some(reader) = *led_box_heartbeat_update_arc.read() {
                     let elapsed = reader.elapsed();
                     if elapsed > std::time::Duration::from_millis(2*LED_BOX_HEARTBEAT_INTERVAL_MSEC) {
 
@@ -1808,7 +1801,7 @@ fn frame_process_thread(
     Ok(())
 }
 
-#[cfg(feature = "with_led_box")]
+#[cfg(feature="image_tracker")]
 fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16 {
     let ch: &led_box_comms::ChannelState = match chan_num {
         1 => &device_state.ch1,
@@ -1839,7 +1832,7 @@ impl StrandCamApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        #[cfg(feature = "with_led_box")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
+        led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
         tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -1910,10 +1903,7 @@ impl StrandCamApp {
                     CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
                         // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
                         info!("in led_box callback: {:?}", led_box_arg);
-                        #[cfg(feature = "with_led_box")]
                         led_box_tx_std.send(led_box_arg).await.unwrap();
-                        #[cfg(not(feature = "with_led_box"))]
-                        log::error!("ignoring command for led_box: {:?}", led_box_arg);
                     }),
                 }
                 futures::future::ok(())
@@ -2506,10 +2496,9 @@ pub async fn setup_app<M,C>(
     let transmit_msg_tx = mainbrain_info.as_ref().map(|i| i.transmit_msg_tx.clone());
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
-    #[cfg(feature = "with_led_box")]
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
 
-    let led_box_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
+    let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
 
     let gain_ranged = RangedValue {
         name: "gain".into(),
@@ -2708,7 +2697,6 @@ pub async fn setup_app<M,C>(
         kalman_tracking_config,
         #[cfg(feature="flydratrax")]
         led_program_config,
-        #[cfg(feature="with_led_box")]
         led_box_device_lost: false,
         led_box_device_state: None,
         led_box_device_path: args.led_box_device_path,
@@ -2762,7 +2750,6 @@ pub async fn setup_app<M,C>(
         &http_server_addr,
         config,
         cam_args_tx2.clone(),
-        #[cfg(feature = "with_led_box")]
         led_box_tx_std.clone(),
         tx_frame3,
         valve.clone(),
@@ -2813,7 +2800,6 @@ pub async fn setup_app<M,C>(
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature="flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
-        #[cfg(feature = "with_led_box")]
         let led_box_tx_std = led_box_tx_std.clone();
         let http_camserver_info2 = http_camserver_info.clone();
         let led_box_heartbeat_update_arc2 = led_box_heartbeat_update_arc.clone();
@@ -2873,7 +2859,6 @@ pub async fn setup_app<M,C>(
                     plugin_handler_thread_tx,
                     plugin_result_rx,
                     plugin_wait_dur,
-                    #[cfg(feature = "with_led_box")]
                     led_box_tx_std,
                     flag,
                     is_starting,
@@ -3833,7 +3818,6 @@ pub async fn setup_app<M,C>(
 
     debug!("  running forever");
 
-    #[cfg(feature = "with_led_box")]
     {
         // run LED Box stuff here
 
@@ -3870,110 +3854,105 @@ pub async fn setup_app<M,C>(
         let port = {
             let tracker = shared_store_arc.read();
             let shared = tracker.as_ref();
-            match shared.led_box_device_path {
-                Some(ref serial_device) => {
-                    // // open with default settings 9600 8N1
-                    // serialport::open_with_settings(serial_device, &settings)?
+            if let Some(serial_device) = shared.led_box_device_path.as_ref() {
+                // open with default settings 9600 8N1
+                #[allow(unused_mut)]
+                let mut port = tokio_serial::new(serial_device, 9600)
+                    .open_native_async()
+                    .unwrap();
 
-                    #[allow(unused_mut)]
-                    let mut port = tokio_serial::new(serial_device, 9600)
-                        .open_native_async()
-                        .unwrap();
-
-                    #[cfg(unix)]
-                    port.set_exclusive(false)
-                        .expect("Unable to set serial port exclusive to false");
-                    port
-                }
-                None => {
-                    anyhow::bail!(
-                        "no led_box device path given");
-                }
+                #[cfg(unix)]
+                port.set_exclusive(false)
+                    .expect("Unable to set serial port exclusive to false");
+                Some(port)
+            } else {
+                None
             }
         };
 
-        // wrap port with codec
-        let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
+        if let Some(port) = port {
 
-        // handle messages from the device
-        let from_device_task = async move {
-            while let Some(msg) = tokio_stream::StreamExt::next(&mut reader).await {
-                match msg {
-                    Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
-                        let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
-                        let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
-                            byteorder::LittleEndian,
-                        >(&mut std::io::Cursor::new(buf))
-                        .unwrap();
+            // wrap port with codec
+            let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
 
-                        let now = start_led_box_instant.elapsed();
-                        let now_millis: u64 =
-                            (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
-                        debug!("LED box round trip time: {} msec", now_millis - sent_millis);
+            // handle messages from the device
+            let from_device_task = async move {
+                while let Some(msg) = tokio_stream::StreamExt::next(&mut reader).await {
+                    match msg {
+                        Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
+                            let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
+                            let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
+                                byteorder::LittleEndian,
+                            >(&mut std::io::Cursor::new(buf))
+                            .unwrap();
 
-                        info!("LED Box round trip time: {} msec", now_millis - sent_millis);
+                            let now = start_led_box_instant.elapsed();
+                            let now_millis: u64 =
+                                (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                            debug!("LED box round trip time: {} msec", now_millis - sent_millis);
 
-                        // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
-                        let mut led_box_heartbeat_update =
-                            led_box_heartbeat_update_arc.write();
-                        *led_box_heartbeat_update = std::time::Instant::now();
+                            info!("LED Box round trip time: {} msec", now_millis - sent_millis);
 
+                            // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
+                            let mut led_box_heartbeat_update =
+                                led_box_heartbeat_update_arc.write();
+                            *led_box_heartbeat_update = Some(std::time::Instant::now());
 
-                    }
-                    Ok(msg) => {
-                        todo!("Did not handle {:?}", msg);
-                        // error!("unknown message received: {:?}", msg);
-                    }
-                    Err(e) => {
-                        panic!("unexpected error: {}: {:?}", e, e);
+                        }
+                        Ok(msg) => {
+                            todo!("Did not handle {:?}", msg);
+                            // error!("unknown message received: {:?}", msg);
+                        }
+                        Err(e) => {
+                            panic!("unexpected error: {}: {:?}", e, e);
+                        }
                     }
                 }
-            }
-        };
-        tokio::spawn(from_device_task); // todo: keep join handle
+            };
+            tokio::spawn(from_device_task); // todo: keep join handle
 
-        // handle messages to the device
-        let to_device_task = async move {
-            while let Some(msg) = led_box_rx.recv().await {
-                // send message to device
-                writer.send(msg).await.unwrap();
-                // copy new device state and store it to our cache
-                match msg {
-                    ToLedBoxDevice::DeviceState(new_state) => {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.led_box_device_state = Some(new_state);
-                        })
-                    }
-                    _ => {}
-                };
-            }
-        };
-        tokio::spawn(to_device_task); // todo: keep join handle
+            // handle messages to the device
+            let to_device_task = async move {
+                while let Some(msg) = led_box_rx.recv().await {
 
-        // heartbeat task
-        let heartbeat_task = async move {
-            let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(LED_BOX_HEARTBEAT_INTERVAL_MSEC));
-            loop {
-                interval_stream.tick().await;
-
-                let now = start_led_box_instant.elapsed();
-                let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
-                let mut d = vec![];
-                {
-                    use byteorder::WriteBytesExt;
-                    d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+                    // send message to device
+                    writer.send(msg).await.unwrap();
+                    // copy new device state and store it to our cache
+                    match msg {
+                        ToLedBoxDevice::DeviceState(new_state) => {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.led_box_device_state = Some(new_state);
+                            })
+                        }
+                        _ => {}
+                    };
                 }
-                let msg = ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
-                debug!("sending: {:?}", msg);
+            };
+            tokio::spawn(to_device_task); // todo: keep join handle
 
-                info!("LED Box requesting heartbeat ❤️ ❤️ ❤️");
 
-                led_box_tx_std.send(msg).await.unwrap();
-            }
-        };
-        tokio::spawn(heartbeat_task); // todo: keep join handle
+            // heartbeat task
+            let heartbeat_task = async move {
+                let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(LED_BOX_HEARTBEAT_INTERVAL_MSEC));
+                loop {
+                    interval_stream.tick().await;
 
+                    let now = start_led_box_instant.elapsed();
+                    let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                    let mut d = vec![];
+                    {
+                        use byteorder::WriteBytesExt;
+                        d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+                    }
+                    let msg = ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+                    debug!("sending: {:?}", msg);
+
+                    led_box_tx_std.send(msg).await.unwrap();
+                }
+            };
+            tokio::spawn(heartbeat_task); // todo: keep join handle
+        }
 
     }
 

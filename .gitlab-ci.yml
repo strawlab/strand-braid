@@ -480,6 +480,26 @@ py-strandcam-pylon-linux:
       IPP_SYS=2019
       python setup.py install
 
+strand-cam-offline-kalmanize-ubuntu2004:
+  image: ubuntu:focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - export RUSTFLAGS="-D warnings"
+
+    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
+    - cargo build --release
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+  artifacts:
+    paths:
+      - build/
+
 strand-cam-led-box-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
@@ -500,7 +520,7 @@ strand-cam-led-box-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/with_led_box backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
 
     - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
     - cargo build --release
@@ -747,6 +767,7 @@ strand-braid-ubuntu-2004:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l ../build
+    - ldd ../build/strand-cam-offline-kalmanize
     - ldd ../build/strand-cam-led-box-pylon
     - ldd ../build/strand-cam-pylon
     - ldd ../build/strand-cam-vimba
@@ -766,6 +787,7 @@ strand-braid-ubuntu-2004:
     - fmf-cli-ubuntu2004
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
+    - strand-cam-offline-kalmanize-ubuntu2004
     - strand-cam-led-box-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the

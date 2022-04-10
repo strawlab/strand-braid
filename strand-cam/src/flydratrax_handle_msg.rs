@@ -4,7 +4,6 @@ use crate::*;
 
 use flydra2::{SendKalmanEstimatesRow, SendType};
 
-#[cfg(feature = "with_led_box")]
 use strand_cam_storetype::LedProgramConfig;
 
 pub(crate) struct FlydraTraxServer {
@@ -100,7 +99,6 @@ pub async fn flydratrax_handle_msg(
             SendType::EndOfFrame(_fno) => {}
         }
 
-        #[cfg(feature = "with_led_box")]
         {
             let led_program_config: LedProgramConfig = {
                 let store = ssa2.read();

@@ -20,17 +20,9 @@ pub struct RangedValue {
     pub max: f64,
 }
 
-#[cfg(feature = "with_led_box")]
 use led_box_comms::DeviceState;
 
-#[cfg(not(feature = "with_led_box"))]
-type DeviceState = std::marker::PhantomData<u8>;
-
-#[cfg(feature = "with_led_box")]
 pub use led_box_comms::ToDevice as ToLedBoxDevice;
-
-#[cfg(not(feature = "with_led_box"))]
-pub type ToLedBoxDevice = std::marker::PhantomData<u8>;
 
 pub const STRAND_CAM_EVENTS_URL_PATH: &str = "/strand-cam-events";
 pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
@@ -81,7 +73,6 @@ pub struct StoreType {
     pub kalman_tracking_config: KalmanTrackingConfig,
     #[cfg(feature = "flydratrax")]
     pub led_program_config: LedProgramConfig,
-    #[cfg(feature = "with_led_box")]
     pub led_box_device_lost: bool,
     pub led_box_device_state: Option<DeviceState>,
     pub led_box_device_path: Option<String>,

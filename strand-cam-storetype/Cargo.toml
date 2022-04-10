@@ -10,7 +10,7 @@ serde = {version = "1.0", default-features = false, features=["derive"]}
 serde_json = "1.0"
 serde_yaml = "0.8"
 
-led-box-comms = {path="../led-box-comms", optional=true}
+led-box-comms = {path="../led-box-comms"}
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control"}
 image-tracker-types = {path = "../image-tracker/image-tracker-types"}
@@ -26,6 +26,3 @@ collections = ["alloc"]
 const_fn = []
 flydratrax = []
 checkercal = []
-
-# led-box device
-with_led_box = ["led-box-comms"]
