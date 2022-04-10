@@ -1,4 +1,4 @@
-use channellib::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::*;
 
@@ -8,11 +8,11 @@ use flydra2::{SendKalmanEstimatesRow, SendType};
 use strand_cam_storetype::LedProgramConfig;
 
 pub(crate) struct FlydraTraxServer {
-    model_sender: Sender<SendType>,
+    model_sender: UnboundedSender<SendType>,
 }
 
 impl FlydraTraxServer {
-    pub(crate) fn new(model_sender: Sender<SendType>) -> Self {
+    pub(crate) fn new(model_sender: UnboundedSender<SendType>) -> Self {
         Self { model_sender }
     }
 }
@@ -30,12 +30,12 @@ impl flydra2::GetsUpdates for FlydraTraxServer {
     }
 }
 
-pub fn flydratrax_handle_msg(
+pub async fn flydratrax_handle_msg(
     cam_cal: mvg::Camera<MyFloat>,
-    model_receiver: channellib::Receiver<flydra2::SendType>,
+    mut model_receiver: tokio::sync::mpsc::UnboundedReceiver<flydra2::SendType>,
     #[allow(unused_variables)] led_state: &mut bool,
     #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    #[allow(unused_variables)] led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
+    #[allow(unused_variables)] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
@@ -45,9 +45,9 @@ pub fn flydratrax_handle_msg(
     let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
 
     loop {
-        let msg = match model_receiver.recv() {
-            Ok(msg) => msg,
-            Err(channellib::RecvError { .. }) => return Ok(()), // sender hung up - we are done.
+        let msg = match model_receiver.recv().await {
+            Some(msg) => msg,
+            None => break, // sender hung up - we are done.
         };
         debug!("got model msg: {:?}", msg);
 
@@ -173,11 +173,11 @@ pub fn flydratrax_handle_msg(
                         }
                     }
                     let msg = led_box_comms::ToDevice::DeviceState(device_state);
-                    led_box_tx_std.send(msg).cb_ok();
+                    led_box_tx_std.send(msg).await.unwrap();
                 }
                 *led_state = next_led_state;
             }
         }
     }
-    // unreachable here, loop above never breaks and returns on error
+    Ok(())
 }

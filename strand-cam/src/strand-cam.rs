@@ -235,7 +235,11 @@ pub enum StrandCamError {
 
     #[cfg(feature = "with_led_box")]
     #[error("{0}")]
-    SerialportError(#[from] serialport::Error),
+    SerialportError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        tokio_serial::Error,
+    ),
 
     #[error("A camera name is required")]
     CameraNameRequired,
@@ -663,7 +667,7 @@ fn frame_process_thread(
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
     plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "with_led_box")]
-    led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
+    led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     flag: thread_control::Flag,
     is_starting: Arc<bool>,
     http_camserver_info: BuiServerInfo,
@@ -926,7 +930,7 @@ fn frame_process_thread(
                                 maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
                                 let (flydra2_tx, flydra2_rx) = futures::channel::mpsc::channel(100);
 
-                                let (model_sender, model_receiver) = channellib::unbounded();
+                                let (model_sender, model_receiver) = tokio::sync::mpsc::unbounded_channel();
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let led_box_tx_std2 = led_box_tx_std.clone();
@@ -936,17 +940,16 @@ fn frame_process_thread(
                                 assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
 
-                                // TODO: add flag and control to kill thread on shutdown
-                                // TODO: convert this to a future on our runtime?
-                                std::thread::Builder::new().name("flydratrax_handle_msg".to_string()).spawn(move || { // flydratrax ignore for now
-                                    let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-                                    // let cam_cal = thread_closer.check(cal_data.to_cam().map_err(|e| anyhow::Error::new(Box::new(e)))); // camera calibration
-                                    let kalman_tracking_config = kalman_tracking_config2.clone();
-                                    thread_closer.maybe_err(flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
-                                            model_receiver,
-                                            &mut led_state, ssa2, led_box_tx_std2,
-                                            ).map_err(|e| anyhow::Error::new(Box::new(e))));
-                                })?;
+                                // TODO: kill task on shutdown
+                                let msg_handler_fut = async move {
+                                    flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
+                                        model_receiver,
+                                        &mut led_state, ssa2, led_box_tx_std2,
+                                        )
+                                    .await
+                                    .map_err(|e| anyhow::Error::new(Box::new(e))).unwrap();
+                                };
+                                tokio::spawn(msg_handler_fut); // todo: keep join handle
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
@@ -1836,7 +1839,7 @@ impl StrandCamApp {
         http_server_addr: &str,
         config: Config,
         cam_args_tx: mpsc::Sender<CamArg>,
-        #[cfg(feature = "with_led_box")] led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
+        #[cfg(feature = "with_led_box")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
         tx_frame: channellib::Sender<Msg>,
         valve: stream_cancel::Valve,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
@@ -1907,7 +1910,7 @@ impl StrandCamApp {
                     CallbackType::ToLedBox(led_box_arg) => {
                         info!("in led_box callback: {:?}", led_box_arg);
                         #[cfg(feature = "with_led_box")]
-                        led_box_tx_std.send(led_box_arg).cb_ok();
+                        led_box_tx_std.blocking_send(led_box_arg).unwrap();
                         #[cfg(not(feature = "with_led_box"))]
                         log::error!("ignoring command for led_box: {:?}", led_box_arg);
                     }
@@ -1943,58 +1946,12 @@ impl StrandCamApp {
         Ok((firehose_callback_rx, my_app))
     }
 
-    /// Spawn the led_box thread (if compiled to do so).
-    ///
-    /// In the case of #[cfg(feature="with-led_box")], this will spawn
-    /// the serial thread that communicates with the led_box device.
-    /// Otherwise, does very little and `sjh` is essentially empty.
-    #[cfg(feature = "with_led_box")]
-    fn maybe_spawn_led_box_thread(
-        &self,
-        led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
-        led_box_rx: channellib::Receiver<ToLedBoxDevice>,
-        led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
-        cam_args_tx: mpsc::Sender<CamArg>,
-    ) -> Result<SerialJoinHandles> {
-        run_led_box(
-            self.inner.shared_arc().clone(), // shared_store_arc
-            led_box_tx_std,
-            led_box_rx,
-            led_box_heartbeat_update_arc,
-            cam_args_tx,
-        )
-    }
-
     fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
         &self.inner
     }
     // fn inner_mut(&mut self) -> &mut BuiAppInner<StoreType, CallbackType> {
     //     &mut self.inner
     // }
-}
-
-#[cfg(feature = "with_led_box")]
-struct SerialJoinHandles {
-    serial_read_cjh: ControlledJoinHandle<()>,
-    serial_write_cjh: ControlledJoinHandle<()>,
-    serial_heartbeat_cjh: ControlledJoinHandle<()>,
-}
-
-#[cfg(feature = "with_led_box")]
-impl SerialJoinHandles {
-    fn close_and_join_all(self) -> std::thread::Result<()> {
-        self.serial_read_cjh.close_and_join()?;
-        self.serial_write_cjh.close_and_join()?;
-        self.serial_heartbeat_cjh.close_and_join()?;
-        Ok(())
-    }
-    fn stoppers(&self) -> Vec<thread_control::Control> {
-        vec![
-            self.serial_read_cjh.control.clone(),
-            self.serial_write_cjh.control.clone(),
-            self.serial_heartbeat_cjh.control.clone(),
-        ]
-    }
 }
 
 #[cfg(feature = "fiducial")]
@@ -2020,237 +1977,6 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
         )),
         _ => None,
     }
-}
-
-#[cfg(feature = "with_led_box")]
-fn run_led_box(
-    shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
-    led_box_tx_std: channellib::Sender<ToLedBoxDevice>,
-    led_box_rx: channellib::Receiver<ToLedBoxDevice>,
-    led_box_heartbeat_update_arc: Arc<RwLock<std::time::Instant>>,
-    tx_cam_arg: mpsc::Sender<CamArg>,
-) -> Result<SerialJoinHandles> {
-    use led_box::LedBoxCodec;
-    use led_box_comms::{ChannelState, DeviceState, OnState};
-
-    fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-        let intensity = led_box_comms::MAX_INTENSITY;
-        ChannelState {
-            num,
-            intensity,
-            on_state,
-        }
-    }
-
-    let first_led_box_state = DeviceState {
-        ch1: make_chan(1, OnState::Off),
-        ch2: make_chan(2, OnState::Off),
-        ch3: make_chan(3, OnState::Off),
-        ch4: make_chan(4, OnState::Off),
-    };
-
-    {
-        let mut tracker = shared_store_arc.write();
-        tracker.modify(|shared| shared.led_box_device_state = Some(first_led_box_state.clone()));
-    }
-
-    led_box_tx_std
-        .send(ToLedBoxDevice::DeviceState(first_led_box_state))
-        .cb_ok();
-
-    let settings = serialport::SerialPortSettings {
-        baud_rate: 9600,
-        data_bits: serialport::DataBits::Eight,
-        flow_control: serialport::FlowControl::None,
-        parity: serialport::Parity::None,
-        stop_bits: serialport::StopBits::One,
-        timeout: std::time::Duration::from_millis(10_000),
-    };
-
-    let port = {
-        let tracker = shared_store_arc.read();
-        let shared = tracker.as_ref();
-
-        match shared.led_box_device_path {
-            Some(ref serial_device) => {
-                // open with default settings 9600 8N1
-                serialport::open_with_settings(serial_device, &settings)?
-            }
-            None => {
-                return Err(StrandCamError::StringError(
-                    "no led_box device path given".into(),
-                ));
-            }
-        }
-    };
-
-    // separate reader and writer
-    let mut reader_port = port.try_clone()?;
-    let mut writer_port = port;
-
-    let start_led_box_instant = std::time::Instant::now();
-
-    let (flag, control) = thread_control::make_pair();
-    let tx_cam_arg2 = tx_cam_arg.clone();
-    let join_handle = std::thread::Builder::new()
-        .name("serialport reader".to_string())
-        .spawn(move || {
-            // TODO: use tokio async
-
-            // led_box ignore for now
-
-            let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
-
-            let mut codec = LedBoxCodec::new();
-            let mut buf = bytes::BytesMut::with_capacity(1000);
-            let mut read_buf = [0; 100];
-
-            while flag.is_alive() {
-                // blocking read from serial port
-                match reader_port.read(&mut read_buf[..]) {
-                    Ok(n_bytes) => {
-                        buf.extend_from_slice(&read_buf[..n_bytes]);
-                        use tokio_util::codec::Decoder;
-                        if let Some(msg) = thread_closer.check(codec.decode(&mut buf)) {
-                            match msg {
-                                led_box_comms::FromDevice::EchoResponse8(d) => {
-                                    let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
-                                    let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
-                                        byteorder::LittleEndian,
-                                    >(
-                                        &mut std::io::Cursor::new(buf)
-                                    )
-                                    .unwrap();
-                                    let now = start_led_box_instant.elapsed();
-                                    let now_millis: u64 =
-                                        (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
-                                    info!("round trip time: {} msec", now_millis - sent_millis);
-
-                                    // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
-                                    let mut led_box_heartbeat_update =
-                                        led_box_heartbeat_update_arc.write();
-                                    *led_box_heartbeat_update = std::time::Instant::now();
-                                }
-                                msg => {
-                                    info!("unexpected message read from led_box device: {:?}", msg);
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => match e.kind() {
-                        std::io::ErrorKind::TimedOut => continue,
-                        _ => {
-                            thread_closer.fail(e.into());
-                        }
-                    },
-                }
-            }
-            thread_closer.success();
-        })?
-        .into();
-    let serial_read_cjh = ControlledJoinHandle {
-        control,
-        join_handle,
-    };
-
-    let (flag, control) = thread_control::make_pair();
-    let tx_cam_arg2 = tx_cam_arg.clone();
-    let join_handle = std::thread::Builder::new()
-        .name("serialport writer".to_string())
-        .spawn(move || {
-            // TODO: use tokio async
-
-            // led_box ignore for now
-            let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg2, file!(), line!());
-            let mut codec = LedBoxCodec::new();
-            let mut buf = bytes::BytesMut::with_capacity(1000);
-
-            while flag.is_alive() {
-                let mut msgs = Vec::new();
-                loop {
-                    match led_box_rx.try_recv() {
-                        Ok(msg) => msgs.push(msg),
-                        Err(e) => {
-                            if e.is_empty() {
-                                break;
-                            } else {
-                                thread_closer.fail(e.into());
-                            }
-                        }
-                    }
-                }
-
-                let msg = match msgs.len() {
-                    0 => thread_closer.check(led_box_rx.recv()),
-                    1 => msgs[0],
-                    _ => {
-                        error!(
-                            "error: falling behind sending messages. dropping all but most \
-                     recent. This is highly suboptimal and should be fixed before using \
-                     to perform experiments."
-                        );
-                        msgs[msgs.len() - 1]
-                    }
-                };
-
-                if let ToLedBoxDevice::DeviceState(ref next_state) = msg {
-                    // make an internal copy of state going to led_box device
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.led_box_device_state = Some(next_state.clone());
-                    });
-                }
-
-                info!("sending message to led_box device: {:?}", msg);
-                use bytes::buf::Buf;
-                use tokio_util::codec::Encoder;
-                thread_closer.check(codec.encode(msg, &mut buf));
-                let n_bytes = thread_closer.check(writer_port.write(&buf));
-                buf.advance(n_bytes);
-            }
-            thread_closer.success();
-        })?
-        .into();
-    let serial_write_cjh = ControlledJoinHandle {
-        control,
-        join_handle,
-    };
-
-    let (flag, control) = thread_control::make_pair();
-    let join_handle = std::thread::Builder::new()
-        .name("serialport timer".to_string())
-        .spawn(move || {
-            // led_box ignore for now
-            let thread_closer = CloseAppOnThreadExit::new(tx_cam_arg, file!(), line!());
-            while flag.is_alive() {
-                std::thread::sleep(std::time::Duration::from_millis(
-                    LED_BOX_HEARTBEAT_INTERVAL_MSEC,
-                ));
-
-                let now = start_led_box_instant.elapsed();
-                let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
-                let mut d = vec![];
-                {
-                    use byteorder::WriteBytesExt;
-                    d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
-                }
-                let msg =
-                    ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
-                thread_closer.check(led_box_tx_std.send(msg));
-            }
-            thread_closer.success();
-        })?
-        .into();
-    let serial_heartbeat_cjh = ControlledJoinHandle {
-        control,
-        join_handle,
-    };
-
-    Ok(SerialJoinHandles {
-        serial_read_cjh,
-        serial_write_cjh,
-        serial_heartbeat_cjh,
-    })
 }
 
 async fn check_version(
@@ -2780,7 +2506,7 @@ pub async fn setup_app<M,C>(
 
     let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
     #[cfg(feature = "with_led_box")]
-    let (led_box_tx_std, led_box_rx) = channellib::unbounded();
+    let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
@@ -4106,16 +3832,141 @@ pub async fn setup_app<M,C>(
 
     debug!("  running forever");
 
-    // In the case of #[cfg(feature="with-led_box")], this will spawn
-    // the serial thread that communicates with the led_box device.
-    // Otherwise, does very little and `sjh` is essentially empty.
     #[cfg(feature = "with_led_box")]
-    let sjh = my_app.maybe_spawn_led_box_thread(led_box_tx_std, led_box_rx,
-        led_box_heartbeat_update_arc, cam_args_tx.clone())?;
+    {
+        // run LED Box stuff here
+
+        use tokio_serial::SerialPortBuilderExt;
+        use tokio_util::codec::Decoder;
+
+        use led_box::LedBoxCodec;
+        use led_box_comms::{ChannelState, DeviceState, OnState};
+
+        let start_led_box_instant = std::time::Instant::now();
+
+        // enqueue initial message
+        {
+            fn make_chan(num: u8, on_state: OnState) -> ChannelState {
+                let intensity = led_box_comms::MAX_INTENSITY;
+                ChannelState {
+                    num,
+                    intensity,
+                    on_state,
+                }
+            }
+
+            let first_led_box_state = DeviceState {
+                ch1: make_chan(1, OnState::Off),
+                ch2: make_chan(2, OnState::Off),
+                ch3: make_chan(3, OnState::Off),
+                ch4: make_chan(4, OnState::Off),
+            };
+
+            led_box_tx_std.send(ToLedBoxDevice::DeviceState(first_led_box_state)).await.unwrap();
+        }
+
+        // open serial port
+        let port = {
+            let tracker = shared_store_arc.read();
+            let shared = tracker.as_ref();
+            match shared.led_box_device_path {
+                Some(ref serial_device) => {
+                    // // open with default settings 9600 8N1
+                    // serialport::open_with_settings(serial_device, &settings)?
+
+                    #[allow(unused_mut)]
+                    let mut port = tokio_serial::new(serial_device, 9600)
+                        .open_native_async()
+                        .unwrap();
+
+                    #[cfg(unix)]
+                    port.set_exclusive(false)
+                        .expect("Unable to set serial port exclusive to false");
+                    port
+                }
+                None => {
+                    anyhow::bail!(
+                        "no led_box device path given");
+                }
+            }
+        };
+
+        // wrap port with codec
+        let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
+
+        // handle messages from the device
+        let from_device_task = async move {
+            while let Some(msg) = tokio_stream::StreamExt::next(&mut reader).await {
+                match msg {
+                    Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
+                        let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
+                        let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
+                            byteorder::LittleEndian,
+                        >(&mut std::io::Cursor::new(buf))
+                        .unwrap();
+
+                        let now = start_led_box_instant.elapsed();
+                        let now_millis: u64 =
+                            (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                        debug!("LED box round trip time: {} msec", now_millis - sent_millis);
+
+                        info!("LED Box round trip time: {} msec", now_millis - sent_millis);
+
+                        // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
+                        let mut led_box_heartbeat_update =
+                            led_box_heartbeat_update_arc.write();
+                        *led_box_heartbeat_update = std::time::Instant::now();
+
+
+                    }
+                    Ok(msg) => {
+                        todo!("Did not handle {:?}", msg);
+                        // error!("unknown message received: {:?}", msg);
+                    }
+                    Err(e) => {
+                        panic!("unexpected error: {}: {:?}", e, e);
+                    }
+                }
+            }
+        };
+        tokio::spawn(from_device_task); // todo: keep join handle
+
+        // handle messages to the device
+        let to_device_task = async move {
+            while let Some(msg) = led_box_rx.recv().await {
+                writer.send(msg).await.unwrap();
+            }
+        };
+        tokio::spawn(to_device_task); // todo: keep join handle
+
+
+        // heartbeat task
+        let heartbeat_task = async move {
+            let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(LED_BOX_HEARTBEAT_INTERVAL_MSEC));
+            loop {
+                interval_stream.tick().await;
+
+                let now = start_led_box_instant.elapsed();
+                let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                let mut d = vec![];
+                {
+                    use byteorder::WriteBytesExt;
+                    d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
+                }
+                let msg = ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+                debug!("sending: {:?}", msg);
+
+                info!("LED Box requesting heartbeat ❤️ ❤️ ❤️");
+
+                led_box_tx_std.send(msg).await.unwrap();
+            }
+        };
+        tokio::spawn(heartbeat_task); // todo: keep join handle
+
+
+    }
 
     let ajh = AllJoinHandles {
-        #[cfg(feature = "with_led_box")]
-        sjh,
         frame_process_cjh,
         video_streaming_cjh,
         #[cfg(feature="plugin-process-frame")]
@@ -4173,8 +4024,6 @@ impl<T> ControlledJoinHandle<T> {
 }
 
 pub struct AllJoinHandles {
-    #[cfg(feature = "with_led_box")]
-    sjh: SerialJoinHandles,
     frame_process_cjh: ControlledJoinHandle<()>,
     video_streaming_cjh: ControlledJoinHandle<()>,
     #[cfg(feature = "plugin-process-frame")]
@@ -4183,8 +4032,6 @@ pub struct AllJoinHandles {
 
 impl AllJoinHandles {
     fn close_and_join_all(self) -> std::thread::Result<()> {
-        #[cfg(feature = "with_led_box")]
-        self.sjh.close_and_join_all()?;
         self.frame_process_cjh.close_and_join()?;
         self.video_streaming_cjh.close_and_join()?;
         #[cfg(feature = "plugin-process-frame")]
@@ -4199,8 +4046,6 @@ impl AllJoinHandles {
             #[cfg(feature = "plugin-process-frame")]
             self.plugin_streaming_cjh.control.clone(),
         ];
-        #[cfg(feature = "with_led_box")]
-        result.extend(self.sjh.stoppers().into_iter());
         result
     }
 }
