@@ -5,6 +5,9 @@ To build the frontend
     cd yew_frontend
     ./build.sh
 
+**THESE BUILD INSTRUCTIONS ARE OUTDATED.** Update to note that the backend is
+now in `strand-cam-pylon/` and `strand-cam-vimba/`.
+
 To check the build
 
     cargo check --features "serve_files backend_pyloncxx with_led_box flydratrax flydra2/serve_files"
