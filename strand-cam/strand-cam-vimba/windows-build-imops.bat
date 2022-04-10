@@ -1,4 +1,4 @@
-REM Prerequisite: yew_frontend/pkg is built. Do this by "windows-build-imops.bat" in yew_frontend.
+REM Prerequisite: ../yew_frontend/pkg is built. Do this by "windows-build-imops.bat" in yew_frontend.
 
 @REM Download https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
 @REM and unzip into %HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16
