@@ -2305,7 +2305,7 @@ pub async fn setup_app<M,C>(
     info!("Compiled with features: {}", target_feature_string);
 
     if !imops::COMPILED_WITH_SIMD_SUPPORT {
-        warn!("Package 'imops' was not compiled with packed_simd support. Image processing with imops will be slow.");
+        warn!("Package 'imops' was not compiled with simd support. Image processing with imops will be slow.");
     }
 
     debug!("CLI request for camera {:?}", args.camera_name);

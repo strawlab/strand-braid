@@ -22,6 +22,6 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 REM Could/should install april tag stuff and use `fiducial` feature. See https://github.com/jerry73204/apriltag-sys
-cargo build --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal backtrace imops/packed_simd" --release
+cargo build --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal backtrace imops/simd" --release
 
 copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world320.dll ..\..\target\release\
