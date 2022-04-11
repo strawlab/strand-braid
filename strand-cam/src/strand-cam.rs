@@ -1801,7 +1801,7 @@ fn frame_process_thread(
     Ok(())
 }
 
-#[cfg(feature="image_tracker")]
+#[cfg(feature = "image_tracker")]
 fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16 {
     let ch: &led_box_comms::ChannelState = match chan_num {
         1 => &device_state.ch1,
