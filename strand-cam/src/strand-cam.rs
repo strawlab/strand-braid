@@ -3855,6 +3855,7 @@ pub async fn setup_app<M,C>(
             let tracker = shared_store_arc.read();
             let shared = tracker.as_ref();
             if let Some(serial_device) = shared.led_box_device_path.as_ref() {
+                info!("opening LED box \"{}\"", serial_device);
                 // open with default settings 9600 8N1
                 #[allow(unused_mut)]
                 let mut port = tokio_serial::new(serial_device, 9600)
@@ -3877,6 +3878,7 @@ pub async fn setup_app<M,C>(
 
             // handle messages from the device
             let from_device_task = async move {
+                debug!("awaiting message from LED box");
                 while let Some(msg) = tokio_stream::StreamExt::next(&mut reader).await {
                     match msg {
                         Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
@@ -3890,8 +3892,6 @@ pub async fn setup_app<M,C>(
                             let now_millis: u64 =
                                 (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                             debug!("LED box round trip time: {} msec", now_millis - sent_millis);
-
-                            info!("LED Box round trip time: {} msec", now_millis - sent_millis);
 
                             // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
                             let mut led_box_heartbeat_update =
