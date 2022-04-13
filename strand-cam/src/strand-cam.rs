@@ -1907,13 +1907,14 @@ impl StrandCamApp {
                         #[cfg(feature = "image_tracker")]
                         tx_frame.send(Msg::ClearBackground(value)).cb_ok();
                     }
-                    CallbackType::ToLedBox(led_box_arg) => {
+                    CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
+                        // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
                         info!("in led_box callback: {:?}", led_box_arg);
                         #[cfg(feature = "with_led_box")]
-                        led_box_tx_std.blocking_send(led_box_arg).unwrap();
+                        led_box_tx_std.send(led_box_arg).await.unwrap();
                         #[cfg(not(feature = "with_led_box"))]
                         log::error!("ignoring command for led_box: {:?}", led_box_arg);
-                    }
+                    }),
                 }
                 futures::future::ok(())
             },
@@ -3934,11 +3935,21 @@ pub async fn setup_app<M,C>(
         // handle messages to the device
         let to_device_task = async move {
             while let Some(msg) = led_box_rx.recv().await {
+                // send message to device
                 writer.send(msg).await.unwrap();
+                // copy new device state and store it to our cache
+                match msg {
+                    ToLedBoxDevice::DeviceState(new_state) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.led_box_device_state = Some(new_state);
+                        })
+                    }
+                    _ => {}
+                };
             }
         };
         tokio::spawn(to_device_task); // todo: keep join handle
-
 
         // heartbeat task
         let heartbeat_task = async move {
