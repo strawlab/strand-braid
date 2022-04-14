@@ -30,10 +30,3 @@ embedded-time = "0.12.1"
 lto = true
 debug = true
 opt-level = "s"
-
-[features]
-default = ["nucleo64"]
-
-# nucleo32 and nucleo64 features are mutually exclusive
-nucleo32 = []
-nucleo64 = []

@@ -3,7 +3,7 @@
 // be able to use the flash to store things in a non-volatile way. There is even EEPROM
 // emulation, but this seems overkill.
 
-// Present design for nucleo64 stm32f303re board ("nucleo64" feature):
+// Design for stm32f303re board:
 // * PA6, PA7, PB0, PB1 reserved for optogenetics and backlighting LED control
 //  (303re tim3 pwm ch1,ch2,ch3,ch4, nucleo64 CN10-13, CN10-15, CN7-34, CN10-24,
 //  uno D12, D11, A3, n.a.)
