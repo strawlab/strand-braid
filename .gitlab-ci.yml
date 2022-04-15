@@ -311,7 +311,7 @@ build-api-docs:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
       IPP_STATIC=1
       NUM_JOBS=2
       cargo doc --features serve_files,ipp-sys/2019,fiducial,checkercal
@@ -393,7 +393,7 @@ strand-cam-pylon-ubuntu2004:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
@@ -431,7 +431,7 @@ strand-cam-vimba-ubuntu2004:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
@@ -473,7 +473,7 @@ py-strandcam-pylon-linux:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
@@ -564,11 +564,7 @@ braid-offline-ubuntu2004:
 braid-process-video-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev libvpx-dev curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -588,12 +584,8 @@ slow-braid-process-video-test:
   image: ubuntu:focal
   when: manual
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential libvpx-dev
     - cc --version
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -622,19 +614,15 @@ braidz-cli-ubuntu2004:
 fmf-cli-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
-
     # test mkv-writer start
     - cd $CI_PROJECT_DIR/mkv-writer
-    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release -- vp8
+    - cargo run --example save-animation --release -- vp8
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli

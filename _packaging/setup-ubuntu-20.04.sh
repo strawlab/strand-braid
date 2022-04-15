@@ -2,7 +2,7 @@
 set -o errexit
 
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev libapriltag-dev libssl-dev zlib1g-dev pkg-config curl build-essential git
+DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev libapriltag-dev libssl-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev
 
 ORIG_DIR=`pwd`
 echo $ORIG_DIR
@@ -21,9 +21,6 @@ wasm-pack --version
 
 # TODO: include firmware bundled
 rustc --version
-curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-echo "b47f14efcb5cb35e7a17300094e2e5c7daba8bbdc6610a0463f5933cda61a1de /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb" | sha256sum -c
-apt-get install /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
 
 curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
 echo "0316517e848ab3193b8d3ce2d7275602466dbd396e465b7aae5a9c7f342290d4  /tmp/opencv-3.2-static.tar.gz" | sha256sum -c
