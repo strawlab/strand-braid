@@ -1,10 +1,10 @@
 use anyhow::{Context as ContextTrait, Result};
-use structopt::StructOpt;
+use clap::Parser;
 
 use braid_process_video::{run_config, BraidRetrackVideoConfig};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "process videos within the Braid multi-camera framework")]
+#[derive(Debug, Parser)]
+#[clap(author, version, about, long_about = None)]
 struct BraidProcessVideoCliArgs {
     /// Input configuration TOML file
     #[structopt(long, parse(from_os_str))]
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
 
     env_logger::init();
 
-    let args = BraidProcessVideoCliArgs::from_args();
+    let args = BraidProcessVideoCliArgs::parse();
 
     let get_usage = || {
         let default_buf = toml::to_string_pretty(&BraidRetrackVideoConfig::default()).unwrap();
