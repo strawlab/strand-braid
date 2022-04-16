@@ -32,7 +32,7 @@ mod synced_iter;
 
 mod config;
 pub use config::{
-    BraidRetrackVideoConfig, OutputConfig, OutputVideoConfig, Validate, VideoSourceConfig,
+    BraidRetrackVideoConfig, OutputConfig, OutputVideoConfig, Valid, VideoSourceConfig,
 };
 
 mod tiny_skia_frame;
@@ -164,7 +164,9 @@ impl PerCamRender {
     }
 }
 
-pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
+pub fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
+    let cfg = cfg.valid();
+
     #[cfg(feature = "read-mkv")]
     ffmpeg::init().unwrap();
 

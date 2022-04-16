@@ -1,7 +1,7 @@
 use anyhow::{Context as ContextTrait, Result};
 use structopt::StructOpt;
 
-use braid_process_video::{run_config, BraidRetrackVideoConfig, Validate};
+use braid_process_video::{run_config, BraidRetrackVideoConfig};
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "process videos within the Braid multi-camera framework")]
@@ -20,29 +20,27 @@ fn main() -> Result<()> {
 
     let args = BraidProcessVideoCliArgs::from_args();
 
-    let cfg_fname = match args.config.to_str() {
-        None => {
-            panic!("Configuration file name not utf-8.");
-        }
-        Some(cfg_fname) => cfg_fname.to_string(),
-    };
-
     let get_usage = || {
         let default_buf = toml::to_string_pretty(&BraidRetrackVideoConfig::default()).unwrap();
         format!(
             "Parsing TOML config file '{}' into BraidRetrackVideoConfig.\n\n\
             Example of a valid TOML configuration:\n\n```\n{}```",
-            &cfg_fname, default_buf
+            args.config.display(),
+            default_buf
         )
     };
 
-    let cfg_str = std::fs::read_to_string(&cfg_fname)
-        .with_context(|| format!("Reading config file '{}'", &cfg_fname))?;
+    // Get directory of configuration file. Works if args.config is relative or absolute.
+    let abs_cfg_path = args.config.canonicalize()?;
+    let cfg_dir = abs_cfg_path.parent();
 
-    let mut cfg: BraidRetrackVideoConfig = toml::from_str(&cfg_str).with_context(get_usage)?;
-    cfg.validate().with_context(get_usage)?;
+    let cfg_str = std::fs::read_to_string(&args.config)
+        .with_context(|| format!("Reading config file '{}'", args.config.display()))?;
 
-    let cfg_as_string = toml::to_string_pretty(&cfg).unwrap();
+    let cfg: BraidRetrackVideoConfig = toml::from_str(&cfg_str).with_context(get_usage)?;
+    let cfg = cfg.validate(cfg_dir).with_context(get_usage)?;
+
+    let cfg_as_string = toml::to_string_pretty(cfg.valid()).unwrap();
     log::info!(
         "Generating output using the following configuration:\n\n```\n{}```\n",
         cfg_as_string
