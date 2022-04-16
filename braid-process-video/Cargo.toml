@@ -35,6 +35,10 @@ timestamped-frame = {path="../timestamped-frame"}
 
 [features]
 read-mkv = ["ffmpeg-next"]
+backtrace = ["anyhow/backtrace", "mkv-writer/backtrace",
+    "convert-image/backtrace", "braidz-parser/backtrace",
+    "fmf/backtrace",
+    ]
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}
