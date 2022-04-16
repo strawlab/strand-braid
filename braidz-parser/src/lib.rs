@@ -161,6 +161,11 @@ impl<R: Read + Seek> BraidzArchive<R> {
     pub fn display(&self) -> std::path::Display {
         self.archive.display()
     }
+
+    /// Get the path to the archive.
+    pub fn path(&self) -> &std::path::Path {
+        self.archive.path()
+    }
 }
 
 pub struct D2DInfo {
@@ -280,7 +285,7 @@ pub fn summarize_braidz<R: Read + Seek>(
 pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<BraidzArchive<BufReader<File>>, Error> {
-    let zs = zip_or_dir::ZipDirArchive::auto_from_path(path)?;
+    let zs = zip_or_dir::ZipDirArchive::auto_from_path(&path)?;
     let parsed = braidz_parse(zs)?;
     Ok(parsed)
 }

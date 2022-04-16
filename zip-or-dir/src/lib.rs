@@ -163,6 +163,9 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     pub fn display(&self) -> std::path::Display<'_> {
         self.path.display()
     }
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
 
     /// compute full path for non-zip file
     fn rel(&self, relname: &Path) -> PathBuf {

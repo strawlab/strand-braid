@@ -571,6 +571,7 @@ braid-process-video-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
+    - cargo test --release --features read-mkv
     - cargo build --release --features read-mkv
 
     - mkdir -p $CI_PROJECT_DIR/build

@@ -67,7 +67,8 @@ fn get_files(dirname: &str) -> anyhow::Result<Valid<BraidRetrackVideoConfig>> {
         ..Default::default()
     };
 
-    Ok(cfg.validate(None)?)
+    let basedir: Option<String> = None;
+    Ok(cfg.validate(basedir)?)
 }
 
 fn init_logging() {

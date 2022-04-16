@@ -1,7 +1,7 @@
 use anyhow::{Context as ContextTrait, Result};
 use clap::{Parser, Subcommand};
 
-use braid_process_video::{run_config, BraidRetrackVideoConfig};
+use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -17,6 +17,13 @@ enum Commands {
         /// Input configuration TOML file
         #[clap(short, long, parse(from_os_str), value_name = "CONFIG_TOML")]
         config_toml: std::path::PathBuf,
+    },
+
+    /// Process video using an auto-generated configuration.
+    AutoConfig {
+        /// Directory with input files
+        #[clap(short, long, parse(from_os_str), value_name = "INPUT_DIR")]
+        input_dir: std::path::PathBuf,
     },
 
     /// Print an example configuration TOML.
@@ -48,6 +55,7 @@ fn main() -> Result<()> {
                     config_toml.display()
                 )
             })?;
+
             let cfg = cfg.validate(cfg_dir).with_context(|| {
                 anyhow::anyhow!(
                     "Validation error with config toml file at \"{}\"",
@@ -55,11 +63,10 @@ fn main() -> Result<()> {
                 )
             })?;
 
-            let cfg_as_string = toml::to_string_pretty(cfg.valid()).unwrap();
-            log::info!(
-                "Generating output using the following configuration:\n\n```\n{}```\n",
-                cfg_as_string
-            );
+            cfg
+        }
+        Some(Commands::AutoConfig { input_dir }) => {
+            let cfg = auto_config(input_dir)?;
             cfg
         }
         Some(Commands::PrintExampleConfigToml) => {
@@ -72,5 +79,12 @@ fn main() -> Result<()> {
             return Ok(());
         }
     };
+
+    let cfg_as_string = toml::to_string_pretty(cfg.valid()).unwrap();
+    log::info!(
+        "Generating output using the following configuration:\n\n```\n{}```\n",
+        cfg_as_string
+    );
+
     run_config(&cfg)
 }

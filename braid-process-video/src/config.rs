@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// A wrapper newtype indicating the inner type has been validated.
 pub struct Valid<T>(T);
@@ -28,7 +29,7 @@ impl OutputConfig {
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative
     /// filenames are searched.
-    fn validate(self, basedir: Option<&std::path::Path>) -> Result<Valid<Self>> {
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
         // Validate `type_`.
         if !VALID_OUTPUT_TYPES.contains(&self.type_.as_str()) {
             anyhow::bail!(
@@ -66,6 +67,7 @@ impl Default for OutputConfig {
 }
 
 const VALID_OUTPUT_TYPES: &[&str] = &["video", "debug_txt"];
+pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv"];
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -154,7 +156,7 @@ impl BraidRetrackVideoConfig {
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative
     /// filenames are searched.
-    pub fn validate(self, basedir: Option<&std::path::Path>) -> Result<Valid<Self>> {
+    pub fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
         let n_output_videos = self.output.iter().filter(|x| x.type_ == "video").count();
         if n_output_videos != 1 {
             anyhow::bail!(
@@ -176,13 +178,13 @@ impl BraidRetrackVideoConfig {
         }
 
         // Validate `input_braidz`.
-        let input_braidz = base_join(self.input_braidz, basedir)?;
+        let input_braidz = base_join(self.input_braidz, basedir.as_ref())?;
 
         // Validate `output`.
         let output = self
             .output
             .into_iter()
-            .map(|output| output.validate(basedir))
+            .map(|output| output.validate(basedir.as_ref()))
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .map(|o| o.0)
@@ -195,7 +197,7 @@ impl BraidRetrackVideoConfig {
         let input_video = self
             .input_video
             .into_iter()
-            .map(|source| source.validate(basedir))
+            .map(|source| source.validate(basedir.as_ref()))
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .map(|iv| iv.0)
@@ -231,15 +233,21 @@ impl VideoSourceConfig {
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative
     /// filenames are searched.
-    fn validate(self, basedir: Option<&std::path::Path>) -> Result<Valid<Self>> {
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
         // Validate `filename`.
-        if !(self.filename.to_lowercase().ends_with(".mkv")
-            || self.filename.to_lowercase().ends_with(".fmf")
-            || self.filename.to_lowercase().ends_with(".fmf.gz"))
-        {
+        let mut found = false;
+        for extension in VALID_VIDEO_SOURCES.iter() {
+            if self.filename.to_lowercase().ends_with(extension) {
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
             anyhow::bail!(
-                "Video source filename \"{}\" does not end with \".mkv\", \".fmf\", or \".fmf.gz\".",
-                self.filename
+                "Video source filename \"{}\" is not one of {:?}.",
+                self.filename,
+                VALID_VIDEO_SOURCES,
             )
         }
         let filename = base_join_inner(self.filename, basedir)?;
@@ -248,18 +256,20 @@ impl VideoSourceConfig {
     }
 }
 
-/// If `filename` is relative, join it to `basedir` if possible.
-fn base_join_inner(filename: String, basedir: Option<&std::path::Path>) -> Result<String> {
-    fn path_to_string(p: std::path::PathBuf) -> Result<String> {
-        p.into_os_string()
-            .into_string()
-            .map_err(|os_str| anyhow::anyhow!("path \"{}\" is not UTF8", os_str.to_string_lossy()))
-    }
+pub(crate) fn path_to_string<P: AsRef<Path>>(p: P) -> Result<String> {
+    p.as_ref()
+        .as_os_str()
+        .to_os_string()
+        .into_string()
+        .map_err(|os_str| anyhow::anyhow!("path \"{}\" is not UTF8", os_str.to_string_lossy()))
+}
 
-    fn maybe_join(filename: String, basedir: Option<&std::path::Path>) -> std::path::PathBuf {
+/// If `filename` is relative, join it to `basedir` if possible.
+fn base_join_inner<P: AsRef<Path>>(filename: String, basedir: Option<P>) -> Result<String> {
+    fn maybe_join<P: AsRef<Path>>(filename: String, basedir: Option<P>) -> std::path::PathBuf {
         let p = std::path::PathBuf::from(filename);
         match (p.is_relative(), basedir) {
-            (true, Some(dirpath)) => dirpath.join(p),
+            (true, Some(dirpath)) => dirpath.as_ref().to_path_buf().join(p),
             _ => p,
         }
     }
@@ -268,9 +278,9 @@ fn base_join_inner(filename: String, basedir: Option<&std::path::Path>) -> Resul
 }
 
 /// If `filename` is not None and is relative, join it to `basedir` if possible.
-fn base_join(
+fn base_join<P: AsRef<Path>>(
     filename: Option<String>,
-    basedir: Option<&std::path::Path>,
+    basedir: Option<P>,
 ) -> Result<Option<String>> {
     let fname = filename.map(|s| base_join_inner(s, basedir)).transpose()?;
     Ok(fname)
@@ -278,7 +288,8 @@ fn base_join(
 
 #[test]
 fn test_default_config_is_valid_and_serializable() -> Result<()> {
-    let cfg = BraidRetrackVideoConfig::default().validate(None)?;
+    let basedir: Option<String> = None;
+    let cfg = BraidRetrackVideoConfig::default().validate(basedir)?;
     toml::to_string_pretty(&cfg.valid())?;
     Ok(())
 }

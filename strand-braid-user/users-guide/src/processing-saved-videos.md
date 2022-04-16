@@ -17,7 +17,15 @@ detections from a `.braidz` file on top of the raw video.
 - The input videos must be saved by Braid to ensure that the timestamps for each
   frame in the file are correctly stored.
 
-## Example usage
+## Example usage 1: Automatic determination of inputs
+
+If a directory contains a single `.braidz` file and one or more video files,
+`braid-process-video` can automatically generate a video with default options.
+In this case run it like so:
+
+    braid-process-video auto-config --input-dir /path/to/video-and-braidz-files
+
+## Example usage 2: Use of a `.toml` configuration file
 
 Here is an example configuration file `braid-bundle-videos.toml`:
 
@@ -40,7 +48,7 @@ filename = 'movie20211011_163228.mkv'
 
 With such a configuration file, run the program like so:
 
-    braid-process-video --config braid-bundle-videos.toml
+    braid-process-video config-toml --config-toml braid-bundle-videos.toml
 
 ## TODO
 
