@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 // See https://gitlab.strawlab.org/straw/rust-cam/issues/99
 const FNAME: &str = "20201013_140707.braidz";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
@@ -25,11 +23,12 @@ async fn test_min_two_rays_needed() {
 
     // let output_root = std::path::PathBuf::from("test-output");
 
-    let tracking_params_parsed = data_src.basic_info().tracking_params.as_ref();
-
-    let tracking_params: flydra_types::TrackingParamsInner3D = tracking_params_parsed
-        .map(|p| p.try_into().unwrap())
-        .unwrap();
+    let tracking_params: flydra_types::TrackingParams = data_src
+        .basic_info()
+        .tracking_params
+        .as_ref()
+        .unwrap()
+        .clone();
 
     let opts = braid_offline::KalmanizeOptions::default();
 

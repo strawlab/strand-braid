@@ -68,7 +68,7 @@ download-verify = {path="../download-verify"}
 anyhow = "1"
 
 [features]
-default = ["full-3d", "bundle_files"]
+default = ["bundle_files"]
 
 # must pick one of the following two:
 full-3d = []

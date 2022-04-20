@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 // See https://github.com/strawlab/strand-braid/issues/3. This tests for a
 // difficult case of covariance updating.
 const FNAME: &str = "fail-small.braidz";
@@ -26,11 +24,12 @@ async fn test_covariance() {
 
     // let output_root = std::path::PathBuf::from("test-output");
 
-    let tracking_params_parsed = data_src.basic_info().tracking_params.as_ref();
-
-    let tracking_params: flydra_types::TrackingParamsInner3D = tracking_params_parsed
-        .map(|p| p.try_into().unwrap())
-        .unwrap();
+    let tracking_params: flydra_types::TrackingParams = data_src
+        .basic_info()
+        .tracking_params
+        .as_ref()
+        .unwrap()
+        .clone();
 
     let opts = braid_offline::KalmanizeOptions::default();
 

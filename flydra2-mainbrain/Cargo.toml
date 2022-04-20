@@ -19,7 +19,7 @@ regex = "1.0"
 url = "2"
 flydra-types = {path="../flydra-types", features=["with-dns"]}
 braid-triggerbox = "0.3.4"
-flydra2 = {path="../flydra2", default-features = false, features=["full-3d"]}
+flydra2 = {path="../flydra2", default-features = false}
 chrono = "0.4"
 futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["sync","rt","net"]}

@@ -34,7 +34,8 @@ pub use braidz_types::BraidMetadata;
 use crossbeam_ok::CrossbeamOk;
 use flydra_types::{
     CamInfoRow, CamNum, ConnectedCameraSyncState, FlydraFloatTimestampLocal, HostClock,
-    KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TriggerClockInfoRow, Triggerbox,
+    KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TrackingParams, TriggerClockInfoRow,
+    Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
 };
 pub use flydra_types::{Data2dDistortedRow, Data2dDistortedRowF32};
 
@@ -50,15 +51,8 @@ mod bundled_data;
 mod contiguous_stream;
 mod frame_bundler;
 
-use flydra_types::{RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME};
-
-#[cfg(feature = "full-3d")]
-mod new_object_test;
-
-#[cfg(feature = "flat-3d")]
 mod new_object_test_2d;
-#[cfg(feature = "flat-3d")]
-use new_object_test_2d as new_object_test;
+mod new_object_test_3d;
 
 mod tracking_core;
 
@@ -73,7 +67,7 @@ use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
 pub use crate::frame_bundler::StreamItem;
 
-pub type MyFloat = flydra_types::MyFloat;
+pub type MyFloat = flydra_types::MyFloat; // todo: remove that this is public
 
 mod error;
 pub use error::{file_error, wrap_error, Error};
@@ -88,7 +82,7 @@ pub const TRIGGERBOX_FIRST_PULSE: u64 = 2;
 pub(crate) fn generate_observation_model<R>(
     cam: &flydra_mvg::MultiCamera<R>,
     state: &Vector6<R>,
-    ekf_observation_covariance_pixels: f32,
+    ekf_observation_covariance_pixels: f64,
 ) -> Result<CameraObservationModel<R>>
 where
     R: RealField + Copy + Default + serde::Serialize,
@@ -123,7 +117,7 @@ where
     fn new(
         cam: flydra_mvg::MultiCamera<R>,
         a: OMatrix<R, U2, U3>,
-        ekf_observation_covariance_pixels: f32,
+        ekf_observation_covariance_pixels: f64,
     ) -> Self {
         let observation_matrix = {
             let mut o = OMatrix::<R, U2, U6>::zeros();
@@ -202,12 +196,6 @@ pub struct NumberedRawUdpPoint {
     /// the actuall detected point
     pub pt: flydra_types::FlydraRawUdpPoint,
 }
-
-#[cfg(feature = "full-3d")]
-pub type SwitchingTrackingParams = flydra_types::TrackingParamsInner3D;
-
-#[cfg(feature = "flat-3d")]
-pub type SwitchingTrackingParams = flydra_types::TrackingParamsInnerFlat3D;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrackingParamsSaver {
@@ -749,7 +737,7 @@ pub struct CoordProcessor {
     pub save_data_tx: channellib::Sender<SaveToDiskMsg>,
     pub writer_thread_handle: Option<std::thread::JoinHandle<()>>,
     model_servers: Vec<Box<dyn GetsUpdates>>,
-    tracking_params: Arc<SwitchingTrackingParams>,
+    tracking_params: Arc<TrackingParams>,
     mc2: Option<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>>,
 }
 
@@ -767,7 +755,7 @@ impl CoordProcessor {
     pub fn new(
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: SwitchingTrackingParams,
+        tracking_params: TrackingParams,
         save_data_tx: channellib::Sender<SaveToDiskMsg>,
         save_data_rx: channellib::Receiver<SaveToDiskMsg>,
         save_empty_data2d: bool,
@@ -778,9 +766,9 @@ impl CoordProcessor {
 
         let recon2 = recon.clone();
 
-        info!("using SwitchingTrackingParams {:?}", tracking_params);
+        info!("using TrackingParams {:?}", tracking_params);
 
-        let tracking_params = Arc::new(tracking_params);
+        let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);
         let tracking_params2 = tracking_params.clone();
         let writer_thread_builder = std::thread::Builder::new().name("writer_thread".to_string());
         let cam_manager2 = cam_manager.clone();

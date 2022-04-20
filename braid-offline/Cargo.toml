@@ -42,9 +42,4 @@ env_logger = "0.8"
 fs_extra = "1.1"
 
 [features]
-default = ["full-3d"]
-
-flat-3d = ["flydra2/flat-3d"]
-full-3d = ["flydra2/full-3d"]
-
 backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace"]

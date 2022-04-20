@@ -4,7 +4,8 @@ use log::info;
 use std::{io::Write, sync::Arc};
 
 use flydra_types::{
-    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    TrackingParams, BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME,
+    IMAGES_DIRNAME,
 };
 
 struct WritingState {
@@ -39,7 +40,7 @@ impl WritingState {
         cfg: StartSavingCsvConfig,
         cam_info_rows: Vec<CamInfoRow>,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        mut tracking_params: Arc<SwitchingTrackingParams>,
+        tracking_params: Arc<TrackingParams>,
         save_empty_data2d: bool,
         saving_program_name: String,
     ) -> Result<Self> {
@@ -188,7 +189,7 @@ impl WritingState {
             );
 
             let tps = TrackingParamsSaver {
-                tracking_params: Arc::make_mut(&mut tracking_params).clone().into(), // convert to flydra_types::TrackingParams
+                tracking_params: (*tracking_params).clone(),
                 git_revision,
             };
             let message2 = serde_json::to_string(&tps)?;
@@ -495,7 +496,7 @@ pub(crate) fn writer_thread_main(
     save_data_rx: channellib::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-    tracking_params: Arc<SwitchingTrackingParams>,
+    tracking_params: Arc<TrackingParams>,
     save_empty_data2d: bool,
     saving_program_name: &str,
     ignore_latency: bool,
@@ -702,7 +703,7 @@ mod test {
                 Arc::new(AtomicBool::new(true)),
                 Arc::new(AtomicBool::new(true)),
             );
-            let tracking_params = Arc::new(SwitchingTrackingParams::default());
+            let tracking_params = Arc::new(flydra_types::default_tracking_params_full_3d());
             let save_empty_data2d = false;
 
             let ws = WritingState::new(

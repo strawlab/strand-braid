@@ -15,13 +15,13 @@ use braidz_parser::open_maybe_gzipped;
 
 use flydra2::{
     run_func, CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem, SwitchingTrackingParams,
+    NumberedRawUdpPoint, StreamItem,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
 use flydra_types::{
-    PerCamSaveData, RawCamName, RosCamName, SyncFno, FEATURE_DETECT_SETTINGS_DIRNAME,
-    IMAGES_DIRNAME,
+    PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
+    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
 
 #[cfg(feature = "backtrace")]
@@ -206,7 +206,7 @@ pub async fn kalmanize<Q, R>(
     >,
     output_braidz: Q,
     expected_fps: Option<f64>,
-    tracking_params: SwitchingTrackingParams,
+    tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,

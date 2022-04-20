@@ -18,6 +18,7 @@ pub struct BasicInfoParsed {
     pub calibration_info: Option<CalibrationInfo>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
+    pub cam_info: CamInfo,
 }
 
 /// The archive been completely parsed.
@@ -190,12 +191,31 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             reprojection_distance_hlog
         };
 
+        let cam_info = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
+            let rdr = open_maybe_gzipped(fname)?;
+            let caminfo_rdr = csv::Reader::from_reader(rdr);
+            let mut camn2camid = BTreeMap::new();
+            let mut camid2camn = BTreeMap::new();
+            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
+                let row: CamInfoRow = row?;
+                camn2camid.insert(row.camn, row.cam_id.clone());
+                camid2camn.insert(row.cam_id, row.camn);
+            }
+            CamInfo {
+                camn2camid,
+                camid2camn,
+            }
+        };
+
         let state = BasicInfoParsed {
             expected_fps,
             tracking_params: tracking_parameters,
             calibration_info,
             reconstruction_latency_hlog,
             reprojection_distance_hlog,
+            cam_info,
         };
 
         Ok(IncrementalParser {
@@ -221,23 +241,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             serde_yaml::from_reader(rdr)?
         };
 
-        let cam_info = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
-            let rdr = open_maybe_gzipped(fname)?;
-            let caminfo_rdr = csv::Reader::from_reader(rdr);
-            let mut camn2camid = BTreeMap::new();
-            let mut camid2camn = BTreeMap::new();
-            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
-                let row: CamInfoRow = row?;
-                camn2camid.insert(row.camn, row.cam_id.clone());
-                camid2camn.insert(row.cam_id, row.camn);
-            }
-            CamInfo {
-                camn2camid,
-                camid2camn,
-            }
-        };
+        let cam_info = basics.cam_info;
 
         let mut num_rows = 0;
         let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;

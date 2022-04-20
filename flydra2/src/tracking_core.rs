@@ -10,33 +10,27 @@ use pretty_print_nalgebra::pretty_print;
 
 use tracking::motion_model_3d_fixed_dt::{MotionModel3D, MotionModel3DFixedDt};
 
-#[cfg(feature = "flat-3d")]
 use tracking::flat_motion_model_3d::FlatZZero3DModel;
-#[cfg(feature = "full-3d")]
 use tracking::motion_model_3d::ConstantVelocity3DModel;
-#[cfg(not(any(feature = "full-3d", feature = "flat-3d")))]
-compile_error!("must either have feature full-3d or flat-3d");
 
 use adskalman::ObservationModel as ObservationModelTrait;
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
 use flydra_types::{
     CamNum, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow, RosCamName, SyncFno,
-    Triggerbox,
+    TrackingParams, Triggerbox,
 };
 
 use crate::{
+    bundled_data::{BundledAllCamsOneFrameUndistorted, OneCamOneFrameUndistorted, Undistorted},
+    model_server::{GetsUpdates, SendKalmanEstimatesRow, SendType},
+    new_object_test_2d::NewObjectTestFlat3D,
+    new_object_test_3d::NewObjectTestFull3D,
     to_world_point, CameraObservationModel, ConnectedCamerasManager, DataAssocRow,
-    FrameDataAndPoints, KalmanEstimateRecord, MyFloat, SaveToDiskMsg, SwitchingTrackingParams,
+    FrameDataAndPoints, HypothesisTestResult, KalmanEstimateRecord, MyFloat, SaveToDiskMsg,
     TimeDataPassthrough,
 };
 use crossbeam_ok::CrossbeamOk;
-
-use crate::bundled_data::{
-    BundledAllCamsOneFrameUndistorted, OneCamOneFrameUndistorted, Undistorted,
-};
-use crate::model_server::{GetsUpdates, SendKalmanEstimatesRow, SendType};
-use crate::{new_object_test::NewObjectTest, HypothesisTestResult};
 
 // -----------------------------------------------------------------------------
 
@@ -164,7 +158,7 @@ impl LivingModel<ModelFrameStarted> {
     fn compute_expected_observation(
         &self,
         camera: flydra_mvg::MultiCamera<MyFloat>,
-        ekf_observation_covariance_pixels: f32,
+        ekf_observation_covariance_pixels: f64,
     ) -> (
         CameraObservationModel<MyFloat>,
         Option<MultivariateNormal<MyFloat, U2>>,
@@ -214,7 +208,7 @@ impl LivingModel<ModelFrameStarted> {
         self,
         all_cam_data: &BundledAllCamsOneFrameUndistorted,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-        ekf_observation_covariance_pixels: f32,
+        ekf_observation_covariance_pixels: f64,
     ) -> LivingModel<ModelFrameWithObservationLikes> {
         // for each camera with data:
         //  - compute likelihood of each real observation given expected observation
@@ -502,25 +496,38 @@ impl CollectionState for CollectionFrameStarted {}
 impl CollectionState for CollectionFrameWithObservationLikes {}
 impl CollectionState for CollectionFramePosteriors {}
 
+pub(crate) trait HypothesisTest: Send {
+    fn hypothesis_test(
+        &self,
+        good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
+    ) -> Option<HypothesisTestResult>;
+}
+
 pub(crate) fn initialize_model_collection(
-    params: Arc<SwitchingTrackingParams>,
+    params: Arc<TrackingParams>,
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     fps: f32,
     cam_manager: ConnectedCamerasManager,
     save_data_tx: channellib::Sender<SaveToDiskMsg>,
 ) -> ModelCollection<CollectionFrameDone> {
-    let new_obj = NewObjectTest::new(recon.clone(), params.clone());
-
     let motion_noise_scale = params.motion_noise_scale;
-
-    #[cfg(feature = "full-3d")]
-    let motion_model_generator = ConstantVelocity3DModel::new(motion_noise_scale);
-
-    #[cfg(feature = "flat-3d")]
-    let motion_model_generator = FlatZZero3DModel::new(motion_noise_scale);
-
     let dt = 1.0 / fps as f64;
-    let motion_model = motion_model_generator.calc_for_dt(dt);
+
+    let (new_obj, motion_model) = if params.hypothesis_test_params.is_some() {
+        let new_obj = NewObjectTestFull3D::new(recon.clone(), params.clone());
+        let motion_model_generator = ConstantVelocity3DModel::new(motion_noise_scale);
+        (
+            Box::new(new_obj) as Box<dyn HypothesisTest>,
+            motion_model_generator.calc_for_dt(dt),
+        )
+    } else {
+        let new_obj = NewObjectTestFlat3D::new(recon.clone(), params.clone());
+        let motion_model_generator = FlatZZero3DModel::new(motion_noise_scale);
+        (
+            Box::new(new_obj) as Box<dyn HypothesisTest>,
+            motion_model_generator.calc_for_dt(dt),
+        )
+    };
 
     ModelCollection {
         state: CollectionFrameDone { models: vec![] },
@@ -532,7 +539,6 @@ pub(crate) fn initialize_model_collection(
             cam_manager,
             next_obj_id: 0,
             save_data_tx,
-            // model_sender,
         },
     }
 }
@@ -543,9 +549,9 @@ pub(crate) struct ModelCollection<S: CollectionState> {
 }
 
 pub(crate) struct MCInner {
-    params: Arc<SwitchingTrackingParams>,
+    params: Arc<TrackingParams>,
     pub(crate) recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-    new_obj: NewObjectTest,
+    new_obj: Box<dyn HypothesisTest>,
     motion_model: MotionModel3DFixedDt<MyFloat>,
     cam_manager: ConnectedCamerasManager,
     next_obj_id: u32,
@@ -876,7 +882,7 @@ fn arg_max_col(a: &[f64]) -> Option<(usize, f64)> {
 
 fn to_bayesian_estimate(
     coords: Point3<MyFloat>,
-    params: &SwitchingTrackingParams,
+    params: &TrackingParams,
 ) -> StateAndCovariance<MyFloat, U6> {
     // initial state estimate
     let state = Vector6::new(coords.x, coords.y, coords.z, 0.0, 0.0, 0.0);
@@ -943,14 +949,15 @@ impl ModelCollection<CollectionFramePosteriors> {
             }
 
             let good_points = {
-                #[cfg(feature = "full-3d")]
+                // Use `minimum_pixel_abs_zscore` from hypothesis_test_params if
+                // present, otherwise 0.
                 let minimum_pixel_abs_zscore = self
                     .mcinner
                     .params
                     .hypothesis_test_params
-                    .minimum_pixel_abs_zscore;
-                #[cfg(feature = "flat-3d")]
-                let minimum_pixel_abs_zscore = 0.0;
+                    .as_ref()
+                    .map(|p| p.minimum_pixel_abs_zscore)
+                    .unwrap_or(0.0);
 
                 let fdp_vec: &Vec<FrameDataAndPoints> = &unused.0.orig_distorted;
 

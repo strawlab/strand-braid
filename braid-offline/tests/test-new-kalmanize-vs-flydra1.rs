@@ -297,8 +297,8 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
 
     let expected_fps = None;
 
-    let tracking_params = flydra2::SwitchingTrackingParams::default();
-    println!("tracking with default parameters");
+    let tracking_params = flydra_types::default_tracking_params_full_3d();
+    println!("tracking with default 3D tracking parameters");
 
     let rt_handle = tokio::runtime::Handle::current();
     let data_src = braidz_parser::incremental_parser::IncrementalParser::open_dir(&untracked_dir)

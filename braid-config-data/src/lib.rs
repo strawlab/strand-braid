@@ -35,10 +35,6 @@ fn default_lowlatency_camdata_udp_addr() -> String {
     "127.0.0.1:0".to_string()
 }
 
-fn default_3d_tracking_params() -> flydra_types::TrackingParams {
-    flydra_types::TrackingParamsInner3D::default().into()
-}
-
 fn default_http_api_server_addr() -> String {
     "127.0.0.1:0".to_string()
 }
@@ -90,7 +86,7 @@ pub struct MainbrainConfig {
     /// Directory where data should be saved. Can contain shell variables.
     pub output_base_dirname: std::path::PathBuf,
     /// Parameters for Kalman filter and data association
-    #[serde(default = "default_3d_tracking_params")]
+    #[serde(default = "flydra_types::default_tracking_params_full_3d")]
     pub tracking_params: flydra_types::TrackingParams,
     // Raising the mainbrain thread priority is currently disabled.
     // /// Parameters to potentially raise the mainbrain thread priority.
@@ -128,7 +124,7 @@ impl std::default::Default for MainbrainConfig {
         Self {
             cal_fname: Some(std::path::PathBuf::from("/path/to/cal.xml")),
             output_base_dirname: std::path::PathBuf::from("/path/to/savedir"),
-            tracking_params: default_3d_tracking_params(),
+            tracking_params: flydra_types::default_tracking_params_full_3d(),
             // Raising the mainbrain thread priority is currently disabled.
             // sched_policy_priority: None,
             lowlatency_camdata_udp_addr: default_lowlatency_camdata_udp_addr(),

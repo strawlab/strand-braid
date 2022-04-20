@@ -3,24 +3,26 @@ use std::{collections::BTreeMap, sync::Arc};
 use nalgebra::Vector3;
 use ncollide3d::shape::Plane;
 
-use crate::{CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams};
-use flydra_types::RosCamName;
+use crate::{tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult};
+use flydra_types::{MyFloat, RosCamName, TrackingParams};
 
-pub(crate) struct NewObjectTest {
+pub(crate) struct NewObjectTestFlat3D {
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
 }
 
-impl NewObjectTest {
+impl NewObjectTestFlat3D {
     pub(crate) fn new(
         recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-        _params: Arc<SwitchingTrackingParams>,
+        _params: Arc<TrackingParams>,
     ) -> Self {
         // `_params` is unused but required to have the same type signature as
         // the 3d version.
         Self { recon }
     }
+}
 
-    pub(crate) fn hypothesis_test(
+impl HypothesisTest for NewObjectTestFlat3D {
+    fn hypothesis_test(
         &self,
         good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {

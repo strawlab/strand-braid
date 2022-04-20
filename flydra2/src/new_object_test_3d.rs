@@ -1,12 +1,13 @@
 use log::error;
 use std::{collections::BTreeMap, sync::Arc};
 
-use flydra_types::RosCamName;
+use flydra_types::{RosCamName, TrackingParams};
 
 use mvg::PointWorldFrameWithSumReprojError;
 
 use crate::{
-    safe_u8, set_of_subsets, CamAndDist, HypothesisTestResult, MyFloat, SwitchingTrackingParams,
+    safe_u8, set_of_subsets, tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult,
+    MyFloat,
 };
 
 const HTEST_MAX_N_CAMS: u8 = 3;
@@ -14,16 +15,16 @@ const HTEST_MAX_N_CAMS: u8 = 3;
 type CamComboKey = RosCamName;
 type CamComboList = Vec<Vec<RosCamName>>;
 
-pub(crate) struct NewObjectTest {
+pub(crate) struct NewObjectTestFull3D {
     cam_combinations_by_size: BTreeMap<u8, CamComboList>,
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-    params: Arc<SwitchingTrackingParams>,
+    params: Arc<TrackingParams>,
 }
 
-impl NewObjectTest {
+impl NewObjectTestFull3D {
     pub(crate) fn new(
         recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-        params: Arc<SwitchingTrackingParams>,
+        params: Arc<TrackingParams>,
     ) -> Self {
         {
             let mut cam_combinations_by_size = BTreeMap::new();
@@ -58,7 +59,9 @@ impl NewObjectTest {
             }
         }
     }
+}
 
+impl HypothesisTest for NewObjectTestFull3D {
     /// Use hypothesis testing algorithm to find best 3D point.
     ///
     /// Finds combination of cameras which uses the most number of cameras
@@ -70,19 +73,21 @@ impl NewObjectTest {
     ///
     /// We can safely make the assumption that all incoming data is from the same
     /// framenumber and timestamp.
-    pub(crate) fn hypothesis_test(
+    fn hypothesis_test(
         &self,
         good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         // TODO: convert this to use undistorted points and then remove
         // orig_distorted, also from the structure it is in.
 
-        let minimum_number_of_cameras =
-            self.params.hypothesis_test_params.minimum_number_of_cameras;
-        let hypothesis_test_max_acceptable_error = self
-            .params
-            .hypothesis_test_params
-            .hypothesis_test_max_acceptable_error;
+        let hypothesis_test_params =
+            self.params.hypothesis_test_params.as_ref().expect(
+                "calling NewObjectTestFull3D:hypothesis_test() without hypothesis_test_params",
+            );
+
+        let minimum_number_of_cameras = hypothesis_test_params.minimum_number_of_cameras;
+        let hypothesis_test_max_acceptable_error =
+            hypothesis_test_params.hypothesis_test_max_acceptable_error;
 
         let mut best_overall: Option<(
             PointWorldFrameWithSumReprojError<MyFloat>,

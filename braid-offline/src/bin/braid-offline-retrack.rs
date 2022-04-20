@@ -6,7 +6,7 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "braid-offline-retrack")]
 struct Opt {
-    /// Input .braid directory
+    /// Input .braidz file
     #[structopt(short = "d", parse(from_os_str))]
     data_src: std::path::PathBuf,
     /// Output file (must end with .braidz)
@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
         braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
     let data_src = data_src.parse_basics()?;
 
-    let tracking_params: flydra2::SwitchingTrackingParams = match opt.tracking_params {
+    let tracking_params: flydra_types::TrackingParams = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
@@ -55,7 +55,19 @@ async fn main() -> anyhow::Result<()> {
             let parsed = data_src.basic_info();
             match parsed.tracking_params.clone() {
                 Some(tp) => tp.try_into().unwrap(),
-                None => flydra2::SwitchingTrackingParams::default(),
+                None => {
+                    let num_cams = data_src.basic_info().cam_info.camid2camn.len();
+                    match num_cams {
+                        0 => {
+                            anyhow::bail!(
+                                "No tracking parameters specified, none found in \
+                            data_src, and no default is reasonable because zero cameras present."
+                            )
+                        }
+                        1 => flydra_types::default_tracking_params_flat_3d(),
+                        _ => flydra_types::default_tracking_params_full_3d(),
+                    }
+                }
             }
         }
     };

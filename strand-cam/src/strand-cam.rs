@@ -957,7 +957,7 @@ fn frame_process_thread(
 
                                 let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(&cam_name2,
                                     &http_camserver, &Some(recon2));
-                                let tracking_params = flydra2::SwitchingTrackingParams::default();
+                                let tracking_params = flydra_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = CoordProcessor::new(
                                     cam_manager, Some(recon),
