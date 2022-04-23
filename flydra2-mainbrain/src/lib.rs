@@ -482,7 +482,8 @@ pub async fn pre_run(
 
     // This `get_default_config()` function is created by bui_backend_codegen
     // and is pulled in here by the `include!` macro above.
-    let config = get_default_config();
+    let mut config = get_default_config();
+    config.cookie_name = "braid-bui-token".to_string();
 
     let time_model_arc = Arc::new(RwLock::new(None));
 
