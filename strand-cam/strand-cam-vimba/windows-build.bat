@@ -16,4 +16,4 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo build --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal backtrace imops/simd" --release
+cargo build --features "strand-cam/bundle_files strand-cam/image_tracker strand-cam/imtrack-absdiff ipp-sys/2019 strand-cam/checkercal backtrace imops/simd" --release
