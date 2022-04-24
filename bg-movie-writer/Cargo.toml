@@ -18,4 +18,4 @@ basic-frame = { path = "../basic-frame" }
 channellib = {path="../channellib"}
 
 [features]
-backtrace = ["mkv-writer/backtrace"]
+backtrace = ["mkv-writer/backtrace", "channellib/backtrace"]
