@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_float, c_void};
+use std::os::raw::{c_float, c_void};
 
 include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 
@@ -53,8 +53,8 @@ pub enum EisvogelPixelFormat {
 }
 
 #[repr(C)]
-pub struct FrameData {
-    pub data: *const c_char,
+pub struct FrameData<'a> {
+    pub data: &'a [u8],
     pub stride: u64,
     pub rows: u32,
     pub cols: u32,

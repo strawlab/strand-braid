@@ -4071,13 +4071,13 @@ fn get_c_timestamp<'a>(frame: &'a DynamicFrame) -> f64 {
 }
 
 #[cfg(feature = "plugin-process-frame")]
-fn view_as_c_frame<'a>(frame: &'a DynamicFrame) -> plugin_defs::FrameData {
+fn view_as_c_frame(frame: &DynamicFrame) -> plugin_defs::FrameData {
     use formats::Stride;
 
     let pixel_format = get_pixfmt(&frame.pixel_format());
 
     let result = plugin_defs::FrameData {
-        data: frame.image_data_without_format().as_ptr() as *const i8,
+        data: frame.image_data_without_format(),
         stride: frame.stride() as u64,
         rows: frame.height(),
         cols: frame.width(),
