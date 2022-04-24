@@ -1,9 +1,9 @@
 extern crate cbindgen;
 
 use std::env;
-use std::path::Path;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -16,8 +16,8 @@ fn main() {
 
     // save header file
     cbindgen::generate_with_config(&crate_dir, config)
-      .expect("cbindgen generate_with_config() failed")
-      .write_to_file(&header_path);
+        .expect("cbindgen generate_with_config() failed")
+        .write_to_file(&header_path);
 
     // read header file to string
     let mut fd = std::fs::File::open(&header_path).unwrap();
