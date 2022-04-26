@@ -1,16 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "simd", feature(portable_simd))]
 
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.
 
 use machine_vision_formats::{pixel_format::Mono8, ImageMutData, ImageStride};
-
-// #[derive(Debug, Clone)]
-// #[cfg_attr(feature = "std", derive(thiserror::Error))]
-// pub enum Error {
-//     #[cfg_attr(feature = "std", error("Invalid Format: {0}"))]
-// InvalidFormat(machine_vision_formats::PixFmt),
-// }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Power {
@@ -19,7 +13,7 @@ enum Power {
     Two,
 }
 
-#[cfg(not(feature = "packed_simd"))]
+#[cfg(not(feature = "simd"))]
 #[inline]
 fn mypow(x: u32, exp: Power) -> f32 {
     match exp {
@@ -42,7 +36,7 @@ impl From<u8> for Power {
     }
 }
 
-#[cfg(not(feature = "packed_simd"))]
+#[cfg(not(feature = "simd"))]
 fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
 where
     IM: ImageStride<Mono8>,
@@ -71,9 +65,9 @@ pub fn spatial_moment_00<IM>(im: &IM) -> f32
 where
     IM: ImageStride<Mono8>,
 {
-    #[cfg(feature = "packed_simd")]
+    #[cfg(feature = "simd")]
     {
-        use packed_simd::f32x8;
+        use std::simd::f32x8;
 
         let mut accum: f32 = 0.0;
 
@@ -85,32 +79,27 @@ where
         for rowdata in chunk_iter {
             // trim from stride to width
             let rowdata = &rowdata[..im.width() as usize];
-            let mut rowsum = f32x8::splat(0.0);
 
-            let row_chunk_iter = rowdata.chunks_exact(8);
-            let remainder = row_chunk_iter.remainder();
-            for x in row_chunk_iter {
-                rowsum += f32x8::new(
-                    x[0] as f32,
-                    x[1] as f32,
-                    x[2] as f32,
-                    x[3] as f32,
-                    x[4] as f32,
-                    x[5] as f32,
-                    x[6] as f32,
-                    x[7] as f32,
-                );
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
+
+            for x in prefix_data {
+                accum += *x as f32;
             }
 
-            accum += rowsum.sum();
-            for x in remainder {
+            let mut rowsum = f32x8::splat(0.0);
+            for x in main_row_data {
+                rowsum += x.cast(); // converts u8 to f32
+            }
+            accum += rowsum.reduce_sum();
+
+            for x in remainder_data {
                 accum += *x as f32;
             }
         }
         accum
     }
 
-    #[cfg(not(feature = "packed_simd"))]
+    #[cfg(not(feature = "simd"))]
     {
         spatial_moment(im, Power::Zero, Power::Zero)
     }
@@ -125,10 +114,10 @@ pub fn spatial_moment_10<IM>(im: &IM) -> f32
 where
     IM: ImageStride<Mono8>,
 {
-    #[cfg(feature = "packed_simd")]
+    #[cfg(feature = "simd")]
     {
         let mut accum: f32 = 0.0;
-        use packed_simd::f32x8;
+        use std::simd::f32x8;
 
         let full_data = im.image_data();
         let datalen = im.height() as usize * im.stride();
@@ -138,32 +127,28 @@ where
         for (row, rowdata) in chunk_iter.enumerate() {
             // trim from stride to width
             let rowdata = &rowdata[..im.width() as usize];
-            let mut rowsum = f32x8::splat(0.0);
 
-            let row_chunk_iter = rowdata.chunks_exact(8);
-            let remainder = row_chunk_iter.remainder();
-            for x in row_chunk_iter {
-                let tmp = f32x8::new(
-                    x[0] as f32,
-                    x[1] as f32,
-                    x[2] as f32,
-                    x[3] as f32,
-                    x[4] as f32,
-                    x[5] as f32,
-                    x[6] as f32,
-                    x[7] as f32,
-                );
-                rowsum += tmp * row as f32;
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
+
+            for x in prefix_data {
+                accum += *x as f32 * row as f32;
             }
-            accum += rowsum.sum();
-            for x in remainder {
+
+            let mut rowsum = f32x8::splat(0.0);
+            let rowvec = f32x8::splat(row as f32);
+            for x in main_row_data {
+                rowsum += x.cast() * rowvec; // converts u8 to f32
+            }
+            accum += rowsum.reduce_sum();
+
+            for x in remainder_data {
                 accum += *x as f32 * row as f32;
             }
         }
         accum
     }
 
-    #[cfg(not(feature = "packed_simd"))]
+    #[cfg(not(feature = "simd"))]
     {
         spatial_moment(im, Power::One, Power::Zero)
     }
@@ -178,12 +163,12 @@ pub fn spatial_moment_01<IM>(im: &IM) -> f32
 where
     IM: ImageStride<Mono8>,
 {
-    #[cfg(feature = "packed_simd")]
+    #[cfg(feature = "simd")]
     {
         let mut accum: f32 = 0.0;
-        use packed_simd::f32x8;
+        use std::simd::f32x8;
 
-        let col_offset = f32x8::new(0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0);
+        let col_offset = f32x8::from_array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
 
         let full_data = im.image_data();
         let datalen = im.height() as usize * im.stride();
@@ -193,40 +178,31 @@ where
         for rowdata in chunk_iter {
             // trim from stride to width
             let rowdata = &rowdata[..im.width() as usize];
-            let n_chunks = rowdata.len() / 8; // integer division
-            let chunk_end = n_chunks * 8;
-            let mut rowsum = f32x8::splat(0.0);
 
-            let row_chunk_iter = rowdata.chunks_exact(8);
-            let remainder = row_chunk_iter.remainder();
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
 
-            for (col_div_8, x) in row_chunk_iter.enumerate() {
-                let tmp1 = f32x8::splat((col_div_8 * 8) as f32);
-                let tmp2 = f32x8::new(
-                    x[0] as f32,
-                    x[1] as f32,
-                    x[2] as f32,
-                    x[3] as f32,
-                    x[4] as f32,
-                    x[5] as f32,
-                    x[6] as f32,
-                    x[7] as f32,
-                );
-                rowsum += (tmp1 + col_offset) * tmp2;
+            for (col, x) in prefix_data.iter().enumerate() {
+                accum += *x as f32 * col as f32;
             }
-            accum += rowsum.sum();
 
-            let mut i = 0;
-            for x in remainder {
-                let col = chunk_end + i;
-                i += 1; // why can I not do remainder.enumerate()?
+            let start_idx = prefix_data.len();
+            let mut rowsum = f32x8::splat(0.0);
+            for (col_div_8, x) in main_row_data.iter().enumerate() {
+                let col = f32x8::splat((col_div_8 * 8 + start_idx) as f32) + col_offset;
+                rowsum += x.cast() * col;
+            }
+            accum += rowsum.reduce_sum();
+
+            let start_idx = prefix_data.len() + main_row_data.len() * 8;
+            for (i, x) in remainder_data.iter().enumerate() {
+                let col = i + start_idx;
                 accum += *x as f32 * col as f32;
             }
         }
         accum
     }
 
-    #[cfg(not(feature = "packed_simd"))]
+    #[cfg(not(feature = "simd"))]
     {
         spatial_moment(im, Power::Zero, Power::One)
     }
@@ -251,9 +227,18 @@ where
     let data = &mut full_data[..datalen];
     let chunk_iter = data.chunks_exact_mut(stride);
 
-    #[cfg(feature = "packed_simd")]
+    #[inline]
+    fn scalar_clip_low(scalar_data: &mut [u8], low: u8) {
+        for element in scalar_data.iter_mut() {
+            if *element < low {
+                *element = low;
+            }
+        }
+    }
+
+    #[cfg(feature = "simd")]
     {
-        use packed_simd::u8x32;
+        use std::simd::u8x32;
 
         let low_vec = u8x32::splat(low);
 
@@ -261,36 +246,27 @@ where
             // trim from stride to width
             let rowdata = &mut rowdata[..width];
 
-            let mut row_chunk_iter = rowdata.chunks_exact_mut(32);
+            let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
+            scalar_clip_low(&mut prefix_data, low);
 
-            while let Some(x) = row_chunk_iter.next() {
-                let mut y = u8x32::from_slice_unaligned(x);
-                y = y.max(low_vec);
-                y.write_to_slice_unaligned(x);
+            for y in main_row_data.iter_mut() {
+                *y = u8x32::max(*y, low_vec);
             }
 
-            let remainder = row_chunk_iter.into_remainder();
-            for x in remainder {
-                if *x < low {
-                    *x = low;
-                }
-            }
+            scalar_clip_low(&mut remainder_data, low);
         }
     }
 
-    #[cfg(not(feature = "packed_simd"))]
+    #[cfg(not(feature = "simd"))]
     {
         for rowdata in chunk_iter {
-            for element in rowdata[..width].iter_mut() {
-                if *element < low {
-                    *element = low;
-                }
-            }
+            scalar_clip_low(&mut rowdata[..width], low);
         }
     }
     im
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum CmpOp {
     LessThan,
     LessEqual,
@@ -320,9 +296,32 @@ where
     let data = &mut full_data.data[..datalen];
     let chunk_iter = data.chunks_exact_mut(stride);
 
-    #[cfg(feature = "packed_simd")]
+    #[inline]
+    fn scalar_cmp(scalar_data: &mut [u8], thresh: u8, a: u8, b: u8, op: CmpOp) {
+        for x in scalar_data {
+            match op {
+                CmpOp::LessThan => {
+                    *x = if *x < thresh { a } else { b };
+                }
+                CmpOp::LessEqual => {
+                    *x = if *x <= thresh { a } else { b };
+                }
+                CmpOp::Equal => {
+                    *x = if *x == thresh { a } else { b };
+                }
+                CmpOp::GreaterEqual => {
+                    *x = if *x >= thresh { a } else { b };
+                }
+                CmpOp::GreaterThan => {
+                    *x = if *x > thresh { a } else { b };
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "simd")]
     {
-        use packed_simd::u8x32;
+        use std::simd::u8x32;
 
         let avec = u8x32::splat(a);
         let bvec = u8x32::splat(b);
@@ -332,66 +331,29 @@ where
             // trim from stride to width
             let rowdata = &mut rowdata[..width];
 
-            let mut row_chunk_iter = rowdata.chunks_exact_mut(32);
+            let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
 
-            while let Some(x) = row_chunk_iter.next() {
-                let mut y = u8x32::from_slice_unaligned(x);
+            scalar_cmp(&mut prefix_data, thresh, a, b, op);
+
+            for y in main_row_data.iter_mut() {
                 let indicator = match op {
-                    CmpOp::LessThan => y.lt(thresh_vec),
-                    CmpOp::LessEqual => y.le(thresh_vec),
-                    CmpOp::Equal => y.eq(thresh_vec),
-                    CmpOp::GreaterEqual => y.ge(thresh_vec),
-                    CmpOp::GreaterThan => y.gt(thresh_vec),
+                    CmpOp::LessThan => y.lanes_lt(thresh_vec),
+                    CmpOp::LessEqual => y.lanes_le(thresh_vec),
+                    CmpOp::Equal => y.lanes_eq(thresh_vec),
+                    CmpOp::GreaterEqual => y.lanes_ge(thresh_vec),
+                    CmpOp::GreaterThan => y.lanes_gt(thresh_vec),
                 };
-                y = indicator.select(avec, bvec);
-                y.write_to_slice_unaligned(x);
+                *y = indicator.select(avec, bvec);
             }
 
-            let remainder = row_chunk_iter.into_remainder();
-            for x in remainder {
-                match op {
-                    CmpOp::LessThan => {
-                        *x = if *x < thresh { a } else { b };
-                    }
-                    CmpOp::LessEqual => {
-                        *x = if *x <= thresh { a } else { b };
-                    }
-                    CmpOp::Equal => {
-                        *x = if *x == thresh { a } else { b };
-                    }
-                    CmpOp::GreaterEqual => {
-                        *x = if *x >= thresh { a } else { b };
-                    }
-                    CmpOp::GreaterThan => {
-                        *x = if *x > thresh { a } else { b };
-                    }
-                }
-            }
+            scalar_cmp(&mut remainder_data, thresh, a, b, op);
         }
     }
 
-    #[cfg(not(feature = "packed_simd"))]
+    #[cfg(not(feature = "simd"))]
     {
         for rowdata in chunk_iter {
-            for x in rowdata[..width].iter_mut() {
-                match op {
-                    CmpOp::LessThan => {
-                        *x = if *x < thresh { a } else { b };
-                    }
-                    CmpOp::LessEqual => {
-                        *x = if *x <= thresh { a } else { b };
-                    }
-                    CmpOp::Equal => {
-                        *x = if *x == thresh { a } else { b };
-                    }
-                    CmpOp::GreaterEqual => {
-                        *x = if *x >= thresh { a } else { b };
-                    }
-                    CmpOp::GreaterThan => {
-                        *x = if *x > thresh { a } else { b };
-                    }
-                }
-            }
+            scalar_cmp(&mut rowdata[..width], thresh, a, b, op);
         }
     }
     im
@@ -596,8 +558,8 @@ mod tests {
     }
 }
 
-#[cfg(feature = "packed_simd")]
+#[cfg(feature = "simd")]
 pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
 
-#[cfg(not(feature = "packed_simd"))]
+#[cfg(not(feature = "simd"))]
 pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;

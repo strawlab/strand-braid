@@ -170,7 +170,7 @@ test_crates_rust_nightly:
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly-2022-03-21 test --no-default-features --features std,packed_simd
+    - cargo +nightly-2022-03-21 test --no-default-features --features std,simd
     - cd ..
 
 test_image_tracker:
@@ -397,7 +397,7 @@ strand-cam-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -435,7 +435,7 @@ strand-cam-vimba-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -520,7 +520,7 @@ strand-cam-led-box-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/packed_simd" --release
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
 
     - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
     - cargo build --release
