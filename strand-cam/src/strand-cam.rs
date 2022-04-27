@@ -21,9 +21,6 @@ use machine_vision_formats as formats;
 #[cfg(feature = "flydratrax")]
 use nalgebra as na;
 
-#[allow(unused_imports)]
-use std::convert::TryInto;
-
 #[cfg(feature = "fiducial")]
 use libflate::finish::AutoFinishUnchecked;
 #[cfg(feature = "fiducial")]
@@ -45,10 +42,9 @@ use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use formats::PixFmt;
 use timestamped_frame::ExtraTimeData;
 
-use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner, ConnectionEventType};
-use bui_backend::lowlevel::EventChunkSender;
-use bui_backend::AccessControl;
-use bui_backend_types::{CallbackDataAndSession, ConnectionKey, SessionKey};
+use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner};
+use bui_backend::{AccessControl, CallbackHandler};
+use bui_backend_types::CallbackDataAndSession;
 
 #[cfg(feature = "flydratrax")]
 use http_video_streaming_types::DrawableShape;
@@ -56,7 +52,7 @@ use http_video_streaming_types::StrokeStyle;
 
 use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
-use std::path::Path;
+use std::{error::Error as StdError, future::Future, path::Path, pin::Pin};
 
 #[cfg(feature = "image_tracker")]
 use ci2_remote_control::CsvSaveConfig;
@@ -92,7 +88,6 @@ use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 use rust_cam_bui_types::RecordingPath;
 
 use parking_lot::RwLock;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
@@ -107,7 +102,6 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
-use crossbeam_ok::CrossbeamOk;
 #[cfg(feature = "flydratrax")]
 use flydra2::{CoordProcessor, CoordProcessorControl, MyFloat, StreamItem};
 
@@ -141,6 +135,8 @@ pub enum StrandCamError {
     // OtherError,
     #[error("string error: {0}")]
     StringError(String),
+    #[error("error: {0}")]
+    AnyhowError(#[from] anyhow::Error),
     #[error("no cameras found")]
     NoCamerasFound,
     #[error("ConvertImageError: {0}")]
@@ -242,17 +238,21 @@ pub enum StrandCamError {
     CameraNameRequired,
     #[error("hyper error: {0}")]
     HyperError(#[from] hyper::Error),
+    #[error("tokio::task::JoinError: {0}")]
+    TokioTaskJoinError(#[from] tokio::task::JoinError),
 }
 
-pub struct CloseAppOnThreadExit {
+#[cfg(feature = "plugin-process-frame")]
+struct CloseAppOnThreadExit {
     file: &'static str,
     line: u32,
     thread_handle: std::thread::Thread,
-    sender: Option<mpsc::Sender<CamArg>>,
+    sender: Option<tokio::sync::mpsc::Sender<CamArg>>,
 }
 
+#[cfg(feature = "plugin-process-frame")]
 impl CloseAppOnThreadExit {
-    pub fn new(sender: mpsc::Sender<CamArg>, file: &'static str, line: u32) -> Self {
+    pub fn new(sender: tokio::sync::mpsc::Sender<CamArg>, file: &'static str, line: u32) -> Self {
         let thread_handle = std::thread::current();
         Self {
             sender: Some(sender),
@@ -262,23 +262,6 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    fn maybe_err(self, result: anyhow::Result<()>) {
-        match result {
-            Ok(()) => self.success(),
-            Err(e) => {
-                display_err(
-                    e,
-                    self.file,
-                    self.line,
-                    self.thread_handle.name(),
-                    self.thread_handle.id(),
-                );
-                // The drop handler will close everything.
-            }
-        }
-    }
-
-    #[cfg(feature = "plugin-process-frame")]
     fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
     where
         E: std::convert::Into<anyhow::Error>,
@@ -289,7 +272,6 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    #[cfg(feature = "plugin-process-frame")]
     fn fail(&self, e: anyhow::Error) -> ! {
         display_err(
             e,
@@ -309,6 +291,7 @@ impl CloseAppOnThreadExit {
     }
 }
 
+#[cfg(feature = "plugin-process-frame")]
 fn display_err(
     err: anyhow::Error,
     file: &str,
@@ -326,16 +309,17 @@ fn display_err(
     eprintln!("{:?}", err,);
 }
 
+#[cfg(feature = "plugin-process-frame")]
 impl Drop for CloseAppOnThreadExit {
     fn drop(&mut self) {
-        if let Some(mut sender) = self.sender.take() {
+        if let Some(sender) = self.sender.take() {
             debug!(
                 "*** dropping in thread {:?} {}:{}",
                 self.thread_handle.name(),
                 self.file,
                 self.line
             );
-            match futures::executor::block_on(sender.send(CamArg::DoQuit)) {
+            match sender.blocking_send(CamArg::DoQuit) {
                 Ok(()) => {}
                 Err(e) => {
                     error!("failed sending quit command: {}", e);
@@ -374,6 +358,12 @@ pub(crate) enum Msg {
     QuitFrameProcessThread,
     StartAprilTagRec(String),
     StopAprilTagRec,
+}
+
+impl std::fmt::Debug for Msg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "strand_cam::Msg{{..}}")
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -522,7 +512,7 @@ struct AprilConfig {
 
 #[cfg(feature = "fiducial")]
 struct AprilTagWriter {
-    wtr: csv::Writer<Box<dyn std::io::Write>>,
+    wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     t0: chrono::DateTime<chrono::Utc>,
 }
 
@@ -539,7 +529,8 @@ impl AprilTagWriter {
         let fname = local.format(&template).to_string();
 
         let fd = std::fs::File::create(&fname)?;
-        let mut fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+        let mut fd: Box<dyn std::io::Write + Send> =
+            Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
 
         let april_config = AprilConfig {
             created_at: local,
@@ -595,6 +586,7 @@ struct FlydraConfigState {
     kalman_tracking_config: KalmanTrackingConfig,
 }
 
+#[cfg(feature = "checkercal")]
 type CollectedCornersArc = Arc<RwLock<Vec<Vec<(f32, f32)>>>>;
 
 async fn register_node_and_update_image(
@@ -613,10 +605,12 @@ async fn register_node_and_update_image(
 
 async fn convert_stream(
     ros_cam_name: RosCamName,
-    mut transmit_feature_detect_settings_rx: mpsc::Receiver<image_tracker_types::ImPtDetectCfg>,
+    mut transmit_feature_detect_settings_rx: tokio::sync::mpsc::Receiver<
+        image_tracker_types::ImPtDetectCfg,
+    >,
     mut transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
 ) -> Result<()> {
-    while let Some(val) = transmit_feature_detect_settings_rx.next().await {
+    while let Some(val) = transmit_feature_detect_settings_rx.recv().await {
         let msg =
             flydra_types::HttpApiCallback::UpdateFeatureDetectSettings(flydra_types::PerCam {
                 ros_cam_name: ros_cam_name.clone(),
@@ -643,29 +637,31 @@ struct MainbrainInfo {
 // correct bug.
 #[rustfmt::skip]
 #[allow(unused_mut,unused_variables)]
-fn frame_process_thread(
+async fn frame_process_task(
     my_runtime: tokio::runtime::Handle,
     #[cfg(feature="flydratrax")]
-    model_server: flydra2::ModelServer,
+    flydratrax_model_server: (tokio::sync::mpsc::Sender<(flydra2::SendType, flydra2::TimeDataPassthrough)>, flydra2::ModelServer),
     #[cfg(feature="flydratrax")]
     flydratrax_calibration_source: CalSource,
     cam_name: RawCamName,
     camera_cfg: CameraCfgFview2_0_26,
     width: u32,
     height: u32,
-    pixel_format: PixFmt,
-    incoming_frame_rx: channellib::Receiver<Msg>,
-    cam_args_tx: mpsc::Sender<CamArg>,
+    mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
+    cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     #[cfg(feature="image_tracker")]
     im_pt_detect_cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
-    firehose_tx: channellib::Sender<AnnotatedFrame>,
+    firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
+    #[cfg(feature = "plugin-process-frame")]
     plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
+    #[cfg(feature = "plugin-process-frame")]
     plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
+    #[cfg(feature="plugin-process-frame")]
     plugin_wait_dur: std::time::Duration,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    flag: thread_control::Flag,
-    is_starting: Arc<bool>,
+    mut quit_rx: tokio::sync::oneshot::Receiver<()>,
+    is_starting_tx: tokio::sync::oneshot::Sender<()>,
     http_camserver_info: BuiServerInfo,
     process_frame_priority: Option<(i32,i32)>,
     #[cfg(feature = "debug-images")]
@@ -673,7 +669,9 @@ fn frame_process_thread(
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
+    #[cfg(feature="plugin-process-frame")]
     do_process_frame_callback: bool,
+    #[cfg(feature="checkercal")]
     collected_corners_arc: CollectedCornersArc,
     save_empty_data2d: SaveEmptyData2dType,
     valve: stream_cancel::Valve,
@@ -734,8 +732,6 @@ fn frame_process_thread(
 
     #[cfg(feature="fiducial")]
     let mut apriltag_writer: Option<_> = None;
-    #[cfg(not(feature="fiducial"))]
-    let mut apriltag_writer: Option<()> = None;
     let mut my_mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
     #[cfg(feature="image_tracker")]
@@ -758,8 +754,8 @@ fn frame_process_thread(
         let addr = info.mainbrain_internal_addr;
         let transmit_msg_tx = info.transmit_msg_tx.clone();
 
-        let (mut transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
-            mpsc::channel::<image_tracker_types::ImPtDetectCfg>(10);
+        let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
+            tokio::sync::mpsc::channel::<image_tracker_types::ImPtDetectCfg>(10);
 
         my_runtime.spawn(convert_stream( ros_cam_name.clone(), transmit_feature_detect_settings_rx, transmit_msg_tx.clone() ));
 
@@ -792,16 +788,13 @@ fn frame_process_thread(
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
     #[cfg(feature="flydratrax")]
-    #[allow(unused_assignments)]
     let mut kalman_tracking_config = KalmanTrackingConfig::default(); // this is replaced below
     #[cfg(feature="flydratrax")]
-    #[allow(unused_assignments)]
-    let mut led_program_config = LedProgramConfig::default(); // this is replaced below
+    let mut led_program_config;
     let mut led_state = false;
     let mut current_flydra_config_state: Option<FlydraConfigState> = None;
     let mut dirty_flydra = false;
     #[cfg(feature="flydratrax")]
-    #[allow(unused_assignments)]
     let mut current_led_program_config_state: Option<LedProgramConfig> = None;
     let mut dirty_led_program = false;
 
@@ -809,7 +802,7 @@ fn frame_process_thread(
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
-    std::mem::drop(is_starting); // signal that we are we are no longer starting
+    is_starting_tx.send(()).ok();// signal that we are we are no longer starting
 
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
@@ -843,7 +836,7 @@ fn frame_process_thread(
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
-    while flag.alive() {
+    while quit_rx.try_recv() == Err( tokio::sync::oneshot::error::TryRecvError::Empty) {
         #[cfg(feature="image_tracker")]
         {
             if let Some(ref ssa) = shared_store_arc {
@@ -872,7 +865,7 @@ fn frame_process_thread(
             }
 
             let kalman_tracking_enabled = if let Some(ref ssa) = shared_store_arc {
-                let mut tracker = ssa.read();
+                let tracker = ssa.read();
                 tracker.as_ref().kalman_tracking_config.enabled
             } else {
                 false
@@ -884,7 +877,7 @@ fn frame_process_thread(
             if is_doing_object_detection && maybe_flydra2_stream.is_none() {
                 if let Some(ref ssa) = shared_store_arc {
                     let region = {
-                        let mut tracker = ssa.write();
+                        let tracker = ssa.write();
                         kalman_tracking_config = tracker.as_ref().kalman_tracking_config.clone();
                         led_program_config = tracker.as_ref().led_program_config.clone();
                         tracker.as_ref().im_pt_detect_cfg.valid_region.clone()
@@ -922,11 +915,9 @@ fn frame_process_thread(
                                     }
                                 };
 
-                                let (save_data_tx, save_data_rx) = channellib::unbounded();
-                                maybe_flydra2_write_control = Some(CoordProcessorControl::new(save_data_tx.clone()));
                                 let (flydra2_tx, flydra2_rx) = futures::channel::mpsc::channel(100);
 
-                                let (model_sender, model_receiver) = tokio::sync::mpsc::unbounded_channel();
+                                let (model_sender, model_receiver) = tokio::sync::mpsc::channel(100);
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let led_box_tx_std2 = led_box_tx_std.clone();
@@ -936,23 +927,22 @@ fn frame_process_thread(
                                 assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
 
-                                // TODO: kill task on shutdown
                                 let msg_handler_fut = async move {
-                                    flydratrax_handle_msg::flydratrax_handle_msg(cam_cal,
+                                    flydratrax_handle_msg::create_message_handler(cam_cal,
                                         model_receiver,
                                         &mut led_state, ssa2, led_box_tx_std2,
                                         )
                                     .await
                                     .map_err(|e| anyhow::Error::new(Box::new(e))).unwrap();
                                 };
-                                tokio::spawn(msg_handler_fut); // todo: keep join handle
+                                let msg_handler_jh = my_runtime.spawn(msg_handler_fut);
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
                                 let http_camserver = CamHttpServerInfo::Server(
                                     http_camserver_info.clone());
                                 let recon2 = recon.clone();
-                                let model_server2 = model_server.clone();
+                                let flydratrax_model_server2 = flydratrax_model_server.clone();
                                 let valve2 = valve.clone();
 
                                 let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(&cam_name2,
@@ -960,37 +950,39 @@ fn frame_process_thread(
                                 let tracking_params = flydra_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = CoordProcessor::new(
-                                    cam_manager, Some(recon),
+                                    tokio::runtime::Handle::current(),
+                                    cam_manager,
+                                    Some(recon),
                                     tracking_params,
-                                    save_data_tx,
-                                    save_data_rx,
                                     save_empty_data2d,
                                     "strand-cam",
-                                    ignore_latency)
+                                    ignore_latency,
+                                )
                                     .expect("create CoordProcessor");
 
-                                let flydratrax_server = crate::flydratrax_handle_msg::FlydraTraxServer::new(model_sender);
+                                let braidz_write_tx = coord_processor.get_braidz_write_tx();
+                                maybe_flydra2_write_control = Some(CoordProcessorControl::new(braidz_write_tx));
 
-                                coord_processor.add_listener(Box::new(flydratrax_server)); // the local LED control thing
-                                coord_processor.add_listener(Box::new(model_server2)); // the HTTP thing
+                                let (model_server_data_tx, _model_server) = flydratrax_model_server2;
+
+                                coord_processor.add_listener(model_sender); // the local LED control thing
+                                coord_processor.add_listener(model_server_data_tx); // the HTTP thing
 
                                 let expected_framerate = *expected_framerate_arc2.read();
                                 let flydra2_rx_valved = valve2.wrap(flydra2_rx);
                                 let consume_future = coord_processor.consume_stream(flydra2_rx_valved,
                                     expected_framerate);
 
-                                use futures::future::FutureExt;
-                                let consume_future_noerr = consume_future.map( |opt_jh| {
-                                    if let Some(jh) = opt_jh {
-                                        debug!("waiting on flydratrax coord processor {}:{}", file!(), line!());
-                                        jh.join().expect("join consume_future_noerr");
-                                        debug!("done waiting on flydratrax coord processor {}:{}", file!(), line!());
-                                    }
-                                    debug!("consume future noerr finished {}:{}", file!(), line!());
-                                });
+                                let flydra_jh = my_runtime.spawn( async {
+                                    // Run until flydra is done.
+                                    let jh = consume_future.await;
 
-                                my_runtime.spawn(consume_future_noerr); // flydratrax ignore for now
+                                    debug!("waiting on flydratrax coord processor {}:{}", file!(), line!());
+                                    jh.await.unwrap().unwrap();
+                                    debug!("done waiting on flydratrax coord processor {}:{}", file!(), line!());
+                                });
                                 maybe_flydra2_stream = Some(flydra2_tx);
+                                std::mem::drop((msg_handler_jh, flydra_jh)); // todo: keep these join handles.
                             },
                             video_streaming::Shape::Everything => {
                                 error!("cannot start tracking without circular region to use as camera calibration");
@@ -1003,23 +995,28 @@ fn frame_process_thread(
             if !is_doing_object_detection | !kalman_tracking_enabled {
                 // drop all flydra2 stuff if we are not tracking
                 maybe_flydra2_stream = None;
-                if let Some(ref mut write_controller) = maybe_flydra2_write_control {
-                    write_controller.stop_saving_data();
+                if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
+                    match write_controller.stop_saving_data().await {
+                        Ok(()) => {}
+                        Err(_) => {
+                            log::info!("Channel to data writing task closed. Ending.");
+                            break;
+                        }
+                    }
                 }
                 maybe_flydra2_write_control = None;
             }
-
         }
 
-        let msg = match incoming_frame_rx.recv() {
-            Ok(msg) => msg,
-            Err(channellib::RecvError{..}) => {
+        let msg = match incoming_frame_rx.recv().await {
+            Some(msg) => msg,
+            None => {
                 info!("incoming frame channel closed for '{}'", cam_name.as_str());
                 break;
             },
         };
         let store_cache = if let Some(ref ssa) = shared_store_arc {
-            let mut tracker = ssa.read();
+            let tracker = ssa.read();
             Some(tracker.as_ref().clone())
         } else {
             None
@@ -1099,9 +1096,11 @@ fn frame_process_thread(
                 }
             }
             Msg::StopAprilTagRec => {
-                #[allow(unused_assignments)]
                 {
-                    apriltag_writer = None;
+                    #[cfg(feature="fiducial")]
+                    {
+                        apriltag_writer = None;
+                    }
                 }
             }
             Msg::SetPostTriggerBufferSize(size) => {
@@ -1114,7 +1113,7 @@ fn frame_process_thread(
                 }
             }
             Msg::Mframe(frame) => {
-                let (device_timestamp, block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
+                let (_device_timestamp, _block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
 
                 if let Some(new_fps) = fps_calc
                     .update(fno, stamp) {
@@ -1144,7 +1143,9 @@ fn frame_process_thread(
                 #[cfg(not(feature="checkercal"))]
                 let checkercal_tmp: Option<()> = None;
 
+                #[allow(unused_mut)]
                 let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
+                    #[allow(unused_mut)]
                     let mut results = Vec::new();
                     #[cfg(feature="checkercal")]
                     {
@@ -1599,7 +1600,7 @@ fn frame_process_thread(
                         if plugin_handler_thread_tx.is_full() {
                             error!("cannot transmit frame to plugin: channel full");
                         }  else {
-                            plugin_handler_thread_tx.send(frame.clone()).cb_ok();
+                            plugin_handler_thread_tx.send(frame.clone()).unwrap();
                             match plugin_result_rx.recv_timeout(plugin_wait_dur) {
                                 Ok(results) => {
                                     found_points.extend(results);
@@ -1684,7 +1685,7 @@ fn frame_process_thread(
                 let annotations = vec![];
 
                 let name = None;
-                if firehose_tx.is_full() {
+                if firehose_tx.capacity()==0 {
                     debug!("cannot transmit frame for viewing: channel full");
                 }  else {
                     firehose_tx.send(AnnotatedFrame {
@@ -1693,7 +1694,7 @@ fn frame_process_thread(
                         valid_display,
                         annotations,
                         name,
-                    }).cb_ok();
+                    }).await.unwrap();
                 }
             }
             #[cfg(feature="image_tracker")]
@@ -1707,7 +1708,7 @@ fn frame_process_thread(
 
                         #[cfg(feature="flydratrax")]
                         {
-                            if let Some(ref mut write_controller) = maybe_flydra2_write_control {
+                            if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
                                 let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
                                 let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
                                 let mut my_dir = csv_save_pathbuf.clone();
@@ -1728,7 +1729,7 @@ fn frame_process_thread(
                                     print_stats: false,
                                     save_performance_histograms: true,
                                 };
-                                write_controller.start_saving_data(cfg);
+                                write_controller.start_saving_data(cfg).await;
                             }
                         }
                     }
@@ -1741,8 +1742,14 @@ fn frame_process_thread(
                     csv_save_state = SavingState::NotSaving;
                     #[cfg(feature="flydratrax")]
                     {
-                        if let Some(ref mut write_controller) = maybe_flydra2_write_control {
-                            write_controller.stop_saving_data();
+                        if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
+                            match write_controller.stop_saving_data().await {
+                                Ok(()) => {}
+                                Err(_) => {
+                                    log::info!("Channel to data writing task closed. Ending.");
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -1815,28 +1822,97 @@ fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16
     }
 }
 
-pub type AppConnection =
-    Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
+// pub type AppConnection =
+//     Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
+
+#[derive(Clone)]
+struct MyCallbackHandler {
+    firehose_callback_tx: tokio::sync::mpsc::Sender<FirehoseCallback>,
+    cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
+    led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
+    #[allow(dead_code)]
+    tx_frame: tokio::sync::mpsc::Sender<Msg>,
+}
+
+impl CallbackHandler for MyCallbackHandler {
+    type Data = CallbackType;
+
+    /// HTTP request to "/callback" has been made with payload which as been
+    /// deserialized into `Self::Data` and session data stored in
+    /// [CallbackDataAndSession].
+    fn call<'a>(
+        &'a self,
+        data_sess: CallbackDataAndSession<Self::Data>,
+    ) -> Pin<Box<dyn Future<Output = std::result::Result<(), Box<dyn StdError + Send>>> + Send + 'a>>
+    {
+        let payload = data_sess.payload;
+        let fut = async {
+            match payload {
+                CallbackType::ToCamera(cam_arg) => {
+                    debug!("in cb: {:?}", cam_arg);
+                    self.cam_args_tx.send(cam_arg).await.unwrap();
+                }
+                CallbackType::FirehoseNotify(inner) => {
+                    let arrival_time = chrono::Utc::now();
+                    let fc = FirehoseCallback {
+                        arrival_time,
+                        inner,
+                    };
+                    self.firehose_callback_tx.send(fc).await.unwrap();
+                }
+                CallbackType::TakeCurrentImageAsBackground => {
+                    #[cfg(feature = "image_tracker")]
+                    self.tx_frame
+                        .send(Msg::TakeCurrentImageAsBackground)
+                        .await
+                        .unwrap();
+                }
+                CallbackType::ClearBackground(value) => {
+                    #[cfg(feature = "image_tracker")]
+                    self.tx_frame
+                        .send(Msg::ClearBackground(value))
+                        .await
+                        .unwrap();
+                    #[cfg(not(feature = "image_tracker"))]
+                    let _ = value;
+                }
+                CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
+                    // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
+                    info!("in led_box callback: {:?}", led_box_arg);
+                    self.led_box_tx_std.send(led_box_arg).await.unwrap();
+                }),
+            }
+        };
+        Box::pin(async {
+            fut.await;
+            Ok(())
+        })
+    }
+}
 
 pub struct StrandCamApp {
     inner: BuiAppInner<StoreType, CallbackType>,
-    txers: AppConnection,
 }
 
 impl StrandCamApp {
-    #![cfg_attr(not(feature = "image_tracker"), allow(unused_variables))]
     async fn new(
         rt_handle: tokio::runtime::Handle,
         shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
         secret: Option<Vec<u8>>,
         http_server_addr: &str,
         config: Config,
-        cam_args_tx: mpsc::Sender<CamArg>,
+        cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
         led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-        tx_frame: channellib::Sender<Msg>,
-        valve: stream_cancel::Valve,
+        tx_frame: tokio::sync::mpsc::Sender<Msg>,
         shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> std::result::Result<(channellib::Receiver<FirehoseCallback>, Self), StrandCamError> {
+    ) -> std::result::Result<
+        (
+            tokio::sync::mpsc::Receiver<FirehoseCallback>,
+            Self,
+            tokio::sync::mpsc::Receiver<bui_backend::highlevel::ConnectionEvent>,
+        ),
+        StrandCamError,
+    > {
         let chan_size = 10;
 
         let addr: std::net::SocketAddr = http_server_addr.parse().unwrap();
@@ -1848,15 +1924,27 @@ impl StrandCamApp {
             return Err(StrandCamError::JwtError);
         };
 
+        // A channel for the data send from the client browser. No need to convert to
+        // bounded to prevent exploding when camera too fast.
+        let (firehose_callback_tx, firehose_callback_rx) = tokio::sync::mpsc::channel(10);
+
+        let callback_handler = Box::new(MyCallbackHandler {
+            cam_args_tx,
+            firehose_callback_tx,
+            led_box_tx_std,
+            tx_frame,
+        });
+
         let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
             config.clone(),
             &auth,
             chan_size,
             strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
             None,
+            callback_handler,
         );
 
-        let (new_conn_rx, mut inner) = create_bui_app_inner(
+        let (new_conn_rx, inner) = create_bui_app_inner(
             rt_handle.clone(),
             Some(shutdown_rx),
             &auth,
@@ -1867,74 +1955,38 @@ impl StrandCamApp {
         )
         .await?;
 
-        // A channel for the data send from the client browser. No need to convert to
-        // bounded to prevent exploding when camera too fast.
-        let (firehose_callback_tx, firehose_callback_rx) = channellib::unbounded();
+        // let mut new_conn_rx_valved = valve.wrap(new_conn_rx);
+        // let new_conn_future = async move {
+        //     while let Some(msg) = new_conn_rx_valved.next().await {
+        //         connection_callback_tx.send(msg).await.unwrap();
+        //     }
+        //     debug!("new_conn_future closing {}:{}", file!(), line!());
+        // };
+        // let txers = Arc::new(RwLock::new(HashMap::new()));
+        // let txers2 = txers.clone();
+        // let mut new_conn_rx_valved = valve.wrap(new_conn_rx);
+        // let new_conn_future = async move {
+        //     while let Some(msg) = new_conn_rx_valved.next().await {
+        //         let mut txers = txers2.write();
+        //         match msg.typ {
+        //             ConnectionEventType::Connect(chunk_sender) => {
+        //                 txers.insert(
+        //                     msg.connection_key,
+        //                     (msg.session_key, chunk_sender, msg.path),
+        //                 );
+        //             }
+        //             ConnectionEventType::Disconnect => {
+        //                 txers.remove(&msg.connection_key);
+        //             }
+        //         }
+        //     }
+        //     debug!("new_conn_future closing {}:{}", file!(), line!());
+        // };
+        // let _task_join_handle = rt_handle.spawn(new_conn_future);
 
-        debug!("created firehose_callback_tx");
+        let my_app = StrandCamApp { inner };
 
-        // Create a Stream to handle callbacks from clients.
-        inner.set_callback_listener(Box::new(
-            move |msg: CallbackDataAndSession<CallbackType>| {
-                match msg.payload {
-                    CallbackType::ToCamera(cam_arg) => {
-                        debug!("in cb: {:?}", cam_arg);
-                        cam_args_tx
-                            .clone()
-                            .start_send(cam_arg)
-                            .expect("to_camera start_send");
-                    }
-                    CallbackType::FirehoseNotify(inner) => {
-                        let arrival_time = chrono::Utc::now();
-                        let fc = FirehoseCallback {
-                            arrival_time,
-                            inner,
-                        };
-                        firehose_callback_tx.send(fc).cb_ok();
-                    }
-                    CallbackType::TakeCurrentImageAsBackground => {
-                        #[cfg(feature = "image_tracker")]
-                        tx_frame.send(Msg::TakeCurrentImageAsBackground).cb_ok();
-                    }
-                    CallbackType::ClearBackground(value) => {
-                        #[cfg(feature = "image_tracker")]
-                        tx_frame.send(Msg::ClearBackground(value)).cb_ok();
-                    }
-                    CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
-                        // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
-                        info!("in led_box callback: {:?}", led_box_arg);
-                        led_box_tx_std.send(led_box_arg).await.unwrap();
-                    }),
-                }
-                futures::future::ok(())
-            },
-        ));
-
-        let txers = Arc::new(RwLock::new(HashMap::new()));
-        let txers2 = txers.clone();
-        let mut new_conn_rx_valved = valve.wrap(new_conn_rx);
-        let new_conn_future = async move {
-            while let Some(msg) = new_conn_rx_valved.next().await {
-                let mut txers = txers2.write();
-                match msg.typ {
-                    ConnectionEventType::Connect(chunk_sender) => {
-                        txers.insert(
-                            msg.connection_key,
-                            (msg.session_key, chunk_sender, msg.path),
-                        );
-                    }
-                    ConnectionEventType::Disconnect => {
-                        txers.remove(&msg.connection_key);
-                    }
-                }
-            }
-            debug!("new_conn_future closing {}:{}", file!(), line!());
-        };
-        let _task_join_handle = rt_handle.spawn(new_conn_future);
-
-        let my_app = StrandCamApp { inner, txers };
-
-        Ok((firehose_callback_rx, my_app))
+        Ok((firehose_callback_rx, my_app, new_conn_rx))
     }
 
     fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
@@ -2093,10 +2145,16 @@ pub enum ImPtDetectCfgSource {
 }
 
 #[cfg(feature = "plugin-process-frame")]
-#[derive(Debug)]
 pub struct ProcessFrameCbData {
     pub func_ptr: plugin_defs::ProcessFrameFunc,
     pub data_handle: plugin_defs::DataHandle,
+}
+
+#[cfg(feature = "plugin-process-frame")]
+impl std::fmt::Debug for ProcessFrameCbData {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "ProcessFrameCbData{{..}}")
+    }
 }
 
 // Ideally it would just be DataHandle which we declare Send, but we cannot do
@@ -2264,11 +2322,10 @@ where
 
     ctrlc::set_handler(move || {
         info!("got Ctrl-C, shutting down");
-        let mut tx_cam_arg = tx_cam_arg2.clone();
 
         // Send quit message.
         debug!("starting to send quit message {}:{}", file!(), line!());
-        match futures::executor::block_on(tx_cam_arg.send(CamArg::DoQuit)) {
+        match tx_cam_arg2.blocking_send(CamArg::DoQuit) {
             Ok(()) => {}
             Err(e) => {
                 error!("failed sending quit command: {}", e);
@@ -2278,7 +2335,7 @@ where
     })
     .expect("Error setting Ctrl-C handler");
 
-    handle.block_on(fut);
+    handle.block_on(fut)?;
 
     info!("done");
     Ok(())
@@ -2296,7 +2353,7 @@ pub async fn setup_app<M,C>(
     args: StrandCamArgs,
     app_name: &'static str,
 )
-    -> anyhow::Result<(BuiServerInfo, mpsc::Sender<CamArg>, impl futures::Future<Output=()>, StrandCamApp)>
+    -> anyhow::Result<(BuiServerInfo, tokio::sync::mpsc::Sender<CamArg>, impl futures::Future<Output=Result<()>>, StrandCamApp)>
     where
         M: ci2::CameraModule<CameraType = C>,
         C: 'static + ci2::Camera + Send,
@@ -2413,7 +2470,7 @@ pub async fn setup_app<M,C>(
 
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
-    let (tx_frame, rx_frame) = channellib::bounded::<Msg>(20);
+    let (tx_frame, rx_frame) = tokio::sync::mpsc::channel::<Msg>(20);
     let tx_frame2 = tx_frame.clone();
     let tx_frame3 = tx_frame.clone();
 
@@ -2422,18 +2479,15 @@ pub async fn setup_app<M,C>(
     let frame = cam.next_frame()?;
     info!("  acquired first frame: {}x{}", frame.width(), frame.height());
 
-    #[allow(unused_variables)]
+    #[cfg(feature = "plugin-process-frame")]
     let (plugin_handler_thread_tx, plugin_handler_thread_rx) = channellib::bounded::<DynamicFrame>(500);
-    #[allow(unused_variables)]
+    #[cfg(feature = "plugin-process-frame")]
     let (plugin_result_tx, plugin_result_rx) = channellib::bounded::<_>(500);
 
     #[cfg(feature="plugin-process-frame")]
     let plugin_wait_dur = args.plugin_wait_dur;
 
-    #[cfg(not(feature="plugin-process-frame"))]
-    let plugin_wait_dur = std::time::Duration::from_millis(5);
-
-    let (firehose_tx, firehose_rx) = channellib::bounded::<AnnotatedFrame>(5);
+    let (firehose_tx, firehose_rx) = tokio::sync::mpsc::channel::<AnnotatedFrame>(5);
 
     let image_width = frame.width();
     let image_height = frame.height();
@@ -2495,7 +2549,7 @@ pub async fn setup_app<M,C>(
 
     let transmit_msg_tx = mainbrain_info.as_ref().map(|i| i.transmit_msg_tx.clone());
 
-    let (cam_args_tx, mut cam_args_rx) = mpsc::channel(100);
+    let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
@@ -2538,9 +2592,11 @@ pub async fn setup_app<M,C>(
             &cam.node_map_save()?,
             transmit_msg_tx.as_ref(),
             &current_cam_settings_extension,
-            &ros_cam_name)
-            .map(|fut|
-                rt_handle.spawn( fut  ));
+            &ros_cam_name,
+        )
+        .map(|fut|
+            rt_handle.spawn( fut  )
+        );
     }
 
     if args.camera_settings_filename.is_none() {
@@ -2616,7 +2672,8 @@ pub async fn setup_app<M,C>(
                 }
                 Err(e) => {
                     info!("CUDA and nvidia-encode libraries loaded, but \
-                        error during initialization: {}", e);
+                        error during initialization: {}", e,
+                    );
                     // empty vector
                     Vec::new()
                 },
@@ -2713,7 +2770,6 @@ pub async fn setup_app<M,C>(
 
     let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
 
-    let (flag, control) = thread_control::make_pair();
     let camdata_addr = args.camdata_addr;
 
     let mut config = get_default_config();
@@ -2742,7 +2798,7 @@ pub async fn setup_app<M,C>(
         DEFAULT_HTTP_ADDR.to_string()
     };
 
-    let (firehose_callback_rx, my_app) =
+    let (firehose_callback_rx, my_app, connection_callback_rx) =
     StrandCamApp::new(
         rt_handle.clone(),
         shared_store_arc.clone(),
@@ -2752,8 +2808,8 @@ pub async fn setup_app<M,C>(
         cam_args_tx2.clone(),
         led_box_tx_std.clone(),
         tx_frame3,
-        valve.clone(),
-        shutdown_rx).await?;
+        shutdown_rx,
+    ).await?;
 
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0
@@ -2770,7 +2826,8 @@ pub async fn setup_app<M,C>(
 
     if args.show_url {
         println!("Depending on things, you may be able to login with this url: {}",
-            url);
+            url,
+        );
 
         if !is_loopback {
             println!("This same URL as a QR code:");
@@ -2784,17 +2841,11 @@ pub async fn setup_app<M,C>(
     #[cfg(feature="plugin-process-frame")]
     let process_frame_callback = args.process_frame_callback;
 
-    #[cfg(not(feature="plugin-process-frame"))]
-    let do_process_frame_callback = false;
-
-    let collected_corners_arc = Arc::new(RwLock::new(Vec::new()));
-    #[allow(clippy::redundant_clone)]
-    let collected_corners_arc2 = collected_corners_arc.clone();
+    #[cfg(feature="checkercal")]
+    let collected_corners_arc: CollectedCornersArc = Arc::new(RwLock::new(Vec::new()));
 
     let frame_process_cjh = {
-        let pixel_format = frame.pixel_format();
-        let is_starting = Arc::new(true);
-        let is_starting_weak = Arc::downgrade(&is_starting);
+        let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
 
         let acquisition_duration_allowed_imprecision_msec = args.acquisition_duration_allowed_imprecision_msec;
         let csv_save_dir = args.csv_save_dir.clone();
@@ -2807,7 +2858,7 @@ pub async fn setup_app<M,C>(
 
         let handle2 = rt_handle.clone();
         #[cfg(feature="flydratrax")]
-        let (model_server, flydratrax_calibration_source) = {
+        let (model_server_data_tx, model_server, flydratrax_calibration_source) = {
 
             let model_server_shutdown_rx = Some(model_server_shutdown_rx);
 
@@ -2817,10 +2868,12 @@ pub async fn setup_app<M,C>(
                 version: env!("CARGO_PKG_VERSION").into(),
             };
 
+            let (model_server_data_tx, data_rx) = tokio::sync::mpsc::channel(50);
+
             // we need the tokio reactor already by here
-            let model_server = flydra2::new_model_server(valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2.clone()).await?;
+            let model_server = flydra2::new_model_server(data_rx, valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2.clone()).await?;
             let flydratrax_calibration_source = args.flydratrax_calibration_source;
-            (model_server, flydratrax_calibration_source)
+            (model_server_data_tx, model_server, flydratrax_calibration_source)
         };
 
         let new_cam_data = flydra_types::RegisterNewCamera {
@@ -2837,31 +2890,35 @@ pub async fn setup_app<M,C>(
 
         let valve2 = valve.clone();
         let cam_name2 = cam_name.clone();
-        let frame_process_jh = std::thread::Builder::new().name("frame_process_thread".to_string()).spawn(move || { // confirmed closes
-            let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2.clone(), file!(), line!());
-            thread_closer.maybe_err(frame_process_thread(
+        let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
+        let frame_process_task_fut = {
+            {
+
+                frame_process_task(
                     handle2,
                     #[cfg(feature="flydratrax")]
-                    model_server,
+                    (model_server_data_tx, model_server),
                     #[cfg(feature="flydratrax")]
                     flydratrax_calibration_source,
                     cam_name2,
                     camera_cfg,
                     image_width,
                     image_height,
-                    pixel_format,
                     rx_frame,
                     cam_args_tx2,
                     #[cfg(feature="image_tracker")]
                     tracker_cfg,
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
                     firehose_tx,
+                    #[cfg(feature = "plugin-process-frame")]
                     plugin_handler_thread_tx,
+                    #[cfg(feature = "plugin-process-frame")]
                     plugin_result_rx,
+                    #[cfg(feature="plugin-process-frame")]
                     plugin_wait_dur,
                     led_box_tx_std,
-                    flag,
-                    is_starting,
+                    quit_rx,
+                    is_starting_tx,
                     http_camserver_info2,
                     process_frame_priority,
                     #[cfg(feature = "debug-images")]
@@ -2869,8 +2926,10 @@ pub async fn setup_app<M,C>(
                     mainbrain_info,
                     camdata_addr,
                     led_box_heartbeat_update_arc2,
+                    #[cfg(feature="plugin-process-frame")]
                     do_process_frame_callback,
-                    collected_corners_arc2,
+                    #[cfg(feature="checkercal")]
+                    collected_corners_arc.clone(),
                     save_empty_data2d,
                     valve2,
                     #[cfg(feature = "debug-images")]
@@ -2879,30 +2938,18 @@ pub async fn setup_app<M,C>(
                     new_cam_data,
                     frame_info_extractor,
                     app_name,
-                ));
-        })?;
-        debug!("waiting for frame acquisition thread to start");
-        loop {
-            trace!("inner waiting for frame acquisition thread to start");
-            match is_starting_weak.upgrade() {
-                Some(_) => {},
-                None => {
-                    break;
-                },
+                )
             }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-        if control.is_done() {
-            return Err(StrandCamError::ThreadDone.into());
-        }
-        ControlledJoinHandle {
-            control,
-            join_handle: frame_process_jh,
-        }
+        };
+        let join_handle = tokio::spawn(frame_process_task_fut);
+        debug!("waiting for frame acquisition thread to start");
+        is_starting_rx.await?;
+        // TODO: how to check if task still running?
+        ControlledTaskJoinHandle { quit_channel, join_handle }
     };
-    debug!("frame_process_thread spawned");
+    debug!("frame_process_task spawned");
 
-    tx_frame.send(Msg::Store(shared_store_arc.clone())).cb_ok();
+    tx_frame.send(Msg::Store(shared_store_arc.clone())).await.unwrap();
 
     debug!("installing frame stream handler");
 
@@ -2911,12 +2958,11 @@ pub async fn setup_app<M,C>(
         // This function is run in the camera capture thread as it is started.
         let pid = 0; // this thread
         let priority = 99;
-        match posix_scheduler::sched_setscheduler( pid,
-            posix_scheduler::SCHED_FIFO, priority)
-        {
+        match posix_scheduler::sched_setscheduler( pid, posix_scheduler::SCHED_FIFO, priority) {
             Ok(()) => info!("grabbing frames with SCHED_FIFO scheduler policy"),
             Err(e) => error!("failed to start frame grabber thread with \
-                            SCHED_FIFO scheduler policy: {}", e),
+                            SCHED_FIFO scheduler policy: {}", e,
+            ),
         };
     }
 
@@ -2955,7 +3001,7 @@ pub async fn setup_app<M,C>(
                         frame.width(),
                         frame.height()
                     );
-                    if tx_frame.is_full() {
+                    if tx_frame.capacity() == 0 {
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|tracker| {
                             let mut state = frame_processing_error_state.write();
@@ -2978,7 +3024,7 @@ pub async fn setup_app<M,C>(
                         });
                         error!("Channel full sending frame to process thread. Dropping frame data.");
                     } else {
-                        tx_frame.send(Msg::Mframe(frame)).cb_ok();
+                        tx_frame.send(Msg::Mframe(frame)).await.unwrap();
                     }
                 },
                 ci2_async::FrameResult::SingleFrameError(s) => {
@@ -3007,7 +3053,8 @@ pub async fn setup_app<M,C>(
             contact Andrew Straw <straw@bio.uni-freiburg.de>. This program will check for new \
             versions automatically. To disable printing this message and checking for new \
             versions, set the environment variable DISABLE_VERSION_CHECK=1.", app_name,
-            app_version);
+            app_version,
+        );
 
         // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
         // versions later.
@@ -3015,7 +3062,8 @@ pub async fn setup_app<M,C>(
 
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(
-            std::time::Duration::from_secs(1800));
+            std::time::Duration::from_secs(1800)
+        );
 
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
@@ -3048,6 +3096,8 @@ pub async fn setup_app<M,C>(
 
         #[cfg(feature="checkercal")]
         let cam_name2 = cam_name.clone();
+
+        let mut cam_args_rx = tokio_stream::wrappers::ReceiverStream::new(cam_args_rx);
 
         async move {
         // We do not put cam_args_rx behind a stream_cancel::Valve because
@@ -3090,9 +3140,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.exposure_time.current = v);
                         }
@@ -3108,9 +3160,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.gain.current = v);
                         }
@@ -3126,9 +3180,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name,
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.gain_auto() {
@@ -3175,9 +3231,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name,
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.exposure_auto() {
@@ -3203,9 +3261,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate_enable() {
@@ -3230,9 +3290,11 @@ pub async fn setup_app<M,C>(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name)
-                                .map(|fut|
-                                    rt_handle.spawn( fut  ));
+                                &ros_cam_name
+                            )
+                            .map(|fut|
+                                rt_handle.spawn( fut  )
+                            );
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate() {
@@ -3255,32 +3317,44 @@ pub async fn setup_app<M,C>(
                     }
                 }
                 CamArg::SetFrameOffset(fo) => {
-                    tx_frame2.send(Msg::SetFrameOffset(fo)).cb_ok();
+                    tx_frame2.send(Msg::SetFrameOffset(fo)).await.unwrap();
                 }
                 CamArg::SetClockModel(cm) => {
-                    tx_frame2.send(Msg::SetClockModel(cm)).cb_ok();
+                    tx_frame2.send(Msg::SetClockModel(cm)).await.unwrap();
                 }
                 CamArg::SetFormatStr(v) => {
                     let mut tracker = shared_store_arc.write();
                     tracker.modify(|tracker| tracker.format_str = v);
                 }
                 CamArg::SetIsRecordingMkv(do_recording) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        let mkv_recording_config = shared.mkv_recording_config.clone();
-                        if shared.is_recording_mkv.is_some() != do_recording {
-                            info!("changed recording mkv value: do_recording={}", do_recording);
-                            let new_val = if do_recording {
-                                tx_frame2.send(Msg::StartMkv((shared.format_str_mkv.clone(), mkv_recording_config))).cb_ok();
-                                // Some(RecordingPath::new(filename))
-                                Some(RecordingPath::new(shared.format_str_mkv.clone()))
-                            } else {
-                                tx_frame2.send(Msg::StopMkv).cb_ok();
-                                None
-                            };
+                    // Copy values from cache and release the lock immediately.
+                    let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
+                        let tracker = shared_store_arc.read();
+                        let shared: &StoreType = tracker.as_ref();
+                        (shared.is_recording_mkv.clone(), shared.format_str_mkv.clone(), shared.mkv_recording_config.clone())
+                    };
+
+                    if is_recording_mkv.is_some() != do_recording {
+                        info!("changed recording mkv value: do_recording={}", do_recording);
+
+                        // Compute new values.
+                        let (msg, new_val) = if do_recording {
+                            // change state
+                            (Msg::StartMkv((format_str_mkv.clone(), mkv_recording_config)), Some(RecordingPath::new(format_str_mkv)))
+                        } else {
+                            (Msg::StopMkv, None)
+                        };
+
+                        // Send the command.
+                        tx_frame2.send(msg).await.unwrap();
+
+                        // Save the new recording state.
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
                             shared.is_recording_mkv = new_val;
-                        }
-                    });
+                        });
+                    }
+
                 }
                 CamArg::ToggleAprilTagFamily(family) => {
                     let mut tracker = shared_store_arc.write();
@@ -3342,26 +3416,44 @@ pub async fn setup_app<M,C>(
                         shared.im_ops_state.threshold = v;
                     });
                 }
+
                 CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        if let Some(ref mut ts) = shared.apriltag_state {
+                    let new_val = {
+                        let tracker = shared_store_arc.read();
+                        let shared: &StoreType = tracker.as_ref();
+                        if let Some(ref ts) = shared.apriltag_state {
 
                             info!("changed recording april tag value: do_recording={}", do_recording);
-                            let new_val = if do_recording {
-                                tx_frame2.send(Msg::StartAprilTagRec(shared.format_str_apriltag_csv.clone())).cb_ok();
-                                Some(RecordingPath::new(shared.format_str_apriltag_csv.clone()))
+                            if do_recording {
+                                Some(Some(RecordingPath::new(shared.format_str_apriltag_csv.clone())))
                             } else {
-                                tx_frame2.send(Msg::StopAprilTagRec).cb_ok();
-                                None
-                            };
-                            ts.is_recording_csv = new_val;
-
+                                Some(None)
+                            }
                         } else {
                             error!("no apriltag support, not switching state");
+                            None
                         }
+                    };
 
-                    });
+                    // Here we asynchronously send the message to initiate or stop
+                    // recording without holding any lock.
+                    if let Some(new_val) = &new_val {
+                        let msg = match new_val {
+                            Some(recording_path) => Msg::StartAprilTagRec(recording_path.path()),
+                            None => Msg::StopAprilTagRec,
+                        };
+                        tx_frame2.send(msg).await.unwrap();
+                    }
+
+                    // Here we save the new recording state.
+                    if let Some(new_val) = new_val {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            if let Some(ref mut ts) = shared.apriltag_state {
+                                ts.is_recording_csv = new_val;
+                            };
+                        });
+                    }
                 }
 
                 CamArg::PostTrigger(mkv_recording_config) => {
@@ -3369,7 +3461,7 @@ pub async fn setup_app<M,C>(
                         let tracker = shared_store_arc.read();
                         tracker.as_ref().format_str_mkv.clone()
                     };
-                    tx_frame2.send(Msg::PostTriggerStartMkv((format_str_mkv.clone(), mkv_recording_config))).cb_ok();
+                    tx_frame2.send(Msg::PostTriggerStartMkv((format_str_mkv.clone(), mkv_recording_config))).await.unwrap();
                     {
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|shared| {
@@ -3378,65 +3470,85 @@ pub async fn setup_app<M,C>(
                     }
                 }
                 CamArg::SetPostTriggerBufferSize(size) => {
-                    tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).cb_ok();
+                    tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await.unwrap();
                 }
                 CamArg::SetIsRecordingFmf(do_recording) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        let recording_framerate = shared.recording_framerate.clone();
-                        if shared.is_recording_fmf.is_some() != do_recording {
-                            info!("changed recording fmf value: do_recording={}", do_recording);
-                            let new_val = if do_recording {
-                                // change state
-                                let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-                                let filename = local.format(&shared.format_str).to_string();
-                                tx_frame2.send(Msg::StartFMF((filename.clone(), recording_framerate))).cb_ok();
-                                Some(RecordingPath::new(filename))
-                            } else {
-                                tx_frame2.send(Msg::StopFMF).cb_ok();
-                                None
-                            };
+                    // Copy values from cache and release the lock immediately.
+                    let (is_recording_fmf, format_str, recording_framerate) = {
+                        let tracker = shared_store_arc.read();
+                        let shared: &StoreType = tracker.as_ref();
+                        (shared.is_recording_fmf.clone(), shared.format_str.clone(), shared.recording_framerate.clone())
+                    };
+
+                    if is_recording_fmf.is_some() != do_recording {
+                        info!("changed recording fmf value: do_recording={}", do_recording);
+
+                        // Compute new values.
+                        let (msg, new_val) = if do_recording {
+                            // change state
+                            let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                            let filename = local.format(format_str.as_str()).to_string();
+                            (Msg::StartFMF((filename.clone(), recording_framerate)), Some(RecordingPath::new(filename)))
+                        } else {
+                            (Msg::StopFMF, None)
+                        };
+
+                        // Send the command.
+                        tx_frame2.send(msg).await.unwrap();
+
+                        // Save the new recording state.
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
                             shared.is_recording_fmf = new_val;
-                        }
-                    });
+                        });
+                    }
                 }
                 CamArg::SetIsRecordingUfmf(do_recording) => {
                     #[cfg(feature="image_tracker")]
                     {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            if shared.is_recording_ufmf.is_some() != do_recording {
-                                info!("changed recording ufmf value: do_recording={}", do_recording);
-                                let new_val = if do_recording {
-                                    if !shared.is_doing_object_detection {
-                                        error!("Not doing object detection, ignoring command to save data to UFMF.");
-                                        None
-                                    } else {
-                                        // change state
-                                        let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-                                        let filename = local.format(&shared.format_str_ufmf).to_string();
-                                        tx_frame2.send(Msg::StartUFMF(filename.clone())).cb_ok();
-                                        Some(RecordingPath::new(filename))
-                                    }
-                                } else {
-                                    tx_frame2.send(Msg::StopUFMF).cb_ok();
-                                    None
-                                };
+                        // Copy values from cache and release the lock immediately.
+                        let (is_recording_ufmf, format_str_ufmf) = {
+                            let tracker = shared_store_arc.read();
+                            let shared: &StoreType = tracker.as_ref();
+                            (shared.is_recording_ufmf.clone(), shared.format_str_ufmf.clone())
+                        };
+
+                        if is_recording_ufmf.is_some() != do_recording {
+                            info!("changed recording ufmf value: do_recording={}", do_recording);
+
+                            // Compute new values.
+                            let (msg, new_val) = if do_recording {
+                                // change state
+                                let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                                let filename = local.format(format_str_ufmf.as_str()).to_string();
+                                (Msg::StartUFMF(filename.clone()), Some(RecordingPath::new(filename)))
+                            } else {
+                                (Msg::StopUFMF, None)
+                            };
+
+                            // Send the command.
+                            tx_frame2.send(msg).await.unwrap();
+
+                            // Save the new recording state.
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
                                 shared.is_recording_ufmf = new_val;
-                            }
-                        });
+                            });
+                        }
                     }
                 }
                 CamArg::SetIsDoingObjDetection(value) => {
                     #[cfg(feature="image_tracker")]
                     {
-                        // update store
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.is_doing_object_detection = value;
-                            tx_frame2
-                                .send(Msg::SetTracking(value)).cb_ok();
-                        });
+                        {
+                            // update store
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.is_doing_object_detection = value;
+                            });
+                        }
+                        tx_frame2
+                                .send(Msg::SetTracking(value)).await.unwrap();
                     }
                 }
                 CamArg::DoQuit => {
@@ -3445,7 +3557,7 @@ pub async fn setup_app<M,C>(
                 CamArg::SetIsSavingObjDetectionCsv(value) => {
                     // update store in worker thread
                     #[cfg(feature="image_tracker")]
-                    tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(value)).cb_ok();
+                    tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(value)).await.unwrap();
                 }
                 CamArg::SetObjDetectionConfig(yaml_buf) => {
                     // parse buffer
@@ -3456,13 +3568,13 @@ pub async fn setup_app<M,C>(
                             let cfg2 = cfg.clone();
 
                             // Update config and send to frame process thread
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-
-                                // Send config to frame process thread.
-                                tx_frame2.send(Msg::SetExpConfig(cfg.clone())).cb_ok();
-                                shared.im_pt_detect_cfg = cfg;
-                            });
+                            tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await.unwrap();
+                            {
+                                let mut tracker = shared_store_arc.write();
+                                tracker.modify(|shared| {
+                                    shared.im_pt_detect_cfg = cfg;
+                                });
+                            }
 
                             if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
                                 let (ref app_info, ref prefs_key) = src;
@@ -3652,8 +3764,7 @@ pub async fn setup_app<M,C>(
                             let debug_path = std::path::PathBuf::from(debug_dir);
                             let corners_path = debug_path.join(stamped);
 
-                            let f = File::create(
-                                &corners_path)
+                            let f = File::create(&corners_path)
                                 .expect("create file");
 
                             #[derive(Serialize)]
@@ -3686,7 +3797,8 @@ pub async fn setup_app<M,C>(
 
                                 let cal_dir = app_dirs::app_dir(
                                     app_dirs::AppDataType::UserConfig,
-                                    &APP_INFO, "camera_info").expect("app_dirs::app_dir");
+                                    &APP_INFO, "camera_info"
+                                ).expect("app_dirs::app_dir");
 
                                 let format_str = format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
                                 let stamped = local.format(&format_str).to_string();
@@ -3700,8 +3812,7 @@ pub async fn setup_app<M,C>(
                                 // purposes (since below we overwrite the
                                 // non-timestamped file).
                                 {
-                                    let f = File::create(
-                                        &cam_info_file_stamped)
+                                    let f = File::create(&cam_info_file_stamped)
                                         .expect("create file");
                                     serde_yaml::to_writer(f, &ci)
                                     .expect("serde_yaml::to_writer");
@@ -3712,11 +3823,13 @@ pub async fn setup_app<M,C>(
                                 // overwrite an existing file.
                                 std::fs::copy(
                                     &cam_info_file_stamped,
-                                    &cam_info_file)
+                                    &cam_info_file,
+                                )
                                     .expect("copy file");
 
                                 info!("Saved camera calibration to file: {}",
-                                    cam_info_file.display());
+                                    cam_info_file.display(),
+                                );
 
                             },
                             Err(e) => {
@@ -3733,14 +3846,14 @@ pub async fn setup_app<M,C>(
 
         // In theory, all things currently being saved should nicely stop themselves when dropped.
         // For now, while we are working on ctrlc handling, we manually stop them.
-        tx_frame2.send(Msg::StopFMF).cb_ok();
-        tx_frame2.send(Msg::StopMkv).cb_ok();
+        tx_frame2.send(Msg::StopFMF).await.unwrap();
+        tx_frame2.send(Msg::StopMkv).await.unwrap();
         #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::StopUFMF).cb_ok();
+        tx_frame2.send(Msg::StopUFMF).await.unwrap();
         #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving)).cb_ok();
+        tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving)).await.unwrap();
 
-        tx_frame2.send(Msg::QuitFrameProcessThread).cb_ok(); // this will quit the frame_process_thread
+        tx_frame2.send(Msg::QuitFrameProcessThread).await.unwrap(); // this will quit the frame_process_task
 
         // Tell all streams to quit.
         debug!("*** sending quit trigger to all valved streams. **** {}:{}", file!(), line!());
@@ -3779,22 +3892,18 @@ pub async fn setup_app<M,C>(
         info!("listening at {}", url);
     }
 
-    let sender_table = my_app.txers.clone();
+    let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
 
-    let (flag, control) = thread_control::make_pair();
-    let cam_args_tx3 = cam_args_tx2.clone();
-    let join_handle = std::thread::Builder::new().name("video_streaming".to_string()).spawn(move || { // confirmed closes
-        let thread_closer = CloseAppOnThreadExit::new(cam_args_tx3, file!(), line!());
-        thread_closer.maybe_err(video_streaming::firehose_thread(
-            sender_table,
-            firehose_rx,
-            firehose_callback_rx,
-            false,
-            strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
-            flag,
-        ).map_err(anyhow::Error::from));
-    })?;
-    let video_streaming_cjh = ControlledJoinHandle { control, join_handle };
+    let join_handle = tokio::spawn(video_streaming::firehose_task(
+        connection_callback_rx,
+        firehose_rx,
+        firehose_callback_rx,
+        false,
+        strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
+        quit_rx,
+    ));
+
+    let video_streaming_cjh = ControlledTaskJoinHandle { quit_channel, join_handle };
 
     #[cfg(feature="plugin-process-frame")]
     let plugin_streaming_cjh = {
@@ -3813,7 +3922,7 @@ pub async fn setup_app<M,C>(
             }
             thread_closer.success();
         })?.into();
-        ControlledJoinHandle { control, join_handle }
+        ControlledThreadJoinHandle { control, join_handle }
     };
 
     debug!("  running forever");
@@ -3967,27 +4076,23 @@ pub async fn setup_app<M,C>(
         cam_arg_future.await;
 
         // we get here once the whole program is trying to shut down.
-        let stoppers = ajh.stoppers();
-        for stopper in stoppers.iter() {
-            debug!("sending stop message to thread {}:{}", file!(), line!());
-            stopper.stop();
-        }
-
-        info!("reactor shutdown, now stopping spawned threads");
-        ajh.close_and_join_all().expect("failed closing and joining threads");
-
+        info!("Now stopping spawned tasks.");
+        let result: Result<()> = ajh.close_and_join_all().await;
+        result
     };
 
     Ok((http_camserver_info, cam_args_tx, cam_arg_future2, my_app))
 }
 
-pub struct ControlledJoinHandle<T> {
+#[cfg(feature = "plugin-process-frame")]
+pub struct ControlledThreadJoinHandle<T> {
     control: thread_control::Control,
     join_handle: std::thread::JoinHandle<T>,
 }
 
-impl<T> ControlledJoinHandle<T> {
-    fn close_and_join(self) -> std::thread::Result<T> {
+#[cfg(feature = "plugin-process-frame")]
+impl<T> ControlledThreadJoinHandle<T> {
+    fn thead_close_and_join(self) -> std::thread::Result<T> {
         debug!(
             "sending stop {:?} {:?}",
             self.join_handle.thread().name(),
@@ -4013,30 +4118,48 @@ impl<T> ControlledJoinHandle<T> {
     }
 }
 
+pub struct ControlledTaskJoinHandle<T> {
+    quit_channel: tokio::sync::oneshot::Sender<()>,
+    join_handle: tokio::task::JoinHandle<T>,
+}
+
+impl<T> ControlledTaskJoinHandle<T> {
+    async fn close_and_join(self) -> std::result::Result<T, tokio::task::JoinError> {
+        debug!("sending stop");
+
+        // debug!(
+        //     "sending stop {:?} {:?}",
+        //     self.join_handle.thread().name(),
+        //     self.join_handle.thread().id()
+        // );
+        self.quit_channel.send(()).ok();
+        debug!("joining");
+
+        // debug!(
+        //     "joining {:?} {:?}",
+        //     self.join_handle.thread().name(),
+        //     self.join_handle.thread().id()
+        // );
+        let result = self.join_handle.await?;
+        debug!("joining done");
+        Ok(result)
+    }
+}
+
 pub struct AllJoinHandles {
-    frame_process_cjh: ControlledJoinHandle<()>,
-    video_streaming_cjh: ControlledJoinHandle<()>,
+    frame_process_cjh: ControlledTaskJoinHandle<anyhow::Result<()>>,
+    video_streaming_cjh: ControlledTaskJoinHandle<std::result::Result<(), video_streaming::Error>>,
     #[cfg(feature = "plugin-process-frame")]
-    plugin_streaming_cjh: ControlledJoinHandle<()>,
+    plugin_streaming_cjh: ControlledThreadJoinHandle<()>,
 }
 
 impl AllJoinHandles {
-    fn close_and_join_all(self) -> std::thread::Result<()> {
-        self.frame_process_cjh.close_and_join()?;
-        self.video_streaming_cjh.close_and_join()?;
+    async fn close_and_join_all(self) -> Result<()> {
+        self.frame_process_cjh.close_and_join().await??;
+        self.video_streaming_cjh.close_and_join().await??;
         #[cfg(feature = "plugin-process-frame")]
-        self.plugin_streaming_cjh.close_and_join()?;
+        self.plugin_streaming_cjh.thead_close_and_join().unwrap();
         Ok(())
-    }
-    fn stoppers(&self) -> Vec<thread_control::Control> {
-        #[allow(unused_mut)]
-        let mut result = vec![
-            self.frame_process_cjh.control.clone(),
-            self.video_streaming_cjh.control.clone(),
-            #[cfg(feature = "plugin-process-frame")]
-            self.plugin_streaming_cjh.control.clone(),
-        ];
-        result
     }
 }
 

@@ -32,6 +32,7 @@ where
     pending: Option<StreamItem>,
 }
 
+#[derive(Debug)]
 pub enum StreamItem {
     EOF,
     Packet(FrameDataAndPoints),
@@ -75,14 +76,18 @@ where
             if this.pending.is_none() {
                 let item = match ready!(this.stream.poll_next(cx)) {
                     Some(e) => e,
-                    None => return Poll::Ready(None),
+                    None => {
+                        return Poll::Ready(None);
+                    }
                 };
                 this.pending.set(Some(item));
             }
 
             // The following unwrap cannot fail because of above.
             let new_item: FrameDataAndPoints = match this.pending.take().unwrap() {
-                StreamItem::EOF => return Poll::Ready(this.current.take()),
+                StreamItem::EOF => {
+                    return Poll::Ready(this.current.take());
+                }
                 StreamItem::Packet(new_item) => new_item,
             };
 

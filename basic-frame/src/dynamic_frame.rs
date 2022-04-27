@@ -93,6 +93,18 @@ pub enum DynamicFrame {
     NV12(BasicFrame<formats::pixel_format::NV12>),
 }
 
+fn _test_dynamic_frame_is_send() {
+    // Compile-time test to ensure PerSender implements Send trait.
+    fn implements<T: Send>() {}
+    implements::<DynamicFrame>();
+}
+
+impl std::fmt::Debug for DynamicFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "DynamicFrame{{{}, ..}}", self.pixel_format())
+    }
+}
+
 impl DynamicFrame {
     pub fn new(
         width: u32,
@@ -162,7 +174,7 @@ impl DynamicFrame {
         }
     }
 
-    #[cfg(feature="convert-image")]
+    #[cfg(feature = "convert-image")]
     /// Return the image as a `BasicFrame` converting the data to the requested
     /// pixel format as necessary.
     ///

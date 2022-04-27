@@ -14,7 +14,7 @@ path = "src/strand-cam.rs"
 jemallocator = {version="0.3", optional=true}
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.12", default-features = false}
+bui-backend = {version="0.14", default-features = false}
 qrcodegen = "1.4"
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
 ctrlc = { version = "3.1.3", features = ["termination"] }
@@ -35,8 +35,8 @@ preferences = {git="https://github.com/Eh2406/preferences-rs", rev="4f426cf52da9
 app_dirs = "1.2"
 anyhow = "1.0"
 thiserror = "1.0.28"
-parking_lot = "0.11"
-thread-control = "0.1.2"
+parking_lot = "0.12"
+thread-control = {version="0.1.2", optional=true}
 ipp-sys = {version="0.4.4", optional=true}
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
@@ -87,7 +87,6 @@ opencv-calibrate = {path="../opencv-calibrate", optional=true}
 camcal = {path="../camcal", optional=true}
 posix-scheduler = { path = "../posix-scheduler", optional=true}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
-crossbeam-ok = {path="../crossbeam-ok"}
 mkv-writer = { path = "../mkv-writer" }
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 plugin-defs = {path="../plugin-defs", optional=true}
@@ -95,7 +94,7 @@ bg-movie-writer = {path="../bg-movie-writer"}
 strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal", optional=true}
 nvenc = {path="../nvenc"}
 ads-apriltag = {path="../apriltag", optional=true}
-channellib = {path="../channellib"}
+channellib = {path="../channellib", optional=true}
 braid-http-session = {path="../braid-http-session"}
 
 target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f523ed819bd1d92519416cb79e36fd74fe"}
@@ -109,12 +108,12 @@ default = ["image_tracker", "imtrack-absdiff"]
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
-    "convert-image/backtrace", "http-video-streaming/backtrace", "channellib/backtrace",
+    "convert-image/backtrace", "http-video-streaming/backtrace",
     "image-tracker?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
 
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
 
-plugin-process-frame = ["plugin-defs"]
+plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
 flydra-uds = ["image-tracker/flydra-uds"]
 
 # Priority setting, high priority for camera threads, low priority for bg-image thread

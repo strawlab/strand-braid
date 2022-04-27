@@ -8,15 +8,20 @@ use std::sync::{
     Arc,
 };
 
+use std::{error::Error as StdError, future::Future, pin::Pin};
+
 use parking_lot::RwLock;
 
 use tokio::net::UdpSocket;
 use tokio_util::udp::UdpFramed;
 
 use async_change_tracker::ChangeTracker;
-use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner};
-use bui_backend::AccessControl;
 use bui_backend_types::CallbackDataAndSession;
+
+use bui_backend::{
+    highlevel::{create_bui_app_inner, BuiAppInner},
+    AccessControl, CallbackHandler,
+};
 
 use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
@@ -54,7 +59,112 @@ struct HttpApiApp {
     triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
+    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+}
+
+#[derive(Clone)]
+struct MyCallbackHandler {
+    cam_manager: flydra2::ConnectedCamerasManager,
+    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
+    expected_framerate_arc: Arc<RwLock<Option<f32>>>,
+    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+    output_base_dirname: std::path::PathBuf,
+    shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
+}
+
+impl CallbackHandler for MyCallbackHandler {
+    type Data = HttpApiCallback;
+
+    /// HTTP request to "/callback" has been made with payload which as been
+    /// deserialized into `Self::Data` and session data stored in
+    /// [CallbackDataAndSession].
+    fn call<'a>(
+        &'a self,
+        data_sess: CallbackDataAndSession<Self::Data>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn StdError + Send>>> + Send + 'a>> {
+        let payload = data_sess.payload;
+
+        let fut = async {
+            use crate::HttpApiCallback::*;
+            match payload {
+                NewCamera(cam_info) => {
+                    debug!("got NewCamera {:?}", cam_info);
+                    let http_camserver_info = cam_info.http_camserver_info.unwrap();
+                    let cam_settings_data = cam_info.cam_settings_data.unwrap();
+                    let mut cam_manager3 = self.cam_manager.clone();
+                    cam_manager3.register_new_camera(
+                        &cam_info.orig_cam_name,
+                        &http_camserver_info,
+                        &cam_info.ros_cam_name,
+                    );
+
+                    let mut current_cam_data = self.per_cam_data_arc.write();
+                    if current_cam_data
+                        .insert(
+                            cam_info.ros_cam_name.clone(),
+                            PerCamSaveData {
+                                cam_settings_data: Some(cam_settings_data),
+                                feature_detect_settings: None,
+                                current_image_png: cam_info.current_image_png,
+                            },
+                        )
+                        .is_some()
+                    {
+                        panic!("camera {} already known", cam_info.ros_cam_name.as_str());
+                    }
+                }
+                UpdateCurrentImage(image_info) => {
+                    // new image from camera
+                    debug!(
+                        "got new image for camera {:?}",
+                        image_info.ros_cam_name.as_str()
+                    );
+                    let mut current_cam_data = self.per_cam_data_arc.write();
+                    current_cam_data
+                        .get_mut(&image_info.ros_cam_name)
+                        .unwrap()
+                        .current_image_png = image_info.inner.current_image_png;
+                }
+                UpdateCamSettings(cam_settings) => {
+                    let mut current_cam_data = self.per_cam_data_arc.write();
+                    current_cam_data
+                        .get_mut(&cam_settings.ros_cam_name)
+                        .unwrap()
+                        .cam_settings_data = Some(cam_settings.inner);
+                }
+                UpdateFeatureDetectSettings(feature_detect_settings) => {
+                    let mut current_cam_data = self.per_cam_data_arc.write();
+                    current_cam_data
+                        .get_mut(&feature_detect_settings.ros_cam_name)
+                        .unwrap()
+                        .feature_detect_settings = Some(feature_detect_settings.inner);
+                }
+
+                DoRecordCsvTables(value) => {
+                    debug!("got DoRecordCsvTables({})", value);
+                    toggle_saving_csv_tables(
+                        value,
+                        self.expected_framerate_arc.clone(),
+                        self.output_base_dirname.clone(),
+                        self.braidz_write_tx.clone(),
+                        self.per_cam_data_arc.clone(),
+                        self.shared_data.clone(),
+                    )
+                    .await;
+                }
+                SetExperimentUuid(value) => {
+                    debug!("got SetExperimentUuid({})", value);
+                    flydra2::CoordProcessorControl::new(self.braidz_write_tx.clone())
+                        .set_experiment_uuid(value)
+                        .await;
+                }
+            }
+        };
+        Box::pin(async {
+            fut.await;
+            Ok(())
+        })
+    }
 }
 
 async fn new_http_api_app(
@@ -70,7 +180,7 @@ async fn new_http_api_app(
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
-    write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
+    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
@@ -80,6 +190,15 @@ async fn new_http_api_app(
 
     // Create `inner`, which takes care of the browser communication details for us.
     let chan_size = 10;
+
+    let callback_handler = Box::new(MyCallbackHandler {
+        shared_data: shared_store.clone(),
+        cam_manager: cam_manager.clone(),
+        expected_framerate_arc: expected_framerate_arc.clone(),
+        output_base_dirname: output_base_dirname.clone(),
+        per_cam_data_arc: per_cam_data_arc.clone(),
+        braidz_write_tx: braidz_write_tx.clone(),
+    });
 
     let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
         config.clone(),
@@ -128,9 +247,10 @@ async fn new_http_api_app(
             };
             Ok(resp)
         }))),
+        callback_handler,
     );
 
-    let (_, mut inner) = create_bui_app_inner(
+    let (_, inner) = create_bui_app_inner(
         tokio::runtime::Handle::current(),
         Some(shutdown_rx),
         &auth,
@@ -152,96 +272,6 @@ async fn new_http_api_app(
         mainbrain_server_info.guess_base_url_with_token()
     );
 
-    let cam_manager2 = cam_manager.clone();
-
-    let expected_framerate_arc2 = expected_framerate_arc.clone();
-    let output_base_dirname2 = output_base_dirname.clone();
-    let write_controller_arc2 = write_controller_arc.clone();
-    let per_cam_data_arc2 = per_cam_data_arc.clone();
-    let shared_data = inner.shared_arc().clone();
-
-    // Create a Stream to handle callbacks from clients.
-    inner.set_callback_listener(Box::new(
-        move |msg: CallbackDataAndSession<HttpApiCallback>| {
-            // This closure is the callback handler called whenever the
-            // client sends us something.
-
-            use crate::HttpApiCallback::*;
-            match msg.payload {
-                NewCamera(cam_info) => {
-                    debug!("got NewCamera {:?}", cam_info);
-                    let http_camserver_info = cam_info.http_camserver_info.unwrap();
-                    let cam_settings_data = cam_info.cam_settings_data.unwrap();
-                    let mut cam_manager3 = cam_manager2.clone();
-                    cam_manager3.register_new_camera(
-                        &cam_info.orig_cam_name,
-                        &http_camserver_info,
-                        &cam_info.ros_cam_name,
-                    );
-
-                    let mut current_cam_data = per_cam_data_arc2.write();
-                    if current_cam_data
-                        .insert(
-                            cam_info.ros_cam_name.clone(),
-                            PerCamSaveData {
-                                cam_settings_data: Some(cam_settings_data),
-                                feature_detect_settings: None,
-                                current_image_png: cam_info.current_image_png,
-                            },
-                        )
-                        .is_some()
-                    {
-                        panic!("camera {} already known", cam_info.ros_cam_name.as_str());
-                    }
-                }
-                UpdateCurrentImage(image_info) => {
-                    // new image from camera
-                    debug!(
-                        "got new image for camera {:?}",
-                        image_info.ros_cam_name.as_str()
-                    );
-                    let mut current_cam_data = per_cam_data_arc2.write();
-                    current_cam_data
-                        .get_mut(&image_info.ros_cam_name)
-                        .unwrap()
-                        .current_image_png = image_info.inner.current_image_png;
-                }
-                UpdateCamSettings(cam_settings) => {
-                    let mut current_cam_data = per_cam_data_arc2.write();
-                    current_cam_data
-                        .get_mut(&cam_settings.ros_cam_name)
-                        .unwrap()
-                        .cam_settings_data = Some(cam_settings.inner);
-                }
-                UpdateFeatureDetectSettings(feature_detect_settings) => {
-                    let mut current_cam_data = per_cam_data_arc2.write();
-                    current_cam_data
-                        .get_mut(&feature_detect_settings.ros_cam_name)
-                        .unwrap()
-                        .feature_detect_settings = Some(feature_detect_settings.inner);
-                }
-
-                DoRecordCsvTables(value) => {
-                    debug!("got DoRecordCsvTables({})", value);
-                    toggle_saving_csv_tables(
-                        value,
-                        expected_framerate_arc2.clone(),
-                        output_base_dirname2.clone(),
-                        write_controller_arc2.clone(),
-                        per_cam_data_arc2.clone(),
-                        shared_data.clone(),
-                    );
-                }
-                SetExperimentUuid(value) => {
-                    debug!("got SetExperimentUuid({})", value);
-                    let write_controller = write_controller_arc2.write();
-                    write_controller.set_experiment_uuid(value);
-                }
-            }
-            futures::future::ok(())
-        },
-    ));
-
     // Return our app.
     Ok(HttpApiApp {
         inner,
@@ -249,7 +279,7 @@ async fn new_http_api_app(
         triggerbox_cmd,
         sync_pulse_pause_started_arc,
         expected_framerate_arc,
-        write_controller_arc,
+        braidz_write_tx,
     })
 }
 
@@ -415,8 +445,6 @@ pub async fn pre_run(
     );
     let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
 
-    let (save_data_tx, save_data_rx) = channellib::unbounded();
-
     let tracking_params = opt_tracking_params.unwrap_or_else(|| {
         info!("no tracking parameters file given, using default tracking parameters");
         flydra_types::default_tracking_params_full_3d()
@@ -431,17 +459,15 @@ pub async fn pre_run(
 
     let ignore_latency = false;
     let coord_processor = CoordProcessor::new(
+        tokio::runtime::Handle::current(),
         cam_manager.clone(),
         recon.clone(),
         tracking_params,
-        save_data_tx,
-        save_data_rx,
         save_empty_data2d,
         saving_program_name,
         ignore_latency,
     )?;
-    let write_controller = coord_processor.get_write_controller();
-    let write_controller_arc = Arc::new(RwLock::new(write_controller.clone())); // TODO do not use Arc<RwLock<_>>
+    let braidz_write_tx = coord_processor.get_braidz_write_tx();
 
     // Here is what we do on quit:
     // 1) Stop saving data, convert .braid dir to .braidz, close files.
@@ -449,7 +475,7 @@ pub async fn pre_run(
     // 3) Only then close all our network ports and streams nicely.
     let mut quit_trigger_container = Some(quit_trigger);
     let mut http_session_handler2 = http_session_handler.clone();
-    let write_controller_arc2 = write_controller_arc.clone();
+    let braidz_write_tx2 = braidz_write_tx.clone();
     handle.spawn(async move {
         while let Some(()) = shtdwn_q_rx.recv().await {
             debug!("got shutdown command {}:{}", file!(), line!());
@@ -461,8 +487,10 @@ pub async fn pre_run(
                 // drop handlers run œ(without aborting) and thus the program
                 // will finish writing without an explicit wait. (Of course,
                 // this fails during an actual abort).
-                let write_controller = write_controller_arc2.write();
-                write_controller.stop_saving_data();
+
+                flydra2::CoordProcessorControl::new(braidz_write_tx2.clone())
+                    .stop_saving_data()
+                    .await;
             }
 
             http_session_handler2.send_quit_all().await;
@@ -564,7 +592,7 @@ pub async fn pre_run(
         sync_pulse_pause_started_arc,
         expected_framerate_arc,
         output_base_dirname.clone(),
-        write_controller_arc.clone(),
+        braidz_write_tx.clone(),
         per_cam_data_arc.clone(),
         force_camera_sync_mode,
         software_limit_framerate,
@@ -712,7 +740,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let expected_framerate_arc = my_app.expected_framerate_arc.clone();
     let sync_pulse_pause_started_arc = my_app.sync_pulse_pause_started_arc.clone();
 
-    let write_controller_arc = my_app.write_controller_arc.clone();
+    let braidz_write_tx = my_app.braidz_write_tx.clone();
 
     {
         let sender = SendConnectedCamToBuiBackend {
@@ -731,7 +759,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         tokio::sync::mpsc::channel::<braid_triggerbox::TriggerClockInfoRow>(20);
 
     {
-        let write_controller_arc = write_controller_arc.clone();
+        let braidz_write_tx = braidz_write_tx.clone();
         let signal_triggerbox_connected = signal_triggerbox_connected.clone();
 
         let mut has_triggerbox_connected = false;
@@ -742,14 +770,15 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     info!("triggerbox is connected.");
                     signal_triggerbox_connected.store(true, Ordering::SeqCst);
                 }
-                let write_controller = write_controller_arc.write();
                 let msg2 = flydra_types::TriggerClockInfoRow {
                     start_timestamp: msg.start_timestamp.into(),
                     framecount: msg.framecount,
                     tcnt: msg.tcnt,
                     stop_timestamp: msg.stop_timestamp.into(),
                 };
-                write_controller.append_trigger_clock_info_message(msg2);
+                flydra2::CoordProcessorControl::new(braidz_write_tx.clone())
+                    .append_trigger_clock_info_message(msg2)
+                    .await;
             }
         };
         tokio::spawn(triggerbox_future);
@@ -1049,7 +1078,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     });
 
+    let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
+
     let ms = flydra2::new_model_server(
+        data_rx,
         valve.clone(),
         Some(model_server_shutdown_rx),
         &model_pose_server_addr,
@@ -1066,21 +1098,22 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
     info!("expected_framerate: {:?}", expected_framerate);
 
-    coord_processor.add_listener(Box::new(ms));
+    coord_processor.add_listener(data_tx);
     let consume_future =
         coord_processor.consume_stream(valve.wrap(flydra2_stream), expected_framerate);
 
     // We "block" (in an async way) here for the entire runtime of the program.
-    let opt_jh = consume_future.await;
+    let writer_jh = consume_future.await;
 
     // If these tasks are still running, cancel them.
     sync_start_jh.abort();
     sync_done_jh.abort();
 
-    // Allow writer thread time to finish writing.
-    if let Some(jh) = opt_jh {
-        jh.join().expect("join writer_thread_handle");
-    }
+    // Allow writer task time to finish writing.
+    writer_jh
+        .await
+        .expect("join writer task 1")
+        .expect("join writer task 2");
 
     // TODO: reenable this to stop nicely.
     // // hmm do we need this? We could just end without idling.
@@ -1168,33 +1201,37 @@ impl LiveStatsCollector {
     }
 }
 
-fn toggle_saving_csv_tables(
+async fn toggle_saving_csv_tables(
     start_saving: bool,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
-    write_controller_arc: Arc<RwLock<flydra2::CoordProcessorControl>>,
+    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
 ) {
     if start_saving {
-        let expected_framerate = expected_framerate_arc.read();
+        let expected_framerate: Option<f32> = expected_framerate_arc.read().clone();
         let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
         let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
         let mut my_dir = output_base_dirname.clone();
         my_dir.push(dirname);
-        let write_controller = write_controller_arc.write();
-        let per_cam_data_ref = per_cam_data_arc.read();
-        let per_cam_data = (*per_cam_data_ref).clone();
+        let per_cam_data = {
+            // small scope for read lock
+            let per_cam_data_ref = per_cam_data_arc.read();
+            (*per_cam_data_ref).clone()
+        };
         let cfg = flydra2::StartSavingCsvConfig {
             out_dir: my_dir.clone(),
             local: Some(local),
             git_rev: env!("GIT_HASH").to_string(),
-            fps: *expected_framerate,
+            fps: expected_framerate,
             per_cam_data,
             print_stats: false,
             save_performance_histograms: true,
         };
-        write_controller.start_saving_data(cfg);
+        flydra2::CoordProcessorControl::new(braidz_write_tx.clone())
+            .start_saving_data(cfg)
+            .await;
 
         {
             let mut tracker = shared_data.write();
@@ -1205,8 +1242,9 @@ fn toggle_saving_csv_tables(
 
         info!("saving data to {}", my_dir.display());
     } else {
-        let write_controller = write_controller_arc.write();
-        write_controller.stop_saving_data();
+        flydra2::CoordProcessorControl::new(braidz_write_tx)
+            .stop_saving_data()
+            .await;
 
         {
             let mut tracker = shared_data.write();

@@ -1,15 +1,13 @@
 use log::{debug, error, info};
 
-use std::{self, pin::Pin};
+use std::pin::Pin;
 
-use futures::{channel::mpsc, sink::SinkExt};
+use futures::sink::SinkExt;
 use serde::{Deserialize, Serialize};
 
 use futures::stream::StreamExt;
 use hyper::header::ACCEPT;
 use hyper::{Method, Response, StatusCode};
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 use crate::{Result, TimeDataPassthrough};
 
@@ -20,7 +18,7 @@ type MyError = std::io::Error; // anything that implements std::error::Error and
 #[cfg(any(feature = "bundle_files", feature = "serve_files"))]
 include!(concat!(env!("OUT_DIR"), "/public.rs")); // Despite slash, this does work on Windows.
 
-pub type EventChunkSender = mpsc::Sender<hyper::body::Bytes>;
+pub type EventChunkSender = tokio::sync::mpsc::Sender<hyper::body::Bytes>;
 
 #[derive(Debug)]
 pub struct NewEventStreamConnection {
@@ -155,10 +153,12 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
 
                     if accepts_event_stream {
                         let (tx_event_stream, rx_event_stream) =
-                            mpsc::channel(self.config_channel_size);
+                            tokio::sync::mpsc::channel(self.config_channel_size);
                         let tx_event_stream: EventChunkSender = tx_event_stream; // type annotation only
 
-                        let rx_event_stream = self.valve.wrap(rx_event_stream);
+                        let rx_event_stream = self
+                            .valve
+                            .wrap(tokio_stream::wrappers::ReceiverStream::new(rx_event_stream));
 
                         let rx_event_stream = rx_event_stream.map(Ok::<_, MyError>);
 
@@ -306,11 +306,11 @@ pub struct ToListener {
 
 #[derive(Clone)]
 pub struct ModelServer {
-    txers: Arc<Mutex<Vec<NewEventStreamConnection>>>,
     local_addr: std::net::SocketAddr,
 }
 
 pub async fn new_model_server(
+    data_rx: tokio::sync::mpsc::Receiver<(SendType, TimeDataPassthrough)>,
     valve: stream_cancel::Valve,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     addr: &std::net::SocketAddr,
@@ -354,24 +354,44 @@ pub async fn new_model_server(
             service.events_path
         );
 
-        let result = ModelServer {
-            txers: Arc::new(Mutex::new(vec![])),
-            local_addr,
-        };
-
-        let txers_arc = result.txers.clone();
+        let result = ModelServer { local_addr };
 
         let mut rx_new_connection_valved = valve.wrap(rx_new_connection);
+        let mut data_rx = tokio_stream::wrappers::ReceiverStream::new(data_rx);
 
-        let new_con_fut = async move {
-            while let Some(new_con) = rx_new_connection_valved.next().await {
-                debug!("new connection: {:?}", new_con);
-                let mut txers = txers_arc.lock();
-                txers.push(new_con);
+        let main_task = async move {
+            let mut connections: Vec<NewEventStreamConnection> = vec![];
+            loop {
+                tokio::select! {
+                    opt_new_connection = rx_new_connection_valved.next() => {
+                        match opt_new_connection {
+                            Some(new_connection) => {
+                                connections.push(new_connection);
+                            }
+                            None => {
+                                // All senders done. (So the server has quit and so should we.)
+                                break;
+                            }
+                        }
+                    }
+                    opt_new_data = data_rx.next() => {
+                        match opt_new_data {
+                            Some(data) => {
+                                send_msg(data, &mut connections).await?;
+                            }
+                            None => {
+                                // All senders done. No new data will be coming, so quit.
+                                break;
+                            }
+                        }
+
+
+                    }
+                }
             }
+            Ok::<_, crate::Error>(())
         };
-
-        rt_handle.spawn(new_con_fut);
+        rt_handle.spawn(main_task);
 
         use futures::future::FutureExt;
         let log_and_swallow_err = |r| match r {
@@ -399,57 +419,51 @@ impl ModelServer {
     }
 }
 
-pub trait GetsUpdates: Send {
-    fn send_update(&self, msg: SendType, tdpt: &TimeDataPassthrough) -> Result<()>;
-}
+async fn send_msg(
+    data: (SendType, TimeDataPassthrough),
+    connections: &mut Vec<NewEventStreamConnection>,
+) -> Result<()> {
+    let (msg, tdpt) = data;
+    let latency: f64 = if let Some(ref tt) = tdpt.trigger_timestamp() {
+        let now_f64 = datetime_conversion::datetime_to_f64(&chrono::Local::now());
+        now_f64 - tt.as_f64()
+    } else {
+        std::f64::NAN
+    };
 
-impl GetsUpdates for ModelServer {
-    fn send_update(&self, msg: SendType, tdpt: &TimeDataPassthrough) -> Result<()> {
-        let latency: f64 = if let Some(ref tt) = tdpt.trigger_timestamp() {
-            let now_f64 = datetime_conversion::datetime_to_f64(&chrono::Local::now());
-            now_f64 - tt.as_f64()
-        } else {
-            std::f64::NAN
-        };
+    // Send updates after each observation for lowest-possible latency.
+    let data = ToListener {
+        /// Braid pose API
+        v: 2, // <- Bump when ToListener or SendType definition changes ZP4q
+        msg,
+        latency,
+        synced_frame: tdpt.synced_frame(),
+        trigger_timestamp: tdpt.trigger_timestamp(),
+    };
 
-        // Send updates after each observation for lowest-possible latency.
-        let data = ToListener {
-            /// Braid pose API
-            v: 2, // <- Bump when ToListener or SendType definition changes ZP4q
-            msg,
-            latency,
-            synced_frame: tdpt.synced_frame(),
-            trigger_timestamp: tdpt.trigger_timestamp(),
-        };
-        let buf = serde_json::to_string(&data)?;
-        let buf = format!("event: braid\ndata: {}\n\n", buf);
+    // Serialize to JSON.
+    let buf = serde_json::to_string(&data)?;
+    // Encode as event source.
+    let buf = format!("event: braid\ndata: {}\n\n", buf);
 
-        let mut sources = self.txers.lock();
-        let mut restore = vec![];
+    let bytes: hyper::body::Bytes = buf.into();
 
-        for tx in sources.drain(0..) {
-            let mut chunk_sender = tx.chunk_sender;
-            let chunk = buf.clone().into();
-            let mut do_restore = false;
-            match chunk_sender.start_send(chunk) {
-                Ok(_async_sink) => {
-                    do_restore = true;
-                }
-                Err(e) => {
-                    info!(
-                        "Failed to send data to event stream, client \
-                            probably disconnected. {:?}",
-                        e
-                    );
-                }
-            };
-            if do_restore {
-                restore.push(NewEventStreamConnection { chunk_sender });
-            }
-        }
-        for tx in restore.into_iter() {
-            sources.push(tx);
-        }
-        Ok(())
-    }
+    // Send to all listening connections.
+    let keep: Vec<bool> = futures::future::join_all(
+        connections
+            .iter_mut()
+            .map(|conn| async { conn.chunk_sender.send(bytes.clone()).await.is_ok() }),
+    )
+    .await;
+
+    assert_eq!(keep.len(), connections.len());
+
+    // Remove connections which resulted in error.
+    let mut index = 0;
+    connections.retain(|_| {
+        index += 1;
+        keep[index - 1]
+    });
+
+    Ok(())
 }

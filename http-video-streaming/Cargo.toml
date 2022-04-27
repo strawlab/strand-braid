@@ -7,22 +7,22 @@ rust-version="1.60"
 
 [dependencies]
 thiserror = "1.0.28"
-bui-backend = {version="0.12", default-features = false}
+bui-backend = {version="0.14", default-features = false}
 bui-backend-types = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.6"
 hyper = "0.14"
+tokio = {version="1", features=["sync","time","macros"]}
+tokio-stream = "0.1.8"
+parking_lot = "0.12"
 serde_json = "1.0"
 futures = "0.3"
-parking_lot = "0.11"
 convert-image = {path = "../convert-image"}
 log = "0.4"
 machine-vision-formats = "0.1"
 http-video-streaming-types = {path = "http-video-streaming-types"}
-thread-control = "0.1.2"
 
 basic-frame = {path="../basic-frame"}
-channellib = {path="../channellib"}
 
 [features]
-backtrace = ["convert-image/backtrace", "channellib/backtrace"]
+backtrace = ["convert-image/backtrace"]

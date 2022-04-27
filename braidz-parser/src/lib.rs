@@ -435,9 +435,6 @@ fn test_append_to_path() {
 }
 
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
-///
-/// Note, use caution if using `csv_fname` after this, as it may be the original
-/// (`.csv`) or new (`.csv.gz`).
 pub fn open_maybe_gzipped<'a, R: Read + Seek>(
     mut path_like: zip_or_dir::PathLike<'a, R>,
 ) -> Result<Box<dyn Read + 'a>, Error> {

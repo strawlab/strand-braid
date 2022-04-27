@@ -11,7 +11,7 @@ env_logger = "0.8"
 configure = "0.1.1"
 thiserror = "1"
 anyhow = "1.0"
-parking_lot = "0.11"
+parking_lot = "0.12"
 serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
@@ -38,7 +38,7 @@ includedir = { version = "0.6", optional = true }
 phf = { version = "0.8", optional = true }
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.12", default-features = false}
+bui-backend = {version="0.14", default-features = false}
 
 braid-config-data = {path="../braid-config-data"}
 mvg = {path="../mvg"}

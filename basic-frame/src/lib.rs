@@ -87,11 +87,11 @@ pub struct BasicFrame<F> {
     pub extra: Box<dyn HostTimeData>,
 }
 
-// fn _test_basic_frame_is_send<F: Send>() {
-//     // Compile-time test to ensure BasicFrame implements Send trait.
-//     fn implements<T: Send>() {}
-//     implements::<BasicFrame<F>>();
-// }
+fn _test_basic_frame_is_send<F: Send>() {
+    // Compile-time test to ensure BasicFrame implements Send trait.
+    fn implements<T: Send>() {}
+    implements::<BasicFrame<F>>();
+}
 
 fn _test_basic_frame_is_frame_trait<F>() {
     // Compile-time test to ensure BasicFrame implements FrameTrait trait.

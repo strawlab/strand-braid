@@ -23,14 +23,13 @@ use flydra_types::{
 
 use crate::{
     bundled_data::{BundledAllCamsOneFrameUndistorted, OneCamOneFrameUndistorted, Undistorted},
-    model_server::{GetsUpdates, SendKalmanEstimatesRow, SendType},
+    model_server::{SendKalmanEstimatesRow, SendType},
     new_object_test_2d::NewObjectTestFlat3D,
     new_object_test_3d::NewObjectTestFull3D,
     to_world_point, CameraObservationModel, ConnectedCamerasManager, DataAssocRow,
     FrameDataAndPoints, HypothesisTestResult, KalmanEstimateRecord, MyFloat, SaveToDiskMsg,
     TimeDataPassthrough,
 };
-use crossbeam_ok::CrossbeamOk;
 
 // -----------------------------------------------------------------------------
 
@@ -318,10 +317,10 @@ fn get_kalman_estimates_row(obj_id: u32, posterior: &StampedEstimate) -> KalmanE
 }
 
 impl LivingModel<ModelFramePosteriors> {
-    fn finish_frame(
+    async fn finish_frame(
         mut self,
-        save_data_tx: &mut channellib::Sender<SaveToDiskMsg>,
-        model_servers: &[Box<dyn GetsUpdates>],
+        save_data_tx: &mut tokio::sync::mpsc::Sender<SaveToDiskMsg>,
+        model_servers: &[tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>],
         num_observations_to_visibility: u8,
     ) -> LivingModel<ModelFrameDone> {
         // save data -------------------------------
@@ -385,10 +384,11 @@ impl LivingModel<ModelFramePosteriors> {
             if do_become_visible {
                 // send birth event
                 for ms in model_servers.iter() {
-                    ms.send_update(
+                    ms.send((
                         SendType::Birth(send_kalman_estimate_row.clone()),
-                        &self.state.posterior.tdpt,
-                    )
+                        self.state.posterior.tdpt.clone(),
+                    ))
+                    .await
                     .expect("send update");
                 }
             }
@@ -420,13 +420,14 @@ impl LivingModel<ModelFramePosteriors> {
                     // println!("saving row with no observations {} {}", self.lmi.obj_id, fno);
                     // println!("   start idx end {} {} {}", start_idx, idx, end_idx);
                     let no_obs_record = get_kalman_estimates_row(self.lmi.obj_id, posterior);
-                    save_data_tx
-                        .send(SaveToDiskMsg::KalmanEstimate(KalmanEstimateRecord {
-                            record: no_obs_record,
-                            data_assoc_rows: vec![],
-                            mean_reproj_dist_100x: None,
-                        }))
-                        .cb_ok();
+                    let msg = SaveToDiskMsg::KalmanEstimate(KalmanEstimateRecord {
+                        record: no_obs_record,
+                        data_assoc_rows: vec![],
+                        mean_reproj_dist_100x: None,
+                    });
+                    tokio::sync::mpsc::Sender::send(&save_data_tx, msg)
+                        .await
+                        .unwrap();
                 }
 
                 // Now save the final row (with observations).
@@ -437,7 +438,8 @@ impl LivingModel<ModelFramePosteriors> {
                         data_assoc_rows,
                         mean_reproj_dist_100x,
                     }))
-                    .cb_ok();
+                    .await
+                    .unwrap();
             }
             self.last_observation_offset = self.posteriors.len();
         }
@@ -451,10 +453,11 @@ impl LivingModel<ModelFramePosteriors> {
             for ms in model_servers.iter() {
                 // Here is the realtime pose output when using the HTTP
                 // model server.
-                ms.send_update(
+                ms.send((
                     SendType::Update(send_kalman_estimate_row.clone()),
-                    &self.state.posterior.tdpt,
-                )
+                    self.state.posterior.tdpt.clone(),
+                ))
+                .await
                 .expect("send update");
             }
         }
@@ -508,7 +511,7 @@ pub(crate) fn initialize_model_collection(
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     fps: f32,
     cam_manager: ConnectedCamerasManager,
-    save_data_tx: channellib::Sender<SaveToDiskMsg>,
+    save_data_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
 ) -> ModelCollection<CollectionFrameDone> {
     let motion_noise_scale = params.motion_noise_scale;
     let dt = 1.0 / fps as f64;
@@ -555,7 +558,7 @@ pub(crate) struct MCInner {
     motion_model: MotionModel3DFixedDt<MyFloat>,
     cam_manager: ConnectedCamerasManager,
     next_obj_id: u32,
-    save_data_tx: channellib::Sender<SaveToDiskMsg>,
+    save_data_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
 }
 
 impl ModelCollection<CollectionFrameDone> {
@@ -904,10 +907,10 @@ impl ModelCollection<CollectionFramePosteriors> {
         next
     }
 
-    pub(crate) fn births_and_deaths(
+    pub(crate) async fn births_and_deaths(
         mut self,
         unused: UnusedData,
-        model_servers: &[Box<dyn GetsUpdates>],
+        model_servers: &[tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>],
     ) -> ModelCollection<CollectionFrameDone> {
         // Check deaths before births so we do not check if we kill a
         // just-created model.
@@ -1034,10 +1037,11 @@ impl ModelCollection<CollectionFramePosteriors> {
             for ms in model_servers.iter() {
                 for model in &to_kill {
                     if model.gestation_age.is_none() {
-                        ms.send_update(
+                        ms.send((
                             SendType::Death(model.lmi.obj_id),
-                            &model.state.posterior.tdpt,
-                        )
+                            model.state.posterior.tdpt.clone(),
+                        ))
+                        .await
                         .expect("send update");
                     }
                 }
@@ -1046,16 +1050,17 @@ impl ModelCollection<CollectionFramePosteriors> {
 
         let num_observations_to_visibility = self.mcinner.params.num_observations_to_visibility;
 
-        let models = to_live
-            .into_iter()
-            .map(|x| {
+        let mut models = vec![];
+        for x in to_live.into_iter() {
+            models.push(
                 x.finish_frame(
                     &mut self.mcinner.save_data_tx,
                     model_servers,
                     num_observations_to_visibility,
                 )
-            })
-            .collect();
+                .await,
+            );
+        }
 
         ModelCollection {
             state: CollectionFrameDone { models },

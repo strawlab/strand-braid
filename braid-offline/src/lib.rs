@@ -14,8 +14,8 @@ use flydra_types::CamInfoRow;
 use braidz_parser::open_maybe_gzipped;
 
 use flydra2::{
-    run_func, CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem,
+    CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints, NumberedRawUdpPoint,
+    StreamItem,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
@@ -256,16 +256,15 @@ where
         signal_all_cams_synced,
     );
 
-    let (mut frame_data_tx, frame_data_rx) = futures::channel::mpsc::channel(0);
-    let (save_data_tx, save_data_rx) = channellib::unbounded();
+    let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);
+    let frame_data_rx = tokio_stream::wrappers::ReceiverStream::new(frame_data_rx);
     let save_empty_data2d = true;
     let ignore_latency = true;
     let mut coord_processor = CoordProcessor::new(
+        rt_handle.clone(),
         cam_manager.clone(),
         Some(recon.clone()),
         tracking_params,
-        save_data_tx,
-        save_data_rx,
         save_empty_data2d,
         saving_program_name,
         ignore_latency,
@@ -375,115 +374,121 @@ where
         cam_manager.register_new_camera(&orig_cam_name, &no_server, &ros_cam_name);
     }
 
-    let write_controller = coord_processor.get_write_controller();
-    let save_cfg = flydra2::StartSavingCsvConfig {
-        out_dir: output_dirname.to_path_buf(),
-        local: None,
-        git_rev: env!("GIT_HASH").to_string(),
-        fps: Some(fps as f32),
-        per_cam_data,
-        print_stats: true,
-        save_performance_histograms,
-    };
+    {
+        let braidz_write_tx = coord_processor.get_braidz_write_tx();
+        let save_cfg = flydra2::StartSavingCsvConfig {
+            out_dir: output_dirname.to_path_buf(),
+            local: None,
+            git_rev: env!("GIT_HASH").to_string(),
+            fps: Some(fps as f32),
+            per_cam_data,
+            print_stats: true,
+            save_performance_histograms,
+        };
 
-    write_controller.start_saving_data(save_cfg);
+        braidz_write_tx
+            .send(flydra2::SaveToDiskMsg::StartSavingCsv(save_cfg))
+            .await
+            .unwrap();
+        // It is important to drop the `braidz_write_tx` because it contains a
+        // Sender to the writing task and if this is not dropped, the writing
+        // task never completes.
+    }
 
     let opt3 = opt2.clone();
 
-    // send file to another thread because we want to read this into a stream
-    // See https://github.com/alexcrichton/futures-rs/issues/49
-    let reader_jh = std::thread::spawn(move || {
-        run_func(move || -> Result<(), crate::Error> {
-            // open the data2d CSV file
-            let mut data_fname = data_src.path_starter();
-            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+    // Construct a local task set that can run `!Send` futures.
+    // `open_maybe_gzipped` returns a non-Send result.
+    let local = tokio::task::LocalSet::new();
 
-            log::trace!("loading data from {}", data_fname.display());
+    // Run the local task set.
+    let reader_local_future = local.run_until(async move {
+        // open the data2d CSV file
+        let mut data_fname = data_src.path_starter();
+        data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-            let display_fname = format!("{}", data_fname.display());
-            let data_file = open_maybe_gzipped(data_fname)?;
-            let rdr = csv::Reader::from_reader(data_file);
-            let data_iter = rdr.into_deserialize();
+        log::trace!("loading data from {}", data_fname.display());
 
-            let bufsize = 10000;
-            let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
-                .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
-            // let rdr = sorted_data_iter.inner().reader();
+        let display_fname = format!("{}", data_fname.display());
+        let data_file = open_maybe_gzipped(data_fname)?;
+        let rdr = csv::Reader::from_reader(data_file);
+        let data_iter = rdr.into_deserialize();
 
-            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
-            // let rdr = data_row_frame_iter.inner().inner().reader();
+        let bufsize = 10000;
+        let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+            .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+        // let rdr = sorted_data_iter.inner().reader();
 
-            for data_frame_rows in data_row_frame_iter {
-                // let pos = rdr.position();
+        let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+        // let rdr = data_row_frame_iter.inner().inner().reader();
 
-                // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
-                let data_frame_rows = data_frame_rows?;
+        for data_frame_rows in data_row_frame_iter {
+            // let pos = rdr.position();
 
-                let rows = data_frame_rows.rows;
-                let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));
+            // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
+            let data_frame_rows = data_frame_rows?;
 
-                let opt = opt3.clone();
-                if let Some(ref start) = &opt.start_frame {
-                    if synced_frame.0 < *start {
-                        continue;
-                    }
-                }
+            let rows = data_frame_rows.rows;
+            let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));
 
-                if let Some(ref stop) = &opt.stop_frame {
-                    if synced_frame.0 > *stop {
-                        break;
-                    }
-                }
-
-                for cam_rows in split_by_cam(rows).iter() {
-                    let cam_name = orig_camn_to_cam_name
-                        .get(&cam_rows[0].camn)
-                        .expect("camn missing")
-                        .clone();
-                    let trigger_timestamp = cam_rows[0].timestamp.clone();
-                    let cam_received_timestamp = cam_rows[0].cam_received_timestamp.clone();
-                    let device_timestamp = cam_rows[0].device_timestamp.clone();
-                    let block_id = cam_rows[0].block_id.clone();
-                    let points = cam_rows
-                        .iter()
-                        .enumerate()
-                        .map(|(i, p)| to_point_info(p, i as u8))
-                        .collect();
-
-                    let cam_num = cam_manager.cam_num(&cam_name).unwrap();
-
-                    let frame_data = FrameData::new(
-                        cam_name,
-                        cam_num,
-                        synced_frame,
-                        trigger_timestamp,
-                        cam_received_timestamp,
-                        device_timestamp,
-                        block_id,
-                    );
-                    let fdp = FrameDataAndPoints { frame_data, points };
-                    // block until sent
-                    match futures::executor::block_on(futures::sink::SinkExt::send(
-                        &mut frame_data_tx,
-                        StreamItem::Packet(fdp),
-                    )) {
-                        Ok(()) => {}
-                        Err(e) => return Err(e.into()),
-                    }
+            let opt = opt3.clone();
+            if let Some(ref start) = &opt.start_frame {
+                if synced_frame.0 < *start {
+                    continue;
                 }
             }
 
-            // block until sent
-            match futures::executor::block_on(futures::sink::SinkExt::send(
-                &mut frame_data_tx,
-                StreamItem::EOF,
-            )) {
-                Ok(()) => {}
-                Err(e) => return Err(e.into()),
+            if let Some(ref stop) = &opt.stop_frame {
+                if synced_frame.0 > *stop {
+                    break;
+                }
             }
 
-            Ok(())
-        })
+            for cam_rows in split_by_cam(rows).iter() {
+                let cam_name = orig_camn_to_cam_name
+                    .get(&cam_rows[0].camn)
+                    .expect("camn missing")
+                    .clone();
+                let trigger_timestamp = cam_rows[0].timestamp.clone();
+                let cam_received_timestamp = cam_rows[0].cam_received_timestamp.clone();
+                let device_timestamp = cam_rows[0].device_timestamp.clone();
+                let block_id = cam_rows[0].block_id.clone();
+                let points = cam_rows
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| to_point_info(p, i as u8))
+                    .collect();
+
+                let cam_num = cam_manager.cam_num(&cam_name).unwrap();
+
+                let frame_data = FrameData::new(
+                    cam_name,
+                    cam_num,
+                    synced_frame,
+                    trigger_timestamp,
+                    cam_received_timestamp,
+                    device_timestamp,
+                    block_id,
+                );
+                let fdp = FrameDataAndPoints { frame_data, points };
+                // block until sent
+                match frame_data_tx.send(StreamItem::Packet(fdp)).await {
+                    Ok(()) => {}
+                    Err(e) => {
+                        log::error!("send error {} at {}:{}", e, file!(), line!())
+                    }
+                }
+            }
+        }
+
+        match frame_data_tx.send(StreamItem::EOF).await {
+            Ok(()) => {}
+            Err(e) => {
+                log::error!("send error {} at {}:{}", e, file!(), line!())
+            }
+        }
+
+        Ok::<(), anyhow::Error>(())
     });
 
     let expected_framerate = Some(fps as f32);
@@ -491,8 +496,9 @@ where
     // let model_server_addr = opt.model_server_addr.clone();
 
     let (_quit_trigger, valve) = stream_cancel::Valve::new();
+    let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
-    match &opt2.model_server_addr {
+    let _model_server = match &opt2.model_server_addr {
         Some(ref addr) => {
             let addr = addr.parse().unwrap();
             info!("send_pose server at {}", addr);
@@ -500,12 +506,10 @@ where
                 name: env!("CARGO_PKG_NAME").into(),
                 version: env!("CARGO_PKG_VERSION").into(),
             };
-
-            let model_server =
-                flydra2::new_model_server(valve, None, &addr, info, rt_handle).await?;
-            coord_processor.add_listener(Box::new(model_server));
+            coord_processor.add_listener(data_tx);
+            Some(flydra2::new_model_server(data_rx, valve, None, &addr, info, rt_handle).await?)
         }
-        None => {}
+        None => None,
     };
 
     // TODO: reorder incoming CSV lines to be monotonic w.r.t. frames? This
@@ -514,15 +518,13 @@ where
     // either.
 
     let consume_future = coord_processor.consume_stream(frame_data_rx, expected_framerate);
+    let (writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
-    let opt_jh = consume_future.await;
-
-    // Allow writer thread time to finish writing.
-    if let Some(jh) = opt_jh {
-        jh.join().expect("join writer_thread_handle");
-    }
-
-    reader_jh.join().expect("join reader thread");
+    writer_jh
+        .await
+        .expect("finish writer task 1")
+        .expect("finish writer task 2");
+    r2.expect("finish reader task");
 
     Ok(())
 }

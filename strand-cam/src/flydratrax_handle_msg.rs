@@ -1,53 +1,31 @@
-use tokio::sync::mpsc::UnboundedSender;
-
 use crate::*;
 
 use flydra2::{SendKalmanEstimatesRow, SendType};
 
 use strand_cam_storetype::LedProgramConfig;
 
-pub(crate) struct FlydraTraxServer {
-    model_sender: UnboundedSender<SendType>,
-}
-
-impl FlydraTraxServer {
-    pub(crate) fn new(model_sender: UnboundedSender<SendType>) -> Self {
-        Self { model_sender }
-    }
-}
-
-impl flydra2::GetsUpdates for FlydraTraxServer {
-    fn send_update(
-        &self,
-        msg: SendType,
-        _tdpt: &flydra2::TimeDataPassthrough,
-    ) -> std::result::Result<(), flydra2::Error> {
-        self.model_sender
-            .send(msg)
-            .map_err(|e| flydra2::wrap_error(e))?;
-        Ok(())
-    }
-}
-
-pub async fn flydratrax_handle_msg(
+// create a long-lived future that will process data from flydra and turn on
+// LEDs with it.
+pub async fn create_message_handler(
     cam_cal: mvg::Camera<MyFloat>,
-    mut model_receiver: tokio::sync::mpsc::UnboundedReceiver<flydra2::SendType>,
-    #[allow(unused_variables)] led_state: &mut bool,
-    #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    #[allow(unused_variables)] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
+    mut model_receiver: tokio::sync::mpsc::Receiver<(flydra2::SendType, flydra2::TimeDataPassthrough)>,
+    led_state: &mut bool,
+    ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
+    led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
 
-    info!("starting new flydratrax_handle_msg");
+    info!("starting new flydratask message handler");
 
     let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
 
     loop {
-        let msg = match model_receiver.recv().await {
-            Some(msg) => msg,
+        let full_msg = match model_receiver.recv().await {
+            Some(full_msg) => full_msg,
             None => break, // sender hung up - we are done.
         };
+        let (msg, _time_data_passthrough) = full_msg;
         debug!("got model msg: {:?}", msg);
 
         match msg {

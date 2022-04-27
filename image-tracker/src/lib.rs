@@ -8,7 +8,7 @@ extern crate log;
 use std::backtrace::Backtrace;
 
 use borrow_fastimage::BorrowedFrame;
-use futures::{channel::mpsc, SinkExt};
+use tokio::sync::mpsc;
 
 use machine_vision_formats as formats;
 use serde::Serialize;
@@ -774,7 +774,7 @@ impl FlyTracker {
     fn reload_config(&mut self) -> Result<()> {
         // Send updated feature detection parameters
         if let Some(ref mut sender) = &mut self.transmit_feature_detect_settings_tx {
-            self.handle.block_on(sender.send(self.cfg.clone()))?;
+            sender.try_send(self.cfg.clone()).unwrap();
         }
 
         self.mask_image = Some(compute_mask_image(&self.roi_sz, &self.cfg.valid_region)?);
