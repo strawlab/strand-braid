@@ -39,12 +39,12 @@ test_crates:
     # Test freemovr-calibration, which requires opencv
     - cd freemovr-calibration
     # run test in release mode, otherwise slow
-    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
     - cd ..
 
     # Test freemovr-calibration-cli
     - cd freemovr-calibration/freemovr-calibration-cli
-    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
 
     # Test Pylon stuff
@@ -311,7 +311,7 @@ build-api-docs:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
       NUM_JOBS=2
       cargo doc --features serve_files,ipp-sys/2019,fiducial,checkercal
@@ -393,7 +393,7 @@ strand-cam-pylon-ubuntu2004:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
@@ -431,7 +431,7 @@ strand-cam-vimba-ubuntu2004:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
@@ -473,7 +473,7 @@ py-strandcam-pylon-linux:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
@@ -516,7 +516,7 @@ strand-cam-led-box-pylon-ubuntu2004:
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
       OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2

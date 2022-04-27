@@ -115,7 +115,6 @@ pub fn calibrate_camera(
 
     let mut rotation_matrices: Vec<[f64; 9]> = (0..num_images).map(|_| [0.0; 9]).collect();
     let mut translation_vectors: Vec<[f64; 3]> = (0..num_images).map(|_| [0.0; 3]).collect();
-    let flags = 0;
 
     let r1: Result<f64, Error> = unsafe {
         ffi::calibrate_camera(
@@ -129,7 +128,6 @@ pub fn calibrate_camera(
             distortion_coeffs.as_mut_ptr(),
             (&mut rotation_matrices[0]).as_mut_ptr(),
             (&mut translation_vectors[0]).as_mut_ptr(),
-            flags,
         )
     }
     .into();

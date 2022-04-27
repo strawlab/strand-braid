@@ -22,8 +22,8 @@ wasm-pack --version
 # TODO: include firmware bundled
 rustc --version
 
-curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-echo "0316517e848ab3193b8d3ce2d7275602466dbd396e465b7aae5a9c7f342290d4  /tmp/opencv-3.2-static.tar.gz" | sha256sum -c
-tar xzf /tmp/opencv-3.2-static.tar.gz -C /
+curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-4.5.5-static.tar.gz > /tmp/opencv-4.5.5-static.tar.gz
+echo "6dfc8bed523fd1833beb2bdde264863dc4cf49670e635bc987f01fd85638a7e6  /tmp/opencv-4.5.5-static.tar.gz" | sha256sum -c
+tar xzf /tmp/opencv-4.5.5-static.tar.gz -C /
 
 cd $ORIG_DIR
