@@ -490,7 +490,8 @@ pub async fn pre_run(
 
                 flydra2::CoordProcessorControl::new(braidz_write_tx2.clone())
                     .stop_saving_data()
-                    .await;
+                    .await
+                    .unwrap_or(()); // ignore error on shutdown
             }
 
             http_session_handler2.send_quit_all().await;
@@ -1244,7 +1245,8 @@ async fn toggle_saving_csv_tables(
     } else {
         flydra2::CoordProcessorControl::new(braidz_write_tx)
             .stop_saving_data()
-            .await;
+            .await
+            .unwrap_or(()); // ignore error on shutdown
 
         {
             let mut tracker = shared_data.write();
