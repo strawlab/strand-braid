@@ -522,13 +522,10 @@ strand-cam-flydratrax-pylon-ubuntu2004:
       NUM_JOBS=2
       cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
 
-    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
-    - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
     - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
