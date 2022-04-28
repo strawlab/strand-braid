@@ -13,4 +13,9 @@ https://www.baslerweb.com/en/sales-support/downloads/software-downloads/
 
 ### Vimba (Allied Vision Technology cameras)
 
-TODO: write me.
+You must install  `Vimba_v5.1_Linux64.tgz`. Install like this:
+
+    sudo mkdir -p /opt/vimba
+    sudo tar xzf Vimba_v5.1_Linux64.tgz -C /opt/vimba
+
+This will install the following file, among others: `/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit/libVimbaC.so`.
