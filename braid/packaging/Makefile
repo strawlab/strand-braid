@@ -6,7 +6,7 @@ BUILD_DIR := ../../target/release
 
 all: braid-pylon_VERSION_amd64.deb
 
-.PHONY: all braid-pylon_VERSION_amd64.deb braid-pylon5_VERSION_amd64.deb
+.PHONY: all braid-pylon_VERSION_amd64.deb
 
 braid-pylon/braid-run:
 	# Backwards compat
@@ -23,19 +23,3 @@ braid-pylon/braid-run:
 
 braid-pylon_VERSION_amd64.deb: braid-pylon/braid-run
 	cd braid-pylon && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
-
-braid-pylon5/braid-run:
-	# Backwards compat
-	cp compat-script braid-pylon5/braid-pylon
-	chmod a+x braid-pylon5/braid-pylon
-	chmod go-w braid-pylon5/braid-pylon
-
-	# Normal package
-	cp $(BUILD_DIR)/braid braid-pylon5/braid
-	cp $(BUILD_DIR)/braid.changelog braid-pylon5/debian/changelog
-	cp $(BUILD_DIR)/braid-show-config braid-pylon5/
-	cp $(BUILD_DIR)/braid-default-config braid-pylon5/
-	cp $(BUILD_DIR)/braid-run braid-pylon5/
-
-braid-pylon5_VERSION_amd64.deb: braid-pylon5/braid-run
-	cd braid-pylon5 && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
