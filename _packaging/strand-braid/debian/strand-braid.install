@@ -9,6 +9,7 @@ compute-flydra1-compat usr/bin
 fmf usr/bin
 strand-cam-offline-kalmanize usr/bin
 strand-cam-pylon usr/bin
+strand-cam-flydratrax-pylon usr/bin
 strand-cam-vimba usr/bin
 
 # # Commented out because we do not want to distribute this library:

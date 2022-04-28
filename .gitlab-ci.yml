@@ -500,7 +500,7 @@ strand-cam-offline-kalmanize-ubuntu2004:
     paths:
       - build/
 
-strand-cam-led-box-pylon-ubuntu2004:
+strand-cam-flydratrax-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -526,17 +526,17 @@ strand-cam-led-box-pylon-ubuntu2004:
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    # Rename the target to `strand-cam-led-box-pylon`.
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-led-box-pylon
+    # Rename the target to `strand-cam-flydratrax-pylon`.
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
     - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-led-box-pylon focal > $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-led-box-pylon.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
   artifacts:
     paths:
       - build/
-    name: "strand-cam-led-box-pylon-linux-${CI_COMMIT_SHA}"
+    name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-ubuntu2004:
   image: ubuntu:focal
@@ -757,7 +757,7 @@ strand-braid-ubuntu-2004:
     - pwd
     - ls -l ../build
     - ldd ../build/strand-cam-offline-kalmanize
-    - ldd ../build/strand-cam-led-box-pylon
+    - ldd ../build/strand-cam-flydratrax-pylon
     - ldd ../build/strand-cam-pylon
     - ldd ../build/strand-cam-vimba
     - make
@@ -777,7 +777,7 @@ strand-braid-ubuntu-2004:
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
     - strand-cam-offline-kalmanize-ubuntu2004
-    - strand-cam-led-box-pylon-ubuntu2004
+    - strand-cam-flydratrax-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.
