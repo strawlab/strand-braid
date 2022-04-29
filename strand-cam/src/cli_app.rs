@@ -225,8 +225,8 @@ fn parse_args(
         {
             parser = parser.arg(
                 Arg::with_name("led_box_device")
-                    .long("led-box-device")
-                    .help("The filename of the led_box device")
+                    .long("led-box")
+                    .help("The filename of the LED box device")
                     .takes_value(true),
             )
         }
