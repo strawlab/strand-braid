@@ -10,7 +10,7 @@ use crate::{run_app, StrandCamArgs};
 
 use crate::APP_INFO;
 
-type Result<T> = std::result::Result<T, anyhow::Error>;
+use anyhow::Result;
 
 fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
     matches
@@ -23,7 +23,7 @@ fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
 pub fn cli_main<M, C>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     app_name: &'static str,
-) -> std::result::Result<(), anyhow::Error>
+) -> Result<()>
 where
     M: ci2::CameraModule<CameraType = C>,
     C: 'static + ci2::Camera + Send,
@@ -56,7 +56,22 @@ where
 
     let args = parse_args(handle, app_name)?;
 
-    run_app(mymod, args, app_name)
+    // run_app(mymod, args, app_name).map_err(|e| {
+    //     #[cfg(feature = "backtrace")]
+    //     match std::error::Error::backtrace(&e) {
+    //         None => log::error!("no backtrace in upcoming error {}", e),
+    //         Some(bt) => log::error!("backtrace in upcoming error {}: {}", e, bt),
+    //     }
+    //     #[cfg(not(feature = "backtrace"))]
+    //     {
+    //         log::error!(
+    //             "compiled without backtrace support. No backtrace in upcoming error {}",
+    //             e
+    //         );
+    //     }
+    //     anyhow::Error::new(e)
+    // })
+    run_app(mymod, args, app_name).map_err(anyhow::Error::new)
 }
 
 fn get_cli_args() -> Vec<String> {

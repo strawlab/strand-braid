@@ -223,7 +223,11 @@ pub enum StrandCamError {
     FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
     #[cfg(feature = "fiducial")]
     #[error("{0}")]
-    CsvError(#[from] csv::Error),
+    CsvError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        csv::Error,
+    ),
     #[error("thread done")]
     ThreadDone,
 
@@ -237,9 +241,17 @@ pub enum StrandCamError {
     #[error("A camera name is required")]
     CameraNameRequired,
     #[error("hyper error: {0}")]
-    HyperError(#[from] hyper::Error),
+    HyperError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        hyper::Error,
+    ),
     #[error("tokio::task::JoinError: {0}")]
-    TokioTaskJoinError(#[from] tokio::task::JoinError),
+    TokioTaskJoinError(
+        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
+        tokio::task::JoinError,
+    ),
 }
 
 #[cfg(feature = "plugin-process-frame")]
@@ -2305,7 +2317,7 @@ pub fn run_app<M, C>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> std::result::Result<(), anyhow::Error>
+) -> Result<()>
 where
     M: ci2::CameraModule<CameraType = C>,
     C: 'static + ci2::Camera + Send,

@@ -206,7 +206,7 @@ pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(
         match strand_cam::run_app(mymod, args, APP_NAME) {
             Ok(()) => {}
             Err(e) => {
-                set_last_error(e);
+                set_last_error(e.into());
                 return;
             }
         }
