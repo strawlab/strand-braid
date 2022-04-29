@@ -1834,8 +1834,28 @@ fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16
     }
 }
 
-// pub type AppConnection =
-//     Arc<RwLock<HashMap<ConnectionKey, (SessionKey, EventChunkSender, String)>>>;
+/// Ignore a send error.
+///
+/// During shutdown, the receiver can disappear before the sender is closed.
+/// According to the docs of the `send` method of [tokio::sync::mpsc::Sender],
+/// this is the only way we can get a [tokio::sync::mpsc::error::SendError].
+/// Therefore, we ignore the error.
+trait IgnoreSendError {
+    fn ignore_send_error(self);
+}
+
+impl<T: std::fmt::Debug> IgnoreSendError
+    for std::result::Result<(), tokio::sync::mpsc::error::SendError<T>>
+{
+    fn ignore_send_error(self) {
+        match self {
+            Ok(()) => {}
+            Err(e) => {
+                log::debug!("Ignoring send error ({}:{}): {:?}", file!(), line!(), e)
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 struct MyCallbackHandler {
@@ -1862,7 +1882,7 @@ impl CallbackHandler for MyCallbackHandler {
             match payload {
                 CallbackType::ToCamera(cam_arg) => {
                     debug!("in cb: {:?}", cam_arg);
-                    self.cam_args_tx.send(cam_arg).await.unwrap();
+                    self.cam_args_tx.send(cam_arg).await.ignore_send_error();
                 }
                 CallbackType::FirehoseNotify(inner) => {
                     let arrival_time = chrono::Utc::now();
@@ -1870,28 +1890,31 @@ impl CallbackHandler for MyCallbackHandler {
                         arrival_time,
                         inner,
                     };
-                    self.firehose_callback_tx.send(fc).await.unwrap();
+                    self.firehose_callback_tx.send(fc).await.ignore_send_error();
                 }
                 CallbackType::TakeCurrentImageAsBackground => {
                     #[cfg(feature = "image_tracker")]
                     self.tx_frame
                         .send(Msg::TakeCurrentImageAsBackground)
                         .await
-                        .unwrap();
+                        .ignore_send_error();
                 }
                 CallbackType::ClearBackground(value) => {
                     #[cfg(feature = "image_tracker")]
                     self.tx_frame
                         .send(Msg::ClearBackground(value))
                         .await
-                        .unwrap();
+                        .ignore_send_error();
                     #[cfg(not(feature = "image_tracker"))]
                     let _ = value;
                 }
                 CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
                     // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
                     info!("in led_box callback: {:?}", led_box_arg);
-                    self.led_box_tx_std.send(led_box_arg).await.unwrap();
+                    self.led_box_tx_std
+                        .send(led_box_arg)
+                        .await
+                        .ignore_send_error();
                 }),
             }
         };
@@ -1936,8 +1959,7 @@ impl StrandCamApp {
             return Err(StrandCamError::JwtError);
         };
 
-        // A channel for the data send from the client browser. No need to convert to
-        // bounded to prevent exploding when camera too fast.
+        // A channel for the data sent from the client browser.
         let (firehose_callback_tx, firehose_callback_rx) = tokio::sync::mpsc::channel(10);
 
         let callback_handler = Box::new(MyCallbackHandler {
