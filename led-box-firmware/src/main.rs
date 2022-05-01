@@ -199,7 +199,7 @@ mod app {
         )
     }
 
-    #[idle(shared = [rxtx, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4])]
+    #[idle(shared = [rxtx, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4, green_led])]
     fn idle(mut c: idle::Context) -> ! {
         let mut decode_buf = [0u8; 256];
         let mut decoder = mini_rxtx::Decoder::new(&mut decode_buf);
@@ -267,9 +267,6 @@ mod app {
                 error!("serial unknown error");
             }
         });
-        c.shared
-            .green_led
-            .lock(|green_led| green_led.set_high().unwrap());
     }
 
     fn update_led_state(next_state: &ChannelState, ctx: &mut idle::Context) {
@@ -293,6 +290,19 @@ mod app {
                     OnState::Off => ZERO_INTENSITY,
                     OnState::ConstantOn => next_state.intensity,
                 };
+
+                if next_state.num == 1 {
+                    match next_state.on_state {
+                        OnState::Off => ctx
+                            .shared
+                            .green_led
+                            .lock(|green_led| green_led.set_low().unwrap()),
+                        OnState::ConstantOn => ctx
+                            .shared
+                            .green_led
+                            .lock(|green_led| green_led.set_high().unwrap()),
+                    };
+                }
 
                 // Based on on_state, decide what to do.
                 match next_state.on_state {
