@@ -333,10 +333,6 @@ mod app {
             update_led_state(&next_state.ch1, &mut ctx);
             current_state.ch1 = next_state.ch1;
         }
-        if current_state.ch1 != next_state.ch1 {
-            update_led_state(&next_state.ch1, &mut ctx);
-            current_state.ch1 = next_state.ch1;
-        }
         if current_state.ch2 != next_state.ch2 {
             update_led_state(&next_state.ch2, &mut ctx);
             current_state.ch2 = next_state.ch2;
