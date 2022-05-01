@@ -1,8 +1,3 @@
-// TODO: check if NUCLEO-L152RE would work (STM32L152RET6 microcontroller) it has eeprom
-// and NUCLEO-L031K6 (STM32L031K6 microcontroller) also. Update: nevermind, we should
-// be able to use the flash to store things in a non-volatile way. There is even EEPROM
-// emulation, but this seems overkill.
-
 // Design for stm32f303re board:
 // * PA6, PA7, PB0, PB1 reserved for optogenetics and backlighting LED control
 //  (303re tim3 pwm ch1,ch2,ch3,ch4, nucleo64 CN10-13, CN10-15, CN7-34, CN10-24,
