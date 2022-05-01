@@ -174,21 +174,19 @@ separate computers over the network to an instance of Braid. One or more
 instances of Strand Camera can thus run on computers other than the computer on
 which Braid is running.</p>
 <h2><a class="header" href="#starting-a-remote-camera" id="starting-a-remote-camera">Starting a remote camera</a></h2>
-<p>If a particular camera is marked by setting <code>remote_camera = true</code> in the
+<p>If a particular camera is marked by setting <code>start_backend = &quot;remote&quot;</code> in the
 <code>[[cameras]]</code> section of the Braid configuration TOML file, <code>braid run</code> does not
 attempt to start the camera but rather waits for a network connection from a
 Braid-tuned variant of Strand Camera. Only once all cameras listed in the TOML
 file have connected will Braid synchronize the cameras and allow recording of
 data.</p>
-<p>To start Strand Camera as a remote camera for Braid, run
-<code>braid-strand-cam-pylon</code> (to start a Braid-specific version of Strand Camera)
-with the command line argument specifying the URL for the braid HTTP address.
-The camera should also be specified on the command line, along with any other
-options.</p>
+<p>To start Strand Camera as a remote camera for Braid, run <code>strand-cam-pylon</code> (to
+start Strand Camera) with the command line argument <code>--braid_addr &lt;URL&gt;</code>
+specifying the URL for the braid HTTP address. The camera name should also be
+specified on the command line, along with any other options.</p>
 <p>In the following example, the Strand Camera will open the camera named
-<code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.
-Strand Camera will itself open the user interface at <code>http://127.0.0.1:12345/</code>.</p>
-<pre><code>braid-strand-cam-pylon --camera-name Basler-12345 --http-server-addr 127.0.0.1:12345 http://127.0.0.1:44444
+<code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.</p>
+<pre><code>strand-cam-pylon --camera-name Basler-12345 --braid_addr http://127.0.0.1:44444
 </code></pre>
 
                     </main>
