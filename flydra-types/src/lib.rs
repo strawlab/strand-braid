@@ -38,6 +38,22 @@ pub const FEATURE_DETECT_SETTINGS_DIRNAME: &str = "feature_detect_settings";
 pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
 pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
 
+// Ideas for future:
+//
+// **statistics cache for data2d_distorted** We could keep a statistics cache as
+// we write a braidz file for things like num found points, average and maximum
+// values etc. This could be periodically flushed to disk and recomputed anytime
+// but would eliminate most needs to iterate over the entire dataset at read
+// time.
+//
+// **statistics cache for kalman_estimages** Same as above but 3D.
+//
+// Cache the camera pixel sizes. Currently this can be found if images are saved
+// or if the a camera calibration is present. The images in theory are always
+// there but this is not currently implemented in the strand-cam "flydratrax"
+// mode. Even when that is fixed, to simply read the image size that way will
+// require parsing an entire image parser.
+
 // --------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
