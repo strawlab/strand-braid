@@ -189,7 +189,7 @@ pub struct ExperimentInfoRow {
 pub struct NumberedRawUdpPoint {
     /// the original index of the detected point
     pub idx: u8,
-    /// the actuall detected point
+    /// the actual detected point
     pub pt: flydra_types::FlydraRawUdpPoint,
 }
 
