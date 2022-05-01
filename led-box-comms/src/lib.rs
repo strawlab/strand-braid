@@ -27,12 +27,14 @@ extern crate core as std;
 use enum_iter::EnumIter;
 
 pub const MAX_INTENSITY: u16 = 16000;
+pub const COMM_VERSION: u16 = 2;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 #[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
 pub enum ToDevice {
     DeviceState(DeviceState),
     EchoRequest8((u8, u8, u8, u8, u8, u8, u8, u8)),
+    VersionRequest,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
@@ -40,6 +42,7 @@ pub enum ToDevice {
 pub enum FromDevice {
     DeviceState(DeviceState),
     EchoResponse8((u8, u8, u8, u8, u8, u8, u8, u8)),
+    VersionResponse(u16),
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]

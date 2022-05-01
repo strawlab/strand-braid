@@ -105,15 +105,12 @@ pub async fn handle_box(
     port.set_exclusive(false)
         .expect("Unable to set serial port exclusive to false");
 
-    info!("connected to {}", device_name);
-
     let (mut serial_writer, mut serial_reader) = LedBoxCodec::new().framed(port).split();
 
+    // Clear potential initially present bytes from stream...
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(50), serial_reader.next()).await;
+
     let (to_box_writer, mut to_box_reader) = tokio::sync::mpsc::channel::<ToDevice>(20);
-
-    let msg = ToDevice::DeviceState(next_state);
-
-    to_box_writer.send(msg).await.unwrap();
 
     let mpsc_to_serial = async move {
         loop {
@@ -126,7 +123,24 @@ pub async fn handle_box(
             }
         }
     };
-    tokio::spawn(mpsc_to_serial);
+    tokio::spawn(mpsc_to_serial); // todo: keep join handle.
+
+    to_box_writer
+        .send(led_box_comms::ToDevice::VersionRequest)
+        .await?;
+
+    let msg = serial_reader.next().await.unwrap().unwrap();
+    assert_eq!(
+        msg,
+        led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION)
+    );
+    info!(
+        "Connected to firmware version {}",
+        led_box_comms::COMM_VERSION
+    );
+
+    let msg = ToDevice::DeviceState(next_state);
+    to_box_writer.send(msg).await.unwrap();
 
     {
         box_manager.lock().inner = Some(BoxManagerInner {
@@ -199,7 +213,7 @@ pub async fn handle_box(
         match cmd_rx.recv().await {
             Some(Cmd::Quit) | None => {
                 // quit request or channel closed
-                println!("exiting serial task");
+                log::info!("exiting serial task");
                 return Ok(());
             }
             Some(cmd) => {

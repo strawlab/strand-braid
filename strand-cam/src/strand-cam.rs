@@ -4019,6 +4019,34 @@ pub async fn setup_app<M,C>(
             // wrap port with codec
             let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
 
+            // Clear potential initially present bytes from stream...
+            let _ = tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await;
+
+            writer
+                .send(led_box_comms::ToDevice::VersionRequest)
+                .await?;
+
+            match tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await {
+                Ok(Some(Ok(msg))) => {
+                    match msg {
+                        led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION) => {
+                            info!(
+                                "Connected to firmware version {}",
+                                led_box_comms::COMM_VERSION
+                            );
+                        }
+                        msg => {
+                            anyhow::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
+                            msg, led_box_comms::COMM_VERSION);
+                        }
+                    }
+                }
+                _ => {
+                    anyhow::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                        led_box_comms::COMM_VERSION);
+                }
+            }
+
             // handle messages from the device
             let from_device_task = async move {
                 debug!("awaiting message from LED box");

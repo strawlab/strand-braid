@@ -85,7 +85,10 @@ mod app {
     #[init]
     fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
         // Device specific peripherals
-        info!("hello from f303");
+        info!(
+            "hello from f303, COMM_VERSION {}",
+            led_box_comms::COMM_VERSION
+        );
 
         let mut flash = c.device.FLASH.constrain();
         let mut rcc = c.device.RCC.constrain();
@@ -208,6 +211,7 @@ mod app {
             if let Some(byte) = maybe_byte {
                 trace!("got byte: {}", byte);
                 // process byte
+                let mut response = None;
                 match decoder.consume::<led_box_comms::ToDevice>(byte) {
                     Decoded::Msg(ToDevice::DeviceState(next_state)) => {
                         // info!("new state received");
@@ -216,14 +220,12 @@ mod app {
                         // info!("set new state");
                     }
                     Decoded::Msg(ToDevice::EchoRequest8(buf)) => {
-                        let response = FromDevice::EchoResponse8(buf);
-                        let msg = mini_rxtx::serialize_msg(&response, &mut encode_buf).unwrap();
-                        c.shared.rxtx.lock(|sender| {
-                            sender.send_msg(msg).unwrap();
-                        });
-
-                        // rtic::pend(pac::Interrupt::USART2_EXTI26);
+                        response = Some(FromDevice::EchoResponse8(buf));
                         info!("echo");
+                    }
+                    Decoded::Msg(ToDevice::VersionRequest) => {
+                        response = Some(FromDevice::VersionResponse(led_box_comms::COMM_VERSION));
+                        info!("version request");
                     }
                     Decoded::FrameNotYetComplete => {
                         // Frame not complete yet, do nothing until next byte.
@@ -231,6 +233,15 @@ mod app {
                     Decoded::Error(_) => {
                         panic!("error reading frame");
                     }
+                }
+
+                if let Some(response) = response {
+                    let msg = mini_rxtx::serialize_msg(&response, &mut encode_buf).unwrap();
+                    c.shared.rxtx.lock(|sender| {
+                        sender.send_msg(msg).unwrap();
+                    });
+
+                    // rtic::pend(pac::Interrupt::USART2_EXTI26);
                 }
             } else {
                 // TODO: fix things so we can do this. Right we busy-loop.
