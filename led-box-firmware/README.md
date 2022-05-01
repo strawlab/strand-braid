@@ -2,11 +2,24 @@ Camera trigger firmware for Nucleo-F303RE
 
 # Building
 
-Make sure the rust src is installed via rustup:
+To build the ELF executable, install the following:
 
     # In the directory with Cargo.toml for led-box-firmware
     rustup component add rust-src
     rustup target add thumbv7em-none-eabihf
+
+To convert the ELF executable to a .bin file which can be copied onto the
+nucleo, install the following:
+
+    cargo install cargo-binutils
+	  rustup component add llvm-tools-preview
+
+To build the ELF executable and convert it to a .bin file, do this:
+
+    cargo objcopy --bin led-box-firmware --release -- -O binary ./target/thumbv7em-none-eabihf/release/led-box-firmware.bin
+
+The file at `./target/thumbv7em-none-eabihf/release/led-box-firmware.bin` can
+now be copied onto the emulated USB mass storage device of the Nucleo board.
 
 ## Debugging with Knurling (`probe-rs`)
 
