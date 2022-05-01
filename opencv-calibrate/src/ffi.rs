@@ -34,7 +34,6 @@ extern "C" {
         distortion_coeffs: *mut c_double,
         rotation_matrices: *mut c_double,
         translation_vectors: *mut c_double,
-        flags: c_int,
         ) -> cv_return_value_double;
 
     pub(crate) fn find_chessboard_corners_inner (

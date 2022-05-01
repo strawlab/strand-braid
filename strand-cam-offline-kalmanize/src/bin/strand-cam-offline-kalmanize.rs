@@ -19,8 +19,7 @@ lazy_static! {
         };
         let cal_buf = toml::to_string(&example).unwrap();
 
-        let tparams1 = flydra2::SwitchingTrackingParams::default();
-        let tracking_example: flydra_types::TrackingParams = tparams1.into();
+        let tracking_example = flydra_types::default_tracking_params_flat_3d();
         let tracking_buf_buf = toml::to_string(&tracking_example).unwrap();
 
         format!("EXAMPLE .TOML FILES:\n\n# Example calibration .toml file:\n```\n{}```\n\n# Example tracking parameter .toml file:\n```\n{}```",

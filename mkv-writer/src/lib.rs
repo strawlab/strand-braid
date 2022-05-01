@@ -441,6 +441,11 @@ where
         }
     }
 
+    /// Finish writing the MKV file.
+    ///
+    /// Calling this allows any errors to be caught explicitly. Otherwise,
+    /// the MKV file will be finished when the writer is dropped. In that case,
+    /// any errors will result in a panic.
     pub fn finish(&mut self) -> Result<()> {
         use webm::mux::Track;
 
@@ -499,6 +504,22 @@ where
                 Err(Error::FileAlreadyClosed)
             }
             None => Err(Error::InconsistentState),
+        }
+    }
+}
+
+impl<'lib, T> Drop for MkvWriter<'lib, T>
+where
+    T: std::io::Write + std::io::Seek,
+{
+    fn drop(&mut self) {
+        match &self.inner {
+            // Happy path when .finish() already called.
+            Some(WriteState::Finished) => {}
+            // Error happened in self.write().
+            None => {}
+            // Happy path when .finished() not already called.
+            Some(_) => self.finish().unwrap(),
         }
     }
 }

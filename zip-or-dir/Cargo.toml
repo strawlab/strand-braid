@@ -2,12 +2,13 @@
 name = "zip-or-dir"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zip = { version = "0.5.13", default-features = false, features=["deflate", "time"] }
+zip = { version = "0.6.2", default-features = false, features=["deflate", "time"] }
 thiserror = "1.0"
 
 [dev-dependencies]

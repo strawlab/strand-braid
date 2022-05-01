@@ -2,7 +2,8 @@
 name = "braid-process-video"
 version = "0.11.1" # braid release synchronized
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.60"
+description = "process videos within the Braid multi-camera framework"
 
 [dependencies]
 # apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
@@ -14,7 +15,7 @@ chrono = {version="0.4", features=["serde"]}
 serde = {version="1", features=["derive"]}
 toml = "0.5"
 machine-vision-formats = "0.1.1"
-structopt = "0.3"
+clap = {version="3", features=["derive"]}
 resvg = "0.19"
 tagger = "4.0"
 tiny-skia = "0.6.1"
@@ -22,6 +23,7 @@ usvg = { version = "0.19.0", default-features = false }
 image = {version="0.23", default-features=false, features=["png"]}
 base64 = "0.6"
 ordered-float = "1"
+regex = "1"
 
 mkv-writer = {path="../mkv-writer"}
 ci2-remote-control = { path = "../ci2-remote-control"}
@@ -35,6 +37,10 @@ timestamped-frame = {path="../timestamped-frame"}
 
 [features]
 read-mkv = ["ffmpeg-next"]
+backtrace = ["anyhow/backtrace", "mkv-writer/backtrace",
+    "convert-image/backtrace", "braidz-parser/backtrace",
+    "fmf/backtrace",
+    ]
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}

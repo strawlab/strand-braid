@@ -2,14 +2,13 @@
 name = "braid-run"
 version =  "0.11.1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
 homepage = "https://strawlab.org/braid"
+edition = "2021"
+rust-version = "1.59"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-jemallocator = {version="0.3", optional=true}
-ipp-sys = "0.4.4"
 log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
 structopt = "0.3"
@@ -17,34 +16,19 @@ tokio = {version="1.0.1", default-features=false}
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}
-image-tracker = {path = "../../image-tracker"}
 im-pt-detect-config = {path = "../../image-tracker/im-pt-detect-config"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
-strand-cam = {path="../../strand-cam", default-features = false, features=["imtrack-absdiff", "start-object-detection", "initially-unsychronized"] }
 flydra-types = {path="../../flydra-types"}
 flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
 flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 
 ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
+ci2-vimba = {path="../../ci2-vimba", optional=true}
 
 [features]
-default = ["stand-cam-posix-sched-fifo", "fiducial"]
-
-backtrace = ["flydra2/backtrace", "strand-cam/backtrace", "image-tracker/backtrace"]
-
-jemalloc = ["jemallocator"]
-
-fiducial = ["strand-cam/fiducial"]
-
-flydra-uds = ["image-tracker/flydra-uds"]
+backtrace = ["flydra2/backtrace"]
 
 # BUI frontend
-bundle_files = ["strand-cam/bundle_files", "flydra2-mainbrain/bundle_files"]
-serve_files = [ "strand-cam/serve_files",  "flydra2-mainbrain/serve_files" ]
-
-# Backend choice
-# backend_aravis = ["strand-cam/backend_aravis"]
-backend_pyloncxx = ["strand-cam/backend_pyloncxx"]
-
-stand-cam-posix-sched-fifo = ["strand-cam/posix_sched_fifo"]
+bundle_files = ["flydra2-mainbrain/bundle_files"]
+serve_files = ["flydra2-mainbrain/serve_files"]

@@ -1,18 +1,11 @@
 #[macro_use]
 extern crate log;
 
-// For some reason, using Jemalloc prevents "corrupted size vs prev_size" error.
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
 use anyhow::Result;
 use structopt::StructOpt;
 
-use flydra_types::{
-    AddrInfoIP, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, TriggerType,
-};
-use strand_cam::{ImPtDetectCfgSource, StrandCamApp};
+use flydra_types::{MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType};
+// use strand_cam::ImPtDetectCfgSource;
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
@@ -27,50 +20,42 @@ struct BraidRunCliArgs {
 }
 
 fn launch_strand_cam(
-    handle: tokio::runtime::Handle,
     camera: BraidCameraConfig,
-    camdata_addr: Option<RealtimePointsDestAddr>,
-    mainbrain_internal_addr: Option<MainbrainBuiLocation>,
-    force_camera_sync_mode: bool,
-    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
-    camera_settings_filename: Option<std::path::PathBuf>,
-    acquisition_duration_allowed_imprecision_msec: Option<f64>,
-) -> Result<StrandCamApp> {
-    let tracker_cfg_src =
-        ImPtDetectCfgSource::ChangesNotSavedToDisk(camera.point_detection_config.clone());
+    mainbrain_internal_addr: MainbrainBuiLocation,
+) -> Result<()> {
+    // On initial startup strand cam queries for
+    // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
+    // provide much info.
 
-    let args = strand_cam::StrandCamArgs {
-        handle: Some(handle.clone()),
-        is_braid: true,
-        camera_name: Some(camera.name),
-        pixel_format: camera.pixel_format,
-        camtrig_device_path: None,
-        csv_save_dir: "/dev/null".to_string(),
-        secret: None,
-        http_server_addr: "127.0.0.1:0".to_string(),
-        no_browser: true,
-        mkv_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.mkv".to_string(),
-        fmf_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.fmf".to_string(),
-        ufmf_filename_template: "movie%Y%m%d_%H%M%S_{CAMNAME}.ufmf".to_string(),
-        #[cfg(feature = "fiducial")]
-        apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
-            .to_string(),
-        tracker_cfg_src,
-        raise_grab_thread_priority: camera.raise_grab_thread_priority,
-        #[cfg(feature = "stand-cam-posix-sched-fifo")]
-        process_frame_priority: None,
-        mainbrain_internal_addr,
-        camdata_addr,
-        show_url: false,
-        force_camera_sync_mode,
-        software_limit_framerate,
-        camera_settings_filename,
-        acquisition_duration_allowed_imprecision_msec,
-    };
+    let base_url = mainbrain_internal_addr.0.base_url();
 
-    let (_, _, fut, app) = handle.block_on(strand_cam::setup_app(handle.clone(), args))?;
-    handle.spawn(fut);
-    Ok(app)
+    let braid_run_exe = std::env::current_exe().unwrap();
+    let exe_dir = braid_run_exe
+        .parent()
+        .expect("Executable must be in some directory");
+    #[cfg(target_os = "windows")]
+    let ext = ".exe";
+    #[cfg(not(target_os = "windows"))]
+    let ext = "";
+    let exe = exe_dir.join(format!(
+        "{}{}",
+        camera.start_backend.strand_cam_exe_name().unwrap(),
+        ext
+    ));
+    debug!("strand cam executable name: \"{}\"", exe.display());
+
+    let mut exec = std::process::Command::new(exe);
+    exec.args(["--camera-name", &camera.name, "--braid_addr", &base_url]);
+    debug!("exec: {:?}", exec);
+    let mut obj = exec.spawn().unwrap();
+    debug!("obj: {:?}", obj);
+
+    std::thread::spawn(move || {
+        let exit_code = obj.wait().unwrap();
+        debug!("done. exit_code: {:?}", exit_code);
+    });
+
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -82,7 +67,11 @@ fn main() -> Result<()> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
-    let n_local_cameras = cfg.cameras.iter().filter(|c| !c.remote_camera).count();
+    let n_local_cameras = cfg
+        .cameras
+        .iter()
+        .filter(|c| c.start_backend != StartCameraBackend::Remote)
+        .count();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -103,7 +92,7 @@ fn main() -> Result<()> {
         TriggerType::TriggerboxV1(_) => (true, flydra_types::StartSoftwareFrameRateLimit::NoChange),
         TriggerType::FakeSync(cfg) => (
             false,
-            flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.fps),
+            flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.framerate),
         ),
     };
     let show_tracking_params = false;
@@ -134,38 +123,20 @@ fn main() -> Result<()> {
 
     let mainbrain_server_info = MainbrainBuiLocation(phase1.mainbrain_server_info.clone());
 
-    let camdata_addr = phase1.camdata_socket.local_addr()?;
-
-    let addr_info_ip = AddrInfoIP::from_socket_addr(&camdata_addr);
-
     let cfg_cameras = cfg.cameras;
-    let acquisition_duration_allowed_imprecision_msec =
-        cfg.mainbrain.acquisition_duration_allowed_imprecision_msec;
 
-    let handle = runtime.handle().clone();
     let _enter_guard = runtime.enter();
     let _strand_cams = cfg_cameras
         .into_iter()
         .filter_map(|camera| {
-            let camera_settings_filename = camera.camera_settings_filename.clone();
-            if !camera.remote_camera {
-                let camdata_addr = Some(RealtimePointsDestAddr::IpAddr(addr_info_ip.clone()));
-                Some(launch_strand_cam(
-                    handle.clone(),
-                    camera,
-                    camdata_addr,
-                    Some(mainbrain_server_info.clone()),
-                    force_camera_sync_mode,
-                    software_limit_framerate.clone(),
-                    camera_settings_filename,
-                    acquisition_duration_allowed_imprecision_msec,
-                ))
+            if camera.start_backend != StartCameraBackend::Remote {
+                Some(launch_strand_cam(camera, mainbrain_server_info.clone()))
             } else {
                 log::info!("Not starting remote camera \"{}\"", camera.name);
                 None
             }
         })
-        .collect::<Result<Vec<StrandCamApp>>>()?;
+        .collect::<Result<Vec<()>>>()?;
 
     debug!("done launching cameras");
 

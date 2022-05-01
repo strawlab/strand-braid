@@ -489,7 +489,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
             use ncollide::query::RayCast;
             let opt_surface_pt_toi: Option<R> =
-                z0.toi_with_ray(&eye, &air_ray, R::max_value(), solid);
+                z0.toi_with_ray(&eye, &air_ray, R::max_value().unwrap(), solid);
 
             if let Some(toi) = opt_surface_pt_toi {
                 let surface_pt = air_ray.origin + air_ray.dir * toi;

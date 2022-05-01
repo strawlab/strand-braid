@@ -6,6 +6,8 @@ extern crate ci2;
 extern crate ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
+#[cfg(feature = "backend_vimba")]
+extern crate ci2_vimba as backend;
 extern crate machine_vision_formats as formats;
 
 use ci2::{Camera, CameraModule};

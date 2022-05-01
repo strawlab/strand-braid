@@ -100,6 +100,20 @@ pub trait CameraModule {
     /// The strings used in [Camera::node_map_load] and [Camera::node_map_save]
     /// would typically be stored in files with this extension.
     fn settings_file_extension(&self) -> &str;
+
+    fn frame_info_extractor(&self) -> &'static dyn ExtractFrameInfo;
+}
+
+pub trait ExtractFrameInfo: Sync + Send {
+    fn extract_frame_info(
+        &self,
+        _frame: &DynamicFrame,
+    ) -> (
+        Option<std::num::NonZeroU64>,
+        Option<std::num::NonZeroU64>,
+        usize,
+        chrono::DateTime<chrono::Utc>,
+    );
 }
 
 // ---------------------------
@@ -204,6 +218,13 @@ pub trait Camera: CameraInfo {
         // The trigger selector must be set before the trigger mode.
         self.set_trigger_selector(TriggerSelector::FrameStart)?;
         self.set_trigger_mode(TriggerMode::On)
+    }
+
+    fn set_software_frame_rate_limit(&mut self, fps_limit: f64) -> Result<()> {
+        // This is the generic default implementation which may be overriden by
+        // implementors.
+        self.set_acquisition_frame_rate_enable(true)?;
+        self.set_acquisition_frame_rate(fps_limit)
     }
 
     // Acquisition ----------------------------

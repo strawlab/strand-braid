@@ -7,5 +7,5 @@ name = "Basler-40116750"
 camera_settings_filename = "a2A1920-160umPRO.pfs"
 
 [trigger]
-fps = 50.0
+framerate = 50.0
 trigger_type = "FakeSync"

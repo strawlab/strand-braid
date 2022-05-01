@@ -2,7 +2,8 @@
 name = "ci2-simple-async-demo"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
 log = "0.4"
@@ -19,6 +20,7 @@ ci2-async = { path = "../ci2-async" }
 
 # ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
+ci2-vimba = { path = "../ci2-vimba", optional = true }
 
 [features]
 default = []
@@ -26,5 +28,8 @@ default = []
 # Backend choice
 # backend_aravis = ["ci2-aravis"]
 backend_pyloncxx = ["ci2-pyloncxx"]
+backend_vimba = ["ci2-vimba"]
 
+# If you enable backtraces, you probably also want backtrace in the backend,
+# e.g. ci2-vimba/backtrace
 backtrace = ["ci2/backtrace"]

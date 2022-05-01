@@ -2,14 +2,15 @@
 name = "strand-cam-storetype"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [dependencies]
 serde = {version = "1.0", default-features = false, features=["derive"]}
 serde_json = "1.0"
 serde_yaml = "0.8"
 
-camtrig-comms = {path="../camtrig-comms", optional=true}
+led-box-comms = {path="../led-box-comms"}
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control"}
 image-tracker-types = {path = "../image-tracker/image-tracker-types"}
@@ -25,6 +26,3 @@ collections = ["alloc"]
 const_fn = []
 flydratrax = []
 checkercal = []
-
-# Camtrig device
-with_camtrig = ["camtrig-comms"]

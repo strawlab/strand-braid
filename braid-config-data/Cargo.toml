@@ -1,7 +1,8 @@
 [package]
 name = "braid-config-data"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
 toml = "0.5"

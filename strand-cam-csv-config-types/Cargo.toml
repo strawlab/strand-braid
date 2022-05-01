@@ -2,7 +2,8 @@
 name = "strand-cam-csv-config-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [dependencies]
 chrono = {version="^0.4.6", features=["serde"]}

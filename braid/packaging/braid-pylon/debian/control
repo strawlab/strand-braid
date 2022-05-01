@@ -1,9 +1,0 @@
-Source: braid-pylon
-Maintainer: Andrew Straw <strawman@astraw.com>
-Build-Depends: debhelper (>= 9), pylon (>=6)
-Standards-Version: 3.9.1
-
-Package: braid-pylon
-Architecture: any
-Description: multi-camera tracking
-Depends: ${shlibs:Depends}, pylon (>=6)

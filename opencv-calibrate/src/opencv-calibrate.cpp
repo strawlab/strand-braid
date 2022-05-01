@@ -37,22 +37,34 @@ struct cv_return_value_double calibrate_camera(
     struct cv_return_value_double result = { 0, 0, 0.0 };
 
     try {
-        // Here we create the data as OpenCV 2 `Mat` data structures
-        // (instead of OpenCV 1 `CvMat` structures).
-
         int i, total = 0;
         for( i = 0; i < image_count; i++ ) {
             total += point_counts[i];
         }
 
         // Create C++ wrapper/view around externally allocated data.
-        cv::Mat objectPoints(1, total, CV_64FC3, (void*)object_points);
-        cv::Mat imagePoints(1, total, CV_64FC2, (void*)image_points);
         cv::Mat pointCounts(1, image_count, CV_32S, (void*)point_counts);
         cv::Mat cameraMatrix(3, 3, CV_64F, (void*)camera_matrix);
         cv::Mat distortionCoeffs(5, 1, CV_64F, (void*)distortion_coeffs);
         cv::Mat rotationMatrices(image_count, 9, CV_64F, (void*)rotation_matrices);
         cv::Mat translationVectors(image_count, 3, CV_64F, (void*)translation_vectors);
+
+        // Copy external data into OpenCV data structures
+        std::vector<std::vector<cv::Point3f>> obj_pts;
+        std::vector<std::vector<cv::Point2f>> im_pts;
+
+        int k = 0;
+        for( i = 0; i < image_count; i++ ) {
+            std::vector<cv::Point3f> obj_pts_inner;
+            std::vector<cv::Point2f> im_pts_inner;
+            for (int j=0; j<point_counts[i]; j++) {
+                obj_pts_inner.push_back( cv::Point3f( object_points[k*3], object_points[k*3+1], object_points[k*3+2] ) );
+                im_pts_inner.push_back( cv::Point2f( image_points[k*2], image_points[k*2+1] ) );
+                k += 1;
+            }
+            obj_pts.push_back(obj_pts_inner);
+            im_pts.push_back(im_pts_inner);
+        }
 
         // cvCalibrateCamera2 detects size of distortionCoeffs matrix and sets
         // flags appropriately. Furthermore, we are trying to copy the behavior
@@ -60,25 +72,12 @@ struct cv_return_value_double calibrate_camera(
         // camera_calibration.calibrator.MonoCalibrator`) which sets flags
         // cv2.CALIB_FIX_K6 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K3
 
-        int calibFlags = CV_CALIB_FIX_K6 + CV_CALIB_FIX_K5 + CV_CALIB_FIX_K4 + CV_CALIB_FIX_K3;
+        int calibFlags = cv::CALIB_FIX_K6 + cv::CALIB_FIX_K5 + cv::CALIB_FIX_K4 + cv::CALIB_FIX_K3;
 
         cv::Size imgSize(imgWidth, imgHeight);
 
-        // Here we convert `Mat` -> `CvMat` for use with cvCalibrateCamera2 function.
-        // According to the docs, this does not copy the data, but just creates
-        // a new view of existing data.
-        CvMat objectPointsC = objectPoints;
-        CvMat imagePointsC = imagePoints;
-        CvMat pointCountsC = pointCounts;
-        CvSize imgSizeC = imgSize;
-        CvMat cameraMatrixC = cameraMatrix;
-        CvMat distortionCoeffsC = distortionCoeffs;
-        CvMat rotationMatricesC = rotationMatrices;
-        CvMat translationVectorsC = translationVectors;
-
-        result.result = cvCalibrateCamera2(&objectPointsC, &imagePointsC, &pointCountsC, imgSizeC,
-            &cameraMatrixC, &distortionCoeffsC, &rotationMatricesC, &translationVectorsC,
-            calibFlags);
+        result.result = cv::calibrateCamera(obj_pts, im_pts, imgSize, cameraMatrix,
+            distortionCoeffs, rotationMatrices, translationVectors, calibFlags);
     } catch (const cv::Exception &e) {
         result.is_cv_exception = 1;
     } catch (...) {
@@ -109,7 +108,7 @@ struct cv_return_value_bool find_chessboard_corners_inner(uchar* frameDataRGB, i
             cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
             cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
-                cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+                cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
             result.result = true;
         } else {
             result.result = false;

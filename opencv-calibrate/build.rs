@@ -31,8 +31,9 @@ fn main() {
             // use OpenCV config from pkg-config
             let opencv = pkg_config::Config::new()
                 .env_metadata(true)
-                .find("opencv")
+                .probe("opencv4")
                 .unwrap();
+            println!("cargo:rustc-link-lib=z");
             opencv.include_paths
         }
         Some(opencv_libdir) => {

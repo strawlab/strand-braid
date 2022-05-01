@@ -26,8 +26,8 @@ pub async fn mainbrain_future_session(
 
 /// This allows communicating with the Mainbrain over HTTP RPC.
 ///
-/// This will take the place of ROS for camera -> mainbrain command and control
-/// communication.
+/// This replaced the old ROS layer for camera -> mainbrain command and control
+/// communication from flydra.
 #[derive(Clone)]
 pub struct MainbrainSession {
     inner: InsecureSession,
@@ -77,7 +77,6 @@ impl MainbrainSession {
         let body = resp.into_body();
         use futures::stream::StreamExt;
         let chunks: Vec<Result<hyper::body::Bytes, hyper::Error>> = body.collect().await;
-        use std::iter::FromIterator;
         let chunks: Result<Vec<hyper::body::Bytes>, hyper::Error> =
             Result::from_iter(chunks.into_iter());
         let chunks: Vec<hyper::body::Bytes> = chunks?;
@@ -105,13 +104,12 @@ impl MainbrainSession {
     pub async fn update_image(
         &mut self,
         ros_cam_name: flydra_types::RosCamName,
-        current_image_png: Vec<u8>,
+        current_image_png: flydra_types::PngImageData,
     ) -> Result<(), hyper::Error> {
         let msg = flydra_types::PerCam {
             ros_cam_name,
-            inner: flydra_types::UpdateImage {
-            current_image_png,
-        }};
+            inner: flydra_types::UpdateImage { current_image_png },
+        };
 
         debug!("update_image with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(msg);

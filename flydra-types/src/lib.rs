@@ -3,8 +3,6 @@ extern crate bitflags;
 #[macro_use]
 extern crate static_assertions;
 
-use std::convert::TryFrom;
-
 use ordered_float::NotNan;
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
@@ -39,6 +37,22 @@ pub const CAM_SETTINGS_DIRNAME: &str = "cam_settings";
 pub const FEATURE_DETECT_SETTINGS_DIRNAME: &str = "feature_detect_settings";
 pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
 pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
+
+// Ideas for future:
+//
+// **statistics cache for data2d_distorted** We could keep a statistics cache as
+// we write a braidz file for things like num found points, average and maximum
+// values etc. This could be periodically flushed to disk and recomputed anytime
+// but would eliminate most needs to iterate over the entire dataset at read
+// time.
+//
+// **statistics cache for kalman_estimages** Same as above but 3D.
+//
+// Cache the camera pixel sizes. Currently this can be found if images are saved
+// or if the a camera calibration is present. The images in theory are always
+// there but this is not currently implemented in the strand-cam "flydratrax"
+// mode. Even when that is fixed, to simply read the image size that way will
+// require parsing an entire image parser.
 
 // --------------------------------------------------------------------
 
@@ -105,8 +119,8 @@ impl RawCamName {
         RawCamName(s)
     }
     pub fn to_ros(&self) -> RosCamName {
-        let ros_name: String = self.0.replace("-", "_");
-        let ros_name: String = ros_name.replace(" ", "_");
+        let ros_name: String = self.0.replace('-', "_");
+        let ros_name: String = ros_name.replace(' ', "_");
         RosCamName::new(ros_name)
     }
     pub fn as_str(&self) -> &str {
@@ -128,7 +142,7 @@ impl RosCamName {
 }
 
 impl std::fmt::Display for RosCamName {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "{}", self.0)
     }
 }
@@ -153,6 +167,8 @@ pub struct RemoteCameraInfoResponse {
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
 }
 
+pub const DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC: Option<f64> = Some(5.0);
+
 fn return_false() -> bool {
     false
 }
@@ -172,9 +188,37 @@ pub struct BraidCameraConfig {
     /// Whether to raise the priority of the grab thread.
     #[serde(default = "return_false")]
     pub raise_grab_thread_priority: bool,
-    /// If true, do not start camera in local braid but wait for connection.
-    #[serde(default = "return_false")]
-    pub remote_camera: bool,
+    /// Which backend to use. Currently supported: "pylon"
+    #[serde(default)]
+    pub start_backend: StartCameraBackend,
+    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum StartCameraBackend {
+    /// Do not start a camera locally. Rather, wait for a remote camera to connect.
+    Remote,
+    /// Start a Pylon camera locally using `strand-cam-pylon` program.
+    Pylon,
+    /// Start a Vimba camera locally using `strand-cam-vimba` program.
+    Vimba,
+}
+
+impl Default for StartCameraBackend {
+    fn default() -> StartCameraBackend {
+        StartCameraBackend::Pylon
+    }
+}
+
+impl StartCameraBackend {
+    pub fn strand_cam_exe_name(&self) -> Option<&str> {
+        match self {
+            StartCameraBackend::Remote => None,
+            StartCameraBackend::Pylon => Some("strand-cam-pylon"),
+            StartCameraBackend::Vimba => Some("strand-cam-vimba"),
+        }
+    }
 }
 
 impl BraidCameraConfig {
@@ -185,14 +229,16 @@ impl BraidCameraConfig {
             pixel_format: None,
             point_detection_config: im_pt_detect_config::default_absdiff(),
             raise_grab_thread_priority: false,
-            remote_camera: false,
+            start_backend: Default::default(),
+            acquisition_duration_allowed_imprecision_msec:
+                DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PerCamSaveData {
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
     pub cam_settings_data: Option<UpdateCamSettings>,
     pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
 }
@@ -208,13 +254,36 @@ pub struct RegisterNewCamera {
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
     /// The current image.
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct UpdateImage {
     /// The current image.
-    pub current_image_png: Vec<u8>,
+    pub current_image_png: PngImageData,
+}
+
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
+pub struct PngImageData {
+    pub data: Vec<u8>,
+}
+
+impl From<Vec<u8>> for PngImageData {
+    fn from(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+}
+
+impl PngImageData {
+    pub fn as_slice(&self) -> &[u8] {
+        self.data.as_slice()
+    }
+}
+
+impl std::fmt::Debug for PngImageData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PngImageData{{..}}",)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -300,7 +369,7 @@ impl BuiServerInfo {
     }
 
     #[cfg(feature = "with-dns")]
-    pub fn parse_url_with_token(url: &str) -> Result<Self> {
+    pub fn parse_url_with_token(url: &str) -> Result<Self, FlydraTypesError> {
         let stripped = url
             .strip_prefix("http://")
             .ok_or(FlydraTypesError::UrlParseError)?;
@@ -376,18 +445,6 @@ pub struct TextlogRow {
 }
 
 /// Tracking parameters
-///
-/// This is the definition used for saving these parameters to files. (In other
-/// words, this definition is used for serialization and de-serialization.) For
-/// usage when tracking, these parameters get converted to a different type. The
-/// exact type used depends on what type of tracking is being performed. For
-/// full 3D tracking, the [TrackingParamsInner3D] type is used. For tracking on
-/// a flat 2D surface, [TrackingParamsInnerFlat3D] is used.
-///
-/// By making use of a common type for serialization, we avoid the use of a
-/// multiple implementations which are switched at compile-time. Instead, we
-/// choose at runtime which type of tracking, and consequently which type is
-/// used for tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingParams {
     /// kalman filter parameter
@@ -420,155 +477,29 @@ fn default_num_observations_to_visibility() -> u8 {
 
 pub type MyFloat = f64;
 
-/// Tracking parameters actually used for tracking.
-#[derive(Debug, Clone)]
-pub struct TrackingParamsInner3D {
-    /// kalman filter parameter
-    pub motion_noise_scale: MyFloat,
-    /// kalman filter parameter
-    pub initial_position_std_meters: MyFloat,
-    /// kalman filter parameter
-    pub initial_vel_std_meters_per_sec: MyFloat,
-    /// kalman filter parameter
-    pub ekf_observation_covariance_pixels: f32,
-    /// data association parameter
-    pub accept_observation_min_likelihood: f64,
-    /// data association parameter
-    pub max_position_std_meters: f32,
-    /// hypothesis testing parameters
-    pub hypothesis_test_params: HypothesisTestParams,
-    /// minimum number of observations before object becomes visible
-    pub num_observations_to_visibility: u8,
-}
-
-impl From<TrackingParamsInner3D> for TrackingParams {
-    fn from(orig: TrackingParamsInner3D) -> Self {
-        let hypothesis_test_params = Some(orig.hypothesis_test_params);
-
-        Self {
-            motion_noise_scale: orig.motion_noise_scale,
-            initial_position_std_meters: orig.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels.into(),
-            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
-            max_position_std_meters: orig.max_position_std_meters,
-            hypothesis_test_params,
-            num_observations_to_visibility: orig.num_observations_to_visibility,
-        }
+pub fn default_tracking_params_full_3d() -> TrackingParams {
+    TrackingParams {
+        motion_noise_scale: 0.1,
+        initial_position_std_meters: 0.1,
+        initial_vel_std_meters_per_sec: 1.0,
+        accept_observation_min_likelihood: 1e-8,
+        ekf_observation_covariance_pixels: 1.0,
+        max_position_std_meters: 0.01212,
+        hypothesis_test_params: Some(make_hypothesis_test_full3d_default()),
+        num_observations_to_visibility: default_num_observations_to_visibility(),
     }
 }
 
-impl TryFrom<TrackingParams> for TrackingParamsInner3D {
-    type Error = FlydraTypesError;
-
-    fn try_from(orig: TrackingParams) -> Result<Self> {
-        TryFrom::try_from(&orig)
-    }
-}
-
-impl TryFrom<&TrackingParams> for TrackingParamsInner3D {
-    type Error = FlydraTypesError;
-
-    fn try_from(orig: &TrackingParams) -> Result<Self> {
-        let hypothesis_test_params = match orig.hypothesis_test_params {
-            Some(ref o) => o.clone(),
-            None => make_hypothesis_test_full3d_default(),
-        };
-
-        Ok(Self {
-            motion_noise_scale: orig.motion_noise_scale,
-            initial_position_std_meters: orig.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels as f32,
-            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
-            max_position_std_meters: orig.max_position_std_meters,
-            num_observations_to_visibility: orig.num_observations_to_visibility,
-            hypothesis_test_params,
-        })
-    }
-}
-
-impl Default for TrackingParamsInner3D {
-    fn default() -> Self {
-        Self {
-            motion_noise_scale: 0.1,
-            initial_position_std_meters: 0.1,
-            initial_vel_std_meters_per_sec: 1.0,
-            accept_observation_min_likelihood: 1e-8,
-            ekf_observation_covariance_pixels: 1.0,
-            max_position_std_meters: 0.01212,
-            hypothesis_test_params: make_hypothesis_test_full3d_default(),
-            num_observations_to_visibility: default_num_observations_to_visibility(),
-        }
-    }
-}
-
-/// Tracking parameters actually used for tracking.
-#[derive(Debug, Clone)]
-pub struct TrackingParamsInnerFlat3D {
-    /// kalman filter parameter
-    pub motion_noise_scale: MyFloat,
-    /// kalman filter parameter
-    pub initial_position_std_meters: MyFloat,
-    /// kalman filter parameter
-    pub initial_vel_std_meters_per_sec: MyFloat,
-    /// kalman filter parameter
-    pub ekf_observation_covariance_pixels: f32,
-    /// data association parameter
-    pub accept_observation_min_likelihood: f64,
-    /// data association parameter
-    pub max_position_std_meters: f32,
-    /// minimum number of observations before object becomes visible
-    pub num_observations_to_visibility: u8,
-}
-
-impl From<TrackingParamsInnerFlat3D> for TrackingParams {
-    fn from(orig: TrackingParamsInnerFlat3D) -> Self {
-        let hypothesis_test_params = None;
-        Self {
-            motion_noise_scale: orig.motion_noise_scale,
-            initial_position_std_meters: orig.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels.into(),
-            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
-            max_position_std_meters: orig.max_position_std_meters,
-            hypothesis_test_params,
-            num_observations_to_visibility: orig.num_observations_to_visibility,
-        }
-    }
-}
-
-impl TryFrom<TrackingParams> for TrackingParamsInnerFlat3D {
-    type Error = FlydraTypesError;
-
-    fn try_from(orig: TrackingParams) -> Result<Self> {
-        if orig.hypothesis_test_params.is_some() {
-            return Err(FlydraTypesError::UnexpectedHypothesisTestingParameters);
-        }
-
-        Ok(Self {
-            motion_noise_scale: orig.motion_noise_scale,
-            initial_position_std_meters: orig.initial_position_std_meters,
-            initial_vel_std_meters_per_sec: orig.initial_vel_std_meters_per_sec,
-            ekf_observation_covariance_pixels: orig.ekf_observation_covariance_pixels as f32,
-            accept_observation_min_likelihood: orig.accept_observation_min_likelihood,
-            max_position_std_meters: orig.max_position_std_meters,
-            num_observations_to_visibility: orig.num_observations_to_visibility,
-        })
-    }
-}
-
-impl Default for TrackingParamsInnerFlat3D {
-    fn default() -> Self {
-        Self {
-            motion_noise_scale: 10.0,
-            initial_position_std_meters: 0.001,
-            initial_vel_std_meters_per_sec: 1.0,
-            accept_observation_min_likelihood: 1e-8,
-            ekf_observation_covariance_pixels: 10.0,
-            max_position_std_meters: 0.2,
-            num_observations_to_visibility: default_num_observations_to_visibility(),
-        }
+pub fn default_tracking_params_flat_3d() -> TrackingParams {
+    TrackingParams {
+        motion_noise_scale: 10.0,
+        initial_position_std_meters: 0.001,
+        initial_vel_std_meters_per_sec: 1.0,
+        accept_observation_min_likelihood: 1e-8,
+        ekf_observation_covariance_pixels: 10.0,
+        max_position_std_meters: 0.2,
+        hypothesis_test_params: None,
+        num_observations_to_visibility: default_num_observations_to_visibility(),
     }
 }
 
@@ -664,8 +595,6 @@ pub mod timestamp_opt_f64;
 mod tokio_cbor;
 #[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_cbor::CborPacketCodec;
-
-type Result<M> = std::result::Result<M, FlydraTypesError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FlydraTypesError {
@@ -791,12 +720,12 @@ const fn default_query_dt() -> std::time::Duration {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FakeSyncConfig {
-    pub fps: f64,
+    pub framerate: f64,
 }
 
 impl Default for FakeSyncConfig {
     fn default() -> Self {
-        Self { fps: 95.0 }
+        Self { framerate: 95.0 }
     }
 }
 
@@ -890,7 +819,7 @@ impl WithKey<i64> for Data2dDistortedRow {
     }
 }
 
-fn invalid_nan<'de, D>(de: D) -> std::result::Result<f64, D::Error>
+fn invalid_nan<'de, D>(de: D) -> Result<f64, D::Error>
 where
     D: Deserializer<'de>,
 {

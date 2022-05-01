@@ -16,5 +16,5 @@ http_api_server_addr = "127.0.0.1:33333"
 name = "Basler-40116277"
 
 [trigger]
-fps = 95.0
+framerate = 95.0
 trigger_type = "FakeSync"

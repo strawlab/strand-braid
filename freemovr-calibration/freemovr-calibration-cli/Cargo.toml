@@ -2,7 +2,8 @@
 name = "freemovr-calibration-cli"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [[bin]]
 name = "freemovr-calibration"
@@ -14,10 +15,10 @@ anyhow = "1"
 log = "0.4"
 env_logger = "0.8"
 structopt="0.3"
-nalgebra = "0.29"
-ncollide2d = "0.32"
-cam-geom = "0.11"
-opencv-ros-camera = "0.11"
+nalgebra = "0.30"
+ncollide2d = "0.33"
+cam-geom = "0.12"
+opencv-ros-camera = "0.12"
 chrono = "0.4"
 
 freemovr-calibration = {path=".."}

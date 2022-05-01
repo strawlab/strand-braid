@@ -20,17 +20,9 @@ pub struct RangedValue {
     pub max: f64,
 }
 
-#[cfg(feature = "with_camtrig")]
-use camtrig_comms::DeviceState;
+use led_box_comms::DeviceState;
 
-#[cfg(not(feature = "with_camtrig"))]
-type DeviceState = std::marker::PhantomData<u8>;
-
-#[cfg(feature = "with_camtrig")]
-pub use camtrig_comms::ToDevice as ToCamtrigDevice;
-
-#[cfg(not(feature = "with_camtrig"))]
-pub type ToCamtrigDevice = std::marker::PhantomData<u8>;
+pub use led_box_comms::ToDevice as ToLedBoxDevice;
 
 pub const STRAND_CAM_EVENTS_URL_PATH: &str = "/strand-cam-events";
 pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
@@ -81,10 +73,9 @@ pub struct StoreType {
     pub kalman_tracking_config: KalmanTrackingConfig,
     #[cfg(feature = "flydratrax")]
     pub led_program_config: LedProgramConfig,
-    #[cfg(feature = "with_camtrig")]
-    pub camtrig_device_lost: bool,
-    pub camtrig_device_state: Option<DeviceState>,
-    pub camtrig_device_path: Option<String>,
+    pub led_box_device_lost: bool,
+    pub led_box_device_state: Option<DeviceState>,
+    pub led_box_device_path: Option<String>,
     #[cfg(feature = "checkercal")]
     pub checkerboard_data: CheckerboardCalState,
     /// Path where debug data is being saved.
@@ -221,5 +212,5 @@ pub enum CallbackType {
     TakeCurrentImageAsBackground,
     // used only with image-tracker crate
     ClearBackground(f32),
-    ToCamtrig(ToCamtrigDevice),
+    ToLedBox(ToLedBoxDevice),
 }

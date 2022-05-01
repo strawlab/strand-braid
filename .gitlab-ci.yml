@@ -39,14 +39,16 @@ test_crates:
     # Test freemovr-calibration, which requires opencv
     - cd freemovr-calibration
     # run test in release mode, otherwise slow
-    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
     - cd ..
 
     # Test freemovr-calibration-cli
     - cd freemovr-calibration/freemovr-calibration-cli
-    - PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
     - cd ../..
 
+    # Test Pylon stuff
+    - _packaging/setup-ubuntu-20.04-pylon.sh
     - cd ci2-simple-demo
     - cargo test --features backend_pyloncxx
     - cd ..
@@ -86,12 +88,12 @@ test_flydra2:
     # test 3D retracking
     - PATH="../target/release:$PATH" cargo test --release
     # test 2D retracking
-    - PATH="../target/release:$PATH" cargo run --no-default-features --features "flat-3d flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
+    - PATH="../target/release:$PATH" cargo run --no-default-features --features "flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
-test_crates_rust_1_56:
-  image: rust:1.56.0
+test_crates_rust_1_60:
+  image: rust:1.60.0
   script:
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
@@ -159,7 +161,7 @@ test_crates_rust_1_56:
     - cd ..
 
 test_crates_rust_nightly:
-  image: rust:1.56.0
+  image: rust:1.60.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -168,13 +170,14 @@ test_crates_rust_nightly:
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly-2022-03-21 test --no-default-features --features std,packed_simd
+    - cargo +nightly-2022-03-21 test --no-default-features --features std,simd
     - cd ..
 
 test_image_tracker:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -185,86 +188,56 @@ test_fastimage:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
-strand-cam-ubuntu1604-debs:
-  tags:
-    - ubuntu-16.04
+led-box-ubuntu2004-debs:
+  image: ubuntu:focal
   script:
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - mkdir -p $CI_PROJECT_DIR/rust-cam-xenial-debs-build
+    - _packaging/setup-ubuntu-20.04.sh
+    - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
-    - cd strand-cam/packaging
-    - pwd
-    - ls -l ../../build
-    - ldd ../../build/strand-cam-camtrig-pylon
-    - ldd ../../build/strand-cam-pylon
-    - make
-    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
-    - cp -a *.changes $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - cp -a *.deb $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - ls -lh $CI_PROJECT_DIR/rust-cam-xenial-debs-build/
-    - cd ../..
-  needs:
-    - strand-cam-pylon-linux
-    - strand-cam-camtrig-pylon-linux
-  artifacts:
-    paths:
-      - rust-cam-xenial-debs-build/
-    name: "strand-cam-ubuntu1604-debs-${CI_COMMIT_SHA}"
-
-# internal-strand-cam-xenial-deb-packages:
-#   tags:
-#       - pylon
-#   script:
-#     - mkdir -p $CI_PROJECT_DIR/internal_debs
-#     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper devscripts
-
-#     - cd strand-cam/packaging
-#     - make strand-cam-camtrig-pylon_VERSION_amd64.deb
-#     - cp -a *.changes $CI_PROJECT_DIR/internal_debs/
-#     - cp -a *.deb $CI_PROJECT_DIR/internal_debs/
-#     - cd ../..
-# needs:
-#   - strand-cam-camtrig-pylon-linux
-# artifacts:
-#   paths:
-#     - internal_debs/
-#   name: "rust-cam-internal_debs-${CI_COMMIT_SHA}"
-
-camtrig-ubuntu1604-debs:
-  tags:
-    - ubuntu-16.04
-  script:
-    - mkdir -p $CI_PROJECT_DIR/xenial-camtrig-debs
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-
-    - cd camtrig
-    - cp $CI_PROJECT_DIR/build/camtrig ./
-    - cp $CI_PROJECT_DIR/camtrig-firmware-${CI_COMMIT_SHA}.bin ./camtrig-firmware.bin
+    - cd led-box
+    - cp $CI_PROJECT_DIR/build/led-box ./
+    - cp $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin ./led-box-firmware.bin
     - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
     - cd ..
-    - cp -a camtrig*.changes $CI_PROJECT_DIR/xenial-camtrig-debs/
-    - cp -a camtrig*.deb $CI_PROJECT_DIR/xenial-camtrig-debs/
-
+    - cp -a led-box*.changes $CI_PROJECT_DIR/focal-led-box-debs/
+    - cp -a led-box*.deb $CI_PROJECT_DIR/focal-led-box-debs/
   needs:
-    - camtrig-linux
-    - camtrig-firmware
+    - led-box-linux
+    - led-box-firmware
   artifacts:
     paths:
-      - xenial-camtrig-debs/
-    name: "rust-cam-xenial-camtrig-debs-${CI_COMMIT_SHA}"
+      - focal-led-box-debs/
+    name: "rust-cam-focal-led-box-debs-${CI_COMMIT_SHA}"
+
+led-box-standalone-ubuntu2004-deb:
+  image: ubuntu:focal
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+    - cd led-box-standalone
+    - cargo build --release
+    - cp $CI_PROJECT_DIR/target/release/led-box-standalone ./
+    - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+    - cd ..
+    - cp -a led-box-standalone*.changes $CI_PROJECT_DIR/led-box-standalone-debs/
+    - cp -a led-box-standalone*.deb $CI_PROJECT_DIR/led-box-standalone-debs/
+  artifacts:
+    paths:
+      - led-box-standalone-debs/
+    name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  image: rust:1.56.0
+  image: rust:1.60.0
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -279,7 +252,7 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  image: rust:1.56.0
+  image: rust:1.60.0
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -330,8 +303,19 @@ build-api-docs:
 
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo doc --no-default-features --features "serve_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal"
-    - cd ../..
+    - NUM_JOBS=2 cargo doc --no-default-features --features serve_files
+    - cd $CI_PROJECT_DIR
+
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - cd $CI_PROJECT_DIR/strand-cam
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      NUM_JOBS=2
+      cargo doc --features serve_files,ipp-sys/2019,fiducial,checkercal
+    - cd $CI_PROJECT_DIR
 
     # remove potential old output directory
     - rm -rf build
@@ -390,92 +374,87 @@ publish-api-docs:
     - build-api-docs
   when: manual
 
-strand-cam-pylon-linux:
-  tags:
-    - rust
-    - ipp
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
-
-    - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - export RUSTFLAGS="-D warnings"
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-pylon-linux-${CI_COMMIT_SHA}"
-
 strand-cam-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --features "bundle_files posix_sched_fifo backend_pyloncxx ipp-sys/2019 checkercal fiducial backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
+
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-pylon
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog strand-cam-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
   artifacts:
     paths:
       - build/
     name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
-py-strandcam-pylon-linux:
-  tags:
-    - rust
-    - ipp
+strand-cam-vimba-ubuntu2004:
+  image: ubuntu:focal
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
   script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
+    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-20.04-vimba.sh
+    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
+
+    - export RUSTFLAGS="-D warnings"
+
+    - rustc --version
+
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
+
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
+
+    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-vimba-ubuntu2004-${CI_COMMIT_SHA}"
+
+py-strandcam-pylon-linux:
+  image: ubuntu:focal
+  script:
+    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
 
@@ -487,27 +466,21 @@ py-strandcam-pylon-linux:
     - cd py-strandcam
     - conda env create -f environment.yml
     - conda activate strandcam
-    - cd ..
 
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.7.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.7.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.7.0-0ads1_amd64.deb
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
 
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - cd $CI_PROJECT_DIR/py-strandcam
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      IPP_SYS=2019
+      python setup.py install
 
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-    - cd ../py-strandcam
-    - touch rust/build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.7.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 BACKEND=pyloncxx IPP_SYS=2017 python setup.py install
-
-strand-cam-camtrig-pylon-ubuntu2004:
+strand-cam-offline-kalmanize-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -516,77 +489,51 @@ strand-cam-camtrig-pylon-ubuntu2004:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    - cd ../strand-cam-offline-kalmanize
+    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
     - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
-    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon focal > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
   artifacts:
     paths:
       - build/
-    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
 
-strand-cam-camtrig-pylon-linux:
-  tags:
-    - rust
-    - ipp
+strand-cam-flydratrax-pylon-ubuntu2004:
+  image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
+    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
     - export RUSTFLAGS="-D warnings"
 
-    # TODO: include firmware bundled
-    - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
+    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
 
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd ..
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files posix_sched_fifo backend_pyloncxx flydratrax imtrack-dark-circle flydra2/bundle_files ipp-sys/2019 cfg-pt-detect-src-prefs checkercal fiducial with_camtrig backtrace ci2-pyloncxx/backtrace imops/packed_simd" --release
-    - cd ../strand-cam-offline-kalmanize
-    - cargo build --release
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon
-    - cp ../target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog strand-cam-camtrig-pylon xenial > $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-camtrig-pylon.changelog
+    # Rename the target to `strand-cam-flydratrax-pylon`.
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
   artifacts:
     paths:
       - build/
-    name: "strand-cam-camtrig-pylon-linux-${CI_COMMIT_SHA}"
+    name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-ubuntu2004:
   image: ubuntu:focal
@@ -597,8 +544,9 @@ braid-offline-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braid-offline
-    # force recomputing git version tag
-    - touch Cargo.toml
+    - cargo build --release
+
+    - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
@@ -613,19 +561,14 @@ braid-offline-ubuntu2004:
 braid-process-video-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev libvpx-dev curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-
-    - touch Cargo.toml
+    - cargo test --release --features read-mkv
     - cargo build --release --features read-mkv
 
     - mkdir -p $CI_PROJECT_DIR/build
@@ -639,12 +582,8 @@ slow-braid-process-video-test:
   image: ubuntu:focal
   when: manual
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential libvpx-dev
     - cc --version
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -662,8 +601,6 @@ braidz-cli-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
-    # force recomputing git version tag
-    - touch Cargo.toml
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
@@ -675,19 +612,15 @@ braidz-cli-ubuntu2004:
 fmf-cli-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
-
     # test mkv-writer start
     - cd $CI_PROJECT_DIR/mkv-writer
-    - PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig cargo run --example save-animation --release -- vp8
+    - cargo run --example save-animation --release -- vp8
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
@@ -700,7 +633,7 @@ fmf-cli-ubuntu2004:
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  image: rust:1.56.0
+  image: rust:1.60.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -724,91 +657,14 @@ braid-webapps:
     - ./build.sh
     - cd ..
 
-braid-pylon-ubuntu1604:
-  tags:
-    - rust
-    - ipp
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - rustc --version
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/libvpx/libvpx-opt-static_1.8.0-0ads1_amd64.deb > /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-    - dpkg -i /tmp/libvpx-opt-static_1.8.0-0ads1_amd64.deb
-
-    # Download pylon and install 6
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/pylon/pylon_6.1.1.19861-deb0_amd64.deb > /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-    - echo "e738adb36f117ff2e5c428670025f9dfcdfbcbc9b22e2e2924a10736f876f2ed /tmp/pylon_6.1.1.19861-deb0_amd64.deb" | sha256sum -c
-    - dpkg -i /tmp/pylon_6.1.1.19861-deb0_amd64.deb
-
-    - curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-3.2-static.tar.gz > /tmp/opencv-3.2-static.tar.gz
-    - tar xzf /tmp/opencv-3.2-static.tar.gz -C /
-
-    - export APRILTAG_SRC=`pwd`/_submodules/apriltag
-    - export APRILTAG_SYS_METHOD=raw,static
-
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
-
-    - export RUSTFLAGS="-D warnings"
-
-    # Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-    # Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
-    - mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
-    - chmod a+x $CARGO_HOME/bin/wasm-pack
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - wasm-pack --version
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
-    - ./build.sh
-
-    # build braid-run
-    - cd $CI_PROJECT_DIR/braid/braid-run
-    # force recomputing git version tag
-    - touch build.rs
-
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
-    - ldd ../../target/release/braid-run
-
-    # build braid
-    - cd $CI_PROJECT_DIR/braid
-    # force recomputing git version tag
-    - touch build.rs
-    - NUM_JOBS=2 cargo build --release
-    - ldd ../target/release/braid
-
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --bin write-debian-changelog
-    - ../target/release/write-debian-changelog braid-pylon xenial > ../target/release/braid.changelog
-    - ls -l ../target/release
-    - cd $CI_PROJECT_DIR/braid/packaging
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
-    - make
-    - mkdir -p $CI_PROJECT_DIR/braid-pylon-linux-build
-    - cp *.deb $CI_PROJECT_DIR/braid-pylon-linux-build
-    - cp *.changes $CI_PROJECT_DIR/braid-pylon-linux-build
-    - ls -lh *.deb
-    - ls -l *.deb
-    - dpkg -I *.deb
-    - dpkg --contents *.deb
-    - dpkg --info *.deb
-
-  artifacts:
-    paths:
-      - braid-pylon-linux-build/
-    name: "braid-pylon-ubuntu1604-${CI_COMMIT_SHA}"
-
-braid-pylon-ubuntu2004:
+braid-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
+    # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
     - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
@@ -816,18 +672,14 @@ braid-pylon-ubuntu2004:
 
     - mkdir -p $CI_PROJECT_DIR/build
 
-    # build braid-run (pylon)
+    # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    # force recomputing git version tag
-    - touch build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
     # build braid
     - cd $CI_PROJECT_DIR/braid
-    # force recomputing git version tag
-    - touch build.rs
     - NUM_JOBS=2 cargo build --release
     - ldd ../target/release/braid
     - cp ../target/release/braid $CI_PROJECT_DIR/build
@@ -837,56 +689,31 @@ braid-pylon-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "braid-pylon-ubuntu2004-${CI_COMMIT_SHA}"
+    name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
 
-braid-strand-cam-pylon-ubuntu2004:
-  image: ubuntu:focal
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-20.04.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-
-    - mkdir -p $CI_PROJECT_DIR/build
-
-    # build braid-strand-cam-pylon
-    - cd $CI_PROJECT_DIR/strand-cam
-    # force recomputing git version tag
-    - touch build.rs
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-3.2-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig IPP_STATIC=1 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backend_pyloncxx ipp-sys/2019 fiducial jemalloc backtrace ci2-pyloncxx/backtrace strand-cam/checkercal braid-config imtrack-absdiff start-object-detection initially-unsychronized" --release
-    - ldd ../target/release/strand-cam
-    - cp ../target/release/strand-cam $CI_PROJECT_DIR/build/braid-strand-cam-pylon
-  artifacts:
-    paths:
-      - build/
-    name: "braid-strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
-
-camtrig-linux:
-  image: rust:1.56.0
+led-box-linux:
+  image: rust:1.60.0
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - export RUSTFLAGS="-D warnings"
 
-    - cd camtrig
+    - cd led-box
     - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/camtrig $CI_PROJECT_DIR/build/camtrig
+    - cp ../target/release/led-box $CI_PROJECT_DIR/build/led-box
   artifacts:
     paths:
       - build/
-    name: "camtrig-linux-${CI_COMMIT_SHA}"
+    name: "led-box-linux-${CI_COMMIT_SHA}"
 
-camtrig-firmware:
-  image: rust:1.56.0
+led-box-firmware:
+  image: rust:1.60.0
   script:
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
-    - cd camtrig-firmware
+    - cd led-box-firmware
 
     # Could do `cargo install cargo-binutils` instead of the following lines,
     # but then we'd build from source, which just takes longer.
@@ -898,73 +725,17 @@ camtrig-firmware:
     - rustup component add llvm-tools-preview
     - rustup component add rust-src
     - rustup target add thumbv7em-none-eabihf
-    - rm -f target_makefile/thumbv7em-none-eabihf/release/camtrig-firmware.bin
-    - touch Cargo.toml # ensure we rebuild it
+    - rm -f target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin
     - make
-    - cp target_makefile/thumbv7em-none-eabihf/release/camtrig-firmware.bin $CI_PROJECT_DIR/camtrig-firmware-${CI_COMMIT_SHA}.bin
+    - cp target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin
   artifacts:
     paths:
-      - camtrig-firmware-${CI_COMMIT_SHA}.bin
-    name: "camtrig-firmware-${CI_COMMIT_SHA}"
+      - led-box-firmware-${CI_COMMIT_SHA}.bin
+    name: "led-box-firmware-${CI_COMMIT_SHA}"
 
 # -------
 
-# deploy-strand-cam:
-#   tags:
-#     - debs.strawlab.org-deployer
-#   script:
-#     - $HOME/bin/process_and_upload $CI_PROJECT_DIR/rust-cam-xenial-debs-build /debs.strawlab.org-mirror/debs.strawlab.org
-#   environment:
-#     name: production
-#     url: http://debs.strawlab.org/xenial/
-#   needs:
-#     - xenial-deb-packagescurl --show-error --fail --silent
-#   when: manual
-#   # only:curl --show-error --fail --silent
-#   # - master
-
-deploy-camtrig-ubuntu1604:
-  tags:
-    - debs.strawlab.org-deployer
-  script:
-    - $HOME/bin/process_and_upload $CI_PROJECT_DIR/xenial-camtrig-debs /debs.strawlab.org-mirror/debs.strawlab.org
-  environment:
-    name: production
-    url: http://debs.strawlab.org/xenial/
-  needs:
-    - camtrig-ubuntu1604-debs
-  when: manual
-  # only:
-  # - master
-
-deploy-braid-pylon-ubuntu1604:
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial braid-pylon-linux-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  needs:
-    - braid-pylon-ubuntu1604
-  when: manual
-
-deploy-strand-cam-internal-ubuntu1604:
-  tags:
-    - aptly.strawlab.org-deployer
-  script:
-    # see in strawlab-it-admin docker-compose.yml aptly-repo-http for tips how to set this up.
-    - aptly repo add strawlab-xenial rust-cam-xenial-debs-build/
-    - aptly publish update xenial filesystem:deploy:xenial
-  environment:
-    name: strawlab aptly web server
-    url: https://aptly.strawlab.org/
-  needs:
-    - strand-cam-ubuntu1604-debs
-  when: manual
-
+# build the final downloadable .deb
 strand-braid-ubuntu-2004:
   image: ubuntu:focal
   script:
@@ -972,16 +743,20 @@ strand-braid-ubuntu-2004:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
-    # Download pylon and install 6
+    # Download pylon and install 6 so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
+    # Download vimba and install
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-vimba.sh
 
     - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
 
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l ../build
-    - ldd ../build/strand-cam-camtrig-pylon
+    - ldd ../build/strand-cam-offline-kalmanize
+    - ldd ../build/strand-cam-flydratrax-pylon
     - ldd ../build/strand-cam-pylon
+    - ldd ../build/strand-cam-vimba
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -992,12 +767,14 @@ strand-braid-ubuntu-2004:
   needs:
     - braid-offline-ubuntu2004
     - braid-process-video-ubuntu2004
-    - braid-pylon-ubuntu2004
-    - braid-strand-cam-pylon-ubuntu2004
+    - braid-ubuntu2004
+    # - braid-strand-cam-pylon-ubuntu2004
     - braidz-cli-ubuntu2004
     - fmf-cli-ubuntu2004
+    - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
-    - strand-cam-camtrig-pylon-ubuntu2004
+    - strand-cam-offline-kalmanize-ubuntu2004
+    - strand-cam-flydratrax-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.1.0
+Type=Application
+Categories=Application
+Exec=/usr/bin/led-box-standalone
+Name=LED Box
+GenericName=LED controller
+Comment=

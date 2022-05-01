@@ -2,7 +2,8 @@
 name = "flydra-mvg-fuzz-target"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,5 +11,5 @@ edition = "2018"
 afl = {version="0.8",optional=true}
 flydra-mvg = {path=".."}
 mvg = {path="../../mvg"}
-nalgebra = "0.29"
+nalgebra = "0.30"
 anyhow = "1.0"

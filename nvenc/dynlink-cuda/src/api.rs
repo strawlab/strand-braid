@@ -87,7 +87,6 @@ impl<'a> CudaContext<'a> {
 
 impl<'a> CudaDevice<'a> {
     pub fn name(&self) -> Result<String, CudaError> {
-        use std::convert::TryInto;
         const MAX_LEN: i32 = 255;
         let value = std::ffi::CString::new(vec![b' '; MAX_LEN.try_into().unwrap()]).unwrap();
         let raw = value.into_raw();

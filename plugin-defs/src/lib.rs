@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_float, c_void};
+use std::os::raw::{c_float, c_void};
 
 include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 
@@ -18,7 +18,7 @@ pub enum EisvogelPixelFormat {
     /// Red, Green, Blue, 1 byte each, total 3 bytes per pixel.
     ///
     /// Also sometimes called `RGB8packed`.
-    RGB8=0,
+    RGB8 = 0,
     /// Luminance, 1 byte per pixel.
     MONO8,
     /// Luminance, 10 bits per pixel.
@@ -53,8 +53,8 @@ pub enum EisvogelPixelFormat {
 }
 
 #[repr(C)]
-pub struct FrameData {
-    pub data: *const c_char,
+pub struct FrameData<'a> {
+    pub data: &'a [u8],
     pub stride: u64,
     pub rows: u32,
     pub cols: u32,
@@ -64,7 +64,8 @@ pub struct FrameData {
 pub type DataHandle = *mut c_void;
 
 /// Any `ProcessFrameFunc` allocates new memory that needs to be freed with `strandcam_frame_annotation_free`.
-pub type ProcessFrameFunc = extern "C" fn(*const FrameData, DataHandle, f64) -> StrandCamFrameAnnotation;
+pub type ProcessFrameFunc =
+    extern "C" fn(*const FrameData, DataHandle, f64) -> StrandCamFrameAnnotation;
 
 /// CABI wrapper around point.
 #[repr(C)]
@@ -83,10 +84,11 @@ pub struct StrandCamFrameAnnotation {
 
 impl std::fmt::Display for StrandCamFrameAnnotation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f,
-               "StrandCamFrameAnnotation {{ len: {}, owned: {} }}",
-               self.len,
-               self.owned)
+        write!(
+            f,
+            "StrandCamFrameAnnotation {{ len: {}, owned: {} }}",
+            self.len, self.owned
+        )
     }
 }
 
@@ -136,13 +138,22 @@ impl Drop for StrandCamFrameAnnotation {
 
 /// Create new frame annotation data filled with zeros.
 #[no_mangle]
-pub extern "C" fn strandcam_new_frame_annotation_zeros(n_points: usize) -> StrandCamFrameAnnotation {
-    let points = (0..n_points).map(|_| EisvogelImagePoint{x:0.0, y:0.0}).collect();
+pub extern "C" fn strandcam_new_frame_annotation_zeros(
+    n_points: usize,
+) -> StrandCamFrameAnnotation {
+    let points = (0..n_points)
+        .map(|_| EisvogelImagePoint { x: 0.0, y: 0.0 })
+        .collect();
     StrandCamFrameAnnotation::from_vec(points)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn strandcam_set_frame_annotation(fa: *mut StrandCamFrameAnnotation, i: isize, x: f32, y: f32) {
+pub unsafe extern "C" fn strandcam_set_frame_annotation(
+    fa: *mut StrandCamFrameAnnotation,
+    i: isize,
+    x: f32,
+    y: f32,
+) {
     let ptr = (*fa).points.offset(i);
     (*ptr).x = x;
     (*ptr).y = y;

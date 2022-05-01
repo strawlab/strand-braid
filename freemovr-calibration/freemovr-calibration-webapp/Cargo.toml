@@ -2,7 +2,8 @@
 name = "freemovr-calibration-webapp"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -23,7 +24,7 @@ failure = "0.1"
 http = "0.2"
 itertools = "0.7.8"
 chrono = {version="0.4", features=["serde"]}
-ncollide3d = {version="0.32", features=["serde-serialize"]}
+ncollide3d = {version="0.33", features=["serde-serialize"]}
 
 mvg = {path="../../mvg", features=["serde-serialize"]}
 enum-iter = {path="../../enum-iter"}

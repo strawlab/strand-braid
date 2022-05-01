@@ -231,6 +231,8 @@ impl std::convert::AsMut<apriltag_sys::apriltag_detector> for Detector {
 #[derive(Debug)]
 pub struct Family(*mut apriltag_sys::apriltag_family_t);
 
+unsafe impl Send for Family {}
+
 impl Family {
     /// Create a new detector family for 16h5 tags.
     pub fn new_tag_16h5() -> Self {

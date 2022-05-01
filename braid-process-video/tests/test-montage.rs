@@ -1,5 +1,5 @@
 use braid_process_video::{
-    run_config, BraidRetrackVideoConfig, OutputConfig, Validate, VideoSourceConfig,
+    run_config, BraidRetrackVideoConfig, OutputConfig, Valid, VideoSourceConfig,
 };
 
 const BASE_URL: &str = "https://strawlab-cdn.com/assets/flycube6-videos";
@@ -20,7 +20,7 @@ fn parse_file_list(dirname: &str) -> anyhow::Result<Vec<(String, String)>> {
     Ok(results)
 }
 
-fn get_files(dirname: &str) -> anyhow::Result<BraidRetrackVideoConfig> {
+fn get_files(dirname: &str) -> anyhow::Result<Valid<BraidRetrackVideoConfig>> {
     // Idea: adapt this into an "auto config generator" which can be pointed at
     // directory with .braidz and movie files.
 
@@ -60,15 +60,15 @@ fn get_files(dirname: &str) -> anyhow::Result<BraidRetrackVideoConfig> {
         video_options: None,
     }];
 
-    let mut cfg = BraidRetrackVideoConfig {
+    let cfg = BraidRetrackVideoConfig {
         input_braidz,
         input_video,
         output,
         ..Default::default()
     };
 
-    cfg.validate()?;
-    Ok(cfg)
+    let basedir: Option<String> = None;
+    Ok(cfg.validate(basedir)?)
 }
 
 fn init_logging() {

@@ -337,26 +337,28 @@ where
 }
 
 /// Copy an input mono8 image to a pre-allocated RGB8 buffer.
-fn mono_into_rgb(
-    frame: &dyn ImageStride<formats::pixel_format::Mono8>,
+///
+/// This copies the mono channel to each of the R, G and B channels.
+fn mono8_into_rgb8(
+    src: &dyn ImageStride<formats::pixel_format::Mono8>,
     dest: &mut ImageBufferMutRef<RGB8>,
     dest_stride: usize,
 ) -> Result<()> {
     // The destination must be at least this large per row.
-    let min_stride = frame.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
+    let min_stride = src.width() as usize * PixFmt::RGB8.bits_per_pixel() as usize / 8;
     if dest_stride < min_stride {
         return Err(Error::InvalidAllocatedBufferStride);
     }
 
-    let expected_size = dest_stride * frame.height() as usize;
+    let expected_size = dest_stride * src.height() as usize;
     if dest.data.len() != expected_size {
         return Err(Error::InvalidAllocatedBufferSize);
     }
 
-    let w = frame.width() as usize;
-    for (src_row, dest_row) in frame
+    let w = src.width() as usize;
+    for (src_row, dest_row) in src
         .image_data()
-        .chunks_exact(frame.stride())
+        .chunks_exact(src.stride())
         .zip(dest.data.chunks_exact_mut(dest_stride))
     {
         for (dest_pix, src_pix) in dest_row[..(w * 3)].chunks_exact_mut(3).zip(&src_row[..w]) {
@@ -758,7 +760,7 @@ where
                     // .. from mono8.
                     let mono8 = force_pixel_format_ref(frame);
                     let mut rgb = force_buffer_pixel_format_ref(dest);
-                    mono_into_rgb(&mono8, &mut rgb, dest_stride)?;
+                    mono8_into_rgb8(&mono8, &mut rgb, dest_stride)?;
                     Ok(())
                 }
                 formats::pixel_format::PixFmt::RGBA8 => {
@@ -1177,6 +1179,25 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    // Test MONO8->RGB8
+    fn test_mono8_rgb8() -> Result<()> {
+        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
+            width: 256,
+            height: 1,
+            stride: 256,
+            image_data: (0u8..=255u8).collect(),
+            fmt: std::marker::PhantomData,
+        };
+        let rgb = convert::<_, formats::pixel_format::RGB8>(&orig)?;
+        for (i, rgb_pix) in rgb.image_data().chunks_exact(3).enumerate() {
+            assert_eq!(i, rgb_pix[0] as usize);
+            assert_eq!(i, rgb_pix[1] as usize);
+            assert_eq!(i, rgb_pix[2] as usize);
+        }
+        Ok(())
     }
 
     #[ignore]

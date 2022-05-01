@@ -2,7 +2,6 @@ use chrono::Local;
 use log::info;
 use std::{sync::Arc, time::Instant};
 
-use flydra2::GetsUpdates;
 use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
 
@@ -27,7 +26,9 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
 
     let (_quit_trigger, valve) = stream_cancel::Valve::new();
 
-    let ms = new_model_server(valve, None, &addr, info, rt_handle).await?;
+    let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
+
+    new_model_server(data_rx, valve, None, &addr, info, rt_handle).await?;
 
     let starti = Instant::now();
 
@@ -55,7 +56,10 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
         P55: 0.0,
     };
     let tdpt = TimeDataPassthrough::new(SyncFno(0), &start);
-    ms.send_update(SendType::Birth(record.clone().into()), &tdpt)?;
+    data_tx
+        .send((SendType::Birth(record.clone().into()), tdpt.clone()))
+        .await
+        .unwrap();
 
     // Create a stream to update pose
     let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(100));
@@ -73,9 +77,13 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
             record.x = dur_f64.sin();
             record.y = dur_f64.cos();
             let tdpt = TimeDataPassthrough::new(record.frame, &record.timestamp);
-            ms.send_update(SendType::Update(record.clone().into()), &tdpt)
+            data_tx
+                .send((SendType::Update(record.clone().into()), tdpt.clone()))
+                .await
                 .expect("send_update");
-            ms.send_update(SendType::EndOfFrame(record.frame), &tdpt)
+            data_tx
+                .send((SendType::EndOfFrame(record.frame), tdpt.clone()))
+                .await
                 .expect("send_eof");
         }
     };

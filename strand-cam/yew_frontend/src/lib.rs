@@ -10,12 +10,7 @@ use std::{
 
 use ci2_remote_control::CamArg;
 
-#[cfg(feature = "with_camtrig")]
-use camtrig_comms::ToDevice as ToCamtrigDevice;
-
-#[cfg(not(feature = "with_camtrig"))]
-#[allow(dead_code)]
-type ToCamtrigDevice = std::marker::PhantomData<u8>;
+use led_box_comms::ToDevice as ToLedBoxDevice;
 
 use serde::{Deserialize, Serialize};
 
@@ -58,8 +53,7 @@ use ads_webasm::components::{
 };
 use yew_tincture::components::Button;
 
-#[cfg(feature = "with_camtrig")]
-use components::CamtrigControl;
+use components::LedBoxControl;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
@@ -125,8 +119,7 @@ enum Msg {
     // only used when image-tracker crate used
     ClearBackground(f32),
 
-    #[cfg(feature = "with_camtrig")]
-    CamtrigControlEvent(ToCamtrigDevice),
+    LedBoxControlEvent(ToLedBoxDevice),
 
     #[cfg(feature = "checkercal")]
     ToggleCheckerboardDetection(bool),
@@ -544,9 +537,8 @@ impl Component for Model {
                 self.send_message(CallbackType::ClearBackground(value), ctx);
                 return false; // don't update DOM, do that on return
             }
-            #[cfg(feature = "with_camtrig")]
-            Msg::CamtrigControlEvent(command) => {
-                self.send_message(CallbackType::ToCamtrig(command), ctx);
+            Msg::LedBoxControlEvent(command) => {
+                self.send_message(CallbackType::ToLedBox(command), ctx);
                 return false; // don't update DOM, do that on return
             }
             #[cfg(feature = "checkercal")]
@@ -607,11 +599,11 @@ impl Component for Model {
                 <img src="strand-camera-no-text.png" width="521" height="118" class="center" alt="Strand Camera logo"/>
                 { self.disconnected_dialog() }
                 { self.frame_processing_error_dialog(ctx) }
-                { self.camtrig_failed() }
+                { self.led_box_failed() }
                 <div class="wrapper">
                     { self.view_video(ctx) }
                     { self.view_decode_error(ctx) }
-                    { self.view_camtrig(ctx) }
+                    { self.view_led_box(ctx) }
                     { self.view_led_triggering(ctx) }
                     { self.view_mkv_recording_options(ctx) }
                     { self.view_post_trigger_options(ctx) }
@@ -674,25 +666,17 @@ impl Model {
         }
     }
 
-    #[cfg(feature = "with_camtrig")]
-    fn view_camtrig(&self, ctx: &Context<Self>) -> Html {
+    fn view_led_box(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
-            if let Some(ref device_state) = shared.camtrig_device_state {
+            if let Some(ref device_state) = shared.led_box_device_state {
                 return html! {
-                    <CamtrigControl
+                    <LedBoxControl
                         device_state={device_state.clone()}
-                        onsignal={ctx.link().callback(|x| Msg::CamtrigControlEvent(x))}
+                        onsignal={ctx.link().callback(|x| Msg::LedBoxControlEvent(x))}
                     />
                 };
             }
         }
-        html! {
-            <div>{""}</div>
-        }
-    }
-
-    #[cfg(not(feature = "with_camtrig"))]
-    fn view_camtrig(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <div>{""}</div>
         }
@@ -767,24 +751,14 @@ impl Model {
         }
     }
 
-    #[cfg(not(feature = "with_camtrig"))]
-    fn camtrig_failed(&self) -> Html {
-        html! {
-            <div>
-                { "" }
-            </div>
-        }
-    }
-
-    #[cfg(feature = "with_camtrig")]
-    fn camtrig_failed(&self) -> Html {
-        let camtrig_device_lost = if let Some(ref shared) = self.server_state {
-            shared.camtrig_device_lost
+    fn led_box_failed(&self) -> Html {
+        let led_box_device_lost = if let Some(ref shared) = self.server_state {
+            shared.led_box_device_lost
         } else {
             false
         };
 
-        if !camtrig_device_lost {
+        if !led_box_device_lost {
             html! {
                <div>
                  { "" }

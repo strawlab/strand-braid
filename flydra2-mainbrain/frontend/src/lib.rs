@@ -207,7 +207,7 @@ impl Model {
                 }
             } else {
                 html! {
-                    <div>{"Recording disabled until cameras synchronize and clock model established."}</div>
+                    <div>{"Recording disabled until cameras are synchronized and clock model is established."}</div>
                 }
             };
             let fake_sync_warning = if value.fake_sync {

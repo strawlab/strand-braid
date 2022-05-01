@@ -1,14 +1,33 @@
 use anyhow::{Context as ContextTrait, Result};
-use structopt::StructOpt;
+use clap::{Parser, Subcommand};
 
-use braid_process_video::{run_config, BraidRetrackVideoConfig, Validate};
+use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "process videos within the Braid multi-camera framework")]
-struct BraidProcessVideoCliArgs {
-    /// Input configuration TOML file
-    #[structopt(long, parse(from_os_str))]
-    config: std::path::PathBuf,
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Process video using a TOML file as configuration.
+    ConfigToml {
+        /// Input configuration TOML file
+        #[clap(short, long, parse(from_os_str), value_name = "CONFIG_TOML")]
+        config_toml: std::path::PathBuf,
+    },
+
+    /// Process video using an auto-generated configuration.
+    AutoConfig {
+        /// Directory with input files
+        #[clap(short, long, parse(from_os_str), value_name = "INPUT_DIR")]
+        input_dir: std::path::PathBuf,
+    },
+
+    /// Print an example configuration TOML.
+    PrintExampleConfigToml,
 }
 
 fn main() -> Result<()> {
@@ -18,31 +37,50 @@ fn main() -> Result<()> {
 
     env_logger::init();
 
-    let args = BraidProcessVideoCliArgs::from_args();
+    let cli = Cli::parse();
 
-    let cfg_fname = match args.config.to_str() {
-        None => {
-            panic!("Configuration file name not utf-8.");
+    let cfg = match &cli.command {
+        Some(Commands::ConfigToml { config_toml }) => {
+            // Get directory of configuration file. Works if config_toml is
+            // relative or absolute.
+            let abs_cfg_path = config_toml.canonicalize()?;
+            let cfg_dir = abs_cfg_path.parent();
+
+            let cfg_str = std::fs::read_to_string(&config_toml)
+                .with_context(|| format!("Reading config file '{}'", config_toml.display()))?;
+
+            let cfg: BraidRetrackVideoConfig = toml::from_str(&cfg_str).with_context(|| {
+                anyhow::anyhow!(
+                    "Parse error reading config toml file at \"{}\"",
+                    config_toml.display()
+                )
+            })?;
+
+            let cfg = cfg.validate(cfg_dir).with_context(|| {
+                anyhow::anyhow!(
+                    "Validation error with config toml file at \"{}\"",
+                    config_toml.display()
+                )
+            })?;
+
+            cfg
         }
-        Some(cfg_fname) => cfg_fname.to_string(),
+        Some(Commands::AutoConfig { input_dir }) => {
+            let cfg = auto_config(input_dir)?;
+            cfg
+        }
+        Some(Commands::PrintExampleConfigToml) => {
+            let default_buf = toml::to_string_pretty(&BraidRetrackVideoConfig::default())?;
+            println!("{}", default_buf);
+            return Ok(());
+        }
+        None => {
+            log::warn!("Nothing to do: no subcommand given.");
+            return Ok(());
+        }
     };
 
-    let get_usage = || {
-        let default_buf = toml::to_string_pretty(&BraidRetrackVideoConfig::default()).unwrap();
-        format!(
-            "Parsing TOML config file '{}' into BraidRetrackVideoConfig.\n\n\
-            Example of a valid TOML configuration:\n\n```\n{}```",
-            &cfg_fname, default_buf
-        )
-    };
-
-    let cfg_str = std::fs::read_to_string(&cfg_fname)
-        .with_context(|| format!("Reading config file '{}'", &cfg_fname))?;
-
-    let mut cfg: BraidRetrackVideoConfig = toml::from_str(&cfg_str).with_context(get_usage)?;
-    cfg.validate().with_context(get_usage)?;
-
-    let cfg_as_string = toml::to_string_pretty(&cfg).unwrap();
+    let cfg_as_string = toml::to_string_pretty(cfg.valid()).unwrap();
     log::info!(
         "Generating output using the following configuration:\n\n```\n{}```\n",
         cfg_as_string

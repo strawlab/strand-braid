@@ -2,16 +2,16 @@
 #[macro_use]
 extern crate log;
 
-use std::{convert::TryInto, io::BufRead};
+use std::io::{BufRead, Write};
 
 use serde::{Deserialize, Serialize};
 
-use flydra2::{Data2dDistortedRow, MyFloat, SwitchingTrackingParams};
-use flydra_types::CamInfoRow;
+use flydra2::Data2dDistortedRow;
+use flydra_types::{CamInfoRow, MyFloat, TrackingParams};
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 fn remove_trailing_newline(line1: &str) -> &str {
     if let Some(stripped) = line1.strip_suffix('\n') {
@@ -143,7 +143,7 @@ async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempdir::TempDir>,
     output_braidz: &std::path::Path,
-    tracking_params: SwitchingTrackingParams,
+    tracking_params: TrackingParams,
     to_recon_func: fn(
         serde_yaml::Value,
         &PseudoCalParams,
@@ -180,7 +180,10 @@ where
 
     let data_src =
         braidz_parser::incremental_parser::IncrementalParser::open_dir(flydra_csv_temp_dir.path())?;
-    let data_src = data_src.parse_basics()?;
+    let data_src = data_src.parse_basics().context(format!(
+        "Failed parsing initial braidz information from {}",
+        flydra_csv_temp_dir.path().display()
+    ))?;
 
     let save_performance_histograms = false;
 
@@ -261,6 +264,28 @@ where
     }];
     for row in cam_info_rows.iter() {
         cam_info_wtr.serialize(row)?;
+    }
+
+    // -------------------------------------------------
+    // save braid_metadata.yml
+
+    {
+        let braid_metadata_path = flydra_csv_temp_dir
+            .as_ref()
+            .to_path_buf()
+            .join(flydra_types::BRAID_METADATA_YML_FNAME);
+
+        let metadata = braidz_types::BraidMetadata {
+            schema: flydra_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
+            git_revision: "<impossible git rev>".to_string(),
+            original_recording_time: None,
+            save_empty_data2d: false, // We do filtering below, but is this correct?
+            saving_program_name: env!("CARGO_PKG_NAME").to_string(),
+        };
+        let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
+
+        let mut fd = std::fs::File::create(&braid_metadata_path)?;
+        fd.write_all(metadata_buf.as_bytes()).unwrap();
     }
 
     // -------------------------------------------------
@@ -487,7 +512,7 @@ where
                 toml::from_str(buf).map_err(anyhow::Error::from)?;
             tracking_params
         }
-        None => flydra2::SwitchingTrackingParams::default().into(),
+        None => flydra_types::default_tracking_params_flat_3d(),
     };
 
     let calibration_params = toml::from_str(calibration_params_buf).map_err(anyhow::Error::from)?;

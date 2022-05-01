@@ -2,10 +2,11 @@
 name = "simple-obj-parse"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
-nalgebra = "0.29"
-ncollide3d = "0.32"
+nalgebra = "0.30"
+ncollide3d = "0.33"
 genmesh = "0.6"
 obj = {version="0.10", features=["genmesh"]}

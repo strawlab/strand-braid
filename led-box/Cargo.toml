@@ -1,0 +1,21 @@
+[package]
+name = "led-box"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.56"
+
+[dependencies]
+clap = "2.25"
+led-box-comms = {path="../led-box-comms"}
+thiserror = "1.0"
+log = "0.4"
+env-tracing-logger = {path="../env-tracing-logger"}
+futures = "0.3"
+tokio = {version="1.0.1", default-features=false, features=["macros","time","rt-multi-thread"]}
+tokio-util = {version="0.6", features=["codec"]}
+bytes = "1.0"
+mini-rxtx = {version="0.3", features=["std"]}
+parking_lot = "0.11"
+tokio-serial = "5.4.3"
+byteorder = "1.4"

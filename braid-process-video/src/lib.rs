@@ -32,8 +32,11 @@ mod synced_iter;
 
 mod config;
 pub use config::{
-    BraidRetrackVideoConfig, OutputConfig, OutputVideoConfig, Validate, VideoSourceConfig,
+    BraidRetrackVideoConfig, OutputConfig, OutputVideoConfig, Valid, VideoSourceConfig,
 };
+
+mod auto_config_generator;
+pub use auto_config_generator::auto_config;
 
 mod tiny_skia_frame;
 
@@ -164,9 +167,31 @@ impl PerCamRender {
     }
 }
 
-pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
+pub fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
+    let cfg = cfg.valid();
+
     #[cfg(feature = "read-mkv")]
     ffmpeg::init().unwrap();
+
+    let mut braid_archive = cfg
+        .input_braidz
+        .as_ref()
+        .map(braidz_parser::braidz_parse_path)
+        .transpose()
+        .with_context(|| {
+            format!(
+                "opening braidz archive {}",
+                cfg.input_braidz.as_ref().unwrap()
+            )
+        })?;
+
+    // let braidz_summary = cfg.input_braidz.as_ref().map(|braidz_fname| {
+    let braidz_summary = braid_archive.as_ref().map(|archive| {
+        let path = archive.path();
+        let attr = std::fs::metadata(&path).unwrap();
+        let filename = crate::config::path_to_string(&path).unwrap();
+        braidz_parser::summarize_braidz(archive, filename, attr.len())
+    });
 
     // Get sources.
     let filenames: Vec<String> = cfg.input_video.iter().map(|s| s.filename.clone()).collect();
@@ -188,6 +213,8 @@ pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         .map(|f| open_movie(f))
         .collect::<Result<Vec<_>>>()?;
 
+    let movie_re = regex::Regex::new(r"^movie\d{8}_\d{6}_(.*)$").unwrap();
+
     for (cam_name, reader) in camera_names.iter_mut().zip(readers.iter()) {
         if cam_name.is_none() {
             // Camera name was not specified manually in the config.
@@ -200,22 +227,63 @@ pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
                 let raw = RawCamName::new(title.to_string());
                 let ros = raw.to_ros();
                 let ros_cam_name = ros.as_str();
-                log::info!(
-                    "In video {}, camera name from title: {}",
+                log::debug!(
+                    "In video {}, camera name from video title: {}",
                     reader.filename(),
                     ros_cam_name
                 );
                 *cam_name = Some(ros_cam_name.to_string());
-            }
+            } else if let Some(braidz_summary) = braidz_summary.as_ref() {
+                // If we could not read from video metadata, see if we can read
+                // from braidz file. However, the braidz file records camera
+                // names as the ROS variant in which some characters are
+                // replaced with underscore. Therefore, we attempt to parse
+                // known video filenames saved by braid to extract the original
+                // camera name from them.
 
-            // If we could not read from metadata, see if we can read from
-            // filename.
-            if cam_name.is_none() {
-                // This remains to be implemented. Filename may be like
-                // `movie20211107_141720_Basler-22445994.fmf`. This would be
-                // particularly useful for FMF files, because they do not have
-                // metadata like the camera name.
+                let full_path = std::path::PathBuf::from(reader.filename());
+                let fname = full_path
+                    .file_name()
+                    .unwrap()
+                    .to_os_string()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+                // example: fname = "movie20211108_084523_Basler-22445994.fmf.gz"
+
+                let stem = fname.as_str().split(".").next().unwrap();
+                // example: stem = "movie20211108_084523_Basler-22445994"
+
+                if let Some(caps) = movie_re.captures(stem) {
+                    // get the raw camera name
+                    let raw = caps.get(1).unwrap().as_str();
+                    // example: raw = "Basler-22445994"
+
+                    let ros = RawCamName::new(raw.to_string())
+                        .to_ros()
+                        .as_str()
+                        .to_string();
+                    // example: ros = "Basler_22445994"
+
+                    for test_ros_cam_name in braidz_summary.cam_info.camid2camn.keys() {
+                        if &ros == test_ros_cam_name {
+                            *cam_name = Some(ros);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Theoretically, could attempt to parse filenames as above even
+                // without a braidz archive. But for no we do not.
             }
+        }
+
+        if cam_name.is_none() {
+            // No camera name given and no braidz file.
+            anyhow::bail!(
+                "For video file {}, could not determine camera name",
+                reader.filename()
+            );
         }
     }
 
@@ -229,18 +297,6 @@ pub fn run_config(cfg: &BraidRetrackVideoConfig) -> Result<()> {
         .clone();
 
     log::info!("start time: {}", approx_start_time);
-
-    let mut braid_archive = cfg
-        .input_braidz
-        .as_ref()
-        .map(braidz_parser::braidz_parse_path)
-        .transpose()
-        .with_context(|| {
-            format!(
-                "opening braidz archive {}",
-                cfg.input_braidz.as_ref().unwrap()
-            )
-        })?;
 
     let mut data2d = BTreeMap::new();
     if let Some(ref mut braidz) = braid_archive.as_mut() {

@@ -83,6 +83,13 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("{source}")]
+    ImageError {
+        #[from]
+        source: image::ImageError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("Compressed and uncompressed data copies exist simultaneously")]
     DualData,
     #[error("Multiple tracking parameters")]
@@ -105,25 +112,14 @@ impl From<serde_xml_rs::Error> for Error {
     }
 }
 
-// pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
-// where
-//     E: 'static + std::error::Error + Sync + Send,
-// {
-//     Error::FileError {
-//         what,
-//         filename,
-//         source: Box::new(source),
-//         #[cfg(feature = "backtrace")]
-//         backtrace: Backtrace::capture(),
-//     }
-// }
-
 /// The entire file contents, loaded to memory.
 ///
 /// Currently, the implementation does not load everything to memory, but it
 /// should and will do so in the future. To load only a summary, use the
 /// `BraidzSummary` type. Currently, a summary can only be made by loading the
 /// entire archive first, but more efficient path can be made later.
+// A perhaps even better idea for the future is to combine both the summary and
+// the archive type and have it read and parse in a lazy and caching way.
 pub struct BraidzArchive<R: Read + Seek> {
     archive: zip_or_dir::ZipDirArchive<R>, //incremental_parser::IncrementalParser<R, incremental_parser::FullyParsed>,
     pub metadata: BraidMetadata,
@@ -134,6 +130,8 @@ pub struct BraidzArchive<R: Read + Seek> {
     pub reprojection_distance_hlog: Option<HistogramLog>,
     pub cam_info: CamInfo,
     pub data2d_distorted: Option<D2DInfo>,
+    /// A mapping from camera name to (width, height).
+    pub image_sizes: Option<BTreeMap<String, (usize, usize)>>,
 }
 
 pub struct HistogramLog {
@@ -160,6 +158,11 @@ impl<R: Read + Seek> BraidzArchive<R> {
     /// Display the path to the archive.
     pub fn display(&self) -> std::path::Display {
         self.archive.display()
+    }
+
+    /// Get the path to the archive.
+    pub fn path(&self) -> &std::path::Path {
+        self.archive.path()
     }
 }
 
@@ -280,7 +283,7 @@ pub fn summarize_braidz<R: Read + Seek>(
 pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<BraidzArchive<BufReader<File>>, Error> {
-    let zs = zip_or_dir::ZipDirArchive::auto_from_path(path)?;
+    let zs = zip_or_dir::ZipDirArchive::auto_from_path(&path)?;
     let parsed = braidz_parse(zs)?;
     Ok(parsed)
 }
@@ -303,19 +306,22 @@ pub fn braidz_parse<R: Read + Seek>(
         data2d_distorted: state.data2d_distorted,
         reconstruction_latency_hlog: state.reconstruction_latency_hlog,
         reprojection_distance_hlog: state.reprojection_distance_hlog,
+        image_sizes: state.image_sizes,
     })
 }
 
-impl<R: Read + Seek> BraidzArchive<R> {
+impl<'a, R: Read + Seek> BraidzArchive<R> {
     /// Iterate over the rows of the `data2d_distorted` table.
     ///
     /// This takes a mutable reference because the read location in the archive
     /// is changed during operation.
     pub fn iter_data2d_distorted(
-        &mut self,
-    ) -> Result<impl Iterator<Item = Result<Data2dDistortedRow, csv::Error>> + '_, Error> {
-        let mut data_fname = self.archive.path_starter();
-        data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        &'a mut self,
+    ) -> Result<impl Iterator<Item = Result<Data2dDistortedRow, csv::Error>> + 'a, Error> {
+        let data_fname = self
+            .archive
+            .path_starter()
+            .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
         let rdr = open_maybe_gzipped(data_fname)?;
         let rdr2 = csv::Reader::from_reader(rdr);
         Ok(rdr2.into_deserialize().early_eof_ok())
@@ -430,9 +436,6 @@ fn test_append_to_path() {
 }
 
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
-///
-/// Note, use caution if using `csv_fname` after this, as it may be the original
-/// (`.csv`) or new (`.csv.gz`).
 pub fn open_maybe_gzipped<'a, R: Read + Seek>(
     mut path_like: zip_or_dir::PathLike<'a, R>,
 ) -> Result<Box<dyn Read + 'a>, Error> {

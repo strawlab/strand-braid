@@ -2,7 +2,8 @@
 name = "strandcam-cabi"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 [lib]
 name = "strandcam"
@@ -11,13 +12,15 @@ crate-type = ["cdylib"]
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0"
-strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "image_tracker", "imtrack-absdiff", "cfg-pt-detect-src-prefs"]}
+lazy_static = "1"
+
+strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "image_tracker", "imtrack-absdiff"]}
 plugin-defs = {path="../../plugin-defs"}
 ipp-sys = "0.4.4" # Just so we can specify features
+
+ci2-async = { path = "../../ci2-async" }
+ci2-pyloncxx = { path = "../../ci2-pyloncxx" }
 
 [build-dependencies]
 cbindgen = "0.20"
 plugin-defs = {path="../../plugin-defs"}
-
-[features]
-backend_pyloncxx = ["strand-cam/backend_pyloncxx"]

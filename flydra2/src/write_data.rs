@@ -4,7 +4,8 @@ use log::info;
 use std::{io::Write, sync::Arc};
 
 use flydra_types::{
-    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    TrackingParams, BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME,
+    IMAGES_DIRNAME,
 };
 
 struct WritingState {
@@ -22,11 +23,11 @@ struct WritingState {
     save_empty_data2d: bool,
     // kalman_estimates_wtr: Option<csv::Writer<Box<dyn std::io::Write>>>,
     kalman_estimates_wtr: Option<OrderingWriter>,
-    data_assoc_wtr: Option<csv::Writer<Box<dyn std::io::Write>>>,
-    data_2d_wtr: csv::Writer<Box<dyn std::io::Write>>,
-    textlog_wtr: csv::Writer<Box<dyn std::io::Write>>,
-    trigger_clock_info_wtr: csv::Writer<Box<dyn std::io::Write>>,
-    experiment_info_wtr: csv::Writer<Box<dyn std::io::Write>>,
+    data_assoc_wtr: Option<csv::Writer<Box<dyn std::io::Write + Send>>>,
+    data_2d_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
+    textlog_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
+    trigger_clock_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
+    experiment_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     writer_stats: Option<usize>,
     file_start_time: std::time::SystemTime,
 
@@ -34,12 +35,18 @@ struct WritingState {
     reproj_dist_pixels: Option<HistogramWritingState>,
 }
 
+fn _test_writing_state_is_send() {
+    // Compile-time test to ensure WritingState implements Send trait.
+    fn implements<T: Send>() {}
+    implements::<WritingState>();
+}
+
 impl WritingState {
     fn new(
         cfg: StartSavingCsvConfig,
         cam_info_rows: Vec<CamInfoRow>,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        mut tracking_params: Arc<SwitchingTrackingParams>,
+        tracking_params: Arc<TrackingParams>,
         save_empty_data2d: bool,
         saving_program_name: String,
     ) -> Result<Self> {
@@ -156,7 +163,8 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", flydra_types::CAM_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+            let fd: Box<dyn std::io::Write + Send> =
+                Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             let mut cam_info_wtr = csv::Writer::from_writer(fd);
             for row in cam_info_rows.iter() {
                 cam_info_wtr.serialize(row)?;
@@ -188,7 +196,7 @@ impl WritingState {
             );
 
             let tps = TrackingParamsSaver {
-                tracking_params: Arc::make_mut(&mut tracking_params).clone().into(), // convert to flydra_types::TrackingParams
+                tracking_params: (*tracking_params).clone(),
                 git_revision,
             };
             let message2 = serde_json::to_string(&tps)?;
@@ -213,7 +221,8 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(flydra_types::TEXTLOG_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
-            let mut textlog_wtr = csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>);
+            let mut textlog_wtr =
+                csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>);
             for row in textlog.iter() {
                 textlog_wtr.serialize(row)?;
             }
@@ -227,7 +236,8 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", flydra_types::KALMAN_ESTIMATES_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+            let fd: Box<dyn std::io::Write + Send> =
+                Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             Some(OrderingWriter::new(csv::Writer::from_writer(fd)))
         } else {
             None
@@ -237,7 +247,8 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", flydra_types::TRIGGER_CLOCK_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+            let fd: Box<dyn std::io::Write + Send> =
+                Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             csv::Writer::from_writer(fd)
         };
 
@@ -247,14 +258,15 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(flydra_types::EXPERIMENT_INFO_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
-            csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write>)
+            csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>)
         };
 
         let data_assoc_wtr = if let Some(ref _recon) = recon {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", flydra_types::DATA_ASSOCIATE_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+            let fd: Box<dyn std::io::Write + Send> =
+                Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             Some(csv::Writer::from_writer(fd))
         } else {
             None
@@ -264,7 +276,8 @@ impl WritingState {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", flydra_types::DATA2D_DISTORTED_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
-            let fd: Box<dyn std::io::Write> = Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
+            let fd: Box<dyn std::io::Write + Send> =
+                Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
             csv::Writer::from_writer(fd)
         };
 
@@ -342,7 +355,7 @@ impl WritingState {
 
 impl Drop for WritingState {
     fn drop(&mut self) {
-        fn dummy_csv() -> csv::Writer<Box<dyn std::io::Write>> {
+        fn dummy_csv() -> csv::Writer<Box<dyn std::io::Write + Send>> {
             let fd = Box::new(Vec::with_capacity(0));
             csv::Writer::from_writer(fd)
         }
@@ -491,13 +504,13 @@ impl Drop for WritingState {
     }
 }
 
-pub(crate) fn writer_thread_main(
-    save_data_rx: channellib::Receiver<SaveToDiskMsg>,
+pub(crate) async fn writer_task_main(
+    mut braidz_write_rx: tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-    tracking_params: Arc<SwitchingTrackingParams>,
+    tracking_params: Arc<TrackingParams>,
     save_empty_data2d: bool,
-    saving_program_name: &str,
+    saving_program_name: String,
     ignore_latency: bool,
 ) -> Result<()> {
     use crate::SaveToDiskMsg::*;
@@ -509,13 +522,11 @@ pub(crate) fn writer_thread_main(
     let flush_interval = Duration::from_secs(FLUSH_INTERVAL);
 
     let mut last_flushed = Instant::now();
-
-    // TODO: add a timeout on recv() so that we periodically flush even if we
-    // received no message.
+    use futures::stream::StreamExt;
 
     loop {
-        match save_data_rx.recv() {
-            Ok(msg) => {
+        match tokio::time::timeout(flush_interval, braidz_write_rx.next()).await {
+            Ok(Some(msg)) => {
                 match msg {
                     KalmanEstimate(ke) => {
                         let KalmanEstimateRecord {
@@ -645,17 +656,17 @@ pub(crate) fn writer_thread_main(
                         }
                         // simply drop data if no file opened
                     }
-                    QuitNow => {
-                        // We rely on `writing_state.drop()` to flush and close
-                        // everything.
-                        break;
-                    }
                 };
             }
-            Err(e) => {
-                let _: channellib::RecvError = e;
+            Ok(None) => {
                 // sender disconnected. we can quit too.
+                // We rely on `writing_state.drop()` to flush and close
+                // everything.
                 break;
+            }
+            Err(_elapsed) => {
+                // We waited for a message but none came. This is normal if
+                // nothing is happening but lets us flush the writers below.
             }
         };
 
@@ -669,6 +680,7 @@ pub(crate) fn writer_thread_main(
             last_flushed = Instant::now();
         }
     }
+    log::info!("Done with braidz writer task.");
     Ok(())
 }
 
@@ -702,7 +714,7 @@ mod test {
                 Arc::new(AtomicBool::new(true)),
                 Arc::new(AtomicBool::new(true)),
             );
-            let tracking_params = Arc::new(SwitchingTrackingParams::default());
+            let tracking_params = Arc::new(flydra_types::default_tracking_params_full_3d());
             let save_empty_data2d = false;
 
             let ws = WritingState::new(

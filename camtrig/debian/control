@@ -1,9 +1,0 @@
-Source: camtrig
-Maintainer: Andrew Straw <strawman@astraw.com>
-Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.1
-
-Package: camtrig
-Architecture: any
-Description: camera trigger and LED lighting controller
-Depends: ${shlibs:Depends}

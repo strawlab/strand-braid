@@ -310,6 +310,11 @@ where
         c.start_default_external_triggering()
     }
 
+    fn set_software_frame_rate_limit(&mut self, fps_limit: f64) -> ci2::Result<()> {
+        let mut c = self.camera.lock();
+        c.set_software_frame_rate_limit(fps_limit)
+    }
+
     fn trigger_mode(&self) -> ci2::Result<ci2::TriggerMode> {
         let c = self.camera.lock();
         c.trigger_mode()
@@ -394,5 +399,9 @@ where
 
     fn settings_file_extension(&self) -> &str {
         self.cam_module.settings_file_extension()
+    }
+
+    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
+        self.cam_module.frame_info_extractor()
     }
 }

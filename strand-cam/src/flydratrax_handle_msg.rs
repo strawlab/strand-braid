@@ -1,54 +1,31 @@
-use channellib::Sender;
-
 use crate::*;
 
 use flydra2::{SendKalmanEstimatesRow, SendType};
 
-#[cfg(feature = "with_camtrig")]
 use strand_cam_storetype::LedProgramConfig;
 
-pub(crate) struct FlydraTraxServer {
-    model_sender: Sender<SendType>,
-}
-
-impl FlydraTraxServer {
-    pub(crate) fn new(model_sender: Sender<SendType>) -> Self {
-        Self { model_sender }
-    }
-}
-
-impl flydra2::GetsUpdates for FlydraTraxServer {
-    fn send_update(
-        &self,
-        msg: SendType,
-        _tdpt: &flydra2::TimeDataPassthrough,
-    ) -> std::result::Result<(), flydra2::Error> {
-        self.model_sender
-            .send(msg)
-            .map_err(|e| flydra2::wrap_error(e))?;
-        Ok(())
-    }
-}
-
-pub fn flydratrax_handle_msg(
+// create a long-lived future that will process data from flydra and turn on
+// LEDs with it.
+pub async fn create_message_handler(
     cam_cal: mvg::Camera<MyFloat>,
-    model_receiver: channellib::Receiver<flydra2::SendType>,
-    #[allow(unused_variables)] led_state: &mut bool,
-    #[allow(unused_variables)] ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
-    #[allow(unused_variables)] camtrig_tx_std: channellib::Sender<ToCamtrigDevice>,
+    mut model_receiver: tokio::sync::mpsc::Receiver<(flydra2::SendType, flydra2::TimeDataPassthrough)>,
+    led_state: &mut bool,
+    ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
+    led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
 ) -> Result<()> {
     use mvg::PointWorldFrame;
     use na::Point3;
 
-    info!("starting new flydratrax_handle_msg");
+    info!("starting new flydratask message handler");
 
     let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
 
     loop {
-        let msg = match model_receiver.recv() {
-            Ok(msg) => msg,
-            Err(channellib::RecvError { .. }) => return Ok(()), // sender hung up - we are done.
+        let full_msg = match model_receiver.recv().await {
+            Some(full_msg) => full_msg,
+            None => break, // sender hung up - we are done.
         };
+        let (msg, _time_data_passthrough) = full_msg;
         debug!("got model msg: {:?}", msg);
 
         match msg {
@@ -100,7 +77,6 @@ pub fn flydratrax_handle_msg(
             SendType::EndOfFrame(_fno) => {}
         }
 
-        #[cfg(feature = "with_camtrig")]
         {
             let led_program_config: LedProgramConfig = {
                 let store = ssa2.read();
@@ -148,14 +124,14 @@ pub fn flydratrax_handle_msg(
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
-                let device_state: Option<camtrig_comms::DeviceState> = {
+                let device_state: Option<led_box_comms::DeviceState> = {
                     let tracker = ssa2.read();
-                    tracker.as_ref().camtrig_device_state.clone()
+                    tracker.as_ref().led_box_device_state.clone()
                 };
                 if let Some(mut device_state) = device_state {
                     let on_state = match next_led_state {
-                        true => camtrig_comms::OnState::ConstantOn,
-                        false => camtrig_comms::OnState::Off,
+                        true => led_box_comms::OnState::ConstantOn,
+                        false => led_box_comms::OnState::Off,
                     };
 
                     match led_program_config.led_channel_num {
@@ -172,12 +148,12 @@ pub fn flydratrax_handle_msg(
                             error!("unsupported LED channel: {:?}", other);
                         }
                     }
-                    let msg = camtrig_comms::ToDevice::DeviceState(device_state);
-                    camtrig_tx_std.send(msg).cb_ok();
+                    let msg = led_box_comms::ToDevice::DeviceState(device_state);
+                    led_box_tx_std.send(msg).await.unwrap();
                 }
                 *led_state = next_led_state;
             }
         }
     }
-    // unreachable here, loop above never breaks and returns on error
+    Ok(())
 }

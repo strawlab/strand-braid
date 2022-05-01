@@ -18,6 +18,7 @@ pub struct BasicInfoParsed {
     pub calibration_info: Option<CalibrationInfo>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
+    pub cam_info: CamInfo,
 }
 
 /// The archive been completely parsed.
@@ -30,6 +31,8 @@ pub struct FullyParsed {
     pub reprojection_distance_hlog: Option<HistogramLog>,
     pub cam_info: CamInfo,
     pub data2d_distorted: Option<D2DInfo>,
+    /// A mapping from camera name to (width, height).
+    pub image_sizes: Option<BTreeMap<String, (usize, usize)>>,
 }
 
 impl ParseState for ArchiveOpened {}
@@ -190,12 +193,31 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             reprojection_distance_hlog
         };
 
+        let cam_info = {
+            let mut fname = self.archive.path_starter();
+            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
+            let rdr = open_maybe_gzipped(fname)?;
+            let caminfo_rdr = csv::Reader::from_reader(rdr);
+            let mut camn2camid = BTreeMap::new();
+            let mut camid2camn = BTreeMap::new();
+            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
+                let row: CamInfoRow = row?;
+                camn2camid.insert(row.camn, row.cam_id.clone());
+                camid2camn.insert(row.cam_id, row.camn);
+            }
+            CamInfo {
+                camn2camid,
+                camid2camn,
+            }
+        };
+
         let state = BasicInfoParsed {
             expected_fps,
             tracking_params: tracking_parameters,
             calibration_info,
             reconstruction_latency_hlog,
             reprojection_distance_hlog,
+            cam_info,
         };
 
         Ok(IncrementalParser {
@@ -219,24 +241,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let metadata = {
             let rdr = self.archive.open(flydra_types::BRAID_METADATA_YML_FNAME)?;
             serde_yaml::from_reader(rdr)?
-        };
-
-        let cam_info = {
-            let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
-            let rdr = open_maybe_gzipped(fname)?;
-            let caminfo_rdr = csv::Reader::from_reader(rdr);
-            let mut camn2camid = BTreeMap::new();
-            let mut camid2camn = BTreeMap::new();
-            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
-                let row: CamInfoRow = row?;
-                camn2camid.insert(row.camn, row.cam_id.clone());
-                camid2camn.insert(row.cam_id, row.camn);
-            }
-            CamInfo {
-                camn2camid,
-                camid2camn,
-            }
         };
 
         let mut num_rows = 0;
@@ -381,6 +385,41 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             kalman_estimates_info
         };
 
+        let image_sizes = if let Some(calibration_info) = basics.calibration_info.as_ref() {
+            Some(
+                calibration_info
+                    .cameras
+                    .cams()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), (v.width(), v.height())))
+                    .collect(),
+            )
+        } else {
+            let mut result: BTreeMap<String, (usize, usize)> = Default::default();
+            let mut failed = false;
+            for cam_id in basics.cam_info.camid2camn.keys() {
+                let relname = format!("{}/{cam_id}.png", flydra_types::IMAGES_DIRNAME);
+                match self.archive.open(relname) {
+                    Ok(rdr) => {
+                        let decoder = image::codecs::png::PngDecoder::new(rdr)?;
+                        let (w, h) = image::ImageDecoder::dimensions(&decoder);
+                        result.insert(cam_id.clone(), (w as usize, h as usize));
+                    }
+                    Err(zip_or_dir::Error::FileNotFound) => {
+                        failed = true;
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            }
+            if !failed {
+                Some(result)
+            } else {
+                None
+            }
+        };
+
+        let cam_info = basics.cam_info;
+
         Ok(IncrementalParser {
             archive: self.archive,
             state: FullyParsed {
@@ -392,6 +431,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 data2d_distorted,
                 reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
                 reprojection_distance_hlog: basics.reprojection_distance_hlog,
+                image_sizes,
             },
         })
     }

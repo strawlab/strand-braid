@@ -2,7 +2,8 @@
 name = "braid-offline"
 version =  "0.11.1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.59"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,6 +17,8 @@ serde = {version="^1.0", features=["derive"]}
 toml = "0.5"
 itertools = "0.8"
 chrono = "0.4"
+tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
+tokio-stream = "0.1.8"
 futures = "0.3"
 stream-cancel = "0.8"
 libflate = "0.1"
@@ -25,11 +28,9 @@ csv-eof = {path="../csv-eof"}
 flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
 flydra-types = {path="../flydra-types"}
 groupby = {path="../groupby"}
-tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}
-channellib = {path="../channellib"}
 im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
 
 [dev-dependencies]
@@ -41,13 +42,4 @@ env_logger = "0.8"
 fs_extra = "1.1"
 
 [features]
-default = ["full-3d"]
-
-flat-3d = ["flydra2/flat-3d"]
-full-3d = ["flydra2/full-3d"]
-
 backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace"]
-
-[[bin]]
-name = "write-debian-changelog"
-doc = false

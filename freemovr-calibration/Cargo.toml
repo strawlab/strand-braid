@@ -2,7 +2,8 @@
 name = "freemovr-calibration"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2018"
+edition = "2021"
+rust-version="1.60"
 
 [dependencies]
 thiserror = "1.0.28"
@@ -13,11 +14,11 @@ serde_derive = "1.0"
 serde_yaml = "0.8"
 serde_json = "1.0"
 alga = "0.9"
-nalgebra = "0.29"
-ncollide2d = "0.32"
-ncollide3d = {version="0.32", features=["serde-serialize"]}
-cam-geom = "0.11"
-opencv-ros-camera = "0.11"
+nalgebra = "0.30"
+ncollide2d = "0.33"
+ncollide3d = {version="0.33", features=["serde-serialize"]}
+cam-geom = "0.12"
+opencv-ros-camera = "0.12"
 genmesh = "0.6"
 obj = {version="0.10", features=["genmesh"]}
 byteorder = "1.2.2"
@@ -25,7 +26,7 @@ image = "0.22"
 csv = "1.1"
 chrono = {version="0.4", features=["serde"]}
 
-dlt = "0.9"
+dlt = "0.10"
 mvg = {path="../mvg", features=["serde-serialize"]}
 camcal = {path="../camcal", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}

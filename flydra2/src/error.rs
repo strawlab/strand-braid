@@ -70,6 +70,13 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("{source}")]
+    SendToDiskError {
+        #[from]
+        source: tokio::sync::mpsc::error::SendError<crate::SaveToDiskMsg>,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("invalid hypothesis testing parameters")]
     InvalidHypothesisTestingParameters,
     #[error("insufficient data to calculate FPS")]

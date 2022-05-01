@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     f64,
-    io::Write,
     sync::Arc,
 };
 
@@ -31,10 +30,10 @@ use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
 pub use braidz_types::BraidMetadata;
 
-use crossbeam_ok::CrossbeamOk;
 use flydra_types::{
     CamInfoRow, CamNum, ConnectedCameraSyncState, FlydraFloatTimestampLocal, HostClock,
-    KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TriggerClockInfoRow, Triggerbox,
+    KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TrackingParams, TriggerClockInfoRow,
+    Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
 };
 pub use flydra_types::{Data2dDistortedRow, Data2dDistortedRowF32};
 
@@ -44,36 +43,27 @@ mod connected_camera_manager;
 pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
 
 mod write_data;
-use write_data::writer_thread_main;
+use write_data::writer_task_main;
 
 mod bundled_data;
 mod contiguous_stream;
 mod frame_bundler;
 
-use flydra_types::{RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME};
-
-#[cfg(feature = "full-3d")]
-mod new_object_test;
-
-#[cfg(feature = "flat-3d")]
 mod new_object_test_2d;
-#[cfg(feature = "flat-3d")]
-use new_object_test_2d as new_object_test;
+mod new_object_test_3d;
 
 mod tracking_core;
 
 mod zip_dir;
 
 mod model_server;
-pub use crate::model_server::{
-    new_model_server, GetsUpdates, ModelServer, SendKalmanEstimatesRow, SendType,
-};
+pub use crate::model_server::{new_model_server, ModelServer, SendKalmanEstimatesRow, SendType};
 
 use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
 pub use crate::frame_bundler::StreamItem;
 
-pub type MyFloat = flydra_types::MyFloat;
+pub type MyFloat = flydra_types::MyFloat; // todo: remove that this is public
 
 mod error;
 pub use error::{file_error, wrap_error, Error};
@@ -88,7 +78,7 @@ pub const TRIGGERBOX_FIRST_PULSE: u64 = 2;
 pub(crate) fn generate_observation_model<R>(
     cam: &flydra_mvg::MultiCamera<R>,
     state: &Vector6<R>,
-    ekf_observation_covariance_pixels: f32,
+    ekf_observation_covariance_pixels: f64,
 ) -> Result<CameraObservationModel<R>>
 where
     R: RealField + Copy + Default + serde::Serialize,
@@ -123,7 +113,7 @@ where
     fn new(
         cam: flydra_mvg::MultiCamera<R>,
         a: OMatrix<R, U2, U3>,
-        ekf_observation_covariance_pixels: f32,
+        ekf_observation_covariance_pixels: f64,
     ) -> Self {
         let observation_matrix = {
             let mut o = OMatrix::<R, U2, U6>::zeros();
@@ -199,15 +189,9 @@ pub struct ExperimentInfoRow {
 pub struct NumberedRawUdpPoint {
     /// the original index of the detected point
     pub idx: u8,
-    /// the actuall detected point
+    /// the actual detected point
     pub pt: flydra_types::FlydraRawUdpPoint,
 }
-
-#[cfg(feature = "full-3d")]
-pub type SwitchingTrackingParams = flydra_types::TrackingParamsInner3D;
-
-#[cfg(feature = "flat-3d")]
-pub type SwitchingTrackingParams = flydra_types::TrackingParamsInnerFlat3D;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrackingParamsSaver {
@@ -503,12 +487,14 @@ fn test_set_of_subsets() {
     }
 }
 
+#[derive(Debug)]
 pub struct KalmanEstimateRecord {
     pub record: KalmanEstimatesRow,
     pub data_assoc_rows: Vec<DataAssocRow>,
     pub mean_reproj_dist_100x: Option<u64>,
 }
 
+#[derive(Debug)]
 pub enum SaveToDiskMsg {
     // birth?
     KalmanEstimate(KalmanEstimateRecord),
@@ -519,7 +505,6 @@ pub enum SaveToDiskMsg {
     Textlog(TextlogRow),
     TriggerClockInfo(TriggerClockInfoRow),
     SetExperimentUuid(String),
-    QuitNow,
 }
 
 /// Acts like a `csv::Writer` but buffers and orders by frame.
@@ -528,12 +513,18 @@ pub enum SaveToDiskMsg {
 /// through the saved rows assuming that they are ordered. This assumption
 /// is easy to implicitly make, so we make it true by doing this.
 struct OrderingWriter {
-    wtr: csv::Writer<Box<dyn std::io::Write>>,
+    wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     buffer: BTreeMap<u64, Vec<KalmanEstimatesRow>>,
 }
 
+fn _test_ordering_writer_is_send() {
+    // Compile-time test to ensure OrderingWriter implements Send trait.
+    fn implements<T: Send>() {}
+    implements::<OrderingWriter>();
+}
+
 impl OrderingWriter {
-    fn new(wtr: csv::Writer<Box<dyn std::io::Write>>) -> Self {
+    fn new(wtr: csv::Writer<Box<dyn std::io::Write + Send>>) -> Self {
         let buffer = BTreeMap::new();
         Self { wtr, buffer }
     }
@@ -611,24 +602,16 @@ impl<T: Counter> StartedHistogram<T> {
     }
 }
 
+#[derive(Default)]
 struct HistogramWritingState {
     current_store: Option<StartedHistogram<u64>>,
     histograms: Vec<IntervalHistogram<u64>>,
 }
 
-impl Default for HistogramWritingState {
-    fn default() -> Self {
-        Self {
-            current_store: None,
-            histograms: vec![],
-        }
-    }
-}
-
 fn save_hlog(
     output_dirname: &std::path::Path,
     fname: &str,
-    histograms: &mut Vec<IntervalHistogram<u64>>,
+    histograms: &mut [IntervalHistogram<u64>],
     file_start_time: std::time::SystemTime,
 ) {
     // Write the reconstruction latency histograms to disk.
@@ -703,6 +686,7 @@ fn histogram_record(
     Ok(())
 }
 
+#[derive(Debug)]
 pub struct StartSavingCsvConfig {
     pub out_dir: std::path::PathBuf,
     pub local: Option<chrono::DateTime<chrono::Local>>,
@@ -714,70 +698,76 @@ pub struct StartSavingCsvConfig {
 }
 
 /// A struct which implements `std::marker::Send` to control coord processing.
-#[derive(Clone)]
+///
+/// Do not prefer to keep this. Rather, clone the inner `braidz_write_tx`.
 pub struct CoordProcessorControl {
-    save_data_tx: channellib::Sender<SaveToDiskMsg>,
+    braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
 }
 
 impl CoordProcessorControl {
-    pub fn new(save_data_tx: channellib::Sender<SaveToDiskMsg>) -> Self {
-        Self { save_data_tx }
+    #[inline]
+    pub fn new(braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>) -> Self {
+        Self { braidz_write_tx }
     }
 
-    pub fn start_saving_data(&self, cfg: StartSavingCsvConfig) {
-        self.save_data_tx
+    pub async fn start_saving_data(&self, cfg: StartSavingCsvConfig) {
+        self.braidz_write_tx
             .send(SaveToDiskMsg::StartSavingCsv(cfg))
-            .cb_ok();
+            .await
+            .unwrap();
     }
 
-    pub fn stop_saving_data(&self) {
-        self.save_data_tx.send(SaveToDiskMsg::StopSavingCsv).cb_ok();
+    pub async fn stop_saving_data(&self) -> Result<()> {
+        self.braidz_write_tx
+            .send(SaveToDiskMsg::StopSavingCsv)
+            .await?;
+        Ok(())
     }
 
-    pub fn append_textlog_message(&self, msg: TextlogRow) {
-        self.save_data_tx.send(SaveToDiskMsg::Textlog(msg)).cb_ok();
+    pub async fn append_textlog_message(&self, msg: TextlogRow) {
+        self.braidz_write_tx
+            .send(SaveToDiskMsg::Textlog(msg))
+            .await
+            .unwrap();
     }
 
-    pub fn append_trigger_clock_info_message(&self, msg: TriggerClockInfoRow) {
-        self.save_data_tx
+    pub async fn append_trigger_clock_info_message(&self, msg: TriggerClockInfoRow) {
+        self.braidz_write_tx
             .send(SaveToDiskMsg::TriggerClockInfo(msg))
-            .cb_ok();
+            .await
+            .unwrap();
     }
 
-    pub fn set_experiment_uuid(&self, uuid: String) {
-        self.save_data_tx
+    pub async fn set_experiment_uuid(&self, uuid: String) {
+        self.braidz_write_tx
             .send(SaveToDiskMsg::SetExperimentUuid(uuid))
-            .cb_ok();
+            .await
+            .unwrap();
     }
 }
 
+// TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
+// (and thus prevent it from being dropped and saving files). We should consider
+// refactoring this so that mostly only Weak<Sender<_>> copies of `braidz_write_tx`
+// are kept and thus that the sender will drop when needed. The alternative (or
+// addition) is to have a message which will close the writer's files, as is
+// done with `SaveToDiskMsg::StopSavingCsv`.
 pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
-    pub save_data_tx: channellib::Sender<SaveToDiskMsg>,
-    pub writer_thread_handle: Option<std::thread::JoinHandle<()>>,
-    model_servers: Vec<Box<dyn GetsUpdates>>,
-    tracking_params: Arc<SwitchingTrackingParams>,
+    pub braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
+    pub writer_join_handle: tokio::task::JoinHandle<Result<()>>,
+    model_servers: Vec<tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>>,
+    tracking_params: Arc<TrackingParams>,
     mc2: Option<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>>,
-}
-
-impl Drop for CoordProcessor {
-    fn drop(&mut self) {
-        self.save_data_tx.send(SaveToDiskMsg::QuitNow).cb_ok();
-        let h2 = std::mem::replace(&mut self.writer_thread_handle, None);
-        if let Some(h) = h2 {
-            h.join().unwrap();
-        }
-    }
 }
 
 impl CoordProcessor {
     pub fn new(
+        handle: tokio::runtime::Handle,
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: SwitchingTrackingParams,
-        save_data_tx: channellib::Sender<SaveToDiskMsg>,
-        save_data_rx: channellib::Receiver<SaveToDiskMsg>,
+        tracking_params: TrackingParams,
         save_empty_data2d: bool,
         saving_program_name: &str,
         ignore_latency: bool,
@@ -786,33 +776,33 @@ impl CoordProcessor {
 
         let recon2 = recon.clone();
 
-        info!("using SwitchingTrackingParams {:?}", tracking_params);
+        info!("using TrackingParams {:?}", tracking_params);
 
-        let tracking_params = Arc::new(tracking_params);
+        let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);
         let tracking_params2 = tracking_params.clone();
-        let writer_thread_builder = std::thread::Builder::new().name("writer_thread".to_string());
         let cam_manager2 = cam_manager.clone();
         let saving_program_name = saving_program_name.to_string();
-        // Should we use tokio spawn_blocking here?
-        let writer_thread_handle = Some(writer_thread_builder.spawn(move || {
-            run_func(|| {
-                writer_thread_main(
-                    save_data_rx,
-                    cam_manager2,
-                    recon2.clone(),
-                    tracking_params2,
-                    save_empty_data2d,
-                    &saving_program_name,
-                    ignore_latency,
-                )
-            })
-        })?);
+
+        let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
+
+        let braidz_write_rx = tokio_stream::wrappers::ReceiverStream::new(braidz_write_rx);
+
+        let writer_future = writer_task_main(
+            braidz_write_rx,
+            cam_manager2,
+            recon2.clone(),
+            tracking_params2,
+            save_empty_data2d,
+            saving_program_name.to_string(),
+            ignore_latency,
+        );
+        let writer_join_handle = handle.spawn(writer_future);
 
         Ok(Self {
             cam_manager,
             recon,
-            save_data_tx,
-            writer_thread_handle,
+            braidz_write_tx,
+            writer_join_handle,
             tracking_params,
             model_servers: vec![],
             mc2: None,
@@ -829,48 +819,46 @@ impl CoordProcessor {
             recon.clone(),
             fps,
             self.cam_manager.clone(),
-            self.save_data_tx.clone(),
+            self.braidz_write_tx.clone(),
         )
     }
 
-    pub fn get_write_controller(&self) -> CoordProcessorControl {
-        CoordProcessorControl {
-            save_data_tx: self.save_data_tx.clone(),
-        }
+    pub fn get_braidz_write_tx(&self) -> tokio::sync::mpsc::Sender<SaveToDiskMsg> {
+        self.braidz_write_tx.clone()
     }
 
-    pub fn add_listener(&mut self, model_server: Box<dyn GetsUpdates>) {
+    pub fn add_listener(
+        &mut self,
+        model_server: tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>,
+    ) {
         self.model_servers.push(model_server);
     }
 
     /// Consume the CoordProcessor and the input stream.
     ///
-    /// Returns a future that completes when done. The vast majority
-    /// of the runtime is done without returning from this function.
-    /// It is async, though, and yields many times throughout this
-    /// execution.
+    /// Returns a future that completes when done. The vast majority of the
+    /// runtime is done without returning from this function. It is async,
+    /// though, and yields many times throughout this execution.
     ///
-    /// Upon completion, returns a thread handle so that data being
-    /// saved to disk can be completely saved before ending the process.
+    /// Upon completion, returns a [tokio::task::JoinHandle] from a spawned
+    /// writing task. To ensure data is completely saved, this should be driver
+    /// to completion before ending the process.
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
-    ) -> Option<std::thread::JoinHandle<()>>
+    ) -> tokio::task::JoinHandle<Result<()>>
     where
         S: 'static + Send + futures::stream::Stream<Item = StreamItem> + Unpin,
     {
         let mut prev_frame = SyncFno(0);
-        let save_data_tx = self.save_data_tx.clone();
-
         use futures::stream::StreamExt;
 
-        // Save raw incoming data as first step by cloning it and sending to the
-        // receiver.
-        //
-        // This consumes the stream `frame_data_rx` and creates a new stream of
-        // `StreamItem`.
-        let stream1 = frame_data_rx.map(move |si: StreamItem| {
+        // As first step, save raw incoming data. The raw data is saved by
+        // cloning each packet and sending this to the writing task. A new
+        // `Stream<Item = StreamItem>` is returned which simply moves the items
+        // from the original stream.
+        let stream1 = Box::pin(frame_data_rx.then(|si: StreamItem| async {
             match &si {
                 StreamItem::EOF => {}
                 StreamItem::Packet(fdp) => {
@@ -885,13 +873,14 @@ impl CoordProcessor {
                         panic!("Impossible frame number with frame data {:?}", fdp);
                     }
 
-                    save_data_tx
+                    self.braidz_write_tx
                         .send(SaveToDiskMsg::Data2dDistorted(fdp.clone()))
-                        .cb_ok();
+                        .await
+                        .unwrap();
                 }
             }
             si
-        });
+        }));
 
         // This clones the `Arc` but the inner camera manager remains not
         // cloned.
@@ -944,36 +933,15 @@ impl CoordProcessor {
                 let (model_collection, unused) =
                     model_collection.solve_data_association_and_update();
                 // create new and delete old objects
-                let model_collection =
-                    model_collection.births_and_deaths(unused, &self.model_servers);
+                let model_collection = model_collection
+                    .births_and_deaths(unused, &self.model_servers)
+                    .await;
                 self.mc2 = Some(model_collection);
             }
         }
-        info!("contiguous_stream is done.");
-
         debug!("consume_stream future done");
 
-        self.writer_thread_handle.take()
-    }
-}
-
-/// run a function returning Result<()> and handle errors.
-// see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-pub fn run_func<F: FnOnce() -> std::result::Result<(), E>, E: std::error::Error>(real_func: F) {
-    // Decide which command to run, and run it, and print any errors.
-    if let Err(err) = real_func() {
-        let mut stderr = std::io::stderr();
-        writeln!(stderr, "In {}:{}: Error: {}", file!(), line!(), err)
-            .expect("unable to write error to stderr");
-
-        let mut source_err = err.source();
-
-        while let Some(source) = source_err {
-            writeln!(stderr, "Source: {}", source).expect("unable to write error to stderr");
-            source_err = source.source();
-        }
-
-        std::process::exit(1);
+        self.writer_join_handle
     }
 }
 
