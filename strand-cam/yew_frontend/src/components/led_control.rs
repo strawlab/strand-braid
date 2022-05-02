@@ -14,14 +14,11 @@ pub enum ChangeLedStateValue {
     NewIntensity(u16),
 }
 
-pub struct LedControl {
-    pulse_duration_ticks: u16,
-}
+pub struct LedControl {}
 
 pub enum Msg {
     Clicked(OnState),
     SetIntensityPercent(f32),
-    SetPulseDurationTicks(f32),
 }
 
 #[derive(PartialEq, Clone, Properties)]
@@ -38,9 +35,7 @@ impl Component for LedControl {
     type Properties = Props;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self {
-            pulse_duration_ticks: 500,
-        }
+        Self {}
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -65,9 +60,6 @@ impl Component for LedControl {
                     callback.emit(state);
                 }
             }
-            Msg::SetPulseDurationTicks(ticks) => {
-                self.pulse_duration_ticks = ticks.round() as u16;
-            }
         }
         false
     }
@@ -89,16 +81,6 @@ impl Component for LedControl {
                     current_value_label={LAST_DETECTED_VALUE_LABEL}
                     placeholder="intensity"
                     onsignal={ctx.link().callback(|v| {Msg::SetIntensityPercent(v)})}
-                    />
-                <h3>{"Pulse duration"}</h3>
-                <RangedValue
-                    unit="clock ticks"
-                    min=1.0
-                    max={std::u16::MAX as f32}
-                    current={self.pulse_duration_ticks as f32}
-                    current_value_label={LAST_DETECTED_VALUE_LABEL}
-                    placeholder="clock ticks"
-                    onsignal={ctx.link().callback(|v| {Msg::SetPulseDurationTicks(v)})}
                     />
             </div>
         }
