@@ -221,6 +221,11 @@ pub enum StrandCamError {
     ),
     #[error("futures mpsc send error: {0}")]
     FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
+    #[error("SendMsgErr")]
+    SendMsgErr {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[cfg(feature = "fiducial")]
     #[error("{0}")]
     CsvError(
@@ -252,6 +257,15 @@ pub enum StrandCamError {
         #[cfg_attr(feature = "backtrace", backtrace)]
         tokio::task::JoinError,
     ),
+}
+
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for StrandCamError {
+    fn from(_orig: tokio::sync::mpsc::error::SendError<T>) -> StrandCamError {
+        StrandCamError::SendMsgErr {
+            #[cfg(feature = "backtrace")]
+            backtrace: std::backtrace::Backtrace::capture(),
+        }
+    }
 }
 
 #[cfg(feature = "plugin-process-frame")]
@@ -3058,7 +3072,7 @@ pub async fn setup_app<M,C>(
                         });
                         error!("Channel full sending frame to process thread. Dropping frame data.");
                     } else {
-                        tx_frame.send(Msg::Mframe(frame)).await.unwrap();
+                        tx_frame.send(Msg::Mframe(frame)).await?;
                     }
                 },
                 ci2_async::FrameResult::SingleFrameError(s) => {
@@ -3067,6 +3081,7 @@ pub async fn setup_app<M,C>(
             }
         };
         debug!("cam_stream_future future done {}:{}", file!(), line!());
+        Ok::<_,StrandCamError>(())
     }};
 
     let do_version_check = match std::env::var_os("DISABLE_VERSION_CHECK") {
@@ -3351,10 +3366,10 @@ pub async fn setup_app<M,C>(
                     }
                 }
                 CamArg::SetFrameOffset(fo) => {
-                    tx_frame2.send(Msg::SetFrameOffset(fo)).await.unwrap();
+                    tx_frame2.send(Msg::SetFrameOffset(fo)).await?;
                 }
                 CamArg::SetClockModel(cm) => {
-                    tx_frame2.send(Msg::SetClockModel(cm)).await.unwrap();
+                    tx_frame2.send(Msg::SetClockModel(cm)).await?;
                 }
                 CamArg::SetFormatStr(v) => {
                     let mut tracker = shared_store_arc.write();
@@ -3380,7 +3395,7 @@ pub async fn setup_app<M,C>(
                         };
 
                         // Send the command.
-                        tx_frame2.send(msg).await.unwrap();
+                        tx_frame2.send(msg).await?;
 
                         // Save the new recording state.
                         let mut tracker = shared_store_arc.write();
@@ -3476,7 +3491,7 @@ pub async fn setup_app<M,C>(
                             Some(recording_path) => Msg::StartAprilTagRec(recording_path.path()),
                             None => Msg::StopAprilTagRec,
                         };
-                        tx_frame2.send(msg).await.unwrap();
+                        tx_frame2.send(msg).await?;
                     }
 
                     // Here we save the new recording state.
@@ -3495,7 +3510,7 @@ pub async fn setup_app<M,C>(
                         let tracker = shared_store_arc.read();
                         tracker.as_ref().format_str_mkv.clone()
                     };
-                    tx_frame2.send(Msg::PostTriggerStartMkv((format_str_mkv.clone(), mkv_recording_config))).await.unwrap();
+                    tx_frame2.send(Msg::PostTriggerStartMkv((format_str_mkv.clone(), mkv_recording_config))).await?;
                     {
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|shared| {
@@ -3504,7 +3519,7 @@ pub async fn setup_app<M,C>(
                     }
                 }
                 CamArg::SetPostTriggerBufferSize(size) => {
-                    tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await.unwrap();
+                    tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await?;
                 }
                 CamArg::SetIsRecordingFmf(do_recording) => {
                     // Copy values from cache and release the lock immediately.
@@ -3528,7 +3543,7 @@ pub async fn setup_app<M,C>(
                         };
 
                         // Send the command.
-                        tx_frame2.send(msg).await.unwrap();
+                        tx_frame2.send(msg).await?;
 
                         // Save the new recording state.
                         let mut tracker = shared_store_arc.write();
@@ -3561,7 +3576,7 @@ pub async fn setup_app<M,C>(
                             };
 
                             // Send the command.
-                            tx_frame2.send(msg).await.unwrap();
+                            tx_frame2.send(msg).await?;
 
                             // Save the new recording state.
                             let mut tracker = shared_store_arc.write();
@@ -3582,7 +3597,7 @@ pub async fn setup_app<M,C>(
                             });
                         }
                         tx_frame2
-                                .send(Msg::SetTracking(value)).await.unwrap();
+                                .send(Msg::SetTracking(value)).await?;
                     }
                 }
                 CamArg::DoQuit => {
@@ -3591,7 +3606,7 @@ pub async fn setup_app<M,C>(
                 CamArg::SetIsSavingObjDetectionCsv(value) => {
                     // update store in worker thread
                     #[cfg(feature="image_tracker")]
-                    tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(value)).await.unwrap();
+                    tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(value)).await?;
                 }
                 CamArg::SetObjDetectionConfig(yaml_buf) => {
                     // parse buffer
@@ -3602,7 +3617,7 @@ pub async fn setup_app<M,C>(
                             let cfg2 = cfg.clone();
 
                             // Update config and send to frame process thread
-                            tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await.unwrap();
+                            tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await?;
                             {
                                 let mut tracker = shared_store_arc.write();
                                 tracker.modify(|shared| {
@@ -3880,14 +3895,14 @@ pub async fn setup_app<M,C>(
 
         // In theory, all things currently being saved should nicely stop themselves when dropped.
         // For now, while we are working on ctrlc handling, we manually stop them.
-        tx_frame2.send(Msg::StopFMF).await.unwrap();
-        tx_frame2.send(Msg::StopMkv).await.unwrap();
+        tx_frame2.send(Msg::StopFMF).await?;
+        tx_frame2.send(Msg::StopMkv).await?;
         #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::StopUFMF).await.unwrap();
+        tx_frame2.send(Msg::StopUFMF).await?;
         #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving)).await.unwrap();
+        tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving)).await?;
 
-        tx_frame2.send(Msg::QuitFrameProcessThread).await.unwrap(); // this will quit the frame_process_task
+        tx_frame2.send(Msg::QuitFrameProcessThread).await?; // this will quit the frame_process_task
 
         // Tell all streams to quit.
         debug!("*** sending quit trigger to all valved streams. **** {}:{}", file!(), line!());
@@ -3915,6 +3930,7 @@ pub async fn setup_app<M,C>(
         }
 
         info!("cam_args_rx future is resolved");
+        Ok::<_,StrandCamError>(())
     }};
 
     if !args.no_browser {
@@ -4135,7 +4151,7 @@ pub async fn setup_app<M,C>(
     };
 
     let cam_arg_future2 = async move {
-        cam_arg_future.await;
+        cam_arg_future.await?;
 
         // we get here once the whole program is trying to shut down.
         info!("Now stopping spawned tasks.");
