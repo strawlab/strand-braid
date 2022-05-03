@@ -1425,7 +1425,7 @@ async fn frame_process_task(
                                 let frame_data = flydra2::FrameData::new(
                                     ros_cam_name.clone(),
                                     cam_num,
-                                    SyncFno(frame.extra().host_framenumber() as u64),
+                                    SyncFno(frame.extra().host_framenumber().try_into().unwrap()),
                                     trigger_timestamp,
                                     cam_received_timestamp,
                                     device_timestamp,

@@ -29,6 +29,8 @@ impl<T> ExtendedError<T> for std::result::Result<T, pylon_cxx::PylonError> {
 
 pub type Result<M> = std::result::Result<M, Error>;
 
+const BAD_FNO: usize = usize::MAX;
+
 mod feature_cache;
 use feature_cache::*;
 
@@ -280,6 +282,9 @@ fn _test_camera_is_send() {
 
 impl<'a> WrappedCamera<'a> {
     fn new(lib: &'a pylon_cxx::Pylon, name: &str) -> ci2::Result<Self> {
+        let max_u64_as_usize: usize = u64::MAX.try_into().unwrap();
+        assert_eq!(max_u64_as_usize, BAD_FNO);
+
         let tl_factory = pylon_cxx::TlFactory::instance(lib);
         let devices = tl_factory
             .enumerate_devices()
@@ -960,6 +965,10 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             let stride = gr.stride().map_pylon_err()?.try_into()?;
             let image_data = buffer.to_vec();
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
+
+            if fno == BAD_FNO {
+                panic!("host_framenumber has impossible value");
+            }
 
             let extra = Box::new(PylonExtra {
                 block_id,
