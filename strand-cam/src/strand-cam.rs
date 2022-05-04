@@ -47,8 +47,7 @@ use bui_backend::{AccessControl, CallbackHandler};
 use bui_backend_types::CallbackDataAndSession;
 
 #[cfg(feature = "flydratrax")]
-use http_video_streaming_types::DrawableShape;
-use http_video_streaming_types::StrokeStyle;
+use http_video_streaming_types::{DrawableShape, StrokeStyle};
 
 use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
@@ -605,10 +604,9 @@ impl AprilTagWriter {
     }
 }
 
+#[cfg(feature = "flydratrax")]
 struct FlydraConfigState {
-    #[allow(dead_code)]
     region: video_streaming::Shape,
-    #[cfg(feature = "flydratrax")]
     kalman_tracking_config: KalmanTrackingConfig,
 }
 
@@ -655,8 +653,7 @@ struct MainbrainInfo {
     transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
 }
 
-// We perform image analysis in its own thread.
-#[allow(unused_mut, unused_variables)]
+// We perform image analysis in its own task.
 async fn frame_process_task(
     my_runtime: tokio::runtime::Handle,
     #[cfg(feature = "flydratrax")] flydratrax_model_server: (
@@ -669,7 +666,6 @@ async fn frame_process_task(
     width: u32,
     height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
-    cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     #[cfg(feature = "image_tracker")] im_pt_detect_cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
@@ -680,10 +676,10 @@ async fn frame_process_task(
         Vec<http_video_streaming_types::Point>,
     >,
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
-    led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
+    #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     mut quit_rx: tokio::sync::oneshot::Receiver<()>,
     is_starting_tx: tokio::sync::oneshot::Sender<()>,
-    http_camserver_info: BuiServerInfo,
+    #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerInfo,
     process_frame_priority: Option<(i32, i32)>,
     #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
@@ -691,8 +687,8 @@ async fn frame_process_task(
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
-    save_empty_data2d: SaveEmptyData2dType,
-    valve: stream_cancel::Valve,
+    #[cfg(feature = "flydratrax")] save_empty_data2d: SaveEmptyData2dType,
+    #[cfg(feature = "flydratrax")] valve: stream_cancel::Valve,
     #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
         tokio::sync::oneshot::Receiver<()>,
     >,
@@ -764,7 +760,6 @@ async fn frame_process_task(
     #[cfg(feature = "image_tracker")]
     #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
-    let version_str = env!("CARGO_PKG_VERSION").to_string();
 
     #[allow(unused_assignments)]
     let frame_offset = if is_braid {
@@ -806,7 +801,6 @@ async fn frame_process_task(
 
     #[cfg(feature = "image_tracker")]
     let mut im_tracker = FlyTracker::new(
-        &my_runtime,
         &cam_name,
         width,
         height,
@@ -822,6 +816,7 @@ async fn frame_process_task(
         debug_image_server_shutdown_rx,
         acquisition_duration_allowed_imprecision_msec,
     )?;
+    #[cfg(feature = "image_tracker")]
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
@@ -829,13 +824,18 @@ async fn frame_process_task(
     let mut kalman_tracking_config = KalmanTrackingConfig::default(); // this is replaced below
     #[cfg(feature = "flydratrax")]
     let mut led_program_config;
+    #[cfg(feature = "flydratrax")]
     let mut led_state = false;
+    #[cfg(feature = "flydratrax")]
     let mut current_flydra_config_state: Option<FlydraConfigState> = None;
+    #[cfg(feature = "flydratrax")]
     let mut dirty_flydra = false;
     #[cfg(feature = "flydratrax")]
     let mut current_led_program_config_state: Option<LedProgramConfig> = None;
+    #[cfg(feature = "flydratrax")]
     let mut dirty_led_program = false;
 
+    #[cfg(feature = "flydratrax")]
     let red_style = StrokeStyle::from_rgb(255, 100, 100);
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
@@ -960,10 +960,8 @@ async fn frame_process_task(
                                 let (model_sender, model_receiver) =
                                     tokio::sync::mpsc::channel(100);
 
-                                let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let led_box_tx_std2 = led_box_tx_std.clone();
                                 let ssa2 = ssa.clone();
-                                let cam_args_tx2 = cam_args_tx.clone();
 
                                 assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
@@ -1082,6 +1080,8 @@ async fn frame_process_task(
         };
 
         if let Some(ref store_cache_ref) = store_cache {
+            #[cfg(not(feature = "flydratrax"))]
+            let _ = store_cache_ref;
             #[cfg(feature = "flydratrax")]
             {
                 if let Some(ref cfcs) = current_flydra_config_state {
@@ -1154,16 +1154,16 @@ async fn frame_process_task(
                 #[cfg(feature = "fiducial")]
                 {
                     if let Some(x) = store_cache.as_ref() {
-                        if let Some(apriltag_state) = &x.apriltag_state {
-                            apriltag_writer = Some(AprilTagWriter::new(
-                                format_str_apriltags_csv,
-                                &x.camera_name,
-                                x.image_width as usize,
-                                x.image_height as usize,
-                            )?);
-                        }
+                        apriltag_writer = Some(AprilTagWriter::new(
+                            format_str_apriltags_csv,
+                            &x.camera_name,
+                            x.image_width as usize,
+                            x.image_height as usize,
+                        )?);
                     }
                 }
+                #[cfg(not(feature = "fiducial"))]
+                let _ = format_str_apriltags_csv;
             }
             Msg::StopAprilTagRec => {
                 #[cfg(feature = "fiducial")]
@@ -1219,6 +1219,8 @@ async fn frame_process_task(
                 let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
                     #[allow(unused_mut)]
                     let mut results = Vec::new();
+                    #[cfg(not(feature = "checkercal"))]
+                    let _ = inner;
                     #[cfg(feature = "checkercal")]
                     {
                         let (checkerboard_data, checkerboard_save_debug) = inner;
@@ -1467,7 +1469,7 @@ async fn frame_process_task(
                     #[cfg(feature = "image_tracker")]
                     {
                         if is_doing_object_detection {
-                            let (device_timestamp, block_id, fno, stamp) =
+                            let (device_timestamp, block_id, _fno, _stamp) =
                                 frame_info_extractor.extract_frame_info(&frame);
 
                             let inner_ufmf_state = ufmf_state.take().unwrap();
@@ -1603,14 +1605,14 @@ async fn frame_process_task(
                                             git_hash: env!("GIT_HASH").to_string(),
                                         };
 
-                                        let cfg_clone = im_tracker.config();
+                                        let object_detection_cfg = im_tracker.config();
 
                                         let full_cfg = FullCfgFview2_0_26 {
                                             app: save_cfg,
                                             camera: camera_cfg.clone(),
                                             created_at: local,
                                             csv_rate_limit: rate_limit,
-                                            object_detection_cfg: im_tracker.config().clone(),
+                                            object_detection_cfg,
                                         };
                                         let cfg_yaml = serde_yaml::to_string(&full_cfg).unwrap();
                                         writeln!(fd, "# -- start of yaml config --")?;
@@ -1959,10 +1961,14 @@ async fn frame_process_task(
             Msg::SetFrameOffset(fo) => {
                 #[cfg(feature = "image_tracker")]
                 im_tracker.set_frame_offset(fo);
+                #[cfg(not(feature = "image_tracker"))]
+                let _ = fo;
             }
             Msg::SetClockModel(cm) => {
                 #[cfg(feature = "image_tracker")]
                 im_tracker.set_clock_model(cm);
+                #[cfg(not(feature = "image_tracker"))]
+                let _ = cm;
             }
             Msg::StopMkv => {
                 if let Some(mut inner) = my_mkv_writer.take() {
@@ -2732,9 +2738,6 @@ where
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = args.save_empty_data2d;
 
-    #[cfg(not(feature = "flydratrax"))]
-    let save_empty_data2d = true; // not used
-
     #[cfg(feature = "image_tracker")]
     let tracker_cfg = match &tracker_cfg_src {
         &ImPtDetectCfgSource::ChangedSavedToDisk(ref src) => {
@@ -3086,10 +3089,11 @@ where
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature = "flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
+        #[cfg(feature = "flydratrax")]
         let led_box_tx_std = led_box_tx_std.clone();
+        #[cfg(feature = "flydratrax")]
         let http_camserver_info2 = http_camserver_info.clone();
         let led_box_heartbeat_update_arc2 = led_box_heartbeat_update_arc.clone();
-        let cam_args_tx2 = cam_args_tx.clone();
 
         let handle2 = rt_handle.clone();
         #[cfg(feature = "flydratrax")]
@@ -3133,6 +3137,7 @@ where
             current_image_png: current_image_png.into(),
         };
 
+        #[cfg(feature = "flydratrax")]
         let valve2 = valve.clone();
         let cam_name2 = cam_name.clone();
         let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
@@ -3149,7 +3154,6 @@ where
                     image_width,
                     image_height,
                     rx_frame,
-                    cam_args_tx2,
                     #[cfg(feature = "image_tracker")]
                     tracker_cfg,
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
@@ -3160,9 +3164,11 @@ where
                     plugin_result_rx,
                     #[cfg(feature = "plugin-process-frame")]
                     plugin_wait_dur,
+                    #[cfg(feature = "flydratrax")]
                     led_box_tx_std,
                     quit_rx,
                     is_starting_tx,
+                    #[cfg(feature = "flydratrax")]
                     http_camserver_info2,
                     process_frame_priority,
                     #[cfg(feature = "debug-images")]
@@ -3174,7 +3180,9 @@ where
                     do_process_frame_callback,
                     #[cfg(feature = "checkercal")]
                     collected_corners_arc.clone(),
+                    #[cfg(feature = "flydratrax")]
                     save_empty_data2d,
+                    #[cfg(feature = "flydratrax")]
                     valve2,
                     #[cfg(feature = "debug-images")]
                     Some(debug_image_shutdown_rx),
