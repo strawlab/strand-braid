@@ -790,10 +790,10 @@ impl CoordProcessor {
         let writer_future = writer_task_main(
             braidz_write_rx,
             cam_manager2,
-            recon2.clone(),
+            recon2,
             tracking_params2,
             save_empty_data2d,
-            saving_program_name.to_string(),
+            saving_program_name,
             ignore_latency,
         );
         let writer_join_handle = handle.spawn(writer_future);
@@ -915,7 +915,7 @@ impl CoordProcessor {
         // of the runtime in this loop.
         while let Some(bundle) = contiguous_stream.next().await {
             assert!(
-                !(bundle.frame() < prev_frame),
+                bundle.frame() >= prev_frame,
                 "Frame number decreasing? The previously received frame was {}, but now have {}",
                 prev_frame,
                 bundle.frame()
@@ -991,7 +991,7 @@ fn test_csv_nan() {
     {
         let rdr = csv::Reader::from_reader(csv_buf.as_slice());
         let mut count = 0;
-        for row in rdr.into_deserialize().into_iter() {
+        for row in rdr.into_deserialize() {
             let row: Data2dDistortedRow = row.unwrap();
             count += 1;
             assert!(row.x.is_nan());

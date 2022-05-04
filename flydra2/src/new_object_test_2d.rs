@@ -34,10 +34,10 @@ impl HypothesisTest for NewObjectTestFlat3D {
             let z0 = Plane::new(Vector3::z_axis()); // build a plane from its center and normal, plane z==0 here.
             let eye = nalgebra::Isometry3::identity();
 
-            let cam = recon_ref.cam_by_name(&cam_name.as_str()).unwrap();
+            let cam = recon_ref.cam_by_name(cam_name.as_str()).unwrap();
 
             {
-                let air_ray = cam.project_distorted_pixel_to_ray(&xy);
+                let air_ray = cam.project_distorted_pixel_to_ray(xy);
                 let solid = false; // will intersect either side of plane
 
                 use ncollide3d::query::RayCast;

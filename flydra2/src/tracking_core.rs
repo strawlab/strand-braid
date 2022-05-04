@@ -51,6 +51,7 @@ struct ModelFrameStarted {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum ObservationModel {
     ObservationModelAndLikelihoods(ObservationModelAndLikelihoods),
     NoObservations,
@@ -425,7 +426,7 @@ impl LivingModel<ModelFramePosteriors> {
                         data_assoc_rows: vec![],
                         mean_reproj_dist_100x: None,
                     });
-                    tokio::sync::mpsc::Sender::send(&save_data_tx, msg)
+                    tokio::sync::mpsc::Sender::send(save_data_tx, msg)
                         .await
                         .unwrap();
                 }
