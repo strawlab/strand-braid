@@ -656,59 +656,51 @@ struct MainbrainInfo {
 }
 
 // We perform image analysis in its own thread.
-// We want to remove rustfmt::skip attribute. There is a bug similar to
-// https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
-// 4109 does not seem exactly correct (at least presuming this was fixed in
-// rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
-// correct bug.
-#[rustfmt::skip]
-#[allow(unused_mut,unused_variables)]
+#[allow(unused_mut, unused_variables)]
 async fn frame_process_task(
     my_runtime: tokio::runtime::Handle,
-    #[cfg(feature="flydratrax")]
-    flydratrax_model_server: (tokio::sync::mpsc::Sender<(flydra2::SendType, flydra2::TimeDataPassthrough)>, flydra2::ModelServer),
-    #[cfg(feature="flydratrax")]
-    flydratrax_calibration_source: CalSource,
+    #[cfg(feature = "flydratrax")] flydratrax_model_server: (
+        tokio::sync::mpsc::Sender<(flydra2::SendType, flydra2::TimeDataPassthrough)>,
+        flydra2::ModelServer,
+    ),
+    #[cfg(feature = "flydratrax")] flydratrax_calibration_source: CalSource,
     cam_name: RawCamName,
     camera_cfg: CameraCfgFview2_0_26,
     width: u32,
     height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
     cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
-    #[cfg(feature="image_tracker")]
-    im_pt_detect_cfg: ImPtDetectCfg,
+    #[cfg(feature = "image_tracker")] im_pt_detect_cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
-    #[cfg(feature = "plugin-process-frame")]
-    plugin_handler_thread_tx: channellib::Sender<DynamicFrame>,
-    #[cfg(feature = "plugin-process-frame")]
-    plugin_result_rx:  channellib::Receiver<Vec<http_video_streaming_types::Point>>,
-    #[cfg(feature="plugin-process-frame")]
-    plugin_wait_dur: std::time::Duration,
+    #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: channellib::Sender<
+        DynamicFrame,
+    >,
+    #[cfg(feature = "plugin-process-frame")] plugin_result_rx: channellib::Receiver<
+        Vec<http_video_streaming_types::Point>,
+    >,
+    #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     mut quit_rx: tokio::sync::oneshot::Receiver<()>,
     is_starting_tx: tokio::sync::oneshot::Sender<()>,
     http_camserver_info: BuiServerInfo,
-    process_frame_priority: Option<(i32,i32)>,
-    #[cfg(feature = "debug-images")]
-    debug_addr: std::net::SocketAddr,
+    process_frame_priority: Option<(i32, i32)>,
+    #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
-    #[cfg(feature="plugin-process-frame")]
-    do_process_frame_callback: bool,
-    #[cfg(feature="checkercal")]
-    collected_corners_arc: CollectedCornersArc,
+    #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
+    #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
     save_empty_data2d: SaveEmptyData2dType,
     valve: stream_cancel::Valve,
-    #[cfg(feature = "debug-images")]
-    debug_image_server_shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
+        tokio::sync::oneshot::Receiver<()>,
+    >,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
     new_cam_data: flydra_types::RegisterNewCamera,
     frame_info_extractor: &dyn ci2::ExtractFrameInfo,
     app_name: &'static str,
-) -> anyhow::Result<()>
-{
+) -> anyhow::Result<()> {
     let is_braid = camdata_addr.is_some();
 
     let ros_cam_name: RosCamName = new_cam_data.ros_cam_name.clone();
@@ -717,27 +709,34 @@ async fn frame_process_task(
     {
         if let Some((policy, priority)) = process_frame_priority {
             posix_scheduler::sched_setscheduler(0, policy, priority)?;
-            info!("Frame processing thread called POSIX sched_setscheduler() \
-                with policy {} priority {}", policy, priority);
+            info!(
+                "Frame processing thread called POSIX sched_setscheduler() \
+                with policy {} priority {}",
+                policy, priority
+            );
         } else {
-            info!("Frame processing thread using \
-                default posix scheduler settings.");
+            info!(
+                "Frame processing thread using \
+                default posix scheduler settings."
+            );
         }
     }
 
     #[cfg(not(feature = "posix_sched_fifo"))]
     {
         if process_frame_priority.is_some() {
-            panic!("Cannot set process frame priority because no support
-                was compiled in.");
+            panic!(
+                "Cannot set process frame priority because no support
+                was compiled in."
+            );
         } else {
             info!("Frame processing thread not configured to set posix scheduler.");
         }
     }
 
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let mut maybe_flydra2_stream = None;
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let mut maybe_flydra2_write_control = None;
 
     #[cfg_attr(not(feature = "image_tracker"), allow(dead_code))]
@@ -756,13 +755,13 @@ async fn frame_process_task(
         Saving(CsvSavingState),
     }
 
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let mut apriltag_writer: Option<_> = None;
     let mut my_mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
     let version_str = env!("CARGO_PKG_VERSION").to_string();
@@ -775,30 +774,43 @@ async fn frame_process_task(
         Some(0)
     };
 
-    let (transmit_feature_detect_settings_tx, transmit_msg_tx) = if let Some(info) = mainbrain_info {
-
+    let (transmit_feature_detect_settings_tx, transmit_msg_tx) = if let Some(info) = mainbrain_info
+    {
         let addr = info.mainbrain_internal_addr;
         let transmit_msg_tx = info.transmit_msg_tx.clone();
 
         let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
             tokio::sync::mpsc::channel::<image_tracker_types::ImPtDetectCfg>(10);
 
-        my_runtime.spawn(convert_stream( ros_cam_name.clone(), transmit_feature_detect_settings_rx, transmit_msg_tx.clone() ));
+        my_runtime.spawn(convert_stream(
+            ros_cam_name.clone(),
+            transmit_feature_detect_settings_rx,
+            transmit_msg_tx.clone(),
+        ));
 
         let transmit_msg_rx = info.transmit_msg_rx;
-        my_runtime.spawn(register_node_and_update_image(addr,
+        my_runtime.spawn(register_node_and_update_image(
+            addr,
             new_cam_data,
             // current_image_png,
             transmit_msg_rx,
         ));
 
-        (Some(transmit_feature_detect_settings_tx), Some(info.transmit_msg_tx))
+        (
+            Some(transmit_feature_detect_settings_tx),
+            Some(info.transmit_msg_tx),
+        )
     } else {
         (None, None)
     };
 
-    #[cfg(feature="image_tracker")]
-    let mut im_tracker = FlyTracker::new(&my_runtime, &cam_name, width, height, im_pt_detect_cfg.clone(),
+    #[cfg(feature = "image_tracker")]
+    let mut im_tracker = FlyTracker::new(
+        &my_runtime,
+        &cam_name,
+        width,
+        height,
+        im_pt_detect_cfg.clone(),
         frame_offset,
         #[cfg(feature = "debug-images")]
         debug_addr,
@@ -813,14 +825,14 @@ async fn frame_process_task(
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let mut kalman_tracking_config = KalmanTrackingConfig::default(); // this is replaced below
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let mut led_program_config;
     let mut led_state = false;
     let mut current_flydra_config_state: Option<FlydraConfigState> = None;
     let mut dirty_flydra = false;
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let mut current_led_program_config_state: Option<LedProgramConfig> = None;
     let mut dirty_led_program = false;
 
@@ -828,18 +840,18 @@ async fn frame_process_task(
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
-    is_starting_tx.send(()).ok();// signal that we are we are no longer starting
+    is_starting_tx.send(()).ok(); // signal that we are we are no longer starting
 
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let mut april_td = apriltag::Detector::new();
 
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let mut current_tag_family = ci2_remote_control::TagFamily::default();
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let april_tf = make_family(&current_tag_family);
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     april_td.add_family(april_tf);
 
     #[cfg(feature = "checkercal")]
@@ -862,21 +874,22 @@ async fn frame_process_task(
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
-    while quit_rx.try_recv() == Err( tokio::sync::oneshot::error::TryRecvError::Empty) {
-        #[cfg(feature="image_tracker")]
+    while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
+        #[cfg(feature = "image_tracker")]
         {
             if let Some(ref ssa) = shared_store_arc {
                 match ssa.try_read() {
                     Some(store) => {
                         let tracker = store.as_ref();
-                        is_doing_object_detection = tracker.is_doing_object_detection; // make copy. TODO only copy on change.
+                        is_doing_object_detection = tracker.is_doing_object_detection;
+                        // make copy. TODO only copy on change.
                     }
                     None => {}
                 }
             }
         }
 
-        #[cfg(feature="flydratrax")]
+        #[cfg(feature = "flydratrax")]
         {
             if dirty_flydra {
                 // stop flydra if things changed, will be restarted on next frame.
@@ -925,7 +938,8 @@ async fn frame_process_task(
                                             cam_name: cam_name.clone(),
                                             width,
                                             height,
-                                            physical_diameter_meters: kalman_tracking_config.arena_diameter_meters,
+                                            physical_diameter_meters: kalman_tracking_config
+                                                .arena_diameter_meters,
                                             image_circle: circ,
                                         };
                                         cal_data.to_camera_system()?
@@ -943,7 +957,8 @@ async fn frame_process_task(
 
                                 let (flydra2_tx, flydra2_rx) = futures::channel::mpsc::channel(100);
 
-                                let (model_sender, model_receiver) = tokio::sync::mpsc::channel(100);
+                                let (model_sender, model_receiver) =
+                                    tokio::sync::mpsc::channel(100);
 
                                 let kalman_tracking_config2 = kalman_tracking_config.clone();
                                 let led_box_tx_std2 = led_box_tx_std.clone();
@@ -954,26 +969,34 @@ async fn frame_process_task(
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
 
                                 let msg_handler_fut = async move {
-                                    flydratrax_handle_msg::create_message_handler(cam_cal,
+                                    flydratrax_handle_msg::create_message_handler(
+                                        cam_cal,
                                         model_receiver,
-                                        &mut led_state, ssa2, led_box_tx_std2,
-                                        )
+                                        &mut led_state,
+                                        ssa2,
+                                        led_box_tx_std2,
+                                    )
                                     .await
-                                    .map_err(|e| anyhow::Error::new(Box::new(e))).unwrap();
+                                    .map_err(|e| anyhow::Error::new(Box::new(e)))
+                                    .unwrap();
                                 };
                                 let msg_handler_jh = my_runtime.spawn(msg_handler_fut);
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
-                                let http_camserver = CamHttpServerInfo::Server(
-                                    http_camserver_info.clone());
+                                let http_camserver =
+                                    CamHttpServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
                                 let flydratrax_model_server2 = flydratrax_model_server.clone();
                                 let valve2 = valve.clone();
 
-                                let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(&cam_name2,
-                                    &http_camserver, &Some(recon2));
-                                let tracking_params = flydra_types::default_tracking_params_flat_3d();
+                                let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(
+                                    &cam_name2,
+                                    &http_camserver,
+                                    &Some(recon2),
+                                );
+                                let tracking_params =
+                                    flydra_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = CoordProcessor::new(
                                     tokio::runtime::Handle::current(),
@@ -984,35 +1007,45 @@ async fn frame_process_task(
                                     "strand-cam",
                                     ignore_latency,
                                 )
-                                    .expect("create CoordProcessor");
+                                .expect("create CoordProcessor");
 
                                 let braidz_write_tx = coord_processor.get_braidz_write_tx();
-                                maybe_flydra2_write_control = Some(CoordProcessorControl::new(braidz_write_tx));
+                                maybe_flydra2_write_control =
+                                    Some(CoordProcessorControl::new(braidz_write_tx));
 
-                                let (model_server_data_tx, _model_server) = flydratrax_model_server2;
+                                let (model_server_data_tx, _model_server) =
+                                    flydratrax_model_server2;
 
                                 coord_processor.add_listener(model_sender); // the local LED control thing
                                 coord_processor.add_listener(model_server_data_tx); // the HTTP thing
 
                                 let expected_framerate = *expected_framerate_arc2.read();
                                 let flydra2_rx_valved = valve2.wrap(flydra2_rx);
-                                let consume_future = coord_processor.consume_stream(flydra2_rx_valved,
-                                    expected_framerate);
+                                let consume_future = coord_processor
+                                    .consume_stream(flydra2_rx_valved, expected_framerate);
 
-                                let flydra_jh = my_runtime.spawn( async {
+                                let flydra_jh = my_runtime.spawn(async {
                                     // Run until flydra is done.
                                     let jh = consume_future.await;
 
-                                    debug!("waiting on flydratrax coord processor {}:{}", file!(), line!());
+                                    debug!(
+                                        "waiting on flydratrax coord processor {}:{}",
+                                        file!(),
+                                        line!()
+                                    );
                                     jh.await.unwrap().unwrap();
-                                    debug!("done waiting on flydratrax coord processor {}:{}", file!(), line!());
+                                    debug!(
+                                        "done waiting on flydratrax coord processor {}:{}",
+                                        file!(),
+                                        line!()
+                                    );
                                 });
                                 maybe_flydra2_stream = Some(flydra2_tx);
                                 std::mem::drop((msg_handler_jh, flydra_jh)); // todo: keep these join handles.
-                            },
+                            }
                             video_streaming::Shape::Everything => {
                                 error!("cannot start tracking without circular region to use as camera calibration");
-                            },
+                            }
                         }
                     }
                 }
@@ -1039,7 +1072,7 @@ async fn frame_process_task(
             None => {
                 info!("incoming frame channel closed for '{}'", cam_name.as_str());
                 break;
-            },
+            }
         };
         let store_cache = if let Some(ref ssa) = shared_store_arc {
             let tracker = ssa.read();
@@ -1049,8 +1082,7 @@ async fn frame_process_task(
         };
 
         if let Some(ref store_cache_ref) = store_cache {
-
-            #[cfg(feature="flydratrax")]
+            #[cfg(feature = "flydratrax")]
             {
                 if let Some(ref cfcs) = current_flydra_config_state {
                     if store_cache_ref.kalman_tracking_config != cfcs.kalman_tracking_config {
@@ -1066,7 +1098,6 @@ async fn frame_process_task(
                     }
                 }
             }
-
         }
 
         match msg {
@@ -1085,26 +1116,34 @@ async fn frame_process_task(
                 }
                 shared_store_arc = Some(stor);
             }
-            Msg::StartFMF((dest,recording_framerate)) => {
+            Msg::StartFMF((dest, recording_framerate)) => {
                 let path = Path::new(&dest);
                 let f = std::fs::File::create(&path)?;
                 fmf_writer = Some(FmfWriteInfo::new(FMFWriter::new(f)?, recording_framerate));
             }
-            Msg::StartMkv((format_str_mkv,mkv_recording_config)) => {
-                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_mkv_writer(format_str_mkv, mkv_recording_config, 100));
+            Msg::StartMkv((format_str_mkv, mkv_recording_config)) => {
+                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_mkv_writer(
+                    format_str_mkv,
+                    mkv_recording_config,
+                    100,
+                ));
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::StartUFMF(dest) => {
                 ufmf_state = Some(UfmfState::Starting(dest));
             }
-            Msg::PostTriggerStartMkv((format_str_mkv,mkv_recording_config)) => {
+            Msg::PostTriggerStartMkv((format_str_mkv, mkv_recording_config)) => {
                 let frames = post_trig_buffer.get_and_clear();
-                let mut raw = bg_movie_writer::BgMovieWriter::new_mkv_writer(format_str_mkv, mkv_recording_config, frames.len()+100);
+                let mut raw = bg_movie_writer::BgMovieWriter::new_mkv_writer(
+                    format_str_mkv,
+                    mkv_recording_config,
+                    frames.len() + 100,
+                );
                 for mut frame in frames.into_iter() {
                     // Force frame width to be power of 2.
                     let val = 2;
                     let clipped_width = (frame.width() / val as u32) * val as u32;
-                    match_all_dynamic_fmts!(&mut frame, x, {x.width = clipped_width});
+                    match_all_dynamic_fmts!(&mut frame, x, { x.width = clipped_width });
                     // frame.width = clipped_width;
                     let ts = frame.extra().host_timestamp();
                     raw.write(frame, ts)?;
@@ -1112,21 +1151,24 @@ async fn frame_process_task(
                 my_mkv_writer = Some(raw);
             }
             Msg::StartAprilTagRec(format_str_apriltags_csv) => {
-                #[cfg(feature="fiducial")]
+                #[cfg(feature = "fiducial")]
                 {
                     if let Some(x) = store_cache.as_ref() {
                         if let Some(apriltag_state) = &x.apriltag_state {
-                            apriltag_writer = Some(AprilTagWriter::new(format_str_apriltags_csv, &x.camera_name, x.image_width as usize, x.image_height as usize)?);
+                            apriltag_writer = Some(AprilTagWriter::new(
+                                format_str_apriltags_csv,
+                                &x.camera_name,
+                                x.image_width as usize,
+                                x.image_height as usize,
+                            )?);
                         }
                     }
                 }
             }
             Msg::StopAprilTagRec => {
+                #[cfg(feature = "fiducial")]
                 {
-                    #[cfg(feature="fiducial")]
-                    {
-                        apriltag_writer = None;
-                    }
+                    apriltag_writer = None;
                 }
             }
             Msg::SetPostTriggerBufferSize(size) => {
@@ -1139,10 +1181,10 @@ async fn frame_process_task(
                 }
             }
             Msg::Mframe(frame) => {
-                let (_device_timestamp, _block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
+                let (_device_timestamp, _block_id, fno, stamp) =
+                    frame_info_extractor.extract_frame_info(&frame);
 
-                if let Some(new_fps) = fps_calc
-                    .update(fno, stamp) {
+                if let Some(new_fps) = fps_calc.update(fno, stamp) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write();
                         tracker.modify(|tracker| {
@@ -1158,66 +1200,81 @@ async fn frame_process_task(
 
                 post_trig_buffer.push(&frame); // If buffer size larger than 0, copies data.
 
-                #[cfg(feature="checkercal")]
-                let checkercal_tmp = store_cache.as_ref().and_then(|x|
+                #[cfg(feature = "checkercal")]
+                let checkercal_tmp = store_cache.as_ref().and_then(|x| {
                     if x.checkerboard_data.enabled {
-                        Some((x.checkerboard_data.clone(),x.checkerboard_save_debug.clone()))
+                        Some((
+                            x.checkerboard_data.clone(),
+                            x.checkerboard_save_debug.clone(),
+                        ))
                     } else {
                         None
-                    });
+                    }
+                });
 
-                #[cfg(not(feature="checkercal"))]
+                #[cfg(not(feature = "checkercal"))]
                 let checkercal_tmp: Option<()> = None;
 
                 #[allow(unused_mut)]
                 let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
                     #[allow(unused_mut)]
                     let mut results = Vec::new();
-                    #[cfg(feature="checkercal")]
+                    #[cfg(feature = "checkercal")]
                     {
-                        let (checkerboard_data,checkerboard_save_debug) = inner;
+                        let (checkerboard_data, checkerboard_save_debug) = inner;
 
                         // do not do this too often
                         if last_checkerboard_detection.elapsed() > checkerboard_loop_dur {
-
-                            let debug_image_stamp: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                            let debug_image_stamp: chrono::DateTime<chrono::Local> =
+                                chrono::Local::now();
                             if let Some(debug_dir) = &checkerboard_save_debug {
-                                let format_str = format!("input_{}_{}_%Y%m%d_%H%M%S.png",
-                                    checkerboard_data.width, checkerboard_data.height);
+                                let format_str = format!(
+                                    "input_{}_{}_%Y%m%d_%H%M%S.png",
+                                    checkerboard_data.width, checkerboard_data.height
+                                );
                                 let stamped = debug_image_stamp.format(&format_str).to_string();
                                 let png_buf = match_all_dynamic_fmts!(&frame, x, {
-                                    convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
+                                    convert_image::frame_to_image(
+                                        x,
+                                        convert_image::ImageOptions::Png,
+                                    )?
                                 });
 
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let image_path = debug_path.join(stamped);
 
-                                let mut f = File::create(
-                                    &image_path)
-                                    .expect("create file");
+                                let mut f = File::create(&image_path).expect("create file");
                                 f.write_all(&png_buf).unwrap();
                             }
 
                             let start_time = std::time::Instant::now();
 
-                            info!("Attempting to find {}x{} chessboard.",
-                            checkerboard_data.width, checkerboard_data.height);
+                            info!(
+                                "Attempting to find {}x{} chessboard.",
+                                checkerboard_data.width, checkerboard_data.height
+                            );
 
                             let corners = basic_frame::match_all_dynamic_fmts!(&frame, x, {
-                                let rgb: Box<dyn formats::ImageStride<formats::pixel_format::RGB8>> =
-                                Box::new(convert_image::convert::<_,formats::pixel_format::RGB8>(x)?);
+                                let rgb: Box<
+                                    dyn formats::ImageStride<formats::pixel_format::RGB8>,
+                                > = Box::new(convert_image::convert::<
+                                    _,
+                                    formats::pixel_format::RGB8,
+                                >(x)?);
                                 let corners = opencv_calibrate::find_chessboard_corners(
                                     rgb.image_data(),
-                                    rgb.width(), rgb.height(),
-                                    checkerboard_data.width as usize, checkerboard_data.height as usize,
-                                    )?;
+                                    rgb.width(),
+                                    rgb.height(),
+                                    checkerboard_data.width as usize,
+                                    checkerboard_data.height as usize,
+                                )?;
                                 corners
                             });
 
-
                             let work_duration = start_time.elapsed();
                             if work_duration > checkerboard_loop_dur {
-                                checkerboard_loop_dur = work_duration + std::time::Duration::from_millis(5);
+                                checkerboard_loop_dur =
+                                    work_duration + std::time::Duration::from_millis(5);
                             }
                             last_checkerboard_detection = std::time::Instant::now();
 
@@ -1230,9 +1287,7 @@ async fn frame_process_task(
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let yaml_path = debug_path.join(stamped);
 
-                                let mut f = File::create(
-                                    &yaml_path)
-                                    .expect("create file");
+                                let mut f = File::create(&yaml_path).expect("create file");
 
                                 #[derive(Serialize)]
                                 struct CornerData<'a> {
@@ -1249,15 +1304,20 @@ async fn frame_process_task(
                             }
 
                             if let Some(corners) = corners {
-                                info!("Found {} chessboard corners in {} msec.", corners.len(), work_duration.as_millis());
-                                results = corners.iter().map(|(x,y)| {
-                                    video_streaming::Point {
+                                info!(
+                                    "Found {} chessboard corners in {} msec.",
+                                    corners.len(),
+                                    work_duration.as_millis()
+                                );
+                                results = corners
+                                    .iter()
+                                    .map(|(x, y)| video_streaming::Point {
                                         x: *x,
                                         y: *y,
                                         theta: None,
                                         area: None,
-                                    }
-                                }).collect();
+                                    })
+                                    .collect();
 
                                 let num_checkerboards_collected = {
                                     let mut collected_corners = collected_corners_arc.write();
@@ -1269,31 +1329,34 @@ async fn frame_process_task(
                                     // scope for write lock on ssa
                                     let mut tracker = ssa.write();
                                     tracker.modify(|shared| {
-                                        shared.checkerboard_data.num_checkerboards_collected = num_checkerboards_collected;
+                                        shared.checkerboard_data.num_checkerboards_collected =
+                                            num_checkerboards_collected;
                                     });
                                 }
                             } else {
-                                info!("Found no chessboard corners in {} msec.", work_duration.as_millis());
+                                info!(
+                                    "Found no chessboard corners in {} msec.",
+                                    work_duration.as_millis()
+                                );
                             }
                         }
                     }
                     (results, None)
                 } else {
-
                     let mut all_points = Vec::new();
                     let mut blkajdsfads = None;
 
                     {
                         if let Some(ref store_cache_ref) = store_cache {
                             if store_cache_ref.im_ops_state.do_detection {
-
                                 let thresholded = if let DynamicFrame::Mono8(mono8) = &frame {
                                     imops::threshold(
                                         mono8.clone(),
                                         imops::CmpOp::LessThan,
                                         store_cache_ref.im_ops_state.threshold,
                                         0,
-                                        255)
+                                        255,
+                                    )
                                 } else {
                                     panic!("imops only implemented for Mono8 pixel format");
                                 };
@@ -1301,7 +1364,6 @@ async fn frame_process_task(
                                 let mu01 = imops::spatial_moment_01(&thresholded);
                                 let mu10 = imops::spatial_moment_10(&thresholded);
                                 let mc = if mu00 != 0.0 {
-
                                     let x = mu01 / mu00;
                                     let y = mu10 / mu00;
 
@@ -1313,34 +1375,53 @@ async fn frame_process_task(
                                         center_x: store_cache_ref.im_ops_state.center_x,
                                         center_y: store_cache_ref.im_ops_state.center_y,
                                     });
-                                    all_points.push(video_streaming::Point {x, y, area: None, theta: None});
+                                    all_points.push(video_streaming::Point {
+                                        x,
+                                        y,
+                                        area: None,
+                                        theta: None,
+                                    });
 
                                     Some(mc)
                                 } else {
                                     None
                                 };
 
-
                                 let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                    socket.local_addr().unwrap().ip() != store_cache_ref.im_ops_state.source
+                                    socket.local_addr().unwrap().ip()
+                                        != store_cache_ref.im_ops_state.source
                                 } else {
                                     true
                                 };
 
                                 if need_new_socket {
-                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(store_cache_ref.im_ops_state.source, 0u16)).unwrap();
+                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
+                                        store_cache_ref.im_ops_state.source,
+                                        0u16,
+                                    ))
+                                    .unwrap();
                                     let sockaddr = iter.next().unwrap();
 
-                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr).map_err(|e| {error!("failed opening socket: {}", e); }).ok();
+                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr)
+                                        .map_err(|e| {
+                                            error!("failed opening socket: {}", e);
+                                        })
+                                        .ok();
                                 }
 
                                 if let Some(socket) = &mut im_ops_socket {
                                     if let Some(mc) = mc {
                                         let buf = serde_cbor::to_vec(&mc).unwrap();
-                                        match socket.send_to(&buf, &store_cache_ref.im_ops_state.destination) {
-                                            Ok(_n_bytes) => {},
+                                        match socket.send_to(
+                                            &buf,
+                                            &store_cache_ref.im_ops_state.destination,
+                                        ) {
+                                            Ok(_n_bytes) => {}
                                             Err(e) => {
-                                                log::error!("Unable to send image moment data. {}", e);
+                                                log::error!(
+                                                    "Unable to send image moment data. {}",
+                                                    e
+                                                );
                                             }
                                         }
                                     }
@@ -1349,13 +1430,10 @@ async fn frame_process_task(
                         }
                     }
 
-                    #[cfg(feature="fiducial")]
+                    #[cfg(feature = "fiducial")]
                     {
-
                         if let Some(ref store_cache_ref) = store_cache {
-
                             if let Some(ref ts) = store_cache_ref.apriltag_state {
-
                                 if ts.do_detection {
                                     use apriltag::ImageU8;
 
@@ -1370,10 +1448,15 @@ async fn frame_process_task(
                                         let detections = april_td.detect(im.inner_mut());
 
                                         if let Some(ref mut wtr) = apriltag_writer {
-                                            wtr.save(&detections, frame.extra().host_framenumber(), frame.extra().host_timestamp())?;
+                                            wtr.save(
+                                                &detections,
+                                                frame.extra().host_framenumber(),
+                                                frame.extra().host_timestamp(),
+                                            )?;
                                         }
 
-                                        let tag_points = detections.as_slice().iter().map(det2display);
+                                        let tag_points =
+                                            detections.as_slice().iter().map(det2display);
                                         all_points.extend(tag_points);
                                     }
                                 }
@@ -1381,217 +1464,270 @@ async fn frame_process_task(
                         }
                     }
 
-                    #[cfg(feature="image_tracker")]
+                    #[cfg(feature = "image_tracker")]
                     {
-                    if is_doing_object_detection {
+                        if is_doing_object_detection {
+                            let (device_timestamp, block_id, fno, stamp) =
+                                frame_info_extractor.extract_frame_info(&frame);
 
-                        let (device_timestamp, block_id, fno, stamp) = frame_info_extractor.extract_frame_info(&frame);
-
-                        let inner_ufmf_state = ufmf_state.take().unwrap();
-                        // Detect features in the image and send them to the
-                        // mainbrain for 3D processing.
-                        let (tracker_annotation, new_ufmf_state) = im_tracker.process_new_frame(
-                            &frame, inner_ufmf_state, device_timestamp, block_id)?;
-                        ufmf_state.get_or_insert(new_ufmf_state);
-
-                        #[cfg(feature="flydratrax")]
-                        {
-                            if let Some(ref mut flydra2_stream) = maybe_flydra2_stream {
-                                let points = tracker_annotation.points.iter()
-                                    .filter(|pt| pt.area >= kalman_tracking_config.min_central_moment as f64)
-                                    .enumerate().map(|(i,pt)| {
-                                        assert!(i <= u8::max_value() as usize);
-                                        let idx = i as u8;
-                                        flydra2::NumberedRawUdpPoint {
-                                            idx,
-                                            pt: pt.clone(),
-                                        }
-                                    }).collect();
-
-                                let cam_received_timestamp = datetime_conversion::datetime_to_f64(
-                                    &frame.extra().host_timestamp());
-
-                                // TODO FIXME XXX It is a lie that this
-                                // timesource is Triggerbox. This is just for
-                                // single-camera flydratrax, though.
-                                let trigger_timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(
-                                    cam_received_timestamp));
-
-                                // This is not a lie.
-                                let cam_received_timestamp = FlydraFloatTimestampLocal::<HostClock>::from_f64(
-                                    cam_received_timestamp);
-
-                                let cam_num = 0.into(); // Only one camera, so this must be correct.
-                                let frame_data = flydra2::FrameData::new(
-                                    ros_cam_name.clone(),
-                                    cam_num,
-                                    SyncFno(frame.extra().host_framenumber().try_into().unwrap()),
-                                    trigger_timestamp,
-                                    cam_received_timestamp,
+                            let inner_ufmf_state = ufmf_state.take().unwrap();
+                            // Detect features in the image and send them to the
+                            // mainbrain for 3D processing.
+                            let (tracker_annotation, new_ufmf_state) = im_tracker
+                                .process_new_frame(
+                                    &frame,
+                                    inner_ufmf_state,
                                     device_timestamp,
                                     block_id,
-                                );
-                                let fdp = flydra2::FrameDataAndPoints{
-                                    frame_data,
-                                    points,
-                                };
-                                let si = StreamItem::Packet(fdp);
+                                )?;
+                            ufmf_state.get_or_insert(new_ufmf_state);
 
-                                // block until sent
-                                match futures::executor::block_on( futures::sink::SinkExt::send( flydra2_stream, si)) {
-                                    Ok(()) => {},
-                                    Err(e) => return Err(e.into()),
-                                }
+                            #[cfg(feature = "flydratrax")]
+                            {
+                                if let Some(ref mut flydra2_stream) = maybe_flydra2_stream {
+                                    let points = tracker_annotation
+                                        .points
+                                        .iter()
+                                        .filter(|pt| {
+                                            pt.area
+                                                >= kalman_tracking_config.min_central_moment as f64
+                                        })
+                                        .enumerate()
+                                        .map(|(i, pt)| {
+                                            assert!(i <= u8::max_value() as usize);
+                                            let idx = i as u8;
+                                            flydra2::NumberedRawUdpPoint {
+                                                idx,
+                                                pt: pt.clone(),
+                                            }
+                                        })
+                                        .collect();
 
-                            }
-                        }
+                                    let cam_received_timestamp =
+                                        datetime_conversion::datetime_to_f64(
+                                            &frame.extra().host_timestamp(),
+                                        );
 
-                        let points = tracker_annotation.points;
+                                    // TODO FIXME XXX It is a lie that this
+                                    // timesource is Triggerbox. This is just for
+                                    // single-camera flydratrax, though.
+                                    let trigger_timestamp =
+                                        Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(
+                                            cam_received_timestamp,
+                                        ));
 
-                        let mut new_state = None;
-                        match csv_save_state {
-                            SavingState::NotSaving => {}
-                            SavingState::Starting(rate_limit) => {
-                                // create dir if needed
-                                std::fs::create_dir_all(&csv_save_pathbuf)?;
+                                    // This is not a lie.
+                                    let cam_received_timestamp =
+                                        FlydraFloatTimestampLocal::<HostClock>::from_f64(
+                                            cam_received_timestamp,
+                                        );
 
-                                // start saving tracking
-                                let base_template = "flytrax%Y%m%d_%H%M%S";
-                                let now = frame.extra().host_timestamp();
-                                let local = now.with_timezone(&chrono::Local);
-                                let base = local.format(base_template).to_string();
+                                    let cam_num = 0.into(); // Only one camera, so this must be correct.
+                                    let frame_data = flydra2::FrameData::new(
+                                        ros_cam_name.clone(),
+                                        cam_num,
+                                        SyncFno(
+                                            frame.extra().host_framenumber().try_into().unwrap(),
+                                        ),
+                                        trigger_timestamp,
+                                        cam_received_timestamp,
+                                        device_timestamp,
+                                        block_id,
+                                    );
+                                    let fdp = flydra2::FrameDataAndPoints { frame_data, points };
+                                    let si = StreamItem::Packet(fdp);
 
-                                // save jpeg image
-                                {
-                                    let mut image_path = csv_save_pathbuf.clone();
-                                    image_path.push(base.clone());
-                                    image_path.set_extension("jpg");
-
-                                    let bytes = match_all_dynamic_fmts!(&frame,x, {convert_image::frame_to_image(x,
-                                        convert_image::ImageOptions::Jpeg(99))?});
-                                    File::create(image_path)?
-                                        .write_all(&bytes)?;
-                                }
-
-                                let mut csv_path = csv_save_pathbuf.clone();
-                                csv_path.push(base);
-                                csv_path.set_extension("csv");
-                                info!("saving data to {}.", csv_path.display());
-
-                                if let Some(ref ssa) = shared_store_arc {
-                                    // scope for write lock on ssa
-                                    let new_val = RecordingPath::new(csv_path.display().to_string());
-                                    let mut tracker = ssa.write();
-                                    tracker.modify(|shared| {
-                                        shared.is_saving_im_pt_detect_csv = Some(new_val);
-                                    });
-                                }
-
-                                let mut fd = File::create(csv_path)?;
-
-                                // save configuration as commented yaml
-                                {
-                                    let save_cfg = SaveCfgFview2_0_25 {
-                                        name: app_name.to_string(),
-                                        version: env!("CARGO_PKG_VERSION").to_string(),
-                                        git_hash: env!("GIT_HASH").to_string(),
-                                    };
-
-                                    let cfg_clone = im_tracker.config();
-
-                                    let full_cfg = FullCfgFview2_0_26 {
-                                        app: save_cfg,
-                                        camera: camera_cfg.clone(),
-                                        created_at: local,
-                                        csv_rate_limit: rate_limit,
-                                        object_detection_cfg: im_tracker.config().clone(),
-                                    };
-                                    let cfg_yaml = serde_yaml::to_string(&full_cfg).unwrap();
-                                    writeln!(fd, "# -- start of yaml config --")?;
-                                    for line in cfg_yaml.lines() {
-                                        writeln!(fd, "# {}", line)?;
+                                    // block until sent
+                                    match futures::executor::block_on(futures::sink::SinkExt::send(
+                                        flydra2_stream,
+                                        si,
+                                    )) {
+                                        Ok(()) => {}
+                                        Err(e) => return Err(e.into()),
                                     }
-                                    writeln!(fd, "# -- end of yaml config --")?;
                                 }
-
-                                writeln!(fd, "time_microseconds,frame,x_px,y_px,orientation_radians_mod_pi,central_moment,led_1,led_2,led_3")?;
-                                fd.flush()?;
-
-                                let min_interval_sec = if let Some(fps) = rate_limit {
-                                    1.0 / fps
-                                } else {
-                                    0.0
-                                };
-                                let min_interval = chrono::Duration::nanoseconds((min_interval_sec*1e9) as i64);
-
-                                let inner = CsvSavingState {
-                                    fd,
-                                    min_interval,
-                                    last_save: now.checked_sub_signed(chrono::Duration::days(1)).unwrap(),
-                                    t0: now,
-                                };
-
-                                new_state = Some(SavingState::Saving(inner));
-
                             }
-                            SavingState::Saving(ref mut inner) => {
-                                let interval = frame.extra().host_timestamp().signed_duration_since(inner.last_save);
-                                // save found points
-                                if interval >= inner.min_interval && points.len() >= 1 {
-                                    let time_microseconds = frame.extra().host_timestamp()
-                                        .signed_duration_since(inner.t0)
-                                        .num_microseconds().unwrap();
 
-                                    let mut led1 = "".to_string();
-                                    let mut led2 = "".to_string();
-                                    let mut led3 = "".to_string();
+                            let points = tracker_annotation.points;
+
+                            let mut new_state = None;
+                            match csv_save_state {
+                                SavingState::NotSaving => {}
+                                SavingState::Starting(rate_limit) => {
+                                    // create dir if needed
+                                    std::fs::create_dir_all(&csv_save_pathbuf)?;
+
+                                    // start saving tracking
+                                    let base_template = "flytrax%Y%m%d_%H%M%S";
+                                    let now = frame.extra().host_timestamp();
+                                    let local = now.with_timezone(&chrono::Local);
+                                    let base = local.format(base_template).to_string();
+
+                                    // save jpeg image
                                     {
-                                        if let Some(ref store) = store_cache {
-                                            if let Some(ref device_state) = store.led_box_device_state {
-                                                led1 = format!("{}",get_intensity(&device_state,1));
-                                                led2 = format!("{}",get_intensity(&device_state,2));
-                                                led3 = format!("{}",get_intensity(&device_state,3));
+                                        let mut image_path = csv_save_pathbuf.clone();
+                                        image_path.push(base.clone());
+                                        image_path.set_extension("jpg");
+
+                                        let bytes = match_all_dynamic_fmts!(&frame, x, {
+                                            convert_image::frame_to_image(
+                                                x,
+                                                convert_image::ImageOptions::Jpeg(99),
+                                            )?
+                                        });
+                                        File::create(image_path)?.write_all(&bytes)?;
+                                    }
+
+                                    let mut csv_path = csv_save_pathbuf.clone();
+                                    csv_path.push(base);
+                                    csv_path.set_extension("csv");
+                                    info!("saving data to {}.", csv_path.display());
+
+                                    if let Some(ref ssa) = shared_store_arc {
+                                        // scope for write lock on ssa
+                                        let new_val =
+                                            RecordingPath::new(csv_path.display().to_string());
+                                        let mut tracker = ssa.write();
+                                        tracker.modify(|shared| {
+                                            shared.is_saving_im_pt_detect_csv = Some(new_val);
+                                        });
+                                    }
+
+                                    let mut fd = File::create(csv_path)?;
+
+                                    // save configuration as commented yaml
+                                    {
+                                        let save_cfg = SaveCfgFview2_0_25 {
+                                            name: app_name.to_string(),
+                                            version: env!("CARGO_PKG_VERSION").to_string(),
+                                            git_hash: env!("GIT_HASH").to_string(),
+                                        };
+
+                                        let cfg_clone = im_tracker.config();
+
+                                        let full_cfg = FullCfgFview2_0_26 {
+                                            app: save_cfg,
+                                            camera: camera_cfg.clone(),
+                                            created_at: local,
+                                            csv_rate_limit: rate_limit,
+                                            object_detection_cfg: im_tracker.config().clone(),
+                                        };
+                                        let cfg_yaml = serde_yaml::to_string(&full_cfg).unwrap();
+                                        writeln!(fd, "# -- start of yaml config --")?;
+                                        for line in cfg_yaml.lines() {
+                                            writeln!(fd, "# {}", line)?;
+                                        }
+                                        writeln!(fd, "# -- end of yaml config --")?;
+                                    }
+
+                                    writeln!(fd, "time_microseconds,frame,x_px,y_px,orientation_radians_mod_pi,central_moment,led_1,led_2,led_3")?;
+                                    fd.flush()?;
+
+                                    let min_interval_sec = if let Some(fps) = rate_limit {
+                                        1.0 / fps
+                                    } else {
+                                        0.0
+                                    };
+                                    let min_interval = chrono::Duration::nanoseconds(
+                                        (min_interval_sec * 1e9) as i64,
+                                    );
+
+                                    let inner = CsvSavingState {
+                                        fd,
+                                        min_interval,
+                                        last_save: now
+                                            .checked_sub_signed(chrono::Duration::days(1))
+                                            .unwrap(),
+                                        t0: now,
+                                    };
+
+                                    new_state = Some(SavingState::Saving(inner));
+                                }
+                                SavingState::Saving(ref mut inner) => {
+                                    let interval = frame
+                                        .extra()
+                                        .host_timestamp()
+                                        .signed_duration_since(inner.last_save);
+                                    // save found points
+                                    if interval >= inner.min_interval && points.len() >= 1 {
+                                        let time_microseconds = frame
+                                            .extra()
+                                            .host_timestamp()
+                                            .signed_duration_since(inner.t0)
+                                            .num_microseconds()
+                                            .unwrap();
+
+                                        let mut led1 = "".to_string();
+                                        let mut led2 = "".to_string();
+                                        let mut led3 = "".to_string();
+                                        {
+                                            if let Some(ref store) = store_cache {
+                                                if let Some(ref device_state) =
+                                                    store.led_box_device_state
+                                                {
+                                                    led1 = format!(
+                                                        "{}",
+                                                        get_intensity(&device_state, 1)
+                                                    );
+                                                    led2 = format!(
+                                                        "{}",
+                                                        get_intensity(&device_state, 2)
+                                                    );
+                                                    led3 = format!(
+                                                        "{}",
+                                                        get_intensity(&device_state, 3)
+                                                    );
+                                                }
                                             }
                                         }
+                                        for pt in points.iter() {
+                                            let orientation_mod_pi =
+                                                match pt.maybe_slope_eccentricty {
+                                                    Some((slope, _ecc)) => {
+                                                        let orientation_mod_pi =
+                                                            f32::atan(slope as f32);
+                                                        format!("{:.3}", orientation_mod_pi)
+                                                    }
+                                                    None => "".to_string(),
+                                                };
+                                            writeln!(
+                                                inner.fd,
+                                                "{},{},{:.1},{:.1},{},{},{},{},{}",
+                                                time_microseconds,
+                                                frame.extra().host_framenumber(),
+                                                pt.x0_abs,
+                                                pt.y0_abs,
+                                                orientation_mod_pi,
+                                                pt.area,
+                                                led1,
+                                                led2,
+                                                led3
+                                            )?;
+                                            inner.fd.flush()?;
+                                        }
+                                        inner.last_save = frame.extra().host_timestamp();
                                     }
-                                    for pt in points.iter() {
-                                        let orientation_mod_pi = match pt.maybe_slope_eccentricty {
-                                            Some((slope,_ecc)) => {
-                                                let orientation_mod_pi = f32::atan(slope as f32);
-                                                format!("{:.3}", orientation_mod_pi)
-                                            },
-                                            None => "".to_string(),
-                                        };
-                                        writeln!(inner.fd,
-                                            "{},{},{:.1},{:.1},{},{},{},{},{}",
-                                            time_microseconds, frame.extra().host_framenumber(),
-                                            pt.x0_abs, pt.y0_abs, orientation_mod_pi,
-                                            pt.area, led1, led2, led3)?;
-                                        inner.fd.flush()?;
-                                    }
-                                    inner.last_save = frame.extra().host_timestamp();
                                 }
                             }
-                        }
-                        if let Some(ns) = new_state {
-                            csv_save_state = ns;
-                        }
+                            if let Some(ns) = new_state {
+                                csv_save_state = ns;
+                            }
 
-                        let display_points: Vec<_> = points
-                            .iter()
-                            .map(|pt| {
-                                video_streaming::Point {
+                            let display_points: Vec<_> = points
+                                .iter()
+                                .map(|pt| video_streaming::Point {
                                     x: pt.x0_abs as f32,
                                     y: pt.y0_abs as f32,
-                                    theta: pt.maybe_slope_eccentricty.and_then(|(slope,_ecc)| Some(f32::atan(slope as f32))),
+                                    theta: pt
+                                        .maybe_slope_eccentricty
+                                        .and_then(|(slope, _ecc)| Some(f32::atan(slope as f32))),
                                     area: Some(pt.area as f32),
-                                }
-                            })
-                            .collect();
+                                })
+                                .collect();
 
-                        all_points.extend(display_points);
-                        blkajdsfads = Some(im_tracker.valid_region())
-                    }
+                            all_points.extend(display_points);
+                            blkajdsfads = Some(im_tracker.valid_region())
+                        }
                     }
                     (all_points, blkajdsfads)
                 };
@@ -1608,24 +1744,23 @@ async fn frame_process_task(
                         None => true,
                         Some(stamp) => {
                             let elapsed = timestamp - stamp;
-                            elapsed >= chrono::Duration::from_std(inner.recording_framerate.interval())?
-                        },
+                            elapsed
+                                >= chrono::Duration::from_std(inner.recording_framerate.interval())?
+                        }
                     };
                     if do_save {
-                        match_all_dynamic_fmts!(&frame, x, {
-                            inner.writer.write(x, timestamp)?
-                        });
+                        match_all_dynamic_fmts!(&frame, x, { inner.writer.write(x, timestamp)? });
                         inner.last_saved_stamp = Some(timestamp);
                     }
                 }
 
-                #[cfg(feature="plugin-process-frame")]
+                #[cfg(feature = "plugin-process-frame")]
                 {
                     // Do FFI image processing with lowest latency possible
                     if do_process_frame_callback {
                         if plugin_handler_thread_tx.is_full() {
                             error!("cannot transmit frame to plugin: channel full");
-                        }  else {
+                        } else {
                             plugin_handler_thread_tx.send(frame.clone()).unwrap();
                             match plugin_result_rx.recv_timeout(plugin_wait_dur) {
                                 Ok(results) => {
@@ -1646,14 +1781,14 @@ async fn frame_process_task(
 
                 let found_points = found_points
                     .iter()
-                    .map(|pt: &http_video_streaming_types::Point| {
-                        video_streaming::Point {
+                    .map(
+                        |pt: &http_video_streaming_types::Point| video_streaming::Point {
                             x: pt.x,
                             y: pt.y,
                             theta: pt.theta,
                             area: pt.area,
-                        }
-                    })
+                        },
+                    )
                     .collect();
 
                 {
@@ -1661,14 +1796,14 @@ async fn frame_process_task(
                     let mut timer = current_image_timer_arc.write();
                     let elapsed = timer.elapsed();
                     if elapsed > std::time::Duration::from_millis(2000) {
-
                         *timer = std::time::Instant::now();
                         // encode frame to png buf
 
                         if let Some(mut transmit_msg_tx) = transmit_msg_tx.clone() {
                             let ros_cam_name = ros_cam_name.clone();
                             let current_image_png = match_all_dynamic_fmts!(&frame, x, {
-                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png).unwrap()
+                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png)
+                                    .unwrap()
                             });
 
                             my_runtime.spawn(async move {
@@ -1678,7 +1813,8 @@ async fn frame_process_task(
                                         inner: flydra_types::UpdateImage {
                                             current_image_png: current_image_png.into(),
                                         },
-                                    });
+                                    },
+                                );
                                 transmit_msg_tx.send(msg).await.unwrap();
                             });
                         }
@@ -1688,8 +1824,9 @@ async fn frame_process_task(
                 // check led_box device heartbeat
                 if let Some(reader) = *led_box_heartbeat_update_arc.read() {
                     let elapsed = reader.elapsed();
-                    if elapsed > std::time::Duration::from_millis(2*LED_BOX_HEARTBEAT_INTERVAL_MSEC) {
-
+                    if elapsed
+                        > std::time::Duration::from_millis(2 * LED_BOX_HEARTBEAT_INTERVAL_MSEC)
+                    {
                         error!("No led_box heatbeat for {:?}.", elapsed);
 
                         // No heartbeat within the specified interval.
@@ -1700,41 +1837,56 @@ async fn frame_process_task(
                     }
                 }
 
-                #[cfg(feature="flydratrax")]
+                #[cfg(feature = "flydratrax")]
                 let annotations = if let Some(ref clpcs) = current_led_program_config_state {
-                    vec![ DrawableShape::from_shape( &clpcs.led_on_shape_pixels, &red_style, 1.0 ) ]
+                    vec![DrawableShape::from_shape(
+                        &clpcs.led_on_shape_pixels,
+                        &red_style,
+                        1.0,
+                    )]
                 } else {
                     vec![]
                 };
 
-                #[cfg(not(feature="flydratrax"))]
+                #[cfg(not(feature = "flydratrax"))]
                 let annotations = vec![];
 
                 let name = None;
-                if firehose_tx.capacity()==0 {
+                if firehose_tx.capacity() == 0 {
                     debug!("cannot transmit frame for viewing: channel full");
-                }  else {
-                    firehose_tx.send(AnnotatedFrame {
-                        frame,
-                        found_points,
-                        valid_display,
-                        annotations,
-                        name,
-                    }).await.unwrap();
+                } else {
+                    firehose_tx
+                        .send(AnnotatedFrame {
+                            frame,
+                            found_points,
+                            valid_display,
+                            annotations,
+                            name,
+                        })
+                        .await
+                        .unwrap();
                 }
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::SetIsSavingObjDetectionCsv(new_value) => {
-                info!("setting object detection CSV save state to: {:?}", new_value);
+                info!(
+                    "setting object detection CSV save state to: {:?}",
+                    new_value
+                );
                 if let CsvSaveConfig::Saving(fps_limit) = new_value {
-                    if !store_cache.map(|s| s.is_doing_object_detection).unwrap_or(false) {
+                    if !store_cache
+                        .map(|s| s.is_doing_object_detection)
+                        .unwrap_or(false)
+                    {
                         error!("Not doing object detection, ignoring command to save data to CSV.");
                     } else {
                         csv_save_state = SavingState::Starting(fps_limit);
 
-                        #[cfg(feature="flydratrax")]
+                        #[cfg(feature = "flydratrax")]
                         {
-                            if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
+                            if let Some(ref mut write_controller) =
+                                maybe_flydra2_write_control.as_mut()
+                            {
                                 let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
                                 let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
                                 let mut my_dir = csv_save_pathbuf.clone();
@@ -1762,13 +1914,16 @@ async fn frame_process_task(
                 } else {
                     match csv_save_state {
                         SavingState::NotSaving => {}
-                        _ => {info!("stopping data saving.");}
+                        _ => {
+                            info!("stopping data saving.");
+                        }
                     }
                     // this potentially drops file, thus closing it.
                     csv_save_state = SavingState::NotSaving;
-                    #[cfg(feature="flydratrax")]
+                    #[cfg(feature = "flydratrax")]
                     {
-                        if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
+                        if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut()
+                        {
                             match write_controller.stop_saving_data().await {
                                 Ok(()) => {}
                                 Err(_) => {
@@ -1789,24 +1944,24 @@ async fn frame_process_task(
                     }
                 }
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::SetExpConfig(cfg) => {
                 im_tracker.set_config(cfg).expect("set_config()");
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::TakeCurrentImageAsBackground => {
                 im_tracker.do_take_current_image_as_background()?;
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::ClearBackground(value) => {
                 im_tracker.do_clear_background(value)?;
             }
             Msg::SetFrameOffset(fo) => {
-                #[cfg(feature="image_tracker")]
+                #[cfg(feature = "image_tracker")]
                 im_tracker.set_frame_offset(fo);
             }
             Msg::SetClockModel(cm) => {
-                #[cfg(feature="image_tracker")]
+                #[cfg(feature = "image_tracker")]
                 im_tracker.set_clock_model(cm);
             }
             Msg::StopMkv => {
@@ -1817,11 +1972,11 @@ async fn frame_process_task(
             Msg::StopFMF => {
                 fmf_writer = None;
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::StopUFMF => {
                 ufmf_state = Some(UfmfState::Stopped);
             }
-            #[cfg(feature="image_tracker")]
+            #[cfg(feature = "image_tracker")]
             Msg::SetTracking(value) => {
                 is_doing_object_detection = value;
             }
@@ -1830,7 +1985,10 @@ async fn frame_process_task(
             }
         };
     }
-    info!("frame process thread done for camera '{}'",cam_name.as_str());
+    info!(
+        "frame process thread done for camera '{}'",
+        cam_name.as_str()
+    );
     Ok(())
 }
 
@@ -2389,22 +2547,20 @@ where
     Ok(())
 }
 
-// We want to remove rustfmt::skip attribute. There is a bug similar to
-// https://github.com/rust-lang/rustfmt/issues/4109 which prevents this. Bug
-// 4109 does not seem exactly correct (at least presuming this was fixed in
-// rustfmt 1.4.24-stable (eb894d53 2020-11-05)), but I have not found the
-// correct bug.
-#[rustfmt::skip]
-pub async fn setup_app<M,C>(
+pub async fn setup_app<M, C>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     rt_handle: tokio::runtime::Handle,
     args: StrandCamArgs,
     app_name: &'static str,
-)
-    -> anyhow::Result<(BuiServerInfo, tokio::sync::mpsc::Sender<CamArg>, impl futures::Future<Output=Result<()>>, StrandCamApp)>
-    where
-        M: ci2::CameraModule<CameraType = C>,
-        C: 'static + ci2::Camera + Send,
+) -> anyhow::Result<(
+    BuiServerInfo,
+    tokio::sync::mpsc::Sender<CamArg>,
+    impl futures::Future<Output = Result<()>>,
+    StrandCamApp,
+)>
+where
+    M: ci2::CameraModule<CameraType = C>,
+    C: 'static + ci2::Camera + Send,
 {
     let target_feature_string = target_features::target_features().join(", ");
     info!("Compiled with features: {}", target_feature_string);
@@ -2439,7 +2595,7 @@ pub async fn setup_app<M,C>(
     let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
         Err(e) => {
-            let msg = format!("{}",e);
+            let msg = format!("{}", e);
             error!("{}", msg);
             return Err(e.into());
         }
@@ -2451,68 +2607,79 @@ pub async fn setup_app<M,C>(
     let ros_cam_name = cam_name.to_ros();
 
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
-    if let Some(camera_settings_filename) = &args.camera_settings_filename {
-        let settings = std::fs::read_to_string(camera_settings_filename).with_context(|| {
-            format!(
-                "Failed to read camera settings from file \"{}\"",
-                camera_settings_filename.display()
-            )
-        })?;
+        if let Some(camera_settings_filename) = &args.camera_settings_filename {
+            let settings =
+                std::fs::read_to_string(camera_settings_filename).with_context(|| {
+                    format!(
+                        "Failed to read camera settings from file \"{}\"",
+                        camera_settings_filename.display()
+                    )
+                })?;
 
-        cam.node_map_load(&settings)?;
-        (false, false)
-    } else {
-
-        for pixfmt in cam.possible_pixel_formats()?.iter() {
-            debug!("  possible pixel format: {}", pixfmt);
-        }
-
-        if let Some(ref pixfmt_str) = args.pixel_format {
-            use std::str::FromStr;
-            let pixfmt = PixFmt::from_str(pixfmt_str)
-                .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
-            info!("  setting pixel format: {}", pixfmt);
-            cam.set_pixel_format(pixfmt)?;
-        }
-
-        debug!("  current pixel format: {}", cam.pixel_format()?);
-
-        let (frame_rate_limit_supported, frame_rate_limit_enabled) = {
-            // This entire section should be removed and converted to a query
-            // of the cameras capabilities.
-
-            // Save the value of whether the frame rate limiter is enabled.
-            let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
-            debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
-
-            // Check if we can set the frame rate, first by setting a limit to be on.
-            let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
-                Ok(()) => {
-                    debug!("set set_acquisition_frame_rate_enable true");
-                    // Then by setting a limit to be off.
-                    match cam.set_acquisition_frame_rate_enable(false) {
-                        Ok(()) => {debug!("{}:{}",file!(),line!());true},
-                        Err(e) => {debug!("err {} {}:{}",e, file!(),line!());false},
-                    }
-                },
-                Err(e) => {debug!("err {} {}:{}",e,file!(),line!());false},
-            };
-
-            if frame_rate_limit_supported {
-                // Restore the state of the frame rate limiter.
-                cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
-                debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+            cam.node_map_load(&settings)?;
+            (false, false)
+        } else {
+            for pixfmt in cam.possible_pixel_formats()?.iter() {
+                debug!("  possible pixel format: {}", pixfmt);
             }
 
+            if let Some(ref pixfmt_str) = args.pixel_format {
+                use std::str::FromStr;
+                let pixfmt = PixFmt::from_str(pixfmt_str)
+                    .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
+                info!("  setting pixel format: {}", pixfmt);
+                cam.set_pixel_format(pixfmt)?;
+            }
+
+            debug!("  current pixel format: {}", cam.pixel_format()?);
+
+            let (frame_rate_limit_supported, frame_rate_limit_enabled) = {
+                // This entire section should be removed and converted to a query
+                // of the cameras capabilities.
+
+                // Save the value of whether the frame rate limiter is enabled.
+                let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+                debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+
+                // Check if we can set the frame rate, first by setting a limit to be on.
+                let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
+                    Ok(()) => {
+                        debug!("set set_acquisition_frame_rate_enable true");
+                        // Then by setting a limit to be off.
+                        match cam.set_acquisition_frame_rate_enable(false) {
+                            Ok(()) => {
+                                debug!("{}:{}", file!(), line!());
+                                true
+                            }
+                            Err(e) => {
+                                debug!("err {} {}:{}", e, file!(), line!());
+                                false
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        debug!("err {} {}:{}", e, file!(), line!());
+                        false
+                    }
+                };
+
+                if frame_rate_limit_supported {
+                    // Restore the state of the frame rate limiter.
+                    cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
+                    debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+                }
+
+                (frame_rate_limit_supported, frame_rate_limit_enabled)
+            };
+
+            match cam.feature_enum_set("AcquisitionMode", "Continuous") {
+                Ok(()) => {}
+                Err(e) => {
+                    debug!("Ignoring error when setting AcquisitionMode: {}", e);
+                }
+            }
             (frame_rate_limit_supported, frame_rate_limit_enabled)
         };
-
-        match cam.feature_enum_set("AcquisitionMode", "Continuous") {
-            Ok(()) => {}
-            Err(e) => {debug!("Ignoring error when setting AcquisitionMode: {}",e);}
-        }
-        (frame_rate_limit_supported, frame_rate_limit_enabled)
-    };
 
     let settings_on_start = cam.node_map_save()?;
 
@@ -2525,14 +2692,19 @@ pub async fn setup_app<M,C>(
     // Get initial frame to determine width, height and pixel_format.
     debug!("  started acquisition, waiting for first frame");
     let frame = cam.next_frame()?;
-    info!("  acquired first frame: {}x{}", frame.width(), frame.height());
+    info!(
+        "  acquired first frame: {}x{}",
+        frame.width(),
+        frame.height()
+    );
 
     #[cfg(feature = "plugin-process-frame")]
-    let (plugin_handler_thread_tx, plugin_handler_thread_rx) = channellib::bounded::<DynamicFrame>(500);
+    let (plugin_handler_thread_tx, plugin_handler_thread_rx) =
+        channellib::bounded::<DynamicFrame>(500);
     #[cfg(feature = "plugin-process-frame")]
     let (plugin_result_tx, plugin_result_rx) = channellib::bounded::<_>(500);
 
-    #[cfg(feature="plugin-process-frame")]
+    #[cfg(feature = "plugin-process-frame")]
     let plugin_wait_dur = args.plugin_wait_dur;
 
     let (firehose_tx, firehose_rx) = tokio::sync::mpsc::channel::<AnnotatedFrame>(5);
@@ -2554,16 +2726,16 @@ pub async fn setup_app<M,C>(
 
     #[cfg(feature = "debug-images")]
     let debug_addr = args.debug_addr;
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     let tracker_cfg_src = args.tracker_cfg_src;
 
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let save_empty_data2d = args.save_empty_data2d;
 
-    #[cfg(not(feature="flydratrax"))]
+    #[cfg(not(feature = "flydratrax"))]
     let save_empty_data2d = true; // not used
 
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     let tracker_cfg = match &tracker_cfg_src {
         &ImPtDetectCfgSource::ChangedSavedToDisk(ref src) => {
             // Retrieve the saved preferences
@@ -2571,22 +2743,22 @@ pub async fn setup_app<M,C>(
             match ImPtDetectCfg::load(app_info, prefs_key) {
                 Ok(cfg) => cfg,
                 Err(e) => {
-                    info!("Failed loading image detection config ({}), using defaults.", e);
+                    info!(
+                        "Failed loading image detection config ({}), using defaults.",
+                        e
+                    );
                     default_im_pt_detect()
                 }
             }
-        },
-        &ImPtDetectCfgSource::ChangesNotSavedToDisk(ref cfg) => {
-            cfg.clone()
         }
+        &ImPtDetectCfgSource::ChangesNotSavedToDisk(ref cfg) => cfg.clone(),
     };
 
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     let im_pt_detect_cfg = tracker_cfg.clone();
 
     let mainbrain_info = args.mainbrain_internal_addr.map(|addr| {
-        let ( transmit_msg_tx, transmit_msg_rx) =
-            mpsc::channel::<flydra_types::HttpApiCallback>(10);
+        let (transmit_msg_tx, transmit_msg_rx) = mpsc::channel::<flydra_types::HttpApiCallback>(10);
 
         MainbrainInfo {
             mainbrain_internal_addr: addr,
@@ -2642,9 +2814,7 @@ pub async fn setup_app<M,C>(
             &current_cam_settings_extension,
             &ros_cam_name,
         )
-        .map(|fut|
-            rt_handle.spawn( fut  )
-        );
+        .map(|fut| rt_handle.spawn(fut));
     }
 
     if args.camera_settings_filename.is_none() {
@@ -2673,7 +2843,7 @@ pub async fn setup_app<M,C>(
         height: cam.height()?,
     };
 
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let kalman_tracking_config = {
         if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
             // Retrieve the saved preferences
@@ -2681,7 +2851,10 @@ pub async fn setup_app<M,C>(
             match KalmanTrackingConfig::load(app_info, KALMAN_TRACKING_PREFS_KEY) {
                 Ok(cfg) => cfg,
                 Err(e) => {
-                    info!("Failed loading kalman tracking config ({}), using defaults.", e);
+                    info!(
+                        "Failed loading kalman tracking config ({}), using defaults.",
+                        e
+                    );
                     KalmanTrackingConfig::default()
                 }
             }
@@ -2690,7 +2863,7 @@ pub async fn setup_app<M,C>(
         }
     };
 
-    #[cfg(feature="flydratrax")]
+    #[cfg(feature = "flydratrax")]
     let led_program_config = {
         if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
             // Retrieve the saved preferences
@@ -2712,19 +2885,23 @@ pub async fn setup_app<M,C>(
             match nvenc::NvEnc::new(&libs) {
                 Ok(nv_enc) => {
                     let n = nv_enc.cuda_device_count()?;
-                    let r: Result<Vec<String>> = (0..n).map(|i| {
-                        let dev = nv_enc.new_cuda_device(i)?;
-                        Ok(dev.name().map_err(nvenc::NvEncError::from)?)
-                    }).collect();
+                    let r: Result<Vec<String>> = (0..n)
+                        .map(|i| {
+                            let dev = nv_enc.new_cuda_device(i)?;
+                            Ok(dev.name().map_err(nvenc::NvEncError::from)?)
+                        })
+                        .collect();
                     r?
                 }
                 Err(e) => {
-                    info!("CUDA and nvidia-encode libraries loaded, but \
-                        error during initialization: {}", e,
+                    info!(
+                        "CUDA and nvidia-encode libraries loaded, but \
+                        error during initialization: {}",
+                        e,
                     );
                     // empty vector
                     Vec::new()
-                },
+                }
             }
         }
         Err(e) => {
@@ -2735,40 +2912,47 @@ pub async fn setup_app<M,C>(
         }
     };
 
-    #[cfg(not(feature="fiducial"))]
+    #[cfg(not(feature = "fiducial"))]
     let apriltag_state = None;
 
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let apriltag_state = Some(ApriltagState::default());
 
     let im_ops_state = ImOpsState::default();
 
-    #[cfg(not(feature="fiducial"))]
+    #[cfg(not(feature = "fiducial"))]
     let format_str_apriltag_csv = "".into();
 
-    #[cfg(feature="fiducial")]
+    #[cfg(feature = "fiducial")]
     let format_str_apriltag_csv = args.apriltag_csv_filename_template.into();
 
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
-    #[cfg(not(feature="image_tracker"))]
+    #[cfg(not(feature = "image_tracker"))]
     let im_pt_detect_cfg = im_pt_detect_config::default_absdiff();
 
-    #[cfg(feature="image_tracker")]
+    #[cfg(feature = "image_tracker")]
     let has_image_tracker_compiled = true;
 
-    #[cfg(not(feature="image_tracker"))]
+    #[cfg(not(feature = "image_tracker"))]
     let has_image_tracker_compiled = false;
 
     let is_braid = args.is_braid;
     let mkv_recording_config = MkvRecordingConfig {
         writing_application: Some(get_mkv_writing_application(is_braid)),
         title: Some(cam_name.as_str().to_string()),
-        ..Default::default()};
+        ..Default::default()
+    };
 
-    let mkv_filename_template = args.mkv_filename_template.replace("{CAMNAME}", cam_name.as_str());
-    let fmf_filename_template = args.fmf_filename_template.replace("{CAMNAME}", cam_name.as_str());
-    let ufmf_filename_template = args.ufmf_filename_template.replace("{CAMNAME}", cam_name.as_str());
+    let mkv_filename_template = args
+        .mkv_filename_template
+        .replace("{CAMNAME}", cam_name.as_str());
+    let fmf_filename_template = args
+        .fmf_filename_template
+        .replace("{CAMNAME}", cam_name.as_str());
+    let ufmf_filename_template = args
+        .ufmf_filename_template
+        .replace("{CAMNAME}", cam_name.as_str());
 
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
@@ -2798,16 +2982,16 @@ pub async fn setup_app<M,C>(
         is_saving_im_pt_detect_csv: None,
         has_image_tracker_compiled,
         im_pt_detect_cfg,
-        #[cfg(feature="flydratrax")]
+        #[cfg(feature = "flydratrax")]
         kalman_tracking_config,
-        #[cfg(feature="flydratrax")]
+        #[cfg(feature = "flydratrax")]
         led_program_config,
         led_box_device_lost: false,
         led_box_device_state: None,
         led_box_device_path: args.led_box_device_path,
-        #[cfg(feature="checkercal")]
+        #[cfg(feature = "checkercal")]
         checkerboard_data: strand_cam_storetype::CheckerboardCalState::new(),
-        #[cfg(feature="checkercal")]
+        #[cfg(feature = "checkercal")]
         checkerboard_save_debug: None,
         post_trigger_buffer_size: 0,
         cuda_devices,
@@ -2832,10 +3016,11 @@ pub async fn setup_app<M,C>(
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    #[cfg(feature="flydratrax")]
-    let (model_server_shutdown_tx, model_server_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    #[cfg(feature = "flydratrax")]
+    let (model_server_shutdown_tx, model_server_shutdown_rx) =
+        tokio::sync::oneshot::channel::<()>();
 
-    #[cfg(feature="debug-images")]
+    #[cfg(feature = "debug-images")]
     let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     let http_server_addr = if let Some(http_server_addr) = args.http_server_addr.as_ref() {
@@ -2846,8 +3031,7 @@ pub async fn setup_app<M,C>(
         DEFAULT_HTTP_ADDR.to_string()
     };
 
-    let (firehose_callback_rx, my_app, connection_callback_rx) =
-    StrandCamApp::new(
+    let (firehose_callback_rx, my_app, connection_callback_rx) = StrandCamApp::new(
         rt_handle.clone(),
         shared_store_arc.clone(),
         secret,
@@ -2857,7 +3041,8 @@ pub async fn setup_app<M,C>(
         led_box_tx_std.clone(),
         tx_frame3,
         shutdown_rx,
-    ).await?;
+    )
+    .await?;
 
     // The value `args.http_server_addr` is transformed to
     // `local_addr` by doing things like replacing port 0
@@ -2873,7 +3058,8 @@ pub async fn setup_app<M,C>(
     let url = http_camserver_info.guess_base_url_with_token();
 
     if args.show_url {
-        println!("Depending on things, you may be able to login with this url: {}",
+        println!(
+            "Depending on things, you may be able to login with this url: {}",
             url,
         );
 
@@ -2883,21 +3069,22 @@ pub async fn setup_app<M,C>(
         }
     }
 
-    #[cfg(feature="plugin-process-frame")]
+    #[cfg(feature = "plugin-process-frame")]
     let do_process_frame_callback = args.process_frame_callback.is_some();
 
-    #[cfg(feature="plugin-process-frame")]
+    #[cfg(feature = "plugin-process-frame")]
     let process_frame_callback = args.process_frame_callback;
 
-    #[cfg(feature="checkercal")]
+    #[cfg(feature = "checkercal")]
     let collected_corners_arc: CollectedCornersArc = Arc::new(RwLock::new(Vec::new()));
 
     let frame_process_cjh = {
         let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
 
-        let acquisition_duration_allowed_imprecision_msec = args.acquisition_duration_allowed_imprecision_msec;
+        let acquisition_duration_allowed_imprecision_msec =
+            args.acquisition_duration_allowed_imprecision_msec;
         let csv_save_dir = args.csv_save_dir.clone();
-        #[cfg(feature="flydratrax")]
+        #[cfg(feature = "flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
         let led_box_tx_std = led_box_tx_std.clone();
         let http_camserver_info2 = http_camserver_info.clone();
@@ -2905,9 +3092,8 @@ pub async fn setup_app<M,C>(
         let cam_args_tx2 = cam_args_tx.clone();
 
         let handle2 = rt_handle.clone();
-        #[cfg(feature="flydratrax")]
+        #[cfg(feature = "flydratrax")]
         let (model_server_data_tx, model_server, flydratrax_calibration_source) = {
-
             let model_server_shutdown_rx = Some(model_server_shutdown_rx);
 
             info!("send_pose server at {}", model_server_addr);
@@ -2919,9 +3105,21 @@ pub async fn setup_app<M,C>(
             let (model_server_data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
             // we need the tokio reactor already by here
-            let model_server = flydra2::new_model_server(data_rx, valve.clone(), model_server_shutdown_rx, &model_server_addr, info, handle2.clone()).await?;
+            let model_server = flydra2::new_model_server(
+                data_rx,
+                valve.clone(),
+                model_server_shutdown_rx,
+                &model_server_addr,
+                info,
+                handle2.clone(),
+            )
+            .await?;
             let flydratrax_calibration_source = args.flydratrax_calibration_source;
-            (model_server_data_tx, model_server, flydratrax_calibration_source)
+            (
+                model_server_data_tx,
+                model_server,
+                flydratrax_calibration_source,
+            )
         };
 
         let new_cam_data = flydra_types::RegisterNewCamera {
@@ -2929,10 +3127,9 @@ pub async fn setup_app<M,C>(
             ros_cam_name: ros_cam_name.clone(),
             http_camserver_info: Some(CamHttpServerInfo::Server(http_camserver_info.clone())),
             cam_settings_data: Some(flydra_types::UpdateCamSettings {
-                    current_cam_settings_buf: settings_on_start,
-                    current_cam_settings_extension: settings_file_ext,
-                },
-            ),
+                current_cam_settings_buf: settings_on_start,
+                current_cam_settings_extension: settings_file_ext,
+            }),
             current_image_png: current_image_png.into(),
         };
 
@@ -2941,12 +3138,11 @@ pub async fn setup_app<M,C>(
         let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
         let frame_process_task_fut = {
             {
-
                 frame_process_task(
                     handle2,
-                    #[cfg(feature="flydratrax")]
+                    #[cfg(feature = "flydratrax")]
                     (model_server_data_tx, model_server),
-                    #[cfg(feature="flydratrax")]
+                    #[cfg(feature = "flydratrax")]
                     flydratrax_calibration_source,
                     cam_name2,
                     camera_cfg,
@@ -2954,7 +3150,7 @@ pub async fn setup_app<M,C>(
                     image_height,
                     rx_frame,
                     cam_args_tx2,
-                    #[cfg(feature="image_tracker")]
+                    #[cfg(feature = "image_tracker")]
                     tracker_cfg,
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
                     firehose_tx,
@@ -2962,7 +3158,7 @@ pub async fn setup_app<M,C>(
                     plugin_handler_thread_tx,
                     #[cfg(feature = "plugin-process-frame")]
                     plugin_result_rx,
-                    #[cfg(feature="plugin-process-frame")]
+                    #[cfg(feature = "plugin-process-frame")]
                     plugin_wait_dur,
                     led_box_tx_std,
                     quit_rx,
@@ -2974,9 +3170,9 @@ pub async fn setup_app<M,C>(
                     mainbrain_info,
                     camdata_addr,
                     led_box_heartbeat_update_arc2,
-                    #[cfg(feature="plugin-process-frame")]
+                    #[cfg(feature = "plugin-process-frame")]
                     do_process_frame_callback,
-                    #[cfg(feature="checkercal")]
+                    #[cfg(feature = "checkercal")]
                     collected_corners_arc.clone(),
                     save_empty_data2d,
                     valve2,
@@ -2993,28 +3189,36 @@ pub async fn setup_app<M,C>(
         debug!("waiting for frame acquisition thread to start");
         is_starting_rx.await?;
         // TODO: how to check if task still running?
-        ControlledTaskJoinHandle { quit_channel, join_handle }
+        ControlledTaskJoinHandle {
+            quit_channel,
+            join_handle,
+        }
     };
     debug!("frame_process_task spawned");
 
-    tx_frame.send(Msg::Store(shared_store_arc.clone())).await.unwrap();
+    tx_frame
+        .send(Msg::Store(shared_store_arc.clone()))
+        .await
+        .unwrap();
 
     debug!("installing frame stream handler");
 
-    #[cfg(feature="posix_sched_fifo")]
+    #[cfg(feature = "posix_sched_fifo")]
     fn with_priority() {
         // This function is run in the camera capture thread as it is started.
         let pid = 0; // this thread
         let priority = 99;
-        match posix_scheduler::sched_setscheduler( pid, posix_scheduler::SCHED_FIFO, priority) {
+        match posix_scheduler::sched_setscheduler(pid, posix_scheduler::SCHED_FIFO, priority) {
             Ok(()) => info!("grabbing frames with SCHED_FIFO scheduler policy"),
-            Err(e) => error!("failed to start frame grabber thread with \
-                            SCHED_FIFO scheduler policy: {}", e,
+            Err(e) => error!(
+                "failed to start frame grabber thread with \
+                            SCHED_FIFO scheduler policy: {}",
+                e,
             ),
         };
     }
 
-    #[cfg(not(feature="posix_sched_fifo"))]
+    #[cfg(not(feature = "posix_sched_fifo"))]
     fn with_priority() {
         // This funciton is run in the camera capture thread as it is started.
         debug!("starting async capture");
@@ -3039,70 +3243,70 @@ pub async fn setup_app<M,C>(
         let shared_store_arc = shared_store_arc.clone();
         let frame_processing_error_state = frame_processing_error_state.clone();
         async move {
-        while let Some(frame_msg) = frame_valved.next().await {
-            match frame_msg {
-                ci2_async::FrameResult::Frame(frame) => {
-                    let frame: DynamicFrame = frame;
-                    trace!(
-                        "  got frame {}: {}x{}",
-                        frame.extra().host_framenumber(),
-                        frame.width(),
-                        frame.height()
-                    );
-                    if tx_frame.capacity() == 0 {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|tracker| {
-                            let mut state = frame_processing_error_state.write();
-                            {
-                                match &*state {
-                                    FrameProcessingErrorState::IgnoreAll => {},
-                                    FrameProcessingErrorState::IgnoreUntil(ignore_until) => {
-                                        let now = chrono::Utc::now();
-                                        if now >= *ignore_until {
-                                            tracker.had_frame_processing_error = true;
-                                            *state = FrameProcessingErrorState::NotifyAll;
+            while let Some(frame_msg) = frame_valved.next().await {
+                match frame_msg {
+                    ci2_async::FrameResult::Frame(frame) => {
+                        let frame: DynamicFrame = frame;
+                        trace!(
+                            "  got frame {}: {}x{}",
+                            frame.extra().host_framenumber(),
+                            frame.width(),
+                            frame.height()
+                        );
+                        if tx_frame.capacity() == 0 {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|tracker| {
+                                let mut state = frame_processing_error_state.write();
+                                {
+                                    match &*state {
+                                        FrameProcessingErrorState::IgnoreAll => {}
+                                        FrameProcessingErrorState::IgnoreUntil(ignore_until) => {
+                                            let now = chrono::Utc::now();
+                                            if now >= *ignore_until {
+                                                tracker.had_frame_processing_error = true;
+                                                *state = FrameProcessingErrorState::NotifyAll;
+                                            }
                                         }
-                                    },
-                                    FrameProcessingErrorState::NotifyAll => {
-                                        tracker.had_frame_processing_error = true;
-                                    },
+                                        FrameProcessingErrorState::NotifyAll => {
+                                            tracker.had_frame_processing_error = true;
+                                        }
+                                    }
                                 }
-
-                            }
-                        });
-                        error!("Channel full sending frame to process thread. Dropping frame data.");
-                    } else {
-                        tx_frame.send(Msg::Mframe(frame)).await?;
+                            });
+                            error!("Channel full sending frame to process thread. Dropping frame data.");
+                        } else {
+                            tx_frame.send(Msg::Mframe(frame)).await?;
+                        }
                     }
-                },
-                ci2_async::FrameResult::SingleFrameError(s) => {
-                    error!("SingleFrameError({})", s);
-                },
+                    ci2_async::FrameResult::SingleFrameError(s) => {
+                        error!("SingleFrameError({})", s);
+                    }
+                }
             }
-        };
-        debug!("cam_stream_future future done {}:{}", file!(), line!());
-        Ok::<_,StrandCamError>(())
-    }};
+            debug!("cam_stream_future future done {}:{}", file!(), line!());
+            Ok::<_, StrandCamError>(())
+        }
+    };
 
     let do_version_check = match std::env::var_os("DISABLE_VERSION_CHECK") {
         Some(v) => &v == "0",
-        None => { true },
+        None => true,
     };
 
     // This is quick-and-dirtry version checking. It can be cleaned up substantially...
     if do_version_check {
-
         let app_version: semver::Version = {
             let mut my_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
             my_version.build = semver::BuildMetadata::new(env!("GIT_HASH").to_string().as_str())?;
             my_version
         };
 
-        info!("Welcome to {} {}. For more details \
+        info!(
+            "Welcome to {} {}. For more details \
             contact Andrew Straw <straw@bio.uni-freiburg.de>. This program will check for new \
             versions automatically. To disable printing this message and checking for new \
-            versions, set the environment variable DISABLE_VERSION_CHECK=1.", app_name,
-            app_version,
+            versions, set the environment variable DISABLE_VERSION_CHECK=1.",
+            app_name, app_version,
         );
 
         // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
@@ -3110,9 +3314,7 @@ pub async fn setup_app<M,C>(
         let known_version = Arc::new(RwLock::new(app_version));
 
         // Create a stream to call our closure now and every 30 minutes.
-        let interval_stream = tokio::time::interval(
-            std::time::Duration::from_secs(1800)
-        );
+        let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
 
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
@@ -3122,13 +3324,14 @@ pub async fn setup_app<M,C>(
         let stream_future = async move {
             while incoming1.next().await.is_some() {
                 let https = HttpsConnector::new();
-                let client = hyper::Client::builder()
-                    .build::<_, hyper::Body>(https);
+                let client = hyper::Client::builder().build::<_, hyper::Body>(https);
 
                 let r = check_version(client, known_version2.clone(), app_name).await;
                 match r {
                     Ok(()) => {}
-                    Err(e) => {error!("error checking version: {}",e);}
+                    Err(e) => {
+                        error!("error checking version: {}", e);
+                    }
                 }
             }
             debug!("version check future done {}:{}", file!(), line!());
@@ -3143,87 +3346,77 @@ pub async fn setup_app<M,C>(
     let cam_arg_future = {
         let shared_store_arc = shared_store_arc.clone();
 
-        #[cfg(feature="checkercal")]
+        #[cfg(feature = "checkercal")]
         let cam_name2 = cam_name.clone();
 
         let mut cam_args_rx = tokio_stream::wrappers::ReceiverStream::new(cam_args_rx);
 
         async move {
-        // We do not put cam_args_rx behind a stream_cancel::Valve because
-        // it is the top-level controller for quitting everything - if
-        // a DoQuit message is received, then this while loop will end
-        // and all the cleanup below will fire. It is done this way because
-        // we need to be able to quit Strand Cam as a standalone program in
-        // which case it catches its own Ctrl-C and then fires a DoQuit message,
-        // or if it is run within Braid, in which Braid will send it a DoQuit
-        // message. Finally, when other threads panic, they should also send a
-        // DoQuit message.
-        while let Some(cam_args) = cam_args_rx.next().await {
-            debug!("handling camera command {:?}", cam_args);
-            #[allow(unused_variables)]
-            match cam_args {
-                CamArg::SetIngoreFutureFrameProcessingErrors(v) => {
-                    let mut state = frame_processing_error_state.write();
-                    match v {
-                        None => {
-                            *state = FrameProcessingErrorState::IgnoreAll;
-                        }
-                        Some(val) => {
-                            if val <= 0 {
-                                *state = FrameProcessingErrorState::NotifyAll;
-                            } else {
-                                let when = chrono::Utc::now() + chrono::Duration::seconds(val);
-                                *state = FrameProcessingErrorState::IgnoreUntil(when);
+            // We do not put cam_args_rx behind a stream_cancel::Valve because
+            // it is the top-level controller for quitting everything - if
+            // a DoQuit message is received, then this while loop will end
+            // and all the cleanup below will fire. It is done this way because
+            // we need to be able to quit Strand Cam as a standalone program in
+            // which case it catches its own Ctrl-C and then fires a DoQuit message,
+            // or if it is run within Braid, in which Braid will send it a DoQuit
+            // message. Finally, when other threads panic, they should also send a
+            // DoQuit message.
+            while let Some(cam_args) = cam_args_rx.next().await {
+                debug!("handling camera command {:?}", cam_args);
+                #[allow(unused_variables)]
+                match cam_args {
+                    CamArg::SetIngoreFutureFrameProcessingErrors(v) => {
+                        let mut state = frame_processing_error_state.write();
+                        match v {
+                            None => {
+                                *state = FrameProcessingErrorState::IgnoreAll;
+                            }
+                            Some(val) => {
+                                if val <= 0 {
+                                    *state = FrameProcessingErrorState::NotifyAll;
+                                } else {
+                                    let when = chrono::Utc::now() + chrono::Duration::seconds(val);
+                                    *state = FrameProcessingErrorState::IgnoreUntil(when);
+                                }
                             }
                         }
+
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.had_frame_processing_error = false);
                     }
-
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|tracker| tracker.had_frame_processing_error = false);
-
-                }
-                CamArg::SetExposureTime(v) => {
-                    match cam.set_exposure_time(v) {
+                    CamArg::SetExposureTime(v) => match cam.set_exposure_time(v) {
                         Ok(()) => {
                             send_cam_settings_to_braid(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name
+                                &ros_cam_name,
                             )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
+                            .map(|fut| rt_handle.spawn(fut));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.exposure_time.current = v);
                         }
                         Err(e) => {
                             error!("setting exposure_time: {:?}", e);
                         }
-                    }
-                }
-                CamArg::SetGain(v) => {
-                    match cam.set_gain(v) {
+                    },
+                    CamArg::SetGain(v) => match cam.set_gain(v) {
                         Ok(()) => {
                             send_cam_settings_to_braid(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name
+                                &ros_cam_name,
                             )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
+                            .map(|fut| rt_handle.spawn(fut));
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.gain.current = v);
                         }
                         Err(e) => {
                             error!("setting gain: {:?}", e);
                         }
-                    }
-                }
-                CamArg::SetGainAuto(v) => {
-                    match cam.set_gain_auto(v) {
+                    },
+                    CamArg::SetGainAuto(v) => match cam.set_gain_auto(v) {
                         Ok(()) => {
                             send_cam_settings_to_braid(
                                 &cam.node_map_save().unwrap(),
@@ -3231,50 +3424,43 @@ pub async fn setup_app<M,C>(
                                 &current_cam_settings_extension,
                                 &ros_cam_name,
                             )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
+                            .map(|fut| rt_handle.spawn(fut));
                             let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                match cam.gain_auto() {
-                                    Ok(latest) => {
-                                        shared.gain_auto = Some(latest);
-                                    },
-                                    Err(e) => {
-                                        shared.gain_auto = Some(v);
-                                        error!("after setting gain_auto, error getting: {:?}",e);
-                                    }
+                            tracker.modify(|shared| match cam.gain_auto() {
+                                Ok(latest) => {
+                                    shared.gain_auto = Some(latest);
+                                }
+                                Err(e) => {
+                                    shared.gain_auto = Some(v);
+                                    error!("after setting gain_auto, error getting: {:?}", e);
                                 }
                             });
-
                         }
                         Err(e) => {
                             error!("setting gain_auto: {:?}", e);
                         }
+                    },
+                    CamArg::SetRecordingFps(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.recording_framerate = v);
                     }
-                }
-                CamArg::SetRecordingFps(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|tracker| tracker.recording_framerate = v);
-                }
-                CamArg::SetMkvRecordingConfig(mut cfg) => {
-                    if cfg.writing_application.is_none() {
-                        // The writing application is not set in the web UI
-                        cfg.writing_application = Some(get_mkv_writing_application(is_braid));
+                    CamArg::SetMkvRecordingConfig(mut cfg) => {
+                        if cfg.writing_application.is_none() {
+                            // The writing application is not set in the web UI
+                            cfg.writing_application = Some(get_mkv_writing_application(is_braid));
+                        }
+                        if cfg.title.is_none() {
+                            // The title is not set in the web UI
+                            cfg.title = Some(cam_name.as_str().to_string());
+                        }
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
                     }
-                    if cfg.title.is_none() {
-                        // The title is not set in the web UI
-                        cfg.title = Some(cam_name.as_str().to_string());
+                    CamArg::SetMkvRecordingFps(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.mkv_recording_config.max_framerate = v);
                     }
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
-                }
-                CamArg::SetMkvRecordingFps(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|tracker| tracker.mkv_recording_config.max_framerate = v);
-                }
-                CamArg::SetExposureAuto(v) => {
-                    match cam.set_exposure_auto(v) {
+                    CamArg::SetExposureAuto(v) => match cam.set_exposure_auto(v) {
                         Ok(()) => {
                             send_cam_settings_to_braid(
                                 &cam.node_map_save().unwrap(),
@@ -3282,41 +3468,34 @@ pub async fn setup_app<M,C>(
                                 &current_cam_settings_extension,
                                 &ros_cam_name,
                             )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
+                            .map(|fut| rt_handle.spawn(fut));
                             let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                match cam.exposure_auto() {
-                                    Ok(latest) => {
-                                        shared.exposure_auto = Some(latest);
-                                    },
-                                    Err(e) => {
-                                        shared.exposure_auto = Some(v);
-                                        error!("after setting exposure_auto, error getting: {:?}",e);
-                                    }
+                            tracker.modify(|shared| match cam.exposure_auto() {
+                                Ok(latest) => {
+                                    shared.exposure_auto = Some(latest);
+                                }
+                                Err(e) => {
+                                    shared.exposure_auto = Some(v);
+                                    error!("after setting exposure_auto, error getting: {:?}", e);
                                 }
                             });
                         }
                         Err(e) => {
                             error!("setting exposure_auto: {:?}", e);
                         }
-                    }
-                }
-                CamArg::SetFrameRateLimitEnabled(v) => {
-                    match cam.set_acquisition_frame_rate_enable(v) {
-                        Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name
-                            )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
+                    },
+                    CamArg::SetFrameRateLimitEnabled(v) => {
+                        match cam.set_acquisition_frame_rate_enable(v) {
+                            Ok(()) => {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx.as_ref(),
+                                    &current_cam_settings_extension,
+                                    &ros_cam_name,
+                                )
+                                .map(|fut| rt_handle.spawn(fut));
+                                let mut tracker = shared_store_arc.write();
+                                tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate_enable() {
                                     Ok(latest) => {
                                         shared.frame_rate_limit_enabled = latest;
@@ -3326,253 +3505,76 @@ pub async fn setup_app<M,C>(
                                     }
                                 }
                             });
-                        }
-                        Err(e) => {
-                            error!("setting frame_rate_limit_enabled: {:?}", e);
+                            }
+                            Err(e) => {
+                                error!("setting frame_rate_limit_enabled: {:?}", e);
+                            }
                         }
                     }
-                }
-                CamArg::SetFrameRateLimit(v) => {
-                    match cam.set_acquisition_frame_rate(v) {
+                    CamArg::SetFrameRateLimit(v) => match cam.set_acquisition_frame_rate(v) {
                         Ok(()) => {
                             send_cam_settings_to_braid(
                                 &cam.node_map_save().unwrap(),
                                 transmit_msg_tx.as_ref(),
                                 &current_cam_settings_extension,
-                                &ros_cam_name
+                                &ros_cam_name,
                             )
-                            .map(|fut|
-                                rt_handle.spawn( fut  )
-                            );
+                            .map(|fut| rt_handle.spawn(fut));
                             let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                match cam.acquisition_frame_rate() {
-                                    Ok(latest) => {
-                                        if let Some(ref mut frl) = shared.frame_rate_limit {
-                                            frl.current = latest;
-                                        } else {
-                                            error!("frame_rate_limit is expectedly None");
-                                        }
-                                    },
-                                    Err(e) => {
-                                        error!("after setting frame_rate_limit, error getting: {:?}",e);
+                            tracker.modify(|shared| match cam.acquisition_frame_rate() {
+                                Ok(latest) => {
+                                    if let Some(ref mut frl) = shared.frame_rate_limit {
+                                        frl.current = latest;
+                                    } else {
+                                        error!("frame_rate_limit is expectedly None");
                                     }
+                                }
+                                Err(e) => {
+                                    error!(
+                                        "after setting frame_rate_limit, error getting: {:?}",
+                                        e
+                                    );
                                 }
                             });
                         }
                         Err(e) => {
                             error!("setting frame_rate_limit: {:?}", e);
                         }
+                    },
+                    CamArg::SetFrameOffset(fo) => {
+                        tx_frame2.send(Msg::SetFrameOffset(fo)).await?;
                     }
-                }
-                CamArg::SetFrameOffset(fo) => {
-                    tx_frame2.send(Msg::SetFrameOffset(fo)).await?;
-                }
-                CamArg::SetClockModel(cm) => {
-                    tx_frame2.send(Msg::SetClockModel(cm)).await?;
-                }
-                CamArg::SetFormatStr(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|tracker| tracker.format_str = v);
-                }
-                CamArg::SetIsRecordingMkv(do_recording) => {
-                    // Copy values from cache and release the lock immediately.
-                    let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
-                        let tracker = shared_store_arc.read();
-                        let shared: &StoreType = tracker.as_ref();
-                        (shared.is_recording_mkv.clone(), shared.format_str_mkv.clone(), shared.mkv_recording_config.clone())
-                    };
-
-                    if is_recording_mkv.is_some() != do_recording {
-                        info!("changed recording mkv value: do_recording={}", do_recording);
-
-                        // Compute new values.
-                        let (msg, new_val) = if do_recording {
-                            // change state
-                            (Msg::StartMkv((format_str_mkv.clone(), mkv_recording_config)), Some(RecordingPath::new(format_str_mkv)))
-                        } else {
-                            (Msg::StopMkv, None)
-                        };
-
-                        // Send the command.
-                        tx_frame2.send(msg).await?;
-
-                        // Save the new recording state.
+                    CamArg::SetClockModel(cm) => {
+                        tx_frame2.send(Msg::SetClockModel(cm)).await?;
+                    }
+                    CamArg::SetFormatStr(v) => {
                         let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.is_recording_mkv = new_val;
-                        });
+                        tracker.modify(|tracker| tracker.format_str = v);
                     }
-
-                }
-                CamArg::ToggleAprilTagFamily(family) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        if let Some(ref mut ts) = shared.apriltag_state {
-                            if ts.is_recording_csv.is_some() {
-                                error!("will not change families while recording CSV");
-                            } else {
-                                ts.april_family = family;
-                            }
-                        } else {
-                            error!("no apriltag support, not switching state");
-                        }
-                    });
-                }
-                CamArg::ToggleAprilTagDetection(do_detection) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        if let Some(ref mut ts) = shared.apriltag_state {
-                            ts.do_detection = do_detection;
-                        } else {
-                            error!("no apriltag support, not switching state");
-                        }
-                    });
-                }
-                CamArg::ToggleImOpsDetection(do_detection) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.do_detection = do_detection;
-                    });
-                }
-                CamArg::SetImOpsDestination(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.destination = v;
-                    });
-                }
-                CamArg::SetImOpsSource(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.source = v;
-                    });
-                }
-                CamArg::SetImOpsCenterX(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.center_x = v;
-                    });
-                }
-                CamArg::SetImOpsCenterY(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.center_y = v;
-                    });
-                }
-                CamArg::SetImOpsThreshold(v) => {
-                    let mut tracker = shared_store_arc.write();
-                    tracker.modify(|shared| {
-                        shared.im_ops_state.threshold = v;
-                    });
-                }
-
-                CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
-                    let new_val = {
-                        let tracker = shared_store_arc.read();
-                        let shared: &StoreType = tracker.as_ref();
-                        if let Some(ref ts) = shared.apriltag_state {
-
-                            info!("changed recording april tag value: do_recording={}", do_recording);
-                            if do_recording {
-                                Some(Some(RecordingPath::new(shared.format_str_apriltag_csv.clone())))
-                            } else {
-                                Some(None)
-                            }
-                        } else {
-                            error!("no apriltag support, not switching state");
-                            None
-                        }
-                    };
-
-                    // Here we asynchronously send the message to initiate or stop
-                    // recording without holding any lock.
-                    if let Some(new_val) = &new_val {
-                        let msg = match new_val {
-                            Some(recording_path) => Msg::StartAprilTagRec(recording_path.path()),
-                            None => Msg::StopAprilTagRec,
-                        };
-                        tx_frame2.send(msg).await?;
-                    }
-
-                    // Here we save the new recording state.
-                    if let Some(new_val) = new_val {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            if let Some(ref mut ts) = shared.apriltag_state {
-                                ts.is_recording_csv = new_val;
-                            };
-                        });
-                    }
-                }
-
-                CamArg::PostTrigger(mkv_recording_config) => {
-                    let format_str_mkv = {
-                        let tracker = shared_store_arc.read();
-                        tracker.as_ref().format_str_mkv.clone()
-                    };
-                    tx_frame2.send(Msg::PostTriggerStartMkv((format_str_mkv.clone(), mkv_recording_config))).await?;
-                    {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.is_recording_mkv = Some(RecordingPath::new(format_str_mkv));
-                        })
-                    }
-                }
-                CamArg::SetPostTriggerBufferSize(size) => {
-                    tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await?;
-                }
-                CamArg::SetIsRecordingFmf(do_recording) => {
-                    // Copy values from cache and release the lock immediately.
-                    let (is_recording_fmf, format_str, recording_framerate) = {
-                        let tracker = shared_store_arc.read();
-                        let shared: &StoreType = tracker.as_ref();
-                        (shared.is_recording_fmf.clone(), shared.format_str.clone(), shared.recording_framerate.clone())
-                    };
-
-                    if is_recording_fmf.is_some() != do_recording {
-                        info!("changed recording fmf value: do_recording={}", do_recording);
-
-                        // Compute new values.
-                        let (msg, new_val) = if do_recording {
-                            // change state
-                            let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-                            let filename = local.format(format_str.as_str()).to_string();
-                            (Msg::StartFMF((filename.clone(), recording_framerate)), Some(RecordingPath::new(filename)))
-                        } else {
-                            (Msg::StopFMF, None)
-                        };
-
-                        // Send the command.
-                        tx_frame2.send(msg).await?;
-
-                        // Save the new recording state.
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.is_recording_fmf = new_val;
-                        });
-                    }
-                }
-                CamArg::SetIsRecordingUfmf(do_recording) => {
-                    #[cfg(feature="image_tracker")]
-                    {
+                    CamArg::SetIsRecordingMkv(do_recording) => {
                         // Copy values from cache and release the lock immediately.
-                        let (is_recording_ufmf, format_str_ufmf) = {
+                        let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
                             let tracker = shared_store_arc.read();
                             let shared: &StoreType = tracker.as_ref();
-                            (shared.is_recording_ufmf.clone(), shared.format_str_ufmf.clone())
+                            (
+                                shared.is_recording_mkv.clone(),
+                                shared.format_str_mkv.clone(),
+                                shared.mkv_recording_config.clone(),
+                            )
                         };
 
-                        if is_recording_ufmf.is_some() != do_recording {
-                            info!("changed recording ufmf value: do_recording={}", do_recording);
+                        if is_recording_mkv.is_some() != do_recording {
+                            info!("changed recording mkv value: do_recording={}", do_recording);
 
                             // Compute new values.
                             let (msg, new_val) = if do_recording {
                                 // change state
-                                let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-                                let filename = local.format(format_str_ufmf.as_str()).to_string();
-                                (Msg::StartUFMF(filename.clone()), Some(RecordingPath::new(filename)))
+                                (
+                                    Msg::StartMkv((format_str_mkv.clone(), mkv_recording_config)),
+                                    Some(RecordingPath::new(format_str_mkv)),
+                                )
                             } else {
-                                (Msg::StopUFMF, None)
+                                (Msg::StopMkv, None)
                             };
 
                             // Send the command.
@@ -3581,357 +3583,621 @@ pub async fn setup_app<M,C>(
                             // Save the new recording state.
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
-                                shared.is_recording_ufmf = new_val;
+                                shared.is_recording_mkv = new_val;
                             });
                         }
                     }
-                }
-                CamArg::SetIsDoingObjDetection(value) => {
-                    #[cfg(feature="image_tracker")]
-                    {
-                        {
-                            // update store
+                    CamArg::ToggleAprilTagFamily(family) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            if let Some(ref mut ts) = shared.apriltag_state {
+                                if ts.is_recording_csv.is_some() {
+                                    error!("will not change families while recording CSV");
+                                } else {
+                                    ts.april_family = family;
+                                }
+                            } else {
+                                error!("no apriltag support, not switching state");
+                            }
+                        });
+                    }
+                    CamArg::ToggleAprilTagDetection(do_detection) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            if let Some(ref mut ts) = shared.apriltag_state {
+                                ts.do_detection = do_detection;
+                            } else {
+                                error!("no apriltag support, not switching state");
+                            }
+                        });
+                    }
+                    CamArg::ToggleImOpsDetection(do_detection) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.do_detection = do_detection;
+                        });
+                    }
+                    CamArg::SetImOpsDestination(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.destination = v;
+                        });
+                    }
+                    CamArg::SetImOpsSource(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.source = v;
+                        });
+                    }
+                    CamArg::SetImOpsCenterX(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.center_x = v;
+                        });
+                    }
+                    CamArg::SetImOpsCenterY(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.center_y = v;
+                        });
+                    }
+                    CamArg::SetImOpsThreshold(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.im_ops_state.threshold = v;
+                        });
+                    }
+
+                    CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
+                        let new_val = {
+                            let tracker = shared_store_arc.read();
+                            let shared: &StoreType = tracker.as_ref();
+                            if let Some(ref ts) = shared.apriltag_state {
+                                info!(
+                                    "changed recording april tag value: do_recording={}",
+                                    do_recording
+                                );
+                                if do_recording {
+                                    Some(Some(RecordingPath::new(
+                                        shared.format_str_apriltag_csv.clone(),
+                                    )))
+                                } else {
+                                    Some(None)
+                                }
+                            } else {
+                                error!("no apriltag support, not switching state");
+                                None
+                            }
+                        };
+
+                        // Here we asynchronously send the message to initiate or stop
+                        // recording without holding any lock.
+                        if let Some(new_val) = &new_val {
+                            let msg = match new_val {
+                                Some(recording_path) => {
+                                    Msg::StartAprilTagRec(recording_path.path())
+                                }
+                                None => Msg::StopAprilTagRec,
+                            };
+                            tx_frame2.send(msg).await?;
+                        }
+
+                        // Here we save the new recording state.
+                        if let Some(new_val) = new_val {
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| {
-                                shared.is_doing_object_detection = value;
+                                if let Some(ref mut ts) = shared.apriltag_state {
+                                    ts.is_recording_csv = new_val;
+                                };
                             });
                         }
-                        tx_frame2
-                                .send(Msg::SetTracking(value)).await?;
                     }
-                }
-                CamArg::DoQuit => {
-                    break;
-                }
-                CamArg::SetIsSavingObjDetectionCsv(value) => {
-                    // update store in worker thread
-                    #[cfg(feature="image_tracker")]
-                    tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(value)).await?;
-                }
-                CamArg::SetObjDetectionConfig(yaml_buf) => {
-                    // parse buffer
-                    #[cfg(feature="image_tracker")]
-                    match serde_yaml::from_str::<ImPtDetectCfg>(&yaml_buf) {
-                        Err(e) => {error!("ignoring ImPtDetectCfg with parse error: {:?}", e)},
-                        Ok(cfg) => {
-                            let cfg2 = cfg.clone();
 
-                            // Update config and send to frame process thread
-                            tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await?;
+                    CamArg::PostTrigger(mkv_recording_config) => {
+                        let format_str_mkv = {
+                            let tracker = shared_store_arc.read();
+                            tracker.as_ref().format_str_mkv.clone()
+                        };
+                        tx_frame2
+                            .send(Msg::PostTriggerStartMkv((
+                                format_str_mkv.clone(),
+                                mkv_recording_config,
+                            )))
+                            .await?;
+                        {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.is_recording_mkv = Some(RecordingPath::new(format_str_mkv));
+                            })
+                        }
+                    }
+                    CamArg::SetPostTriggerBufferSize(size) => {
+                        tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await?;
+                    }
+                    CamArg::SetIsRecordingFmf(do_recording) => {
+                        // Copy values from cache and release the lock immediately.
+                        let (is_recording_fmf, format_str, recording_framerate) = {
+                            let tracker = shared_store_arc.read();
+                            let shared: &StoreType = tracker.as_ref();
+                            (
+                                shared.is_recording_fmf.clone(),
+                                shared.format_str.clone(),
+                                shared.recording_framerate.clone(),
+                            )
+                        };
+
+                        if is_recording_fmf.is_some() != do_recording {
+                            info!("changed recording fmf value: do_recording={}", do_recording);
+
+                            // Compute new values.
+                            let (msg, new_val) = if do_recording {
+                                // change state
+                                let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                                let filename = local.format(format_str.as_str()).to_string();
+                                (
+                                    Msg::StartFMF((filename.clone(), recording_framerate)),
+                                    Some(RecordingPath::new(filename)),
+                                )
+                            } else {
+                                (Msg::StopFMF, None)
+                            };
+
+                            // Send the command.
+                            tx_frame2.send(msg).await?;
+
+                            // Save the new recording state.
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.is_recording_fmf = new_val;
+                            });
+                        }
+                    }
+                    CamArg::SetIsRecordingUfmf(do_recording) => {
+                        #[cfg(feature = "image_tracker")]
+                        {
+                            // Copy values from cache and release the lock immediately.
+                            let (is_recording_ufmf, format_str_ufmf) = {
+                                let tracker = shared_store_arc.read();
+                                let shared: &StoreType = tracker.as_ref();
+                                (
+                                    shared.is_recording_ufmf.clone(),
+                                    shared.format_str_ufmf.clone(),
+                                )
+                            };
+
+                            if is_recording_ufmf.is_some() != do_recording {
+                                info!(
+                                    "changed recording ufmf value: do_recording={}",
+                                    do_recording
+                                );
+
+                                // Compute new values.
+                                let (msg, new_val) = if do_recording {
+                                    // change state
+                                    let local: chrono::DateTime<chrono::Local> =
+                                        chrono::Local::now();
+                                    let filename =
+                                        local.format(format_str_ufmf.as_str()).to_string();
+                                    (
+                                        Msg::StartUFMF(filename.clone()),
+                                        Some(RecordingPath::new(filename)),
+                                    )
+                                } else {
+                                    (Msg::StopUFMF, None)
+                                };
+
+                                // Send the command.
+                                tx_frame2.send(msg).await?;
+
+                                // Save the new recording state.
+                                let mut tracker = shared_store_arc.write();
+                                tracker.modify(|shared| {
+                                    shared.is_recording_ufmf = new_val;
+                                });
+                            }
+                        }
+                    }
+                    CamArg::SetIsDoingObjDetection(value) => {
+                        #[cfg(feature = "image_tracker")]
+                        {
+                            {
+                                // update store
+                                let mut tracker = shared_store_arc.write();
+                                tracker.modify(|shared| {
+                                    shared.is_doing_object_detection = value;
+                                });
+                            }
+                            tx_frame2.send(Msg::SetTracking(value)).await?;
+                        }
+                    }
+                    CamArg::DoQuit => {
+                        break;
+                    }
+                    CamArg::SetIsSavingObjDetectionCsv(value) => {
+                        // update store in worker thread
+                        #[cfg(feature = "image_tracker")]
+                        tx_frame2
+                            .send(Msg::SetIsSavingObjDetectionCsv(value))
+                            .await?;
+                    }
+                    CamArg::SetObjDetectionConfig(yaml_buf) => {
+                        // parse buffer
+                        #[cfg(feature = "image_tracker")]
+                        match serde_yaml::from_str::<ImPtDetectCfg>(&yaml_buf) {
+                            Err(e) => {
+                                error!("ignoring ImPtDetectCfg with parse error: {:?}", e)
+                            }
+                            Ok(cfg) => {
+                                let cfg2 = cfg.clone();
+
+                                // Update config and send to frame process thread
+                                tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await?;
+                                {
+                                    let mut tracker = shared_store_arc.write();
+                                    tracker.modify(|shared| {
+                                        shared.im_pt_detect_cfg = cfg;
+                                    });
+                                }
+
+                                if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
+                                    tracker_cfg_src
+                                {
+                                    let (ref app_info, ref prefs_key) = src;
+                                    match cfg2.save(app_info, prefs_key) {
+                                        Ok(()) => {
+                                            info!("saved new detection config");
+                                        }
+                                        Err(e) => {
+                                            error!(
+                                                "saving preferences failed: \
+                                            {} {:?}",
+                                                e, e
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    CamArg::CamArgSetKalmanTrackingConfig(yaml_buf) => {
+                        #[cfg(feature = "flydratrax")]
+                        {
+                            // parse buffer
+                            match serde_yaml::from_str::<KalmanTrackingConfig>(&yaml_buf) {
+                                Err(e) => {
+                                    error!(
+                                        "ignoring KalmanTrackingConfig with parse error: {:?}",
+                                        e
+                                    )
+                                }
+                                Ok(cfg) => {
+                                    let cfg2 = cfg.clone();
+                                    {
+                                        // Update config and send to frame process thread
+                                        let mut tracker = shared_store_arc.write();
+                                        tracker.modify(|shared| {
+                                            shared.kalman_tracking_config = cfg;
+                                        });
+                                    }
+                                    if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
+                                        tracker_cfg_src
+                                    {
+                                        let (ref app_info, _) = src;
+                                        match cfg2.save(app_info, KALMAN_TRACKING_PREFS_KEY) {
+                                            Ok(()) => {
+                                                info!("saved new kalman tracker config");
+                                            }
+                                            Err(e) => {
+                                                error!(
+                                                    "saving kalman tracker config failed: \
+                                                {} {:?}",
+                                                    e, e
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        panic!("flydratrax requires saving changes to disk");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    CamArg::CamArgSetLedProgramConfig(yaml_buf) => {
+                        #[cfg(feature = "flydratrax")]
+                        {
+                            // parse buffer
+                            match serde_yaml::from_str::<LedProgramConfig>(&yaml_buf) {
+                                Err(e) => {
+                                    error!("ignoring LedProgramConfig with parse error: {:?}", e)
+                                }
+                                Ok(cfg) => {
+                                    let cfg2 = cfg.clone();
+                                    {
+                                        // Update config and send to frame process thread
+                                        let mut tracker = shared_store_arc.write();
+                                        tracker.modify(|shared| {
+                                            shared.led_program_config = cfg;
+                                        });
+                                    }
+                                    if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
+                                        tracker_cfg_src
+                                    {
+                                        let (ref app_info, _) = src;
+                                        match cfg2.save(app_info, LED_PROGRAM_PREFS_KEY) {
+                                            Ok(()) => {
+                                                info!("saved new LED program config");
+                                            }
+                                            Err(e) => {
+                                                error!(
+                                                    "saving LED program config failed: \
+                                                {} {:?}",
+                                                    e, e
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        panic!("flydratrax requires saving changes to disk");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    CamArg::ToggleCheckerboardDetection(val) => {
+                        #[cfg(feature = "checkercal")]
+                        {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.checkerboard_data.enabled = val;
+                            });
+                        }
+                    }
+                    CamArg::ToggleCheckerboardDebug(val) => {
+                        #[cfg(feature = "checkercal")]
+                        {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                if val {
+                                    if shared.checkerboard_save_debug.is_none() {
+                                        // start saving checkerboard data
+                                        let basedir = std::env::temp_dir();
+
+                                        let local: chrono::DateTime<chrono::Local> =
+                                            chrono::Local::now();
+                                        let format_str = "checkerboard_debug_%Y%m%d_%H%M%S";
+                                        let stamped = local.format(&format_str).to_string();
+                                        let dirname = basedir.join(stamped);
+                                        info!(
+                                            "Saving checkerboard debug data to: {}",
+                                            dirname.display()
+                                        );
+                                        std::fs::create_dir_all(&dirname).unwrap();
+                                        shared.checkerboard_save_debug =
+                                            Some(format!("{}", dirname.display()));
+                                    }
+                                } else {
+                                    if shared.checkerboard_save_debug.is_some() {
+                                        // stop saving checkerboard data
+                                        info!("Stop saving checkerboard debug data.");
+                                        shared.checkerboard_save_debug = None;
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    CamArg::SetCheckerboardWidth(val) => {
+                        #[cfg(feature = "checkercal")]
+                        {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.checkerboard_data.width = val;
+                            });
+                        }
+                    }
+                    CamArg::SetCheckerboardHeight(val) => {
+                        #[cfg(feature = "checkercal")]
+                        {
+                            let mut tracker = shared_store_arc.write();
+                            tracker.modify(|shared| {
+                                shared.checkerboard_data.height = val;
+                            });
+                        }
+                    }
+                    CamArg::ClearCheckerboards => {
+                        #[cfg(feature = "checkercal")]
+                        {
+                            {
+                                let mut collected_corners = collected_corners_arc.write();
+                                collected_corners.clear();
+                            }
+
                             {
                                 let mut tracker = shared_store_arc.write();
                                 tracker.modify(|shared| {
-                                    shared.im_pt_detect_cfg = cfg;
+                                    shared.checkerboard_data.num_checkerboards_collected = 0;
                                 });
                             }
-
-                            if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
-                                let (ref app_info, ref prefs_key) = src;
-                                match cfg2.save(app_info, prefs_key) {
-                                    Ok(()) => {
-                                        info!("saved new detection config");
-                                    },
-                                    Err(e) => {
-                                        error!("saving preferences failed: \
-                                            {} {:?}", e, e);
-                                    }
-                                }
-                            }
-
                         }
                     }
-                }
-                CamArg::CamArgSetKalmanTrackingConfig(yaml_buf) => {
-                    #[cfg(feature="flydratrax")]
-                    {
-                        // parse buffer
-                        match serde_yaml::from_str::<KalmanTrackingConfig>(&yaml_buf) {
-                            Err(e) => {error!("ignoring KalmanTrackingConfig with parse error: {:?}", e)},
-                            Ok(cfg) => {
-                                let cfg2 = cfg.clone();
-                                {
-                                    // Update config and send to frame process thread
-                                    let mut tracker = shared_store_arc.write();
-                                    tracker.modify(|shared| {
-                                        shared.kalman_tracking_config = cfg;
-                                    });
-                                }
-                                if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
-                                    let (ref app_info, _) = src;
-                                    match cfg2.save(app_info, KALMAN_TRACKING_PREFS_KEY) {
-                                        Ok(()) => {
-                                            info!("saved new kalman tracker config");
-                                        }
-                                        Err(e) => {
-                                            error!("saving kalman tracker config failed: \
-                                                {} {:?}", e, e);
-                                        }
-                                    }
-                                } else {
-                                    panic!("flydratrax requires saving changes to disk");
-                                }
-                            }
-                        }
-                    }
-                }
-                CamArg::CamArgSetLedProgramConfig(yaml_buf) => {
-                    #[cfg(feature="flydratrax")]
-                    {
-                        // parse buffer
-                        match serde_yaml::from_str::<LedProgramConfig>(&yaml_buf) {
-                            Err(e) => {error!("ignoring LedProgramConfig with parse error: {:?}", e)},
-                            Ok(cfg) => {
-                                let cfg2 = cfg.clone();
-                                {
-                                    // Update config and send to frame process thread
-                                    let mut tracker = shared_store_arc.write();
-                                    tracker.modify(|shared| {
-                                        shared.led_program_config = cfg;
-                                    });
-                                }
-                                if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
-                                    let (ref app_info, _) = src;
-                                    match cfg2.save(app_info, LED_PROGRAM_PREFS_KEY) {
-                                        Ok(()) => {
-                                            info!("saved new LED program config");
-                                        }
-                                        Err(e) => {
-                                            error!("saving LED program config failed: \
-                                                {} {:?}", e, e);
-                                        }
-                                    }
-                                } else {
-                                    panic!("flydratrax requires saving changes to disk");
-                                }
-                            }
-                        }
-                    }
-                }
-                CamArg::ToggleCheckerboardDetection(val) => {
-                    #[cfg(feature="checkercal")]
-                    {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.checkerboard_data.enabled = val;
-                        });
-                    }
-                },
-                CamArg::ToggleCheckerboardDebug(val) => {
-                    #[cfg(feature="checkercal")]
-                    {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            if val {
-                                if shared.checkerboard_save_debug.is_none() {
-                                    // start saving checkerboard data
-                                    let basedir = std::env::temp_dir();
 
-                                    let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-                                    let format_str = "checkerboard_debug_%Y%m%d_%H%M%S";
-                                    let stamped = local.format(&format_str).to_string();
-                                    let dirname = basedir.join(stamped);
-                                    info!("Saving checkerboard debug data to: {}", dirname.display());
-                                    std::fs::create_dir_all(&dirname).unwrap();
-                                    shared.checkerboard_save_debug = Some(format!("{}",dirname.display()));
-                                }
-                            } else {
-                                if shared.checkerboard_save_debug.is_some() {
-                                    // stop saving checkerboard data
-                                    info!("Stop saving checkerboard debug data.");
-                                    shared.checkerboard_save_debug = None;
-                                }
-                            }
-                        });
-                    }
-                },
-
-                CamArg::SetCheckerboardWidth(val) => {
-                    #[cfg(feature="checkercal")]
-                    {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.checkerboard_data.width = val;
-                        });
-                    }
-                },
-                CamArg::SetCheckerboardHeight(val) => {
-                    #[cfg(feature="checkercal")]
-                    {
-                        let mut tracker = shared_store_arc.write();
-                        tracker.modify(|shared| {
-                            shared.checkerboard_data.height = val;
-                        });
-                    }
-                },
-                CamArg::ClearCheckerboards => {
-                    #[cfg(feature="checkercal")]
-                    {
+                    CamArg::PerformCheckerboardCalibration => {
+                        #[cfg(feature = "checkercal")]
                         {
-                            let mut collected_corners = collected_corners_arc.write();
-                            collected_corners.clear();
-                        }
-
-                        {
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                shared.checkerboard_data.num_checkerboards_collected = 0;
-                            });
-                        }
-
-                    }
-                },
-
-                CamArg::PerformCheckerboardCalibration => {
-                    #[cfg(feature="checkercal")]
-                    {
-                        info!("computing calibration");
-                        let (n_rows, n_cols, checkerboard_save_debug) = {
-                            let tracker = shared_store_arc.read();
-                            let shared = (*tracker).as_ref();
-                            let n_rows = shared.checkerboard_data.height;
-                            let n_cols = shared.checkerboard_data.width;
-                            let checkerboard_save_debug = shared.checkerboard_save_debug.clone();
-                            (n_rows, n_cols, checkerboard_save_debug)
-                        };
-
-                        let goodcorners: Vec<camcal::CheckerBoardData> = {
-                            let collected_corners = collected_corners_arc.read();
-                            collected_corners.iter().map(|corners| {
-                                let dim = 1.234; // TODO make this useful
-                                let x: Vec<(f64,f64)> = corners.iter().map(|x| (x.0 as f64, x.1 as f64)).collect();
-                                camcal::CheckerBoardData::new(dim, n_rows as usize, n_cols as usize, &x)
-                            }).collect()
-                        };
-
-                        let ros_cam_name = cam_name2.to_ros();
-                        let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
-
-                        if let Some(debug_dir) = &checkerboard_save_debug {
-                            let format_str = format!("checkerboard_input_{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
-                            let stamped = local.format(&format_str).to_string();
-
-                            let debug_path = std::path::PathBuf::from(debug_dir);
-                            let corners_path = debug_path.join(stamped);
-
-                            let f = File::create(&corners_path)
-                                .expect("create file");
-
-                            #[derive(Serialize)]
-                            struct CornersData<'a> {
-                                corners: &'a Vec<camcal::CheckerBoardData>,
-                                image_width: u32,
-                                image_height: u32,
-                            }
-                            let debug_data = CornersData {
-                                corners: &goodcorners,
-                                image_width,
-                                image_height,
+                            info!("computing calibration");
+                            let (n_rows, n_cols, checkerboard_save_debug) = {
+                                let tracker = shared_store_arc.read();
+                                let shared = (*tracker).as_ref();
+                                let n_rows = shared.checkerboard_data.height;
+                                let n_cols = shared.checkerboard_data.width;
+                                let checkerboard_save_debug =
+                                    shared.checkerboard_save_debug.clone();
+                                (n_rows, n_cols, checkerboard_save_debug)
                             };
-                            serde_yaml::to_writer(f, &debug_data)
-                                .expect("serde_yaml::to_writer");
-                        }
 
-                        let size = camcal::PixelSize::new(image_width as usize,image_height as usize);
-                        match camcal::compute_intrinsics::<f64>(size, &goodcorners) {
-                            Ok(intrinsics) => {
-                                info!("got calibrated intrinsics: {:?}", intrinsics);
+                            let goodcorners: Vec<camcal::CheckerBoardData> = {
+                                let collected_corners = collected_corners_arc.read();
+                                collected_corners
+                                    .iter()
+                                    .map(|corners| {
+                                        let dim = 1.234; // TODO make this useful
+                                        let x: Vec<(f64, f64)> = corners
+                                            .iter()
+                                            .map(|x| (x.0 as f64, x.1 as f64))
+                                            .collect();
+                                        camcal::CheckerBoardData::new(
+                                            dim,
+                                            n_rows as usize,
+                                            n_cols as usize,
+                                            &x,
+                                        )
+                                    })
+                                    .collect()
+                            };
 
-                                // Convert from mvg to ROS format.
-                                let ci: opencv_ros_camera::RosCameraInfo<_> = opencv_ros_camera::NamedIntrinsicParameters {
-                                    intrinsics,
-                                    width: image_width as usize,
-                                    height: image_height as usize,
-                                    name: ros_cam_name.as_str().to_string(),
-                                }.into();
+                            let ros_cam_name = cam_name2.to_ros();
+                            let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
 
-                                let cal_dir = app_dirs::app_dir(
-                                    app_dirs::AppDataType::UserConfig,
-                                    &APP_INFO, "camera_info"
-                                ).expect("app_dirs::app_dir");
-
-                                let format_str = format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
-                                let stamped = local.format(&format_str).to_string();
-                                let cam_info_file_stamped = cal_dir.join(stamped);
-
-                                let mut cam_info_file = cal_dir.clone();
-                                cam_info_file.push(ros_cam_name.as_str());
-                                cam_info_file.set_extension("yaml");
-
-                                // Save timestamped version first for backup
-                                // purposes (since below we overwrite the
-                                // non-timestamped file).
-                                {
-                                    let f = File::create(&cam_info_file_stamped)
-                                        .expect("create file");
-                                    serde_yaml::to_writer(f, &ci)
-                                    .expect("serde_yaml::to_writer");
-                                }
-
-                                // Now copy the successfully saved file into
-                                // the non-timestamped name. This will
-                                // overwrite an existing file.
-                                std::fs::copy(
-                                    &cam_info_file_stamped,
-                                    &cam_info_file,
-                                )
-                                    .expect("copy file");
-
-                                info!("Saved camera calibration to file: {}",
-                                    cam_info_file.display(),
+                            if let Some(debug_dir) = &checkerboard_save_debug {
+                                let format_str = format!(
+                                    "checkerboard_input_{}.%Y%m%d_%H%M%S.yaml",
+                                    ros_cam_name.as_str()
                                 );
+                                let stamped = local.format(&format_str).to_string();
 
-                            },
-                            Err(e) => {
-                                error!("failed doing calibration {:?} {}", e, e);
+                                let debug_path = std::path::PathBuf::from(debug_dir);
+                                let corners_path = debug_path.join(stamped);
+
+                                let f = File::create(&corners_path).expect("create file");
+
+                                #[derive(Serialize)]
+                                struct CornersData<'a> {
+                                    corners: &'a Vec<camcal::CheckerBoardData>,
+                                    image_width: u32,
+                                    image_height: u32,
+                                }
+                                let debug_data = CornersData {
+                                    corners: &goodcorners,
+                                    image_width,
+                                    image_height,
+                                };
+                                serde_yaml::to_writer(f, &debug_data)
+                                    .expect("serde_yaml::to_writer");
                             }
-                        };
+
+                            let size =
+                                camcal::PixelSize::new(image_width as usize, image_height as usize);
+                            match camcal::compute_intrinsics::<f64>(size, &goodcorners) {
+                                Ok(intrinsics) => {
+                                    info!("got calibrated intrinsics: {:?}", intrinsics);
+
+                                    // Convert from mvg to ROS format.
+                                    let ci: opencv_ros_camera::RosCameraInfo<_> =
+                                        opencv_ros_camera::NamedIntrinsicParameters {
+                                            intrinsics,
+                                            width: image_width as usize,
+                                            height: image_height as usize,
+                                            name: ros_cam_name.as_str().to_string(),
+                                        }
+                                        .into();
+
+                                    let cal_dir = app_dirs::app_dir(
+                                        app_dirs::AppDataType::UserConfig,
+                                        &APP_INFO,
+                                        "camera_info",
+                                    )
+                                    .expect("app_dirs::app_dir");
+
+                                    let format_str =
+                                        format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
+                                    let stamped = local.format(&format_str).to_string();
+                                    let cam_info_file_stamped = cal_dir.join(stamped);
+
+                                    let mut cam_info_file = cal_dir.clone();
+                                    cam_info_file.push(ros_cam_name.as_str());
+                                    cam_info_file.set_extension("yaml");
+
+                                    // Save timestamped version first for backup
+                                    // purposes (since below we overwrite the
+                                    // non-timestamped file).
+                                    {
+                                        let f = File::create(&cam_info_file_stamped)
+                                            .expect("create file");
+                                        serde_yaml::to_writer(f, &ci)
+                                            .expect("serde_yaml::to_writer");
+                                    }
+
+                                    // Now copy the successfully saved file into
+                                    // the non-timestamped name. This will
+                                    // overwrite an existing file.
+                                    std::fs::copy(&cam_info_file_stamped, &cam_info_file)
+                                        .expect("copy file");
+
+                                    info!(
+                                        "Saved camera calibration to file: {}",
+                                        cam_info_file.display(),
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("failed doing calibration {:?} {}", e, e);
+                                }
+                            };
+                        }
                     }
-                },
+                }
             }
 
-        }
+            // We get here iff DoQuit broke us out of infinite loop.
 
-        // We get here iff DoQuit broke us out of infinite loop.
+            // In theory, all things currently being saved should nicely stop themselves when dropped.
+            // For now, while we are working on ctrlc handling, we manually stop them.
+            tx_frame2.send(Msg::StopFMF).await?;
+            tx_frame2.send(Msg::StopMkv).await?;
+            #[cfg(feature = "image_tracker")]
+            tx_frame2.send(Msg::StopUFMF).await?;
+            #[cfg(feature = "image_tracker")]
+            tx_frame2
+                .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
+                .await?;
 
-        // In theory, all things currently being saved should nicely stop themselves when dropped.
-        // For now, while we are working on ctrlc handling, we manually stop them.
-        tx_frame2.send(Msg::StopFMF).await?;
-        tx_frame2.send(Msg::StopMkv).await?;
-        #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::StopUFMF).await?;
-        #[cfg(feature="image_tracker")]
-        tx_frame2.send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving)).await?;
+            tx_frame2.send(Msg::QuitFrameProcessThread).await?; // this will quit the frame_process_task
 
-        tx_frame2.send(Msg::QuitFrameProcessThread).await?; // this will quit the frame_process_task
+            // Tell all streams to quit.
+            debug!(
+                "*** sending quit trigger to all valved streams. **** {}:{}",
+                file!(),
+                line!()
+            );
+            quit_trigger.cancel();
+            debug!("*** sending shutdown to hyper **** {}:{}", file!(), line!());
+            shutdown_tx.send(()).expect("sending shutdown to hyper");
 
-        // Tell all streams to quit.
-        debug!("*** sending quit trigger to all valved streams. **** {}:{}", file!(), line!());
-        quit_trigger.cancel();
-        debug!("*** sending shutdown to hyper **** {}:{}", file!(), line!());
-        shutdown_tx.send(()).expect("sending shutdown to hyper");
+            #[cfg(feature = "flydratrax")]
+            model_server_shutdown_tx
+                .send(())
+                .expect("sending shutdown to model server");
 
-        #[cfg(feature="flydratrax")]
-        model_server_shutdown_tx.send(()).expect("sending shutdown to model server");
+            #[cfg(feature = "debug-images")]
+            debug_image_shutdown_tx
+                .send(())
+                .expect("sending shutdown to model server");
 
-        #[cfg(feature="debug-images")]
-        debug_image_shutdown_tx.send(()).expect("sending shutdown to model server");
-
-        info!("attempting to nicely stop camera");
-        if let Some((control, join_handle)) = cam.control_and_join_handle() {
-            control.stop();
-            while !control.is_done() {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+            info!("attempting to nicely stop camera");
+            if let Some((control, join_handle)) = cam.control_and_join_handle() {
+                control.stop();
+                while !control.is_done() {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                info!("camera thread stopped");
+                join_handle.join().expect("join camera thread");
+                info!("camera thread joined");
+            } else {
+                error!("camera thread not running!?");
             }
-            info!("camera thread stopped");
-            join_handle.join().expect("join camera thread");
-            info!("camera thread joined");
-        } else {
-            error!("camera thread not running!?");
-        }
 
-        info!("cam_args_rx future is resolved");
-        Ok::<_,StrandCamError>(())
-    }};
+            info!("cam_args_rx future is resolved");
+            Ok::<_, StrandCamError>(())
+        }
+    };
 
     if !args.no_browser {
         // sleep to let the webserver start before opening browser
@@ -3953,26 +4219,36 @@ pub async fn setup_app<M,C>(
         quit_rx,
     ));
 
-    let video_streaming_cjh = ControlledTaskJoinHandle { quit_channel, join_handle };
+    let video_streaming_cjh = ControlledTaskJoinHandle {
+        quit_channel,
+        join_handle,
+    };
 
-    #[cfg(feature="plugin-process-frame")]
+    #[cfg(feature = "plugin-process-frame")]
     let plugin_streaming_cjh = {
         let (flag, control) = thread_control::make_pair();
-        let join_handle = std::thread::Builder::new().name("plugin_streaming".to_string()).spawn(move || { // ignore plugin
-            let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-            while flag.is_alive() {
-                let frame = thread_closer.check(plugin_handler_thread_rx.recv());
-                if let Some(ref pfc) = process_frame_callback {
-                    let c_data = view_as_c_frame(&frame);
-                    let c_timestamp = get_c_timestamp(&frame);
-                    let ffi_result = (pfc.func_ptr)(&c_data, pfc.data_handle, c_timestamp);
-                    let points = ffi_to_points(&ffi_result);
-                    thread_closer.check(plugin_result_tx.send(points));
+        let join_handle = std::thread::Builder::new()
+            .name("plugin_streaming".to_string())
+            .spawn(move || {
+                // ignore plugin
+                let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
+                while flag.is_alive() {
+                    let frame = thread_closer.check(plugin_handler_thread_rx.recv());
+                    if let Some(ref pfc) = process_frame_callback {
+                        let c_data = view_as_c_frame(&frame);
+                        let c_timestamp = get_c_timestamp(&frame);
+                        let ffi_result = (pfc.func_ptr)(&c_data, pfc.data_handle, c_timestamp);
+                        let points = ffi_to_points(&ffi_result);
+                        thread_closer.check(plugin_result_tx.send(points));
+                    }
                 }
-            }
-            thread_closer.success();
-        })?.into();
-        ControlledThreadJoinHandle { control, join_handle }
+                thread_closer.success();
+            })?
+            .into();
+        ControlledThreadJoinHandle {
+            control,
+            join_handle,
+        }
     };
 
     debug!("  running forever");
@@ -4006,7 +4282,10 @@ pub async fn setup_app<M,C>(
                 ch4: make_chan(4, OnState::Off),
             };
 
-            led_box_tx_std.send(ToLedBoxDevice::DeviceState(first_led_box_state)).await.unwrap();
+            led_box_tx_std
+                .send(ToLedBoxDevice::DeviceState(first_led_box_state))
+                .await
+                .unwrap();
         }
 
         // open serial port
@@ -4031,32 +4310,27 @@ pub async fn setup_app<M,C>(
         };
 
         if let Some(port) = port {
-
             // wrap port with codec
             let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
 
             // Clear potential initially present bytes from stream...
             let _ = tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await;
 
-            writer
-                .send(led_box_comms::ToDevice::VersionRequest)
-                .await?;
+            writer.send(led_box_comms::ToDevice::VersionRequest).await?;
 
             match tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await {
-                Ok(Some(Ok(msg))) => {
-                    match msg {
-                        led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION) => {
-                            info!(
-                                "Connected to firmware version {}",
-                                led_box_comms::COMM_VERSION
-                            );
-                        }
-                        msg => {
-                            anyhow::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
-                            msg, led_box_comms::COMM_VERSION);
-                        }
+                Ok(Some(Ok(msg))) => match msg {
+                    led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION) => {
+                        info!(
+                            "Connected to firmware version {}",
+                            led_box_comms::COMM_VERSION
+                        );
                     }
-                }
+                    msg => {
+                        anyhow::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
+                            msg, led_box_comms::COMM_VERSION);
+                    }
+                },
                 _ => {
                     anyhow::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
                         led_box_comms::COMM_VERSION);
@@ -4070,10 +4344,11 @@ pub async fn setup_app<M,C>(
                     match msg {
                         Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
                             let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
-                            let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
-                                byteorder::LittleEndian,
-                            >(&mut std::io::Cursor::new(buf))
-                            .unwrap();
+                            let sent_millis: u64 =
+                                byteorder::ReadBytesExt::read_u64::<byteorder::LittleEndian>(
+                                    &mut std::io::Cursor::new(buf),
+                                )
+                                .unwrap();
 
                             let now = start_led_box_instant.elapsed();
                             let now_millis: u64 =
@@ -4081,10 +4356,8 @@ pub async fn setup_app<M,C>(
                             debug!("LED box round trip time: {} msec", now_millis - sent_millis);
 
                             // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
-                            let mut led_box_heartbeat_update =
-                                led_box_heartbeat_update_arc.write();
+                            let mut led_box_heartbeat_update = led_box_heartbeat_update_arc.write();
                             *led_box_heartbeat_update = Some(std::time::Instant::now());
-
                         }
                         Ok(msg) => {
                             todo!("Did not handle {:?}", msg);
@@ -4101,7 +4374,6 @@ pub async fn setup_app<M,C>(
             // handle messages to the device
             let to_device_task = async move {
                 while let Some(msg) = led_box_rx.recv().await {
-
                     // send message to device
                     writer.send(msg).await.unwrap();
                     // copy new device state and store it to our cache
@@ -4118,21 +4390,25 @@ pub async fn setup_app<M,C>(
             };
             tokio::spawn(to_device_task); // todo: keep join handle
 
-
             // heartbeat task
             let heartbeat_task = async move {
-                let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(LED_BOX_HEARTBEAT_INTERVAL_MSEC));
+                let mut interval_stream = tokio::time::interval(std::time::Duration::from_millis(
+                    LED_BOX_HEARTBEAT_INTERVAL_MSEC,
+                ));
                 loop {
                     interval_stream.tick().await;
 
                     let now = start_led_box_instant.elapsed();
-                    let now_millis: u64 = (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
+                    let now_millis: u64 =
+                        (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                     let mut d = vec![];
                     {
                         use byteorder::WriteBytesExt;
                         d.write_u64::<byteorder::LittleEndian>(now_millis).unwrap();
                     }
-                    let msg = ToLedBoxDevice::EchoRequest8((d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]));
+                    let msg = ToLedBoxDevice::EchoRequest8((
+                        d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
+                    ));
                     debug!("sending: {:?}", msg);
 
                     led_box_tx_std.send(msg).await.unwrap();
@@ -4140,13 +4416,12 @@ pub async fn setup_app<M,C>(
             };
             tokio::spawn(heartbeat_task); // todo: keep join handle
         }
-
     }
 
     let ajh = AllJoinHandles {
         frame_process_cjh,
         video_streaming_cjh,
-        #[cfg(feature="plugin-process-frame")]
+        #[cfg(feature = "plugin-process-frame")]
         plugin_streaming_cjh,
     };
 

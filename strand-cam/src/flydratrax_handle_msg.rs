@@ -8,7 +8,10 @@ use strand_cam_storetype::LedProgramConfig;
 // LEDs with it.
 pub async fn create_message_handler(
     cam_cal: mvg::Camera<MyFloat>,
-    mut model_receiver: tokio::sync::mpsc::Receiver<(flydra2::SendType, flydra2::TimeDataPassthrough)>,
+    mut model_receiver: tokio::sync::mpsc::Receiver<(
+        flydra2::SendType,
+        flydra2::TimeDataPassthrough,
+    )>,
     led_state: &mut bool,
     ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
