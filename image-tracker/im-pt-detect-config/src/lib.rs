@@ -25,9 +25,12 @@ pub fn default_absdiff() -> ImPtDetectCfg {
 }
 
 pub fn default_dark_circle() -> ImPtDetectCfg {
-    my_default(ContrastPolarity::DetectDark, Shape::Circle(http_video_streaming_types::CircleParams {
-                center_x: 640,
-                center_y: 512,
-                radius: 512,
-    }))
+    my_default(
+        ContrastPolarity::DetectDark,
+        Shape::Circle(http_video_streaming_types::CircleParams {
+            center_x: 640,
+            center_y: 512,
+            radius: 512,
+        }),
+    )
 }
