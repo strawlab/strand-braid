@@ -66,6 +66,7 @@ use flydra_feature_detector_types::ImPtDetectCfg;
 #[cfg(feature = "flydra_feat_detect")]
 use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
+#[cfg(feature = "flydra_feat_detect")]
 use strand_cam_csv_config_types::CameraCfgFview2_0_26;
 #[cfg(feature = "flydra_feat_detect")]
 use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
@@ -662,12 +663,12 @@ async fn frame_process_task(
     ),
     #[cfg(feature = "flydratrax")] flydratrax_calibration_source: CalSource,
     cam_name: RawCamName,
-    camera_cfg: CameraCfgFview2_0_26,
-    width: u32,
-    height: u32,
+    #[cfg(feature = "flydra_feat_detect")] camera_cfg: CameraCfgFview2_0_26,
+    #[cfg(feature = "flydra_feat_detect")] width: u32,
+    #[cfg(feature = "flydra_feat_detect")] height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
     #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
-    csv_save_pathbuf: std::path::PathBuf,
+    #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
     #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: channellib::Sender<
         DynamicFrame,
@@ -692,10 +693,12 @@ async fn frame_process_task(
     #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
         tokio::sync::oneshot::Receiver<()>,
     >,
-    acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
+        f64,
+    >,
     new_cam_data: flydra_types::RegisterNewCamera,
     frame_info_extractor: &dyn ci2::ExtractFrameInfo,
-    app_name: &'static str,
+    #[cfg(feature = "flydra_feat_detect")] app_name: &'static str,
 ) -> anyhow::Result<()> {
     let is_braid = camdata_addr.is_some();
 
@@ -761,7 +764,7 @@ async fn frame_process_task(
     #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
 
-    #[allow(unused_assignments)]
+    #[cfg(feature = "flydra_feat_detect")]
     let frame_offset = if is_braid {
         // We start initially unsynchronized. We wait for synchronizaton.
         None
@@ -798,6 +801,9 @@ async fn frame_process_task(
     } else {
         (None, None)
     };
+
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    std::mem::drop(transmit_feature_detect_settings_tx);
 
     #[cfg(feature = "flydra_feat_detect")]
     let mut im_tracker = FlydraFeatureDetector::new(
@@ -2838,6 +2844,7 @@ where
     let trigger_selector = cam.trigger_selector()?;
     debug!("  got camera values");
 
+    #[cfg(feature = "flydra_feat_detect")]
     let camera_cfg = CameraCfgFview2_0_26 {
         vendor: cam.vendor().into(),
         model: cam.model().into(),
@@ -3084,8 +3091,10 @@ where
     let frame_process_cjh = {
         let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
 
+        #[cfg(feature = "flydra_feat_detect")]
         let acquisition_duration_allowed_imprecision_msec =
             args.acquisition_duration_allowed_imprecision_msec;
+        #[cfg(feature = "flydra_feat_detect")]
         let csv_save_dir = args.csv_save_dir.clone();
         #[cfg(feature = "flydratrax")]
         let model_server_addr = args.model_server_addr.clone();
@@ -3150,12 +3159,16 @@ where
                     #[cfg(feature = "flydratrax")]
                     flydratrax_calibration_source,
                     cam_name2,
+                    #[cfg(feature = "flydra_feat_detect")]
                     camera_cfg,
+                    #[cfg(feature = "flydra_feat_detect")]
                     image_width,
+                    #[cfg(feature = "flydra_feat_detect")]
                     image_height,
                     rx_frame,
                     #[cfg(feature = "flydra_feat_detect")]
                     tracker_cfg,
+                    #[cfg(feature = "flydra_feat_detect")]
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
                     firehose_tx,
                     #[cfg(feature = "plugin-process-frame")]
@@ -3186,9 +3199,11 @@ where
                     valve2,
                     #[cfg(feature = "debug-images")]
                     Some(debug_image_shutdown_rx),
+                    #[cfg(feature = "flydra_feat_detect")]
                     acquisition_duration_allowed_imprecision_msec,
                     new_cam_data,
                     frame_info_extractor,
+                    #[cfg(feature = "flydra_feat_detect")]
                     app_name,
                 )
             }
