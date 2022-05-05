@@ -37,8 +37,8 @@ use flydra_types::{
 };
 use ufmf::UFMFWriter;
 
+pub use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
 use http_video_streaming_types::Shape;
-pub use image_tracker_types::{ContrastPolarity, ImPtDetectCfg};
 
 #[macro_use]
 mod macros;
@@ -491,7 +491,8 @@ pub struct FlydraFeatureDetector {
     debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 
-    transmit_feature_detect_settings_tx: Option<mpsc::Sender<image_tracker_types::ImPtDetectCfg>>,
+    transmit_feature_detect_settings_tx:
+        Option<mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>>,
 }
 
 #[derive(Debug)]
@@ -681,7 +682,7 @@ impl FlydraFeatureDetector {
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         camdata_addr: Option<RealtimePointsDestAddr>,
         transmit_feature_detect_settings_tx: Option<
-            mpsc::Sender<image_tracker_types::ImPtDetectCfg>,
+            mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
         #[cfg(feature = "debug-images")] valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<

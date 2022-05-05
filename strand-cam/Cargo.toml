@@ -58,7 +58,7 @@ tokio-stream = {version = "0.1.6", features=["time"]}
 dotenv = "0.15.0"
 strand-cam-storetype = {path = "../strand-cam-storetype"}
 image-tracker = {path = "../image-tracker", default-features = false, optional=true}
-image-tracker-types = {path = "../image-tracker/image-tracker-types", default-features = false}
+flydra-feature-detector-types = {path = "../image-tracker/flydra-feature-detector-types", default-features = false}
 im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
 datetime-conversion = {path = "../datetime-conversion"}
 http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}

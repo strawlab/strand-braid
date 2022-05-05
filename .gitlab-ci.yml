@@ -173,7 +173,7 @@ test_crates_rust_nightly:
     - cargo +nightly-2022-03-21 test --no-default-features --features std,simd
     - cd ..
 
-test_image_tracker:
+test_flydra_feature_detector:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
@@ -182,7 +182,7 @@ test_image_tracker:
 
     - export RUSTFLAGS="-D warnings"
     - cargo --version
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd image-tracker && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2019"
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd flydra-feature-detector && RUST_BACKTRACE=1 cargo test --features "ipp-sys/2019"
 
 test_fastimage:
   image: ubuntu:focal

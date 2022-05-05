@@ -61,7 +61,7 @@ use flydra_types::{
     RosCamName, StartSoftwareFrameRateLimit,
 };
 
-use image_tracker_types::ImPtDetectCfg;
+use flydra_feature_detector_types::ImPtDetectCfg;
 
 #[cfg(feature = "image_tracker")]
 use image_tracker::{FlydraFeatureDetector, UfmfState};
@@ -630,7 +630,7 @@ async fn register_node_and_update_image(
 async fn convert_stream(
     ros_cam_name: RosCamName,
     mut transmit_feature_detect_settings_rx: tokio::sync::mpsc::Receiver<
-        image_tracker_types::ImPtDetectCfg,
+        flydra_feature_detector_types::ImPtDetectCfg,
     >,
     mut transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
 ) -> Result<()> {
@@ -775,7 +775,7 @@ async fn frame_process_task(
         let transmit_msg_tx = info.transmit_msg_tx.clone();
 
         let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
-            tokio::sync::mpsc::channel::<image_tracker_types::ImPtDetectCfg>(10);
+            tokio::sync::mpsc::channel::<flydra_feature_detector_types::ImPtDetectCfg>(10);
 
         my_runtime.spawn(convert_stream(
             ros_cam_name.clone(),

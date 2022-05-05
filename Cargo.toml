@@ -58,7 +58,7 @@ members = [
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "image-tracker",
-    "image-tracker/image-tracker-types",
+    "image-tracker/flydra-feature-detector-types",
     "image-tracker/im-pt-detect-config",
     "imagesrc",
     "imagesrc-gst",

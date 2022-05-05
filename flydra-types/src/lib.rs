@@ -184,7 +184,7 @@ pub struct BraidCameraConfig {
     pub pixel_format: Option<String>,
     /// Configuration for detecting points.
     #[serde(default = "im_pt_detect_config::default_absdiff")]
-    pub point_detection_config: image_tracker_types::ImPtDetectCfg,
+    pub point_detection_config: flydra_feature_detector_types::ImPtDetectCfg,
     /// Whether to raise the priority of the grab thread.
     #[serde(default = "return_false")]
     pub raise_grab_thread_priority: bool,
@@ -297,7 +297,7 @@ pub struct UpdateCamSettings {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct UpdateFeatureDetectSettings {
     /// The current feature detection settings.
-    pub current_feature_detect_settings: image_tracker_types::ImPtDetectCfg,
+    pub current_feature_detect_settings: flydra_feature_detector_types::ImPtDetectCfg,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

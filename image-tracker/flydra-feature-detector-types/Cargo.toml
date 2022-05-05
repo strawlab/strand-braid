@@ -1,5 +1,5 @@
 [package]
-name = "image-tracker-types"
+name = "flydra-feature-detector-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
