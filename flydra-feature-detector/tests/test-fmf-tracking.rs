@@ -15,8 +15,6 @@ async fn track_fmf() -> anyhow::Result<()> {
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let handle = tokio::runtime::Handle::current();
-
     let reader = fmf::FMFReader::new(FNAME)?;
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
@@ -33,7 +31,6 @@ async fn track_fmf() -> anyhow::Result<()> {
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     let mut ft = FlydraFeatureDetector::new(
-        &handle,
         &flydra_types::RawCamName::new("fmf".to_string()),
         reader.width(),
         reader.height(),
