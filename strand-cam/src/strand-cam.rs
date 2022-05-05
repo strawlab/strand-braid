@@ -64,7 +64,7 @@ use flydra_types::{
 use image_tracker_types::ImPtDetectCfg;
 
 #[cfg(feature = "image_tracker")]
-use image_tracker::{FlyTracker, UfmfState};
+use image_tracker::{FlydraFeatureDetector, UfmfState};
 
 use strand_cam_csv_config_types::CameraCfgFview2_0_26;
 #[cfg(feature = "image_tracker")]
@@ -800,7 +800,7 @@ async fn frame_process_task(
     };
 
     #[cfg(feature = "image_tracker")]
-    let mut im_tracker = FlyTracker::new(
+    let mut im_tracker = FlydraFeatureDetector::new(
         &cam_name,
         width,
         height,

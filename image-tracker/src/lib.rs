@@ -475,7 +475,7 @@ fn save_bg_data(
 /// Maintains compatibility with old flydra camera node.
 ///
 /// Most work is done in [Self::process_new_frame].
-pub struct FlyTracker {
+pub struct FlydraFeatureDetector {
     ros_cam_name: RosCamName,
     cfg: ImPtDetectCfg,
     roi_sz: FastImageSize,
@@ -667,8 +667,8 @@ fn open_destination_addr(
     })
 }
 
-impl FlyTracker {
-    /// Create new [FlyTracker].
+impl FlydraFeatureDetector {
+    /// Create new [FlydraFeatureDetector].
     ///
     /// If the `camdata_addr` argument is not None, it is used to set
     /// open a socket (`self.coord_socket`) to send the detected feature information.

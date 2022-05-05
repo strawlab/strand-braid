@@ -1,4 +1,4 @@
-use image_tracker::{FlyTracker, UfmfState};
+use image_tracker::{FlydraFeatureDetector, UfmfState};
 
 const W: u32 = 32;
 const H: u32 = 16;
@@ -25,7 +25,7 @@ async fn track_small() -> anyhow::Result<()> {
     #[cfg(feature = "debug-images")]
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let mut ft = FlyTracker::new(
+    let mut ft = FlydraFeatureDetector::new(
         &handle,
         &flydra_types::RawCamName::new("small-test-image".to_string()),
         W,
