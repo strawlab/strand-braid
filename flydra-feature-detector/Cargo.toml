@@ -1,5 +1,5 @@
 [package]
-name = "image-tracker"
+name = "flydra-feature-detector"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
@@ -50,7 +50,7 @@ ncollide-geom = {path="../ncollide-geom"}
 fmf = { path = "../fmf" }
 download-verify = {path="../download-verify"}
 env_logger = "0.8"
-im-pt-detect-config = {path = "im-pt-detect-config"}
+flydra-pt-detect-cfg = {path = "flydra-pt-detect-cfg"}
 tokio = {version="1.0.1", default-features=false, features=["macros"]}
 anyhow = "1"
 

@@ -53,7 +53,7 @@ use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
 use std::{error::Error as StdError, future::Future, path::Path, pin::Pin};
 
-#[cfg(feature = "image_tracker")]
+#[cfg(feature = "flydra_feat_detect")]
 use ci2_remote_control::CsvSaveConfig;
 use ci2_remote_control::{CamArg, MkvRecordingConfig, RecordingFrameRate};
 use flydra_types::{
@@ -63,11 +63,11 @@ use flydra_types::{
 
 use flydra_feature_detector_types::ImPtDetectCfg;
 
-#[cfg(feature = "image_tracker")]
-use image_tracker::{FlydraFeatureDetector, UfmfState};
+#[cfg(feature = "flydra_feat_detect")]
+use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
 use strand_cam_csv_config_types::CameraCfgFview2_0_26;
-#[cfg(feature = "image_tracker")]
+#[cfg(feature = "flydra_feat_detect")]
 use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
@@ -105,9 +105,9 @@ pub const APP_INFO: AppInfo = AppInfo {
 use flydra2::{CoordProcessor, CoordProcessorControl, MyFloat, StreamItem};
 
 #[cfg(feature = "imtrack-absdiff")]
-pub use im_pt_detect_config::default_absdiff as default_im_pt_detect;
+pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
 #[cfg(feature = "imtrack-dark-circle")]
-pub use im_pt_detect_config::default_dark_circle as default_im_pt_detect;
+pub use flydra_pt_detect_cfg::default_dark_circle as default_im_pt_detect;
 
 include!(concat!(env!("OUT_DIR"), "/frontend.rs")); // Despite slash, this does work on Windows.
 
@@ -360,23 +360,23 @@ pub(crate) enum Msg {
     StopMkv,
     StartFMF((String, RecordingFrameRate)),
     StopFMF,
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     StartUFMF(String),
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     StopUFMF,
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     SetTracking(bool),
     PostTriggerStartMkv((String, MkvRecordingConfig)),
     SetPostTriggerBufferSize(usize),
     Mframe(DynamicFrame),
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     SetIsSavingObjDetectionCsv(CsvSaveConfig),
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     SetExpConfig(ImPtDetectCfg),
     Store(Arc<RwLock<ChangeTracker<StoreType>>>),
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     TakeCurrentImageAsBackground,
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     ClearBackground(f32),
     SetFrameOffset(u64),
     SetClockModel(Option<rust_cam_bui_types::ClockModel>),
@@ -404,7 +404,7 @@ impl Default for FrameProcessingErrorState {
     }
 }
 
-#[cfg(feature = "image_tracker")]
+#[cfg(feature = "flydra_feat_detect")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Tracker {
     NoTracker,
@@ -666,7 +666,7 @@ async fn frame_process_task(
     width: u32,
     height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
-    #[cfg(feature = "image_tracker")] im_pt_detect_cfg: ImPtDetectCfg,
+    #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
     csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
     #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: channellib::Sender<
@@ -735,7 +735,7 @@ async fn frame_process_task(
     #[cfg(feature = "flydratrax")]
     let mut maybe_flydra2_write_control = None;
 
-    #[cfg_attr(not(feature = "image_tracker"), allow(dead_code))]
+    #[cfg_attr(not(feature = "flydra_feat_detect"), allow(dead_code))]
     struct CsvSavingState {
         fd: File,
         min_interval: chrono::Duration,
@@ -744,7 +744,7 @@ async fn frame_process_task(
     }
 
     // CSV saving
-    #[cfg_attr(not(feature = "image_tracker"), allow(dead_code))]
+    #[cfg_attr(not(feature = "flydra_feat_detect"), allow(dead_code))]
     enum SavingState {
         NotSaving,
         Starting(Option<f32>),
@@ -755,9 +755,9 @@ async fn frame_process_task(
     let mut apriltag_writer: Option<_> = None;
     let mut my_mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
 
@@ -799,7 +799,7 @@ async fn frame_process_task(
         (None, None)
     };
 
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let mut im_tracker = FlydraFeatureDetector::new(
         &cam_name,
         width,
@@ -816,7 +816,7 @@ async fn frame_process_task(
         debug_image_server_shutdown_rx,
         acquisition_duration_allowed_imprecision_msec,
     )?;
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
@@ -875,7 +875,7 @@ async fn frame_process_task(
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
     while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
-        #[cfg(feature = "image_tracker")]
+        #[cfg(feature = "flydra_feat_detect")]
         {
             if let Some(ref ssa) = shared_store_arc {
                 match ssa.try_read() {
@@ -1128,7 +1128,7 @@ async fn frame_process_task(
                     100,
                 ));
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::StartUFMF(dest) => {
                 ufmf_state = Some(UfmfState::Starting(dest));
             }
@@ -1466,7 +1466,7 @@ async fn frame_process_task(
                         }
                     }
 
-                    #[cfg(feature = "image_tracker")]
+                    #[cfg(feature = "flydra_feat_detect")]
                     {
                         if is_doing_object_detection {
                             let (device_timestamp, block_id, _fno, _stamp) =
@@ -1869,7 +1869,7 @@ async fn frame_process_task(
                         .unwrap();
                 }
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::SetIsSavingObjDetectionCsv(new_value) => {
                 info!(
                     "setting object detection CSV save state to: {:?}",
@@ -1946,28 +1946,28 @@ async fn frame_process_task(
                     }
                 }
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::SetExpConfig(cfg) => {
                 im_tracker.set_config(cfg).expect("set_config()");
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::TakeCurrentImageAsBackground => {
                 im_tracker.do_take_current_image_as_background()?;
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::ClearBackground(value) => {
                 im_tracker.do_clear_background(value)?;
             }
             Msg::SetFrameOffset(fo) => {
-                #[cfg(feature = "image_tracker")]
+                #[cfg(feature = "flydra_feat_detect")]
                 im_tracker.set_frame_offset(fo);
-                #[cfg(not(feature = "image_tracker"))]
+                #[cfg(not(feature = "flydra_feat_detect"))]
                 let _ = fo;
             }
             Msg::SetClockModel(cm) => {
-                #[cfg(feature = "image_tracker")]
+                #[cfg(feature = "flydra_feat_detect")]
                 im_tracker.set_clock_model(cm);
-                #[cfg(not(feature = "image_tracker"))]
+                #[cfg(not(feature = "flydra_feat_detect"))]
                 let _ = cm;
             }
             Msg::StopMkv => {
@@ -1978,11 +1978,11 @@ async fn frame_process_task(
             Msg::StopFMF => {
                 fmf_writer = None;
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::StopUFMF => {
                 ufmf_state = Some(UfmfState::Stopped);
             }
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             Msg::SetTracking(value) => {
                 is_doing_object_detection = value;
             }
@@ -1998,7 +1998,7 @@ async fn frame_process_task(
     Ok(())
 }
 
-#[cfg(feature = "image_tracker")]
+#[cfg(feature = "flydra_feat_detect")]
 fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16 {
     let ch: &led_box_comms::ChannelState = match chan_num {
         1 => &device_state.ch1,
@@ -2071,19 +2071,19 @@ impl CallbackHandler for MyCallbackHandler {
                     self.firehose_callback_tx.send(fc).await.ignore_send_error();
                 }
                 CallbackType::TakeCurrentImageAsBackground => {
-                    #[cfg(feature = "image_tracker")]
+                    #[cfg(feature = "flydra_feat_detect")]
                     self.tx_frame
                         .send(Msg::TakeCurrentImageAsBackground)
                         .await
                         .ignore_send_error();
                 }
                 CallbackType::ClearBackground(value) => {
-                    #[cfg(feature = "image_tracker")]
+                    #[cfg(feature = "flydra_feat_detect")]
                     self.tx_frame
                         .send(Msg::ClearBackground(value))
                         .await
                         .ignore_send_error();
-                    #[cfg(not(feature = "image_tracker"))]
+                    #[cfg(not(feature = "flydra_feat_detect"))]
                     let _ = value;
                 }
                 CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
@@ -2407,7 +2407,7 @@ pub struct StrandCamArgs {
     pub mkv_filename_template: String,
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     pub tracker_cfg_src: ImPtDetectCfgSource,
     pub csv_save_dir: String,
     pub raise_grab_thread_priority: bool,
@@ -2482,7 +2482,7 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             tracker_cfg_src: ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect()),
             csv_save_dir: "/dev/null".to_string(),
             raise_grab_thread_priority: false,
@@ -2732,13 +2732,13 @@ where
 
     #[cfg(feature = "debug-images")]
     let debug_addr = args.debug_addr;
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let tracker_cfg_src = args.tracker_cfg_src;
 
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = args.save_empty_data2d;
 
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let tracker_cfg = match &tracker_cfg_src {
         &ImPtDetectCfgSource::ChangedSavedToDisk(ref src) => {
             // Retrieve the saved preferences
@@ -2757,7 +2757,7 @@ where
         &ImPtDetectCfgSource::ChangesNotSavedToDisk(ref cfg) => cfg.clone(),
     };
 
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let im_pt_detect_cfg = tracker_cfg.clone();
 
     let mainbrain_info = args.mainbrain_internal_addr.map(|addr| {
@@ -2931,13 +2931,13 @@ where
 
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
-    #[cfg(not(feature = "image_tracker"))]
-    let im_pt_detect_cfg = im_pt_detect_config::default_absdiff();
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
 
-    #[cfg(feature = "image_tracker")]
+    #[cfg(feature = "flydra_feat_detect")]
     let has_image_tracker_compiled = true;
 
-    #[cfg(not(feature = "image_tracker"))]
+    #[cfg(not(feature = "flydra_feat_detect"))]
     let has_image_tracker_compiled = false;
 
     let is_braid = args.is_braid;
@@ -3154,7 +3154,7 @@ where
                     image_width,
                     image_height,
                     rx_frame,
-                    #[cfg(feature = "image_tracker")]
+                    #[cfg(feature = "flydra_feat_detect")]
                     tracker_cfg,
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
                     firehose_tx,
@@ -3761,7 +3761,7 @@ where
                         }
                     }
                     CamArg::SetIsRecordingUfmf(do_recording) => {
-                        #[cfg(feature = "image_tracker")]
+                        #[cfg(feature = "flydra_feat_detect")]
                         {
                             // Copy values from cache and release the lock immediately.
                             let (is_recording_ufmf, format_str_ufmf) = {
@@ -3806,7 +3806,7 @@ where
                         }
                     }
                     CamArg::SetIsDoingObjDetection(value) => {
-                        #[cfg(feature = "image_tracker")]
+                        #[cfg(feature = "flydra_feat_detect")]
                         {
                             {
                                 // update store
@@ -3823,14 +3823,14 @@ where
                     }
                     CamArg::SetIsSavingObjDetectionCsv(value) => {
                         // update store in worker thread
-                        #[cfg(feature = "image_tracker")]
+                        #[cfg(feature = "flydra_feat_detect")]
                         tx_frame2
                             .send(Msg::SetIsSavingObjDetectionCsv(value))
                             .await?;
                     }
                     CamArg::SetObjDetectionConfig(yaml_buf) => {
                         // parse buffer
-                        #[cfg(feature = "image_tracker")]
+                        #[cfg(feature = "flydra_feat_detect")]
                         match serde_yaml::from_str::<ImPtDetectCfg>(&yaml_buf) {
                             Err(e) => {
                                 error!("ignoring ImPtDetectCfg with parse error: {:?}", e)
@@ -4160,9 +4160,9 @@ where
             // For now, while we are working on ctrlc handling, we manually stop them.
             tx_frame2.send(Msg::StopFMF).await?;
             tx_frame2.send(Msg::StopMkv).await?;
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             tx_frame2.send(Msg::StopUFMF).await?;
-            #[cfg(feature = "image_tracker")]
+            #[cfg(feature = "flydra_feat_detect")]
             tx_frame2
                 .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
                 .await?;

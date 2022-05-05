@@ -1,4 +1,4 @@
-use image_tracker::{FlydraFeatureDetector, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 use timestamped_frame::ExtraTimeData;
 
 const FNAME: &str = "movie20190115_221756.fmf";
@@ -19,7 +19,7 @@ async fn track_fmf() -> anyhow::Result<()> {
 
     let reader = fmf::FMFReader::new(FNAME)?;
 
-    let cfg = im_pt_detect_config::default_absdiff();
+    let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let frame_offset = None;
 

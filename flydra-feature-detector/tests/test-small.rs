@@ -1,4 +1,4 @@
-use image_tracker::{FlydraFeatureDetector, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
 const W: u32 = 32;
 const H: u32 = 16;
@@ -12,7 +12,7 @@ async fn track_small() -> anyhow::Result<()> {
 
     let handle = tokio::runtime::Handle::current();
 
-    let cfg = im_pt_detect_config::default_absdiff();
+    let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let frame_offset = None;
 

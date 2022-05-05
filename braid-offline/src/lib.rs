@@ -337,7 +337,7 @@ where
                         fd.read_to_end(&mut buf).unwrap();
                         toml::from_slice(&buf).unwrap()
                     } else {
-                        im_pt_detect_config::default_absdiff()
+                        flydra_pt_detect_cfg::default_absdiff()
                     };
 
                 (

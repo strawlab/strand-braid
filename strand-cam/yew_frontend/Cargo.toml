@@ -26,7 +26,7 @@ backtrace = "0.3.40" # here only to require this high version number, not used d
 yew-tincture = "0.1"
 
 strand-cam-storetype = {path = "../../strand-cam-storetype", default-features=false}
-flydra-feature-detector-types = {path = "../../image-tracker/flydra-feature-detector-types", default-features = false}
+flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
 http-video-streaming-types = {path = "../../http-video-streaming/http-video-streaming-types"}
 ci2-types = {path="../../ci2/ci2-types"}
 ci2-remote-control = { path = "../../ci2-remote-control" }

@@ -183,7 +183,7 @@ pub struct BraidCameraConfig {
     /// The pixel format to use.
     pub pixel_format: Option<String>,
     /// Configuration for detecting points.
-    #[serde(default = "im_pt_detect_config::default_absdiff")]
+    #[serde(default = "flydra_pt_detect_cfg::default_absdiff")]
     pub point_detection_config: flydra_feature_detector_types::ImPtDetectCfg,
     /// Whether to raise the priority of the grab thread.
     #[serde(default = "return_false")]
@@ -227,7 +227,7 @@ impl BraidCameraConfig {
             name,
             camera_settings_filename: None,
             pixel_format: None,
-            point_detection_config: im_pt_detect_config::default_absdiff(),
+            point_detection_config: flydra_pt_detect_cfg::default_absdiff(),
             raise_grab_thread_priority: false,
             start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
