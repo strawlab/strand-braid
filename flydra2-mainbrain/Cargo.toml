@@ -45,7 +45,7 @@ mvg = {path="../mvg"}
 flydra-mvg = {path="../flydra-mvg"}
 bui-backend-session = {path="../bui-backend-session"}
 strand-cam-storetype = {path = "../strand-cam-storetype", default-features=false}
-image-tracker-types = {path = "../image-tracker/image-tracker-types", default-features = false}
+flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
 ci2-remote-control = {path = "../ci2-remote-control"}
 datetime-conversion = {path = "../datetime-conversion"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}

@@ -36,7 +36,7 @@ use yew_tincture::components::CheckboxLabel;
 use ci2_remote_control::{RecordingFrameRate, TagFamily};
 use ci2_types::AutoMode;
 
-use image_tracker_types::ImPtDetectCfg;
+use flydra_feature_detector_types::ImPtDetectCfg;
 use yew_tincture::components::{TypedInput, TypedInputStorage};
 
 // use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};

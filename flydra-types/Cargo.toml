@@ -23,8 +23,8 @@ bui-backend-types = "0.8"
 withkey = {path="../withkey"}
 datetime-conversion = {path="../datetime-conversion"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
-im-pt-detect-config = {path="../image-tracker/im-pt-detect-config"}
-image-tracker-types = {path="../image-tracker/image-tracker-types"}
+flydra-pt-detect-cfg = {path="../flydra-feature-detector/flydra-pt-detect-cfg"}
+flydra-feature-detector-types = {path="../flydra-feature-detector/flydra-feature-detector-types"}
 
 [features]
 default=["with-tokio-codec"]

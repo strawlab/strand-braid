@@ -43,8 +43,8 @@ pub struct ImPtDetectCfg {
     ///
     /// Valid range is 0-4294967295.
     pub bg_update_interval: u32,
-    /// If `use_cmp` is true, this is the absolute difference required to detect
-    /// a point.
+    /// This is the absolute difference required to detect a point. (For both
+    /// `use_cmp` true and false.)
     pub diff_threshold: u8,
     /// If `use_cmp` is true, use n_sigma based difference.
     pub use_cmp: bool,

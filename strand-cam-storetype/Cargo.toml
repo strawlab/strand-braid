@@ -13,7 +13,7 @@ serde_yaml = "0.8"
 led-box-comms = {path="../led-box-comms"}
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control"}
-image-tracker-types = {path = "../image-tracker/image-tracker-types"}
+flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 

@@ -1,10 +1,10 @@
 [package]
-name = "im-pt-detect-config"
+name = "flydra-pt-detect-cfg"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-image-tracker-types = {path="../image-tracker-types"}
+flydra-feature-detector-types = {path="../flydra-feature-detector-types"}
 http-video-streaming-types = {path="../../http-video-streaming/http-video-streaming-types"}

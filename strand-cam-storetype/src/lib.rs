@@ -8,7 +8,7 @@ use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::{CircleParams, Shape};
 
 use ci2_remote_control::{MkvRecordingConfig, RecordingFrameRate, TagFamily};
-use image_tracker_types::ImPtDetectCfg;
+use flydra_feature_detector_types::ImPtDetectCfg;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

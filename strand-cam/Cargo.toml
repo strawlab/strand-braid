@@ -57,9 +57,9 @@ tokio-util = {version = "0.6", features=["codec"]}
 tokio-stream = {version = "0.1.6", features=["time"]}
 dotenv = "0.15.0"
 strand-cam-storetype = {path = "../strand-cam-storetype"}
-image-tracker = {path = "../image-tracker", default-features = false, optional=true}
-image-tracker-types = {path = "../image-tracker/image-tracker-types", default-features = false}
-im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
+flydra-feature-detector = {path = "../flydra-feature-detector", default-features = false, optional=true}
+flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
+flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
 datetime-conversion = {path = "../datetime-conversion"}
 http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
 http-video-streaming = {path = "../http-video-streaming"}
@@ -103,18 +103,18 @@ target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f
 bui-backend-codegen = {version="0.9", default-features = false}
 
 [features]
-default = ["image_tracker", "imtrack-absdiff"]
+default = ["flydra_feat_detect", "imtrack-absdiff"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
     "convert-image/backtrace", "http-video-streaming/backtrace",
-    "image-tracker?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
+    "flydra-feature-detector?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
 
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
-flydra-uds = ["image-tracker/flydra-uds"]
+flydra-uds = ["flydra-feature-detector/flydra-uds"]
 
 # Priority setting, high priority for camera threads, low priority for bg-image thread
 posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
@@ -123,18 +123,18 @@ posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
 serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2?/serve_files"]
 
-# Tune defaults in image-tracker
+# Tune defaults in flydra-feature-detector
 imtrack-dark-circle = []
 imtrack-absdiff = []
 
 flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
     "approx", "strand-cam-storetype/flydratrax", "alga",
-    "flydra2", "flydra2/flat-3d", "image_tracker"]
+    "flydra2", "flydra2/flat-3d", "flydra_feat_detect"]
 
-# build with the image-tracker, which also requires IPP, fastimage, etc.
-image_tracker = ["image-tracker"]
+# build with the flydra-feature-detector, which also requires IPP, fastimage, etc.
+flydra_feat_detect = ["flydra-feature-detector"]
 
-debug-images = ["image-tracker?/debug-images", "rt-image-viewer"]
+debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
 

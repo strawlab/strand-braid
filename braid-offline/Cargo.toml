@@ -31,7 +31,7 @@ groupby = {path="../groupby"}
 zip-or-dir = {path="../zip-or-dir"}
 flydra-mvg = {path="../flydra-mvg"}
 braidz-parser = {path="../braidz-parser"}
-im-pt-detect-config = {path = "../image-tracker/im-pt-detect-config"}
+flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}

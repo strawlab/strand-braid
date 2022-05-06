@@ -1,4 +1,4 @@
-use image_tracker::{FlyTracker, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 use timestamped_frame::ExtraTimeData;
 
 const FNAME: &str = "movie20190115_221756.fmf";
@@ -15,11 +15,9 @@ async fn track_fmf() -> anyhow::Result<()> {
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let handle = tokio::runtime::Handle::current();
-
     let reader = fmf::FMFReader::new(FNAME)?;
 
-    let cfg = im_pt_detect_config::default_absdiff();
+    let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let frame_offset = None;
 
@@ -32,8 +30,7 @@ async fn track_fmf() -> anyhow::Result<()> {
     #[cfg(feature = "debug-images")]
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let mut ft = FlyTracker::new(
-        &handle,
+    let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("fmf".to_string()),
         reader.width(),
         reader.height(),

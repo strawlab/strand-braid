@@ -1,4 +1,4 @@
-use image_tracker::{FlyTracker, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
 const W: u32 = 32;
 const H: u32 = 16;
@@ -10,9 +10,7 @@ const H: u32 = 16;
 async fn track_small() -> anyhow::Result<()> {
     env_logger::init();
 
-    let handle = tokio::runtime::Handle::current();
-
-    let cfg = im_pt_detect_config::default_absdiff();
+    let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let frame_offset = None;
 
@@ -25,8 +23,7 @@ async fn track_small() -> anyhow::Result<()> {
     #[cfg(feature = "debug-images")]
     let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let mut ft = FlyTracker::new(
-        &handle,
+    let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("small-test-image".to_string()),
         W,
         H,

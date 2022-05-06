@@ -39,7 +39,7 @@ where
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
-            "strand_cam=info,image_tracker=info,rt_image_viewer=info,error",
+            "strand_cam=info,flydra_feature_detector=info,rt_image_viewer=info,error",
         );
     }
 
@@ -497,7 +497,7 @@ fn parse_args(
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
 
-    #[cfg(not(feature = "image_tracker"))]
+    #[cfg(not(feature = "flydra_feat_detect"))]
     std::mem::drop(tracker_cfg_src); // prevent compiler warning of unused variable
 
     let defaults = StrandCamArgs::default();
@@ -512,7 +512,7 @@ fn parse_args(
         mkv_filename_template,
         fmf_filename_template,
         ufmf_filename_template,
-        #[cfg(feature = "image_tracker")]
+        #[cfg(feature = "flydra_feat_detect")]
         tracker_cfg_src,
         csv_save_dir,
         raise_grab_thread_priority,

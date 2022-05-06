@@ -9,4 +9,4 @@ rust-version = "1.59"
 chrono = {version="^0.4.6", features=["serde"]}
 serde = {version="^1.0", features=["derive"]}
 
-image-tracker-types = {path="../image-tracker/image-tracker-types", default-features=false}
+flydra-feature-detector-types = {path="../flydra-feature-detector/flydra-feature-detector-types", default-features=false}

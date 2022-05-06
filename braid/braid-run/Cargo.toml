@@ -16,7 +16,7 @@ tokio = {version="1.0.1", default-features=false}
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}
-im-pt-detect-config = {path = "../../image-tracker/im-pt-detect-config"}
+flydra-pt-detect-cfg = {path = "../../flydra-feature-detector/flydra-pt-detect-cfg"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
 flydra-types = {path="../../flydra-types"}
 flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}

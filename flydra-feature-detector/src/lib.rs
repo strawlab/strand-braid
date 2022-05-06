@@ -37,8 +37,8 @@ use flydra_types::{
 };
 use ufmf::UFMFWriter;
 
+pub use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
 use http_video_streaming_types::Shape;
-pub use image_tracker_types::{ContrastPolarity, ImPtDetectCfg};
 
 #[macro_use]
 mod macros;
@@ -475,11 +475,9 @@ fn save_bg_data(
 /// Maintains compatibility with old flydra camera node.
 ///
 /// Most work is done in [Self::process_new_frame].
-#[allow(dead_code)]
-pub struct FlyTracker {
+pub struct FlydraFeatureDetector {
     ros_cam_name: RosCamName,
     cfg: ImPtDetectCfg,
-    expected_framerate: Option<f32>,
     roi_sz: FastImageSize,
     #[allow(dead_code)]
     last_sent_raw_image_time: std::time::Instant,
@@ -488,14 +486,13 @@ pub struct FlyTracker {
     coord_socket: Option<DatagramSocket>,
     clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
-    hack_binning: Option<u8>,
     acquisition_histogram: AcquisitionHistogram,
     #[cfg(feature = "debug-images")]
     debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 
-    transmit_feature_detect_settings_tx: Option<mpsc::Sender<image_tracker_types::ImPtDetectCfg>>,
-    handle: tokio::runtime::Handle,
+    transmit_feature_detect_settings_tx:
+        Option<mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>>,
 }
 
 #[derive(Debug)]
@@ -671,13 +668,12 @@ fn open_destination_addr(
     })
 }
 
-impl FlyTracker {
-    /// Create new [FlyTracker].
+impl FlydraFeatureDetector {
+    /// Create new [FlydraFeatureDetector].
     ///
     /// If the `camdata_addr` argument is not None, it is used to set
     /// open a socket (`self.coord_socket`) to send the detected feature information.
     pub fn new(
-        handle: &tokio::runtime::Handle,
         orig_cam_name: &RawCamName,
         w: u32,
         h: u32,
@@ -686,7 +682,7 @@ impl FlyTracker {
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         camdata_addr: Option<RealtimePointsDestAddr>,
         transmit_feature_detect_settings_tx: Option<
-            mpsc::Sender<image_tracker_types::ImPtDetectCfg>,
+            mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
         #[cfg(feature = "debug-images")] valve: stream_cancel::Valve,
         #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
@@ -703,31 +699,6 @@ impl FlyTracker {
         )
         .expect("starting debug image viewer");
 
-        let mut hack_binning = None;
-
-        match std::env::var("RUSTCAM_BIN_PIXELS") {
-            Ok(v) => match v.parse::<u8>() {
-                Ok(bins) => {
-                    hack_binning = Some(bins);
-                }
-                Err(e) => {
-                    return Err(Error::OtherError {
-                        msg: format!("could not parse to bins: {:?}", e),
-                        #[cfg(feature = "backtrace")]
-                        backtrace: std::backtrace::Backtrace::capture(),
-                    });
-                }
-            },
-            Err(std::env::VarError::NotPresent) => {}
-            Err(std::env::VarError::NotUnicode(_)) => {
-                return Err(Error::OtherError {
-                    msg: format!("received not unicode env var"),
-                    #[cfg(feature = "backtrace")]
-                    backtrace: std::backtrace::Backtrace::capture(),
-                });
-            }
-        };
-
         let ros_cam_name = orig_cam_name.to_ros();
 
         debug!("sending tracked points to {:?}", camdata_addr);
@@ -739,7 +710,6 @@ impl FlyTracker {
         let mut result = Self {
             ros_cam_name,
             cfg,
-            expected_framerate: None,
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
             last_sent_raw_image_time: std::time::Instant::now(),
@@ -747,13 +717,11 @@ impl FlyTracker {
             coord_socket,
             clock_model: None,
             frame_offset,
-            hack_binning,
             acquisition_histogram,
             #[cfg(feature = "debug-images")]
             debug_thread_cjh,
             acquisition_duration_allowed_imprecision_msec,
             transmit_feature_detect_settings_tx,
-            handle: handle.clone(),
         };
 
         result.reload_config()?;
