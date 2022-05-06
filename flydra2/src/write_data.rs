@@ -28,7 +28,7 @@ struct WritingState {
     textlog_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     trigger_clock_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     experiment_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
-    writer_stats: Option<usize>,
+    writer_stats: Option<(usize,usize)>,
     file_start_time: std::time::SystemTime,
 
     reconstruction_latency_usec: Option<HistogramWritingState>,
@@ -281,7 +281,7 @@ impl WritingState {
             csv::Writer::from_writer(fd)
         };
 
-        let writer_stats = if cfg.print_stats { Some(0) } else { None };
+        let writer_stats = if cfg.print_stats { Some((0,0)) } else { None };
 
         let file_start_time = if let Some(local) = local {
             local.into()
@@ -315,7 +315,7 @@ impl WritingState {
         })
     }
 
-    fn save_data_2d_distorted(&mut self, fdp: FrameDataAndPoints) -> Result<()> {
+    fn save_data_2d_distorted(&mut self, fdp: FrameDataAndPoints) -> Result<usize> {
         let frame_data = &fdp.frame_data;
         let pts_to_save: Vec<Data2dDistortedRowF32> = fdp
             .points
@@ -335,7 +335,7 @@ impl WritingState {
         for row in data2d_distorted.iter() {
             self.data_2d_wtr.serialize(&row)?;
         }
-        Ok(())
+        Ok(data2d_distorted.len())
     }
 
     fn flush_all(&mut self) -> Result<()> {
@@ -361,7 +361,7 @@ impl Drop for WritingState {
         }
 
         if let Some(count) = self.writer_stats {
-            info!("    {} rows of kalman estimates", count);
+            info!("    {} rows of 2d detections, {} rows of kalman estimates", count.0, count.1);
         }
 
         // Drop all CSV files, which closes them.
@@ -541,7 +541,7 @@ pub(crate) async fn writer_task_main(
                             if let Some(ref mut kew) = ws.kalman_estimates_wtr {
                                 kew.serialize(record)?;
                                 if let Some(count) = ws.writer_stats.as_mut() {
-                                    *count += 1
+                                    count.1 += 1
                                 }
                             }
                             if let Some(ref mut daw) = ws.data_assoc_wtr {
@@ -620,7 +620,10 @@ pub(crate) async fn writer_task_main(
                     }
                     Data2dDistorted(fdp) => {
                         if let Some(ref mut ws) = writing_state {
-                            ws.save_data_2d_distorted(fdp)?;
+                            let rows = ws.save_data_2d_distorted(fdp)?;
+                            if let Some(count) = ws.writer_stats.as_mut() {
+                                count.0 += rows;
+                            }
                         }
                         // simply drop data if no file opened
                     }
