@@ -590,7 +590,7 @@ slow-braid-process-video-test:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features read-mkv -- --ignored
+    - cargo test --release --features read-mkv -- --include-ignored
 
 braidz-cli-ubuntu2004:
   image: ubuntu:focal
