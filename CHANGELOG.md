@@ -5,6 +5,7 @@
 * Added support from Allied Vision Technologies cameras using the Vimba driver.
   In the braid .toml configuration file, specify the camera with `start_backend =
   "vimba"`.
+* Added support to save raw, uncompressed video to the MKV container format.
 
 ### Changed
 

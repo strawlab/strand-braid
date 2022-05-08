@@ -473,6 +473,7 @@ impl Component for Model {
                     ci2_remote_control::MkvRecordingConfig::default()
                 };
                 match &mut old_config.codec {
+                    ci2_remote_control::MkvCodec::Uncompressed => {}
                     ci2_remote_control::MkvCodec::VP8(ref mut o) => o.bitrate = v.to_u32(),
                     ci2_remote_control::MkvCodec::VP9(ref mut o) => o.bitrate = v.to_u32(),
                     ci2_remote_control::MkvCodec::H264(ref mut o) => o.bitrate = v.to_u32(),
@@ -779,9 +780,10 @@ impl Model {
             let available_codecs = shared.available_codecs();
 
             let selected_idx = match shared.mkv_recording_config.codec {
-                ci2_remote_control::MkvCodec::VP8(_) => 0,
-                ci2_remote_control::MkvCodec::VP9(_) => 1,
-                ci2_remote_control::MkvCodec::H264(_) => 2,
+                ci2_remote_control::MkvCodec::Uncompressed => 0,
+                ci2_remote_control::MkvCodec::VP8(_) => 1,
+                ci2_remote_control::MkvCodec::VP9(_) => 2,
+                ci2_remote_control::MkvCodec::H264(_) => 3,
             };
 
             // TODO: should we bother showing devices if only 1?
@@ -1464,6 +1466,7 @@ fn get_strand_cam_name(server_state: Option<&ServerState>) -> &'static str {
 fn get_bitrate(bitrate: &ci2_remote_control::MkvCodec) -> Result<BitrateSelection, ()> {
     use crate::BitrateSelection::*;
     let bitrate: u32 = match bitrate {
+        ci2_remote_control::MkvCodec::Uncompressed => BitrateSelection::default().to_u32(),
         ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
         ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,
         ci2_remote_control::MkvCodec::H264(c) => c.bitrate,
@@ -1537,6 +1540,7 @@ impl enum_iter::EnumIter for BitrateSelection {
 
 #[derive(Clone, PartialEq)]
 enum CodecSelection {
+    Uncompressed,
     VP8,
     VP9,
     H264,
@@ -1546,11 +1550,13 @@ impl CodecSelection {
     fn get_codec(&self, old: &ci2_remote_control::MkvCodec) -> ci2_remote_control::MkvCodec {
         use crate::CodecSelection::*;
         let bitrate = match old {
+            ci2_remote_control::MkvCodec::Uncompressed => BitrateSelection::default().to_u32(),
             ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
             ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,
             ci2_remote_control::MkvCodec::H264(c) => c.bitrate,
         };
         match self {
+            Uncompressed => ci2_remote_control::MkvCodec::Uncompressed,
             VP8 => ci2_remote_control::MkvCodec::VP8(ci2_remote_control::VP8Options { bitrate }),
             VP9 => ci2_remote_control::MkvCodec::VP9(ci2_remote_control::VP9Options { bitrate }),
             H264 => ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options {
@@ -1570,6 +1576,7 @@ impl Default for CodecSelection {
 impl std::fmt::Display for CodecSelection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let x = match self {
+            CodecSelection::Uncompressed => "RAW",
             CodecSelection::VP8 => "VP8",
             CodecSelection::VP9 => "VP9",
             CodecSelection::H264 => "H264",
@@ -1581,6 +1588,7 @@ impl std::fmt::Display for CodecSelection {
 impl enum_iter::EnumIter for CodecSelection {
     fn variants() -> &'static [Self] {
         &[
+            CodecSelection::Uncompressed,
             CodecSelection::VP8,
             CodecSelection::VP9,
             CodecSelection::H264,
@@ -1596,6 +1604,7 @@ impl HasAvail for ServerState {
     fn available_codecs(&self) -> Vec<CodecSelection> {
         if !self.cuda_devices.is_empty() {
             vec![
+                CodecSelection::Uncompressed,
                 CodecSelection::VP8,
                 CodecSelection::VP9,
                 CodecSelection::H264,
