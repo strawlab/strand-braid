@@ -212,17 +212,16 @@ where
                 let mut mkv_segment =
                     mux::Segment::new(mux::Writer::new(fd)).expect("mux::Segment::new");
 
-                #[allow(unused_assignments)]
                 let mut opt_h264_encoder = None;
 
-                let (vpx_tup, mux_codec) = match cfg.codec {
+                let (vpx_tup, mux_codec) = match &cfg.codec {
                     #[cfg(feature = "vpx")]
-                    ci2_remote_control::MkvCodec::VP8(opts) => (
+                    ci2_remote_control::MkvCodec::VP8(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP8, opts.bitrate)),
                         webm::mux::VideoCodecId::VP8,
                     ),
                     #[cfg(feature = "vpx")]
-                    ci2_remote_control::MkvCodec::VP9(opts) => (
+                    ci2_remote_control::MkvCodec::VP9(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP9, opts.bitrate)),
                         webm::mux::VideoCodecId::VP9,
                     ),
@@ -233,7 +232,7 @@ where
                             backtrace: std::backtrace::Backtrace::capture(),
                         });
                     }
-                    ci2_remote_control::MkvCodec::H264(opts) => {
+                    ci2_remote_control::MkvCodec::H264(ref opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
                             Some(ref nv_enc) => {
@@ -342,30 +341,34 @@ where
                 #[allow(unused_variables)]
                 let vpx_tup: Option<u8> = vpx_tup;
 
-                let my_encoder = if let Some(vpx_tup) = vpx_tup {
-                    #[cfg(feature = "vpx")]
-                    {
-                        let (vpx_codec, bitrate) = vpx_tup;
-                        debug!("Using codec {:?} in mkv file.", vpx_codec);
-                        // Setup the encoder.
-                        let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
-                            width,
-                            height,
-                            timebase: [1, 1_000_000], // microsecond time base
-                            bitrate,
-                            codec: vpx_codec,
-                        })?;
+                let my_encoder = match cfg.codec {
+                    ci2_remote_control::MkvCodec::H264(_) => {
+                        let enc = opt_h264_encoder.unwrap();
+                        MyEncoder::Nvidia(enc)
+                    }
+                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                        let vpx_tup = vpx_tup.unwrap();
+                        #[cfg(feature = "vpx")]
+                        {
+                            let (vpx_codec, bitrate) = vpx_tup;
+                            debug!("Using codec {:?} in mkv file.", vpx_codec);
+                            // Setup the encoder.
+                            let vpx_encoder = vpx_encode::Encoder::new(vpx_encode::Config {
+                                width,
+                                height,
+                                timebase: [1, 1_000_000], // microsecond time base
+                                bitrate,
+                                codec: vpx_codec,
+                            })?;
 
-                        MyEncoder::Vpx(vpx_encoder)
+                            MyEncoder::Vpx(vpx_encoder)
+                        }
+                        #[cfg(not(feature = "vpx"))]
+                        {
+                            // We should never get here.
+                            panic!("No VPX support at compilation time. VPX: {}", vpx_tup);
+                        }
                     }
-                    #[cfg(not(feature = "vpx"))]
-                    {
-                        // We should never get here.
-                        panic!("No VPX support at compilation time. VPX: {}", vpx_tup);
-                    }
-                } else {
-                    let enc = opt_h264_encoder.unwrap();
-                    MyEncoder::Nvidia(enc)
                 };
 
                 if cfg.save_creation_time {
