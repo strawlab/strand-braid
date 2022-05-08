@@ -536,13 +536,8 @@ impl<'a> PtsDur for vpx_encode::Frame<'a> {
     }
 }
 
-// remove once we have rust 1.38 everywhere and use dur.as_secs_f64()
-fn as_secs_f64(dur: &std::time::Duration) -> f64 {
-    dur.as_secs() as f64 + (dur.subsec_nanos() as f64 * 1e-9)
-}
-
 fn nanos(dur: &std::time::Duration) -> u64 {
-    (as_secs_f64(dur) * 1e9).round() as u64
+    (dur.as_secs_f64() * 1e9).round() as u64
 }
 
 fn write_frame<'lib, T, FRAME, FMT>(
