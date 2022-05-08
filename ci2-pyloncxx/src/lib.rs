@@ -484,6 +484,16 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             .map_pylon_err()
     }
 
+    fn feature_float(&self, name: &str) -> ci2::Result<f64> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .float_node(name)
+            .map_pylon_err()?
+            .value()
+            .map_pylon_err()
+    }
+
     // ----- end: weakly typed but easier to implement API -----
 
     fn node_map_load(&self, settings: &str) -> ci2::Result<()> {

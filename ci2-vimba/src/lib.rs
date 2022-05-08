@@ -444,6 +444,10 @@ impl ci2::Camera for WrappedCamera {
             .map_vimba_err()
     }
 
+    fn feature_float(&self, name: &str) -> ci2::Result<f64> {
+        self.camera.lock().feature_float(name).map_vimba_err()
+    }
+
     // ----- end: weakly typed but easier to implement API -----
 
     fn node_map_load(&self, settings: &str) -> std::result::Result<(), ci2::Error> {

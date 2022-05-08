@@ -233,6 +233,11 @@ where
         c.feature_enum_set(name, value)
     }
 
+    fn feature_float(&self, name: &str) -> ci2::Result<f64> {
+        let c = self.camera.lock();
+        c.feature_float(name)
+    }
+
     // ----- end: weakly typed but easier to implement API -----
 
     fn node_map_load(&self, settings: &str) -> Result<()> {
