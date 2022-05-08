@@ -109,7 +109,7 @@ fn usage_exit() -> Result<(), anyhow::Error> {
     println!(
         "Usage:
 
-    save-animation nv-h264|vp8"
+    save-animation nv-h264|vp8|uncompressed"
     );
     Err(anyhow::format_err!("invalid usage"))
 }
@@ -144,6 +144,10 @@ fn main() -> Result<(), anyhow::Error> {
         "vp8" => {
             let opts = ci2_remote_control::VP8Options { bitrate: 1000 };
             let codec = ci2_remote_control::MkvCodec::VP8(opts);
+            (codec, None)
+        }
+        "uncompressed" => {
+            let codec = ci2_remote_control::MkvCodec::Uncompressed;
             (codec, None)
         }
         _ => {

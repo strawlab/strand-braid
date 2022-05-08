@@ -19,6 +19,27 @@ use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
 
+// See https://www.fourcc.org/yuv/ and https://www.fourcc.org/rgb/
+#[allow(non_camel_case_types, non_snake_case, dead_code)]
+enum UncompressedFormat {
+    GRAY8,
+    RGB,
+    BGR,
+}
+
+impl UncompressedFormat {
+    fn num(&self) -> [u8; 4] {
+        use UncompressedFormat::*;
+        // These values are inspired by gstreamer. See
+        // https://github.com/GStreamer/gst-plugins-good/commit/19a307930a9e44b5453501ec3ae8b6890ed489c0
+        match self {
+            GRAY8 => [b'Y', b'8', b'0', b'0'],
+            RGB => [b'R', b'G', b'B', 24],
+            BGR => [b'B', b'G', b'R', 24],
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: {source}")]
@@ -34,6 +55,16 @@ pub enum Error {
     InconsistentState,
     #[error("timestamp too large")]
     TimestampTooLarge,
+    #[error("unsupported conversion")]
+    UnsupportedConversion {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("image is padded")]
+    StrideError {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("convert image error")]
     ConvertImageError(
         #[from]
@@ -80,6 +111,29 @@ enum MyEncoder<'lib> {
     #[cfg(feature = "vpx")]
     Vpx(vpx_encode::Encoder),
     Nvidia(NvEncoder<'lib>),
+    Uncompressed(UncompressedEncoder),
+}
+
+struct UncompressedEncoder {}
+
+impl UncompressedEncoder {
+    fn encode<'a, FRAME, FMT>(&mut self, raw_frame: &'a FRAME) -> Result<&'a [u8]>
+    where
+        FRAME: ImageStride<FMT>,
+        FMT: PixelFormat,
+    {
+        let pixfmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+        let bpp = pixfmt.bits_per_pixel();
+        let row_bytes = raw_frame.width() * bpp as u32 / 8;
+        if raw_frame.stride() != row_bytes as usize {
+            return Err(Error::StrideError {
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            });
+        }
+        let data = raw_frame.image_data();
+        Ok(data)
+    }
 }
 
 /// A view of image to have new width
@@ -213,17 +267,40 @@ where
                     mux::Segment::new(mux::Writer::new(fd)).expect("mux::Segment::new");
 
                 let mut opt_h264_encoder = None;
+                let mut opt_uncompressed_encoder = None;
 
-                let (vpx_tup, mux_codec) = match &cfg.codec {
+                let (vpx_tup, mux_codec, mux_fourcc) = match &cfg.codec {
+                    ci2_remote_control::MkvCodec::Uncompressed => {
+                        use machine_vision_formats::pixel_format::*;
+                        let pixfmt = pixfmt::<FMT>().unwrap();
+                        let fourcc = match pixfmt {
+                            PixFmt::Mono8 => UncompressedFormat::GRAY8,
+                            PixFmt::RGB8 => UncompressedFormat::RGB,
+                            _ => {
+                                return Err(Error::UnsupportedConversion {
+                                    #[cfg(feature = "backtrace")]
+                                    backtrace: std::backtrace::Backtrace::capture(),
+                                });
+                            }
+                        };
+                        opt_uncompressed_encoder = Some(UncompressedEncoder {});
+                        (
+                            None,
+                            webm::mux::VideoCodecId::Uncompressed,
+                            Some(fourcc.num()),
+                        )
+                    }
                     #[cfg(feature = "vpx")]
                     ci2_remote_control::MkvCodec::VP8(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP8, opts.bitrate)),
                         webm::mux::VideoCodecId::VP8,
+                        None,
                     ),
                     #[cfg(feature = "vpx")]
                     ci2_remote_control::MkvCodec::VP9(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP9, opts.bitrate)),
                         webm::mux::VideoCodecId::VP9,
+                        None,
                     ),
                     #[cfg(not(feature = "vpx"))]
                     ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
@@ -327,14 +404,14 @@ where
                                     encoder,
                                     vram_queue,
                                 });
-                                (None, webm::mux::VideoCodecId::H264)
+                                (None, webm::mux::VideoCodecId::H264, None)
                             }
                             None => return Err(Error::NvencLibsNotLoaded),
                         }
                     }
                 };
 
-                let vt = mkv_segment.add_video_track(width, height, None, mux_codec);
+                let vt = mkv_segment.add_video_track(width, height, None, mux_codec, mux_fourcc);
 
                 // A dummy type which is never used so the compiler does not complain.
                 #[cfg(not(feature = "vpx"))]
@@ -342,6 +419,10 @@ where
                 let vpx_tup: Option<u8> = vpx_tup;
 
                 let my_encoder = match cfg.codec {
+                    ci2_remote_control::MkvCodec::Uncompressed => {
+                        let enc = opt_uncompressed_encoder.unwrap();
+                        MyEncoder::Uncompressed(enc)
+                    }
                     ci2_remote_control::MkvCodec::H264(_) => {
                         let enc = opt_h264_encoder.unwrap();
                         MyEncoder::Nvidia(enc)
@@ -460,6 +541,7 @@ where
             }
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
+                    MyEncoder::Uncompressed(_) => {}
                     #[cfg(feature = "vpx")]
                     MyEncoder::Vpx(vpx_encoder) => {
                         let mut frames = vpx_encoder.finish().unwrap();
@@ -558,6 +640,11 @@ where
     let elapsed = timestamp.signed_duration_since(state.first_timestamp);
 
     match &mut state.my_encoder {
+        MyEncoder::Uncompressed(ref mut encoder) => {
+            let timestamp_ns = nanos(&elapsed.to_std().map_err(|_| Error::TimestampTooLarge)?);
+            let data = encoder.encode(raw_frame)?;
+            state.vt.add_frame(data, timestamp_ns, true);
+        }
         #[cfg(feature = "vpx")]
         MyEncoder::Vpx(ref mut vpx_encoder) => {
             let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;

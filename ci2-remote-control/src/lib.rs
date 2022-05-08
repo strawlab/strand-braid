@@ -92,6 +92,7 @@ impl EnumIter for RecordingFrameRate {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum MkvCodec {
+    Uncompressed,
     VP8(VP8Options),
     VP9(VP9Options),
     H264(H264Options),
