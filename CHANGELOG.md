@@ -6,6 +6,7 @@
   In the braid .toml configuration file, specify the camera with `start_backend =
   "vimba"`.
 * Added support to save raw, uncompressed video to the MKV container format.
+* Save camera gamma to MKV files.
 
 ### Changed
 

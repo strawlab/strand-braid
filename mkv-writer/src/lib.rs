@@ -411,7 +411,11 @@ where
                     }
                 };
 
-                let vt = mkv_segment.add_video_track(width, height, None, mux_codec, mux_fourcc);
+                let mut vt =
+                    mkv_segment.add_video_track(width, height, None, mux_codec, mux_fourcc);
+                if let Some(gamma) = &cfg.gamma {
+                    vt.set_gamma(*gamma);
+                }
 
                 // A dummy type which is never used so the compiler does not complain.
                 #[cfg(not(feature = "vpx"))]

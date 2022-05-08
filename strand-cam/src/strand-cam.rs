@@ -2618,6 +2618,11 @@ where
     let cam_name = RawCamName::new(raw_name);
     let ros_cam_name = cam_name.to_ros();
 
+    let camera_gamma = cam
+        .feature_float("Gamma")
+        .map_err(|e| log::warn!("Ignoring error getting gamma: {}", e))
+        .ok();
+
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
         if let Some(camera_settings_filename) = &args.camera_settings_filename {
             let settings =
@@ -2951,6 +2956,7 @@ where
     let mkv_recording_config = MkvRecordingConfig {
         writing_application: Some(get_mkv_writing_application(is_braid)),
         title: Some(cam_name.as_str().to_string()),
+        gamma: camera_gamma.clone(),
         ..Default::default()
     };
 
@@ -3475,6 +3481,10 @@ where
                         if cfg.title.is_none() {
                             // The title is not set in the web UI
                             cfg.title = Some(cam_name.as_str().to_string());
+                        }
+                        if cfg.gamma.is_none() {
+                            // The gamma is not set in the web UI
+                            cfg.gamma = camera_gamma.clone();
                         }
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
