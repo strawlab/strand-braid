@@ -35,5 +35,4 @@ default = ["vpx"]
 
 vpx=["vpx-encode"]
 
-# Also remember to enable vpx-encode/backtrace if both backtrace and vpx features are enabled.
-backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace"]
+backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace", "vpx-encode?/backtrace"]
