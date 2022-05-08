@@ -218,7 +218,6 @@ where
                 let (vpx_tup, mux_codec) = match cfg.codec {
                     #[cfg(feature = "vpx")]
                     ci2_remote_control::MkvCodec::VP8(opts) => (
-                        #[cfg(feature = "vpx")]
                         Some((vpx_encode::VideoCodecId::VP8, opts.bitrate)),
                         webm::mux::VideoCodecId::VP8,
                     ),
