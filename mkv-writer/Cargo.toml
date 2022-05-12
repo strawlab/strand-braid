@@ -26,7 +26,7 @@ env_logger = "0.8"
 anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 rusttype = "0.8.1"
-image = {version="0.23", default-features=false, features=["jpeg"]}
+image = {version="0.23", default-features=false, features=["jpeg","tiff","png"]}
 ttf-firacode = "0.1"
 simple-frame = { path = "../simple-frame" }
 
