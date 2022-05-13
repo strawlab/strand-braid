@@ -486,15 +486,19 @@ strand-cam-offline-kalmanize-ubuntu2004:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
+    # Build without glibc dependency so it runs on cluster with ancient glibc.
+    - rustup target install x86_64-unknown-linux-musl
+
     - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
-    - cargo build --release
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - cargo build --release --target x86_64-unknown-linux-musl
+
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
@@ -539,15 +543,18 @@ braid-offline-ubuntu2004:
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
+    - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
+    # Build without glibc dependency so it runs on cluster with ancient glibc.
+    - rustup target install x86_64-unknown-linux-musl
+
     - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release
+    - cargo build --release --target x86_64-unknown-linux-musl
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-offline-retrack $CI_PROJECT_DIR/build/
-    - cp ../target/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
+    - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
+    - cp ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
