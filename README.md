@@ -31,6 +31,24 @@ analysis.
 
 * [Google Group: multi-camera software from the Straw Lab](https://groups.google.com/g/multicams)
 
+## Citation
+
+While a new publication specifically about Braid should be written, in the
+meantime, please cite the following paper about the predecessor to Braid:
+
+* Straw AD, Branson K, Neumann TR, Dickinson MH. Multicamera Realtime 3D
+  Tracking of Multiple Flying Animals. *Journal of The Royal Society Interface
+  8*(11), 395-409 (2011)
+  [doi:10.1098/rsif.2010.0230](https://dx.doi.org/10.1098/rsif.2010.0230)
+
+If you additionally make use of 3D tracking of objects under water with cameras
+above water (i.e. perform fish tracking), please additionally cite this:
+
+* Stowers JR*, Hofbauer M*, Bastien R, Griessner J⁑, Higgins P⁑, Farooqui S⁑,
+  Fischer RM, Nowikovsky K, Haubensak W, Couzin ID,    Tessmar-Raible K✎, Straw
+  AD✎. Virtual Reality for Freely Moving Animals. *Nature Methods 14*, 995–1002
+  (2017) [doi:10.1038/nmeth.4399](https://dx.doi.org/10.1038/nmeth.4399)
+
 ## License
 
 This software is developed by Prof. Dr. Andrew Straw at the University of
