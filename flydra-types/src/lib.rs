@@ -813,6 +813,28 @@ pub struct Data2dDistortedRowF32 {
     pub sumsqf_val: f32,
 }
 
+impl From<Data2dDistortedRow> for Data2dDistortedRowF32 {
+    fn from(orig: Data2dDistortedRow) -> Self {
+        Self {
+            camn: orig.camn,
+            frame: orig.frame,
+            timestamp: orig.timestamp,
+            cam_received_timestamp: orig.cam_received_timestamp,
+            device_timestamp: orig.device_timestamp,
+            block_id: orig.block_id,
+            x: orig.x as f32,
+            y: orig.y as f32,
+            area: orig.area as f32,
+            slope: orig.slope as f32,
+            eccentricity: orig.eccentricity as f32,
+            frame_pt_idx: orig.frame_pt_idx,
+            cur_val: orig.cur_val,
+            mean_val: orig.mean_val as f32,
+            sumsqf_val: orig.sumsqf_val as f32,
+        }
+    }
+}
+
 impl WithKey<i64> for Data2dDistortedRow {
     fn key(&self) -> i64 {
         self.frame
