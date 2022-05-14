@@ -28,7 +28,7 @@ struct WritingState {
     textlog_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     trigger_clock_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
     experiment_info_wtr: csv::Writer<Box<dyn std::io::Write + Send>>,
-    writer_stats: Option<(usize,usize)>,
+    writer_stats: Option<(usize, usize)>,
     file_start_time: std::time::SystemTime,
 
     reconstruction_latency_usec: Option<HistogramWritingState>,
@@ -281,7 +281,7 @@ impl WritingState {
             csv::Writer::from_writer(fd)
         };
 
-        let writer_stats = if cfg.print_stats { Some((0,0)) } else { None };
+        let writer_stats = if cfg.print_stats { Some((0, 0)) } else { None };
 
         let file_start_time = if let Some(local) = local {
             local.into()
@@ -346,7 +346,10 @@ impl Drop for WritingState {
         }
 
         if let Some(count) = self.writer_stats {
-            info!("    {} rows of 2d detections, {} rows of kalman estimates", count.0, count.1);
+            info!(
+                "    {} rows of 2d detections, {} rows of kalman estimates",
+                count.0, count.1
+            );
         }
 
         // Drop all CSV files, which closes them.
