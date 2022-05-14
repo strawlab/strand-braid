@@ -383,6 +383,27 @@ pub struct FrameDataAndPoints {
     pub points: Vec<NumberedRawUdpPoint>,
 }
 
+impl FrameDataAndPoints {
+    fn to_save(self, save_empty_data2d: bool) -> Vec<Data2dDistortedRowF32> {
+        let frame_data = &self.frame_data;
+        let pts_to_save: Vec<Data2dDistortedRowF32> = self
+            .points
+            .iter()
+            .map(|orig| convert_to_save(frame_data, orig))
+            .collect();
+
+        let data2d_distorted: Vec<Data2dDistortedRowF32> = if !pts_to_save.is_empty() {
+            pts_to_save
+        } else if save_empty_data2d {
+            let empty_data = vec![convert_empty_to_save(frame_data)];
+            empty_data
+        } else {
+            vec![]
+        };
+        data2d_distorted
+    }
+}
+
 fn safe_u8(val: usize) -> u8 {
     assert!(val <= u8::max_value() as usize, "value out of range");
     val as u8

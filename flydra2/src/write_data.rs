@@ -316,22 +316,7 @@ impl WritingState {
     }
 
     fn save_data_2d_distorted(&mut self, fdp: FrameDataAndPoints) -> Result<usize> {
-        let frame_data = &fdp.frame_data;
-        let pts_to_save: Vec<Data2dDistortedRowF32> = fdp
-            .points
-            .iter()
-            .map(|orig| convert_to_save(frame_data, orig))
-            .collect();
-
-        let data2d_distorted: Vec<Data2dDistortedRowF32> = if !pts_to_save.is_empty() {
-            pts_to_save
-        } else if self.save_empty_data2d {
-            let empty_data = vec![convert_empty_to_save(frame_data)];
-            empty_data
-        } else {
-            vec![]
-        };
-
+        let data2d_distorted = fdp.to_save(self.save_empty_data2d);
         for row in data2d_distorted.iter() {
             self.data_2d_wtr.serialize(&row)?;
         }
