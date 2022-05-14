@@ -486,7 +486,7 @@ strand-cam-offline-kalmanize-ubuntu2004:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
@@ -541,7 +541,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
 braid-offline-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
