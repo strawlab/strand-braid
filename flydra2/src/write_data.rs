@@ -731,4 +731,136 @@ mod test {
 
         std::fs::remove_dir_all(root).unwrap();
     }
+
+    /// Ensure that .braidz files can exceed 4GB.
+    #[ignore]
+    #[test]
+    fn test_giant_braidz_for_zip64_support() -> Result<()> {
+        let root = tempfile::tempdir()?;
+
+        println!("saving giant files in temp dir {}", root.path().display());
+
+        let braid_root = root.path().join("test.braid");
+        let braidz_name = root.path().join("test.braidz");
+
+        fn make_frame_data(i: u64) -> FrameDataAndPoints {
+            let synced_frame = SyncFno(i);
+            FrameDataAndPoints {
+                frame_data: FrameData {
+                    block_id: None,
+                    cam_name: RosCamName::new("cam".to_string()),
+                    cam_num: CamNum(0),
+                    cam_received_timestamp: FlydraFloatTimestampLocal::from_f64(i as f64 + 0.123),
+                    device_timestamp: None,
+                    synced_frame,
+                    tdpt: TimeDataPassthrough {
+                        frame: synced_frame,
+                        timestamp: None,
+                    },
+                    time_delta: SyncedFrameCount {
+                        frame: synced_frame,
+                    },
+                    trigger_timestamp: None,
+                },
+                points: vec![],
+            }
+        }
+
+        // At 4.5 bytes per row, this gets us above 5_000_000_000 bytes.
+        let num_rows = 1_200_000_000;
+
+        let save_empty_data2d = true;
+        {
+            let cfg = StartSavingCsvConfig {
+                out_dir: braid_root.clone(),
+                local: None,
+                git_rev: "<impossible git rev>".into(),
+                fps: None,
+                per_cam_data: Default::default(),
+                print_stats: false,
+                save_performance_histograms: false,
+            };
+
+            let cam_manager = ConnectedCamerasManager::new(
+                &None,
+                std::collections::BTreeSet::new(),
+                Arc::new(AtomicBool::new(true)),
+                Arc::new(AtomicBool::new(true)),
+            );
+            let tracking_params = Arc::new(flydra_types::default_tracking_params_full_3d());
+
+            let mut ws = WritingState::new(
+                cfg,
+                cam_manager.sample(),
+                &None,
+                tracking_params,
+                save_empty_data2d,
+                format!("{}:{}", file!(), line!()),
+            )?;
+
+            // Check that original directory exists.
+            assert!(braid_root.exists());
+            // Ensure .braidz not present.
+            assert!(!braidz_name.exists());
+
+            // Save a lot of data
+            for i in 0..num_rows {
+                if i % 10_000_000 == 0 {
+                    println!(
+                        "writing {}/{}: {}%",
+                        i,
+                        num_rows,
+                        i as f64 / num_rows as f64 * 100.0
+                    );
+                }
+                ws.save_data_2d_distorted(make_frame_data(i))?;
+            }
+
+            std::mem::drop(ws);
+        }
+
+        // Check that original directory is gone.
+        assert!(!braid_root.exists());
+
+        // Check that .braidz is present.
+        assert!(braidz_name.exists());
+
+        let metadata = std::fs::metadata(&braidz_name)?;
+        println!("metadata.len() {}", metadata.len());
+        assert!(metadata.len() > 5_000_000_000);
+
+        let zip_reader = std::fs::File::open(braidz_name)?;
+        let mut zip_archive = zip::ZipArchive::new(zip_reader).unwrap();
+
+        let data2d_fname = format!("{}.gz", flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+
+        let gz_rdr = zip_archive.by_name(&data2d_fname).unwrap();
+
+        let raw_csv_rdr = libflate::gzip::Decoder::new(gz_rdr)?;
+        let csv_rdr = csv::Reader::from_reader(raw_csv_rdr);
+        let csv_rdr2 = csv_rdr.into_deserialize();
+
+        let mut count = 0;
+        for (i, row) in csv_rdr2.into_iter().enumerate() {
+            if i % 10_000_000 == 0 {
+                println!(
+                    "reading {}/{}: {}%",
+                    i,
+                    num_rows,
+                    i as f64 / num_rows as f64 * 100.0
+                );
+            }
+            let actual: Data2dDistortedRow = row?;
+            let mut expected_rows = make_frame_data(i as u64).to_save(save_empty_data2d);
+            assert_eq!(expected_rows.len(), 1);
+            let expected = expected_rows.pop().unwrap();
+            let actual: Data2dDistortedRowF32 = actual.into();
+            assert_eq!(actual.frame, expected.frame);
+            count += 1;
+        }
+
+        assert_eq!(count, num_rows);
+
+        Ok(())
+    }
 }
