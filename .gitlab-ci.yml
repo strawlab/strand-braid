@@ -712,24 +712,16 @@ led-box-linux:
 led-box-firmware:
   image: rust:1.60.0
   script:
-    - export RUSTFLAGS="-D warnings"
-
     - rustc --version
     - cd led-box-firmware
 
-    # Could do `cargo install cargo-binutils` instead of the following lines,
-    # but then we'd build from source, which just takes longer.
-    - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-size/cargo-size-0.1.5-amd64.exe > $CARGO_HOME/bin/cargo-size
-    - chmod a+x $CARGO_HOME/bin/cargo-size
-    - mkdir -p $CARGO_HOME/bin && curl --silent https://internal-static.strawlab.org/software/cargo-objcopy/cargo-objcopy-0.1.5-amd64.exe > $CARGO_HOME/bin/cargo-objcopy
-    - chmod a+x $CARGO_HOME/bin/cargo-objcopy
+    - cargo install cargo-binutils
 
     - rustup component add llvm-tools-preview
     - rustup component add rust-src
     - rustup target add thumbv7em-none-eabihf
-    - rm -f target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin
-    - make
-    - cp target_makefile/thumbv7em-none-eabihf/release/led-box-firmware.bin $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin
+    - cargo build --release
+    - cargo objcopy --release -- -O binary $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin
   artifacts:
     paths:
       - led-box-firmware-${CI_COMMIT_SHA}.bin
