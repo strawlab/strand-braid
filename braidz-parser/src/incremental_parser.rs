@@ -102,7 +102,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
                     let kest_reader = csv::Reader::from_reader(rdr);
-                    for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
+                    for row in kest_reader.into_deserialize().early_eof_ok() {
                         let row: TextlogRow = row?;
 
                         // TODO: fix DRY in `calc_fps_from_data()`.
@@ -200,7 +200,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             let caminfo_rdr = csv::Reader::from_reader(rdr);
             let mut camn2camid = BTreeMap::new();
             let mut camid2camn = BTreeMap::new();
-            for row in caminfo_rdr.into_deserialize().early_eof_ok().into_iter() {
+            for row in caminfo_rdr.into_deserialize().early_eof_ok() {
                 let row: CamInfoRow = row?;
                 camn2camid.insert(row.camn, row.cam_id.clone());
                 camid2camn.insert(row.cam_id, row.camn);
@@ -254,7 +254,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             let d2d_reader = csv::Reader::from_reader(rdr);
             let mut qz = BTreeMap::new();
 
-            for row in d2d_reader.into_deserialize().early_eof_ok().into_iter() {
+            for row in d2d_reader.into_deserialize().early_eof_ok() {
                 num_rows += 1;
                 let row: Data2dDistortedRow = row?;
                 let entry = qz.entry(row.camn).or_insert_with(Seq2d::new);
@@ -307,7 +307,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                     let mut zlim = [inf, -inf];
                     let mut num_rows = 0;
 
-                    for row in kest_reader.into_deserialize().early_eof_ok().into_iter() {
+                    for row in kest_reader.into_deserialize().early_eof_ok() {
                         let row: KalmanEstimatesRow = row?;
                         let entry =
                             trajectories
