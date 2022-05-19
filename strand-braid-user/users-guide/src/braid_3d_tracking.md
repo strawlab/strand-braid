@@ -81,3 +81,28 @@ assumes independent movement of the tracked objects. This is sufficient in many
 cases for tracking animals even when they interact strongly with each other, but
 it is typically be necessary to tune relevant tracking and data association
 parameters to get the best performance possible.
+
+## Details about how data are processed online and saved for later analysis
+
+While running, Braid saves a copy of all incoming feature detections from the
+cameras as a first step prior to inspecting frame numbers and bundling data from
+synchronously acquired data from multiple cameras. Combined with issues such as
+unreliable networks, this has the unfortunate effect that frames saved to disk
+cannot be guaranteed to be monotonically increasing. For online processing to
+implement 3D tracking, there is always an idea of "current frame number". Any
+data from prior frames is immediately discarded from further consideration (but
+it was saved to disk as described above). If the incoming frame number is larger
+than the current frame number, any accumulated data for the "current frame" is
+deemed complete and this is bundled for immediate processing. If the incoming
+frame number is larger than a single frame from the current frame number,
+additional frames of empty data are generated so that the stream of bundled data
+is contiguous (with no gaps) up until the incoming frame number, which then
+becomes the new "current frame number".
+
+Note that in post-processing based on data saved in `.braidz` files, a better
+reconstruction can be made than possible in the online approach described above
+because data which may have been discarded originally could be incorporated into
+the tracking process. Furthermore, because latency is no longer a significant
+concern, reconstruction for a particular instant need not be performed with only
+historical data but can also incorporate information that occurred after that
+instant.
