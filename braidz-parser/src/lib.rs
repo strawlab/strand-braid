@@ -19,6 +19,8 @@ use braidz_types::{
     Data2dSummary, HistogramSummary, KalmanEstimatesRow, KalmanEstimatesSummary,
 };
 
+use groupby::{AscendingGroupIter, BufferedSortIter, GroupedRows};
+
 use csv_eof::EarlyEofOk;
 
 pub mod incremental_parser;
@@ -280,6 +282,15 @@ pub fn summarize_braidz<R: Read + Seek>(
     }
 }
 
+pub fn braidz_parse_reader<R: Read + Seek>(
+    rdr: R,
+    display_name: String,
+) -> Result<BraidzArchive<R>, Error> {
+    let zs = zip_or_dir::ZipDirArchive::from_zip(rdr, display_name)?;
+    let parsed = braidz_parse(zs)?;
+    Ok(parsed)
+}
+
 pub fn braidz_parse_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<BraidzArchive<BufReader<File>>, Error> {
@@ -315,6 +326,12 @@ impl<'a, R: Read + Seek> BraidzArchive<R> {
     ///
     /// This takes a mutable reference because the read location in the archive
     /// is changed during operation.
+    ///
+    /// Note that, as described in the "Details about how data are processed
+    /// online and saved for later analysis" section in the "3D Tracking in
+    /// Braid" chapter of the [User's
+    /// Guide](https://strawlab.github.io/strand-braid/), these will not, in
+    /// general, be returned in a monotonically increasing order.
     pub fn iter_data2d_distorted(
         &'a mut self,
     ) -> Result<impl Iterator<Item = Result<Data2dDistortedRow, csv::Error>> + 'a, Error> {
@@ -325,6 +342,45 @@ impl<'a, R: Read + Seek> BraidzArchive<R> {
         let rdr = open_maybe_gzipped(data_fname)?;
         let rdr2 = csv::Reader::from_reader(rdr);
         Ok(rdr2.into_deserialize().early_eof_ok())
+    }
+
+    /// Iterate over synchronized frames in `data2d_distorted` table.
+    ///
+    /// This sorts the data by looking ahead up to `bufsize` rows. Furthermore,
+    /// it can exclude nan data if `include_nan_data` is set to `false`. No
+    /// guarantees are made about whether frames may be skipped and indeed they
+    /// often may be.
+    // TODO: create a variant that does not skip frames
+    pub fn iter_grouped_data2d_distorted(
+        &'a mut self,
+        include_nan_data: bool,
+        bufsize: usize,
+    ) -> Result<
+        impl Iterator<Item = Result<GroupedRows<i64, flydra_types::Data2dDistortedRow>, Error>> + 'a,
+        Error,
+    > {
+        let single_iter = self
+            .iter_data2d_distorted()?
+            .map(|res| res.map_err(Error::from));
+        let single_iter = single_iter.filter_map(move |res_row| {
+            if !include_nan_data {
+                let keep_row = if let Some(row) = res_row.as_ref().ok() {
+                    !row.x.is_nan()
+                } else {
+                    true
+                };
+                if keep_row {
+                    Some(res_row)
+                } else {
+                    None
+                }
+            } else {
+                Some(res_row)
+            }
+        });
+        let sorted_data_iter = BufferedSortIter::new(single_iter, bufsize)?;
+        let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+        Ok(data_row_frame_iter)
     }
 }
 
