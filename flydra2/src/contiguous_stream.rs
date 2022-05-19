@@ -18,11 +18,13 @@ pub(crate) trait Numbered: Unpin {
 /// Convert a monotonically increasing stream to a contiguous stream.
 ///
 /// The input stream can have gaps. This finishes immediately if the input
-/// stream is not monotonically increasing. This means that repeated numbers or
-/// backwards numbers cannot occur.
+/// stream is not monotonically strictly increasing. This means that repeated
+/// numbers or backwards numbers cannot occur.
 ///
 /// The resulting stream will have no gaps and any missing element will be
 /// created with `T::new_empty()`.
+///
+/// See also the [groupby] crate for related functionality.
 pub(crate) fn make_contiguous<St, T>(stream: St) -> NumberedContiguous<St, T>
 where
     St: Stream<Item = T>,
