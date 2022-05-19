@@ -743,15 +743,18 @@ impl Default for TriggerType {
     }
 }
 
-/// Feature detections
-// Various things should be true about a sequence of these saved to disk, such
-// as in the `data2d_distorted` table in braid archives.
-// - The `frame` numbers must be monotonically increasing in successive rows.
-// - The `frame` numbers might not increment if there are multiple detections
-//   for a single frame.
-// - In old archives from Flydra, it might be that rows are skipped if no
-//   detections were made. However, this loses timestamp information from
-//   cameras, so this is not done anymore or preferred.
+/// Feature detection data in raw camera coordinates.
+///
+/// Because these are in raw camera coordinates (and thus have not been
+/// undistorted with any lens distortion model), they are called "distorted".
+///
+/// Note that in `.braidz` files, subsequent rows on disk are not in general
+/// monotonically increasing in frame number.
+///
+/// See the "Details about how data are processed online and saved for later
+/// analysis" section in the "3D Tracking in Braid" chapter of the [User's
+/// Guide](https://strawlab.github.io/strand-braid/) for a description of why
+/// these cannot be relied upon in `.braidz` files to be monotonic.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Data2dDistortedRow {
     // changes to this should update BraidMetadataSchemaTag
@@ -785,9 +788,9 @@ pub struct Data2dDistortedRow {
     pub sumsqf_val: f64,
 }
 
-// Lower precision version of the above for saving to disk.
-// Note that this matches the precision specified in
-// `flydra_core.data_descriptions.Info2D`.
+/// Lower precision version of [Data2dDistortedRow] for saving to disk.
+// Note that this matches the precision specified in the old flydra Python
+// module `flydra_core.data_descriptions.Info2D`.
 #[derive(Debug, Serialize)]
 pub struct Data2dDistortedRowF32 {
     // changes to this should update BraidMetadataSchemaTag
