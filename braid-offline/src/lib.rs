@@ -403,6 +403,9 @@ where
 
     // Run the local task set.
     let reader_local_future = local.run_until(async move {
+        // TODO: Consolidate this code with the `braidz-parser` crate. Right now
+        // there is substantial duplication.
+
         // open the data2d CSV file
         let mut data_fname = data_src.path_starter();
         data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
