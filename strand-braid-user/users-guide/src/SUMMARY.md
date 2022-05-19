@@ -5,7 +5,7 @@
 - [Installation](./installation.md)
 - [BRAIDZ files and Analysis Scripts](./braidz-files.md)
 - [Braid: 3D Tracking](./braid_3d_tracking.md)
-- [Parameters for Object Detection and Tracking](./object_detection.md)
+- [Parameters for Object Detection and Tracking](./parameters_for_object_detection_and_tracking.md)
 - [Braid: 3D Calibration](./braid_calibration.md)
 - [Braid: Remote cameras](./braid_remote_cameras.md)
 - [Scripting with Python](./scripting-with-python.md)
