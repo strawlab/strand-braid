@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html" class="active"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="object_detection.html"><strong aria-hidden="true">5.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">6.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">7.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">8.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">9.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">10.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">11.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">3.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html" class="active"><strong aria-hidden="true">4.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">5.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">6.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">7.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">8.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">9.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">10.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">11.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -232,6 +232,28 @@ assumes independent movement of the tracked objects. This is sufficient in many
 cases for tracking animals even when they interact strongly with each other, but
 it is typically be necessary to tune relevant tracking and data association
 parameters to get the best performance possible.</p>
+<h2><a class="header" href="#details-about-how-data-are-processed-online-and-saved-for-later-analysis" id="details-about-how-data-are-processed-online-and-saved-for-later-analysis">Details about how data are processed online and saved for later analysis</a></h2>
+<p>While running, Braid saves a copy of all incoming feature detections from the
+cameras as a first step prior to inspecting frame numbers and bundling data from
+synchronously acquired data from multiple cameras. Combined with issues such as
+unreliable networks, this has the unfortunate effect that frames saved to disk
+cannot be guaranteed to be monotonically increasing. For online processing to
+implement 3D tracking, there is always an idea of &quot;current frame number&quot;. Any
+data from prior frames is immediately discarded from further consideration (but
+it was saved to disk as described above). If the incoming frame number is larger
+than the current frame number, any accumulated data for the &quot;current frame&quot; is
+deemed complete and this is bundled for immediate processing. If the incoming
+frame number is larger than a single frame from the current frame number,
+additional frames of empty data are generated so that the stream of bundled data
+is contiguous (with no gaps) up until the incoming frame number, which then
+becomes the new &quot;current frame number&quot;.</p>
+<p>Note that in post-processing based on data saved in <code>.braidz</code> files, a better
+reconstruction can be made than possible in the online approach described above
+because data which may have been discarded originally could be incorporated into
+the tracking process. Furthermore, because latency is no longer a significant
+concern, reconstruction for a particular instant need not be performed with only
+historical data but can also incorporate information that occurred after that
+instant.</p>
 
                     </main>
 
@@ -244,7 +266,7 @@ parameters to get the best performance possible.</p>
                         
 
                         
-                            <a rel="next" href="object_detection.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="parameters_for_object_detection_and_tracking.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -262,7 +284,7 @@ parameters to get the best performance possible.</p>
                 
 
                 
-                    <a rel="next" href="object_detection.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="parameters_for_object_detection_and_tracking.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
