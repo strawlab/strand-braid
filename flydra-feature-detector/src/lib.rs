@@ -284,10 +284,8 @@ impl TrackingState {
                 if max_std_diff == 0 {
                     break; // no valid point found
                 }
-            } else {
-                if max_abs_diff < cfg.diff_threshold {
-                    break; // no valid point found
-                }
+            } else if max_abs_diff < cfg.diff_threshold {
+                break; // no valid point found
             };
 
             // TODO: absdiff_im_roi2_view is a view into absdiff_im_roi_view, eliminate
@@ -737,12 +735,12 @@ impl FlydraFeatureDetector {
         Ok(())
     }
 
-    pub fn set_frame_offset(&mut self, value: u64) -> () {
+    pub fn set_frame_offset(&mut self, value: u64) {
         debug!("set_frame_offset");
         self.frame_offset = Some(value);
     }
 
-    pub fn set_clock_model(&mut self, cm: Option<ClockModel>) -> () {
+    pub fn set_clock_model(&mut self, cm: Option<ClockModel>) {
         debug!("set_clock_model {:?}", cm);
         self.clock_model = cm;
     }

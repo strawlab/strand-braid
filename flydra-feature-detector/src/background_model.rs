@@ -166,7 +166,7 @@ impl BackgroundModel {
             cmp_im,
             current_roi,
             tx_to_worker,
-            rx_from_worker: rx_from_worker,
+            rx_from_worker,
             complete_stamp,
         };
         Ok(result)

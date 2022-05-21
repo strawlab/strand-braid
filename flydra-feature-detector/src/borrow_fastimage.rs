@@ -63,11 +63,11 @@ impl<'a, FMT: Clone> ExtraTimeData for BorrowedFrame<'a, FMT> {
 //     }
 // }
 
-pub(crate) fn borrow_fi<'a, C, D, FMT>(
-    fid: &'a fastimage::FastImageData<C, D>,
+pub(crate) fn borrow_fi<C, D, FMT>(
+    fid: &fastimage::FastImageData<C, D>,
     host_timestamp: chrono::DateTime<chrono::Utc>,
     host_framenumber: usize,
-) -> Result<BorrowedFrame<'a, FMT>>
+) -> Result<BorrowedFrame<'_, FMT>>
 where
     C: fastimage::ChanTrait,
     D: Copy + num_traits::Zero + PartialEq,
