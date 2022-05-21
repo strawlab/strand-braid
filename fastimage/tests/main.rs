@@ -1,7 +1,3 @@
-extern crate fastimage;
-extern crate ipp_sys;
-extern crate itertools;
-
 use std::os::raw as ipp_ctypes;
 
 use fastimage::{
