@@ -1,6 +1,6 @@
 //! Provides interface for Intel IPP
 
-extern crate ipp_sys as ipp;
+extern crate ipp_sys;
 extern crate num_traits;
 
 extern crate core;
@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 pub use std::os::raw as ipp_ctypes;
 
 pub type IppStatusType = ipp_ctypes::c_int;
-pub const NO_IPP_ERR: IppStatusType = ipp::ippStsNoErr as IppStatusType;
+pub const NO_IPP_ERR: IppStatusType = ipp_sys::ippStsNoErr as IppStatusType;
 
 // ---------------------------
 // errors
@@ -17,7 +17,7 @@ pub const NO_IPP_ERR: IppStatusType = ipp::ippStsNoErr as IppStatusType;
 pub fn ipp_status_string(status: IppStatusType) -> &'static str {
     // Intel manual says this is a "pointer to internal static buffer,
     // need not be released".
-    let cstr = unsafe { ipp::ippGetStatusString(status) };
+    let cstr = unsafe { ipp_sys::ippGetStatusString(status) };
     assert!(!cstr.is_null());
     let slice = unsafe { std::ffi::CStr::from_ptr(cstr) };
     slice.to_str().unwrap()
@@ -753,13 +753,13 @@ pub trait MutableFastImage: FastImage {
 /// Size (in pixels) of a region
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FastImageSize {
-    inner: ipp::IppiSize,
+    inner: ipp_sys::IppiSize,
 }
 
 impl FastImageSize {
     pub fn new(width: ipp_ctypes::c_int, height: ipp_ctypes::c_int) -> FastImageSize {
         FastImageSize {
-            inner: ipp::IppiSize { width, height },
+            inner: ipp_sys::IppiSize { width, height },
         }
     }
     #[inline]
@@ -822,14 +822,14 @@ impl FastImageRegion {
 
 #[derive(Debug, Clone)]
 pub struct Point {
-    inner: ipp::IppiPoint,
+    inner: ipp_sys::IppiPoint,
 }
 
 impl Point {
     #[inline]
     pub fn new(x: ipp_ctypes::c_int, y: ipp_ctypes::c_int) -> Self {
         Self {
-            inner: ipp::IppiPoint { x, y },
+            inner: ipp_sys::IppiPoint { x, y },
         }
     }
     #[inline]
@@ -850,12 +850,12 @@ pub enum RoundMode {
     HintAccurate,
 }
 
-fn round_mode_to_ipp(round_mode: RoundMode) -> ipp::IppRoundMode::Type {
+fn round_mode_to_ipp(round_mode: RoundMode) -> ipp_sys::IppRoundMode::Type {
     match round_mode {
-        RoundMode::Zero => ipp::IppRoundMode::ippRndZero,
-        RoundMode::Near => ipp::IppRoundMode::ippRndNear,
-        RoundMode::Financial => ipp::IppRoundMode::ippRndFinancial,
-        RoundMode::HintAccurate => ipp::IppRoundMode::ippRndHintAccurate,
+        RoundMode::Zero => ipp_sys::IppRoundMode::ippRndZero,
+        RoundMode::Near => ipp_sys::IppRoundMode::ippRndNear,
+        RoundMode::Financial => ipp_sys::IppRoundMode::ippRndFinancial,
+        RoundMode::HintAccurate => ipp_sys::IppRoundMode::ippRndHintAccurate,
     }
 }
 
@@ -873,20 +873,20 @@ pub mod ripp {
     use super::*;
 
     pub fn init() -> Result<()> {
-        itry!(ipp::ippInit());
+        itry!(ipp_sys::ippInit());
         // check that compile-time headers match runtime version
         let version = IppVersion::new();
         version_assert!(
-            ipp::IPP_VERSION_MAJOR as ipp_ctypes::c_int,
+            ipp_sys::IPP_VERSION_MAJOR as ipp_ctypes::c_int,
             version.major(),
             "major"
         );
         version_assert!(
-            ipp::IPP_VERSION_MINOR as ipp_ctypes::c_int,
+            ipp_sys::IPP_VERSION_MINOR as ipp_ctypes::c_int,
             version.minor(),
             "minor"
         );
-        // version_assert!(ipp::IPP_VERSION_UPDATE as ipp_ctypes::c_int, version.major_build(), "build");
+        // version_assert!(ipp_sys::IPP_VERSION_UPDATE as ipp_ctypes::c_int, version.major_build(), "build");
         Ok(())
     }
 
@@ -895,7 +895,7 @@ pub mod ripp {
         S: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiCopy_8u_C1R(
+        itry!(ipp_sys::ippiCopy_8u_C1R(
             src.raw_ptr(),
             src.stride(),
             dest.raw_mut_ptr(),
@@ -910,7 +910,7 @@ pub mod ripp {
         S: FastImage<D = f32, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiCopy_32f_C1R(
+        itry!(ipp_sys::ippiCopy_32f_C1R(
             src.raw_ptr(),
             src.stride(),
             dest.raw_mut_ptr(),
@@ -925,7 +925,7 @@ pub mod ripp {
         S: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiConvert_8u32f_C1R(
+        itry!(ipp_sys::ippiConvert_8u32f_C1R(
             src.raw_ptr(),
             src.stride(),
             dest.raw_mut_ptr(),
@@ -945,7 +945,7 @@ pub mod ripp {
         S: FastImage<D = f32, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiConvert_32f8u_C1R(
+        itry!(ipp_sys::ippiConvert_32f8u_C1R(
             src.raw_ptr(),
             src.stride(),
             dest.raw_mut_ptr(),
@@ -967,7 +967,7 @@ pub mod ripp {
         S: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiCompareC_8u_C1R(
+        itry!(ipp_sys::ippiCompareC_8u_C1R(
             src.raw_ptr(),
             src.stride(),
             value,
@@ -986,7 +986,7 @@ pub mod ripp {
         let mut value = 0;
         let mut loc = Point::new(-1, -1);
 
-        itry!(ipp::ippiMinIndx_8u_C1R(
+        itry!(ipp_sys::ippiMinIndx_8u_C1R(
             src.raw_ptr(),
             src.stride(),
             size.inner,
@@ -1004,7 +1004,7 @@ pub mod ripp {
         let mut value = 0;
         let mut loc = Point::new(-1, -1);
 
-        itry!(ipp::ippiMaxIndx_8u_C1R(
+        itry!(ipp_sys::ippiMaxIndx_8u_C1R(
             src.raw_ptr(),
             src.stride(),
             size.inner,
@@ -1025,7 +1025,7 @@ pub mod ripp {
     where
         SD: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiThreshold_Val_8u_C1IR(
+        itry!(ipp_sys::ippiThreshold_Val_8u_C1IR(
             src_dest.raw_mut_ptr(),
             src_dest.stride(),
             size.inner,
@@ -1050,7 +1050,7 @@ pub mod ripp {
         S2: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiSub_8u_C1RSfs(
+        itry!(ipp_sys::ippiSub_8u_C1RSfs(
             src1.raw_ptr(),
             src1.stride(),
             src2.raw_ptr(),
@@ -1076,7 +1076,7 @@ pub mod ripp {
         S2: FastImage<D = f32, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiSub_32f_C1R(
+        itry!(ipp_sys::ippiSub_32f_C1R(
             src1.raw_ptr(),
             src1.stride(),
             src2.raw_ptr(),
@@ -1093,7 +1093,7 @@ pub mod ripp {
         S: FastImage<D = f32, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiAbs_32f_C1R(
+        itry!(ipp_sys::ippiAbs_32f_C1R(
             src.raw_ptr(),
             src.stride(),
             dest.raw_mut_ptr(),
@@ -1107,7 +1107,7 @@ pub mod ripp {
     where
         SD: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiSqrt_32f_C1IR(
+        itry!(ipp_sys::ippiSqrt_32f_C1IR(
             src_dest.raw_mut_ptr(),
             src_dest.stride(),
             size.inner
@@ -1119,7 +1119,7 @@ pub mod ripp {
     where
         SD: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiMulC_32f_C1IR(
+        itry!(ipp_sys::ippiMulC_32f_C1IR(
             k,
             src_dest.raw_mut_ptr(),
             src_dest.stride(),
@@ -1139,7 +1139,7 @@ pub mod ripp {
         S2: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiAbsDiff_8u_C1R(
+        itry!(ipp_sys::ippiAbsDiff_8u_C1R(
             src1.raw_ptr(),
             src1.stride(),
             src2.raw_ptr(),
@@ -1161,7 +1161,7 @@ pub mod ripp {
         S: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiAddWeighted_8u32f_C1IR(
+        itry!(ipp_sys::ippiAddWeighted_8u32f_C1IR(
             src.raw_ptr(),
             src.stride(),
             src_dst.raw_mut_ptr(),
@@ -1182,7 +1182,7 @@ pub mod ripp {
         S: FastImage<D = f32, C = Chan1>,
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiAddWeighted_32f_C1IR(
+        itry!(ipp_sys::ippiAddWeighted_32f_C1IR(
             src.raw_ptr(),
             src.stride(),
             src_dst.raw_mut_ptr(),
@@ -1197,7 +1197,7 @@ pub mod ripp {
     where
         S: FastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiMoments64f_8u_C1R(
+        itry!(ipp_sys::ippiMoments64f_8u_C1R(
             src.raw_ptr(),
             src.stride(),
             size.inner,
@@ -1211,7 +1211,7 @@ pub mod ripp {
     where
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiSet_8u_C1R(
+        itry!(ipp_sys::ippiSet_8u_C1R(
             value,
             dest.raw_mut_ptr(),
             dest.stride(),
@@ -1224,7 +1224,7 @@ pub mod ripp {
     where
         D: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiSet_32f_C1R(
+        itry!(ipp_sys::ippiSet_32f_C1R(
             value,
             dest.raw_mut_ptr(),
             dest.stride(),
@@ -1238,7 +1238,7 @@ pub mod ripp {
         D: MutableFastImage<D = u8, C = Chan1>,
         M: FastImage<D = u8, C = Chan1>,
     {
-        itry!(ipp::ippiSet_8u_C1MR(
+        itry!(ipp_sys::ippiSet_8u_C1MR(
             value,
             dest.raw_mut_ptr(),
             dest.stride(),
@@ -1253,7 +1253,7 @@ pub mod ripp {
     where
         SD: MutableFastImage<D = f32, C = Chan1>,
     {
-        itry!(ipp::ippiSqr_32f_C1IR(
+        itry!(ipp_sys::ippiSqr_32f_C1IR(
             src_dest.raw_mut_ptr(),
             src_dest.stride(),
             size.inner
@@ -1279,22 +1279,22 @@ pub enum CompareOp {
 }
 
 #[inline]
-fn hint_to_ipp(hint: AlgorithmHint) -> ipp::IppHintAlgorithm::Type {
+fn hint_to_ipp(hint: AlgorithmHint) -> ipp_sys::IppHintAlgorithm::Type {
     match hint {
-        AlgorithmHint::NoHint => ipp::IppHintAlgorithm::ippAlgHintNone,
-        AlgorithmHint::Fast => ipp::IppHintAlgorithm::ippAlgHintFast,
-        AlgorithmHint::Accurate => ipp::IppHintAlgorithm::ippAlgHintAccurate,
+        AlgorithmHint::NoHint => ipp_sys::IppHintAlgorithm::ippAlgHintNone,
+        AlgorithmHint::Fast => ipp_sys::IppHintAlgorithm::ippAlgHintFast,
+        AlgorithmHint::Accurate => ipp_sys::IppHintAlgorithm::ippAlgHintAccurate,
     }
 }
 
 #[inline]
-fn get_compare_op(cmp: CompareOp) -> ipp::IppCmpOp::Type {
+fn get_compare_op(cmp: CompareOp) -> ipp_sys::IppCmpOp::Type {
     match cmp {
-        CompareOp::Less => ipp::IppCmpOp::ippCmpLess,
-        CompareOp::LessEqual => ipp::IppCmpOp::ippCmpLessEq,
-        CompareOp::Equal => ipp::IppCmpOp::ippCmpEq,
-        CompareOp::GreaterEqual => ipp::IppCmpOp::ippCmpGreaterEq,
-        CompareOp::Greater => ipp::IppCmpOp::ippCmpGreater,
+        CompareOp::Less => ipp_sys::IppCmpOp::ippCmpLess,
+        CompareOp::LessEqual => ipp_sys::IppCmpOp::ippCmpLessEq,
+        CompareOp::Equal => ipp_sys::IppCmpOp::ippCmpEq,
+        CompareOp::GreaterEqual => ipp_sys::IppCmpOp::ippCmpGreaterEq,
+        CompareOp::Greater => ipp_sys::IppCmpOp::ippCmpGreater,
     }
 }
 
@@ -1306,22 +1306,22 @@ pub struct MomentState {
 impl MomentState {
     pub fn new(hint_algorithm: AlgorithmHint) -> Result<MomentState> {
         let mut size = -1;
-        itry!(ipp::ippiMomentGetStateSize_64f(
+        itry!(ipp_sys::ippiMomentGetStateSize_64f(
             hint_to_ipp(hint_algorithm),
             &mut size
         ));
         let mut data = vec![0; size as usize].into_boxed_slice();
-        itry!(ipp::ippiMomentInit_64f(
-            data.as_mut_ptr() as *mut ipp::MomentState64f,
+        itry!(ipp_sys::ippiMomentInit_64f(
+            data.as_mut_ptr() as *mut ipp_sys::MomentState64f,
             hint_to_ipp(hint_algorithm)
         ));
         Ok(MomentState { data, valid: false })
     }
-    fn as_mut_ptr(&mut self) -> *mut ipp::MomentState64f {
-        self.data.as_mut_ptr() as *mut ipp::MomentState64f
+    fn as_mut_ptr(&mut self) -> *mut ipp_sys::MomentState64f {
+        self.data.as_mut_ptr() as *mut ipp_sys::MomentState64f
     }
-    fn as_ptr(&self) -> *const ipp::MomentState64f {
-        self.data.as_ptr() as *const ipp::MomentState64f
+    fn as_ptr(&self) -> *const ipp_sys::MomentState64f {
+        self.data.as_ptr() as *const ipp_sys::MomentState64f
     }
     pub fn spatial(
         &self,
@@ -1334,7 +1334,7 @@ impl MomentState {
             return Err(Error::MomentStateNotInitialized);
         }
         let mut result = 0.0;
-        itry!(ipp::ippiGetSpatialMoment_64f(
+        itry!(ipp_sys::ippiGetSpatialMoment_64f(
             self.as_ptr(),
             m_ord,
             n_ord,
@@ -1354,7 +1354,7 @@ impl MomentState {
             return Err(Error::MomentStateNotInitialized);
         }
         let mut result = 0.0;
-        itry!(ipp::ippiGetCentralMoment_64f(
+        itry!(ipp_sys::ippiGetCentralMoment_64f(
             self.as_ptr(),
             m_ord,
             n_ord,
@@ -1366,7 +1366,7 @@ impl MomentState {
 }
 
 pub struct IppVersion {
-    version: *const ipp::IppLibraryVersion,
+    version: *const ipp_sys::IppLibraryVersion,
 }
 
 impl Default for IppVersion {
@@ -1377,10 +1377,10 @@ impl Default for IppVersion {
 
 impl IppVersion {
     pub fn new() -> IppVersion {
-        let mut version: *const ipp::IppLibraryVersion = std::ptr::null_mut();
+        let mut version: *const ipp_sys::IppLibraryVersion = std::ptr::null_mut();
         assert!(version.is_null());
         unsafe {
-            version = ipp::ippGetLibVersion();
+            version = ipp_sys::ippGetLibVersion();
         }
         assert!(!version.is_null());
         IppVersion { version }
@@ -1427,7 +1427,7 @@ impl IppVersion {
 
 impl std::fmt::Debug for IppVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let inner: &ipp::IppLibraryVersion = unsafe { &*self.version };
+        let inner: &ipp_sys::IppLibraryVersion = unsafe { &*self.version };
         std::fmt::Debug::fmt(inner, f)
     }
 }
