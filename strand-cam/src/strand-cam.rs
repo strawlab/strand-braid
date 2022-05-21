@@ -806,6 +806,18 @@ async fn frame_process_task(
     std::mem::drop(transmit_feature_detect_settings_tx);
 
     #[cfg(feature = "flydra_feat_detect")]
+    let coord_socket = if let Some(camdata_addr) = camdata_addr {
+        // If `camdata_addr` is not None, it is used to set open a socket to send
+        // the detected feature information.
+        debug!("sending tracked points to {:?}", camdata_addr);
+        Some(flydra_feature_detector::open_destination_addr(
+            &camdata_addr,
+        )?)
+    } else {
+        None
+    };
+
+    #[cfg(feature = "flydra_feat_detect")]
     let mut im_tracker = FlydraFeatureDetector::new(
         &cam_name,
         width,
@@ -814,7 +826,6 @@ async fn frame_process_task(
         frame_offset,
         #[cfg(feature = "debug-images")]
         debug_addr,
-        camdata_addr,
         transmit_feature_detect_settings_tx,
         #[cfg(feature = "debug-images")]
         valve.clone(),
@@ -1488,6 +1499,16 @@ async fn frame_process_task(
                                     device_timestamp,
                                     block_id,
                                 )?;
+                            if let Some(ref coord_socket) = coord_socket {
+                                // Send the data to the mainbrain
+                                let mut vec = Vec::new();
+                                {
+                                    let mut serializer = serde_cbor::ser::Serializer::new(&mut vec);
+                                    serializer.self_describe().unwrap();
+                                    tracker_annotation.serialize(&mut serializer).unwrap();
+                                }
+                                coord_socket.send_complete(&vec)?;
+                            }
                             ufmf_state.get_or_insert(new_ufmf_state);
 
                             #[cfg(feature = "flydratrax")]
