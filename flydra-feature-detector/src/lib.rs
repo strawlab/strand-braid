@@ -442,7 +442,7 @@ macro_rules! do_send {
 }
 
 impl DatagramSocket {
-    fn send_complete(&self, x: &[u8]) -> Result<()> {
+    pub fn send_complete(&self, x: &[u8]) -> Result<()> {
         use DatagramSocket::*;
         match self {
             Udp(s) => do_send!(s, x),
@@ -483,7 +483,6 @@ pub struct FlydraFeatureDetector {
     last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<Chan1, u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
-    coord_socket: Option<DatagramSocket>,
     clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
     acquisition_histogram: AcquisitionHistogram,
@@ -609,70 +608,64 @@ impl AcquisitionHistogram {
     }
 }
 
-fn open_destination_addr(
-    camdata_addr: Option<RealtimePointsDestAddr>,
-) -> Result<Option<DatagramSocket>> {
-    Ok(match camdata_addr {
-        None => None,
-        Some(ref dest_addr) => {
-            info!("Sending detected coordinates to: {:?}", dest_addr);
-            let mut result = None;
-            let timeout = std::time::Duration::new(0, 1);
+pub fn open_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<DatagramSocket> {
+    info!("Sending detected coordinates to: {:?}", dest_addr);
 
-            match dest_addr {
-                #[cfg(feature = "flydra-uds")]
-                &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
-                    let socket = unix_socket::UnixDatagram::unbound()?;
-                    socket.set_write_timeout(Some(timeout))?;
-                    info!("UDS connecting to {:?}", uds.filename);
-                    socket.connect(&uds.filename)?;
-                    result = Some(DatagramSocket::Uds(socket));
-                }
-                #[cfg(not(feature = "flydra-uds"))]
-                &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-                    return Err(Error::UnixDomainSocketsNotSupported(
-                        #[cfg(feature = "backtrace")]
-                        Backtrace::capture(),
-                    ));
-                }
-                &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
-                    let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
-                    for dest_addr in dest.to_socket_addrs()? {
-                        // Let OS choose what port to use.
-                        let mut src_addr = dest_addr.clone();
-                        src_addr.set_port(0);
-                        if !dest_addr.ip().is_loopback() {
-                            // Let OS choose what IP to use, but preserve V4 or V6.
-                            match src_addr {
-                                SocketAddr::V4(_) => {
-                                    src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
-                                }
-                                SocketAddr::V6(_) => {
-                                    src_addr
-                                        .set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
-                                }
-                            }
+    let timeout = std::time::Duration::new(0, 1);
+
+    match dest_addr {
+        #[cfg(feature = "flydra-uds")]
+        &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
+            let socket = unix_socket::UnixDatagram::unbound()?;
+            socket.set_write_timeout(Some(timeout))?;
+            info!("UDS connecting to {:?}", uds.filename);
+            socket.connect(&uds.filename)?;
+            Ok(DatagramSocket::Uds(socket))
+        }
+        #[cfg(not(feature = "flydra-uds"))]
+        &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
+            Err(Error::UnixDomainSocketsNotSupported(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ))
+        }
+        &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
+            let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
+            let mut dest_addrs: Vec<SocketAddr> = dest.to_socket_addrs()?.collect();
+
+            if let Some(dest_sock_addr) = dest_addrs.pop() {
+                // Let OS choose what port to use.
+                let mut src_addr = dest_sock_addr.clone();
+                src_addr.set_port(0);
+                if !dest_sock_addr.ip().is_loopback() {
+                    // Let OS choose what IP to use, but preserve V4 or V6.
+                    match src_addr {
+                        SocketAddr::V4(_) => {
+                            src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
                         }
-
-                        let sock = UdpSocket::bind(src_addr)?;
-                        sock.set_write_timeout(Some(timeout))?;
-                        debug!("UDP connecting to {}", dest);
-                        sock.connect(&dest)?;
-                        result = Some(DatagramSocket::Udp(sock));
-                        break;
+                        SocketAddr::V6(_) => {
+                            src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
+                        }
                     }
                 }
+
+                let sock = UdpSocket::bind(src_addr)?;
+                sock.set_write_timeout(Some(timeout))?;
+                debug!("UDP connecting to {}", dest);
+                sock.connect(&dest)?;
+                Ok(DatagramSocket::Udp(sock))
+            } else {
+                Err(Error::SocketAddressConversionFailed(
+                    #[cfg(feature = "backtrace")]
+                    Backtrace::capture(),
+                ))
             }
-            result
         }
-    })
+    }
 }
 
 impl FlydraFeatureDetector {
     /// Create new [FlydraFeatureDetector].
-    ///
-    /// If the `camdata_addr` argument is not None, it is used to set
-    /// open a socket (`self.coord_socket`) to send the detected feature information.
     pub fn new(
         orig_cam_name: &RawCamName,
         w: u32,
@@ -680,7 +673,6 @@ impl FlydraFeatureDetector {
         cfg: ImPtDetectCfg,
         frame_offset: Option<u64>,
         #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
-        camdata_addr: Option<RealtimePointsDestAddr>,
         transmit_feature_detect_settings_tx: Option<
             mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
@@ -701,9 +693,6 @@ impl FlydraFeatureDetector {
 
         let ros_cam_name = orig_cam_name.to_ros();
 
-        debug!("sending tracked points to {:?}", camdata_addr);
-        let coord_socket = open_destination_addr(camdata_addr)?;
-
         let acquisition_histogram =
             AcquisitionHistogram::new(&ros_cam_name, acquisition_duration_allowed_imprecision_msec);
 
@@ -714,7 +703,6 @@ impl FlydraFeatureDetector {
             mask_image: None,
             last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
-            coord_socket,
             clock_model: None,
             frame_offset,
             acquisition_histogram,
@@ -775,9 +763,8 @@ impl FlydraFeatureDetector {
 
     /// Detect features of interest and update background model.
     ///
-    /// If `self.coord_socket` is set, send the detected features using it. The
-    /// same results are also returned as a [FlydraRawUdpPacket] in the returned
-    /// output tuple.
+    /// The detected features are returned as a [FlydraRawUdpPacket] in the
+    /// returned output tuple.
     ///
     /// A ufmf file can be updated by setting the `ufmf_state` argument to a
     /// value other than [UfmfState::Stopped].
@@ -1035,12 +1022,6 @@ impl FlydraFeatureDetector {
                 //         acquire_duration*1000.0,
                 //         preprocess_duration*1000.0,
                 //         process_duration*1000.0);
-
-                if let Some(ref coord_socket) = self.coord_socket {
-                    // Send the data to the mainbrain
-                    let data: Vec<u8> = serde_cbor::ser::to_vec_packed_sd(&packet)?;
-                    coord_socket.send_complete(&data)?;
-                }
 
                 // let (results, next_background_update_state) =
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))

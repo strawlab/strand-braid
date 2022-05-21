@@ -38,7 +38,6 @@ async fn track_fmf() -> anyhow::Result<()> {
         #[cfg(feature = "debug-images")]
         addr,
         None,
-        None,
         #[cfg(feature = "debug-images")]
         valve,
         #[cfg(feature = "debug-images")]

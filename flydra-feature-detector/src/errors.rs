@@ -23,11 +23,9 @@ pub enum Error {
     MainbrainQuit(#[cfg(feature = "backtrace")] Backtrace),
     #[error("unix domain sockets not supported")]
     UnixDomainSocketsNotSupported(#[cfg(feature = "backtrace")] Backtrace),
+    #[error("conversion to socket address failed")]
+    SocketAddressConversionFailed(#[cfg(feature = "backtrace")] Backtrace),
 
-    // TODO: remove state from all these ErrorKind variants
-    // and put it in the context of the Error.
-    #[error("ParseCBORError({})", _0)]
-    ParseCBORError(#[from] serde_cbor::error::Error),
     #[error("CastError({})", _0)]
     CastError(#[from] cast::Error),
     #[error("UFMFError({})", _0)]

@@ -32,7 +32,6 @@ async fn track_small() -> anyhow::Result<()> {
         #[cfg(feature = "debug-images")]
         addr,
         None,
-        None,
         #[cfg(feature = "debug-images")]
         valve,
         #[cfg(feature = "debug-images")]
