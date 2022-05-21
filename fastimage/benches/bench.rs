@@ -42,7 +42,7 @@ fn bench_abs_diff_8u_c1r(c: &mut Criterion) {
 
     let mut im_dest = FastImageData::<Chan1, u8>::new(W, H, 0).unwrap();
 
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
     c.bench_function("abs_diff_8u_c1r", move |b| {
         b.iter(|| ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size).unwrap())
     });

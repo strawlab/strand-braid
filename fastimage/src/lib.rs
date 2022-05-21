@@ -255,7 +255,7 @@ impl FastImageData<Chan1, u8> {
         S: FastImage<C = Chan1, D = u8>,
     {
         let mut data = Self::empty(0, src.width(), src.height())?;
-        let size = data.size().clone();
+        let size = *data.size();
         ripp::copy_8u_c1r(src, &mut data, &size)?;
         Ok(data)
     }
@@ -265,7 +265,7 @@ impl FastImageData<Chan1, u8> {
         S: FastImage<C = Chan1, D = f32>,
     {
         let mut data = Self::empty(0, src.width(), src.height())?;
-        let size = data.size().clone();
+        let size = *data.size();
         ripp::convert_32f8u_c1r(src, &mut data, &size, round_mode)?;
         Ok(data)
     }
@@ -286,7 +286,7 @@ impl FastImageData<Chan1, f32> {
         S: FastImage<C = Chan1, D = u8>,
     {
         let mut data = Self::empty(0.0, src.width(), src.height())?;
-        let size = data.size().clone();
+        let size = *data.size();
         ripp::convert_8u32f_c1r(src, &mut data, &size)?;
         Ok(data)
     }
@@ -296,7 +296,7 @@ impl FastImageData<Chan1, f32> {
         S: FastImage<C = Chan1, D = f32>,
     {
         let mut data = Self::empty(0.0, src.width(), src.height())?;
-        let size = data.size().clone();
+        let size = *data.size();
         ripp::copy_32f_c1r(src, &mut data, &size)?;
         Ok(data)
     }
@@ -459,8 +459,8 @@ impl<'a> FastImageView<'a, Chan1, u8> {
     ) -> Self {
         Self {
             channel_phantom: PhantomData,
-            data: data,
-            stride: stride,
+            data,
+            stride,
             size: FastImageSize::new(width_pixels, height_pixels),
         }
     }
@@ -548,8 +548,8 @@ impl<'a> MutableFastImageView<'a, Chan1, u8> {
     ) -> Self {
         Self {
             channel_phantom: PhantomData,
-            data: data,
-            stride: stride,
+            data,
+            stride,
             size: FastImageSize::new(width_pixels, height_pixels),
         }
     }
@@ -651,7 +651,7 @@ pub trait FastImage {
         let row_start = row * self.stride() as usize; // bytes to start of row
         let raw_bytes_ptr = unsafe { self.raw_ptr() as *const u8 }; // raw byte pointer
                                                                     // Get pointer of type <Self::D> to start of row.
-        let row_start_ptr = unsafe { raw_bytes_ptr.offset(row_start as isize) } as *const Self::D;
+        let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *const Self::D;
         // Make a slice of it.
         unsafe {
             std::slice::from_raw_parts(
@@ -708,7 +708,7 @@ pub trait MutableFastImage: FastImage {
         let row_start = row * self.stride() as usize; // bytes to start of row
         let raw_bytes_ptr = unsafe { self.raw_mut_ptr() as *mut u8 }; // raw byte pointer
                                                                       // Get pointer of type <Self::D> to start of row.
-        let row_start_ptr = unsafe { raw_bytes_ptr.offset(row_start as isize) } as *mut Self::D;
+        let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *mut Self::D;
         // Make a mutable slice of it.
         unsafe { std::slice::from_raw_parts_mut(row_start_ptr, self.width() as usize) }
     }
@@ -747,10 +747,7 @@ pub struct FastImageSize {
 impl FastImageSize {
     pub fn new(width: ipp_ctypes::c_int, height: ipp_ctypes::c_int) -> FastImageSize {
         FastImageSize {
-            inner: ipp::IppiSize {
-                width: width,
-                height: height,
-            },
+            inner: ipp::IppiSize { width, height },
         }
     }
     #[inline]
@@ -1306,10 +1303,7 @@ impl MomentState {
             data.as_mut_ptr() as *mut ipp::MomentState64f,
             hint_to_ipp(hint_algorithm)
         ));
-        Ok(MomentState {
-            data: data,
-            valid: false,
-        })
+        Ok(MomentState { data, valid: false })
     }
     fn as_mut_ptr(&mut self) -> *mut ipp::MomentState64f {
         self.data.as_mut_ptr() as *mut ipp::MomentState64f
@@ -1371,7 +1365,7 @@ impl IppVersion {
             version = ipp::ippGetLibVersion();
         }
         assert!(!version.is_null());
-        IppVersion { version: version }
+        IppVersion { version }
     }
 
     pub fn major(&self) -> ipp_ctypes::c_int {

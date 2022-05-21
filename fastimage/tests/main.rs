@@ -29,18 +29,18 @@ fn test_simd_absdiff() {
     use fastimage::simd_sse2 as simd;
 
     unsafe { simd::abs_diff_8u_c1r(&im10, &im9, &mut im_dest) };
-    for i in 0..im10.len() {
-        assert_eq!(im_dest[i], 1);
+    for dest_element in im_dest.iter() {
+        assert_eq!(*dest_element, 1);
     }
 
     unsafe { simd::abs_diff_8u_c1r(&im9, &im10, &mut im_dest) };
-    for i in 0..im10.len() {
-        assert_eq!(im_dest[i], 1);
+    for dest_element in im_dest.iter() {
+        assert_eq!(*dest_element, 1);
     }
 
     unsafe { simd::abs_diff_8u_c1r(&im9, &im9, &mut im_dest) };
-    for i in 0..im10.len() {
-        assert_eq!(im_dest[i], 0);
+    for dest_element in im_dest.iter() {
+        assert_eq!(*dest_element, 0);
     }
 }
 
@@ -101,7 +101,7 @@ fn test_view() {
     // fill array with useful pattern
     for row in 0..h as usize {
         for col in 0..w as usize {
-            im10.pixel_slice_mut(row, col)[0] = (row * 10 as usize + col) as u8;
+            im10.pixel_slice_mut(row, col)[0] = (row * 10_usize + col) as u8;
         }
     }
 
@@ -150,7 +150,7 @@ fn test_view() {
 #[test]
 fn test_mask() {
     let mut im_dest = FastImageData::<Chan1, u8>::new(3, 4, 123).unwrap();
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
 
     {
         let im123 = FastImageData::<Chan1, u8>::new(3, 4, 123).unwrap();
@@ -183,7 +183,7 @@ fn test_sub() {
 
     ripp::init().unwrap();
 
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
 
     println!("im10 {:?}", im10);
     println!("im9 {:?}", im9);
@@ -218,7 +218,7 @@ fn test_compare() {
     let im0 = FastImageData::<Chan1, u8>::new(w, h, 0).unwrap();
     let im255 = FastImageData::<Chan1, u8>::new(w, h, 255).unwrap();
     let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 99).unwrap();
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
 
     {
         println!("im_dest {:?}", im_dest);
@@ -251,7 +251,7 @@ fn test_abs_diff() {
 
     let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0).unwrap();
 
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
 
     ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size).unwrap();
     assert!(im_dest.all_equal(&im1));
@@ -276,7 +276,7 @@ fn test_add_weighted_in_place() {
         let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 12.0).unwrap();
         let im4 = FastImageData::<Chan1, u8>::new(w, h, 4).unwrap();
 
-        ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, &im4.size(), 0.25).unwrap();
+        ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25).unwrap();
 
         let im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0).unwrap();
         assert!(im_dest.all_equal(im10));
@@ -286,7 +286,7 @@ fn test_add_weighted_in_place() {
         let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 4.0).unwrap();
         let im0 = FastImageData::<Chan1, u8>::new(w, h, 0).unwrap();
 
-        ripp::add_weighted_8u32f_c1ir(&im0, &mut im_dest, &im0.size(), 0.25).unwrap();
+        ripp::add_weighted_8u32f_c1ir(&im0, &mut im_dest, im0.size(), 0.25).unwrap();
 
         let im3 = FastImageData::<Chan1, f32>::new(w, h, 3.0).unwrap();
         assert!(im_dest.all_equal(im3));
@@ -296,7 +296,7 @@ fn test_add_weighted_in_place() {
         let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 0.0).unwrap();
         let im4 = FastImageData::<Chan1, u8>::new(w, h, 4).unwrap();
 
-        ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, &im4.size(), 0.25).unwrap();
+        ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25).unwrap();
 
         let im1 = FastImageData::<Chan1, f32>::new(w, h, 1.0).unwrap();
         assert!(im_dest.all_equal(im1));
@@ -306,7 +306,7 @@ fn test_add_weighted_in_place() {
         let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 12.0).unwrap();
         let im4 = FastImageData::<Chan1, f32>::new(w, h, 4.0).unwrap();
 
-        ripp::add_weighted_32f_c1ir(&im4, &mut im_dest, &im4.size(), 0.25).unwrap();
+        ripp::add_weighted_32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25).unwrap();
 
         let im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0).unwrap();
         assert!(im_dest.all_equal(im10));
@@ -324,12 +324,12 @@ fn test_min_max() {
     im.pixel_slice_mut(4, 3)[0] = 20;
     im.pixel_slice_mut(14, 13)[0] = 9;
 
-    let (min_value, loc) = ripp::min_indx_8u_c1r(&im, &im.size()).unwrap();
+    let (min_value, loc) = ripp::min_indx_8u_c1r(&im, im.size()).unwrap();
     assert!(loc.x() == 13);
     assert!(loc.y() == 14);
     assert!(min_value == 9);
 
-    let (max_value, loc) = ripp::max_indx_8u_c1r(&im, &im.size()).unwrap();
+    let (max_value, loc) = ripp::max_indx_8u_c1r(&im, im.size()).unwrap();
     assert!(loc.x() == 3);
     assert!(loc.y() == 4);
     assert!(max_value == 20);
@@ -362,7 +362,7 @@ fn test_threshold_val_8u_c1ir() {
     im.pixel_slice_mut(0, 4)[0] = 24;
 
     let size = &im.size().clone();
-    ripp::threshold_val_8u_c1ir(&mut im, &size, 22, 0, CompareOp::Less).unwrap();
+    ripp::threshold_val_8u_c1ir(&mut im, size, 22, 0, CompareOp::Less).unwrap();
 
     let mut expected = FastImageData::<Chan1, u8>::new(w, h, 0).unwrap();
     expected.pixel_slice_mut(0, 0)[0] = 0;
@@ -388,7 +388,7 @@ fn test_get_orientation() {
     im.pixel_slice_mut(6, 4)[0] = 1;
 
     let mut moments = MomentState::new(fastimage::AlgorithmHint::Fast).unwrap();
-    ripp::moments_8u_c1r(&im, &im.size(), &mut moments).unwrap();
+    ripp::moments_8u_c1r(&im, im.size(), &mut moments).unwrap();
     {
         let mu00 = moments
             .spatial(0, 0, 0, &fastimage::Point::new(0, 0))
