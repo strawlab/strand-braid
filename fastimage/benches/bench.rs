@@ -48,6 +48,7 @@ fn bench_abs_diff_8u_c1r(c: &mut Criterion) {
     });
 }
 
+#[cfg(any(feature = "simd-sse2", feature = "simd-avx2"))]
 fn bench_abs_diff_simd(c: &mut Criterion) {
     #[cfg(feature = "simd-avx2")]
     use fastimage::simd_avx2 as simd;
@@ -87,11 +88,18 @@ fn bench_abs_diff_naive_v6(c: &mut Criterion) {
     });
 }
 
+#[cfg(any(feature = "simd-sse2", feature = "simd-avx2"))]
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    // targets = bench_abs_diff_simd, bench_abs_diff_8u_c1r, bench_abs_diff_naive_v2, bench_abs_diff_naive_v6
-    targets = bench_abs_diff_simd, bench_abs_diff_8u_c1r
+    targets = bench_abs_diff_simd, bench_abs_diff_8u_c1r, bench_abs_diff_naive_v2, bench_abs_diff_naive_v6
+}
+
+#[cfg(not(any(feature = "simd-sse2", feature = "simd-avx2")))]
+criterion_group! {
+    name = benches;
+    config = Criterion::default();
+    targets = bench_abs_diff_8u_c1r, bench_abs_diff_naive_v2, bench_abs_diff_naive_v6
 }
 
 criterion_main!(benches);
