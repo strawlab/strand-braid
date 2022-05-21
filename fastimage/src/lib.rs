@@ -60,7 +60,13 @@ pub mod simd_sse2 {
         _mm_sub_epi8(_mm_max_epu8(a, b), _mm_min_epu8(a, b))
     }
 
-    /// requires sse2
+    /// Compute the absolute difference between img1 and img2, using SSE2
+    /// instruction set.
+    ///
+    /// # Safety
+    ///
+    /// This unconditionally generates code that depends on the SSE2 instruction
+    /// set. The caller must ensure that the SSE2 feature is available.
     #[target_feature(enable = "sse2")]
     pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
         assert_eq!(img1.len(), img2.len());
@@ -110,7 +116,13 @@ pub mod simd_avx2 {
         _mm256_sub_epi8(_mm256_max_epu8(a, b), _mm256_min_epu8(a, b))
     }
 
-    /// requires avx2
+    /// Compute the absolute difference between img1 and img2, using AVX2
+    /// instruction set.
+    ///
+    /// # Safety
+    ///
+    /// This unconditionally generates code that depends on the AVX2 instruction
+    /// set. The caller must ensure that the AVX2 feature is available.
     #[target_feature(enable = "avx2")]
     pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
         assert_eq!(img1.len(), img2.len());
