@@ -411,7 +411,7 @@ where
     D: Copy + PartialEq,
 {
     #[inline]
-    unsafe fn raw_mut_ptr(&mut self) -> *mut <FastImageData<C, D> as FastImage>::D {
+    fn raw_mut_ptr(&mut self) -> *mut <FastImageData<C, D> as FastImage>::D {
         self.data.as_mut_ptr() as *mut <FastImageData<C, D> as FastImage>::D
     }
 }
@@ -422,7 +422,7 @@ where
     D: Copy + PartialEq,
 {
     #[inline]
-    unsafe fn raw_mut_ptr(&mut self) -> *mut <FastImageData<C, D> as FastImage>::D {
+    fn raw_mut_ptr(&mut self) -> *mut <FastImageData<C, D> as FastImage>::D {
         self.data.as_mut_ptr() as *mut <FastImageData<C, D> as FastImage>::D
     }
 }
@@ -597,7 +597,7 @@ where
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     #[inline]
-    unsafe fn raw_mut_ptr(&mut self) -> *mut Self::D {
+    fn raw_mut_ptr(&mut self) -> *mut Self::D {
         self.data.as_mut_ptr()
     }
 }
@@ -703,7 +703,7 @@ pub trait FastImage {
 }
 
 pub trait MutableFastImage: FastImage {
-    unsafe fn raw_mut_ptr(&mut self) -> *mut Self::D;
+    fn raw_mut_ptr(&mut self) -> *mut Self::D;
 
     /// Get the mutable raw data for the entire image, including padding.
     #[inline]
@@ -718,8 +718,8 @@ pub trait MutableFastImage: FastImage {
             panic!("out of bounds");
         }
         let row_start = row * self.stride() as usize; // bytes to start of row
-        let raw_bytes_ptr = unsafe { self.raw_mut_ptr() as *mut u8 }; // raw byte pointer
-                                                                      // Get pointer of type <Self::D> to start of row.
+        let raw_bytes_ptr = self.raw_mut_ptr() as *mut u8; // raw byte pointer
+                                                           // Get pointer of type <Self::D> to start of row.
         let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *mut Self::D;
         // Make a mutable slice of it.
         unsafe { std::slice::from_raw_parts_mut(row_start_ptr, self.width() as usize) }
