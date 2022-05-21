@@ -4133,12 +4133,12 @@ where
                                         }
                                         .into();
 
-                                    let cal_dir = app_dirs::app_dir(
-                                        app_dirs::AppDataType::UserConfig,
-                                        &APP_INFO,
-                                        "camera_info",
-                                    )
-                                    .expect("app_dirs::app_dir");
+                                    let cal_dir = directories::BaseDirs::new()
+                                        .as_ref()
+                                        .map(|bd| {
+                                            bd.config_dir().join(APP_INFO.name).join("camera_info")
+                                        })
+                                        .unwrap();
 
                                     let format_str =
                                         format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
