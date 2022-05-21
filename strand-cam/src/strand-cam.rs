@@ -102,6 +102,12 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
+#[cfg(all(
+    not(feature = "flydra_feat_detect"),
+    feature = "flydra-feature-detector"
+))]
+compile_error!("do not enable 'flydra-feature-detector' except with 'flydra_feat_detect' feature");
+
 #[cfg(feature = "flydratrax")]
 use flydra2::{CoordProcessor, CoordProcessorControl, MyFloat, StreamItem};
 
