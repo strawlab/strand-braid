@@ -23,6 +23,5 @@ pub fn mask_from_points(viewport_points: &[(f64,f64)]) -> Mask {
         let tri = ConvexPolygon::try_from_points(&[a,b,c]).expect("Convex hull computation failed.");
         (delta, ShapeHandle::new(tri))
     }).collect();
-    let compound = Compound::new(shapes);
-    compound
+    Compound::new(shapes)
 }
