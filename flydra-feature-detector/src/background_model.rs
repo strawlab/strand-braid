@@ -153,8 +153,7 @@ impl BackgroundModel {
                         msg: format!("unimplemented pixel_format {}", pixel_format),
                         #[cfg(feature = "backtrace")]
                         backtrace: std::backtrace::Backtrace::capture(),
-                    }
-                    .into());
+                    });
                 }
             }
         };

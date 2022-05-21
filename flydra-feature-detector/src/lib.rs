@@ -152,7 +152,7 @@ impl TrackingState {
             raw_im_full,
             running_mean,
             mean_squared_im,
-            &cfg,
+            cfg,
             pixel_format,
             complete_stamp,
         )?;
@@ -386,6 +386,7 @@ impl TrackingState {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum BackgroundAcquisitionState {
     Initialization,
     StartupMode(StartupState),
@@ -560,7 +561,7 @@ impl AcquisitionHistogram {
         }
     }
     fn num_valid_samples(&self) -> u32 {
-        self.msec_bins.iter().fold(0, |acc, el| acc + el)
+        self.msec_bins.iter().sum()
     }
     fn is_old(&self) -> bool {
         self.start.elapsed() > std::time::Duration::from_secs(10)
@@ -633,7 +634,7 @@ pub fn open_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<Datag
 
             if let Some(dest_sock_addr) = dest_addrs.pop() {
                 // Let OS choose what port to use.
-                let mut src_addr = dest_sock_addr.clone();
+                let mut src_addr = dest_sock_addr;
                 src_addr.set_port(0);
                 if !dest_sock_addr.ip().is_loopback() {
                     // Let OS choose what IP to use, but preserve V4 or V6.
@@ -853,7 +854,7 @@ impl FlydraFeatureDetector {
         // Create empty packet for results on this frame, add found points later.
         let mut packet = FlydraRawUdpPacket {
             cam_name: self.ros_cam_name.as_str().to_string(),
-            timestamp: opt_trigger_stamp.clone(),
+            timestamp: opt_trigger_stamp,
             cam_received_time: acquire_stamp,
             device_timestamp,
             block_id,
@@ -994,7 +995,7 @@ impl FlydraFeatureDetector {
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();
                 if let UfmfState::Saving(ref mut ufmf_writer) = new_ufmf_state {
-                    ufmf_writer.add_frame(&frame, &point_data)?;
+                    ufmf_writer.add_frame(frame, &point_data)?;
                     if do_save_ufmf_bg || got_new_bg_data {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }
@@ -1054,36 +1055,36 @@ pub fn compute_mask_image(
     let width = mask_image.width() as usize;
 
     match shape {
-        &Shape::Everything => {
+        Shape::Everything => {
             // all pixels valid
         }
-        &Shape::Circle(ref valid) => {
+        Shape::Circle(ref valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);
             for i in 0..mask_image.height() as ipp_ctypes::c_int {
                 let dy2 = (i - valid.center_y as ipp_ctypes::c_int).pow(2);
                 let row_slice = mask_image.row_slice_mut(i as usize);
 
-                for j in 0..width {
+                for (j, row_item) in row_slice.iter_mut().enumerate().take(width) {
                     let dx2 = (j as ipp_ctypes::c_int - valid.center_x as ipp_ctypes::c_int).pow(2);
 
                     let this_r2 = dx2 + dy2;
                     if this_r2 >= r2 {
-                        row_slice[j] = mask_value;
+                        *row_item = mask_value;
                     };
                 }
             }
         }
-        &Shape::Polygon(ref shape) => {
+        Shape::Polygon(ref shape) => {
             let shape = ncollide_geom::mask_from_points(&shape.points);
             let m = nalgebra::geometry::Isometry::identity();
             for row in 0..mask_image.height() {
                 let row_slice = mask_image.row_slice_mut(row as usize);
-                for col in 0..width {
+                for (col, row_item) in row_slice.iter_mut().enumerate().take(width) {
                     let cur_pos = nalgebra::geometry::Point2::new(col as f64, row as f64);
                     use ncollide2d::query::point_query::PointQuery;
                     if shape.distance_to_point(&m, &cur_pos, true) >= 1.0 {
                         // outside polygon
-                        row_slice[col] = mask_value;
+                        *row_item = mask_value;
                     }
                 }
             }

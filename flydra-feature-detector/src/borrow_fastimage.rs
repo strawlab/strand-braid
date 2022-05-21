@@ -46,7 +46,7 @@ where
 }
 
 impl<'a, FMT: Clone> ExtraTimeData for BorrowedFrame<'a, FMT> {
-    fn extra<'b>(&'b self) -> &'b dyn HostTimeData {
+    fn extra(&self) -> &dyn HostTimeData {
         &self.extra
     }
 }
