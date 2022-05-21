@@ -330,7 +330,7 @@ where
     type C = C;
 
     #[inline]
-    unsafe fn raw_ptr(&self) -> *const Self::D {
+    fn raw_ptr(&self) -> *const Self::D {
         self.data.as_ptr() as *const <FastImageData<C, D> as FastImage>::D
     }
 
@@ -354,7 +354,7 @@ where
     type C = C;
 
     #[inline]
-    unsafe fn raw_ptr(&self) -> *const Self::D {
+    fn raw_ptr(&self) -> *const Self::D {
         self.data.as_ptr() as *const <FastImageData<C, D> as FastImage>::D
     }
 
@@ -378,7 +378,7 @@ where
     type C = C;
 
     #[inline]
-    unsafe fn raw_ptr(&self) -> *const Self::D {
+    fn raw_ptr(&self) -> *const Self::D {
         self.data.as_ptr() as *const <FastImageData<C, D> as FastImage>::D
     }
 
@@ -475,7 +475,7 @@ where
     type C = C;
 
     #[inline]
-    unsafe fn raw_ptr(&self) -> *const Self::D {
+    fn raw_ptr(&self) -> *const Self::D {
         self.data.as_ptr()
     }
 
@@ -564,7 +564,7 @@ where
     type C = C;
 
     #[inline]
-    unsafe fn raw_ptr(&self) -> *const Self::D {
+    fn raw_ptr(&self) -> *const Self::D {
         self.data.as_ptr()
     }
 
@@ -617,7 +617,7 @@ pub trait FastImage {
     type D: 'static + Copy + PartialEq;
     type C: ChanTrait;
 
-    unsafe fn raw_ptr(&self) -> *const Self::D;
+    fn raw_ptr(&self) -> *const Self::D;
     /// Get the image stride in number of bytes.
     fn stride(&self) -> ipp_ctypes::c_int;
     /// Get the image width in number of pixels.
@@ -649,8 +649,8 @@ pub trait FastImage {
             panic!("out of bounds");
         }
         let row_start = row * self.stride() as usize; // bytes to start of row
-        let raw_bytes_ptr = unsafe { self.raw_ptr() as *const u8 }; // raw byte pointer
-                                                                    // Get pointer of type <Self::D> to start of row.
+        let raw_bytes_ptr = self.raw_ptr() as *const u8; // raw byte pointer
+                                                         // Get pointer of type <Self::D> to start of row.
         let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *const Self::D;
         // Make a slice of it.
         unsafe {
