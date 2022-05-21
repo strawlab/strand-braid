@@ -1,10 +1,5 @@
 //! Provides interface for Intel IPP
 
-extern crate ipp_sys;
-extern crate num_traits;
-
-extern crate core;
-
 use std::marker::PhantomData;
 pub use std::os::raw as ipp_ctypes;
 
