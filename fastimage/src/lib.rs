@@ -861,7 +861,7 @@ macro_rules! version_assert {
 }
 
 pub mod ripp {
-    use *;
+    use super::*;
 
     pub fn init() -> Result<()> {
         itry!(ipp::ippInit());
