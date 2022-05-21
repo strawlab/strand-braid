@@ -1369,6 +1369,12 @@ pub struct IppVersion {
     version: *const ipp::IppLibraryVersion,
 }
 
+impl Default for IppVersion {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IppVersion {
     pub fn new() -> IppVersion {
         let mut version: *const ipp::IppLibraryVersion = std::ptr::null_mut();
