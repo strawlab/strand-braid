@@ -1,5 +1,4 @@
 use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
-use timestamped_frame::ExtraTimeData;
 
 const FNAME: &str = "movie20190115_221756.fmf";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
@@ -47,16 +46,25 @@ async fn track_fmf() -> anyhow::Result<()> {
         None,
     )?;
 
+    let start = std::time::Instant::now();
+    let mut count = 0;
+    let mut n_pts = 0;
     for frame in reader {
         let frame = frame?;
-        println!(
-            "frame {:?}: {:?}",
-            frame.extra().host_framenumber(),
-            frame.extra().host_timestamp()
-        );
         let ufmf_state = UfmfState::Stopped;
         let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None)?;
-        println!("maybe_found: {:?}", maybe_found);
+        count += 1;
+        n_pts += maybe_found.0.points.len();
     }
+    let dur = start.elapsed();
+    let fps = count as f64 / dur.as_secs_f64();
+    println!(
+        "processed {} frames in {} seconds ({} fps). Found {} points total.",
+        count,
+        dur.as_secs_f32(),
+        fps,
+        n_pts
+    );
+
     Ok(())
 }
