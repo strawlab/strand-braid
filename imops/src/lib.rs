@@ -13,7 +13,6 @@ enum Power {
     Two,
 }
 
-#[cfg(not(feature = "simd"))]
 #[inline]
 fn mypow(x: u32, exp: Power) -> f32 {
     match exp {
@@ -36,7 +35,6 @@ impl From<u8> for Power {
     }
 }
 
-#[cfg(not(feature = "simd"))]
 fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
 where
     IM: ImageStride<Mono8>,
@@ -50,7 +48,7 @@ where
 
     for (row, rowdata) in chunk_iter.enumerate() {
         for (col, element) in rowdata[..im.width() as usize].iter().enumerate() {
-            accum += mypow(row as u32, m_ord) * mypow(col as u32, n_ord) * *element as f32;
+            accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f32;
         }
     }
     accum
@@ -105,12 +103,12 @@ where
     }
 }
 
-/// Compute spatial image moment 1,0
+/// Compute spatial image moment 0,1
 ///
 /// Panics: panics if the image data is smaller than stride*height and if stride
 /// is smaller than width.
 #[inline]
-pub fn spatial_moment_10<IM>(im: &IM) -> f32
+pub fn spatial_moment_01<IM>(im: &IM) -> f32
 where
     IM: ImageStride<Mono8>,
 {
@@ -150,16 +148,16 @@ where
 
     #[cfg(not(feature = "simd"))]
     {
-        spatial_moment(im, Power::One, Power::Zero)
+        spatial_moment(im, Power::Zero, Power::One)
     }
 }
 
-/// Compute spatial image moment 0,1
+/// Compute spatial image moment 1,0
 ///
 /// Panics: panics if the image data is smaller than stride*height and if stride
 /// is smaller than width.
 #[inline]
-pub fn spatial_moment_01<IM>(im: &IM) -> f32
+pub fn spatial_moment_10<IM>(im: &IM) -> f32
 where
     IM: ImageStride<Mono8>,
 {
@@ -204,7 +202,53 @@ where
 
     #[cfg(not(feature = "simd"))]
     {
-        spatial_moment(im, Power::Zero, Power::One)
+        spatial_moment(im, Power::One, Power::Zero)
+    }
+}
+
+#[derive(Debug)]
+pub struct Moments {
+    pub centroid_x: f32,
+    pub centroid_y: f32,
+
+    pub m00: f32,
+    pub m01: f32,
+    pub m10: f32,
+    pub u11: f32,
+    pub u02: f32,
+    pub u20: f32,
+}
+
+pub fn calculate_moments<IM>(im: &IM) -> Moments
+where
+    IM: ImageStride<Mono8>,
+{
+    let m00 = spatial_moment_00(im);
+    let m01 = spatial_moment_01(im);
+    let m10 = spatial_moment_10(im);
+
+    let centroid_x = m01 / m00;
+    let centroid_y = m10 / m00;
+
+    let m11 = spatial_moment(im, Power::One, Power::One);
+    let m02 = spatial_moment(im, Power::Zero, Power::Two);
+    let m20 = spatial_moment(im, Power::Two, Power::Zero);
+
+    let u11 = m11 - centroid_x * m10;
+    let u02 = m02 - centroid_x * m01;
+    let u20 = m20 - centroid_y * m10;
+
+    // debug_assert_eq!(u11, m11 - centroid_y * m01);
+
+    Moments {
+        m00,
+        m01,
+        m10,
+        centroid_x,
+        centroid_y,
+        u11,
+        u02,
+        u20,
     }
 }
 
@@ -489,6 +533,33 @@ mod tests {
     }
 
     #[test]
+    fn test_central_moments() {
+        const STRIDE: usize = 20;
+        const W: usize = 20;
+        const H: usize = 20;
+        const ALLOC_H: usize = 20;
+        let mut image_data = vec![0u8; STRIDE * ALLOC_H];
+
+        image_data[4 * STRIDE + 3] = 1;
+        image_data[5 * STRIDE + 3] = 1;
+        image_data[5 * STRIDE + 4] = 1;
+        image_data[6 * STRIDE + 4] = 1;
+
+        let im = simple_frame::SimpleFrame {
+            width: W as u32,
+            height: H as u32,
+            stride: STRIDE as u32,
+            image_data,
+            fmt: std::marker::PhantomData,
+        };
+
+        let mr = calculate_moments(&im);
+        assert_eq!(mr.u11, 1.0);
+        assert_eq!(mr.u20, 1.0);
+        assert_eq!(mr.u02, 2.0);
+    }
+
+    #[test]
     fn test_image_moments() {
         const STRIDE: usize = 24;
         const W: usize = 20;
@@ -516,8 +587,8 @@ mod tests {
         };
 
         assert_eq!(spatial_moment_00(&im), 4.0);
-        assert_eq!(spatial_moment_01(&im), 14.0);
-        assert_eq!(spatial_moment_10(&im), 20.0);
+        assert_eq!(spatial_moment_10(&im), 14.0);
+        assert_eq!(spatial_moment_01(&im), 20.0);
     }
 
     #[test]
@@ -553,8 +624,8 @@ mod tests {
         };
 
         assert_eq!(spatial_moment_00(&im), 89.0);
-        assert_eq!(spatial_moment_01(&im), 360.0);
-        assert_eq!(spatial_moment_10(&im), 448.0);
+        assert_eq!(spatial_moment_01(&im), 448.0);
+        assert_eq!(spatial_moment_10(&im), 360.0);
     }
 }
 

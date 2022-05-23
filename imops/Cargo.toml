@@ -15,8 +15,11 @@ simple-frame = {path="../simple-frame"}
 criterion = "0.3"
 
 [features]
-default=["std", "machine-vision-formats/std"]
-std=[]
+# Tests require std but crate itself should be no_std.
+# Test that this remains true by building for a target without std:
+#     cargo build --no-default-features --target thumbv7em-none-eabihf
+default=["std"]
+std=["machine-vision-formats/std"]
 
 # This feature currently requires nightly but gives 5x-10x speedups.
 simd=[]

@@ -1389,8 +1389,8 @@ async fn frame_process_task(
                                 let mu01 = imops::spatial_moment_01(&thresholded);
                                 let mu10 = imops::spatial_moment_10(&thresholded);
                                 let mc = if mu00 != 0.0 {
-                                    let x = mu01 / mu00;
-                                    let y = mu10 / mu00;
+                                    let x = mu10 / mu00;
+                                    let y = mu01 / mu00;
 
                                     // If mu00 is 0.0, these will be NaN. CBOR explicitly can represent NaNs.
 
