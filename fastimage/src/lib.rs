@@ -28,6 +28,8 @@ pub enum Error {
     MismatchedTypes,
     #[error("NoFastImageImplementation")]
     NoFastImageImplementation,
+    #[error("SizeError")]
+    SizeError,
     #[error("MomentStateNotInitialized")]
     MomentStateNotInitialized,
     #[error("NotImplemented")]
@@ -617,6 +619,67 @@ where
 }
 
 // ------------------------------
+// ValidChunksExactMut
+// ------------------------------
+
+/// An iterator over strided, mutable data in which only some is "valid".
+///
+/// This is modeled after [std::slice::ChunksExactMut].
+pub struct ValidChunksExactMut<'a, T: 'a> {
+    padded_chunk_iter_mut: std::slice::ChunksExactMut<'a, T>,
+    valid_n_elements: usize,
+}
+
+impl<'a, T> ValidChunksExactMut<'a, T> {
+    fn new(slice: &'a mut [T], padded_n_elements: usize, valid_n_elements: usize) -> Self {
+        assert!(valid_n_elements <= padded_n_elements);
+        let padded_chunk_iter_mut = slice.chunks_exact_mut(padded_n_elements);
+        Self {
+            padded_chunk_iter_mut,
+            valid_n_elements,
+        }
+    }
+}
+
+impl<'a, T> Iterator for ValidChunksExactMut<'a, T> {
+    type Item = &'a mut [T];
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        self.padded_chunk_iter_mut
+            .next()
+            .map(|padded| &mut padded[0..self.valid_n_elements])
+    }
+}
+
+#[test]
+fn test_padded_chunks_mut() {
+    {
+        let mut avec: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, -1.0, 1.1, 2.1, 3.1, 4.1, -1.0];
+        let a1 = avec.as_mut_slice();
+
+        {
+            let myiter = ValidChunksExactMut::new(a1, 5, 4);
+
+            let mut n_rows = 0;
+            for (row_num, row) in myiter.enumerate() {
+                let mut n_cols = 0;
+                for el in row.iter_mut() {
+                    *el += (row_num + 1) as f32 * 100.0;
+                    n_cols += 1;
+                }
+                assert_eq!(n_cols, 4);
+                n_rows += 1;
+            }
+            assert_eq!(n_rows, 2);
+        }
+
+        assert_eq!(
+            &avec,
+            &[101.0, 102.0, 103.0, 104.0, -1.0, 201.1, 202.1, 203.1, 204.1, -1.0]
+        );
+    }
+}
+
+// ------------------------------
 // FastImage
 // ------------------------------
 
@@ -705,6 +768,25 @@ pub trait MutableFastImage: FastImage {
     fn image_slice_mut(&mut self) -> &mut [Self::D] {
         let n_elements = (self.stride() * self.height()) as usize / std::mem::size_of::<Self::D>();
         unsafe { std::slice::from_raw_parts_mut(self.raw_mut_ptr(), n_elements) }
+    }
+
+    /// Iterate over elements in each image row. Returns mutable valid slices.
+    #[inline]
+    fn valid_row_iter_mut(
+        &mut self,
+        size: &FastImageSize,
+    ) -> Result<ValidChunksExactMut<'_, Self::D>> {
+        if size.width() > self.size().width() || size.height() > self.size().height() {
+            return Err(Error::SizeError);
+        }
+        let stride_n_pixels = self.stride() as usize / std::mem::size_of::<Self::D>();
+        let pixel_width = size.width() as usize;
+        let total_n_pixels = stride_n_pixels * size.height() as usize;
+        Ok(ValidChunksExactMut::new(
+            &mut self.image_slice_mut()[..total_n_pixels],
+            stride_n_pixels,
+            pixel_width,
+        ))
     }
 
     #[inline]
