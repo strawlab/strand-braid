@@ -1,6 +1,9 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
+#[cfg(feature = "do_not_use_ipp")]
+use fastfreeimage as fastimage;
+
 pub type Result<M> = std::result::Result<M, Error>;
 
 #[derive(thiserror::Error, Debug)]

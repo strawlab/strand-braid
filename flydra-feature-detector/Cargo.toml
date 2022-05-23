@@ -20,9 +20,10 @@ tokio = {version="1.0.1", default-features=false, features=["rt"]}
 stream-cancel = "0.8"
 nalgebra = "0.30"
 ncollide2d = "0.33"
-ipp-sys = "0.4.4"
+ipp-sys = {version="0.4.4", optional=true}
 
-fastimage = { version = "0.1", path = "../fastimage" }
+fastimage = { path = "../fastimage", optional=true }
+fastfreeimage = {path="../fastfreeimage", optional=true}
 ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }
 rust-cam-bui-types = {path="../rust-cam-bui-types" }
@@ -61,3 +62,5 @@ debug-images = ["rt-image-viewer"]
 linux = ["posix-scheduler","posix-scheduler/linux"]
 
 backtrace = ["ci2/backtrace", "mvg/backtrace"]
+use_ipp = ["fastimage", "ipp-sys"]
+do_not_use_ipp = ["fastfreeimage"]
