@@ -40,6 +40,7 @@ members = [
     "enum-iter",
     "env-tracing-logger",
     "fastimage",
+    "fastfreeimage",
     "fly-eye",
     "fmf",
     "fmf/fmf-cli",

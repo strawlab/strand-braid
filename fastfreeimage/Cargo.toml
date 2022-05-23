@@ -1,0 +1,26 @@
+[package]
+name = "fastfreeimage"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.60"
+
+[dependencies]
+thiserror = "1.0"
+imops = {path="../imops"}
+machine-vision-formats = "0.1"
+
+[dev-dependencies]
+itertools = "0.8"
+criterion = "0.2"
+approx = "0.5"
+
+[features]
+# Use portable_simd from rust nightly
+portsimd = ["imops/simd"]
+
+# TODO: add backtrace support
+
+[[bench]]
+name = "bench"
+harness = false
