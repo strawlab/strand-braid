@@ -4,6 +4,15 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(not(any(feature = "do_not_use_ipp", feature = "use_ipp")))]
+compile_error!("Need either feature 'do_not_use_ipp' or 'use_ipp' enabled.");
+
+#[cfg(all(feature = "do_not_use_ipp", feature = "use_ipp"))]
+compile_error!("Need only one of feature 'do_not_use_ipp' or 'use_ipp' enabled, not both.");
+
+#[cfg(feature = "do_not_use_ipp")]
+use fastfreeimage as fastimage;
+
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
@@ -1052,7 +1061,8 @@ pub fn compute_mask_image(
 
     let mut mask_image =
         FastImageData::<Chan1, u8>::new(roi_sz.width(), roi_sz.height(), use_value)?;
-    let width = mask_image.width() as usize;
+    let size = mask_image.size().clone();
+    let mask_row_iter = mask_image.valid_row_iter_mut(&size)?;
 
     match shape {
         Shape::Everything => {
@@ -1060,11 +1070,9 @@ pub fn compute_mask_image(
         }
         Shape::Circle(ref valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);
-            for i in 0..mask_image.height() as ipp_ctypes::c_int {
-                let dy2 = (i - valid.center_y as ipp_ctypes::c_int).pow(2);
-                let row_slice = mask_image.row_slice_mut(i as usize);
-
-                for (j, row_item) in row_slice.iter_mut().enumerate().take(width) {
+            for (i, mask_row) in mask_row_iter.enumerate() {
+                let dy2 = (i as ipp_ctypes::c_int - valid.center_y as ipp_ctypes::c_int).pow(2);
+                for (j, row_item) in mask_row.iter_mut().enumerate() {
                     let dx2 = (j as ipp_ctypes::c_int - valid.center_x as ipp_ctypes::c_int).pow(2);
 
                     let this_r2 = dx2 + dy2;
@@ -1077,9 +1085,8 @@ pub fn compute_mask_image(
         Shape::Polygon(ref shape) => {
             let shape = ncollide_geom::mask_from_points(&shape.points);
             let m = nalgebra::geometry::Isometry::identity();
-            for row in 0..mask_image.height() {
-                let row_slice = mask_image.row_slice_mut(row as usize);
-                for (col, row_item) in row_slice.iter_mut().enumerate().take(width) {
+            for (row, mask_row) in mask_row_iter.enumerate() {
+                for (col, row_item) in mask_row.iter_mut().enumerate() {
                     let cur_pos = nalgebra::geometry::Point2::new(col as f64, row as f64);
                     use ncollide2d::query::point_query::PointQuery;
                     if shape.distance_to_point(&m, &cur_pos, true) >= 1.0 {
