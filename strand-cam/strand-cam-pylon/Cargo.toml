@@ -17,4 +17,6 @@ ci2-pyloncxx = { path = "../../ci2-pyloncxx" }
 strand-cam = {path="..", default-features=false}
 
 [features]
+default = ["strand-cam/bundle_files"]
+
 backtrace = ["anyhow/backtrace", "strand-cam/backtrace", "ci2-pyloncxx/backtrace"]
