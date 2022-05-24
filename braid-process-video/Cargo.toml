@@ -36,6 +36,7 @@ fmf = {path="../fmf"}
 timestamped-frame = {path="../timestamped-frame"}
 
 [features]
+vpx = ["mkv-writer/vpx"]
 read-mkv = ["ffmpeg-next"]
 backtrace = ["anyhow/backtrace", "mkv-writer/backtrace",
     "convert-image/backtrace", "braidz-parser/backtrace",

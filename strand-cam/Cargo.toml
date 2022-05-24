@@ -137,6 +137,8 @@ debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
 
+vpx = ["mkv-writer/vpx"]
+
 use_ipp = ["flydra-feature-detector?/use_ipp"]
 do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]
 

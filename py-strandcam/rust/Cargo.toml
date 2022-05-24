@@ -14,7 +14,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 lazy_static = "1"
 
-strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "flydra_feat_detect", "imtrack-absdiff", "use_ipp"]}
+strand-cam = {path="../../strand-cam", default-features = false, features=["bundle_files", "plugin-process-frame", "flydra_feat_detect", "imtrack-absdiff", "use_ipp", "vpx"]}
 plugin-defs = {path="../../plugin-defs"}
 ipp-sys = "0.4.4" # Just so we can specify features
 
