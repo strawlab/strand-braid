@@ -103,7 +103,7 @@ target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f
 bui-backend-codegen = {version="0.9", default-features = false}
 
 [features]
-default = ["flydra_feat_detect", "imtrack-absdiff"]
+default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
@@ -123,7 +123,6 @@ posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
 serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2?/serve_files"]
 
-# Tune defaults in flydra-feature-detector
 imtrack-dark-circle = []
 imtrack-absdiff = []
 
@@ -137,6 +136,9 @@ flydra_feat_detect = ["flydra-feature-detector"]
 debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
+
+use_ipp = ["flydra-feature-detector?/use_ipp"]
+do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]
 
 # TODO:
 # fix so this is not needed in linux: `export LD_LIBRARY_PATH=/opt/vimba/Vimba_5_1/Tools/Viewer/Bin/x86_64bit`
