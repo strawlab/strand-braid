@@ -49,6 +49,57 @@ above water (i.e. perform fish tracking), please additionally cite this:
   AD✎. Virtual Reality for Freely Moving Animals. *Nature Methods 14*, 995–1002
   (2017) [doi:10.1038/nmeth.4399](https://dx.doi.org/10.1038/nmeth.4399)
 
+## Building
+
+### Strand Camera
+
+[Install rust](https://rustup.rs/).
+
+[Install wasm-pack](https://rustwasm.github.io/wasm-pack/installer/).
+
+Install your camera drivers. Currently Basler Pylon and Allied Vision Vimba are
+supported.
+
+First checkout the git repository into a location which will below be called
+`/path/to/strand-braid`:
+
+```
+cd /path/to
+git clone https://github.com/strawlab/strand-braid
+cd strand-braid # now in /path/to/strand-braid
+```
+
+Then build the browser user interface (BUI).
+This will build files in `strand-cam/yew_frontend/pkg` which get included in the
+Strand Cam executable:
+
+```
+cd /path/to/strand-braid/strand-cam/yew_frontend
+wasm-pack build --target web
+```
+
+Then, build the Strand Cam executable for Basler cameras using the Pylon
+drivers, which must be preinstalled:
+
+```
+cd /path/to/strand-braid/strand-cam/strand-cam-pylon
+cargo build --release
+# By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam-pylon
+```
+
+Alternatively or additionally, build the Strand Cam executable for Allied Vision
+cameras using the Vimba drivers, which must be preinstalled:
+
+```
+cd /path/to/strand-braid/strand-cam/strand-cam-vimba
+cargo build --release
+# By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam-vimba
+```
+
+Many compile-time options exist to adjust the exact feature set used, but the
+instructions above should build a working copy of Strand Camera with a
+relatively minimal feature set.
+
 ## License
 
 This software is developed by Prof. Dr. Andrew Straw at the University of

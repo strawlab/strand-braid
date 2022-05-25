@@ -776,3 +776,19 @@ strand-braid-ubuntu-2004:
     paths:
       - strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     name: "strand-braid-ubuntu-2004-${CI_COMMIT_TAG}"
+
+build_simple:
+  image: ubuntu:focal
+  script:
+    # Install cargo and wasm-pack
+    - _packaging/setup-ubuntu-20.04.sh
+    # Put them on the path
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    # Install Pylon
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+
+    # Run simplest build configuration possible
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
+    - wasm-pack build --target web
+    - cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cargo build --release
