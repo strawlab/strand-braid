@@ -1,6 +1,19 @@
 fn main() -> Result<(), Box<(dyn std::error::Error)>> {
     build_util::git_hash(env!("CARGO_PKG_VERSION"))?;
 
-    build_util::bui_backend_generate_code("yew_frontend/pkg", "frontend.rs")?;
+    let frontend_dir = std::path::PathBuf::from("yew_frontend");
+    let frontend_pkg_dir = frontend_dir.join("pkg");
+
+    #[cfg(feature = "bundle_files")]
+    if !frontend_pkg_dir.join("strand_cam_frontend_yew.js").exists() {
+        return Err(format!(
+            "The frontend is required but not built. Hint: go to {} and \
+            run `wasm-pack build --target web`.",
+            frontend_dir.display()
+        )
+        .into());
+    }
+
+    build_util::bui_backend_generate_code(&frontend_pkg_dir, "frontend.rs")?;
     Ok(())
 }
