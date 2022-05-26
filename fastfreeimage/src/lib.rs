@@ -1394,7 +1394,6 @@ pub mod ripp {
         let im_view: &dyn FastImage<C = Chan1, D = u8> = &im_view1;
 
         result.results = Some(imops::calculate_moments(&im_view));
-        dbg!(&result.results);
         Ok(())
     }
 
