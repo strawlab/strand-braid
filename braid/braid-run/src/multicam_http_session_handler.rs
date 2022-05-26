@@ -1,10 +1,9 @@
 use parking_lot::RwLock;
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::RosCamName;
-use ::bui_backend_session::{self, InsecureSession};
-use ::flydra_types::CamHttpServerInfo;
-use ::strand_cam_storetype::CallbackType;
+use bui_backend_session::{self, InsecureSession};
+use flydra_types::{CamHttpServerInfo, RosCamName};
+use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.
 #[derive(Clone)]
@@ -135,19 +134,19 @@ impl HttpSessionHandler {
         self.post(cam_name, args).await
     }
 
-    pub async fn send_is_recording_ufmf(
-        &mut self,
-        cam_name: &RosCamName,
-        is_recording_ufmf: bool,
-    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
-        info!(
-            "for cam {}, sending is recording ufmf {}",
-            cam_name.as_str(),
-            is_recording_ufmf
-        );
-        let args = ci2_remote_control::CamArg::SetIsRecordingUfmf(is_recording_ufmf);
-        self.post(cam_name, args).await
-    }
+    // pub async fn send_is_recording_ufmf(
+    //     &mut self,
+    //     cam_name: &RosCamName,
+    //     is_recording_ufmf: bool,
+    // ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    //     info!(
+    //         "for cam {}, sending is recording ufmf {}",
+    //         cam_name.as_str(),
+    //         is_recording_ufmf
+    //     );
+    //     let args = ci2_remote_control::CamArg::SetIsRecordingUfmf(is_recording_ufmf);
+    //     self.post(cam_name, args).await
+    // }
 
     async fn send_quit(&mut self, cam_name: &RosCamName) -> Result<(), hyper::Error> {
         info!("for cam {}, sending quit", cam_name.as_str());

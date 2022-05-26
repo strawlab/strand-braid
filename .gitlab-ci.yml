@@ -669,7 +669,7 @@ braid-ubuntu2004:
     # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
+    - cd $CI_PROJECT_DIR/braid/braid-run/frontend
     - ./build.sh
 
     - mkdir -p $CI_PROJECT_DIR/build

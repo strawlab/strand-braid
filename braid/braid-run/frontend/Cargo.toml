@@ -24,9 +24,9 @@ serde_yaml = "0.8"
 
 uuid = {version="0.8", features=["wasm-bindgen"]}
 
-flydra-types = {path="../../flydra-types", default-features=false}
-rust-cam-bui-types = {path="../../rust-cam-bui-types"}
-ads-webasm = {path="../../ads-webasm"}
+flydra-types = {path="../../../flydra-types", default-features=false}
+rust-cam-bui-types = {path="../../../rust-cam-bui-types"}
+ads-webasm = {path="../../../ads-webasm"}
 
 [dependencies.web-sys]
 version="0.3"

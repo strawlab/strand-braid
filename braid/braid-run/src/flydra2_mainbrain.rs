@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::{
@@ -32,7 +29,6 @@ use flydra_types::{
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
 
-mod multicam_http_session_handler;
 pub use crate::multicam_http_session_handler::HttpSessionHandler;
 
 lazy_static::lazy_static! {
@@ -85,7 +81,7 @@ impl CallbackHandler for MyCallbackHandler {
         let payload = data_sess.payload;
 
         let fut = async {
-            use crate::HttpApiCallback::*;
+            use HttpApiCallback::*;
             match payload {
                 NewCamera(cam_info) => {
                     debug!("got NewCamera {:?}", cam_info);
@@ -1305,20 +1301,4 @@ async fn begin_cam_sync_triggerbox_in_process(
     tx.send(StartPulses).await?;
     info!("requesting triggerbox to start sending pulses again");
     Ok(())
-}
-
-/// run a function returning Result<()> and handle errors.
-// see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-pub fn run_func<F: FnOnce() -> Result<()>>(real_func: F) {
-    // Decide which command to run, and run it, and print any errors.
-    if let Err(err) = real_func() {
-        use std::io::Write;
-
-        let mut stderr = std::io::stderr();
-        writeln!(stderr, "Error: {}", err).expect("unable to write error to stderr");
-        for cause in err.chain() {
-            writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
-        }
-        std::process::exit(1);
-    }
 }

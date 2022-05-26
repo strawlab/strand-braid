@@ -11,6 +11,9 @@ use braid::braid_start;
 use braid_config_data::parse_config_file;
 use flydra_types::BraidCameraConfig;
 
+mod flydra2_mainbrain;
+mod multicam_http_session_handler;
+
 #[derive(Debug, StructOpt)]
 #[structopt(about = "run the multi-camera realtime 3D tracker")]
 struct BraidRunCliArgs {
