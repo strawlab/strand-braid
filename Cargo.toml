@@ -19,6 +19,7 @@ members = [
     "braidz-viewer",
     "bui-backend-session",
     "bui-backend-session/demo",
+    "build-util",
     "camcal",
     "led-box",
     "led-box-comms",

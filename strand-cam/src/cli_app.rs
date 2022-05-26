@@ -29,7 +29,7 @@ where
     C: 'static + ci2::Camera + Send,
 {
     human_panic::setup_panic!(human_panic::Metadata {
-        version: format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")).into(),
+        version: format!("{}", env!("CARGO_PKG_VERSION")).into(),
         name: env!("CARGO_PKG_NAME").into(),
         authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
         homepage: env!("CARGO_PKG_HOMEPAGE").into(),
@@ -124,12 +124,10 @@ fn parse_args(
 
     let arg_default = StrandCamArgs::default();
 
-    let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
-
     let matches = {
         #[allow(unused_mut)]
         let mut parser = clap::App::new(app_name)
-            .version(version.as_str())
+            .version(env!("CARGO_PKG_VERSION"))
             .arg(
                 Arg::with_name("no_browser")
                     .long("no-browser")

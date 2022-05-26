@@ -6,7 +6,8 @@ homepage = "https://strawlab.org/braid"
 edition = "2021"
 rust-version = "1.59"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build-dependencies]
+build-util = {path="../../build-util"}
 
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }
@@ -30,5 +31,5 @@ ci2-vimba = {path="../../ci2-vimba", optional=true}
 backtrace = ["flydra2/backtrace"]
 
 # BUI frontend
-bundle_files = ["flydra2-mainbrain/bundle_files"]
-serve_files = ["flydra2-mainbrain/serve_files"]
+bundle_files = ["flydra2-mainbrain/bundle_files", "build-util/bundle_files"]
+serve_files = ["flydra2-mainbrain/serve_files", "build-util/serve_files"]

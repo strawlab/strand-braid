@@ -52,14 +52,14 @@ rust-cam-bui-types = {path="../rust-cam-bui-types"}
 channellib = {path="../channellib"}
 
 [build-dependencies]
-bui-backend-codegen = {version="0.9", default-features = false}
+build-util = {path="../build-util"}
 
 [features]
 default = ["bundle_files"]
 
 deadlock_detection = ["parking_lot/deadlock_detection"]
 
-bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf"]
-serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "bui-backend-codegen/serve_files"]
+bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "build-util/bundle_files", "includedir", "phf"]
+serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "build-util/serve_files"]
 
 backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]
