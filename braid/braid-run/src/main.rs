@@ -11,7 +11,7 @@ use braid::braid_start;
 use braid_config_data::parse_config_file;
 use flydra_types::BraidCameraConfig;
 
-mod flydra2_mainbrain;
+mod mainbrain;
 mod multicam_http_session_handler;
 
 #[derive(Debug, StructOpt)]
@@ -106,7 +106,7 @@ fn main() -> Result<()> {
         .iter()
         .map(|x| RawCamName::new(x.name.clone()).to_ros())
         .collect();
-    let phase1 = runtime.block_on(flydra2_mainbrain::pre_run(
+    let phase1 = runtime.block_on(mainbrain::pre_run(
         &handle,
         show_tracking_params,
         // Raising the mainbrain thread priority is currently disabled.
@@ -144,7 +144,7 @@ fn main() -> Result<()> {
     debug!("done launching cameras");
 
     // This runs the whole thing and blocks.
-    runtime.block_on(flydra2_mainbrain::run(phase1))?;
+    runtime.block_on(mainbrain::run(phase1))?;
 
     // Now wait for everything to end..
 
