@@ -51,7 +51,7 @@ above water (i.e. perform fish tracking), please additionally cite this:
 
 ## Building
 
-### Strand Camera
+### Prerequisites
 
 [Install rust](https://rustup.rs/).
 
@@ -64,14 +64,16 @@ First checkout the git repository into a location which will below be called
 `/path/to/strand-braid`:
 
 ```
-cd /path/to
+cd /path/to # <---- change this to a suitable filesystem directory
 git clone https://github.com/strawlab/strand-braid
 cd strand-braid # now in /path/to/strand-braid
 ```
 
-Then build the browser user interface (BUI).
-This will build files in `strand-cam/yew_frontend/pkg` which get included in the
-Strand Cam executable:
+### Strand Camera
+
+First, build the browser user interface (BUI) for Strand Camera. This will build
+files in `strand-cam/yew_frontend/pkg` which get included in the Strand Cam
+executable:
 
 ```
 cd /path/to/strand-braid/strand-cam/yew_frontend
@@ -96,9 +98,31 @@ cargo build --release
 # By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam-vimba
 ```
 
-Many compile-time options exist to adjust the exact feature set used, but the
-instructions above should build a working copy of Strand Camera with a
-relatively minimal feature set.
+Many compile-time options exist to adjust the exact features used, but the
+instructions above should build a working copy of Strand Camera albeit with
+potentially reduced features and performance.
+
+### Braid
+
+We will build `braid-run` which is the main runtime application we call "Braid".
+
+First, build the browser user interface (BUI) for Braid. This will build files
+in `braid/braid-run/braid_frontend/pkg` which get included in the `braid-run`
+executable:
+
+```
+cd /path/to/strand-braid/braid/braid-run/braid_frontend
+wasm-pack build --target web
+```
+
+Then, build the `braid-run` executable:
+
+```
+cd /path/to/strand-braid/braid/braid-run
+cargo build --release
+# By default, the executable will be put in /path/to/strand-braid/target/release/braid-run
+```
+
 
 ## License
 

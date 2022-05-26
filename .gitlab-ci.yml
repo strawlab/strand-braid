@@ -787,8 +787,14 @@ build_simple:
     # Install Pylon
     - _packaging/setup-ubuntu-20.04-pylon.sh
 
-    # Run simplest build configuration possible
+    # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
     - wasm-pack build --target web
     - cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cargo build --release
+
+    # Build braid-run with simplest build configuration possible
+    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
+    - wasm-pack build --target web
+    - cd $CI_PROJECT_DIR/braid/braid-run
     - cargo build --release
