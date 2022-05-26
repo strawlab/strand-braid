@@ -29,10 +29,7 @@ struct Opt {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var(
-            "RUST_LOG",
-            "braid_offline=info,flydra2=info,flydra2_mainbrain=info,error",
-        );
+        std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,error");
     }
 
     env_tracing_logger::init();

@@ -100,7 +100,7 @@ braid-http-session = {path="../braid-http-session"}
 target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f523ed819bd1d92519416cb79e36fd74fe"}
 
 [build-dependencies]
-bui-backend-codegen = {version="0.9", default-features = false}
+build-util = {path="../build-util"}
 
 [features]
 default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
@@ -120,8 +120,8 @@ flydra-uds = ["flydra-feature-detector/flydra-uds"]
 posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 
 # Serve style
-bundle_files = ["bui-backend/bundle_files", "bui-backend-codegen/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
-serve_files = ["bui-backend/serve_files", "bui-backend-codegen/serve_files", "flydra2?/serve_files"]
+bundle_files = ["bui-backend/bundle_files", "build-util/bundle_files", "includedir", "phf", "flydra2?/bundle_files" ]
+serve_files = ["bui-backend/serve_files", "build-util/serve_files", "flydra2?/serve_files"]
 
 imtrack-dark-circle = []
 imtrack-absdiff = []

@@ -12,8 +12,10 @@ echo $ORIG_DIR
 cd /tmp
 curl -O --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2022-03-21
 
-# Note: this is not a good general-purpose way to install wasm-pack, because it does not install wasm-bindgen.
-# Instead, use the installer at https://rustwasm.github.io/wasm-pack/installer/.
+# Note: this is not a good general-purpose way to install wasm-pack, because it
+# does not install wasm-bindgen. Instead, use the installer at
+# https://rustwasm.github.io/wasm-pack/installer/. We use this approach here
+# because it is faster for our CI builds.
 mkdir -p $CARGO_HOME/bin && curl --show-error --fail --silent https://internal-static.strawlab.org/software/wasm-pack/wasm-pack-0.8.1-amd64.exe > $CARGO_HOME/bin/wasm-pack
 chmod a+x $CARGO_HOME/bin/wasm-pack
 export PATH="$PATH:$CARGO_HOME/bin"
@@ -21,9 +23,5 @@ wasm-pack --version
 
 # TODO: include firmware bundled
 rustc --version
-
-curl --show-error --fail --silent https://internal-static.strawlab.org/software/opencv/opencv-4.5.5-static.tar.gz > /tmp/opencv-4.5.5-static.tar.gz
-echo "6dfc8bed523fd1833beb2bdde264863dc4cf49670e635bc987f01fd85638a7e6  /tmp/opencv-4.5.5-static.tar.gz" | sha256sum -c
-tar xzf /tmp/opencv-4.5.5-static.tar.gz -C /
 
 cd $ORIG_DIR

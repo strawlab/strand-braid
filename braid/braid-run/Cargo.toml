@@ -6,29 +6,66 @@ homepage = "https://strawlab.org/braid"
 edition = "2021"
 rust-version = "1.59"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build-dependencies]
+build-util = {path="../../build-util"}
 
 [dependencies]
+
 log = { version = "0.4", features = ["release_max_level_debug"] }
+env_logger = "0.8"
+configure = "0.1.1"
+thiserror = "1"
 anyhow = "1.0"
+parking_lot = "0.12"
+serde = "1.0"
+serde_json = "1.0"
+toml = "0.5"
+regex = "1.0"
+url = "2"
+braid-triggerbox = "0.3.4"
+chrono = "0.4"
+futures = "0.3"
+tokio = {version="1.0.1", default-features=false, features=["sync","rt","net"]}
+tokio-util = {version = "0.6", features=["codec","net"]}
+stream-cancel = "0.8"
+bytes = "1.0"
+clap = "2.20"
+qrcodegen = "1.4"
+image = "0.22"
+hyper = "0.14"
+lazy_static = "1.4"
+ctrlc = { version = "3.1.3", features = ["termination"] }
+csv = "1.1"
+
+includedir = { version = "0.6", optional = true }
+phf = { version = "0.8", optional = true }
+async-change-tracker = "0.3"
+bui-backend-types = "0.8"
+bui-backend = {version="0.14", default-features = false}
+
 structopt = "0.3"
-tokio = {version="1.0.1", default-features=false}
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}
 flydra-pt-detect-cfg = {path = "../../flydra-feature-detector/flydra-pt-detect-cfg"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
-flydra-types = {path="../../flydra-types"}
+flydra-types = {path="../../flydra-types", features=["with-dns"]}
 flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
-flydra2-mainbrain = {path="../../flydra2-mainbrain", default-features = false}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
-
-ci2-pyloncxx = {path="../../ci2-pyloncxx", optional=true}
-ci2-vimba = {path="../../ci2-vimba", optional=true}
+mvg = {path="../../mvg"}
+flydra-mvg = {path="../../flydra-mvg"}
+bui-backend-session = {path="../../bui-backend-session"}
+flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
+ci2-remote-control = {path = "../../ci2-remote-control"}
+datetime-conversion = {path = "../../datetime-conversion"}
 
 [features]
-backtrace = ["flydra2/backtrace"]
+default = ["bundle_files"]
+
+deadlock_detection = ["parking_lot/deadlock_detection"]
 
 # BUI frontend
-bundle_files = ["flydra2-mainbrain/bundle_files"]
-serve_files = ["flydra2-mainbrain/serve_files"]
+bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "build-util/bundle_files", "includedir", "phf"]
+serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "build-util/serve_files"]
+
+backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]

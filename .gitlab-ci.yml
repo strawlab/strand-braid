@@ -15,6 +15,7 @@ test_crates:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -299,6 +300,7 @@ build-api-docs:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     # build docs for braid-run
@@ -380,6 +382,7 @@ strand-cam-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -418,6 +421,7 @@ strand-cam-vimba-ubuntu2004:
 
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-ubuntu-20.04-vimba.sh
     - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
@@ -453,6 +457,7 @@ py-strandcam-pylon-linux:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -509,6 +514,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -669,7 +675,7 @@ braid-ubuntu2004:
     # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/flydra2-mainbrain/frontend
+    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
     - ./build.sh
 
     - mkdir -p $CI_PROJECT_DIR/build
@@ -776,3 +782,25 @@ strand-braid-ubuntu-2004:
     paths:
       - strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     name: "strand-braid-ubuntu-2004-${CI_COMMIT_TAG}"
+
+build_simple:
+  image: ubuntu:focal
+  script:
+    # Install cargo and wasm-pack
+    - _packaging/setup-ubuntu-20.04.sh
+    # Put them on the path
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    # Install Pylon
+    - _packaging/setup-ubuntu-20.04-pylon.sh
+
+    # Build strand-cam-pylon with simplest build configuration possible
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
+    - wasm-pack build --target web
+    - cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cargo build --release
+
+    # Build braid-run with simplest build configuration possible
+    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
+    - wasm-pack build --target web
+    - cd $CI_PROJECT_DIR/braid/braid-run
+    - cargo build --release

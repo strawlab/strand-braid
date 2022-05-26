@@ -1,43 +1,20 @@
-use std::io::Write;
-use std::process::Command;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    build_util::git_hash(env!("CARGO_PKG_VERSION"))?;
 
-fn git_hash() -> String {
-    let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
-        .output()
-        .expect("git");
-    String::from_utf8(output.stdout)
-        .expect("from_utf8")
-        .trim()
-        .to_string()
-}
+    let frontend_dir = std::path::PathBuf::from("braid_frontend");
+    let frontend_pkg_dir = frontend_dir.join("pkg");
 
-fn main() {
-    #[cfg(not(any(feature = "bundle_files", feature = "serve_files")))]
-    compile_error!(
-        "no file source selected. Either 'bundle_files'  or 'serve_files' cargo feature required."
-    );
+    #[cfg(feature = "bundle_files")]
+    if !frontend_pkg_dir.join("braid_frontend.js").exists() {
+        return Err(format!(
+            "The frontend is required but not built. Hint: go to {} and \
+            run `wasm-pack build --target web`.",
+            frontend_dir.display()
+        )
+        .into());
+    }
 
-    let git_rev = git_hash();
-    println!("cargo:rustc-env=GIT_HASH={}", git_rev);
+    build_util::bui_backend_generate_code(&frontend_pkg_dir, "mainbrain_frontend.rs")?;
 
-    let codegen_fname = "braid-version.json";
-    let buf = format!(
-        "{{\"version\": \"{}\", \"rev\": \"{}\"}}",
-        env!("CARGO_PKG_VERSION"),
-        git_rev
-    );
-    let out_dir = std::env::var("OUT_DIR").unwrap();
-    let dest_path = std::path::Path::new(&out_dir)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join(codegen_fname);
-    std::fs::File::create(dest_path)
-        .unwrap()
-        .write_all(buf.as_bytes())
-        .unwrap();
+    Ok(())
 }

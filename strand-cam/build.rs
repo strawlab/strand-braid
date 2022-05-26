@@ -1,25 +1,19 @@
-extern crate bui_backend_codegen;
+fn main() -> Result<(), Box<(dyn std::error::Error)>> {
+    build_util::git_hash(env!("CARGO_PKG_VERSION"))?;
 
-use std::process::Command;
+    let frontend_dir = std::path::PathBuf::from("yew_frontend");
+    let frontend_pkg_dir = frontend_dir.join("pkg");
 
-fn git_hash() -> String {
-    let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
-        .output()
-        .expect("git");
-    String::from_utf8(output.stdout)
-        .expect("from_utf8")
-        .trim()
-        .to_string()
-}
+    #[cfg(feature = "bundle_files")]
+    if !frontend_pkg_dir.join("strand_cam_frontend_yew.js").exists() {
+        return Err(format!(
+            "The frontend is required but not built. Hint: go to {} and \
+            run `wasm-pack build --target web`.",
+            frontend_dir.display()
+        )
+        .into());
+    }
 
-fn get_files_dir() -> std::path::PathBuf {
-    ["yew_frontend", "pkg"].iter().collect()
-}
-
-fn main() {
-    let git_rev = git_hash();
-    println!("cargo:rustc-env=GIT_HASH={}", git_rev);
-    let files_dir = get_files_dir();
-    bui_backend_codegen::codegen(&files_dir, "frontend.rs").expect("codegen failed");
+    build_util::bui_backend_generate_code(&frontend_pkg_dir, "frontend.rs")?;
+    Ok(())
 }
