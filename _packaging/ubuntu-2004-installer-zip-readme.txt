@@ -25,7 +25,7 @@ This will install the following file, among others: `/opt/vimba/Vimba_5_1/VimbaC
 You should be able to install the .deb file by double clicking on it in a file
 navigator. Alternatively, you can install it from the command line:
 
-    sudo apt install ./strand-braid_0.11.1-1_amd64.deb
+    sudo apt install ./strand-braid_0.12.0-alpha0-1_amd64.deb
 
 ## Running
 
