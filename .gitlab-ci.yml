@@ -414,6 +414,44 @@ strand-cam-pylon-ubuntu2004:
       - build/
     name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
+strand-cam-pylon-ubuntu2204:
+  image: ubuntu:jammy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-22.04.sh
+    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-ubuntu-22.04-pylon.sh
+    - _packaging/setup-ubuntu-22.04-ipp.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - export RUSTFLAGS="-D warnings"
+
+    - rustc --version
+
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/use_ipp" --release
+
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon jammy > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - cp ../target/release/write-debian-changelog $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-pylon-ubuntu2204-${CI_COMMIT_SHA}"
+
 strand-cam-vimba-ubuntu2004:
   image: ubuntu:focal
   variables:
@@ -452,6 +490,45 @@ strand-cam-vimba-ubuntu2004:
     paths:
       - build/
     name: "strand-cam-vimba-ubuntu2004-${CI_COMMIT_SHA}"
+
+strand-cam-vimba-ubuntu2204:
+  image: ubuntu:jammy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+  script:
+    - _packaging/setup-ubuntu-22.04.sh
+    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-ubuntu-22.04-ipp.sh
+    - _packaging/setup-ubuntu-22.04-vimba.sh
+    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+    - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - export RUSTFLAGS="-D warnings"
+
+    - rustc --version
+
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
+
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+      NUM_JOBS=2
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/use_ipp" --release
+
+    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba jammy > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-vimba-ubuntu2204-${CI_COMMIT_SHA}"
 
 py-strandcam-pylon-linux:
   image: ubuntu:focal
@@ -508,6 +585,28 @@ strand-cam-offline-kalmanize-ubuntu2004:
     paths:
       - build/
 
+strand-cam-offline-kalmanize-ubuntu2204:
+  image: ubuntu:jammy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - export RUSTFLAGS="-D warnings"
+
+    # Build without glibc dependency so it runs on cluster with ancient glibc.
+    - rustup target install x86_64-unknown-linux-musl
+
+    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
+    - cargo build --release --target x86_64-unknown-linux-musl
+
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+
 strand-cam-flydratrax-pylon-ubuntu2004:
   image: ubuntu:focal
   variables:
@@ -544,6 +643,42 @@ strand-cam-flydratrax-pylon-ubuntu2004:
       - build/
     name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
+strand-cam-flydratrax-pylon-ubuntu2204:
+  image: ubuntu:jammy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-22.04.sh
+    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-ubuntu-22.04-pylon.sh
+    - _packaging/setup-ubuntu-22.04-ipp.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - export RUSTFLAGS="-D warnings"
+
+    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+
+    - >
+      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
+      OPENCV_STATIC=1
+      PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
+      IPP_STATIC=1
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      NUM_JOBS=2
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/use_ipp" --release
+
+    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - mkdir -p $CI_PROJECT_DIR/build
+    # Rename the target to `strand-cam-flydratrax-pylon`.
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - cd $CI_PROJECT_DIR/write-debian-changelog
+    - cargo build --release
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon jammy > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
+  artifacts:
+    paths:
+      - build/
+    name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
+
 braid-offline-ubuntu2004:
   image: ubuntu:focal
   script:
@@ -566,6 +701,28 @@ braid-offline-ubuntu2004:
       - build/
     name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
+braid-offline-ubuntu2204:
+  image: ubuntu:jammy
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    - export RUSTFLAGS="-D warnings"
+
+    # Build without glibc dependency so it runs on cluster with ancient glibc.
+    - rustup target install x86_64-unknown-linux-musl
+
+    - cd $CI_PROJECT_DIR/braid-offline
+    - cargo build --release --target x86_64-unknown-linux-musl
+
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
+    - cp ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+    name: "braid-offline-ubuntu2204-${CI_COMMIT_SHA}"
+
 braid-process-video-ubuntu2004:
   image: ubuntu:focal
   script:
@@ -585,6 +742,26 @@ braid-process-video-ubuntu2004:
     paths:
       - build/
     name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
+
+braid-process-video-ubuntu2204:
+  image: ubuntu:jammy
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev pkg-config libclang-dev libvpx-dev curl
+
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
+    - cd braid-process-video
+    - cargo test --release --features read-mkv,vpx
+    - cargo build --release --features read-mkv,vpx
+
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
+  artifacts:
+    paths:
+      - build/
+    name: "braid-process-video-ubuntu2204-${CI_COMMIT_SHA}"
 
 slow-braid-process-video-test:
   image: ubuntu:focal
@@ -617,6 +794,23 @@ braidz-cli-ubuntu2004:
       - build/
     name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
+braidz-cli-ubuntu2204:
+  image: ubuntu:jammy
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
+    - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
+    - cargo build --release
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
+  artifacts:
+    paths:
+      - build/
+    name: "braidz-cli-ubuntu2204-${CI_COMMIT_SHA}"
+
 fmf-cli-ubuntu2004:
   image: ubuntu:focal
   script:
@@ -639,6 +833,29 @@ fmf-cli-ubuntu2004:
     paths:
       - build/
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
+
+fmf-cli-ubuntu2204:
+  image: ubuntu:jammy
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
+
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - source $CARGO_HOME/env
+    - export RUSTFLAGS="-D warnings"
+
+    # test mkv-writer start
+    - cd $CI_PROJECT_DIR/mkv-writer
+    - cargo run --features vpx --example save-animation --release -- vp8
+    # test mkv-writer stop
+
+    - cd $CI_PROJECT_DIR/fmf/fmf-cli
+    - cargo build --release --features nv-h264,import-webm,mkv-writer/vpx
+    - mkdir -p $CI_PROJECT_DIR/build
+    - cp ../../target/release/fmf $CI_PROJECT_DIR/build
+  artifacts:
+    paths:
+      - build/
+    name: "fmf-cli-ubuntu2204-${CI_COMMIT_SHA}"
 
 braid-webapps:
   image: rust:1.60.0
@@ -698,6 +915,40 @@ braid-ubuntu2004:
     paths:
       - build/
     name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
+
+braid-ubuntu2204:
+  image: ubuntu:jammy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - _packaging/setup-ubuntu-22.04.sh
+    - export PATH="$PATH:$CARGO_HOME/bin"
+    # - export RUSTFLAGS="-D warnings"
+
+    # build mainbrain web frontend
+    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
+    - ./build.sh
+
+    - mkdir -p $CI_PROJECT_DIR/build
+
+    # build braid-run
+    - cd $CI_PROJECT_DIR/braid/braid-run
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
+    - ldd ../../target/release/braid-run
+    - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
+
+    # build braid
+    - cd $CI_PROJECT_DIR/braid
+    - NUM_JOBS=2 cargo build --release
+    - ldd ../target/release/braid
+    - cp ../target/release/braid $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
+    - cp ../target/release/braid-default-config $CI_PROJECT_DIR/build
+
+  artifacts:
+    paths:
+      - build/
+    name: "braid-ubuntu2204-${CI_COMMIT_SHA}"
 
 led-box-linux:
   image: rust:1.60.0
@@ -782,6 +1033,53 @@ strand-braid-ubuntu-2004:
     paths:
       - strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     name: "strand-braid-ubuntu-2004-${CI_COMMIT_TAG}"
+
+# build the final downloadable .deb
+strand-braid-ubuntu-2204:
+  image: ubuntu:jammy
+  script:
+    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
+    # package list here is probably more than needed, but should contain the required subset.
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
+
+    # Download pylon and install 6 so dpkg figues out the source
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-22.04-pylon.sh
+    # Download vimba and install
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-22.04-vimba.sh
+
+    - mkdir -p strand-braid-ubuntu-2204-${CI_COMMIT_TAG}
+
+    - cd $CI_PROJECT_DIR/_packaging
+    - pwd
+    - ls -l ../build
+    - ldd ../build/strand-cam-offline-kalmanize
+    - ldd ../build/strand-cam-flydratrax-pylon
+    - ldd ../build/strand-cam-pylon
+    - ldd ../build/strand-cam-vimba
+    - make
+    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
+    - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
+
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-2204-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/README.txt
+    - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
+    - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/*.deb
+  needs:
+    - braid-offline-ubuntu2204
+    - braid-process-video-ubuntu2204
+    - braid-ubuntu2204
+    - braidz-cli-ubuntu2204
+    - fmf-cli-ubuntu2204
+    - strand-cam-vimba-ubuntu2204
+    - strand-cam-pylon-ubuntu2204
+    - strand-cam-offline-kalmanize-ubuntu2204
+    - strand-cam-flydratrax-pylon-ubuntu2204
+  # For releases, we should upload the .zip to the github releases page, as the
+  # zip (but not the deb) will include that this is for "ubuntu-2204" in the
+  # filename.
+  artifacts:
+    paths:
+      - strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
+    name: "strand-braid-ubuntu-2204-${CI_COMMIT_TAG}"
 
 build_simple:
   image: ubuntu:focal
