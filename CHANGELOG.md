@@ -10,6 +10,7 @@
 * For Strand Cam and Braid, simplify defaults so that `cargo build --release` is
   as close to just working as possible. The browser frontends still need to be
   built but an explicit compile time error is shown if this remains to be done.
+* Build for Ubuntu 22.04 (Jammy)
 
 ### Changed
 
