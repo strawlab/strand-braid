@@ -415,6 +415,7 @@ strand-cam-pylon-ubuntu2004:
     name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
 
 strand-cam-pylon-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -492,6 +493,7 @@ strand-cam-vimba-ubuntu2004:
     name: "strand-cam-vimba-ubuntu2004-${CI_COMMIT_SHA}"
 
 strand-cam-vimba-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -586,6 +588,7 @@ strand-cam-offline-kalmanize-ubuntu2004:
       - build/
 
 strand-cam-offline-kalmanize-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -644,6 +647,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
 strand-cam-flydratrax-pylon-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -702,6 +706,7 @@ braid-offline-ubuntu2004:
     name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-offline-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
@@ -744,6 +749,7 @@ braid-process-video-ubuntu2004:
     name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-process-video-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev pkg-config libclang-dev libvpx-dev curl
@@ -795,6 +801,7 @@ braidz-cli-ubuntu2004:
     name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 braidz-cli-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
@@ -835,6 +842,7 @@ fmf-cli-ubuntu2004:
     name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
 
 fmf-cli-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
@@ -917,6 +925,7 @@ braid-ubuntu2004:
     name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
 
 braid-ubuntu2204:
+  when: manual
   image: ubuntu:jammy
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -1036,6 +1045,7 @@ strand-braid-ubuntu-2004:
 
 # build the final downloadable .deb
 strand-braid-ubuntu-2204:
+  when: manual
   image: ubuntu:jammy
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
