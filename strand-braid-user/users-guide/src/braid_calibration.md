@@ -99,8 +99,9 @@ We can do the above but making use of bash variables to save typing later `BRAID
     DATAFILE="$BRAIDZ_FILE.h5"
     python ~/src/strand-braid/strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py --no-delete $BRAIDZ_FILE
 
-Note that this conversion requires the program `compute-flydra1-compat` (from
-the `braid-offline` package) to be on your path if you are converting 3D
+Note that this conversion requires the program `compute-flydra1-compat` (this
+should be installed with Strand Camera and Braid by default and is part of the
+the `braid-offline` rust crate) to be on your path if you are converting 3D
 trajectories.
 
 ### Run MultiCamSelfCal on data collected with Braid
