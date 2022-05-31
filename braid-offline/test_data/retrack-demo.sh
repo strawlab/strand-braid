@@ -14,7 +14,7 @@ RUST_LOG=flydra2=trace ../target/debug/braid-offline-retrack -d "$BASE" -o "$RET
 
 # Convert to pytables .h5 format
 rm -f "$RETRACKED.braidz.h5"
-PATH="../target/debug:$PATH" python $NGCU/scripts/convert_kalmanized_csv_to_flydra_h5.py "$RETRACKED.braidz"
+PATH="../target/debug:$PATH" python $NGCU/scripts/convert_braidz_to_flydra_h5.py "$RETRACKED.braidz"
 
 # flydra_analysis_plot_timeseries_2d_3d "$BASE".h5 -k "$BASE".h5 --disable-kalman-smoothing
 flydra_analysis_plot_timeseries_2d_3d "$RETRACKED".braidz.h5 -k "$RETRACKED".braidz.h5 --disable-kalman-smoothing

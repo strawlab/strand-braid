@@ -1,6 +1,6 @@
 """Convert a flydra mainbrain HDF5 file to a directory of CSV files.
 
-This does the inverse of `convert_kalmanized_csv_to_flydra_h5.py`. However,
+This does the inverse of `convert_braidz_to_flydra_h5.py`. However,
 it does not convert all data, just the subset sufficient to re-track.
 """
 import sys

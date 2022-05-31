@@ -188,7 +188,7 @@ where
         out_loc.display()
     );
 
-    let script = "../strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py";
+    let script = "../strand-braid-user/scripts/convert_braidz_to_flydra_h5.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
 
     // This will run the command, which will delete `src`.
