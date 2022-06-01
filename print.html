@@ -520,19 +520,20 @@ Flydra installation.</p>
 <p>By converting from <code>.braidz</code> to a Flydra mainbrain <code>.h5</code> file, you can use the
 wide range of analysis programs from <a href="https://github.com/strawlab/flydra">flydra</a>.</p>
 <p>For example, let's say you have the file <code>20190924_161153.braidz</code> saved by the
-Braid program. We will use the script <code>convert_kalmanized_csv_to_flydra_h5.py</code>
+Braid program. We will use the script <code>convert_braidz_to_flydra_h5.py</code>
 to do this conversion:</p>
-<pre><code>python ~/src/strand-braid/strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py --no-delete 20190924_161153.braidz
+<pre><code>python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
 </code></pre>
 <p>Upon success, there will be a new file saved with the suffix <code>.h5</code>. In this
 case, it will be named <code>20190924_161153.braidz.h5</code>.</p>
 <p>We can do the above but making use of bash variables to save typing later <code>BRAIDZ_FILE</code>.</p>
 <pre><code>BRAIDZ_FILE=20190924_161153.braidz
 DATAFILE=&quot;$BRAIDZ_FILE.h5&quot;
-python ~/src/strand-braid/strand-braid-user/scripts/convert_kalmanized_csv_to_flydra_h5.py --no-delete $BRAIDZ_FILE
+python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
 </code></pre>
-<p>Note that this conversion requires the program <code>compute-flydra1-compat</code> (from
-the <code>braid-offline</code> package) to be on your path if you are converting 3D
+<p>Note that this conversion requires the program <code>compute-flydra1-compat</code> (this
+should be installed with Strand Camera and Braid by default and is part of the
+the <code>braid-offline</code> rust crate) to be on your path if you are converting 3D
 trajectories.</p>
 <h3><a class="header" href="#run-multicamselfcal-on-data-collected-with-braid" id="run-multicamselfcal-on-data-collected-with-braid">Run MultiCamSelfCal on data collected with Braid</a></h3>
 <p>You can collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/c9f20d5f8f4feb7e1fe008cf0ee67fbbc70b1ba0/docs/flydra-sphinx-docs/calibrating.md">the description for Flydra</a></p>
