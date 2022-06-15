@@ -447,17 +447,21 @@ pub struct TextlogRow {
 /// Tracking parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingParams {
-    /// kalman filter parameter
+    /// kalman filter parameter, the state noise covariance matrix Q
     pub motion_noise_scale: f64,
-    /// kalman filter parameter
+    /// kalman filter parameter, used to build the position terms in the initial
+    /// estimate covariance matrix P
     pub initial_position_std_meters: f64,
-    /// kalman filter parameter
+    /// kalman filter parameter, used to build the velocity terms in the initial
+    /// estimate covariance matrix P
     pub initial_vel_std_meters_per_sec: f64,
-    /// kalman filter parameter
+    /// kalman filter parameter, the observation noise covariance matrix R
     pub ekf_observation_covariance_pixels: f64,
-    /// data association parameter
+    /// data association parameter, sets a minimum threshold for using an
+    /// obervation to update an object being tracked.
     pub accept_observation_min_likelihood: f64,
-    /// data association parameter
+    /// Used to compute the maximum allowable covariance before an object is
+    /// "killed" and no longer tracked.
     pub max_position_std_meters: f32,
     /// hypothesis testing parameters
     ///
