@@ -24,6 +24,7 @@
   replace `remote_camera = true` with `start_backend = "remote"`. The default
   setting is now `start_backend = "pylon"` to enable Basler Pylon cameras to
   continue with existing Braid `.toml` configuration files.)
+* Rename command line program `offline-retrack` to `braid-offline-retrack`.
 
 ## 0.11.1 - 2021-12-04
 
