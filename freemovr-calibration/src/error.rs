@@ -46,6 +46,13 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
+    #[error("{source}")]
+    ImageError {
+        #[from]
+        source: image::ImageError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("required tri mesh")]
     RequiredTriMesh,
     #[error("inavlid tri mesh")]

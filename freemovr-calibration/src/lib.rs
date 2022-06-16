@@ -416,8 +416,8 @@ fn debug_image(
         }
     }
     let mut jpeg_buf = Vec::new();
-    let mut encoder = image::jpeg::JPEGEncoder::new_with_quality(&mut jpeg_buf, quality);
-    encoder.encode(&rgb, width, height, image::ColorType::RGB(8))?;
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, quality);
+    encoder.encode(&rgb, width, height, image::ColorType::Rgb8)?;
     let mut f = std::fs::File::create(fname)?;
     {
         use std::io::Write;

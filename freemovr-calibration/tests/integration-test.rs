@@ -81,7 +81,7 @@ fn test_chessboard_corner_finding() {
     let img = image::load_from_memory(buf).unwrap();
 
     let (w, h) = img.dimensions();
-    let rgb = img.to_rgb().into_raw();
+    let rgb = img.into_rgb8().into_raw();
 
     let corners = opencv_calibrate::find_chessboard_corners(&rgb, w, h, 9, 6)
         .unwrap()
@@ -92,7 +92,7 @@ fn test_chessboard_corner_finding() {
     let img = image::load_from_memory(buf).unwrap();
 
     let (w, h) = img.dimensions();
-    let rgb = img.to_rgb().into_raw();
+    let rgb = img.into_rgb8().into_raw();
 
     let corners = opencv_calibrate::find_chessboard_corners(&rgb, w, h, 9, 6).unwrap();
     assert!(corners.is_none());
