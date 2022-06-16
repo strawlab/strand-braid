@@ -50,8 +50,8 @@ struct cv_return_value_double calibrate_camera(
         cv::Mat translationVectors(image_count, 3, CV_64F, (void*)translation_vectors);
 
         // Copy external data into OpenCV data structures
-        std::vector<std::vector<cv::Point3f>> obj_pts;
-        std::vector<std::vector<cv::Point2f>> im_pts;
+        std::vector<std::vector<cv::Point3f> > obj_pts;
+        std::vector<std::vector<cv::Point2f> > im_pts;
 
         int k = 0;
         for( i = 0; i < image_count; i++ ) {
