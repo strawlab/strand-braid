@@ -1,21 +1,21 @@
-use std::{str, sync::Arc};
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use eframe::{egui, epi};
+use eframe::egui;
 
 use log::info;
 
 use crate::box_status::{BoxManager, BoxStatus, Cmd};
 
-pub struct TemplateApp {
+pub struct LedBoxApp {
     available_ports: Vec<String>,
 
     box_manager: Arc<Mutex<BoxManager>>,
     cmd_tx: tokio::sync::mpsc::Sender<Cmd>,
 }
 
-impl TemplateApp {
+impl LedBoxApp {
     pub fn new(
         available_ports: Vec<String>,
         box_manager: Arc<Mutex<BoxManager>>,
@@ -29,28 +29,15 @@ impl TemplateApp {
     }
 }
 
-impl epi::App for TemplateApp {
-    fn name(&self) -> &str {
-        "LED box control"
-    }
-
-    fn on_exit(&mut self) {
+impl eframe::App for LedBoxApp {
+    fn on_exit(&mut self, _gl: &eframe::glow::Context) {
         info!("app sending Cmd::Quit command to serial loop");
         self.cmd_tx.blocking_send(Cmd::Quit).unwrap();
     }
 
-    /// Called once before the first frame.
-    fn setup(
-        &mut self,
-        _ctx: &egui::Context,
-        _frame: &epi::Frame,
-        _storage: Option<&dyn epi::Storage>,
-    ) {
-    }
-
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let Self {
             available_ports,
             box_manager,

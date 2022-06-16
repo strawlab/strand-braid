@@ -15,7 +15,7 @@ tokio-serial = "5.4.1"
 parking_lot = "0.11"
 anyhow = "1"
 byteorder = "1.4"
-eframe = "0.17.0"
+eframe = "0.18.0"
 
 led-box = {path="../led-box"}
 led-box-comms = {path="../led-box-comms"}
