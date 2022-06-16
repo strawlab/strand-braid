@@ -11,7 +11,7 @@ log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.8"
 structopt = "0.3"
 crossbeam-channel = "0.5"
-image = "0.23"
+image = "0.24.2"
 glium = "0.25"
 imagefmt = "4.0.0"
 time = "0.1"
