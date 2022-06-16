@@ -1,6 +1,6 @@
 [package]
 name = "braid-run"
-version =  "0.12.0-alpha0" # braid release synchronized
+version =  "0.12.0-alpha1" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 homepage = "https://strawlab.org/braid"
 edition = "2021"
