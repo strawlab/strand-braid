@@ -363,11 +363,10 @@ publish-api-docs:
     - echo "|1|TVmVl2hQiIk/4ulpa2dBYJ/e/W4=|vTZrgQJrQr9SIzhO/pHBYI18jdY= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
     - echo "|1|FvMsl+rOqeqmmsYydYgAnmSEBBM=|AEa3BGJtS84WFATwXAN+G1jOnss= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
     # Because the gitlab UI does not allow multiline inputs, the key was encoded
-    # with `cat dreamhost | base64 | tr "\n" " "`. Take the gitlab CI variable
+    # with `cat privatekey_filename | base64 | tr "\n" " "`. Take the gitlab CI variable
     # with key STRAWLAB_ORG_SSH_PRIVATE_KEY, save to private SSH key.
-    - echo "$STRAWLAB_ORG_SSH_PRIVATE_KEY" | tr " " "\n" | base64 --decode  > ~/.ssh/id_rsa
-    - chmod go-rx ~/.ssh/id_rsa
-    - cat ~/.ssh/id_rsa
+    - echo "$STRAWLAB_ORG_SSH_PRIVATE_KEY" | tr " " "\n" | base64 --decode  > ~/.ssh/id_ed25519
+    - chmod go-rx ~/.ssh/id_ed25519
     - rsync -az --delete build/latest/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs/latest
   environment:
     name: strand-braid-api-docs
