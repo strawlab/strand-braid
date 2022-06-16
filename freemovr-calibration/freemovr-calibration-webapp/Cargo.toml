@@ -20,7 +20,6 @@ wasm-logger = "0.2.0"
 serde = {version = "1.0", default-features = false, features=["derive"]}
 serde_json = "1.0"
 serde_yaml = "0.8"
-failure = "0.1"
 http = "0.2"
 itertools = "0.7.8"
 chrono = {version="0.4", features=["serde"]}
