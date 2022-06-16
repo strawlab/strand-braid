@@ -45,7 +45,14 @@ fn make_test_point() -> FlydraRawUdpPoint {
 #[test]
 fn test_cbor_point() {
     let pt_orig = make_test_point();
-    let encoded = serde_cbor::ser::to_vec_packed_sd(&pt_orig).unwrap();
+
+    let mut encoded = Vec::new();
+    {
+        use serde::ser::Serialize;
+        let mut serializer = serde_cbor::ser::Serializer::new(&mut encoded);
+        serializer.self_describe().unwrap();
+        pt_orig.serialize(&mut serializer).unwrap();
+    }
 
     // decode it.
     let pt_new: FlydraRawUdpPoint = serde_cbor::from_slice(&encoded).unwrap();
@@ -55,7 +62,14 @@ fn test_cbor_point() {
 #[test]
 fn test_cbor_packet() {
     let packet_orig = make_test_packet();
-    let encoded = serde_cbor::ser::to_vec_packed_sd(&packet_orig).unwrap();
+
+    let mut encoded = Vec::new();
+    {
+        use serde::ser::Serialize;
+        let mut serializer = serde_cbor::ser::Serializer::new(&mut encoded);
+        serializer.self_describe().unwrap();
+        packet_orig.serialize(&mut serializer).unwrap();
+    }
 
     // decode it.
     let packet_new: FlydraRawUdpPacket = serde_cbor::from_slice(&encoded).unwrap();
