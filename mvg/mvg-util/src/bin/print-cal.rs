@@ -1,7 +1,6 @@
 extern crate structopt;
 extern crate mvg;
 extern crate nalgebra as na;
-extern crate itertools;
 #[macro_use]
 extern crate pretty_print_nalgebra;
 
