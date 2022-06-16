@@ -811,6 +811,9 @@ async fn frame_process_task(
     #[cfg(not(feature = "flydra_feat_detect"))]
     std::mem::drop(transmit_feature_detect_settings_tx);
 
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    debug!("Not using FlydraFeatureDetector.");
+
     #[cfg(feature = "flydra_feat_detect")]
     let coord_socket = if let Some(camdata_addr) = camdata_addr {
         // If `camdata_addr` is not None, it is used to set open a socket to send
@@ -820,6 +823,7 @@ async fn frame_process_task(
             &camdata_addr,
         )?)
     } else {
+        debug!("Using FlydraFeatureDetector, but not sending tracked points to braid.");
         None
     };
 

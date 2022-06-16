@@ -114,7 +114,7 @@ backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace
 checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
-flydra-uds = ["flydra-feature-detector/flydra-uds"]
+flydra-uds = ["flydra-feature-detector?/flydra-uds"]
 
 # Priority setting, high priority for camera threads, low priority for bg-image thread
 posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
@@ -130,7 +130,7 @@ flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
     "approx", "strand-cam-storetype/flydratrax", "alga",
     "flydra2", "flydra2/flat-3d", "flydra_feat_detect"]
 
-# build with the flydra-feature-detector, which also requires IPP, fastimage, etc.
+# build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]
 
 debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]

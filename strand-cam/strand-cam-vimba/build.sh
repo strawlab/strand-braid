@@ -12,4 +12,4 @@ PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/
 IPP_STATIC=1 \
 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit" \
 NUM_JOBS=2 \
-cargo build --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
+cargo build --features "strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd" --release
