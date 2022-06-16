@@ -28,7 +28,7 @@ serde = {version="1.0.79",features=["derive"]}
 serde_json = "1.0.29"
 serde_yaml = "0.8.4"
 serde_cbor = "0.11"
-webbrowser = "0.5.2"
+webbrowser = "0.7.1"
 clap = "3.2.5"
 preferences = {git="https://github.com/astraw/preferences-rs", rev="2ad97bda741238d0bcf785d8bcd3ca1cc719fc0b"}
 directories = "4.0.1"
