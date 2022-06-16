@@ -53,7 +53,7 @@ impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     }
 }
 
-assert_impl_all!(val; FlydraFloatTimestampLocal<Triggerbox>, PartialEq);
+assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
 
 impl<S> FlydraFloatTimestampLocal<S> {
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
