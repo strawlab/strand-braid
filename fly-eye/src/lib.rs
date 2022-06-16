@@ -33,7 +33,7 @@ struct Inner {
     uniform_type: shaders::UniformType,
 }
 
-pub fn mainloop(rx: Receiver<DynamicFrame>) -> Result<(), failure::Error> {
+pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_title("Fly Eye");
     let context = glutin::ContextBuilder::new().with_vsync(true);
@@ -213,20 +213,4 @@ fn get_most_recent_frame(
         }
     }
     result
-}
-
-/// run a function returning Result<()> and handle errors.
-// see https://github.com/withoutboats/failure/issues/76#issuecomment-347402383
-pub fn run_func<F: FnOnce() -> Result<(), failure::Error>>(real_func: F) {
-    // Decide which command to run, and run it, and print any errors.
-    if let Err(err) = real_func() {
-        use std::io::Write;
-
-        let mut stderr = std::io::stderr();
-        writeln!(stderr, "Error: {}", err).expect("unable to write error to stderr");
-        for cause in err.iter_causes() {
-            writeln!(stderr, "Caused by: {}", cause).expect("unable to write error to stderr");
-        }
-        std::process::exit(1);
-    }
 }

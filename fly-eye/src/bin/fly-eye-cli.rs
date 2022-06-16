@@ -17,7 +17,7 @@ struct Opt {
     input: PathBuf,
 }
 
-fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
+fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
     let piston_image = image::open(&input_image)?;
 
     let (firehose_tx, firehose_rx) = unbounded();
@@ -43,7 +43,7 @@ fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "fly_eye=info,error");
     }
