@@ -119,8 +119,8 @@ test_crates_rust_1_66:
     - cargo test
     - cd ..
 
-    # strand-cam-offline-kalmanize
-    - cd strand-cam-offline-kalmanize
+    # flytrax-csv-to-braidz
+    - cd flytrax-csv-to-braidz
     - cargo test
     - cd ..
 
@@ -571,7 +571,7 @@ py-strandcam-pylon-linux:
       IPP_SYS=2019
       python setup.py install
 
-strand-cam-offline-kalmanize-ubuntu2004:
+flytrax-csv-to-braidz-ubuntu2004:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -584,16 +584,16 @@ strand-cam-offline-kalmanize-ubuntu2004:
     # Build without glibc dependency so it runs on cluster with ancient glibc.
     - rustup target install x86_64-unknown-linux-musl
 
-    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
+    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
     - cargo build --release --target x86_64-unknown-linux-musl
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
 
-strand-cam-offline-kalmanize-ubuntu2204:
+flytrax-csv-to-braidz-ubuntu2204:
   when: manual
   image: ubuntu:jammy
   variables:
@@ -607,11 +607,11 @@ strand-cam-offline-kalmanize-ubuntu2204:
     # Build without glibc dependency so it runs on cluster with ancient glibc.
     - rustup target install x86_64-unknown-linux-musl
 
-    - cd $CI_PROJECT_DIR/strand-cam-offline-kalmanize
+    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
     - cargo build --release --target x86_64-unknown-linux-musl
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/strand-cam-offline-kalmanize $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
@@ -1020,7 +1020,7 @@ strand-braid-ubuntu-2004:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l ../build
-    - ldd ../build/strand-cam-offline-kalmanize
+    - ldd ../build/flytrax-csv-to-braidz
     - ldd ../build/strand-cam-flydratrax-pylon
     - ldd ../build/strand-cam-pylon
     - ldd ../build/strand-cam-vimba
@@ -1040,7 +1040,7 @@ strand-braid-ubuntu-2004:
     - fmf-cli-ubuntu2004
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
-    - strand-cam-offline-kalmanize-ubuntu2004
+    - flytrax-csv-to-braidz-ubuntu2004
     - strand-cam-flydratrax-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
@@ -1069,7 +1069,7 @@ strand-braid-ubuntu-2204:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l ../build
-    - ldd ../build/strand-cam-offline-kalmanize
+    - ldd ../build/flytrax-csv-to-braidz
     - ldd ../build/strand-cam-flydratrax-pylon
     - ldd ../build/strand-cam-pylon
     - ldd ../build/strand-cam-vimba
@@ -1088,7 +1088,7 @@ strand-braid-ubuntu-2204:
     - fmf-cli-ubuntu2204
     - strand-cam-vimba-ubuntu2204
     - strand-cam-pylon-ubuntu2204
-    - strand-cam-offline-kalmanize-ubuntu2204
+    - flytrax-csv-to-braidz-ubuntu2204
     - strand-cam-flydratrax-pylon-ubuntu2204
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2204" in the

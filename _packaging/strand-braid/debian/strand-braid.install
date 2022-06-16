@@ -6,8 +6,8 @@ braid-run usr/bin
 braid-show-config usr/bin
 braidz-cli usr/bin
 compute-flydra1-compat usr/bin
+flytrax-csv-to-braidz usr/bin
 fmf usr/bin
-strand-cam-offline-kalmanize usr/bin
 strand-cam-pylon usr/bin
 strand-cam-flydratrax-pylon usr/bin
 strand-cam-vimba usr/bin

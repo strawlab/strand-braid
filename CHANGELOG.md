@@ -40,6 +40,8 @@
   available.
 * When saving MKV, FMF and April Tag CSV files, default filenames include the
   camera name.
+* Rename command line program `strand-cam-offline-kalmanize` to
+  `flytrax-csv-to-braidz`.
 
 ### Fixed
 

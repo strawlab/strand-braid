@@ -5,7 +5,7 @@ extern crate lazy_static;
 
 use anyhow::Context;
 
-use strand_cam_offline_kalmanize::{parse_configs_and_run, PseudoCalParams, RowFilter};
+use flytrax_csv_to_braidz::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
 use structopt::StructOpt;
 
@@ -125,7 +125,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,
-        "strand-cam-offline-kalmanize",
+        "flytrax-csv-to-braidz",
     )?;
 
     flydra_csv_temp_dir.close()?;

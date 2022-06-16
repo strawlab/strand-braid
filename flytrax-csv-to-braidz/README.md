@@ -1,4 +1,4 @@
-# strand-cam-offline-kalmanize
+# flytrax-csv-to-braidz
 
 Convert 2D csv files from strand cam into tracks in .braidz file by tracking
 
@@ -7,7 +7,7 @@ Convert 2D csv files from strand cam into tracks in .braidz file by tracking
 ```text
 # install rust from https://rustup.rs/
 git clone https://github.com/strawlab/strand-braid
-cd strand-braid/strand-cam-offline-kalmanize/
+cd strand-braid/flytrax-csv-to-braidz/
 cargo install --path .
 ```
 

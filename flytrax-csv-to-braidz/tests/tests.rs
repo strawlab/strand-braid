@@ -1,4 +1,4 @@
-use strand_cam_offline_kalmanize::{parse_configs_and_run, RowFilter};
+use flytrax_csv_to_braidz::{parse_configs_and_run, RowFilter};
 
 const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
 const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
