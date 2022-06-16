@@ -6,7 +6,6 @@ use structopt::StructOpt;
 
 use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
-use fly_eye::App;
 
 use formats::pixel_format::RGB8;
 
@@ -18,7 +17,7 @@ struct Opt {
     input: PathBuf,
 }
 
-fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
+fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
     let piston_image = image::open(&input_image)?;
 
     let (firehose_tx, firehose_rx) = unbounded();
@@ -39,13 +38,12 @@ fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
     let dynframe = basic_frame::DynamicFrame::from(frame);
     firehose_tx.send(dynframe).cb_ok();
 
-    let mut app = App { rx: firehose_rx };
-    app.mainloop()?;
+    fly_eye::mainloop(firehose_rx)?;
 
     Ok(())
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "fly_eye=info,error");
     }

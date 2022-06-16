@@ -1,7 +1,3 @@
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
 use std::path::PathBuf;
 
 use clap::Arg;
@@ -244,17 +240,6 @@ fn parse_args(
             )
         }
 
-        #[cfg(feature = "debug-images")]
-        {
-            parser = parser.arg(
-                Arg::with_name("debug_addr")
-                    .long("debug-addr")
-                    .help("The port to open the HTTP server for debug images.")
-                    .default_value(crate::DEBUG_ADDR_DEFAULT)
-                    .takes_value(true),
-            )
-        }
-
         #[cfg(feature = "flydratrax")]
         {
             parser = parser
@@ -367,12 +352,6 @@ fn parse_args(
     let process_frame_priority = parse_sched_policy_priority(&matches)?;
 
     let led_box_device_path = parse_led_box_device(&matches);
-
-    #[cfg(feature = "debug-images")]
-    let debug_addr = matches
-        .value_of("debug_addr")
-        .map(|s| s.parse().unwrap())
-        .expect("required debug_addr");
 
     let braid_addr: Option<String> = matches.value_of("braid_addr").map(Into::into);
 
@@ -517,8 +496,6 @@ fn parse_args(
         led_box_device_path,
         #[cfg(feature = "posix_sched_fifo")]
         process_frame_priority,
-        #[cfg(feature = "debug-images")]
-        debug_addr,
         mainbrain_internal_addr,
         camdata_addr,
         show_url,

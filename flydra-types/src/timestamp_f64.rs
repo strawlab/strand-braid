@@ -45,5 +45,7 @@ where
             "cannot convert f64 NaN into FlydraFloatTimestampLocal",
         ));
     }
-    Ok(FlydraFloatTimestampLocal::from_notnan_f64(val.into()))
+    Ok(FlydraFloatTimestampLocal::from_notnan_f64(
+        val.try_into().unwrap(),
+    ))
 }

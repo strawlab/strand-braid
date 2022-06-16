@@ -18,7 +18,6 @@ timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
 
-# ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 ci2-vimba = { path = "../ci2-vimba", optional = true }
 
@@ -26,7 +25,6 @@ ci2-vimba = { path = "../ci2-vimba", optional = true }
 default = []
 
 # Backend choice
-# backend_aravis = ["ci2-aravis"]
 backend_pyloncxx = ["ci2-pyloncxx"]
 backend_vimba = ["ci2-vimba"]
 

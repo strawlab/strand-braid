@@ -688,7 +688,6 @@ async fn frame_process_task(
     is_starting_tx: tokio::sync::oneshot::Sender<()>,
     #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerInfo,
     process_frame_priority: Option<(i32, i32)>,
-    #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
@@ -696,9 +695,6 @@ async fn frame_process_task(
     #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
     #[cfg(feature = "flydratrax")] save_empty_data2d: SaveEmptyData2dType,
     #[cfg(feature = "flydratrax")] valve: stream_cancel::Valve,
-    #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
-        tokio::sync::oneshot::Receiver<()>,
-    >,
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
         f64,
     >,
@@ -834,13 +830,7 @@ async fn frame_process_task(
         height,
         im_pt_detect_cfg.clone(),
         frame_offset,
-        #[cfg(feature = "debug-images")]
-        debug_addr,
         transmit_feature_detect_settings_tx,
-        #[cfg(feature = "debug-images")]
-        valve.clone(),
-        #[cfg(feature = "debug-images")]
-        debug_image_server_shutdown_rx,
         acquisition_duration_allowed_imprecision_msec,
     )?;
     #[cfg(feature = "flydra_feat_detect")]
@@ -2451,8 +2441,6 @@ pub struct StrandCamArgs {
     #[cfg(feature = "posix_sched_fifo")]
     pub process_frame_priority: Option<(i32, i32)>,
     pub led_box_device_path: Option<String>,
-    #[cfg(feature = "debug-images")]
-    pub debug_addr: std::net::SocketAddr,
     pub mainbrain_internal_addr: Option<MainbrainBuiLocation>,
     pub camdata_addr: Option<RealtimePointsDestAddr>,
     pub show_url: bool,
@@ -2526,8 +2514,6 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "posix_sched_fifo")]
             process_frame_priority: None,
             led_box_device_path: None,
-            #[cfg(feature = "debug-images")]
-            debug_addr: std::str::FromStr::from_str(DEBUG_ADDR_DEFAULT).unwrap(),
             mainbrain_internal_addr: None,
             camdata_addr: None,
             show_url: true,
@@ -2772,8 +2758,6 @@ where
 
     let raise_grab_thread_priority = args.raise_grab_thread_priority;
 
-    #[cfg(feature = "debug-images")]
-    let debug_addr = args.debug_addr;
     #[cfg(feature = "flydra_feat_detect")]
     let tracker_cfg_src = args.tracker_cfg_src;
 
@@ -3067,9 +3051,6 @@ where
     let (model_server_shutdown_tx, model_server_shutdown_rx) =
         tokio::sync::oneshot::channel::<()>();
 
-    #[cfg(feature = "debug-images")]
-    let (debug_image_shutdown_tx, debug_image_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
     let http_server_addr = if let Some(http_server_addr) = args.http_server_addr.as_ref() {
         // In braid, this will be `127.0.0.1:0` to get a free port.
         http_server_addr.clone()
@@ -3221,8 +3202,6 @@ where
                     #[cfg(feature = "flydratrax")]
                     http_camserver_info2,
                     process_frame_priority,
-                    #[cfg(feature = "debug-images")]
-                    debug_addr,
                     mainbrain_info,
                     camdata_addr,
                     led_box_heartbeat_update_arc2,
@@ -3234,8 +3213,6 @@ where
                     save_empty_data2d,
                     #[cfg(feature = "flydratrax")]
                     valve2,
-                    #[cfg(feature = "debug-images")]
-                    Some(debug_image_shutdown_rx),
                     #[cfg(feature = "flydra_feat_detect")]
                     acquisition_duration_allowed_imprecision_msec,
                     new_cam_data,
@@ -4237,11 +4214,6 @@ where
 
             #[cfg(feature = "flydratrax")]
             model_server_shutdown_tx
-                .send(())
-                .expect("sending shutdown to model server");
-
-            #[cfg(feature = "debug-images")]
-            debug_image_shutdown_tx
                 .send(())
                 .expect("sending shutdown to model server");
 

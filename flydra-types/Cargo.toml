@@ -11,13 +11,13 @@ byteorder = "1"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
 serde = {version="1.0", features=["derive"]}
-serde_cbor = {version="0.9", optional=true}
-tokio-util = {version="0.6", features=["codec"], optional=true}
+serde_cbor = {version="0.11.2", optional=true}
+tokio-util = {version="0.7.3", features=["codec"], optional=true}
 bytes = {version="1.0", optional=true}
 bitflags = "1.0"
 dns-lookup = {version="1", optional=true}
-ordered-float = {version="1", features=["serde"]}
-static_assertions = "0.3"
+ordered-float = {version="3.0.0", features=["serde"]}
+static_assertions = "1.1.0"
 bui-backend-types = "0.8"
 
 withkey = {path="../withkey"}
@@ -34,5 +34,5 @@ with-tokio-codec=["tokio-util", "bytes", "serde_cbor"]
 
 [dev-dependencies]
 anyhow = "1"
-serde_cbor = "0.9"
+serde_cbor = "0.11.2"
 csv = "1.0"

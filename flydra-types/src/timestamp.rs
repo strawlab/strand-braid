@@ -53,12 +53,12 @@ impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     }
 }
 
-assert_impl_all!(val; FlydraFloatTimestampLocal<Triggerbox>, PartialEq);
+assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
 
 impl<S> FlydraFloatTimestampLocal<S> {
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
         let value_f64 = datetime_conversion::datetime_to_f64(dt);
-        let value_f64 = value_f64.into();
+        let value_f64 = value_f64.try_into().unwrap();
         let source = std::marker::PhantomData;
         Self { value_f64, source }
     }
@@ -68,7 +68,7 @@ impl<S> FlydraFloatTimestampLocal<S> {
             !value_f64.is_nan(),
             "cannot convert NaN to FlydraFloatTimestampLocal"
         );
-        Self::from_notnan_f64(value_f64.into())
+        Self::from_notnan_f64(value_f64.try_into().unwrap())
     }
 
     pub fn from_notnan_f64(value_f64: NotNan<f64>) -> Self {

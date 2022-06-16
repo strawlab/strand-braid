@@ -11,7 +11,6 @@ rust-version = "1.60"
 path = "src/strand-cam.rs"
 
 [dependencies]
-jemallocator = {version="0.3", optional=true}
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
 bui-backend = {version="0.14", default-features = false}
@@ -29,8 +28,8 @@ serde = {version="1.0.79",features=["derive"]}
 serde_json = "1.0.29"
 serde_yaml = "0.8.4"
 serde_cbor = "0.11"
-webbrowser = "0.5.2"
-clap = "2.32.0"
+webbrowser = "0.7.1"
+clap = "3.2.5"
 preferences = {git="https://github.com/astraw/preferences-rs", rev="2ad97bda741238d0bcf785d8bcd3ca1cc719fc0b"}
 directories = "4.0.1"
 anyhow = "1.0"
@@ -53,7 +52,7 @@ hyper = {version="0.14", features=["client","http1"]}
 hyper-tls = "0.5"
 futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["rt","rt-multi-thread","time","sync"]}
-tokio-util = {version = "0.6", features=["codec"]}
+tokio-util = {version = "0.7.3", features=["codec"]}
 tokio-stream = {version = "0.1.6", features=["time"]}
 dotenv = "0.15.0"
 strand-cam-storetype = {path = "../strand-cam-storetype"}
@@ -82,7 +81,6 @@ human-panic = "1.0.3"
 byteorder = "1.4"
 
 braid-config-data = {path="../braid-config-data"}
-rt-image-viewer = {path="../rt-image-viewer", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}
 camcal = {path="../camcal", optional=true}
 posix-scheduler = { path = "../posix-scheduler", optional=true}
@@ -132,10 +130,6 @@ flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]
-
-debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]
-
-jemalloc = ["jemallocator"]
 
 vpx = ["mkv-writer/vpx"]
 

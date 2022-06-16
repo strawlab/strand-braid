@@ -9,7 +9,6 @@ flydra-mvg = {path="../../flydra-mvg"}
 structopt = "0.3"
 nalgebra = "0.30"
 pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
-itertools = "0.8"
 
 [features]
 backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

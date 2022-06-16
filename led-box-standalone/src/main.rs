@@ -42,7 +42,10 @@ fn main() -> anyhow::Result<()> {
             })
     };
 
-    let app = app::TemplateApp::new(available_ports, box_manager, tx);
     let native_options = eframe::NativeOptions::default();
-    eframe::run_native(Box::new(app), native_options);
+    eframe::run_native(
+        "LED box control",
+        native_options,
+        Box::new(|_cc| Box::new(app::LedBoxApp::new(available_ports, box_manager, tx))),
+    );
 }

@@ -12,4 +12,4 @@ apriltag-sys = "0.2"
 [dev-dependencies]
 machine-vision-formats = "0.1"
 convert-image = { path = "../convert-image" }
-image = {version="0.23", default-features=false, features=["jpeg"]}
+image = {version="0.24.2", default-features=false, features=["jpeg"]}

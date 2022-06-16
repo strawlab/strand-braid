@@ -19,14 +19,12 @@ anyhow = "1"
 
 ci2 = { path = "../ci2" }
 
-# ci2-aravis = { path = "../ci2-aravis", optional = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 
 [features]
 default = []
 
 # Backend choice
-# backend_aravis = ["ci2-aravis"]
 backend_pyloncxx = ["ci2-pyloncxx"]
 
 backtrace = ["ci2/backtrace"]

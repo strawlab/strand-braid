@@ -80,8 +80,6 @@ members = [
     "posix-scheduler",
     "py-strandcam/rust",
     "refraction",
-    "rt-image-viewer",
-    "rt-image-viewer/storetype",
     "simple-frame",
     "simple-obj-parse",
     "strand-cam",
@@ -103,9 +101,7 @@ members = [
 ]
 
 exclude = [
-    "ANCIENT",
     "led-box-firmware",
-    "ci2-aravis", # Exclude for now until we can update it
 ]
 
 [profile.release]

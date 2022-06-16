@@ -914,12 +914,14 @@ where
 
     match opts {
         ImageOptions::Jpeg(quality) => {
-            let mut encoder = image::jpeg::JpegEncoder::new_with_quality(&mut result, quality);
+            let mut encoder =
+                image::codecs::jpeg::JpegEncoder::new_with_quality(&mut result, quality);
             encoder.encode(use_frame, frame.width(), frame.height(), coding)?;
         }
         ImageOptions::Png => {
-            let encoder = image::png::PngEncoder::new(&mut result);
-            encoder.encode(use_frame, frame.width(), frame.height(), coding)?;
+            use image::ImageEncoder;
+            let encoder = image::codecs::png::PngEncoder::new(&mut result);
+            encoder.write_image(use_frame, frame.width(), frame.height(), coding)?;
         }
     }
     Ok(result)

@@ -25,6 +25,9 @@
   setting is now `start_backend = "pylon"` to enable Basler Pylon cameras to
   continue with existing Braid `.toml` configuration files.)
 * Rename command line program `offline-retrack` to `braid-offline-retrack`.
+* Removed jemallocator from `strand-cam` in favor of the default rust allocator.
+  This was added to fix a "corrupted size vs. prev_size" error in 2019, but
+  seems no longer needed.
 
 ## 0.11.1 - 2021-12-04
 

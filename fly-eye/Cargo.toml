@@ -6,15 +6,17 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-failure = "0.1.2"
+anyhow = "1.0.57"
 log = { version = "0.4", features = ["release_max_level_debug"] }
-env_logger = "0.8"
+env_logger = "0.9.0"
 structopt = "0.3"
 crossbeam-channel = "0.5"
-image = "0.23"
-glium = "0.25"
+image = "0.24.2"
+glium = "0.31.0"
+glutin = "0.28.0"
+winit = "0.26.1"
 imagefmt = "4.0.0"
-time = "0.1"
+time = "0.3.9"
 chrono = "0.4"
 
 basic-frame = { path = "../basic-frame" }
