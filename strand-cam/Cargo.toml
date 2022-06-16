@@ -82,7 +82,6 @@ human-panic = "1.0.3"
 byteorder = "1.4"
 
 braid-config-data = {path="../braid-config-data"}
-rt-image-viewer = {path="../rt-image-viewer", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}
 camcal = {path="../camcal", optional=true}
 posix-scheduler = { path = "../posix-scheduler", optional=true}
@@ -132,8 +131,6 @@ flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]
-
-debug-images = ["flydra-feature-detector?/debug-images", "rt-image-viewer"]
 
 jemalloc = ["jemallocator"]
 

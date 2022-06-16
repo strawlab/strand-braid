@@ -28,7 +28,6 @@ ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }
 rust-cam-bui-types = {path="../rust-cam-bui-types" }
 flydra-types = { path = "../flydra-types" }
-rt-image-viewer = { version = "0.1", path = "../rt-image-viewer", optional = true }
 ufmf = {path = "../ufmf"}
 byteorder = "1.1"
 chrono = "0.4"
@@ -56,8 +55,6 @@ anyhow = "1"
 
 [features]
 flydra-uds=["unix_socket"]
-
-debug-images = ["rt-image-viewer"]
 
 linux = ["posix-scheduler","posix-scheduler/linux"]
 

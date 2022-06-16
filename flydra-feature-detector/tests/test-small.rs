@@ -14,28 +14,13 @@ async fn track_small() -> anyhow::Result<()> {
 
     let frame_offset = None;
 
-    #[cfg(feature = "debug-images")]
-    let (_, valve) = stream_cancel::Valve::new();
-
-    #[cfg(feature = "debug-images")]
-    let addr: std::net::SocketAddr = "127.0.0.1:4338".parse()?;
-
-    #[cfg(feature = "debug-images")]
-    let (_shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
     let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("small-test-image".to_string()),
         W,
         H,
         cfg,
         frame_offset,
-        #[cfg(feature = "debug-images")]
-        addr,
         None,
-        #[cfg(feature = "debug-images")]
-        valve,
-        #[cfg(feature = "debug-images")]
-        Some(shutdown_rx),
         None,
     )?;
 

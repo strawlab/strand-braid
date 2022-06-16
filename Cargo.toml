@@ -80,8 +80,6 @@ members = [
     "posix-scheduler",
     "py-strandcam/rust",
     "refraction",
-    "rt-image-viewer",
-    "rt-image-viewer/storetype",
     "simple-frame",
     "simple-obj-parse",
     "strand-cam",

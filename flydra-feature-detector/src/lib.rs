@@ -23,8 +23,6 @@ use machine_vision_formats as formats;
 use serde::Serialize;
 
 use chrono::{DateTime, Utc};
-#[cfg(feature = "debug-images")]
-use std::cell::RefCell;
 use std::{
     fs::File,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket},
@@ -49,9 +47,6 @@ use ufmf::UFMFWriter;
 pub use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
 use http_video_streaming_types::Shape;
 
-#[macro_use]
-mod macros;
-
 mod borrow_fastimage;
 use crate::borrow_fastimage::borrow_fi;
 
@@ -60,12 +55,6 @@ use crate::background_model::{BackgroundModel, NUM_BG_START_IMAGES};
 
 mod errors;
 pub use crate::errors::*;
-
-#[cfg(feature = "debug-images")]
-thread_local!(
-    static RT_IMAGE_VIEWER_SENDER: RefCell<rt_image_viewer::RtImageViewerSender> =
-        RefCell::new(rt_image_viewer::RtImageViewerSender::new().unwrap())
-);
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
@@ -230,8 +219,6 @@ impl TrackingState {
                 )?;
             }
         }
-
-        image_debug!(&absdiff_im_roi_view, "absdiff_im_roi_view");
 
         // mask unused part of absdiff_im to 0
         if let Some(mask_image) = maybe_mask_image {
@@ -494,8 +481,6 @@ pub struct FlydraFeatureDetector {
     clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
     acquisition_histogram: AcquisitionHistogram,
-    #[cfg(feature = "debug-images")]
-    debug_thread_cjh: (thread_control::Control, std::thread::JoinHandle<()>),
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 
     transmit_feature_detect_settings_tx:
@@ -680,25 +665,11 @@ impl FlydraFeatureDetector {
         h: u32,
         cfg: ImPtDetectCfg,
         frame_offset: Option<u64>,
-        #[cfg(feature = "debug-images")] debug_addr: std::net::SocketAddr,
         transmit_feature_detect_settings_tx: Option<
             mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
-        #[cfg(feature = "debug-images")] valve: stream_cancel::Valve,
-        #[cfg(feature = "debug-images")] debug_image_server_shutdown_rx: Option<
-            tokio::sync::oneshot::Receiver<()>,
-        >,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
     ) -> Result<Self> {
-        #[cfg(feature = "debug-images")]
-        let debug_thread_cjh = rt_image_viewer::initialize_rt_image_viewer(
-            valve,
-            debug_image_server_shutdown_rx,
-            b"secret",
-            &debug_addr,
-        )
-        .expect("starting debug image viewer");
-
         let ros_cam_name = orig_cam_name.to_ros();
 
         let acquisition_histogram =
@@ -714,8 +685,6 @@ impl FlydraFeatureDetector {
             clock_model: None,
             frame_offset,
             acquisition_histogram,
-            #[cfg(feature = "debug-images")]
-            debug_thread_cjh,
             acquisition_duration_allowed_imprecision_msec,
             transmit_feature_detect_settings_tx,
         };
@@ -845,7 +814,6 @@ impl FlydraFeatureDetector {
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
         );
-        image_debug!(&raw_im_full, "raw_im_full");
 
         if *raw_im_full.size() != self.roi_sz {
             return Err(Error::ImageSizeChanged(
