@@ -103,7 +103,6 @@ members = [
 exclude = [
     "ANCIENT",
     "led-box-firmware",
-    "ci2-aravis", # Exclude for now until we can update it
 ]
 
 [profile.release]
