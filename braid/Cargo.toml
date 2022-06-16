@@ -11,7 +11,7 @@ toml = "0.5"
 structopt = "0.3"
 log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
-dotenv = "0.13"
+dotenv = "0.15"
 chrono = "0.4"
 human-panic = "1.0.3"
 
