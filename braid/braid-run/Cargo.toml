@@ -26,7 +26,7 @@ braid-triggerbox = "0.3.4"
 chrono = "0.4"
 futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["sync","rt","net"]}
-tokio-util = {version = "0.6", features=["codec","net"]}
+tokio-util = {version = "0.7.3", features=["codec","net"]}
 stream-cancel = "0.8"
 bytes = "1.0"
 clap = "2.20"
