@@ -6,7 +6,6 @@ use structopt::StructOpt;
 
 use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
-use fly_eye::App;
 
 use formats::pixel_format::RGB8;
 
@@ -39,8 +38,7 @@ fn fly_eye_cli(input_image: PathBuf) -> Result<(), failure::Error> {
     let dynframe = basic_frame::DynamicFrame::from(frame);
     firehose_tx.send(dynframe).cb_ok();
 
-    let mut app = App { rx: firehose_rx };
-    app.mainloop()?;
+    fly_eye::mainloop(firehose_rx)?;
 
     Ok(())
 }
