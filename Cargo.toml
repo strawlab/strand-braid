@@ -101,7 +101,6 @@ members = [
 ]
 
 exclude = [
-    "ANCIENT",
     "led-box-firmware",
 ]
 
