@@ -445,30 +445,67 @@ pub struct TextlogRow {
 }
 
 /// Tracking parameters
+///
+/// The terminology used is as defined at [the Wikipedia page on the Kalman
+/// filter](https://en.wikipedia.org/wiki/Kalman_filter).
+///
+/// The state estimated is a six component vector with position and velocity
+/// **x** = \<x, y, z, x', y', z'\>.
+///
+/// The state covariance matrix **P** is initialized with the value (α is
+/// defined in the field `initial_position_std_meters` and β is defined in the
+/// field `initial_vel_std_meters_per_sec`):<br/>
+/// **P**<sub>initial</sub> = [[α<sup>2</sup>, 0, 0, 0, 0, 0],<br/>
+/// [0, α<sup>2</sup>, 0, 0, 0, 0],<br/>
+/// [0, 0, α<sup>2</sup>, 0, 0, 0],<br/>
+/// [0, 0, 0, β<sup>2</sup>, 0, 0],<br/>
+/// [0, 0, 0, 0, β<sup>2</sup>, 0],<br/>
+/// [0, 0, 0, 0, 0, β<sup>2</sup>]]
+///
+/// The covariance of the state process update **Q**(τ) is defined as a function
+/// of τ, the time interval from the previous update):<br/>
+/// **Q**(τ) = `motion_noise_scale` [[τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2, 0,
+/// 0],<br/>
+/// [0, τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2, 0],<br/>
+/// [0, 0, τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2],<br/>
+/// [τ<sup>2</sup>/2, 0, 0, τ, 0, 0],<br/>
+/// [0, τ<sup>2</sup>/2, 0, 0, τ, 0],<br/>
+/// [0, 0, τ<sup>2</sup>/2, 0, 0, τ]]
+///
+/// Note that this form of the state process update covariance has the property
+/// that 2**Q**(τ) = **Q**(2τ). In other words, two successive additions of this
+/// covariance will have an identical effect to a single addtion for twice the
+/// time interval.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingParams {
-    /// kalman filter parameter, the state noise covariance matrix Q
+    /// This is used to scale the state noise covariance matrix **Q** as
+    /// described at the struct-level (Kalman filter parameter).
     pub motion_noise_scale: f64,
-    /// kalman filter parameter, used to build the position terms in the initial
-    /// estimate covariance matrix P
+    /// This is α in the above formula used to build the position terms in the
+    /// initial estimate covariance matrix **P** as described at the
+    /// struct-level (Kalman filter parameter).
     pub initial_position_std_meters: f64,
-    /// kalman filter parameter, used to build the velocity terms in the initial
-    /// estimate covariance matrix P
+    /// This is β in the above formula used to build the velocity terms in the
+    /// initial estimate covariance matrix **P** as described at the
+    /// struct-level (Kalman filter parameter).
     pub initial_vel_std_meters_per_sec: f64,
-    /// kalman filter parameter, the observation noise covariance matrix R
+    /// The observation noise covariance matrix **R** (Kalman filter
+    /// parameter).
     pub ekf_observation_covariance_pixels: f64,
-    /// data association parameter, sets a minimum threshold for using an
-    /// obervation to update an object being tracked.
+    /// This sets a minimum threshold for using an obervation to update an
+    /// object being tracked (data association parameter).
     pub accept_observation_min_likelihood: f64,
-    /// Used to compute the maximum allowable covariance before an object is
-    /// "killed" and no longer tracked.
+    /// This is used to compute the maximum allowable covariance before an
+    /// object is "killed" and no longer tracked.
     pub max_position_std_meters: f32,
-    /// hypothesis testing parameters
+    /// These are the hypothesis testing parameters used to "birth" a new new
+    /// object and start tracking it.
     ///
     /// This is `None` if 2D (flat-3d) tracking.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hypothesis_test_params: Option<HypothesisTestParams>,
-    /// minimum number of observations before object becomes visible
+    /// This is the minimum number of observations before object becomes
+    /// visible.
     #[serde(default = "default_num_observations_to_visibility")]
     pub num_observations_to_visibility: u8,
 }
