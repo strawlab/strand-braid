@@ -185,11 +185,11 @@ frame in the file are correctly stored.</li>
 <p>If a directory contains a single <code>.braidz</code> file and one or more video files,
 <code>braid-process-video</code> can automatically generate a video with default options.
 In this case run it like so:</p>
-<pre><code>braid-process-video auto-config --input-dir /path/to/video-and-braidz-files
+<pre><code class="language-ignore">braid-process-video auto-config --input-dir /path/to/video-and-braidz-files
 </code></pre>
 <h2><a class="header" href="#example-usage-2-use-of-a-toml-configuration-file" id="example-usage-2-use-of-a-toml-configuration-file">Example usage 2: Use of a <code>.toml</code> configuration file</a></h2>
 <p>Here is an example configuration file <code>braid-bundle-videos.toml</code>:</p>
-<pre><code># The .braidz file with 2D detection data (optional).
+<pre><code class="language-ignore"># The .braidz file with 2D detection data (optional).
 input_braidz = &quot;20211011_163203.braidz&quot;
 
 # This stanza specified that an output video will be made.
@@ -205,7 +205,7 @@ filename = 'movie20211011_163224.mkv'
 filename = 'movie20211011_163228.mkv'
 </code></pre>
 <p>With such a configuration file, run the program like so:</p>
-<pre><code>braid-process-video config-toml --config-toml braid-bundle-videos.toml
+<pre><code class="language-ignore">braid-process-video config-toml --config-toml braid-bundle-videos.toml
 </code></pre>
 <h2><a class="header" href="#todo" id="todo">TODO</a></h2>
 <p>There are many more options which can be configured in the <code>.toml</code> configuration

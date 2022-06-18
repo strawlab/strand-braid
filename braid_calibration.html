@@ -237,12 +237,12 @@ wide range of analysis programs from <a href="https://github.com/strawlab/flydra
 <p>For example, let's say you have the file <code>20190924_161153.braidz</code> saved by the
 Braid program. We will use the script <code>convert_braidz_to_flydra_h5.py</code>
 to do this conversion:</p>
-<pre><code>python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
+<pre><code class="language-ignore">python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
 </code></pre>
 <p>Upon success, there will be a new file saved with the suffix <code>.h5</code>. In this
 case, it will be named <code>20190924_161153.braidz.h5</code>.</p>
 <p>We can do the above but making use of bash variables to save typing later <code>BRAIDZ_FILE</code>.</p>
-<pre><code>BRAIDZ_FILE=20190924_161153.braidz
+<pre><code class="language-ignore">BRAIDZ_FILE=20190924_161153.braidz
 DATAFILE=&quot;$BRAIDZ_FILE.h5&quot;
 python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
 </code></pre>
@@ -254,10 +254,10 @@ trajectories.</p>
 <p>You can collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/c9f20d5f8f4feb7e1fe008cf0ee67fbbc70b1ba0/docs/flydra-sphinx-docs/calibrating.md">the description for Flydra</a></p>
 <p>If your mainbrain <code>.h5</code> file is in the location <code>$DATAFILE</code>, you can run the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>
 program on this data to generate a multiple camera calibration.</p>
-<pre><code>flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
+<pre><code class="language-ignore">flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
 </code></pre>
 <p>This will print various pieces of imformation to the console when it runs. First it will print something like this:</p>
-<pre><code>851 points
+<pre><code class="language-ignore">851 points
 by camera id:
  Basler_40022057: 802
  Basler_40025037: 816
@@ -286,7 +286,7 @@ to change the number of points used.</p>
 </li>
 </ul>
 <p>After running successfully, the console output should look something like this:</p>
-<pre><code>********** After 0 iteration *******************************************
+<pre><code class="language-ignore">********** After 0 iteration *******************************************
 RANSAC validation step running with tolerance threshold: 10.00 ...
 RANSAC: 1 samples, 811 inliers out of 811 points
 RANSAC: 2 samples, 811 inliers out of 811 points
@@ -328,7 +328,7 @@ finished: result in  /home/strawlab/20190924_161153.braidz.h5.recal/result
 <p>The above example calibration is a good one.</p>
 <h3><a class="header" href="#convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid" id="convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid">Convert your new calibration to an XML file which can be used by Braid</a></h3>
 <p>Convert this to XML:</p>
-<pre><code>flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result &gt; new-calibration-name.xml
+<pre><code class="language-ignore">flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result &gt; new-calibration-name.xml
 </code></pre>
 <p>You may now use this new calibration, saved as an XML file, as the calibration
 for Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
@@ -343,10 +343,10 @@ model of movement in which maneuverability is parameterized and tracking
 performance is best when the actual maneuverability statistics match the
 expected statistic.</p>
 <p>So, using the calibration from above, perform 3D tracking of the data with:</p>
-<pre><code>flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
+<pre><code class="language-ignore">flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
 </code></pre>
 <p>You can view these results with:</p>
-<pre><code>DATAFILE_RETRACKED=`python -c &quot;print('${DATAFILE}'[:-3])&quot;`.kalmanized.h5
+<pre><code class="language-ignore">DATAFILE_RETRACKED=`python -c &quot;print('${DATAFILE}'[:-3])&quot;`.kalmanized.h5
 flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
 </code></pre>
 <h3><a class="header" href="#align-your-new-calibration-using-a-gui" id="align-your-new-calibration-using-a-gui">Align your new calibration using a GUI</a></h3>
@@ -374,7 +374,7 @@ In this example, the <code>sample_bowl.xml</code> file outlines a circle with di
 meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
 of diameter 0.33 meters and on the plane which will be Z=0 in our final
 coordinate frame. Here is how to run the GUI program for running the alignment:</p>
-<pre><code>flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+<pre><code class="language-ignore">flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
 </code></pre>
 <h3><a class="header" href="#automatic-alignment-of-calibrations" id="automatic-alignment-of-calibrations">Automatic alignment of calibrations</a></h3>
 <p>As an alternative to using the GUI to perform alignment, it is possible to find

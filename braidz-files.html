@@ -200,12 +200,12 @@ helpful to know about these specifics when problems arise.</p>
 <p>You can extract a <code>.braidz</code> file to its contents with <code>unzip FILENAME.braidz</code>.</p>
 <h3><a class="header" href="#creating-a-braidz-file" id="creating-a-braidz-file">Creating a <code>.braidz</code> file</a></h3>
 <p>You can create a new <code>.braidz</code> file with:</p>
-<pre><code>cd BRAID_DIR
+<pre><code class="language-ignore">cd BRAID_DIR
 zip ../FILENAME.braidz *
 </code></pre>
 <p>Note, your <code>.braidz</code> file should look like this - with no directories other than
 <code>images/</code>.</p>
-<pre><code>$ unzip -l 20191125_093257.braidz
+<pre><code class="language-ignore">$ unzip -l 20191125_093257.braidz
 Archive:  20191125_093257.braidz
 zip-rs
   Length      Date    Time    Name
@@ -230,7 +230,7 @@ zip-rs
 </code></pre>
 <p>Note that the following is NOT a valid <code>.braidz</code> file because it has a leading
 directory name for each entry.</p>
-<pre><code>$ unzip -l 20191119_114103.NOT-A-VALID-BRAIDZ
+<pre><code class="language-ignore">$ unzip -l 20191119_114103.NOT-A-VALID-BRAIDZ
 Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
   Length      Date    Time    Name
 ---------  ---------- -----   ----
