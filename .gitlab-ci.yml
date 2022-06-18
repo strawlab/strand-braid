@@ -1111,3 +1111,10 @@ build_simple:
     - wasm-pack build --target web
     - cd $CI_PROJECT_DIR/braid/braid-run
     - cargo build --release
+
+test_user_guide:
+  image: rust:1.60.0
+  script:
+    - cd strand-braid-user/users-guide
+    - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+    - ./mdbook test
