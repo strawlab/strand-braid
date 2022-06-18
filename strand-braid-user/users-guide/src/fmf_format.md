@@ -46,7 +46,7 @@ and from other formats.
 
 Here is the output `fmf --help`:
 
-```
+```ignore
 strawlab@flycube10:~$
 fmf 0.1.0
 work with .fmf (fly movie format) files

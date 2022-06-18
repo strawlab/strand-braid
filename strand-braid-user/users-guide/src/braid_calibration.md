@@ -88,16 +88,20 @@ For example, let's say you have the file `20190924_161153.braidz` saved by the
 Braid program. We will use the script `convert_braidz_to_flydra_h5.py`
 to do this conversion:
 
-    python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
+```ignore
+python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
+```
 
 Upon success, there will be a new file saved with the suffix `.h5`. In this
 case, it will be named `20190924_161153.braidz.h5`.
 
 We can do the above but making use of bash variables to save typing later `BRAIDZ_FILE`.
 
-    BRAIDZ_FILE=20190924_161153.braidz
-    DATAFILE="$BRAIDZ_FILE.h5"
-    python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
+```ignore
+BRAIDZ_FILE=20190924_161153.braidz
+DATAFILE="$BRAIDZ_FILE.h5"
+python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
+```
 
 Note that this conversion requires the program `compute-flydra1-compat` (this
 should be installed with Strand Camera and Braid by default and is part of the
@@ -111,11 +115,13 @@ You can collect data and calibrate similar to [the description for Flydra](https
 If your mainbrain `.h5` file is in the location `$DATAFILE`, you can run the [MultiCamSelfCal](https://github.com/strawlab/MultiCamSelfCal)
 program on this data to generate a multiple camera calibration.
 
-    flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
+```ignore
+flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
+```
 
 This will print various pieces of imformation to the console when it runs. First it will print something like this:
 
-```
+```ignore
 851 points
 by camera id:
  Basler_40022057: 802
@@ -145,7 +151,7 @@ rough guidelines to provide some orientation:
 
 After running successfully, the console output should look something like this:
 
-```
+```ignore
 ********** After 0 iteration *******************************************
 RANSAC validation step running with tolerance threshold: 10.00 ...
 RANSAC: 1 samples, 811 inliers out of 811 points
@@ -188,7 +194,9 @@ The above example calibration is a good one.
 
 Convert this to XML:
 
-    flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result > new-calibration-name.xml
+```ignore
+flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result > new-calibration-name.xml
+```
 
 You may now use this new calibration, saved as an XML file, as the calibration
 for Braid. Specify the filename of your new XML file as `cal_fname` in the
@@ -207,12 +215,16 @@ expected statistic.
 
 So, using the calibration from above, perform 3D tracking of the data with:
 
-    flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
+```ignore
+flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
+```
 
 You can view these results with:
 
-    DATAFILE_RETRACKED=`python -c "print('${DATAFILE}'[:-3])"`.kalmanized.h5
-    flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
+```ignore
+DATAFILE_RETRACKED=`python -c "print('${DATAFILE}'[:-3])"`.kalmanized.h5
+flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
+```
 
 ### Align your new calibration using a GUI
 
@@ -244,7 +256,9 @@ meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
 of diameter 0.33 meters and on the plane which will be Z=0 in our final
 coordinate frame. Here is how to run the GUI program for running the alignment:
 
-    flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+```ignore
+flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+```
 
 ### Automatic alignment of calibrations
 

@@ -24,4 +24,6 @@ specified on the command line, along with any other options.
 In the following example, the Strand Camera will open the camera named
 `Basler-12345` and will connect to Braid running at `http://127.0.0.1:44444`.
 
-    strand-cam-pylon --camera-name Basler-12345 --braid_addr http://127.0.0.1:44444
+```ignore
+strand-cam-pylon --camera-name Basler-12345 --braid_addr http://127.0.0.1:44444
+```

@@ -57,13 +57,15 @@ You can extract a `.braidz` file to its contents with `unzip FILENAME.braidz`.
 
 You can create a new `.braidz` file with:
 
-    cd BRAID_DIR
-    zip ../FILENAME.braidz *
+```ignore
+cd BRAID_DIR
+zip ../FILENAME.braidz *
+```
 
 Note, your `.braidz` file should look like this - with no directories other than
 `images/`.
 
-```
+```ignore
 $ unzip -l 20191125_093257.braidz
 Archive:  20191125_093257.braidz
 zip-rs
@@ -91,7 +93,7 @@ zip-rs
 Note that the following is NOT a valid `.braidz` file because it has a leading
 directory name for each entry.
 
-```
+```ignore
 $ unzip -l 20191119_114103.NOT-A-VALID-BRAIDZ
 Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
   Length      Date    Time    Name
