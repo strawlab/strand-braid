@@ -40,20 +40,28 @@ pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixel
 
 // Ideas for future:
 //
+// Make tracking model and parameters "pluggable" so that other models - with
+// different structure - can be easily used.
+//
 // **statistics cache for data2d_distorted** We could keep a statistics cache as
 // we write a braidz file for things like num found points, average and maximum
 // values etc. This could be periodically flushed to disk and recomputed anytime
 // but would eliminate most needs to iterate over the entire dataset at read
 // time.
 //
-// **statistics cache for kalman_estimages** Same as above but 3D.
+// **statistics cache for kalman_estimates** Same as above but 3D.
 //
 // Cache the camera pixel sizes. Currently this can be found if images are saved
 // or if the a camera calibration is present. The images in theory are always
 // there but this is not currently implemented in the strand-cam "flydratrax"
 // mode. Even when that is fixed, to simply read the image size that way will
 // require parsing an entire image parser.
-
+//
+// Replace `TrackingParams.initial_position_std_meters` and
+// `TrackingParams.initial_vel_std_meters_per_sec` with a scaled version of the
+// process covariance matrix Q. According to this ([p.
+// 18](https://www.robots.ox.ac.uk/~ian/Teaching/Estimation/LectureNotes2.pdf)),
+// this approach is common with a scale factor of 10.
 // --------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -450,11 +458,13 @@ pub struct TextlogRow {
 /// filter](https://en.wikipedia.org/wiki/Kalman_filter).
 ///
 /// The state estimated is a six component vector with position and velocity
-/// **x** = \<x, y, z, x', y', z'\>.
+/// **x** = \<x, y, z, x', y', z'\>. The motion model is a constant velocity
+/// model with noise term, (see
+/// [description](https://webee.technion.ac.il/people/shimkin/Estimation09/ch8_target.pdf)).
 ///
 /// The state covariance matrix **P** is initialized with the value (α is
-/// defined in the field `initial_position_std_meters` and β is defined in the
-/// field `initial_vel_std_meters_per_sec`):<br/>
+/// defined in the field [TrackingParams::initial_position_std_meters] and β is
+/// defined in the field [TrackingParams::initial_vel_std_meters_per_sec]:<br/>
 /// **P**<sub>initial</sub> = [[α<sup>2</sup>, 0, 0, 0, 0, 0],<br/>
 /// [0, α<sup>2</sup>, 0, 0, 0, 0],<br/>
 /// [0, 0, α<sup>2</sup>, 0, 0, 0],<br/>
@@ -464,7 +474,7 @@ pub struct TextlogRow {
 ///
 /// The covariance of the state process update **Q**(τ) is defined as a function
 /// of τ, the time interval from the previous update):<br/>
-/// **Q**(τ) = `motion_noise_scale` [[τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2, 0,
+/// **Q**(τ) = [TrackingParams::motion_noise_scale] [[τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2, 0,
 /// 0],<br/>
 /// [0, τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2, 0],<br/>
 /// [0, 0, τ<sup>3</sup>/3, 0, 0, τ<sup>2</sup>/2],<br/>

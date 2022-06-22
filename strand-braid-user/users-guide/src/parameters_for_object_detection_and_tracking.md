@@ -45,4 +45,9 @@ section of the API.
 ### Optimization
 
 For the 3D parameters, this is more difficult. I think I have some emails from the past year or two with Floris van Breugel where I discussed this. Let me see if I can find those.
+
+A principled approach would start with ideas such as these:
+
+ - https://www.robots.ox.ac.uk/~ian/Teaching/Estimation/LectureNotes2.pdf
+ - https://arxiv.org/pdf/1807.08855.pdf
 -->
