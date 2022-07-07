@@ -163,7 +163,7 @@ pub fn piston_to_frame(
     })
 }
 
-/// Copy an input image to a pre-allocated RGB8 buffer.
+/// Copy an YUV422 input image to a pre-allocated RGB8 buffer.
 fn yuv422_into_rgb(
     frame: &dyn ImageStride<formats::pixel_format::YUV422>,
     dest: &mut ImageBufferMutRef<RGB8>,
@@ -426,6 +426,35 @@ fn rgb8_into_mono8(
         let y_iter = src_row[..w * 3]
             .chunks_exact(3)
             .map(|rgb| RGB888toY4(rgb[0], rgb[1], rgb[2]));
+
+        let dest_iter = dest_row[0..w].iter_mut();
+
+        for (ydest, y) in dest_iter.zip(y_iter) {
+            *ydest = y;
+        }
+    }
+
+    Ok(())
+}
+
+/// Convert YUV444 image data into pre-allocated Mono8 buffer.
+fn yuv444_into_mono8(
+    frame: &dyn ImageStride<formats::pixel_format::YUV444>,
+    dest: &mut ImageBufferMutRef<Mono8>,
+    dest_stride: usize,
+) -> Result<()> {
+    let luma_size = frame.height() as usize * dest_stride;
+    if dest.data.len() != luma_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
+
+    let w = frame.width() as usize;
+    for (src_row, dest_row) in frame
+        .image_data()
+        .chunks_exact(frame.stride())
+        .zip(dest.data.chunks_exact_mut(dest_stride))
+    {
+        let y_iter = src_row[..w * 3].chunks_exact(3).map(|yuv444| yuv444[0]);
 
         let dest_iter = dest_row[0..w].iter_mut();
 
@@ -790,6 +819,13 @@ where
                         let mut dest2 = force_buffer_pixel_format_ref(dest);
                         rgb8_into_mono8(&tmp, &mut dest2, dest_stride)?;
                     }
+                    Ok(())
+                }
+                formats::pixel_format::PixFmt::YUV444 => {
+                    // .. from YUV444.
+                    let yuv444 = force_pixel_format_ref(frame);
+                    let mut mono8 = force_buffer_pixel_format_ref(dest);
+                    yuv444_into_mono8(&yuv444, &mut mono8, dest_stride)?;
                     Ok(())
                 }
                 _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
@@ -1215,6 +1251,22 @@ mod tests {
         };
         let rgb = convert::<_, formats::pixel_format::RGB8>(&orig)?;
         let actual = convert::<_, formats::pixel_format::Mono8>(&rgb)?;
+        assert_eq!(orig.image_data(), actual.image_data());
+        Ok(())
+    }
+
+    #[test]
+    // Test MONO8->YUV444->MONO8.
+    fn test_mono8_yuv_roundtrip() -> Result<()> {
+        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
+            width: 256,
+            height: 1,
+            stride: 256,
+            image_data: (0u8..=255u8).collect(),
+            fmt: std::marker::PhantomData,
+        };
+        let yuv = convert::<_, formats::pixel_format::YUV444>(&orig)?;
+        let actual = convert::<_, formats::pixel_format::Mono8>(&yuv)?;
         assert_eq!(orig.image_data(), actual.image_data());
         Ok(())
     }
