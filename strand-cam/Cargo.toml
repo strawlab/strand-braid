@@ -43,7 +43,7 @@ ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control" }
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
-basic-frame = { path = "../basic-frame" }
+basic-frame = { path = "../basic-frame", features = ["convert-image"] }
 fmf = {path = "../fmf"}
 ufmf = {path = "../ufmf"}
 chrono = { version = "0.4.6", features = ["serde"] }

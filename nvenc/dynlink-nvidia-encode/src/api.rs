@@ -673,7 +673,7 @@ impl InitParamsBuilder {
     /// Set the frame rate (numerator and denominator)
     ///
     /// Note: "The frame rate has no meaning in NVENC other than deciding rate
-    /// control parameters." https://devtalk.nvidia.com/default/topic/1023473
+    /// control parameters." <https://devtalk.nvidia.com/default/topic/1023473>
     pub fn set_framerate(mut self, num: u32, den: u32) -> Self {
         let ptr = self.init_params.as_mut_ptr();
         unsafe {
