@@ -300,6 +300,7 @@ build-api-docs:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
