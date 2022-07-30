@@ -463,7 +463,7 @@ strand-cam-vimba-ubuntu2004:
     - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-ubuntu-20.04-vimba.sh
-    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -477,7 +477,7 @@ strand-cam-vimba-ubuntu2004:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
@@ -503,7 +503,7 @@ strand-cam-vimba-ubuntu2204:
     - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - _packaging/setup-ubuntu-22.04-vimba.sh
-    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+    - export VIMBAC_LIBDIR="/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -517,7 +517,7 @@ strand-cam-vimba-ubuntu2204:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_5_1/VimbaC/DynamicLib/x86_64bit"
+      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
