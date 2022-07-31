@@ -710,6 +710,7 @@ pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
     #[allow(non_upper_case_globals)]
     let fmt = match code_signed {
         VmbPixelFormatMono8 => Mono8,
+        VmbPixelFormatRgb8 => RGB8,
         // VmbPixelFormatMono10 => Mono10,
         // VmbPixelFormatMono10p => Mono10p,
         // VmbPixelFormatMono12 => Mono12,
