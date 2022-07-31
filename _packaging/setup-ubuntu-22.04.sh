@@ -10,7 +10,7 @@ echo $ORIG_DIR
 # Install nightly Rust. Use specific "known good" version of nightly because
 # occasionally breakage happens.
 cd /tmp
-curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2022-03-21
+curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2022-07-29
 
 # Note: this is not a good general-purpose way to install wasm-pack, because it
 # does not install wasm-bindgen. Instead, use the installer at

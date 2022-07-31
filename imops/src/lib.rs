@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "simd", feature(portable_simd))]
 
+#[cfg(feature = "simd")]
+use std::simd::{SimdFloat, SimdPartialEq, SimdPartialOrd};
+
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.
 
@@ -381,11 +384,11 @@ where
 
             for y in main_row_data.iter_mut() {
                 let indicator = match op {
-                    CmpOp::LessThan => y.lanes_lt(thresh_vec),
-                    CmpOp::LessEqual => y.lanes_le(thresh_vec),
-                    CmpOp::Equal => y.lanes_eq(thresh_vec),
-                    CmpOp::GreaterEqual => y.lanes_ge(thresh_vec),
-                    CmpOp::GreaterThan => y.lanes_gt(thresh_vec),
+                    CmpOp::LessThan => y.simd_lt(thresh_vec),
+                    CmpOp::LessEqual => y.simd_le(thresh_vec),
+                    CmpOp::Equal => y.simd_eq(thresh_vec),
+                    CmpOp::GreaterEqual => y.simd_ge(thresh_vec),
+                    CmpOp::GreaterThan => y.simd_gt(thresh_vec),
                 };
                 *y = indicator.select(avec, bvec);
             }
