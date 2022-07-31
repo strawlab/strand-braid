@@ -1,3 +1,5 @@
+REM Prerequisite: ../yew_frontend/pkg is built. Do this by "build-flydratrax.bat" in yew_frontend.
+
 REM Download opencv-3.2.0-vc14.exe from https://sourceforge.net/projects/opencvlibrary/files/opencv-win/3.2.0/opencv-3.2.0-vc14.exe/download
 REM then expand it in your Downloads directory.
 

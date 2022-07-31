@@ -1,5 +1,7 @@
 REM Prerequisite: ../yew_frontend/pkg is built. Do this by "build-plain.bat" in yew_frontend.
 
+set PYLON_VERSION=6
+
 @REM Download https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
 @REM and unzip into %HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16
 set VPX_VERSION=1.10.0

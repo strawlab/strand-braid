@@ -1,4 +1,4 @@
-REM Prerequisite: ../yew_frontend/pkg is built. Do this by "windows-build-camtrig.bat" in yew_frontend.
+REM Prerequisite: ../yew_frontend/pkg is built. Do this by "build.bat" in yew_frontend.
 
 REM Download opencv-4.5.5-vc14_vc15.exe from https://github.com/opencv/opencv/releases/download/4.5.5/opencv-4.5.5-vc14_vc15.exe
 REM then expand it in your Downloads directory.
