@@ -5,7 +5,6 @@ use anyhow::Result;
 use structopt::StructOpt;
 
 use flydra_types::{MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType};
-// use strand_cam::ImPtDetectCfgSource;
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
