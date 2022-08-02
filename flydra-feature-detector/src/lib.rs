@@ -23,10 +23,7 @@ use machine_vision_formats as formats;
 use serde::Serialize;
 
 use chrono::{DateTime, Utc};
-use std::{
-    fs::File,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket},
-};
+use std::fs::File;
 
 use fastimage::{
     ipp_ctypes, ripp, AlgorithmHint, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion,
@@ -40,7 +37,7 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 use basic_frame::DynamicFrame;
 use flydra_types::{
     get_start_ts, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
-    ImageProcessingSteps, RawCamName, RealtimePointsDestAddr, RosCamName,
+    ImageProcessingSteps, RawCamName, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -397,57 +394,6 @@ struct StartupState {
     mean_squared_im: FastImageData<Chan1, f32>, // "running_sumsq" in realtime_image_analysis
 }
 
-pub enum DatagramSocket {
-    Udp(UdpSocket),
-    #[cfg(feature = "flydra-uds")]
-    Uds(unix_socket::UnixDatagram),
-}
-
-impl std::fmt::Debug for DatagramSocket {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            DatagramSocket::Udp(s) => writeln!(fmt, "DatagramSocket::Udp({:?})", s),
-            #[cfg(feature = "flydra-uds")]
-            DatagramSocket::Uds(s) => writeln!(fmt, "DatagramSocket::Uds({:?})", s),
-        }
-    }
-}
-
-macro_rules! do_send {
-    ($sock:expr, $data:expr) => {{
-        match $sock.send(&$data) {
-            Ok(sz) => {
-                if sz != $data.len() {
-                    return Err(Error::IncompleteSend(
-                        #[cfg(feature = "backtrace")]
-                        Backtrace::capture(),
-                    ));
-                }
-            }
-            Err(err) => {
-                if std::io::ErrorKind::WouldBlock == err.kind() {
-                    warn!("dropping socket data");
-                } else {
-                    error!("error sending socket data: {:?}", err);
-                    return Err(err.into());
-                }
-            }
-        }
-    }};
-}
-
-impl DatagramSocket {
-    pub fn send_complete(&self, x: &[u8]) -> Result<()> {
-        use DatagramSocket::*;
-        match self {
-            Udp(s) => do_send!(s, x),
-            #[cfg(feature = "flydra-uds")]
-            Uds(s) => do_send!(s, x),
-        }
-        Ok(())
-    }
-}
-
 #[inline]
 fn to_f64(dtl: DateTime<Utc>) -> f64 {
     datetime_conversion::datetime_to_f64(&dtl)
@@ -596,62 +542,6 @@ impl AcquisitionHistogram {
                 warn!("{}", msg);
             } else {
                 debug!("{}", msg);
-            }
-        }
-    }
-}
-
-pub fn open_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<DatagramSocket> {
-    info!("Sending detected coordinates to: {:?}", dest_addr);
-
-    let timeout = std::time::Duration::new(0, 1);
-
-    match dest_addr {
-        #[cfg(feature = "flydra-uds")]
-        &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
-            let socket = unix_socket::UnixDatagram::unbound()?;
-            socket.set_write_timeout(Some(timeout))?;
-            info!("UDS connecting to {:?}", uds.filename);
-            socket.connect(&uds.filename)?;
-            Ok(DatagramSocket::Uds(socket))
-        }
-        #[cfg(not(feature = "flydra-uds"))]
-        &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
-            Err(Error::UnixDomainSocketsNotSupported(
-                #[cfg(feature = "backtrace")]
-                Backtrace::capture(),
-            ))
-        }
-        &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
-            let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
-            let mut dest_addrs: Vec<SocketAddr> = dest.to_socket_addrs()?.collect();
-
-            if let Some(dest_sock_addr) = dest_addrs.pop() {
-                // Let OS choose what port to use.
-                let mut src_addr = dest_sock_addr;
-                src_addr.set_port(0);
-                if !dest_sock_addr.ip().is_loopback() {
-                    // Let OS choose what IP to use, but preserve V4 or V6.
-                    match src_addr {
-                        SocketAddr::V4(_) => {
-                            src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
-                        }
-                        SocketAddr::V6(_) => {
-                            src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
-                        }
-                    }
-                }
-
-                let sock = UdpSocket::bind(src_addr)?;
-                sock.set_write_timeout(Some(timeout))?;
-                debug!("UDP connecting to {}", dest);
-                sock.connect(&dest)?;
-                Ok(DatagramSocket::Udp(sock))
-            } else {
-                Err(Error::SocketAddressConversionFailed(
-                    #[cfg(feature = "backtrace")]
-                    Backtrace::capture(),
-                ))
             }
         }
     }

@@ -7,6 +7,9 @@
 
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
+
 #[macro_use]
 extern crate log;
 
@@ -90,6 +93,7 @@ use rust_cam_bui_types::RecordingPath;
 use parking_lot::RwLock;
 use std::fs::File;
 use std::io::Write;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
 
 /// default strand-cam HTTP port when not running in Braid.
@@ -127,7 +131,9 @@ const LED_PROGRAM_PREFS_KEY: &'static str = "led-config";
 #[cfg(feature = "flydratrax")]
 mod flydratrax_handle_msg;
 
+mod datagram_socket;
 mod post_trigger_buffer;
+use datagram_socket::DatagramSocket;
 
 pub mod cli_app;
 
@@ -145,6 +151,12 @@ pub enum StrandCamError {
     AnyhowError(#[from] anyhow::Error),
     #[error("no cameras found")]
     NoCamerasFound,
+    #[error("IncompleteSend")]
+    IncompleteSend(#[cfg(feature = "backtrace")] Backtrace),
+    #[error("unix domain sockets not supported")]
+    UnixDomainSocketsNotSupported(#[cfg(feature = "backtrace")] Backtrace),
+    #[error("conversion to socket address failed")]
+    SocketAddressConversionFailed(#[cfg(feature = "backtrace")] Backtrace),
     #[error("ConvertImageError: {0}")]
     ConvertImageError(
         #[from]
@@ -810,16 +822,13 @@ async fn frame_process_task(
     #[cfg(not(feature = "flydra_feat_detect"))]
     debug!("Not using FlydraFeatureDetector.");
 
-    #[cfg(feature = "flydra_feat_detect")]
     let coord_socket = if let Some(camdata_addr) = camdata_addr {
         // If `camdata_addr` is not None, it is used to set open a socket to send
         // the detected feature information.
         debug!("sending tracked points to {:?}", camdata_addr);
-        Some(flydra_feature_detector::open_destination_addr(
-            &camdata_addr,
-        )?)
+        Some(open_braid_destination_addr(&camdata_addr)?)
     } else {
-        debug!("Using FlydraFeatureDetector, but not sending tracked points to braid.");
+        debug!("Not sending tracked points to braid.");
         None
     };
 
@@ -890,6 +899,12 @@ async fn frame_process_task(
     let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
+
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let mut opt_clock_model = None;
+
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let mut opt_frame_offset = None;
 
     while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
         #[cfg(feature = "flydra_feat_detect")]
@@ -1483,12 +1498,63 @@ async fn frame_process_task(
                         }
                     }
 
+                    let (device_timestamp, block_id, _fno, _stamp) =
+                        frame_info_extractor.extract_frame_info(&frame);
+
+                    #[cfg(not(feature = "flydra_feat_detect"))]
+                    {
+                        use flydra_types::{
+                            get_start_ts, FlydraFloatTimestampLocal, ImageProcessingSteps,
+                        };
+
+                        // if let Some(ref clock_model) = &opt_clock_model {
+                        //     if let Some(ref frame_offset) = &opt_frame_offset {
+                        {
+                            {
+                                // In case we are not doing flydra feature detection, send frame data to braid anyway.
+                                let process_new_frame_start = chrono::Utc::now();
+                                let acquire_stamp = FlydraFloatTimestampLocal::from_dt(
+                                    &frame.extra().host_timestamp(),
+                                );
+                                let opt_trigger_stamp = get_start_ts(
+                                    opt_clock_model.as_ref(),
+                                    opt_frame_offset.clone(),
+                                    frame.extra().host_framenumber() as u64,
+                                );
+                                let preprocess_stamp =
+                                    datetime_conversion::datetime_to_f64(&process_new_frame_start);
+
+                                let tracker_annotation = flydra_types::FlydraRawUdpPacket {
+                                    cam_name: ros_cam_name.as_str().to_string(),
+                                    timestamp: opt_trigger_stamp,
+                                    cam_received_time: acquire_stamp,
+                                    device_timestamp,
+                                    block_id,
+                                    framenumber: frame.extra().host_framenumber() as i32,
+                                    n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
+                                    done_camnode_processing: 0.0,
+                                    preprocess_stamp,
+                                    image_processing_steps: ImageProcessingSteps::empty(),
+                                    points: vec![],
+                                };
+                                if let Some(ref coord_socket) = coord_socket {
+                                    // Send the data to the mainbrain
+                                    let mut vec = Vec::new();
+                                    {
+                                        let mut serializer =
+                                            serde_cbor::ser::Serializer::new(&mut vec);
+                                        serializer.self_describe().unwrap();
+                                        tracker_annotation.serialize(&mut serializer).unwrap();
+                                    }
+                                    coord_socket.send_complete(&vec)?;
+                                }
+                            }
+                        }
+                    }
+
                     #[cfg(feature = "flydra_feat_detect")]
                     {
                         if is_doing_object_detection {
-                            let (device_timestamp, block_id, _fno, _stamp) =
-                                frame_info_extractor.extract_frame_info(&frame);
-
                             let inner_ufmf_state = ufmf_state.take().unwrap();
                             // Detect features in the image and send them to the
                             // mainbrain for 3D processing.
@@ -1989,13 +2055,17 @@ async fn frame_process_task(
                 #[cfg(feature = "flydra_feat_detect")]
                 im_tracker.set_frame_offset(fo);
                 #[cfg(not(feature = "flydra_feat_detect"))]
-                let _ = fo;
+                {
+                    opt_frame_offset = Some(fo);
+                }
             }
             Msg::SetClockModel(cm) => {
                 #[cfg(feature = "flydra_feat_detect")]
                 im_tracker.set_clock_model(cm);
                 #[cfg(not(feature = "flydra_feat_detect"))]
-                let _ = cm;
+                {
+                    opt_clock_model = cm;
+                }
             }
             Msg::StopMkv => {
                 if let Some(mut inner) = my_mkv_writer.take() {
@@ -2023,6 +2093,62 @@ async fn frame_process_task(
         cam_name.as_str()
     );
     Ok(())
+}
+
+fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<DatagramSocket> {
+    info!("Sending detected coordinates to: {:?}", dest_addr);
+
+    let timeout = std::time::Duration::new(0, 1);
+
+    match dest_addr {
+        #[cfg(feature = "flydra-uds")]
+        &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
+            let socket = unix_socket::UnixDatagram::unbound()?;
+            socket.set_write_timeout(Some(timeout))?;
+            info!("UDS connecting to {:?}", uds.filename);
+            socket.connect(&uds.filename)?;
+            Ok(DatagramSocket::Uds(socket))
+        }
+        #[cfg(not(feature = "flydra-uds"))]
+        &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
+            Err(StrandCamError::UnixDomainSocketsNotSupported(
+                #[cfg(feature = "backtrace")]
+                Backtrace::capture(),
+            ))
+        }
+        &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
+            let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
+            let mut dest_addrs: Vec<SocketAddr> = dest.to_socket_addrs()?.collect();
+
+            if let Some(dest_sock_addr) = dest_addrs.pop() {
+                // Let OS choose what port to use.
+                let mut src_addr = dest_sock_addr;
+                src_addr.set_port(0);
+                if !dest_sock_addr.ip().is_loopback() {
+                    // Let OS choose what IP to use, but preserve V4 or V6.
+                    match src_addr {
+                        SocketAddr::V4(_) => {
+                            src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                        }
+                        SocketAddr::V6(_) => {
+                            src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
+                        }
+                    }
+                }
+
+                let sock = UdpSocket::bind(src_addr)?;
+                sock.set_write_timeout(Some(timeout))?;
+                debug!("UDP connecting to {}", dest);
+                sock.connect(&dest)?;
+                Ok(DatagramSocket::Udp(sock))
+            } else {
+                Err(StrandCamError::SocketAddressConversionFailed(
+                    #[cfg(feature = "backtrace")]
+                    Backtrace::capture(),
+                ))
+            }
+        }
+    }
 }
 
 #[cfg(feature = "flydra_feat_detect")]

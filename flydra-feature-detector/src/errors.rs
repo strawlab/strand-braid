@@ -12,8 +12,6 @@ pub enum Error {
     DivideByZero(#[cfg(feature = "backtrace")] Backtrace),
     #[error("image size changed")]
     ImageSizeChanged(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("IncompleteSend")]
-    IncompleteSend(#[cfg(feature = "backtrace")] Backtrace),
     #[error("ExpectedObject")]
     ExpectedObject(#[cfg(feature = "backtrace")] Backtrace),
     #[error("ExpectedNull")]
@@ -24,10 +22,6 @@ pub enum Error {
     FlydraTypeError(#[cfg(feature = "backtrace")] Backtrace),
     #[error("MainbrainQuit")]
     MainbrainQuit(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("unix domain sockets not supported")]
-    UnixDomainSocketsNotSupported(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("conversion to socket address failed")]
-    SocketAddressConversionFailed(#[cfg(feature = "backtrace")] Backtrace),
 
     #[error("CastError({})", _0)]
     CastError(#[from] cast::Error),
