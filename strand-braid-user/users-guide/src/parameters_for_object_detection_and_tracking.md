@@ -17,7 +17,7 @@ results in CSV format with a header including the object detection parameters in
 use at the start of the recording.
 
 The details on implementation and parameters can be found in the
-[ImPtDetectCfg](https://strawlab.org/strand-braid-api-docs/latest/image_tracker_types/struct.ImPtDetectCfg.html)
+[ImPtDetectCfg](https://strawlab.org/strand-braid-api-docs/latest/flydra_feature_detector_types/struct.ImPtDetectCfg.html)
 section of the API.
 
 A more technical account of this procedure can be found in [Straw et al. (2011)](http://dx.doi.org/10.1098/rsif.2010.0230).
