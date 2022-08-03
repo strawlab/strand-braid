@@ -124,6 +124,11 @@ test_crates_rust_1_60:
     - cargo test
     - cd ..
 
+    # strand-cam
+    - cd strand-cam
+    - cargo test --no-default-features  --features serve_files
+    - cd ..
+
     # Test imops
     - cd imops
     - cargo test
