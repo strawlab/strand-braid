@@ -94,40 +94,48 @@ pub struct YUV444 {
     pub V: u8,
 }
 
-#[inline]
-fn clamp(i: i32) -> u8 {
-    if i < 0 {
-        0
-    } else if i > 255 {
-        255
-    } else {
-        i as u8
+#[test]
+fn test_f32_to_u8() {
+    // Validate some conversion assumptions.
+    assert_eq!(-1.0f32 as u8, 0u8);
+    assert_eq!(-2.0f32 as u8, 0u8);
+    assert_eq!(-100.0f32 as u8, 0u8);
+    assert_eq!(255.0f32 as u8, 255u8);
+    assert_eq!(255.1f32 as u8, 255u8);
+    assert_eq!(255.8f32 as u8, 255u8);
+    assert_eq!(5000.0f32 as u8, 255u8);
+}
+
+#[allow(non_snake_case)]
+fn YUV444_bt601_toRGB(Y: u8, U: u8, V: u8) -> RGB888 {
+    // See https://en.wikipedia.org/wiki/YCbCr
+    let Y = Y as f32;
+    let U = U as f32 - 128.0;
+    let V = V as f32 - 128.0;
+
+    let R = 1.0 * Y + 1.402 * V;
+    let G = 1.0 * Y + -0.344136 * U + -0.714136 * V;
+    let B = 1.0 * Y + 1.772 * U;
+
+    RGB888 {
+        R: R as u8,
+        G: G as u8,
+        B: B as u8,
     }
 }
 
 #[allow(non_snake_case)]
-fn YUV444toRGB888(Y: u8, U: u8, V: u8) -> RGB888 {
-    // see http://en.wikipedia.org/wiki/YUV
-    let C: i32 = Y as i32 - 16;
-    let D: i32 = U as i32 - 128;
-    let E: i32 = V as i32 - 128;
-
-    let R: u8 = clamp((298 * C + 409 * E + 128) >> 8);
-    let G: u8 = clamp((298 * C - 100 * D - 208 * E + 128) >> 8);
-    let B: u8 = clamp((298 * C + 516 * D + 128) >> 8);
-
-    RGB888 { R, G, B }
-}
-
-#[allow(non_snake_case)]
 #[inline]
-fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
-    let Y = RGB888toY4(R, G, B);
+fn RGB888toYUV444_bt601_full_swing(R: u8, G: u8, B: u8) -> YUV444 {
+    // See http://en.wikipedia.org/wiki/YUV and
+    // https://en.wikipedia.org/wiki/YCbCr. Should we consider converting to f32
+    // representation as in YUV444_bt601_toRGB above?
+    let Y = RGB888toY4_bt601_full_swing(R, G, B);
     let R = R as i32;
     let G = G as i32;
     let B = B as i32;
-    let U = ((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128;
-    let V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+    let U = ((-43 * R - 84 * G + 127 * B + 128) >> 8) + 128;
+    let V = ((127 * R - 106 * G - 21 * B + 128) >> 8) + 128;
     YUV444 {
         Y: Y as u8,
         U: U as u8,
@@ -137,11 +145,14 @@ fn RGB888toYUV444(R: u8, G: u8, B: u8) -> YUV444 {
 
 #[allow(non_snake_case)]
 #[inline]
-fn RGB888toY4(R: u8, G: u8, B: u8) -> u8 {
+fn RGB888toY4_bt601_full_swing(R: u8, G: u8, B: u8) -> u8 {
+    // See http://en.wikipedia.org/wiki/YUV and
+    // https://en.wikipedia.org/wiki/YCbCr. Should we consider converting to f32
+    // representation as in YUV444_bt601_toRGB above?
     let R = R as i32;
     let G = G as i32;
     let B = B as i32;
-    let Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+    let Y = (77 * R + 150 * G + 29 * B + 128) >> 8;
     Y as u8
 }
 
@@ -195,8 +206,8 @@ fn yuv422_into_rgb(
             let v = yuv422_pixpair[2];
             let y2 = yuv422_pixpair[3];
 
-            let tmp_rgb1 = YUV444toRGB888(y1, u, v);
-            let tmp_rgb2 = YUV444toRGB888(y2, u, v);
+            let tmp_rgb1 = YUV444_bt601_toRGB(y1, u, v);
+            let tmp_rgb2 = YUV444_bt601_toRGB(y2, u, v);
 
             result_chunk[0] = tmp_rgb1.R;
             result_chunk[1] = tmp_rgb1.G;
@@ -268,7 +279,8 @@ where
                     .chunks_exact_mut(3)
                     .zip(src_row[..(w * 3)].chunks_exact(3))
                 {
-                    let yuv = RGB888toYUV444(src_pixel[0], src_pixel[1], src_pixel[2]);
+                    let yuv =
+                        RGB888toYUV444_bt601_full_swing(src_pixel[0], src_pixel[1], src_pixel[2]);
                     dest_pixel[0] = yuv.Y;
                     dest_pixel[1] = yuv.U;
                     dest_pixel[2] = yuv.V;
@@ -425,7 +437,7 @@ fn rgb8_into_mono8(
     {
         let y_iter = src_row[..w * 3]
             .chunks_exact(3)
-            .map(|rgb| RGB888toY4(rgb[0], rgb[1], rgb[2]));
+            .map(|rgb| RGB888toY4_bt601_full_swing(rgb[0], rgb[1], rgb[2]));
 
         let dest_iter = dest_row[0..w].iter_mut();
 
@@ -1182,9 +1194,11 @@ mod tests {
 
     #[test]
     fn test_rgb_yuv_roundtrip() {
+        // Related: reversible color transforms (e.g. YCoCg):
+        // https://stackoverflow.com/questions/10566668/lossless-rgb-to-ycbcr-transformation
         let black_rgb = RGB888 { R: 0, G: 0, B: 0 };
-        let black_yuv = RGB888toYUV444(black_rgb.R, black_rgb.G, black_rgb.B);
-        let black_rgb2 = YUV444toRGB888(black_yuv.Y, black_yuv.U, black_yuv.V);
+        let black_yuv = RGB888toYUV444_bt601_full_swing(black_rgb.R, black_rgb.G, black_rgb.B);
+        let black_rgb2 = YUV444_bt601_toRGB(black_yuv.Y, black_yuv.U, black_yuv.V);
         assert_eq!(black_rgb, black_rgb2);
 
         let white_rgb = RGB888 {
@@ -1192,24 +1206,24 @@ mod tests {
             G: 255,
             B: 255,
         };
-        let white_yuv = RGB888toYUV444(white_rgb.R, white_rgb.G, white_rgb.B);
-        let white_rgb2 = YUV444toRGB888(white_yuv.Y, white_yuv.U, white_yuv.V);
+        let white_yuv = RGB888toYUV444_bt601_full_swing(white_rgb.R, white_rgb.G, white_rgb.B);
+        let white_rgb2 = YUV444_bt601_toRGB(white_yuv.Y, white_yuv.U, white_yuv.V);
         assert_eq!(white_rgb, white_rgb2);
 
         for r in 0..255 {
             for g in 0..255 {
                 for b in 0..255 {
                     let expected = RGB888 { R: r, G: g, B: b };
-                    let yuv = RGB888toYUV444(expected.R, expected.G, expected.B);
-                    let actual = YUV444toRGB888(yuv.Y, yuv.U, yuv.V);
+                    let yuv = RGB888toYUV444_bt601_full_swing(expected.R, expected.G, expected.B);
+                    let actual = YUV444_bt601_toRGB(yuv.Y, yuv.U, yuv.V);
                     assert!(
-                        actual.distance(&expected) <= 5,
+                        actual.distance(&expected) <= 7,
                         "expected: {:?}, actual: {:?}",
                         expected,
                         actual
                     );
                     assert!(
-                        actual.max_channel_distance(&expected) <= 3,
+                        actual.max_channel_distance(&expected) <= 4,
                         "expected: {:?}, actual: {:?}",
                         expected,
                         actual
@@ -1238,9 +1252,7 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
     #[test]
-    // Test MONO8->RGB8->MONO8. Currently failing.
     fn test_mono8_rgb_roundtrip() -> Result<()> {
         let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
             width: 256,
@@ -1449,7 +1461,7 @@ where
             ] {
                 let yuv_iter = src_row[..w * 3]
                     .chunks_exact(3)
-                    .map(|rgb| RGB888toYUV444(rgb[0], rgb[1], rgb[2]));
+                    .map(|rgb| RGB888toYUV444_bt601_full_swing(rgb[0], rgb[1], rgb[2]));
 
                 let dest_iter = dest_row[0..w].iter_mut();
 
