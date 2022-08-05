@@ -25,6 +25,8 @@ fn launch_strand_cam(
     camera: BraidCameraConfig,
     mainbrain_internal_addr: MainbrainBuiLocation,
 ) -> Result<()> {
+    use anyhow::Context;
+
     // On initial startup strand cam queries for
     // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
     // provide much info.
@@ -46,10 +48,13 @@ fn launch_strand_cam(
     ));
     debug!("strand cam executable name: \"{}\"", exe.display());
 
-    let mut exec = std::process::Command::new(exe);
+    let mut exec = std::process::Command::new(&exe);
     exec.args(["--camera-name", &camera.name, "--braid_addr", &base_url]);
     debug!("exec: {:?}", exec);
-    let mut obj = exec.spawn().unwrap();
+    let mut obj = exec.spawn().context(format!(
+        "Starting Strand Cam executable \"{}\"",
+        exe.display()
+    ))?;
     debug!("obj: {:?}", obj);
 
     std::thread::spawn(move || {
