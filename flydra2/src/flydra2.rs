@@ -792,6 +792,7 @@ impl CoordProcessor {
         save_empty_data2d: bool,
         saving_program_name: &str,
         ignore_latency: bool,
+        valve: stream_cancel::Valve,
     ) -> Result<Self> {
         trace!("CoordProcessor using {:?}", recon);
 
@@ -807,6 +808,7 @@ impl CoordProcessor {
         let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
 
         let braidz_write_rx = tokio_stream::wrappers::ReceiverStream::new(braidz_write_rx);
+        let braidz_write_rx = valve.wrap(braidz_write_rx);
 
         let writer_future = writer_task_main(
             braidz_write_rx,

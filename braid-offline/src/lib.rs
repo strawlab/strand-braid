@@ -256,6 +256,12 @@ where
         signal_all_cams_synced,
     );
 
+    // Create `stream_cancel::Valve` for shutting everything down. Note this is
+    // `Clone`, so we can (and should) shut down everything with it. Here we let
+    // _quit_trigger drop when it goes out of scope. This is due to use in this
+    // offline context.
+    let (_quit_trigger, valve) = stream_cancel::Valve::new();
+
     let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);
     let frame_data_rx = tokio_stream::wrappers::ReceiverStream::new(frame_data_rx);
     let save_empty_data2d = true;
@@ -268,6 +274,7 @@ where
         save_empty_data2d,
         saving_program_name,
         ignore_latency,
+        valve,
     )?;
 
     for cam_name in recon.cam_names() {
@@ -521,6 +528,7 @@ where
     // either.
 
     let consume_future = coord_processor.consume_stream(frame_data_rx, expected_framerate);
+
     let (writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
     writer_jh

@@ -1036,6 +1036,7 @@ async fn frame_process_task(
                                     save_empty_data2d,
                                     "strand-cam",
                                     ignore_latency,
+                                    valve.clone(),
                                 )
                                 .expect("create CoordProcessor");
 

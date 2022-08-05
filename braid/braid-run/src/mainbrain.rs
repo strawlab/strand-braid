@@ -26,6 +26,7 @@ use flydra_types::{
     HttpApiShared, PerCamSaveData, RosCamName, SyncFno, TriggerType, Triggerbox,
 };
 
+use futures::StreamExt;
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
 
@@ -380,6 +381,8 @@ pub async fn pre_run(
 
     info!("saving to directory: {}", output_base_dirname.display());
 
+    // Create `stream_cancel::Valve` for shutting everything down. Note this is
+    // `Clone`, so we can (and should) shut down everything with it.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let (model_server_shutdown_tx, model_server_shutdown_rx) =
@@ -462,6 +465,7 @@ pub async fn pre_run(
         save_empty_data2d,
         saving_program_name,
         ignore_latency,
+        valve.clone(),
     )?;
     let braidz_write_tx = coord_processor.get_braidz_write_tx();
 
@@ -478,9 +482,10 @@ pub async fn pre_run(
 
             {
                 // Stop saving Braid data.
+
                 // Do not need to wait for completion because we are going to
                 // exit nicely by manually ending all threads and letting all
-                // drop handlers run œ(without aborting) and thus the program
+                // drop handlers run (without aborting) and thus the program
                 // will finish writing without an explicit wait. (Of course,
                 // this fails during an actual abort).
 
@@ -503,6 +508,7 @@ pub async fn pre_run(
         model_server_shutdown_tx
             .send(())
             .expect("sending quit to model server");
+        debug!("shutdown handler finished {}:{}", file!(), line!());
     });
 
     // This `get_default_config()` function is created by bui_backend_codegen
@@ -752,8 +758,11 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         version: env!("CARGO_PKG_VERSION").into(),
     };
 
-    let (triggerbox_data_tx, mut triggerbox_data_rx) =
+    let (triggerbox_data_tx, triggerbox_data_rx) =
         tokio::sync::mpsc::channel::<braid_triggerbox::TriggerClockInfoRow>(20);
+
+    let triggerbox_data_rx = tokio_stream::wrappers::ReceiverStream::new(triggerbox_data_rx);
+    let mut triggerbox_data_rx = valve.wrap(triggerbox_data_rx);
 
     {
         let braidz_write_tx = braidz_write_tx.clone();
@@ -761,7 +770,12 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
         let mut has_triggerbox_connected = false;
         let triggerbox_future = async move {
-            while let Some(msg) = triggerbox_data_rx.recv().await {
+            debug!(
+                "starting triggerbox listener future {}:{}",
+                file!(),
+                line!()
+            );
+            while let Some(msg) = triggerbox_data_rx.next().await {
                 if !has_triggerbox_connected {
                     has_triggerbox_connected = true;
                     info!("triggerbox is connected.");
@@ -777,6 +791,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     .append_trigger_clock_info_message(msg2)
                     .await;
             }
+            debug!("triggerbox listener future done {}:{}", file!(), line!());
         };
         tokio::spawn(triggerbox_future);
     }
@@ -853,8 +868,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let mut expected_framerate = expected_framerate_arc.write();
             *expected_framerate = Some(rate_actual as f32);
 
-            // triggerbox_cmd = Some(tx);
-
             let triggerbox = braid_triggerbox::TriggerboxDevice::new(
                 on_new_clock_model,
                 device_fname,
@@ -865,9 +878,13 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             )
             .await?;
             let query_dt2 = query_dt.clone();
+            debug!("starting triggerbox task {}:{}", file!(), line!());
             let fut = async move {
                 let result = triggerbox.run_forever(query_dt2).await;
-                error!("triggerbox result: {:?}", result);
+                debug!("triggerbox task done {}:{}", file!(), line!());
+                if let Err(e) = result {
+                    error!("triggerbox result: {:?}", e);
+                }
             };
             let _join_handle = tokio::spawn(fut);
         }
@@ -917,11 +934,14 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
     let time_model_arc2 = time_model_arc.clone();
     let cam_manager2 = cam_manager.clone();
+    let valve2 = valve.clone();
     let sync_start_jh = rt_handle3.spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+        let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
+            std::time::Duration::from_secs(1),
+        ));
+        let mut interval_stream = valve2.wrap(interval_stream);
 
-        loop {
-            let _now = interval.tick().await;
+        while let Some(_now) = interval_stream.next().await {
             let have_triggerbox = signal_triggerbox_connected.load(Ordering::SeqCst);
             let have_all_cameras = signal_all_cams_present.load(Ordering::SeqCst);
 
@@ -943,11 +963,13 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     // Signal cameras are synchronized
 
     let shared_store = my_app.inner.shared_arc().clone();
+    let valve2 = valve.clone();
     let sync_done_jh = rt_handle3.spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-
-        loop {
-            let _now = interval.tick().await;
+        let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
+            std::time::Duration::from_secs(1),
+        ));
+        let mut interval_stream = valve2.wrap(interval_stream);
+        while let Some(_now) = interval_stream.next().await {
             let sync_done = signal_all_cams_synced.load(Ordering::SeqCst);
             if sync_done {
                 info!("All cameras done synchronizing.");
@@ -1017,7 +1039,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                         }
                     };
                 };
-                rt_handle.spawn(fut_no_err); // TODO: spawn
+                rt_handle.spawn(fut_no_err);
             },
         );
 
@@ -1101,6 +1123,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     // We "block" (in an async way) here for the entire runtime of the program.
     let writer_jh = consume_future.await;
+
+    debug!("Runtime ending. Aborting any remaining tasks.");
 
     // If these tasks are still running, cancel them.
     sync_start_jh.abort();

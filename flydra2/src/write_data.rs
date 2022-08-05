@@ -493,7 +493,9 @@ impl Drop for WritingState {
 }
 
 pub(crate) async fn writer_task_main(
-    mut braidz_write_rx: tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,
+    mut braidz_write_rx: stream_cancel::Valved<
+        tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,
+    >,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<TrackingParams>,
@@ -511,6 +513,8 @@ pub(crate) async fn writer_task_main(
 
     let mut last_flushed = Instant::now();
     use futures::stream::StreamExt;
+
+    log::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
     loop {
         match tokio::time::timeout(flush_interval, braidz_write_rx.next()).await {
