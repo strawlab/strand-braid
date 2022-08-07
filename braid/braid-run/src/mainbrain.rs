@@ -47,6 +47,13 @@ const SYNCHRONIZE_DURATION_SEC: u8 = 3;
 enum MainbrainError {
     #[error("The --jwt-secret argument must be passed or the JWT_SECRET environment variable must be set.")]
     JwtError,
+    #[error("{source}")]
+    HyperError {
+        #[from]
+        source: hyper::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
 }
 
 /// The structure that holds our app data
@@ -67,6 +74,7 @@ struct MyCallbackHandler {
     braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
     output_base_dirname: std::path::PathBuf,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
+    http_session_handler: HttpSessionHandler,
 }
 
 impl CallbackHandler for MyCallbackHandler {
@@ -136,7 +144,6 @@ impl CallbackHandler for MyCallbackHandler {
                         .unwrap()
                         .feature_detect_settings = Some(feature_detect_settings.inner);
                 }
-
                 DoRecordCsvTables(value) => {
                     debug!("got DoRecordCsvTables({})", value);
                     toggle_saving_csv_tables(
@@ -148,6 +155,25 @@ impl CallbackHandler for MyCallbackHandler {
                         self.shared_data.clone(),
                     )
                     .await;
+                }
+                DoRecordMkvFiles(start_saving) => {
+                    debug!("got DoRecordMkvFiles({start_saving})");
+
+                    self.http_session_handler
+                        .toggle_saving_mkv_files_all(start_saving)
+                        .await?;
+
+                    {
+                        let mut tracker = self.shared_data.write();
+                        tracker.modify(|store| {
+                            if start_saving {
+                                store.fake_mkv_recording_path =
+                                    Some(RecordingPath::new("".to_string()));
+                            } else {
+                                store.fake_mkv_recording_path = None;
+                            }
+                        });
+                    }
                 }
                 SetExperimentUuid(value) => {
                     debug!("got SetExperimentUuid({})", value);
@@ -187,6 +213,7 @@ async fn new_http_api_app(
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    http_session_handler: HttpSessionHandler,
 ) -> Result<HttpApiApp> {
     // Create our shared state.
     let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
@@ -201,6 +228,7 @@ async fn new_http_api_app(
         output_base_dirname: output_base_dirname.clone(),
         per_cam_data_arc: per_cam_data_arc.clone(),
         braidz_write_tx: braidz_write_tx.clone(),
+        http_session_handler,
     });
 
     let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
@@ -540,6 +568,7 @@ pub async fn pre_run(
     let shared = HttpApiShared {
         fake_sync,
         csv_tables_dirname: None,
+        fake_mkv_recording_path: None,
         clock_model_copy: None,
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
         connected_cameras: Vec::new(),
@@ -605,6 +634,7 @@ pub async fn pre_run(
         per_cam_data_arc.clone(),
         force_camera_sync_mode,
         software_limit_framerate,
+        http_session_handler.clone(),
     )
     .await?;
 
@@ -824,7 +854,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 let mut tracker_guard = tracker.write();
                 tracker_guard.modify(|shared| shared.clock_model_copy = cm.clone());
             }
-            let mut http_session_handler3 = http_session_handler.clone();
+            let http_session_handler3 = http_session_handler.clone();
             handle.spawn(async move {
                 let r = http_session_handler3.send_clock_model_to_all(cm).await;
                 match r {
@@ -1036,7 +1066,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
             |name, frame| {
                 let name2 = name.clone();
-                let mut http_session_handler3 = http_session_handler2.clone();
+                let http_session_handler3 = http_session_handler2.clone();
                 let fut_no_err = async move {
                     match http_session_handler3.send_frame_offset(&name2, frame).await {
                         Ok(_http_response) => {}

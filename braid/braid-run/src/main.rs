@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "backtrace", feature(backtrace))]
+
 #[macro_use]
 extern crate log;
 

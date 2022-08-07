@@ -45,6 +45,7 @@ struct Model {
     fail_msg: String,
     html_page_title: Option<String>,
     recording_path: Option<RecordingPath>,
+    fake_mkv_recording_path: Option<RecordingPath>,
     _listener: EventListener,
 }
 
@@ -54,6 +55,7 @@ enum Msg {
     NewServerState(HttpApiShared),
     FailedDecode(serde_json::Error),
     DoRecordCsvTables(bool),
+    DoRecordMkvFiles(bool),
     SendMessageFetchState(FetchState),
 }
 
@@ -117,6 +119,7 @@ impl Component for Model {
             fail_msg: "".to_string(),
             html_page_title: None,
             recording_path: None,
+            fake_mkv_recording_path: None,
             _listener: listener,
         }
     }
@@ -128,6 +131,7 @@ impl Component for Model {
             }
             Msg::NewServerState(data_result) => {
                 self.recording_path = data_result.csv_tables_dirname.clone();
+                self.fake_mkv_recording_path = data_result.fake_mkv_recording_path.clone();
                 let title = if data_result.csv_tables_dirname.is_none() {
                     data_result.flydra_app_name.clone()
                 } else {
@@ -153,6 +157,17 @@ impl Component for Model {
             Msg::DoRecordCsvTables(val) => {
                 ctx.link().send_future(async move {
                     match post_callback(&HttpApiCallback::DoRecordCsvTables(val)).await {
+                        Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                        Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+                    }
+                });
+                ctx.link()
+                    .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
+                return false; // Don't update DOM, do that when backend notifies us of new state.
+            }
+            Msg::DoRecordMkvFiles(val) => {
+                ctx.link().send_future(async move {
+                    match post_callback(&HttpApiCallback::DoRecordMkvFiles(val)).await {
                         Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
                         Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
                     }
@@ -199,11 +214,19 @@ impl Model {
                 && value.clock_model_copy.is_some()
             {
                 html! {
-                    <RecordingPathWidget
-                    label="Record .braidz file"
-                    value={self.recording_path.clone()}
-                    ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
-                    />
+                    <div>
+                        <RecordingPathWidget
+                        label="Record .braidz file"
+                        value={self.recording_path.clone()}
+                        ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
+                        />
+
+                        <RecordingPathWidget
+                        label="Record .mkv files"
+                        value={self.fake_mkv_recording_path.clone()}
+                        ontoggle={ctx.link().callback(|checked| {Msg::DoRecordMkvFiles(checked)})}
+                        />
+                    </div>
                 }
             } else {
                 html! {

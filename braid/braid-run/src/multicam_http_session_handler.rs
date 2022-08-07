@@ -23,11 +23,10 @@ impl HttpSessionHandler {
     }
 
     async fn post(
-        &mut self,
+        &self,
         cam_name: &RosCamName,
         args: ci2_remote_control::CamArg,
     ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
-        let do_quit_cam_session = args == ci2_remote_control::CamArg::DoQuit;
         let data = CallbackType::ToCamera(args);
         let buf = serde_json::to_vec(&data).unwrap();
         let chunks = vec![Ok::<_, MyError>(buf)];
@@ -98,16 +97,6 @@ impl HttpSessionHandler {
             name_to_session.get_mut(&cam_name_str2).unwrap().clone()
         };
 
-        // If we are telling the camera to quit, we don't want to keep its session around
-        if do_quit_cam_session {
-            let mut name_to_session = name_to_session_arc.write();
-            name_to_session.remove(&cam_name_str);
-            self.cam_manager.remove(&cam_name_str);
-            // TODO: we should cancel the stream of incoming frames so that they
-            // don't get processed after we have removed this camera
-            // information.
-        }
-
         let result = session.post("callback", body).await;
         match &result {
             Ok(response) => {
@@ -121,7 +110,7 @@ impl HttpSessionHandler {
     }
 
     pub async fn send_frame_offset(
-        &mut self,
+        &self,
         cam_name: &RosCamName,
         frame_offset: u64,
     ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
@@ -153,6 +142,15 @@ impl HttpSessionHandler {
         let args = ci2_remote_control::CamArg::DoQuit;
 
         let cam_result = self.post(cam_name, args).await;
+
+        // If we are telling the camera to quit, we don't want to keep its session around
+        let mut name_to_session = self.name_to_session.write();
+        name_to_session.remove(&cam_name);
+        self.cam_manager.remove(&cam_name);
+        // TODO: we should cancel the stream of incoming frames so that they
+        // don't get processed after we have removed this camera
+        // information.
+
         match cam_result {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -195,8 +193,36 @@ impl HttpSessionHandler {
             .await;
     }
 
+    pub async fn toggle_saving_mkv_files_all(
+        &self,
+        start_saving: bool,
+    ) -> Result<(), hyper::Error> {
+        let cam_names = self.cam_manager.all_ros_cam_names();
+        for cam_name in cam_names.iter() {
+            self.toggle_saving_mkv_files(cam_name, start_saving).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn toggle_saving_mkv_files(
+        &self,
+        cam_name: &RosCamName,
+        start_saving: bool,
+    ) -> Result<(), hyper::Error> {
+        debug!(
+            "for cam {}, sending save mkv file {:?}",
+            cam_name.as_str(),
+            start_saving
+        );
+        let cam_name = cam_name.clone();
+
+        let args = ci2_remote_control::CamArg::SetIsRecordingMkv(start_saving);
+        self.post(&cam_name, args).await?;
+        Ok(())
+    }
+
     pub async fn send_clock_model_to_all(
-        &mut self,
+        &self,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
     ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
         let cam_names = self.cam_manager.all_ros_cam_names();
@@ -207,7 +233,7 @@ impl HttpSessionHandler {
     }
 
     pub async fn send_clock_model(
-        &mut self,
+        &self,
         cam_name: &RosCamName,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
     ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {

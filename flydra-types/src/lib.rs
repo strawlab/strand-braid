@@ -330,6 +330,9 @@ pub struct HttpApiShared {
     pub fake_sync: bool,
     pub clock_model_copy: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
+    // This is "fake" because it only signals if each of the connected computers
+    // is recording MKVs.
+    pub fake_mkv_recording_path: Option<RecordingPath>,
     pub calibration_filename: Option<String>,
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
     pub model_server_addr: Option<std::net::SocketAddr>,
@@ -591,8 +594,11 @@ pub enum HttpApiCallback {
     /// Called from strand-cam to update the current feature detection settings
     /// (e.g. threshold different)
     UpdateFeatureDetectSettings(PerCam<UpdateFeatureDetectSettings>),
-    /// Start or stop recording data (csv tables)
+    /// Start or stop recording data (.braid directory with csv tables for later
+    /// .braidz file)
     DoRecordCsvTables(bool),
+    /// Start or stop recording MKV videos for all cameras
+    DoRecordMkvFiles(bool),
     /// set uuid in the experiment_info table
     SetExperimentUuid(String),
 }
