@@ -156,10 +156,16 @@ impl CallbackHandler for MyCallbackHandler {
                         .await;
                 }
             }
+            Ok::<_, MainbrainError>(())
         };
         Box::pin(async {
-            fut.await;
-            Ok(())
+            match fut.await {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    let e: Box<dyn StdError + Send> = Box::new(e);
+                    Err(e)
+                }
+            }
         })
     }
 }
