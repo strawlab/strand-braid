@@ -12,42 +12,188 @@ impl<T> Valid<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OutputConfig {
-    /// The type of output desired. Currently only type "video" is supported.
-    #[serde(rename = "type")]
-    pub type_: String,
-    /// The filename of the output desired.
-    pub filename: String,
-    /// If the output type is "mkv", the options for the emitted MKV file.
-    pub video_options: Option<OutputVideoConfig>,
+pub trait Validate {
+    /// Validate the configuration.
+    ///
+    /// If `basedir` is not `None`, it specifies the directory in which relative
+    /// filenames are searched.
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>>
+    where
+        Self: Sized;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, tag = "type")]
+pub enum OutputConfig {
+    #[serde(rename = "video")]
+    Video(VideoOutputConfig),
+    #[serde(rename = "debug_txt")]
+    DebugTxt(DebugOutputConfig),
+    #[serde(rename = "braidz")]
+    Braidz(BraidzOutputConfig),
+}
+
+impl Default for OutputConfig {
+    fn default() -> Self {
+        OutputConfig::Video(Default::default())
+    }
+}
+
+impl Validate for OutputConfig {
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
+        match self {
+            OutputConfig::Video(v) => Ok(Valid(OutputConfig::Video(v.validate(basedir)?.0))),
+            OutputConfig::DebugTxt(d) => Ok(Valid(OutputConfig::DebugTxt(d.validate(basedir)?.0))),
+            OutputConfig::Braidz(b) => Ok(Valid(OutputConfig::Braidz(b.validate(basedir)?.0))),
+        }
+    }
 }
 
 impl OutputConfig {
+    pub fn filename(&self) -> &str {
+        match self {
+            OutputConfig::Video(v) => &v.filename,
+            OutputConfig::DebugTxt(d) => &d.filename,
+            OutputConfig::Braidz(b) => &b.filename,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BraidzOutputConfig {
+    /// The filename of the output desired.
+    pub filename: String,
+}
+
+impl Default for BraidzOutputConfig {
+    fn default() -> Self {
+        Self {
+            filename: "output.braidz".to_string(),
+        }
+    }
+}
+
+impl Validate for BraidzOutputConfig {
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
+        // Validate `filename`
+        let filename = base_join_inner(self.filename, basedir)?;
+        Ok(Valid(Self { filename, ..self }))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProcessingConfig {
+    pub feature_detection_method: FeatureDetectionMethod,
+    pub camera_calibration_source: CameraCalibrationSource,
+    pub tracking_parameters_source: TrackingParametersSource,
+}
+
+impl Default for ProcessingConfig {
+    fn default() -> Self {
+        Self {
+            feature_detection_method: FeatureDetectionMethod::default(),
+            camera_calibration_source: CameraCalibrationSource::default(),
+            tracking_parameters_source: TrackingParametersSource::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, tag = "type")]
+pub enum FeatureDetectionMethod {
+    #[serde(rename = "copy")]
+    CopyExisting,
+    // #[serde(rename = "bright-point")]
+    // BrightPoint(BrightPointOptions),
+    // #[serde(rename = "flydra")]
+    // Flydra,
+}
+
+impl Default for FeatureDetectionMethod {
+    fn default() -> FeatureDetectionMethod {
+        FeatureDetectionMethod::CopyExisting
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BrightPointOptions {
+    max_num_points: usize,
+}
+
+impl Default for BrightPointOptions {
+    fn default() -> Self {
+        Self { max_num_points: 10 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, tag = "type")]
+pub enum CameraCalibrationSource {
+    #[serde(rename = "none")]
+    None,
+    // #[serde(rename = "copy")]
+    // CopyExisting,
+}
+
+impl Default for CameraCalibrationSource {
+    fn default() -> CameraCalibrationSource {
+        CameraCalibrationSource::None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, tag = "type")]
+pub enum TrackingParametersSource {
+    #[serde(rename = "copy")]
+    CopyExisting,
+    #[serde(rename = "default")]
+    Default,
+}
+
+impl Default for TrackingParametersSource {
+    fn default() -> TrackingParametersSource {
+        TrackingParametersSource::Default
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DebugOutputConfig {
+    /// The filename of the output desired.
+    pub filename: String,
+}
+
+impl Validate for DebugOutputConfig {
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
+        let filename = base_join_inner(self.filename, basedir)?;
+        Ok(Valid(Self { filename }))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct VideoOutputConfig {
+    /// The filename of the output desired.
+    pub filename: String,
+    /// If the output type is "mkv", the options for the emitted MKV file.
+    #[serde(default)]
+    pub video_options: VideoOutputOptions,
+}
+
+impl Validate for VideoOutputConfig {
     /// Validate the configuration.
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative
     /// filenames are searched.
     fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
-        // Validate `type_`.
-        if !VALID_OUTPUT_TYPES.contains(&self.type_.as_str()) {
-            anyhow::bail!(
-                "Output type \"{}\" not one of: {:?}",
-                self.type_,
-                VALID_OUTPUT_TYPES
-            )
-        }
-
         // Validate `filename`
         let filename = base_join_inner(self.filename, basedir)?;
 
         // Validate `video_options`.
-        let video_options = self
-            .video_options
-            .map(|opts| opts.validate())
-            .transpose()?
-            .map(|valid| valid.0);
+        let video_options = self.video_options.validate()?.0;
         Ok(Valid(Self {
             filename,
             video_options,
@@ -56,48 +202,64 @@ impl OutputConfig {
     }
 }
 
-impl Default for OutputConfig {
+impl Default for VideoOutputConfig {
     fn default() -> Self {
         Self {
-            type_: "video".to_string(),
             filename: "output.mkv".to_string(),
-            video_options: Some(OutputVideoConfig::default()),
+            video_options: VideoOutputOptions::default(),
         }
     }
 }
 
-const VALID_OUTPUT_TYPES: &[&str] = &["video", "debug_txt"];
 pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv"];
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct OutputVideoConfig {
+pub struct VideoOutputOptions {
     /// The space surrounding each image in the composite view.
+    ///
+    /// The default value of `None` will resolve to
+    /// [`crate::DEFAULT_COMPOSITE_MARGIN_PIXELS`].
     pub composite_margin_pixels: Option<usize>,
+    /// The multiplier by which time is slowed down in the output video.
+    ///
+    /// A value of 10.0 means the output will be slowed by tenfold. The default
+    /// value of `None` render 1:1 at realtime.
     pub time_dilation_factor: Option<f32>,
     /// The radius of the circle to overlay when drawing braidz 2D features.
+    ///
+    /// The default value of `None` will resolve to
+    /// [`crate::DEFAULT_FEATURE_RADIUS`].
     pub feature_radius: Option<String>,
     /// The SVG style string of the point to overlay when drawing braidz 2D features.
     ///
-    /// For example: "fill:none;stroke:deepskyblue;stroke-width:3".
+    /// The default value of `None` will resolve to [`crate::DEFAULT_FEATURE_STYLE`].
     pub feature_style: Option<String>,
+    /// The SVG style string of the camera text.
+    ///
+    /// The default value of `None` will resolve to [`crate::DEFAULT_CAMERA_TEXT_STYLE`].
+    pub cam_text_style: Option<String>,
     /// The title of the saved video, set in the segment metadata.
+    ///
+    /// The default value of `None` means this value will not be set in the
+    /// saved video.
     pub title: Option<String>,
 }
 
-impl Default for OutputVideoConfig {
+impl Default for VideoOutputOptions {
     fn default() -> Self {
         Self {
             composite_margin_pixels: None,
             time_dilation_factor: None,
             feature_radius: None,
             feature_style: None,
+            cam_text_style: None,
             title: None,
         }
     }
 }
 
-impl OutputVideoConfig {
+impl VideoOutputOptions {
     fn validate(self) -> Result<Valid<Self>> {
         // Validate `time_dilation_factor`.
         let time_dilation_factor = if self.time_dilation_factor == Some(1.0) {
@@ -112,7 +274,7 @@ impl OutputVideoConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BraidRetrackVideoConfig {
     /// Specifies the maximum duration between frames to count as "synchronous",
@@ -121,15 +283,18 @@ pub struct BraidRetrackVideoConfig {
     /// The interval between adjacent frames. Defaults to the value detected in
     /// the first frames of the given video inputs.
     pub frame_duration_microsecs: Option<u64>,
-    /// The first frame to render, skipping prior frames
-    pub start_frame: Option<usize>,
+    /// The first output frame to render, skipping prior frames
+    pub skip_n_first_output_frames: Option<usize>,
     /// maximum number of frames to render
     pub max_num_frames: Option<usize>,
     /// Every `log_interval_frames` a status message will be displayed.
     pub log_interval_frames: Option<usize>,
     pub input_braidz: Option<String>,
-    pub output: Vec<OutputConfig>,
+    #[serde(default)]
     pub input_video: Vec<VideoSourceConfig>,
+    pub output: Vec<OutputConfig>,
+    #[serde(default)]
+    pub processing_config: ProcessingConfig,
 }
 
 impl Default for BraidRetrackVideoConfig {
@@ -137,7 +302,7 @@ impl Default for BraidRetrackVideoConfig {
         Self {
             sync_threshold_microseconds: None,
             frame_duration_microsecs: None,
-            start_frame: None,
+            skip_n_first_output_frames: None,
             max_num_frames: None,
             log_interval_frames: None,
             input_braidz: None,
@@ -147,34 +312,19 @@ impl Default for BraidRetrackVideoConfig {
                 VideoSourceConfig::new("b.mkv"),
                 VideoSourceConfig::new("c.mkv"),
             ],
+            processing_config: ProcessingConfig::default(),
         }
     }
 }
 
-impl BraidRetrackVideoConfig {
+impl Validate for BraidRetrackVideoConfig {
     /// Validate the configuration.
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative
     /// filenames are searched.
-    pub fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
-        let n_output_videos = self.output.iter().filter(|x| x.type_ == "video").count();
-        if n_output_videos != 1 {
-            anyhow::bail!(
-                "{} output videos specified, but only exactly one is supported.",
-                n_output_videos
-            );
-        }
-
-        let n_output_debug_txt = self
-            .output
-            .iter()
-            .filter(|x| x.type_ == "debug_txt")
-            .count();
-        if n_output_debug_txt > 1 {
-            anyhow::bail!(
-                "{} output debug text files specified, but at most one is supported.",
-                n_output_debug_txt
-            );
+    fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
+        if self.input_video.is_empty() && self.input_braidz.is_none() {
+            anyhow::bail!("No input videos or braidz file. At least one source is required.")
         }
 
         // Validate `input_braidz`.
@@ -191,9 +341,6 @@ impl BraidRetrackVideoConfig {
             .collect();
 
         // Validate `input_video`.
-        if self.input_video.is_empty() {
-            anyhow::bail!("No input videos found. At least one source is required.")
-        }
         let input_video = self
             .input_video
             .into_iter()
@@ -212,7 +359,7 @@ impl BraidRetrackVideoConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct VideoSourceConfig {
     pub filename: String,
@@ -228,7 +375,7 @@ impl VideoSourceConfig {
     }
 }
 
-impl VideoSourceConfig {
+impl Validate for VideoSourceConfig {
     /// Validate the configuration.
     ///
     /// If `basedir` is not `None`, it specifies the directory in which relative

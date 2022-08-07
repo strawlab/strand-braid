@@ -10,6 +10,9 @@ description = "process videos within the Braid multi-camera framework"
 log = "0.4"
 env_logger = "0.8"
 ffmpeg-next = {version="4.4", optional=true}
+tokio = {version="1.17", features=["macros","rt","tracing"]}
+tokio-stream = "0.1.8"
+stream-cancel = "0.8"
 anyhow = "1"
 chrono = {version="0.4", features=["serde"]}
 serde = {version="1", features=["derive"]}
@@ -24,7 +27,10 @@ image = {version="0.24.2", default-features=false, features=["png"]}
 base64 = "0.6"
 ordered-float = "1"
 regex = "1"
+futures = "0.3"
+csv = "1.1"
 
+channellib = {path="../channellib"}
 mkv-writer = {path="../mkv-writer"}
 ci2-remote-control = { path = "../ci2-remote-control"}
 braidz-parser = {path="../braidz-parser"}
@@ -32,8 +38,11 @@ flydra-types = {path="../flydra-types"}
 convert-image = { path = "../convert-image" }
 datetime-conversion = {path="../datetime-conversion"}
 basic-frame = {path="../basic-frame", features=["convert-image"]}
+simple-frame = {path="../simple-frame"}
 fmf = {path="../fmf"}
 timestamped-frame = {path="../timestamped-frame"}
+flydra2 = {path="../flydra2"}
+flydra-mvg = {path="../flydra-mvg"}
 
 [features]
 vpx = ["mkv-writer/vpx"]

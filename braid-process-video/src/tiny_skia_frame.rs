@@ -1,11 +1,11 @@
 use machine_vision_formats::{pixel_format::RGBA8, ImageBuffer, ImageBufferRef, ImageData, Stride};
 
-pub struct Frame {
+pub(crate) struct Frame {
     pixmap: tiny_skia::Pixmap,
 }
 
 impl Frame {
-    pub fn new(mut pixmap: tiny_skia::Pixmap) -> anyhow::Result<Self> {
+    pub(crate) fn new(mut pixmap: tiny_skia::Pixmap) -> anyhow::Result<Self> {
         // This pixel conversion is based on that of
         // tiny_skia::Pixmap::encode_png
         for pixel in pixmap.pixels_mut() {

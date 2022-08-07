@@ -6,7 +6,7 @@ use machine_vision_formats::{pixel_format::RGB8, ImageBuffer, ImageBufferRef, Im
 use basic_frame::{BasicFrame, DynamicFrame};
 use timestamped_frame::ExtraTimeData;
 
-pub enum RawFrameSource {
+pub(crate) enum RawFrameSource {
     /// ffmpeg data
     #[cfg(feature = "read-mkv")]
     Ffmpeg(Video),
@@ -14,11 +14,11 @@ pub enum RawFrameSource {
     Fmf(BasicFrame<RGB8>),
 }
 
-pub struct Frame {
+pub(crate) struct Frame {
     /// The presentation time stamp
-    pub pts_chrono: DateTime<Utc>,
+    pub(crate) pts_chrono: DateTime<Utc>,
     /// The frame data
-    pub data: RawFrameSource,
+    pub(crate) data: RawFrameSource,
 }
 
 impl TryFrom<DynamicFrame> for Frame {

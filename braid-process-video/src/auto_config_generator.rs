@@ -1,11 +1,15 @@
 use anyhow::Result;
 
 use crate::config::{
-    path_to_string, BraidRetrackVideoConfig, OutputConfig, Valid, VideoSourceConfig,
+    path_to_string, BraidRetrackVideoConfig, DebugOutputConfig, OutputConfig, Valid, Validate,
+    VideoOutputConfig, VideoOutputOptions, VideoSourceConfig,
 };
 
 pub fn auto_config<P: AsRef<std::path::Path>>(
     source_dir: P,
+    max_num_frames: Option<usize>,
+    with_debug_file: bool,
+    time_dilation_factor: Option<f32>,
 ) -> Result<Valid<BraidRetrackVideoConfig>> {
     log::info!(
         "generating auto config from dir \"{}\"",
@@ -38,8 +42,10 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
     }
 
     // from input in `/path/of/input`, output is `/path/of/input-rendered.mkv`
-    let mut output_path = source_dir.as_ref().to_path_buf();
-    let file_name = format!(
+    let output_path = source_dir.as_ref().to_path_buf();
+
+    let mut output_video_path = output_path.clone();
+    output_video_path.set_file_name(format!(
         "{}-rendered.mkv",
         output_path
             .file_name()
@@ -47,21 +53,38 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
             .to_os_string()
             .to_str()
             .unwrap()
-    );
-    output_path.set_file_name(file_name);
+    ));
 
-    let output = vec![OutputConfig {
-        type_: "video".to_string(),
-        filename: path_to_string(output_path)?,
-        video_options: None,
-    }];
+    let mut video_options = VideoOutputOptions::default();
+    video_options.time_dilation_factor = time_dilation_factor;
+    let mut output = vec![OutputConfig::Video(VideoOutputConfig {
+        filename: path_to_string(output_video_path)?,
+        video_options,
+    })];
+
+    if with_debug_file {
+        let mut output_debug_path = output_path.clone();
+        output_debug_path.set_file_name(format!(
+            "{}-debug.txt",
+            output_path
+                .file_name()
+                .unwrap()
+                .to_os_string()
+                .to_str()
+                .unwrap()
+        ));
+        output.push(OutputConfig::DebugTxt(DebugOutputConfig {
+            filename: path_to_string(output_debug_path)?,
+        }))
+    }
 
     let cfg = BraidRetrackVideoConfig {
         input_braidz,
         input_video,
         output,
+        max_num_frames,
         ..Default::default()
     };
 
-    Ok(cfg.validate(Some(source_dir))?)
+    cfg.validate(Some(source_dir))
 }

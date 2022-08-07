@@ -27,11 +27,11 @@ macro_rules! try_iter {
 ///
 /// Since the ffmpeg api reads packet-by-packet, we need something to return
 /// frame-by-frame. This must necessarily decode the packets into frames.
-pub struct FfmpegFrameReader {
+pub(crate) struct FfmpegFrameReader {
     /// The filename of the file
-    pub filename: String,
+    pub(crate) filename: String,
     /// Creation time of this particular frame reader
-    pub creation_time: DateTime<Utc>,
+    pub(crate) creation_time: DateTime<Utc>,
     /// The ffmpeg input
     ictx: ffmpeg::format::context::Input,
     /// The ffmpeg decoder
@@ -45,11 +45,11 @@ pub struct FfmpegFrameReader {
     /// Have we reached the end of the file?
     file_done: bool,
     time_base: ffmpeg::Rational,
-    pub title: Option<String>,
+    pub(crate) title: Option<String>,
 }
 
 impl FfmpegFrameReader {
-    pub fn new(filename: &str) -> Result<Self> {
+    pub(crate) fn new(filename: &str) -> Result<Self> {
         let ictx = ffmpeg::format::input(&filename)
             .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
         let metadata = ictx.metadata();

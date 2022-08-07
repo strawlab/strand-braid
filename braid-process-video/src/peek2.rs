@@ -1,11 +1,11 @@
-pub struct Peek2<I: std::iter::Iterator> {
+pub(crate) struct Peek2<I: std::iter::Iterator> {
     inner: I,
     slot1: Option<I::Item>,
     slot2: Option<I::Item>,
 }
 
 impl<I: std::iter::Iterator> Peek2<I> {
-    pub fn new(mut inner: I) -> Self {
+    pub(crate) fn new(mut inner: I) -> Self {
         let slot1 = inner.next();
         if slot1.is_some() {
             let slot2 = inner.next();
@@ -22,16 +22,16 @@ impl<I: std::iter::Iterator> Peek2<I> {
             }
         }
     }
-    pub fn as_ref(&self) -> &I {
+    pub(crate) fn as_ref(&self) -> &I {
         &self.inner
     }
-    pub fn peek1(&self) -> Option<&I::Item> {
+    pub(crate) fn peek1(&self) -> Option<&I::Item> {
         self.slot1.as_ref()
     }
-    pub fn peek2(&self) -> Option<&I::Item> {
+    pub(crate) fn peek2(&self) -> Option<&I::Item> {
         self.slot2.as_ref()
     }
-    pub fn next(&mut self) -> Option<I::Item> {
+    pub(crate) fn next(&mut self) -> Option<I::Item> {
         let cur_slot2 = self.slot2.take();
         let next_slot2 = if cur_slot2.is_some() {
             self.inner.next()

@@ -1,10 +1,10 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::{peek2::Peek2, MovieReader};
+use crate::{peek2::Peek2, MovieReader, SyncedPictures};
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
-pub struct SyncedIter {
+pub(crate) struct SyncedIter {
     frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
@@ -15,7 +15,7 @@ pub struct SyncedIter {
 }
 
 impl SyncedIter {
-    pub fn new(
+    pub(crate) fn new(
         frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
@@ -53,7 +53,7 @@ impl SyncedIter {
 }
 
 impl Iterator for SyncedIter {
-    type Item = crate::OutFrameIterType;
+    type Item = Result<crate::SyncedPictures>;
     fn next(&mut self) -> std::option::Option<Self::Item> {
         let min_threshold = self.previous_min + self.frame_duration - self.sync_threshold;
         let max_threshold = self.previous_max + self.frame_duration + self.sync_threshold;
@@ -62,10 +62,10 @@ impl Iterator for SyncedIter {
 
         let mut stamps = Vec::with_capacity(self.frame_readers.len());
 
-        let res = self
+        let camera_pictures: Vec<Result<crate::OutTimepointPerCamera>> = self
             .frame_readers
             .iter_mut()
-            .map(|frame_reader| {
+            .filter_map(|frame_reader| {
                 let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().pts_chrono);
 
                 let mkv_frame = if let Some(timestamp1) = timestamp1 {
@@ -93,7 +93,24 @@ impl Iterator for SyncedIter {
                     // end of stream
                     None
                 };
-                crate::OutFramePerCamInput::new(mkv_frame, vec![])
+
+                if let Some(timestamp1) = timestamp1 {
+                    let mkv_frame = match mkv_frame {
+                        Some(Ok(f)) => Some(f),
+                        Some(Err(e)) => {
+                            return Some(Err(e));
+                        }
+                        None => None,
+                    };
+
+                    Some(Ok(crate::OutTimepointPerCamera::new(
+                        timestamp1,
+                        mkv_frame,
+                        vec![],
+                    )))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -109,9 +126,25 @@ impl Iterator for SyncedIter {
             .unwrap_or_else(|| self.previous_max + self.frame_duration);
 
         if have_more_data {
-            Some(res)
+            let camera_pictures: Result<Vec<crate::OutTimepointPerCamera>> =
+                camera_pictures.into_iter().collect();
+
+            let camera_pictures = match camera_pictures {
+                Ok(cp) => cp,
+                Err(e) => {
+                    return Some(Err(e));
+                }
+            };
+
+            let timestamp = stamps[0];
+
+            Some(Ok(SyncedPictures {
+                timestamp,
+                camera_pictures,
+                braidz_info: None,
+            }))
         } else {
-            assert_eq!(res.iter().filter(|x| x.mkv_frame.is_some()).count(), 0);
+            assert_eq!(camera_pictures.len(), 0);
             None
         }
     }

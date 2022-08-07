@@ -1,4 +1,4 @@
-pub trait Argmin<T> {
+pub(crate) trait Argmin<T> {
     fn argmin(&mut self) -> Option<usize>;
 }
 

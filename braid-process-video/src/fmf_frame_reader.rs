@@ -6,7 +6,7 @@ use timestamped_frame::ExtraTimeData;
 
 use crate::{Frame, MovieReader};
 
-pub struct FmfFrameReader {
+pub(crate) struct FmfFrameReader {
     filename: String,
     rdr: fmf::reader::FMFReader,
     /// upon file open, we already read the first frame
@@ -15,7 +15,7 @@ pub struct FmfFrameReader {
 }
 
 impl FmfFrameReader {
-    pub fn new(filename: &str) -> Result<Self> {
+    pub(crate) fn new(filename: &str) -> Result<Self> {
         let mut rdr = fmf::reader::FMFReader::new(filename)
             .with_context(|| anyhow::anyhow!("Error from FMFReader opening '{}'", &filename))?;
         let frame0 = rdr
