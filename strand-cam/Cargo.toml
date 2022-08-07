@@ -125,8 +125,7 @@ imtrack-dark-circle = []
 imtrack-absdiff = []
 
 flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
-    "approx", "strand-cam-storetype/flydratrax", "alga",
-    "flydra2", "flydra2/flat-3d", "flydra_feat_detect"]
+    "approx", "alga", "flydra2", "flydra2/flat-3d", "flydra_feat_detect"]
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]

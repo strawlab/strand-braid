@@ -29,7 +29,6 @@ use http_video_streaming_types::ToClient as FirehoseImageData;
 
 use strand_cam_storetype::CallbackType;
 use strand_cam_storetype::StoreType as ServerState;
-#[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 use yew_tincture::components::CheckboxLabel;
 
@@ -97,9 +96,7 @@ enum Msg {
     SetImOpsCenterY(u32),
     SetImOpsTheshold(u8),
 
-    #[cfg(feature = "flydratrax")]
     CamArgSetKalmanTrackingConfig(String),
-    #[cfg(feature = "flydratrax")]
     CamArgSetLedProgramConfig(String),
 
     ToggleFmfSave(bool),
@@ -379,12 +376,10 @@ impl Component for Model {
                 self.send_cam_message(CamArg::SetObjDetectionConfig(v), ctx);
                 return false; // don't update DOM, do that on return
             }
-            #[cfg(feature = "flydratrax")]
             Msg::CamArgSetKalmanTrackingConfig(v) => {
                 self.send_cam_message(CamArg::CamArgSetKalmanTrackingConfig(v), ctx);
                 return false; // don't update DOM, do that on return
             }
-            #[cfg(feature = "flydratrax")]
             Msg::CamArgSetLedProgramConfig(v) => {
                 self.send_cam_message(CamArg::CamArgSetLedProgramConfig(v), ctx);
                 return false; // don't update DOM, do that on return
@@ -1190,12 +1185,10 @@ impl Model {
         };
     }
 
-    #[cfg_attr(not(feature = "flydratrax"), allow(unused_variables))]
     fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
-        #[cfg(feature = "flydratrax")]
-        {
-            if let Some(ref shared) = self.server_state {
-                html! {
+        if let Some(ref shared) = self.server_state {
+            if shared.has_flydratrax_compiled {
+                return html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Kalman tracking" initially_checked=false />
                         <div>
@@ -1209,27 +1202,18 @@ impl Model {
                             </div>
                         </div>
                     </div>
-                }
-            } else {
-                html! {
-                    <div></div>
-                }
+                };
             }
         }
-        #[cfg(not(feature = "flydratrax"))]
-        {
-            html! {
-                <div></div>
-            }
+        html! {
+            <div></div>
         }
     }
 
-    #[cfg_attr(not(feature = "flydratrax"), allow(unused_variables))]
     fn view_led_triggering(&self, ctx: &Context<Self>) -> Html {
-        #[cfg(feature = "flydratrax")]
-        {
-            if let Some(ref shared) = self.server_state {
-                html! {
+        if let Some(ref shared) = self.server_state {
+            if shared.has_flydratrax_compiled {
+                return html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Online LED triggering" initially_checked=false />
 
@@ -1242,18 +1226,11 @@ impl Model {
                                     />
                             </div>
                     </div>
-                }
-            } else {
-                html! {
-                    <div></div>
-                }
+                };
             }
         }
-        #[cfg(not(feature = "flydratrax"))]
-        {
-            html! {
-                <div></div>
-            }
+        html! {
+            <div></div>
         }
     }
 

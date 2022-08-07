@@ -4,7 +4,6 @@ use rust_cam_bui_types::RecordingPath;
 use serde::{Deserialize, Serialize};
 
 use http_video_streaming_types::FirehoseCallbackInner;
-#[cfg(feature = "flydratrax")]
 use http_video_streaming_types::{CircleParams, Shape};
 
 use ci2_remote_control::{MkvRecordingConfig, RecordingFrameRate, TagFamily};
@@ -69,9 +68,9 @@ pub struct StoreType {
     pub is_saving_im_pt_detect_csv: Option<RecordingPath>,
     // used only with image-tracker crate
     pub im_pt_detect_cfg: ImPtDetectCfg,
-    #[cfg(feature = "flydratrax")]
+    /// Whether flydratrax (2D kalman tracking and LED triggering) is compiled.
+    pub has_flydratrax_compiled: bool,
     pub kalman_tracking_config: KalmanTrackingConfig,
-    #[cfg(feature = "flydratrax")]
     pub led_program_config: LedProgramConfig,
     pub led_box_device_lost: bool,
     pub led_box_device_state: Option<DeviceState>,
@@ -125,7 +124,6 @@ impl Default for ImOpsState {
 
 pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &str = "apriltags%Y%m%d_%H%M%S.csv.gz";
 
-#[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum LEDTriggerMode {
@@ -133,7 +131,6 @@ pub enum LEDTriggerMode {
     PositionTriggered,
 }
 
-#[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KalmanTrackingConfig {
@@ -142,7 +139,6 @@ pub struct KalmanTrackingConfig {
     pub min_central_moment: f32,
 }
 
-#[cfg(feature = "flydratrax")]
 impl std::default::Default for KalmanTrackingConfig {
     fn default() -> Self {
         Self {
@@ -153,7 +149,6 @@ impl std::default::Default for KalmanTrackingConfig {
     }
 }
 
-#[cfg(feature = "flydratrax")]
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LedProgramConfig {
@@ -164,7 +159,6 @@ pub struct LedProgramConfig {
     pub led_hysteresis_pixels: f32,
 }
 
-#[cfg(feature = "flydratrax")]
 impl std::default::Default for LedProgramConfig {
     fn default() -> Self {
         Self {

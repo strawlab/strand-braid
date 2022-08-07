@@ -79,7 +79,6 @@ use strand_cam_storetype::ApriltagState;
 use strand_cam_storetype::ToLedBoxDevice;
 use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
 
-#[cfg(feature = "flydratrax")]
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
 #[cfg(feature = "flydratrax")]
@@ -3020,6 +3019,9 @@ where
         }
     };
 
+    #[cfg(not(feature = "flydratrax"))]
+    let kalman_tracking_config = KalmanTrackingConfig::default();
+
     #[cfg(feature = "flydratrax")]
     let led_program_config = {
         if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
@@ -3036,6 +3038,8 @@ where
             panic!("flydratrax requires saving changes to disk");
         }
     };
+    #[cfg(not(feature = "flydratrax"))]
+    let led_program_config = LedProgramConfig::default();
 
     let cuda_devices = match nvenc::Dynlibs::new() {
         Ok(libs) => {
@@ -3141,8 +3145,10 @@ where
         has_image_tracker_compiled,
         im_pt_detect_cfg,
         #[cfg(feature = "flydratrax")]
+        has_flydratrax_compiled: true,
+        #[cfg(not(feature = "flydratrax"))]
+        has_flydratrax_compiled: false,
         kalman_tracking_config,
-        #[cfg(feature = "flydratrax")]
         led_program_config,
         led_box_device_lost: false,
         led_box_device_state: None,

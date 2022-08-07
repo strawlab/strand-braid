@@ -627,7 +627,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
@@ -664,7 +664,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd strand-cam/yew_frontend && time ./build-flydratrax.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
