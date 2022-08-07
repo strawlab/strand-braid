@@ -57,6 +57,5 @@ features=[
 
 [features]
 default = []
-checkercal = ["strand-cam-storetype/checkercal"]
 
 flydratrax = ["strand-cam-storetype/flydratrax"]

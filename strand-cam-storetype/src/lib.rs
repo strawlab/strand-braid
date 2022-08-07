@@ -76,10 +76,10 @@ pub struct StoreType {
     pub led_box_device_lost: bool,
     pub led_box_device_state: Option<DeviceState>,
     pub led_box_device_path: Option<String>,
-    #[cfg(feature = "checkercal")]
+    /// Whether checkerboard calibration is compiled.
+    pub has_checkercal_compiled: bool,
     pub checkerboard_data: CheckerboardCalState,
     /// Path where debug data is being saved.
-    #[cfg(feature = "checkercal")]
     pub checkerboard_save_debug: Option<String>,
     pub post_trigger_buffer_size: usize,
     pub cuda_devices: Vec<String>,
@@ -181,7 +181,6 @@ impl std::default::Default for LedProgramConfig {
     }
 }
 
-#[cfg(feature = "checkercal")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckerboardCalState {
@@ -191,7 +190,6 @@ pub struct CheckerboardCalState {
     pub height: u32,
 }
 
-#[cfg(feature = "checkercal")]
 impl CheckerboardCalState {
     pub fn new() -> Self {
         Self {

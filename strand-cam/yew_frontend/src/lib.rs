@@ -121,17 +121,11 @@ enum Msg {
 
     LedBoxControlEvent(ToLedBoxDevice),
 
-    #[cfg(feature = "checkercal")]
     ToggleCheckerboardDetection(bool),
-    #[cfg(feature = "checkercal")]
     ToggleCheckerboardDebug(bool),
-    #[cfg(feature = "checkercal")]
     SetCheckerboardWidth(u32),
-    #[cfg(feature = "checkercal")]
     SetCheckerboardHeight(u32),
-    #[cfg(feature = "checkercal")]
     PerformCheckerboardCalibration,
-    #[cfg(feature = "checkercal")]
     ClearCheckerboards,
 
     SetPostTriggerBufferSize(usize),
@@ -181,9 +175,7 @@ struct Model {
     _stream_listener: EventListener,
 
     csv_recording_rate: RecordingFrameRate,
-    #[cfg(feature = "checkercal")]
     checkerboard_width: TypedInputStorage<u32>,
-    #[cfg(feature = "checkercal")]
     checkerboard_height: TypedInputStorage<u32>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
 
@@ -271,9 +263,7 @@ impl Component for Model {
             _data_listener: data_listener,
             _stream_listener: stream_listener,
             csv_recording_rate: RecordingFrameRate::Unlimited,
-            #[cfg(feature = "checkercal")]
             checkerboard_width: TypedInputStorage::empty(),
-            #[cfg(feature = "checkercal")]
             checkerboard_height: TypedInputStorage::empty(),
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
 
@@ -313,13 +303,10 @@ impl Component for Model {
                 }
 
                 // Do this only if user is not focused on field.
-                #[cfg(feature = "checkercal")]
-                {
-                    self.checkerboard_width
-                        .set_if_not_focused(response.checkerboard_data.width);
-                    self.checkerboard_height
-                        .set_if_not_focused(response.checkerboard_data.height);
-                }
+                self.checkerboard_width
+                    .set_if_not_focused(response.checkerboard_data.width);
+                self.checkerboard_height
+                    .set_if_not_focused(response.checkerboard_data.height);
 
                 self.post_trigger_buffer_size_local
                     .set_if_not_focused(response.post_trigger_buffer_size);
@@ -542,32 +529,26 @@ impl Component for Model {
                 self.send_message(CallbackType::ToLedBox(command), ctx);
                 return false; // don't update DOM, do that on return
             }
-            #[cfg(feature = "checkercal")]
             Msg::ToggleCheckerboardDetection(val) => {
                 self.send_cam_message(CamArg::ToggleCheckerboardDetection(val), ctx);
                 return false;
             }
-            #[cfg(feature = "checkercal")]
             Msg::ToggleCheckerboardDebug(val) => {
                 self.send_cam_message(CamArg::ToggleCheckerboardDebug(val), ctx);
                 return false;
             }
-            #[cfg(feature = "checkercal")]
             Msg::SetCheckerboardWidth(val) => {
                 self.send_cam_message(CamArg::SetCheckerboardWidth(val), ctx);
                 return false;
             }
-            #[cfg(feature = "checkercal")]
             Msg::SetCheckerboardHeight(val) => {
                 self.send_cam_message(CamArg::SetCheckerboardHeight(val), ctx);
                 return false;
             }
-            #[cfg(feature = "checkercal")]
             Msg::PerformCheckerboardCalibration => {
                 self.send_cam_message(CamArg::PerformCheckerboardCalibration, ctx);
                 return false;
             }
-            #[cfg(feature = "checkercal")]
             Msg::ClearCheckerboards => {
                 self.send_cam_message(CamArg::ClearCheckerboards, ctx);
                 return false;
@@ -1122,11 +1103,9 @@ impl Model {
         }
     }
 
-    #[cfg_attr(not(feature = "checkercal"), allow(unused_variables))]
     fn checkerboard_calibration_ui(&self, ctx: &Context<Self>) -> Html {
-        #[cfg(feature = "checkercal")]
-        {
-            if let Some(ref shared) = self.server_state {
+        if let Some(ref shared) = self.server_state {
+            if shared.has_checkercal_compiled {
                 let (ncs, disabled) = {
                     let ref cdata = shared.checkerboard_data;
                     let ncs = format!("{}", cdata.num_checkerboards_collected);
@@ -1146,7 +1125,7 @@ impl Model {
                     "".to_string()
                 };
 
-                html! {
+                return html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label={"Checkerboard Calibration"} />
                         <div>
@@ -1203,19 +1182,12 @@ impl Model {
 
                         </div>
                     </div>
-                }
-            } else {
-                html! {
-                    <div></div>
-                }
+                };
             }
         }
-        #[cfg(not(feature = "checkercal"))]
-        {
-            html! {
-                <div></div>
-            }
-        }
+        return html! {
+            <div></div>
+        };
     }
 
     #[cfg_attr(not(feature = "flydratrax"), allow(unused_variables))]

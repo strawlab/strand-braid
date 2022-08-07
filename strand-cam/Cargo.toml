@@ -109,7 +109,7 @@ backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace
     "convert-image/backtrace", "http-video-streaming/backtrace",
     "flydra-feature-detector?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
 
-checkercal = ["strand-cam-storetype/checkercal", "opencv-calibrate", "camcal", "mvg"]
+checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
 flydra-uds = ["flydra-feature-detector?/flydra-uds"]

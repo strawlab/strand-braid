@@ -1,1 +1,1 @@
-wasm-pack build --target web -- --features checkercal
+wasm-pack build --target web

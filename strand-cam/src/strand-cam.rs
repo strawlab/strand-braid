@@ -3148,8 +3148,10 @@ where
         led_box_device_state: None,
         led_box_device_path: args.led_box_device_path,
         #[cfg(feature = "checkercal")]
+        has_checkercal_compiled: true,
+        #[cfg(not(feature = "checkercal"))]
+        has_checkercal_compiled: false,
         checkerboard_data: strand_cam_storetype::CheckerboardCalState::new(),
-        #[cfg(feature = "checkercal")]
         checkerboard_save_debug: None,
         post_trigger_buffer_size: 0,
         cuda_devices,
