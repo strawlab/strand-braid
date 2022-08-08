@@ -29,42 +29,60 @@ jobs:
           toolchain: stable
       - name: Build braid-process-video app
         run: |
-          cargo +stable build --release --features vpx,read-mkv,nv-h264
+          cargo +stable build --release --features vpx,read-mkv
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-ubuntu
           path: ${{ github.workspace }}/target/release/braid-process-video
 
-  # braid-process-video-app-windows-2019:
-  #   runs-on: windows-2019
-  #   defaults:
-  #     run:
-  #       working-directory: braid-process-video
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: download and extract libvpx
-  #       run: |
-  #         curl -sSfL -O  https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
-  #         unzip libvpx_v1.10.0_msvc16.zip -d $HOME\unzipped
-  #         dir
-  #         dir $HOME\unzipped
-  #         dir $HOME\unzipped\lib\x64
-  #     # TODO: install ffmpeg-next prereqs
-  #     - name: Setup Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #     - name: Build braid-process-video app
-  #       run: |
-  #         $Env:VPX_STATIC = "1"
-  #         $Env:VPX_VERSION = "1.10.0"
-  #         $Env:VPX_LIB_DIR = "$HOME\unzipped\lib\x64"
-  #         $Env:VPX_INCLUDE_DIR = "$HOME\unzipped\include"
-  #         cargo build --release --features vpx,read-mkv,nv-h264
-  #     - uses: actions/upload-artifact@v2
-  #       with:
-  #         name: braid-process-video-windows
-  #         path: ${{ github.workspace }}/target/release/braid-process-video.exe
+  braid-process-video-app-windows-2019:
+    runs-on: windows-2019
+    defaults:
+      run:
+        working-directory: braid-process-video
+    strategy:
+      matrix:
+        include:
+          - ffmpeg_version: latest
+            ffmpeg_download_url: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
+      fail-fast: false
+    env:
+      FFMPEG_DOWNLOAD_URL: ${{ matrix.ffmpeg_download_url }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: download and extract libvpx
+        run: |
+          curl -sSfL -O  https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
+          unzip libvpx_v1.10.0_msvc16.zip -d $HOME\unzipped
+          dir
+          dir $HOME\unzipped
+          dir $HOME\unzipped\lib\x64
+      - name: Install ffmpeg
+        # See https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml
+        run: |
+          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
+          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
+          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
+          7z x ffmpeg-release-full-shared.7z
+          mkdir ffmpeg
+          mv ffmpeg-*/* ffmpeg/
+          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build braid-process-video app
+        run: |
+          $Env:VPX_STATIC = "1"
+          $Env:VPX_VERSION = "1.10.0"
+          $Env:VPX_LIB_DIR = "$HOME\unzipped\lib\x64"
+          $Env:VPX_INCLUDE_DIR = "$HOME\unzipped\include"
+          cargo build --release --features vpx,read-mkv
+      - uses: actions/upload-artifact@v2
+        with:
+          name: braid-process-video-windows
+          path: ${{ github.workspace }}/target/release/braid-process-video.exe
 
   # braid-process-video-app-macos-10-15:
   #   runs-on: macos-10.15

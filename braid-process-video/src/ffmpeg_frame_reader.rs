@@ -68,7 +68,9 @@ impl FfmpegFrameReader {
         let time_base = stream.time_base();
         log::debug!("filename: {}, timebase {:?}", filename, time_base);
 
-        let decoder = stream.codec().decoder().video()?;
+        let context_decoder =
+            ffmpeg::codec::context::Context::from_parameters(stream.parameters())?;
+        let decoder = context_decoder.decoder().video()?;
 
         let scaler = Context::get(
             decoder.format(),
