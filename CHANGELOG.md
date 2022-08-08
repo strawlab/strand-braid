@@ -8,6 +8,8 @@
 * Braid can now start saving MKV files in all cameras with a single button.
 * Added support to save raw, uncompressed video to the MKV container format.
 * Save camera gamma to MKV files.
+* Strand Cam defaults to including the camera name in the saved MKV, FMF, uFMF,
+  and April Tags .csv.gz files.
 * For Strand Cam and Braid, simplify defaults so that `cargo build --release` is
   as close to just working as possible. The browser frontends still need to be
   built but an explicit compile time error is shown if this remains to be done.

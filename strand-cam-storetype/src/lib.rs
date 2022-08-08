@@ -122,7 +122,7 @@ impl Default for ImOpsState {
     }
 }
 
-pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &str = "apriltags%Y%m%d_%H%M%S.csv.gz";
+pub const APRILTAG_CSV_TEMPLATE_DEFAULT: &str = "apriltags%Y%m%d_%H%M%S.%f_{CAMNAME}.csv.gz";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

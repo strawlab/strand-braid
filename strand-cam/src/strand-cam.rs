@@ -2627,9 +2627,9 @@ impl Default for StrandCamArgs {
             pixel_format: None,
             http_server_addr: None,
             no_browser: true,
-            mkv_filename_template: "movie%Y%m%d_%H%M%S.%f.mkv".to_string(),
-            fmf_filename_template: "movie%Y%m%d_%H%M%S.fmf".to_string(),
-            ufmf_filename_template: "movie%Y%m%d_%H%M%S.ufmf".to_string(),
+            mkv_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mkv".to_string(),
+            fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
+            ufmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf".to_string(),
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
@@ -3081,12 +3081,6 @@ where
 
     let im_ops_state = ImOpsState::default();
 
-    #[cfg(not(feature = "fiducial"))]
-    let format_str_apriltag_csv = "".into();
-
-    #[cfg(feature = "fiducial")]
-    let format_str_apriltag_csv = args.apriltag_csv_filename_template.into();
-
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
     #[cfg(not(feature = "flydra_feat_detect"))]
@@ -3115,6 +3109,14 @@ where
     let ufmf_filename_template = args
         .ufmf_filename_template
         .replace("{CAMNAME}", cam_name.as_str());
+
+    #[cfg(feature = "fiducial")]
+    let format_str_apriltag_csv = args
+        .apriltag_csv_filename_template
+        .replace("{CAMNAME}", cam_name.as_str());
+
+    #[cfg(not(feature = "fiducial"))]
+    let format_str_apriltag_csv = "".into();
 
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
