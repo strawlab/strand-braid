@@ -84,33 +84,35 @@ jobs:
           name: braid-process-video-windows
           path: ${{ github.workspace }}/target/release/braid-process-video.exe
 
-  # braid-process-video-app-macos-10-15:
-  #   runs-on: macos-10.15
-  #   defaults:
-  #     run:
-  #       working-directory: braid-process-video
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: download and extract libvpx
-  #       run: |
-  #         cd /tmp
-  #         curl --show-error --fail --silent -O -L https://strawlab-cdn.com/assets/libvpx-1.8.1.sierra.bottle.tar.gz
-  #         sudo mkdir -p /opt
-  #         sudo tar xvzf /tmp/libvpx-1.8.1.sierra.bottle.tar.gz -C /opt
-  #     # TODO: install ffmpeg-next prereqs
-  #     - name: Setup Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #     - name: Build braid-process-video app
-  #       run: |
-  #         export VPX_STATIC=1
-  #         export VPX_VERSION="1.8.1"
-  #         export VPX_LIB_DIR="/opt/libvpx/1.8.1/lib"
-  #         export VPX_INCLUDE_DIR="/opt/libvpx/1.8.1/include"
-  #         export PATH="$PATH:$HOME/.cargo/bin"
-  #         cargo build --release --features vpx,read-mkv
-  #     - uses: actions/upload-artifact@v2
-  #       with:
-  #         name: braid-process-video-mac
-  #         path: ${{ github.workspace }}/target/release/braid-process-video
+  braid-process-video-app-macos-10-15:
+    runs-on: macos-10.15
+    defaults:
+      run:
+        working-directory: braid-process-video
+    steps:
+      - uses: actions/checkout@v2
+      - name: download and extract libvpx
+        run: |
+          cd /tmp
+          curl --show-error --fail --silent -O -L https://strawlab-cdn.com/assets/libvpx-1.8.1.sierra.bottle.tar.gz
+          sudo mkdir -p /opt
+          sudo tar xvzf /tmp/libvpx-1.8.1.sierra.bottle.tar.gz -C /opt
+      - name: Install dependencies
+        run: |
+          brew install ffmpeg pkg-config
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build braid-process-video app
+        run: |
+          export VPX_STATIC=1
+          export VPX_VERSION="1.8.1"
+          export VPX_LIB_DIR="/opt/libvpx/1.8.1/lib"
+          export VPX_INCLUDE_DIR="/opt/libvpx/1.8.1/include"
+          export PATH="$PATH:$HOME/.cargo/bin"
+          cargo build --release --features vpx,read-mkv
+      - uses: actions/upload-artifact@v2
+        with:
+          name: braid-process-video-mac
+          path: ${{ github.workspace }}/target/release/braid-process-video
