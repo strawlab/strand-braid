@@ -100,12 +100,14 @@ fn callback_rust(
 
                 let width = unsafe { (*frame).width };
                 let height = unsafe { (*frame).height };
-                let stride = unsafe { (*frame).width }; // TODO: need to scale by pixel n bytes?
 
+                // Compute minimum stride.
+                let min_stride = width as usize * pixel_format.bits_per_pixel() as usize / 8;
+                debug_assert!(min_stride * height as usize == image_data.len());
                 Ok(DynamicFrame::new(
                     width,
                     height,
-                    stride, // need to scale by pixel n bytes?
+                    min_stride.try_into().unwrap(),
                     extra,
                     image_data,
                     pixel_format,
