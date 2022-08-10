@@ -29,7 +29,10 @@ pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoreType {
+    /// Whether we are running inside Braid.
     pub is_braid: bool,
+    /// Whether we have Nvidia NvEnc encoder available.
+    pub is_nvenc_functioning: bool,
     /// is saving MKV file
     pub is_recording_mkv: Option<RecordingPath>,
     /// is saving FMF file

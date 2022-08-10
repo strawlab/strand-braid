@@ -2662,6 +2662,45 @@ impl Default for StrandCamArgs {
     }
 }
 
+fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool> {
+    let mut nv_cfg_test = cfg.clone();
+
+    let libs = match nvenc::Dynlibs::new() {
+        Ok(libs) => libs,
+        Err(e) => {
+            debug!("nvidia NvEnc library could not be loaded: {:?}", e);
+            return Ok(false);
+        }
+    };
+
+    let opts = ci2_remote_control::H264Options {
+        bitrate: 10000,
+        ..Default::default()
+    };
+
+    nv_cfg_test.codec = ci2_remote_control::MkvCodec::H264(opts);
+
+    // Temporary variable to hold file data. This will be dropped
+    // at end of scope.
+    let mut buf = std::io::Cursor::new(Vec::new());
+
+    let nv_enc = match nvenc::NvEnc::new(&libs) {
+        Ok(nv_enc) => nv_enc,
+        Err(e) => {
+            debug!("nvidia NvEnc could not be initialized: {:?}", e);
+            return Ok(false);
+        }
+    };
+
+    let mut mkv_writer = mkv_writer::MkvWriter::new(&mut buf, nv_cfg_test.clone(), Some(nv_enc))?;
+    mkv_writer.write_dynamic(&frame, frame.extra().host_timestamp())?;
+    mkv_writer.finish()?;
+
+    debug!("MKV video with nvenc h264 encoding succeeded.");
+
+    Ok(true)
+}
+
 pub fn run_app<M, C>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     args: StrandCamArgs,
@@ -3093,12 +3132,28 @@ where
     let has_image_tracker_compiled = false;
 
     let is_braid = args.is_braid;
-    let mkv_recording_config = MkvRecordingConfig {
+
+    // -----------------------------------------------
+    // Check if we can use nv h264 and, if so, set that as default.
+    let mut mkv_recording_config = MkvRecordingConfig {
         writing_application: Some(get_mkv_writing_application(is_braid)),
         title: Some(cam_name.as_str().to_string()),
         gamma: camera_gamma.clone(),
         ..Default::default()
     };
+
+    let is_nvenc_functioning = test_nvenc_save(&mkv_recording_config, frame)?;
+
+    if is_nvenc_functioning {
+        mkv_recording_config.codec =
+            ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options {
+                bitrate: 10000,
+                ..Default::default()
+            });
+    } else {
+    }
+
+    // -----------------------------------------------
 
     let mkv_filename_template = args
         .mkv_filename_template
@@ -3120,6 +3175,7 @@ where
 
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
+        is_nvenc_functioning,
         is_recording_mkv: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,
