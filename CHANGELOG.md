@@ -16,6 +16,8 @@
   as close to just working as possible. The browser frontends still need to be
   built but an explicit compile time error is shown if this remains to be done.
 * Build for Ubuntu 22.04 (Jammy)
+* On systems with an Nvidia GPU, set the default encoding for MKV video saving
+  to H264 using NvEnc hardware.
 
 ### Changed
 
