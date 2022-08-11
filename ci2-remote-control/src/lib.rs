@@ -160,7 +160,7 @@ impl Default for MkvRecordingConfig {
     fn default() -> Self {
         Self {
             codec: MkvCodec::default(),
-            max_framerate: RecordingFrameRate::Fps25,
+            max_framerate: RecordingFrameRate::Unlimited,
             writing_application: None,
             save_creation_time: true,
             title: None,
