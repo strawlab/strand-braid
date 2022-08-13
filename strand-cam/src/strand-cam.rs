@@ -3236,6 +3236,7 @@ where
     let cam_args_tx2 = cam_args_tx.clone();
     let secret = args.secret.clone();
 
+    // todo: integrate with quit_channel and quit_rx elsewhere.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
