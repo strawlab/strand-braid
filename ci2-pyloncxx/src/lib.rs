@@ -245,7 +245,7 @@ impl ci2::CameraInfo for PylonCameraInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct FramecountExtra {
     epoch: u32,
     previous_block_id: u64,
@@ -253,8 +253,7 @@ struct FramecountExtra {
     last_rollover: u64,
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum FramecoutingMethod {
     TrustDevice,
     BaslerGigE(FramecountExtra),
@@ -313,7 +312,13 @@ impl<'a> WrappedCamera<'a> {
                         last_rollover: 0,
                     })
                 } else {
-                    FramecoutingMethod::TrustDevice
+                    if model == "Emulation" {
+                        // As of Pylon 6.2.0, emulation with PYLON_CAMEMU does
+                        // not set frame number.
+                        FramecoutingMethod::IgnoreDevice(0)
+                    } else {
+                        FramecoutingMethod::TrustDevice
+                    }
                 };
 
                 let cam = tl_factory
@@ -977,7 +982,10 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
 
             if fno == BAD_FNO {
-                panic!("host_framenumber has impossible value");
+                panic!(
+                    "host_framenumber has impossible value (framecounting method: {:?})",
+                    self.framecounting_method
+                );
             }
 
             let extra = Box::new(PylonExtra {
