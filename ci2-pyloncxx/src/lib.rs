@@ -332,8 +332,8 @@ impl<'a> WrappedCamera<'a> {
                     .map_pylon_err()?
                     .value()
                 {
-                    Ok(major) => (major >= 2),
-                    Err(_) => (false),
+                    Ok(major) => major >= 2,
+                    Err(_) => false,
                 };
 
                 let set_max_transfer_size = match std::env::var_os("DISABLE_SET_MAX_TRANSFER_SIZE")
