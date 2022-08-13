@@ -292,14 +292,19 @@ pub async fn firehose_task(
     let mut firehose_rx = tokio_stream::wrappers::ReceiverStream::new(firehose_rx);
     let mut firehose_callback_rx =
         tokio_stream::wrappers::ReceiverStream::new(firehose_callback_rx);
-    while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
+    loop {
         tokio::select! {
+            _quit_val = &mut quit_rx => {
+                log::debug!("quitting.");
+                break;
+            }
             opt_new_connection = connection_callback_rx.next() => {
                 match opt_new_connection {
                     Some(new_connection) => {
                         task_state.handle_connection(new_connection)?;
                     }
                     None => {
+                        log::debug!("new connection senders done.");
                         // All senders done.
                         break;
                     }
@@ -311,6 +316,7 @@ pub async fn firehose_task(
                         task_state.handle_frame(new_frame)?;
                     }
                     None => {
+                        log::debug!("new frame senders done.");
                         // All senders done.
                         break;
                     }
@@ -322,6 +328,7 @@ pub async fn firehose_task(
                         task_state.handle_callback(callback)?;
                     }
                     None => {
+                        log::debug!("new callback senders done.");
                         // All senders done.
                         break;
                     }
@@ -330,5 +337,6 @@ pub async fn firehose_task(
         }
         task_state.service().await?;
     }
+    log::debug!("firehose task done.");
     Ok(())
 }
