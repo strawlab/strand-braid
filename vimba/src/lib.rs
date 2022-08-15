@@ -8,14 +8,8 @@ use std::{convert::TryInto, pin::Pin};
 use machine_vision_formats as formats;
 
 use vimba_sys::{
-    VmbCameraClose, VmbCameraInfo_t, VmbCameraOpen, VmbCameraSettingsLoad, VmbCameraSettingsSave,
-    VmbCamerasList, VmbCaptureEnd, VmbCaptureFrameQueue, VmbCaptureFrameWait, VmbCaptureQueueFlush,
-    VmbCaptureStart, VmbErrorType, VmbFeatureAccessQuery, VmbFeatureBoolGet, VmbFeatureBoolSet,
-    VmbFeatureCommandRun, VmbFeatureEnumGet, VmbFeatureEnumRangeQuery, VmbFeatureEnumSet,
-    VmbFeatureFloatGet, VmbFeatureFloatRangeQuery, VmbFeatureFloatSet, VmbFeatureIntGet,
-    VmbFeaturePersistSettings_t, VmbFeatureStringSet, VmbFrameAnnounce, VmbFrameCallback,
-    VmbFrameRevoke, VmbFrameStatusType, VmbFrame_t, VmbHandle_t, VmbShutdown, VmbStartup,
-    VmbVersionInfo_t, VmbVersionQuery,
+    VmbCameraInfo_t, VmbErrorType, VmbFeaturePersistSettings_t, VmbFrameCallback,
+    VmbFrameStatusType, VmbFrame_t, VmbHandle_t, VmbVersionInfo_t,
 };
 
 fn err_str(err: i32) -> &'static str {
@@ -56,6 +50,13 @@ pub struct VimbaError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("{source}")]
+    LibLoading {
+        #[from]
+        source: libloading::Error,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("{source}")]
     Vimba {
         #[from]
@@ -126,18 +127,45 @@ macro_rules! vimba_call {
 }
 
 pub struct VimbaLibrary {
+    pub vimba_lib: vimba_sys::VimbaC,
     started: bool,
 }
 
 impl VimbaLibrary {
-    pub fn new() -> std::result::Result<Self, VimbaError> {
-        vimba_call!(VmbStartup())?;
-        Ok(VimbaLibrary { started: true })
+    pub fn new() -> std::result::Result<Self, Error> {
+        let vimbac_path = match std::env::var_os("VIMBAC_LIB_PATH") {
+            Some(vimbac_path) => std::path::PathBuf::from(vimbac_path),
+            None => {
+                #[cfg(target_os = "windows")]
+                let vimbac_path =
+                    r#"C:\Program Files\Allied Vision\Vimba_6.0\VimbaC\Lib\Win64\VimbaC.dll"#;
+
+                #[cfg(not(target_os = "windows"))]
+                let vimbac_path = "/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so";
+                std::path::PathBuf::from(vimbac_path)
+            }
+        };
+
+        Self::from_dynamic_lib_path(vimbac_path)
+    }
+
+    pub fn from_dynamic_lib_path<P: AsRef<std::path::Path>>(
+        vimbac_path: P,
+    ) -> std::result::Result<Self, Error> {
+        let vimba_lib = unsafe { vimba_sys::VimbaC::new(vimbac_path.as_ref()) }?;
+
+        vimba_call!(vimba_lib.VmbStartup())?;
+        Ok(VimbaLibrary {
+            vimba_lib,
+            started: true,
+        })
     }
 
     pub fn n_cameras(&self) -> Result<usize> {
         let mut n_count = 0;
-        vimba_call!(VmbCamerasList(std::ptr::null_mut(), 0, &mut n_count, 0))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbCamerasList(std::ptr::null_mut(), 0, &mut n_count, 0))?;
         Ok(n_count as usize)
     }
 
@@ -155,7 +183,7 @@ impl VimbaLibrary {
         ];
 
         let mut n_found_count = 0;
-        vimba_call!(VmbCamerasList(
+        vimba_call!(self.vimba_lib.VmbCamerasList(
             cameras[..].as_mut_ptr(),
             n_count.try_into().unwrap(),
             &mut n_found_count,
@@ -192,7 +220,7 @@ impl VimbaLibrary {
 impl Drop for VimbaLibrary {
     fn drop(&mut self) {
         if self.started {
-            vimba_call_no_err!(VmbShutdown());
+            vimba_call_no_err!(self.vimba_lib.VmbShutdown());
             self.started = false;
         }
     }
@@ -205,13 +233,13 @@ pub struct VersionInfo {
 }
 
 impl VersionInfo {
-    pub fn new() -> Result<Self> {
+    pub fn new(vimba_c: &vimba_sys::VimbaC) -> Result<Self> {
         let mut version_info = VmbVersionInfo_t {
             major: 0,
             minor: 0,
             patch: 0,
         };
-        vimba_call!(VmbVersionQuery(
+        vimba_call!(vimba_c.VmbVersionQuery(
             &mut version_info,
             std::mem::size_of::<VmbVersionInfo_t>() as u32
         ))?;
@@ -225,15 +253,15 @@ impl VersionInfo {
 
 #[derive(Debug)]
 pub struct AccessMode {
-    code: i32,
+    code: u32,
 }
 
 impl AccessMode {
-    pub fn new(code: i32) -> Self {
+    pub fn new(code: u32) -> Self {
         Self { code }
     }
     pub fn as_u32(&self) -> u32 {
-        self.code.try_into().unwrap()
+        self.code
     }
 }
 
@@ -254,12 +282,13 @@ pub struct CameraInfo {
     pub interface_id_string: String,
 }
 
-pub struct Camera {
+pub struct Camera<'lib> {
     handle: VmbHandle_t,
     is_open: bool,
+    vimba_lib: &'lib vimba_sys::VimbaC,
 }
 
-unsafe impl Send for Camera {}
+unsafe impl<'lib> Send for Camera<'lib> {}
 
 fn _test_camera_is_send() {
     // Compile-time test to ensure Camera implements Send trait.
@@ -267,7 +296,7 @@ fn _test_camera_is_send() {
     implements::<Camera>();
 }
 
-impl std::fmt::Debug for Camera {
+impl<'lib> std::fmt::Debug for Camera<'lib> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "Camera {{")?;
         write!(fmt, " self.handle {:p},", self.handle)?;
@@ -276,11 +305,15 @@ impl std::fmt::Debug for Camera {
     }
 }
 
-impl Camera {
-    pub fn open(camera_id: &str, access_mode: AccessMode) -> Result<Self> {
+impl<'lib> Camera<'lib> {
+    pub fn open(
+        camera_id: &str,
+        access_mode: AccessMode,
+        vimba_lib: &'lib vimba_sys::VimbaC,
+    ) -> Result<Self> {
         let data = std::ffi::CString::new(camera_id)?;
         let mut handle = std::mem::MaybeUninit::<VmbHandle_t>::uninit();
-        vimba_call!(VmbCameraOpen(
+        vimba_call!(vimba_lib.VmbCameraOpen(
             data.as_ptr(),
             access_mode.as_u32(),
             handle.as_mut_ptr()
@@ -289,6 +322,7 @@ impl Camera {
         let result = Self {
             handle,
             is_open: true,
+            vimba_lib,
         };
         log::debug!("opening {:?}", result);
         Ok(result)
@@ -296,7 +330,7 @@ impl Camera {
 
     pub fn close(mut self) -> Result<()> {
         if self.is_open {
-            vimba_call!(VmbCameraClose(self.handle))?;
+            vimba_call!(self.vimba_lib.VmbCameraClose(self.handle))?;
         }
         self.is_open = false; // prevent closing again on drop
         Ok(())
@@ -309,7 +343,9 @@ impl Camera {
     pub fn feature_enum(&self, feature_name: &str) -> Result<&'static str> {
         let mut result: *const std::os::raw::c_char = std::ptr::null_mut();
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureEnumGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureEnumGet(self.handle, data.as_ptr(), &mut result))?;
         Ok(unsafe { std::ffi::CStr::from_ptr(result).to_str()? })
     }
 
@@ -317,7 +353,7 @@ impl Camera {
         let name = std::ffi::CString::new(feature_name)?;
         let mut num_filled = 0;
         // initial query: get size of array
-        vimba_call!(VmbFeatureEnumRangeQuery(
+        vimba_call!(self.vimba_lib.VmbFeatureEnumRangeQuery(
             self.handle,
             name.as_ptr(),
             std::ptr::null_mut(),
@@ -328,7 +364,7 @@ impl Camera {
         let mut p_name_array = vec![std::ptr::null(); num_filled.try_into().unwrap()];
 
         let mut num_final = 0;
-        vimba_call!(VmbFeatureEnumRangeQuery(
+        vimba_call!(self.vimba_lib.VmbFeatureEnumRangeQuery(
             self.handle,
             name.as_ptr(),
             p_name_array.as_mut_ptr(),
@@ -351,7 +387,7 @@ impl Camera {
     pub fn feature_enum_set(&self, feature_name: &str, value: &str) -> Result<()> {
         let value_c = std::ffi::CString::new(value)?;
         let name = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureEnumSet(
+        vimba_call!(self.vimba_lib.VmbFeatureEnumSet(
             self.handle,
             name.as_ptr(),
             value_c.as_ptr()
@@ -361,7 +397,7 @@ impl Camera {
 
     // pub fn features_list(&self) -> Result<Vec<FeatureInfo>> {
     //     let mut num_found = 0;
-    //     vimba_call!(VmbFeaturesList(
+    //     vimba_call!(self.vimba_lib.VmbFeaturesList(
     //         self.handle,
     //         std::ptr::null_mut(),
     //         0,
@@ -372,7 +408,7 @@ impl Camera {
     //     let mut feature_infos =
     //         vec![std::ptr::null_mut() as *mut VmbFeatureInfo_t; num_found.try_into().unwrap()];
     //     let mut num_filled = 0;
-    //     vimba_call!(VmbFeaturesList(
+    //     vimba_call!(self.vimba_lib.VmbFeaturesList(
     //         self.handle,
     //         *feature_infos.as_mut_ptr(),
     //         num_found,
@@ -390,7 +426,7 @@ impl Camera {
     pub fn feature_access_query(&self, name: &str) -> Result<(bool, bool)> {
         let mut is_readable = 0;
         let mut is_writeable = 0;
-        vimba_call!(VmbFeatureAccessQuery(
+        vimba_call!(self.vimba_lib.VmbFeatureAccessQuery(
             self.handle,
             name.as_ptr() as _,
             &mut is_readable,
@@ -403,14 +439,14 @@ impl Camera {
     // pub fn feature_string(&self, feature_name: &str) -> Result<&str> {
     //     let mut result: *const std::os::raw::c_char = std::ptr::null_mut();
     //     let data = std::ffi::CString::new(feature_name)?;
-    //     vimba_call!(VmbFeatureStringGet(self.handle, data.as_ptr(), &mut result))?;
+    //     vimba_call!(self.vimba_lib.VmbFeatureStringGet(self.handle, data.as_ptr(), &mut result))?;
     //     Ok(unsafe { std::ffi::CStr::from_ptr(result).to_str()? })
     // }
 
     pub fn feature_string_set(&self, feature_name: &str, value: &str) -> Result<()> {
         let value_c = std::ffi::CString::new(value)?;
         let name = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureStringSet(
+        vimba_call!(self.vimba_lib.VmbFeatureStringSet(
             self.handle,
             name.as_ptr(),
             value_c.as_ptr()
@@ -421,20 +457,26 @@ impl Camera {
     pub fn feature_int(&self, feature_name: &str) -> Result<i64> {
         let mut result = 0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureIntGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureIntGet(self.handle, data.as_ptr(), &mut result))?;
         Ok(result)
     }
 
     pub fn feature_float(&self, feature_name: &str) -> Result<f64> {
         let mut result = 0.0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureFloatGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureFloatGet(self.handle, data.as_ptr(), &mut result))?;
         Ok(result)
     }
 
     pub fn feature_float_set(&self, feature_name: &str, value: f64) -> Result<()> {
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureFloatSet(self.handle, data.as_ptr(), value))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureFloatSet(self.handle, data.as_ptr(), value))?;
         Ok(())
     }
 
@@ -442,7 +484,7 @@ impl Camera {
         let mut min = 0.0;
         let mut max = 0.0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureFloatRangeQuery(
+        vimba_call!(self.vimba_lib.VmbFeatureFloatRangeQuery(
             self.handle,
             data.as_ptr(),
             &mut min,
@@ -454,20 +496,26 @@ impl Camera {
     pub fn feature_boolean(&self, feature_name: &str) -> Result<bool> {
         let mut result = 0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureBoolGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureBoolGet(self.handle, data.as_ptr(), &mut result))?;
         Ok(result != 0)
     }
     pub fn feature_boolean_set(&self, feature_name: &str, value: bool) -> Result<()> {
         let value_u8 = if value { 1 } else { 0 };
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(VmbFeatureBoolSet(self.handle, data.as_ptr(), value_u8))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureBoolSet(self.handle, data.as_ptr(), value_u8))?;
         Ok(())
     }
 
     pub fn command_run(&self, command_name: &str) -> Result<()> {
         log::debug!("camera {:?} command_run {}", self, command_name);
         let data = std::ffi::CString::new(command_name)?;
-        vimba_call!(VmbFeatureCommandRun(self.handle, data.as_ptr()))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureCommandRun(self.handle, data.as_ptr()))?;
         Ok(())
     }
 
@@ -491,7 +539,7 @@ impl Camera {
 
         log::debug!("camera {:?} announcing frame {:?}", self, frame);
 
-        vimba_call!(VmbFrameAnnounce(
+        vimba_call!(self.vimba_lib.VmbFrameAnnounce(
             self.handle,
             &*frame.frame,
             std::mem::size_of::<VmbFrame_t>().try_into().unwrap()
@@ -503,25 +551,27 @@ impl Camera {
 
     pub fn frame_revoke(&self, frame: &mut Frame) -> Result<()> {
         log::debug!("camera {:?} revoking frame {:?}", self, frame);
-        vimba_call!(VmbFrameRevoke(self.handle, &*frame.frame,))?;
+        vimba_call!(self.vimba_lib.VmbFrameRevoke(self.handle, &*frame.frame,))?;
         frame.already_announced = false;
         Ok(())
     }
 
     pub fn capture_start(&self) -> Result<()> {
         log::debug!("camera {:?} capture start", self);
-        vimba_call!(VmbCaptureStart(self.handle))?;
+        vimba_call!(self.vimba_lib.VmbCaptureStart(self.handle))?;
         Ok(())
     }
 
     pub fn capture_end(&self) -> Result<()> {
-        vimba_call!(VmbCaptureEnd(self.handle))?;
+        vimba_call!(self.vimba_lib.VmbCaptureEnd(self.handle))?;
         Ok(())
     }
 
     pub fn capture_frame_queue(&self, frame: &mut Frame) -> Result<()> {
         log::debug!("camera {:?} queueing frame {:?}", self, frame);
-        vimba_call!(VmbCaptureFrameQueue(self.handle, &*frame.frame, None))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbCaptureFrameQueue(self.handle, &*frame.frame, None))?;
         Ok(())
     }
     pub fn capture_frame_queue_with_callback(
@@ -530,18 +580,22 @@ impl Camera {
         callback: VmbFrameCallback,
     ) -> Result<()> {
         log::debug!("camera {:?} queueing frame {:?}", self, frame);
-        vimba_call!(VmbCaptureFrameQueue(self.handle, &*frame.frame, callback))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbCaptureFrameQueue(self.handle, &*frame.frame, callback))?;
         Ok(())
     }
 
     pub fn capture_queue_flush(&self) -> Result<()> {
-        vimba_call!(VmbCaptureQueueFlush(self.handle))?;
+        vimba_call!(self.vimba_lib.VmbCaptureQueueFlush(self.handle))?;
         Ok(())
     }
 
     pub fn capture_frame_wait(&self, frame: &mut Frame, timeout: u32) -> Result<()> {
         log::debug!("camera {:?} waiting for frame {:?}", self, frame);
-        vimba_call!(VmbCaptureFrameWait(self.handle, &*frame.frame, timeout))?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbCaptureFrameWait(self.handle, &*frame.frame, timeout))?;
         Ok(())
     }
 
@@ -554,7 +608,7 @@ impl Camera {
         buf.push(0);
         let sz = std::mem::size_of::<VmbFeaturePersistSettings_t>();
         let sz = sz.try_into().unwrap(); // convert to u32 from usize
-        vimba_call!(VmbCameraSettingsSave(
+        vimba_call!(self.vimba_lib.VmbCameraSettingsSave(
             self.handle,
             buf.as_ptr() as *const i8,
             (&mut p_settings.inner) as *mut _,
@@ -572,7 +626,7 @@ impl Camera {
         buf.push(0);
         let sz = std::mem::size_of::<VmbFeaturePersistSettings_t>();
         let sz = sz.try_into().unwrap(); // convert to u32 from usize
-        vimba_call!(VmbCameraSettingsLoad(
+        vimba_call!(self.vimba_lib.VmbCameraSettingsLoad(
             self.handle,
             buf.as_ptr() as *const i8,
             (&mut p_settings.inner) as *mut _,
@@ -582,10 +636,10 @@ impl Camera {
     }
 }
 
-impl Drop for Camera {
+impl<'lib> Drop for Camera<'lib> {
     fn drop(&mut self) {
         if self.is_open {
-            vimba_call!(VmbCameraClose(self.handle)).unwrap();
+            vimba_call!(self.vimba_lib.VmbCameraClose(self.handle)).unwrap();
             self.is_open = false;
         }
     }
@@ -706,9 +760,8 @@ impl Frame {
 pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
     use formats::PixFmt::*;
     use vimba_sys::VmbPixelFormatType::*;
-    let code_signed: i32 = code.try_into().unwrap();
     #[allow(non_upper_case_globals)]
-    let fmt = match code_signed {
+    let fmt = match code {
         VmbPixelFormatMono8 => Mono8,
         VmbPixelFormatRgb8 => RGB8,
         // VmbPixelFormatMono10 => Mono10,
@@ -731,6 +784,7 @@ pub fn str_to_pixel_format(pixel_format: &str) -> Result<formats::pixel_format::
     use formats::pixel_format::PixFmt::*;
     Ok(match pixel_format {
         "Mono8" => Mono8,
+        "RGB8" => RGB8,
         // "Mono10" => Mono10,
         // "Mono10p" => Mono10p,
         // "Mono12" => Mono12,
@@ -750,6 +804,7 @@ pub fn pixel_format_to_str(pixfmt: formats::pixel_format::PixFmt) -> Result<&'st
     use formats::pixel_format::PixFmt::*;
     Ok(match pixfmt {
         Mono8 => "Mono8",
+        RGB8 => "RGB8",
         // Mono10 => "Mono10",
         // Mono10p => "Mono10p",
         // Mono12 => "Mono12",

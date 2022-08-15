@@ -42,9 +42,7 @@ unsafe impl Sync for CamHandle {}
 unsafe impl Send for CamHandle {}
 
 lazy_static! {
-    // Prevent multiple concurrent access to structures and functions in Vimba
-    // which are not threadsafe.
-    static ref VIMBA_MUTEX: Mutex<()> = Mutex::new(());
+    static ref VIMBA_LIB: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
     static ref SENDERS: Mutex<Vec<FrameSender>> = Mutex::new(Vec::new());
 }
@@ -134,8 +132,11 @@ fn callback_rust(
 
         // Enqueue frame again.
         let err = {
-            let _guard = VIMBA_MUTEX.lock();
-            unsafe { vimba_sys::VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c)) }
+            unsafe {
+                VIMBA_LIB
+                    .vimba_lib
+                    .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
+            }
         };
 
         if err != vimba_sys::VmbErrorType::VmbErrorSuccess {
@@ -224,14 +225,12 @@ impl From<Error> for ci2::Error {
 }
 
 #[derive(Clone)]
-pub struct WrappedModule {
-    lib: Arc<vimba::VimbaLibrary>,
-}
+pub struct WrappedModule {}
 
 impl WrappedModule {
     fn camera_infos(&self) -> ci2::Result<Vec<VimbaCameraInfo>> {
-        let n_cams = self.lib.n_cameras().map_vimba_err()?;
-        let vimba_infos = self.lib.camera_info(n_cams).map_vimba_err()?;
+        let n_cams = VIMBA_LIB.n_cameras().map_vimba_err()?;
+        let vimba_infos = VIMBA_LIB.camera_info(n_cams).map_vimba_err()?;
 
         let infos = vimba_infos
             .into_iter()
@@ -253,14 +252,11 @@ impl WrappedModule {
 }
 
 pub fn new_module() -> ci2::Result<WrappedModule> {
-    let lib = vimba::VimbaLibrary::new()
-        .map_err::<vimba::Error, _>(From::from)
-        .map_err::<Error, _>(From::from)?;
-    Ok(WrappedModule { lib: Arc::new(lib) })
+    Ok(WrappedModule {})
 }
 
 impl<'a> ci2::CameraModule for &'a WrappedModule {
-    type CameraType = WrappedCamera;
+    type CameraType = WrappedCamera<'a>;
 
     fn name(self: &&'a WrappedModule) -> &'static str {
         "vimba"
@@ -278,7 +274,8 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         Ok(infos)
     }
     fn camera(self: &mut &'a WrappedModule, name: &str) -> ci2::Result<Self::CameraType> {
-        let camera = vimba::Camera::open(name, vimba::access_mode::FULL).map_vimba_err()?;
+        let camera = vimba::Camera::open(name, vimba::access_mode::FULL, &VIMBA_LIB.vimba_lib)
+            .map_vimba_err()?;
 
         let vimba_infos = WrappedModule::camera_infos(self)?;
         let mut my_info = None;
@@ -323,7 +320,6 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         }
 
         Ok(WrappedCamera {
-            _lib: self.clone(),
             camera: Arc::new(Mutex::new(camera)),
             acquisition_started: false,
             info,
@@ -393,10 +389,8 @@ impl ci2::CameraInfo for VimbaCameraInfo {
     }
 }
 
-pub struct WrappedCamera {
-    // We hold WrappedModule to prevent dropping it while the camera is open.
-    _lib: WrappedModule,
-    pub camera: Arc<Mutex<vimba::Camera>>,
+pub struct WrappedCamera<'lib> {
+    pub camera: Arc<Mutex<vimba::Camera<'lib>>>,
     pub info: VimbaCameraInfo,
     acquisition_started: bool,
     frames: Vec<vimba::Frame>,
@@ -409,7 +403,7 @@ fn _test_camera_is_send() {
     implements::<WrappedCamera>();
 }
 
-impl ci2::CameraInfo for WrappedCamera {
+impl<'lib> ci2::CameraInfo for WrappedCamera<'lib> {
     fn name(&self) -> &str {
         self.info.name()
     }
@@ -424,7 +418,7 @@ impl ci2::CameraInfo for WrappedCamera {
     }
 }
 
-impl ci2::Camera for WrappedCamera {
+impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
@@ -774,8 +768,6 @@ impl ci2::Camera for WrappedCamera {
         // -----
 
         {
-            let _guard = VIMBA_MUTEX.lock();
-
             camera.capture_start().map_vimba_err()?;
 
             for frame in self.frames.iter_mut() {
@@ -796,7 +788,6 @@ impl ci2::Camera for WrappedCamera {
         IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
 
         {
-            let mut _guard = VIMBA_MUTEX.lock();
             camera.command_run("AcquisitionStop").map_vimba_err()?;
             camera.capture_end().map_vimba_err()?;
             camera.capture_queue_flush().map_vimba_err()?;

@@ -1,7 +1,4 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Mutex,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use lazy_static::lazy_static;
 
@@ -10,7 +7,7 @@ const N_BUFFER_FRAMES: usize = 3;
 lazy_static! {
     // Prevent multiple concurrent access to structures and functions in Vimba
     // which are not threadsafe.
-    static ref VIMBA_MUTEX: Mutex<()> = Mutex::new(());
+    static ref VIMBA: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
 }
 
@@ -20,10 +17,12 @@ pub unsafe extern "C" fn callback_c(
     frame: *mut vimba_sys::VmbFrame_t,
 ) {
     match std::panic::catch_unwind(|| {
+        println!("got frame {}", (*frame).frameID);
         if !IS_DONE.load(Ordering::Relaxed) {
             let err = {
-                let _guard = VIMBA_MUTEX.lock().unwrap();
-                vimba_sys::VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
+                VIMBA
+                    .vimba_lib
+                    .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
             };
 
             if err != vimba_sys::VmbErrorType::VmbErrorSuccess {
@@ -41,12 +40,13 @@ pub unsafe extern "C" fn callback_c(
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let version_info = vimba::VersionInfo::new()?;
+    let lib = vimba::VimbaLibrary::new()?;
+    let version_info = vimba::VersionInfo::new(&lib.vimba_lib)?;
     println!(
         "Vimba API Version {}.{}.{}",
         version_info.major, version_info.minor, version_info.patch
     );
-    let lib = vimba::VimbaLibrary::new()?;
+
     let n_cams = lib.n_cameras()?;
     println!("{} cameras found", n_cams);
     let camera_infos = lib.camera_info(n_cams)?;
@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
         println!("Opening camera {}", cam_id);
         println!("  {:?}", camera_infos[0]);
 
-        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL)?;
+        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
         let pixel_format = camera.pixel_format()?;
         println!("  pixel_format: {:?}", pixel_format);
 
@@ -68,8 +68,6 @@ fn main() -> anyhow::Result<()> {
         }
 
         {
-            let _guard = VIMBA_MUTEX.lock().unwrap();
-
             camera.capture_start()?;
 
             for mut frame in frames.iter_mut() {
@@ -82,7 +80,6 @@ fn main() -> anyhow::Result<()> {
         std::thread::sleep(std::time::Duration::from_secs(1));
         println!("done acquiring frames");
         {
-            let mut _guard = VIMBA_MUTEX.lock().unwrap();
             IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
             camera.command_run("AcquisitionStop")?;
             camera.capture_end()?;

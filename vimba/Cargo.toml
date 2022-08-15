@@ -5,7 +5,8 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-vimba-sys = "0.1.2"
+vimba-sys = "0.2.0"
+libloading = "0.7.3"
 thiserror = "1"
 machine-vision-formats = "0.1"
 log = "0.4"

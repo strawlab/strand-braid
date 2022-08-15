@@ -1,11 +1,11 @@
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let version_info = vimba::VersionInfo::new()?;
+    let lib = vimba::VimbaLibrary::new()?;
+    let version_info = vimba::VersionInfo::new(&lib.vimba_lib)?;
     println!(
         "Vimba API Version {}.{}.{}",
         version_info.major, version_info.minor, version_info.patch
     );
-    let lib = vimba::VimbaLibrary::new()?;
     let n_cams = lib.n_cameras()?;
     println!("{} cameras found", n_cams);
     let camera_infos = lib.camera_info(n_cams)?;
@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
         println!("Opening camera {}", cam_id);
         println!("  {:?}", camera_infos[0]);
 
-        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL)?;
+        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &lib.vimba_lib)?;
         let pixel_format = camera.pixel_format()?;
         println!("  pixel_format: {:?}", pixel_format);
 
