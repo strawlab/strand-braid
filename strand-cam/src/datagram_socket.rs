@@ -1,9 +1,7 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
-use std::{
-    net::{UdpSocket},
-};
+use std::net::UdpSocket;
 
 use crate::StrandCamError;
 
