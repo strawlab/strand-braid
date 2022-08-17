@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o errexit
 
-# Prerequisite: ../yew_frontend/pkg is built. Do this by "build-plain.sh" in yew_frontend.
+# Prerequisite: ../yew_frontend/pkg is built. Do this by "build.sh" in yew_frontend.
 
 export VIMBAC_LIBDIR="/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
 export PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
