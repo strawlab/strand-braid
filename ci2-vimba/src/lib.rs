@@ -1,8 +1,5 @@
 #![cfg_attr(feature = "backtrace", feature(backtrace))]
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use parking_lot::Mutex;
 use std::{
     convert::TryInto,
@@ -45,6 +42,14 @@ lazy_static! {
     static ref VIMBA_LIB: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
     static ref SENDERS: Mutex<Vec<FrameSender>> = Mutex::new(Vec::new());
+}
+
+/// convert vimba::Error to ci2::Error
+fn ve2ce(orig: vimba::Error) -> ci2::Error {
+    // If `orig` contains a backtrace, the Debug reprepresentation has it, so it
+    // will get included as a string to the error here. TODO: `anyhow::Error`
+    // should use the backtrace in `orig` (without converting it to a String).
+    ci2::Error::from(anyhow::anyhow!("vimba::Error: {orig:?}"))
 }
 
 fn callback_rust(
@@ -131,7 +136,7 @@ fn callback_rust(
         };
 
         // Enqueue frame again.
-        let err = {
+        let err_code = {
             unsafe {
                 VIMBA_LIB
                     .vimba_lib
@@ -139,11 +144,9 @@ fn callback_rust(
             }
         };
 
-        if err != vimba_sys::VmbErrorType::VmbErrorSuccess {
-            return Err(ci2::Error::BackendError(anyhow::anyhow!(
-                "CB: capture error: {}",
-                err
-            )));
+        if err_code != vimba_sys::VmbErrorType::VmbErrorSuccess {
+            let e = vimba::Error::from(vimba::VimbaError::from(err_code));
+            return Err(ve2ce(e));
         }
 
         let tx = {
@@ -201,28 +204,11 @@ trait ExtendedError<T> {
 
 impl<T> ExtendedError<T> for std::result::Result<T, vimba::Error> {
     fn map_vimba_err(self) -> ci2::Result<T> {
-        self.map_err(|e| ci2::Error::BackendError(e.into()))
+        self.map_err(|e| ve2ce(e))
     }
 }
 
-pub type Result<M> = std::result::Result<M, Error>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("Vimba error: {source}")]
-    VimbaError {
-        #[from]
-        source: vimba::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
-}
-
-impl From<Error> for ci2::Error {
-    fn from(orig: Error) -> ci2::Error {
-        ci2::Error::BackendError(orig.into())
-    }
-}
+pub type Result<M> = std::result::Result<M, vimba::Error>;
 
 #[derive(Clone)]
 pub struct WrappedModule {}

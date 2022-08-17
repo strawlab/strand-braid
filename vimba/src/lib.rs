@@ -48,6 +48,15 @@ pub struct VimbaError {
     pub msg: &'static str,
 }
 
+impl From<i32> for VimbaError {
+    fn from(code: i32) -> VimbaError {
+        VimbaError {
+            code,
+            msg: err_str(code),
+        }
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{source}")]
@@ -97,16 +106,41 @@ pub enum Error {
     },
 }
 
+#[cfg(feature = "backtrace")]
+impl Error {
+    pub fn my_backtrace(&self) -> &Backtrace {
+        use Error::*;
+        match self {
+            LibLoading {
+                source: _,
+                backtrace,
+            } => backtrace,
+            Vimba {
+                source: _,
+                backtrace,
+            } => backtrace,
+            NulError {
+                source: _,
+                backtrace,
+            } => backtrace,
+            Utf8Error {
+                source: _,
+                backtrace,
+            } => backtrace,
+            UnknownPixelFormat { fmt: _, backtrace } => backtrace,
+            UnknownPixelFormatCode { code: _, backtrace } => backtrace,
+            InvalidCall { backtrace } => backtrace,
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn vimba_err(err: i32) -> std::result::Result<(), VimbaError> {
     if err == VmbErrorType::VmbErrorSuccess {
         Ok(())
     } else {
-        Err(VimbaError {
-            code: err,
-            msg: err_str(err),
-        })
+        Err(VimbaError::from(err))
     }
 }
 
