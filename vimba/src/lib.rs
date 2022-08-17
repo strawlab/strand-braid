@@ -798,6 +798,7 @@ pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
     let fmt = match code {
         VmbPixelFormatMono8 => Mono8,
         VmbPixelFormatRgb8 => RGB8,
+        VmbPixelFormatBayerRG8 => BayerRG8,
         // VmbPixelFormatMono10 => Mono10,
         // VmbPixelFormatMono10p => Mono10p,
         // VmbPixelFormatMono12 => Mono12,
@@ -819,6 +820,7 @@ pub fn str_to_pixel_format(pixel_format: &str) -> Result<formats::pixel_format::
     Ok(match pixel_format {
         "Mono8" => Mono8,
         "RGB8" => RGB8,
+        "BayerRG8" => BayerRG8,
         // "Mono10" => Mono10,
         // "Mono10p" => Mono10p,
         // "Mono12" => Mono12,
