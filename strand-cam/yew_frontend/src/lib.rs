@@ -1354,6 +1354,9 @@ fn to_rate(rate_enum: &RecordingFrameRate) -> Option<f32> {
         RecordingFrameRate::Fps20 => Some(20.0),
         RecordingFrameRate::Fps25 => Some(25.0),
         RecordingFrameRate::Fps30 => Some(30.0),
+        RecordingFrameRate::Fps40 => Some(40.0),
+        RecordingFrameRate::Fps50 => Some(50.0),
+        RecordingFrameRate::Fps60 => Some(60.0),
         RecordingFrameRate::Fps100 => Some(100.0),
         RecordingFrameRate::Unlimited => None,
     }

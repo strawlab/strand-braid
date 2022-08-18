@@ -17,6 +17,9 @@ pub enum RecordingFrameRate {
     Fps20,
     Fps25,
     Fps30,
+    Fps40,
+    Fps50,
+    Fps60,
     Fps100,
     Unlimited,
 }
@@ -33,6 +36,9 @@ impl RecordingFrameRate {
             Fps20 => Duration::from_millis(50),
             Fps25 => Duration::from_millis(40),
             Fps30 => Duration::from_nanos(33333333),
+            Fps40 => Duration::from_millis(25),
+            Fps50 => Duration::from_millis(20),
+            Fps60 => Duration::from_nanos(16666667),
             Fps100 => Duration::from_millis(10),
             Unlimited => Duration::from_millis(0),
         }
@@ -48,6 +54,9 @@ impl RecordingFrameRate {
             Fps20 => (20, 1),
             Fps25 => (25, 1),
             Fps30 => (30, 1),
+            Fps40 => (40, 1),
+            Fps50 => (50, 1),
+            Fps60 => (60, 1),
             Fps100 => (100, 1),
             Unlimited => {
                 return None;
@@ -74,6 +83,9 @@ impl std::fmt::Display for RecordingFrameRate {
             Fps20 => "20 fps",
             Fps25 => "25 fps",
             Fps30 => "30 fps",
+            Fps40 => "40 fps",
+            Fps50 => "50 fps",
+            Fps60 => "60 fps",
             Fps100 => "100 fps",
             Unlimited => "unlimited",
         };
@@ -85,7 +97,7 @@ impl EnumIter for RecordingFrameRate {
     fn variants() -> &'static [Self] {
         use RecordingFrameRate::*;
         &[
-            Fps1, Fps2, Fps5, Fps10, Fps20, Fps25, Fps30, Fps100, Unlimited,
+            Fps1, Fps2, Fps5, Fps10, Fps20, Fps25, Fps30, Fps40, Fps50, Fps60, Fps100, Unlimited,
         ]
     }
 }
