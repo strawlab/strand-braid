@@ -430,12 +430,12 @@ pub enum Tracker {
 }
 
 /// calculates a framerate every n frames
-pub struct FpsCalc<T: chrono::TimeZone> {
-    prev: Option<(usize, chrono::DateTime<T>)>,
+pub struct FpsCalc {
+    prev: Option<(usize, chrono::DateTime<chrono::Utc>)>,
     frames_to_average: usize,
 }
 
-impl<T: chrono::TimeZone> FpsCalc<T> {
+impl FpsCalc {
     /// create a new FpsCalc instance
     pub fn new(frames_to_average: usize) -> Self {
         Self {
@@ -444,7 +444,9 @@ impl<T: chrono::TimeZone> FpsCalc<T> {
         }
     }
     /// return a newly computed fps value whenever available.
-    pub fn update(&mut self, fno: usize, stamp: chrono::DateTime<T>) -> Option<f64> {
+    pub fn update(&mut self, fi: &ci2::FrameInfo) -> Option<f64> {
+        let fno = fi.host_framenumber;
+        let stamp = fi.host_timestamp;
         let mut reset_previous = true;
         let mut result = None;
         if let Some((prev_frame, ref prev_stamp)) = self.prev {
@@ -1213,10 +1215,8 @@ async fn frame_process_task(
                 }
             }
             Msg::Mframe(frame) => {
-                let (_device_timestamp, _block_id, fno, stamp) =
-                    frame_info_extractor.extract_frame_info(&frame);
-
-                if let Some(new_fps) = fps_calc.update(fno, stamp) {
+                let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
+                if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write();
                         tracker.modify(|tracker| {
@@ -1498,8 +1498,8 @@ async fn frame_process_task(
                         }
                     }
 
-                    let (device_timestamp, block_id, _fno, _stamp) =
-                        frame_info_extractor.extract_frame_info(&frame);
+                    let device_timestamp = extracted_frame_info.device_timestamp;
+                    let block_id = extracted_frame_info.frame_id;
 
                     #[cfg(not(feature = "flydra_feat_detect"))]
                     {
@@ -2693,11 +2693,12 @@ fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool
     };
 
     let mut mkv_writer = mkv_writer::MkvWriter::new(&mut buf, nv_cfg_test.clone(), Some(nv_enc))?;
-    mkv_writer.write_dynamic(&frame, frame.extra().host_timestamp())?;
+    mkv_writer.write_dynamic(&frame, chrono::Utc::now())?;
     mkv_writer.finish()?;
 
     debug!("MKV video with nvenc h264 encoding succeeded.");
 
+    // When `buf` goes out of scope, it will be dropped.
     Ok(true)
 }
 

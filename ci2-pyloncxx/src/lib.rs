@@ -132,25 +132,18 @@ lazy_static::lazy_static! {
 struct PylonFrameInfo {}
 
 impl ci2::ExtractFrameInfo for PylonFrameInfo {
-    fn extract_frame_info(
-        &self,
-        frame: &DynamicFrame,
-    ) -> (
-        Option<std::num::NonZeroU64>,
-        Option<std::num::NonZeroU64>,
-        usize,
-        chrono::DateTime<chrono::Utc>,
-    ) {
+    fn extract_frame_info(&self, frame: &DynamicFrame) -> ci2::FrameInfo {
         use timestamped_frame::ExtraTimeData;
         let extra = frame.extra();
 
         let pylon_extra = extra.as_any().downcast_ref::<PylonExtra>().unwrap();
-        (
-            std::num::NonZeroU64::new(pylon_extra.device_timestamp),
-            std::num::NonZeroU64::new(pylon_extra.block_id),
-            extra.host_framenumber(),
-            extra.host_timestamp(),
-        )
+
+        ci2::FrameInfo {
+            device_timestamp: std::num::NonZeroU64::new(pylon_extra.device_timestamp),
+            frame_id: std::num::NonZeroU64::new(pylon_extra.block_id),
+            host_framenumber: extra.host_framenumber(),
+            host_timestamp: extra.host_timestamp(),
+        }
     }
 }
 

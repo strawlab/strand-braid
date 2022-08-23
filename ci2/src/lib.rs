@@ -104,16 +104,15 @@ pub trait CameraModule {
     fn frame_info_extractor(&self) -> &'static dyn ExtractFrameInfo;
 }
 
+pub struct FrameInfo {
+    pub device_timestamp: Option<std::num::NonZeroU64>,
+    pub frame_id: Option<std::num::NonZeroU64>,
+    pub host_framenumber: usize,
+    pub host_timestamp: chrono::DateTime<chrono::Utc>,
+}
+
 pub trait ExtractFrameInfo: Sync + Send {
-    fn extract_frame_info(
-        &self,
-        _frame: &DynamicFrame,
-    ) -> (
-        Option<std::num::NonZeroU64>,
-        Option<std::num::NonZeroU64>,
-        usize,
-        chrono::DateTime<chrono::Utc>,
-    );
+    fn extract_frame_info(&self, _frame: &DynamicFrame) -> FrameInfo;
 }
 
 // ---------------------------
