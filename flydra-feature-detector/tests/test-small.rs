@@ -32,7 +32,7 @@ async fn track_small() -> anyhow::Result<()> {
     let pixel_format = machine_vision_formats::PixFmt::Mono8;
     let frame = basic_frame::DynamicFrame::new(W, H, W, extra, buf, pixel_format);
     let ufmf_state = UfmfState::Stopped;
-    let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None)?;
+    let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None, None)?;
     println!("maybe_found: {:?}", maybe_found);
     Ok(())
 }

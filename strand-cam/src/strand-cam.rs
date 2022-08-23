@@ -901,10 +901,7 @@ async fn frame_process_task(
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
-    #[cfg(not(feature = "flydra_feat_detect"))]
     let mut opt_clock_model = None;
-
-    #[cfg(not(feature = "flydra_feat_detect"))]
     let mut opt_frame_offset = None;
 
     while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
@@ -1216,6 +1213,17 @@ async fn frame_process_task(
             }
             Msg::Mframe(frame) => {
                 let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
+                let opt_trigger_stamp = flydra_types::get_start_ts(
+                    opt_clock_model.as_ref(),
+                    opt_frame_offset.clone(),
+                    extracted_frame_info.host_framenumber,
+                );
+                let save_mkv_fmf_stamp = if let Some(trigger_timestamp) = &opt_trigger_stamp {
+                    trigger_timestamp.into()
+                } else {
+                    extracted_frame_info.host_timestamp
+                };
+
                 if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write();
@@ -1503,19 +1511,14 @@ async fn frame_process_task(
 
                     #[cfg(not(feature = "flydra_feat_detect"))]
                     {
-                        use flydra_types::{
-                            get_start_ts, FlydraFloatTimestampLocal, ImageProcessingSteps,
-                        };
+                        use flydra_types::{FlydraFloatTimestampLocal, ImageProcessingSteps};
 
                         // In case we are not doing flydra feature detection, send frame data to braid anyway.
                         let process_new_frame_start = chrono::Utc::now();
-                        let acquire_stamp =
-                            FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
-                        let opt_trigger_stamp = get_start_ts(
-                            opt_clock_model.as_ref(),
-                            opt_frame_offset.clone(),
-                            frame.extra().host_framenumber() as u64,
+                        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(
+                            &extracted_frame_info.host_timestamp,
                         );
+
                         let preprocess_stamp =
                             datetime_conversion::datetime_to_f64(&process_new_frame_start);
 
@@ -1556,6 +1559,7 @@ async fn frame_process_task(
                                     inner_ufmf_state,
                                     device_timestamp,
                                     block_id,
+                                    opt_trigger_stamp,
                                 )?;
                             if let Some(ref coord_socket) = coord_socket {
                                 // Send the data to the mainbrain
@@ -1821,23 +1825,24 @@ async fn frame_process_task(
 
                 if let Some(ref mut inner) = my_mkv_writer {
                     let data = frame.clone(); // copy entire frame data
-                    inner.write(data, frame.extra().host_timestamp())?;
+                    inner.write(data, save_mkv_fmf_stamp)?;
                 }
 
                 if let Some(ref mut inner) = fmf_writer {
-                    let timestamp = frame.extra().host_timestamp();
                     // Based on our recording framerate, do we need to save this frame?
                     let do_save = match inner.last_saved_stamp {
                         None => true,
                         Some(stamp) => {
-                            let elapsed = timestamp - stamp;
+                            let elapsed = save_mkv_fmf_stamp - stamp;
                             elapsed
                                 >= chrono::Duration::from_std(inner.recording_framerate.interval())?
                         }
                     };
                     if do_save {
-                        match_all_dynamic_fmts!(&frame, x, { inner.writer.write(x, timestamp)? });
-                        inner.last_saved_stamp = Some(timestamp);
+                        match_all_dynamic_fmts!(&frame, x, {
+                            inner.writer.write(x, save_mkv_fmf_stamp)?
+                        });
+                        inner.last_saved_stamp = Some(save_mkv_fmf_stamp);
                     }
                 }
 
@@ -2044,20 +2049,14 @@ async fn frame_process_task(
                 im_tracker.do_clear_background(value)?;
             }
             Msg::SetFrameOffset(fo) => {
+                opt_frame_offset = Some(fo);
                 #[cfg(feature = "flydra_feat_detect")]
-                im_tracker.set_frame_offset(fo);
-                #[cfg(not(feature = "flydra_feat_detect"))]
                 {
-                    opt_frame_offset = Some(fo);
+                    im_tracker.set_frame_offset(fo);
                 }
             }
             Msg::SetClockModel(cm) => {
-                #[cfg(feature = "flydra_feat_detect")]
-                im_tracker.set_clock_model(cm);
-                #[cfg(not(feature = "flydra_feat_detect"))]
-                {
-                    opt_clock_model = cm;
-                }
+                opt_clock_model = cm;
             }
             Msg::StopMkv => {
                 if let Some(mut inner) = my_mkv_writer.take() {

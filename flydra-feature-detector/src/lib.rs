@@ -29,15 +29,14 @@ use fastimage::{
     ipp_ctypes, ripp, AlgorithmHint, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion,
     FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
 };
-use rust_cam_bui_types::ClockModel;
 
 use formats::{pixel_format::Mono32f, ImageBuffer, ImageBufferRef, Stride};
 use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
-    get_start_ts, FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint,
-    ImageProcessingSteps, RawCamName, RosCamName,
+    FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, ImageProcessingSteps,
+    RawCamName, RosCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -424,7 +423,6 @@ pub struct FlydraFeatureDetector {
     last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<Chan1, u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
-    clock_model: Option<ClockModel>,
     frame_offset: Option<u64>,
     acquisition_histogram: AcquisitionHistogram,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
@@ -572,7 +570,6 @@ impl FlydraFeatureDetector {
             mask_image: None,
             last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
-            clock_model: None,
             frame_offset,
             acquisition_histogram,
             acquisition_duration_allowed_imprecision_msec,
@@ -609,11 +606,6 @@ impl FlydraFeatureDetector {
         self.frame_offset = Some(value);
     }
 
-    pub fn set_clock_model(&mut self, cm: Option<ClockModel>) {
-        debug!("set_clock_model {:?}", cm);
-        self.clock_model = cm;
-    }
-
     // command from UI to say "take a new bg image"
     pub fn do_take_current_image_as_background(&mut self) -> Result<()> {
         debug!("taking bg image in camera");
@@ -641,16 +633,12 @@ impl FlydraFeatureDetector {
         ufmf_state: UfmfState,
         device_timestamp: Option<std::num::NonZeroU64>,
         block_id: Option<std::num::NonZeroU64>,
+        opt_trigger_stamp: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
-        let opt_trigger_stamp = get_start_ts(
-            self.clock_model.as_ref(),
-            self.frame_offset,
-            frame.extra().host_framenumber() as u64,
-        );
         let acquire_duration = match opt_trigger_stamp {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside

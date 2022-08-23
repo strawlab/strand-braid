@@ -91,8 +91,9 @@ impl<S> FlydraFloatTimestampLocal<S> {
 pub fn get_start_ts(
     clock_model: Option<&ClockModel>,
     frame_offset: Option<u64>,
-    frame: u64,
+    frame: usize,
 ) -> Option<FlydraFloatTimestampLocal<Triggerbox>> {
+    let frame: u64 = frame.try_into().unwrap();
     if let Some(frame_offset) = frame_offset {
         if let Some(cm) = clock_model {
             let ts: f64 = ((frame - frame_offset) as f64) * cm.gain + cm.offset;
