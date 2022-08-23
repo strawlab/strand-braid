@@ -115,7 +115,7 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         inner: vpx_encode::Error,
     },
-    #[error("Compiled without VPX support but VPX requested")]
+    #[error("Compiled without 'vpx' feature but VPX requested")]
     NoVpxAvailable {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
