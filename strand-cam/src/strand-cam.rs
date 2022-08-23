@@ -1507,48 +1507,40 @@ async fn frame_process_task(
                             get_start_ts, FlydraFloatTimestampLocal, ImageProcessingSteps,
                         };
 
-                        // if let Some(ref clock_model) = &opt_clock_model {
-                        //     if let Some(ref frame_offset) = &opt_frame_offset {
-                        {
-                            {
-                                // In case we are not doing flydra feature detection, send frame data to braid anyway.
-                                let process_new_frame_start = chrono::Utc::now();
-                                let acquire_stamp = FlydraFloatTimestampLocal::from_dt(
-                                    &frame.extra().host_timestamp(),
-                                );
-                                let opt_trigger_stamp = get_start_ts(
-                                    opt_clock_model.as_ref(),
-                                    opt_frame_offset.clone(),
-                                    frame.extra().host_framenumber() as u64,
-                                );
-                                let preprocess_stamp =
-                                    datetime_conversion::datetime_to_f64(&process_new_frame_start);
+                        // In case we are not doing flydra feature detection, send frame data to braid anyway.
+                        let process_new_frame_start = chrono::Utc::now();
+                        let acquire_stamp =
+                            FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
+                        let opt_trigger_stamp = get_start_ts(
+                            opt_clock_model.as_ref(),
+                            opt_frame_offset.clone(),
+                            frame.extra().host_framenumber() as u64,
+                        );
+                        let preprocess_stamp =
+                            datetime_conversion::datetime_to_f64(&process_new_frame_start);
 
-                                let tracker_annotation = flydra_types::FlydraRawUdpPacket {
-                                    cam_name: ros_cam_name.as_str().to_string(),
-                                    timestamp: opt_trigger_stamp,
-                                    cam_received_time: acquire_stamp,
-                                    device_timestamp,
-                                    block_id,
-                                    framenumber: frame.extra().host_framenumber() as i32,
-                                    n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
-                                    done_camnode_processing: 0.0,
-                                    preprocess_stamp,
-                                    image_processing_steps: ImageProcessingSteps::empty(),
-                                    points: vec![],
-                                };
-                                if let Some(ref coord_socket) = coord_socket {
-                                    // Send the data to the mainbrain
-                                    let mut vec = Vec::new();
-                                    {
-                                        let mut serializer =
-                                            serde_cbor::ser::Serializer::new(&mut vec);
-                                        serializer.self_describe().unwrap();
-                                        tracker_annotation.serialize(&mut serializer).unwrap();
-                                    }
-                                    coord_socket.send_complete(&vec)?;
-                                }
+                        let tracker_annotation = flydra_types::FlydraRawUdpPacket {
+                            cam_name: ros_cam_name.as_str().to_string(),
+                            timestamp: opt_trigger_stamp,
+                            cam_received_time: acquire_stamp,
+                            device_timestamp,
+                            block_id,
+                            framenumber: frame.extra().host_framenumber() as i32,
+                            n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
+                            done_camnode_processing: 0.0,
+                            preprocess_stamp,
+                            image_processing_steps: ImageProcessingSteps::empty(),
+                            points: vec![],
+                        };
+                        if let Some(ref coord_socket) = coord_socket {
+                            // Send the data to the mainbrain
+                            let mut vec = Vec::new();
+                            {
+                                let mut serializer = serde_cbor::ser::Serializer::new(&mut vec);
+                                serializer.self_describe().unwrap();
+                                tracker_annotation.serialize(&mut serializer).unwrap();
                             }
+                            coord_socket.send_complete(&vec)?;
                         }
                     }
 
