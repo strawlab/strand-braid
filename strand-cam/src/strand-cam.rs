@@ -3813,16 +3813,17 @@ where
                         };
 
                         if is_recording_mkv.is_some() != do_recording {
-                            info!("changed recording mkv value: do_recording={}", do_recording);
-
                             // Compute new values.
                             let (msg, new_val) = if do_recording {
+                                info!("Start MKV recording");
+
                                 // change state
                                 (
                                     Msg::StartMkv((format_str_mkv.clone(), mkv_recording_config)),
                                     Some(RecordingPath::new(format_str_mkv)),
                                 )
                             } else {
+                                info!("Stopping MKV recording");
                                 (Msg::StopMkv, None)
                             };
 
@@ -3943,6 +3944,7 @@ where
                     }
 
                     CamArg::PostTrigger => {
+                        info!("Start MKV recording via post trigger.");
                         let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
                             let tracker = shared_store_arc.read();
                             let shared: &StoreType = tracker.as_ref();
@@ -3967,6 +3969,7 @@ where
                         }
                     }
                     CamArg::SetPostTriggerBufferSize(size) => {
+                        info!("Set post trigger buffer size to {size}.");
                         tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await?;
                     }
                     CamArg::SetIsRecordingFmf(do_recording) => {

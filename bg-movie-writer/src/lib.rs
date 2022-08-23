@@ -194,6 +194,11 @@ fn launch_runner(
                             _ => None,
                         };
 
+                        log::info!(
+                            "saving MKV to {}",
+                            std::fs::canonicalize(path).unwrap().display()
+                        );
+
                         raw = Some(thread_try!(
                             err_tx,
                             mkv_writer::MkvWriter::new(f, mkv_recording_config.clone(), nv_enc)
