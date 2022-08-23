@@ -15,6 +15,7 @@ use flydra_types::{CamHttpServerInfo, CamInfo, HttpApiCallback, HttpApiShared};
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
 use yew::prelude::*;
+use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};
 
@@ -46,6 +47,7 @@ struct Model {
     html_page_title: Option<String>,
     recording_path: Option<RecordingPath>,
     fake_mkv_recording_path: Option<RecordingPath>,
+    post_trigger_buffer_size_local: TypedInputStorage<usize>,
     _listener: EventListener,
 }
 
@@ -57,6 +59,8 @@ enum Msg {
     DoRecordCsvTables(bool),
     DoRecordMkvFiles(bool),
     SendMessageFetchState(FetchState),
+    SetPostTriggerBufferSize(usize),
+    PostTriggerMkvRecording,
 }
 
 // -----------------------------------------------------------------------------
@@ -120,6 +124,7 @@ impl Component for Model {
             html_page_title: None,
             recording_path: None,
             fake_mkv_recording_path: None,
+            post_trigger_buffer_size_local: TypedInputStorage::empty(),
             _listener: listener,
         }
     }
@@ -137,6 +142,10 @@ impl Component for Model {
                 } else {
                     format!("Saving - {}", data_result.flydra_app_name)
                 };
+
+                self.post_trigger_buffer_size_local
+                    .set_if_not_focused(data_result.post_trigger_buffer_size);
+
                 self.shared = Some(data_result);
 
                 let update_title = match self.html_page_title {
@@ -166,15 +175,13 @@ impl Component for Model {
                 return false; // Don't update DOM, do that when backend notifies us of new state.
             }
             Msg::DoRecordMkvFiles(val) => {
-                ctx.link().send_future(async move {
-                    match post_callback(&HttpApiCallback::DoRecordMkvFiles(val)).await {
-                        Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
-                        Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
-                    }
-                });
-                ctx.link()
-                    .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
-                return false; // Don't update DOM, do that when backend notifies us of new state.
+                return self.send_to_all_cams(&ctx, HttpApiCallback::DoRecordMkvFiles(val));
+            }
+            Msg::SetPostTriggerBufferSize(val) => {
+                return self.send_to_all_cams(&ctx, HttpApiCallback::SetPostTriggerBufferSize(val));
+            }
+            Msg::PostTriggerMkvRecording => {
+                return self.send_to_all_cams(&ctx, HttpApiCallback::PostTriggerMkvRecording);
             }
         }
         true
@@ -208,6 +215,42 @@ impl Component for Model {
 // View
 
 impl Model {
+    fn send_to_all_cams(&mut self, ctx: &Context<Self>, msg: HttpApiCallback) -> bool {
+        ctx.link().send_future(async move {
+            match post_callback(&msg).await {
+                Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+            }
+        });
+        ctx.link()
+            .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
+        return false; // Don't update DOM, do that when backend notifies us of new state.
+    }
+
+    fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <div class="wrap-collapsible">
+                <CheckboxLabel label="Post Triggering" initially_checked=true />
+                <div>
+                    <p>{"Acquire video into a large buffer. This enables 'going back in time' to trigger saving of images
+                    that were acquired prior to the Post Trigger occurring."}</p>
+                </div>
+                <div>
+                    <label>{"buffer size (number of frames) "}
+                        <TypedInput<usize>
+                            storage={self.post_trigger_buffer_size_local.clone()}
+                            on_send_valid={ctx.link().callback(Msg::SetPostTriggerBufferSize)}
+                            />
+                    </label>
+
+                    <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
+                    {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
+
+                </div>
+            </div>
+        }
+    }
+
     fn view_shared(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref value) = self.shared {
             let record_widget = if value.all_expected_cameras_are_synced
@@ -215,17 +258,22 @@ impl Model {
             {
                 html! {
                     <div>
-                        <RecordingPathWidget
-                        label="Record .braidz file"
-                        value={self.recording_path.clone()}
-                        ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
-                        />
+                        <div>
+                            <RecordingPathWidget
+                            label="Record .braidz file"
+                            value={self.recording_path.clone()}
+                            ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
+                            />
 
-                        <RecordingPathWidget
-                        label="Record .mkv files"
-                        value={self.fake_mkv_recording_path.clone()}
-                        ontoggle={ctx.link().callback(|checked| {Msg::DoRecordMkvFiles(checked)})}
-                        />
+                            <RecordingPathWidget
+                            label="Record .mkv files"
+                            value={self.fake_mkv_recording_path.clone()}
+                            ontoggle={ctx.link().callback(|checked| {Msg::DoRecordMkvFiles(checked)})}
+                            />
+                        </div>
+
+                        { self.view_post_trigger_options(ctx) }
+
                     </div>
                 }
             } else {

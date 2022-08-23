@@ -3942,11 +3942,17 @@ where
                         }
                     }
 
-                    CamArg::PostTrigger(mkv_recording_config) => {
-                        let format_str_mkv = {
+                    CamArg::PostTrigger => {
+                        let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
                             let tracker = shared_store_arc.read();
-                            tracker.as_ref().format_str_mkv.clone()
+                            let shared: &StoreType = tracker.as_ref();
+                            (
+                                shared.is_recording_mkv.clone(),
+                                shared.format_str_mkv.clone(),
+                                shared.mkv_recording_config.clone(),
+                            )
                         };
+
                         tx_frame2
                             .send(Msg::PostTriggerStartMkv((
                                 format_str_mkv.clone(),

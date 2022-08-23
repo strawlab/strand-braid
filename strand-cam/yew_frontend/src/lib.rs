@@ -561,13 +561,7 @@ impl Component for Model {
             }
 
             Msg::PostTriggerMkvRecording => {
-                let mkv_recording_config = if let Some(ref state) = self.server_state {
-                    state.mkv_recording_config.clone()
-                } else {
-                    ci2_remote_control::MkvRecordingConfig::default()
-                };
-
-                self.send_cam_message(CamArg::PostTrigger(mkv_recording_config), ctx);
+                self.send_cam_message(CamArg::PostTrigger, ctx);
                 return false; // don't update DOM, do that on return
             }
         }

@@ -6,6 +6,8 @@
   In the braid .toml configuration file, specify the camera with `start_backend =
   "vimba"`.
 * Braid can now start saving MKV files in all cameras with a single button.
+  Furthermore, additional support for post-triggering of all cameras can be
+  done.
 * Added support to save raw, uncompressed video to the MKV container format.
 * Save camera gamma to MKV files.
 * Strand Cam defaults to including the camera name in the saved MKV, FMF, uFMF,

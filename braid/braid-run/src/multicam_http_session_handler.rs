@@ -247,4 +247,52 @@ impl HttpSessionHandler {
         let args = ci2_remote_control::CamArg::SetClockModel(clock_model);
         self.post(&cam_name, args).await
     }
+
+    pub async fn set_post_trigger_buffer_all(&self, num_frames: usize) -> Result<(), hyper::Error> {
+        let cam_names = self.cam_manager.all_ros_cam_names();
+        for cam_name in cam_names.iter() {
+            self.set_post_trigger_buffer(cam_name, num_frames).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn set_post_trigger_buffer(
+        &self,
+        cam_name: &RosCamName,
+        num_frames: usize,
+    ) -> Result<(), hyper::Error> {
+        debug!(
+            "for cam {}, sending set post trigger buffer {}",
+            cam_name.as_str(),
+            num_frames
+        );
+        let cam_name = cam_name.clone();
+
+        let args = ci2_remote_control::CamArg::SetPostTriggerBufferSize(num_frames);
+        self.post(&cam_name, args).await?;
+        Ok(())
+    }
+
+    pub async fn initiate_post_trigger_mkv_all(&self) -> Result<(), hyper::Error> {
+        let cam_names = self.cam_manager.all_ros_cam_names();
+        for cam_name in cam_names.iter() {
+            self.initiate_post_trigger_mkv(cam_name).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn initiate_post_trigger_mkv(
+        &self,
+        cam_name: &RosCamName,
+    ) -> Result<(), hyper::Error> {
+        debug!(
+            "for cam {}, initiating post trigger recording",
+            cam_name.as_str(),
+        );
+        let cam_name = cam_name.clone();
+
+        let args = ci2_remote_control::CamArg::PostTrigger;
+        self.post(&cam_name, args).await?;
+        Ok(())
+    }
 }

@@ -333,6 +333,7 @@ pub struct HttpApiShared {
     // This is "fake" because it only signals if each of the connected computers
     // is recording MKVs.
     pub fake_mkv_recording_path: Option<RecordingPath>,
+    pub post_trigger_buffer_size: usize,
     pub calibration_filename: Option<String>,
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
     pub model_server_addr: Option<std::net::SocketAddr>,
@@ -601,6 +602,10 @@ pub enum HttpApiCallback {
     DoRecordMkvFiles(bool),
     /// set uuid in the experiment_info table
     SetExperimentUuid(String),
+    /// Set the number of frames to buffer in each camera
+    SetPostTriggerBufferSize(usize),
+    /// Initiate MKV recording using post trigger
+    PostTriggerMkvRecording,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]

@@ -282,7 +282,7 @@ pub enum CamArg {
     ClearCheckerboards,
     PerformCheckerboardCalibration,
     DoQuit,
-    PostTrigger(MkvRecordingConfig),
+    PostTrigger,
     SetPostTriggerBufferSize(usize),
     ToggleAprilTagFamily(TagFamily),
     ToggleAprilTagDetection(bool),

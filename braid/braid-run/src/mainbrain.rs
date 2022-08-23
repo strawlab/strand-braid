@@ -77,6 +77,19 @@ struct MyCallbackHandler {
     http_session_handler: HttpSessionHandler,
 }
 
+impl MyCallbackHandler {
+    fn start_saving_mkvs_all_cams(&self, start_saving: bool) {
+        let mut tracker = self.shared_data.write();
+        tracker.modify(|store| {
+            if start_saving {
+                store.fake_mkv_recording_path = Some(RecordingPath::new("".to_string()));
+            } else {
+                store.fake_mkv_recording_path = None;
+            }
+        });
+    }
+}
+
 impl CallbackHandler for MyCallbackHandler {
     type Data = HttpApiCallback;
 
@@ -163,23 +176,45 @@ impl CallbackHandler for MyCallbackHandler {
                         .toggle_saving_mkv_files_all(start_saving)
                         .await?;
 
-                    {
-                        let mut tracker = self.shared_data.write();
-                        tracker.modify(|store| {
-                            if start_saving {
-                                store.fake_mkv_recording_path =
-                                    Some(RecordingPath::new("".to_string()));
-                            } else {
-                                store.fake_mkv_recording_path = None;
-                            }
-                        });
-                    }
+                    self.start_saving_mkvs_all_cams(start_saving);
                 }
                 SetExperimentUuid(value) => {
                     debug!("got SetExperimentUuid({})", value);
                     flydra2::CoordProcessorControl::new(self.braidz_write_tx.clone())
                         .set_experiment_uuid(value)
                         .await;
+                }
+                SetPostTriggerBufferSize(val) => {
+                    debug!("got SetPostTriggerBufferSize({val})");
+
+                    self.http_session_handler
+                        .set_post_trigger_buffer_all(val)
+                        .await?;
+
+                    {
+                        let mut tracker = self.shared_data.write();
+                        tracker.modify(|store| {
+                            store.post_trigger_buffer_size = val;
+                        });
+                    }
+                }
+                PostTriggerMkvRecording => {
+                    debug!("got PostTriggerMkvRecording");
+
+                    let is_saving = {
+                        let tracker = self.shared_data.read();
+                        (*tracker).as_ref().fake_mkv_recording_path.is_some()
+                    };
+
+                    if !is_saving {
+                        self.http_session_handler
+                            .initiate_post_trigger_mkv_all()
+                            .await?;
+
+                        self.start_saving_mkvs_all_cams(true);
+                    } else {
+                        debug!("Already saving, not initiating again.");
+                    }
                 }
             }
             Ok::<_, MainbrainError>(())
@@ -571,6 +606,7 @@ pub async fn pre_run(
         fake_sync,
         csv_tables_dirname: None,
         fake_mkv_recording_path: None,
+        post_trigger_buffer_size: 0,
         clock_model_copy: None,
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
         connected_cameras: Vec::new(),
