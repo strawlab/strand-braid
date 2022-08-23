@@ -147,6 +147,8 @@ fn launch_runner(
 
         let mut raw = None;
 
+        let mut last_saved_stamp: Option<chrono::DateTime<chrono::Utc>> = None;
+
         loop {
             let msg = thread_try!(err_tx, rx.recv());
             match msg {
@@ -195,8 +197,23 @@ fn launch_runner(
                         ));
                     }
                     if let Some(ref mut r) = &mut raw {
-                        let result = match_all_dynamic_fmts!(&frame, x, r.write(x, stamp));
-                        thread_try!(err_tx, result);
+                        let do_save = match last_saved_stamp {
+                            None => true,
+                            Some(last_stamp) => {
+                                let elapsed = stamp - last_stamp;
+                                elapsed
+                                    >= chrono::Duration::from_std(
+                                        mkv_recording_config.max_framerate.interval(),
+                                    )
+                                    .unwrap()
+                            }
+                        };
+
+                        if do_save {
+                            let result = match_all_dynamic_fmts!(&frame, x, r.write(x, stamp));
+                            thread_try!(err_tx, result);
+                            last_saved_stamp = Some(stamp);
+                        }
                     }
                 }
                 Msg::Finish => {
