@@ -35,6 +35,14 @@
 * Removed jemallocator from `strand-cam` in favor of the default rust allocator.
   This was added to fix a "corrupted size vs. prev_size" error in 2019, but
   seems no longer needed.
+* MKV and FMF files use frame timestamps computed from the triggerbox device if
+  available.
+* When saving MKV, FMF and April Tag CSV files, default filenames include the
+  camera name.
+
+### Fixed
+
+* When saving MKV files, the maximum framerate parameter is respected.
 
 ## 0.11.1 - 2021-12-04
 
