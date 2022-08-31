@@ -13,7 +13,7 @@ walkdir = { version = "2.2.5", optional = true }
 includedir_codegen = { version = "0.5", optional = true }
 
 [dependencies]
-thiserror = "1.0.28"
+thiserror = "1.0.33"
 log = "0.4.8"
 structopt = "0.3"
 hdrhistogram = "7.1.0"

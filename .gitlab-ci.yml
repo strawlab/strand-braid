@@ -172,11 +172,11 @@ test_crates_rust_nightly:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2022-07-29
+    - rustup update --no-self-update nightly-2022-08-30
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly-2022-07-29 test --no-default-features --features std,simd
+    - cargo +nightly-2022-08-30 test --no-default-features --features std,simd
     - cd ..
 
 test_flydra_feature_detector:

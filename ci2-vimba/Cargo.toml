@@ -9,7 +9,7 @@ rust-version="1.60"
 [dependencies]
 vimba = {path="../vimba"}
 log = "0.4"
-thiserror = "1"
+thiserror = "1.0.33"
 anyhow = "1"
 machine-vision-formats = "0.1"
 chrono = "0.4"

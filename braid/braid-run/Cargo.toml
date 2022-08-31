@@ -14,7 +14,7 @@ build-util = {path="../../build-util"}
 log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.9.0"
 configure = "0.1.1"
-thiserror = "1"
+thiserror = "1.0.33"
 anyhow = "1.0"
 parking_lot = "0.12"
 serde = "1.0"

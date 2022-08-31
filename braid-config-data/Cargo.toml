@@ -7,7 +7,7 @@ rust-version="1.60"
 [dependencies]
 toml = "0.5"
 shellexpand = "2.0"
-thiserror = "1"
+thiserror = "1.0.33"
 log = "0.4"
 
 flydra-types = {path="../flydra-types"}

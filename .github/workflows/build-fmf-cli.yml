@@ -7,6 +7,7 @@ on:
     branches: ["**"]
 
 jobs:
+
   # For building with VPX, see
   # https://github.com/astraw/env-libvpx-sys/blob/master/.github/workflows/rust.yml
 
@@ -26,10 +27,10 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
       - name: Build FMF CLI app
         run: |
-          cargo +stable build --release --features mkv-writer/vpx,nv-h264
+          cargo +nightly build --release --features mkv-writer/vpx,nv-h264,backtrace
       - uses: actions/upload-artifact@v2
         with:
           name: fmf-ubuntu
@@ -52,14 +53,14 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
       - name: Build FMF CLI app
         run: |
           $Env:VPX_STATIC = "1"
           $Env:VPX_VERSION = "1.10.0"
           $Env:VPX_LIB_DIR = "$HOME\unzipped\lib\x64"
           $Env:VPX_INCLUDE_DIR = "$HOME\unzipped\include"
-          cargo build --release --features mkv-writer/vpx,nv-h264
+          cargo +nightly build --release --features mkv-writer/vpx,nv-h264,backtrace
       - uses: actions/upload-artifact@v2
         with:
           name: fmf-windows
@@ -81,7 +82,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
       - name: Build FMF CLI app
         run: |
           export VPX_STATIC=1
@@ -89,7 +90,7 @@ jobs:
           export VPX_LIB_DIR="/opt/libvpx/1.8.1/lib"
           export VPX_INCLUDE_DIR="/opt/libvpx/1.8.1/include"
           export PATH="$PATH:$HOME/.cargo/bin"
-          cargo build --release --features mkv-writer/vpx
+          cargo +nightly build --release --features mkv-writer/vpx,backtrace
       - uses: actions/upload-artifact@v2
         with:
           name: fmf-mac

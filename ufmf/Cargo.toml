@@ -8,7 +8,7 @@ rust-version="1.60"
 [dependencies]
 byteorder = "1.1"
 chrono = "0.4"
-thiserror = "1.0"
+thiserror = "1.0.33"
 structure = "0.1.2"
 cast = "0.2.2"
 

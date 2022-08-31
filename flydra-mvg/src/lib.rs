@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(backtrace))]
-
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 

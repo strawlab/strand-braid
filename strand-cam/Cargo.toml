@@ -34,7 +34,7 @@ clap = "3.2.5"
 preferences = {git="https://github.com/astraw/preferences-rs", rev="2ad97bda741238d0bcf785d8bcd3ca1cc719fc0b"}
 directories = "4.0.1"
 anyhow = "1.0"
-thiserror = "1.0.28"
+thiserror = "1.0.33"
 parking_lot = "0.12"
 thread-control = {version="0.1.2", optional=true}
 ipp-sys = {version="0.4.4", optional=true}

@@ -1,4 +1,8 @@
-#![cfg_attr(feature = "backtrace", feature(backtrace))]
+#![cfg_attr(
+    feature = "backtrace",
+    feature(error_generic_member_access, provide_any)
+)]
+
 //! An archive of "files", either in a filesystem directory or zip archive.
 //!
 //! The primary object of interest in this crate is the struct

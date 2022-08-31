@@ -1,5 +1,8 @@
 //! Provides fast image analysis operations
-#![cfg_attr(feature = "portsimd", feature(portable_simd))]
+#![cfg_attr(
+    feature = "backtrace",
+    feature(error_generic_member_access, provide_any)
+)]
 
 use std::marker::PhantomData;
 pub use std::os::raw as ipp_ctypes;

@@ -6,7 +6,7 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-thiserror = "1.0.28"
+thiserror = "1.0.33"
 bui-backend = {version="0.14", default-features = false}
 bui-backend-types = "0.8"
 chrono = { version = "0.4", features = ["serde"] }

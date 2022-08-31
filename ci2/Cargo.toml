@@ -6,7 +6,7 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-thiserror = "1.0.28"
+thiserror = "1.0.33"
 anyhow = "1.0"
 chrono = "0.4"
 

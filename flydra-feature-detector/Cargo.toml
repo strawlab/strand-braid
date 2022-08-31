@@ -7,7 +7,7 @@ rust-version="1.60"
 
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }
-thiserror = "1.0"
+thiserror = "1.0.33"
 machine-vision-formats = "0.1"
 timestamped-frame = {path="../timestamped-frame"}
 basic-frame = {path="../basic-frame"}
