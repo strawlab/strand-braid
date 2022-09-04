@@ -4,13 +4,11 @@ The web worker aspects here are based on the `multi_thread` example from `yew`.
 
 ## development
 
-Compile
+Compile:
 
-    wasm-pack build --target web
+    ./build.sh
 
-    mkdir pkg
-    cp static\style.css pkg
+Run locally:
 
-Develop
-
-    microserver --no-spa pkg
+    # install microserver with: 'cargo install microserver'
+    microserver --port 8000 --no-spa pkg
