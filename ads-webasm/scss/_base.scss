@@ -37,6 +37,14 @@
             background: $modal-background-dark;
         }
 
+        .btn {
+            border: 1px solid $body-color-dark;
+        }
+
+        .btn-active {
+            background: $text-background-dark;
+        }
+
     }
 
     @media (prefers-color-scheme: light) {
@@ -63,6 +71,14 @@
 
         .modal-container {
             background: $modal-background-light;
+        }
+
+        .btn {
+            border: 1px solid $body-color-light;
+        }
+
+        .btn-active {
+            background: $text-background-light;
         }
 
     }
@@ -128,4 +144,16 @@
         text-align: center;
         line-height: 0.9em;
     }
+
+    .btn {
+        padding: 2px;
+        margin: 2px;
+        box-sizing: border-box;
+        border-radius: 3px;
+    }
+
+    .btn:enabled {
+        cursor: pointer;
+    }
+
 }
