@@ -146,7 +146,7 @@ impl VimbaLibrary {
             None => {
                 #[cfg(target_os = "windows")]
                 let vimbac_path =
-                    r#"C:\Program Files\Allied Vision\Vimba_6.0\VimbaC\Lib\Win64\VimbaC.dll"#;
+                    r#"C:\Program Files\Allied Vision\Vimba_6.0\VimbaC\Bin\Win64\VimbaC.dll"#;
 
                 #[cfg(not(target_os = "windows"))]
                 let vimbac_path = "/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so";
