@@ -8,8 +8,10 @@ fn main() {
     let header_path = std::path::Path::new(&out_dir).join("plugin-defs.h");
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let mut config: cbindgen::Config = Default::default();
-    config.language = cbindgen::Language::C;
+    let mut config = cbindgen::Config {
+        language: cbindgen::Language::C,
+        ..Default::default()
+    };
     config.export.include = vec!["ProcessFrameFunc".to_string()];
 
     // save header file
@@ -25,6 +27,6 @@ fn main() {
     // write header as rust file
     let dest_path = Path::new(&out_dir).join("codegen.rs");
     let mut f = File::create(&dest_path).unwrap();
-    let line = format!("pub const PLUGIN_DEFS: &'static str = r#\"{}\"#;", contents);
+    let line = format!("pub const PLUGIN_DEFS: &str = r#\"{}\"#;", contents);
     f.write_all(line.as_bytes()).unwrap();
 }
