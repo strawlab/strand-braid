@@ -62,12 +62,11 @@ impl From<i32> for VimbaError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("{source}")]
+    #[error("Loading library at {vimbac_path}")]
     LibLoading {
-        #[from]
+        #[cfg_attr(feature = "backtrace", backtrace)]
         source: libloading::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+        vimbac_path: std::path::PathBuf,
     },
     #[error("{source}")]
     Vimba {
@@ -107,34 +106,6 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
-}
-
-#[cfg(feature = "backtrace")]
-impl Error {
-    pub fn my_backtrace(&self) -> &Backtrace {
-        use Error::*;
-        match self {
-            LibLoading {
-                source: _,
-                backtrace,
-            } => backtrace,
-            Vimba {
-                source: _,
-                backtrace,
-            } => backtrace,
-            NulError {
-                source: _,
-                backtrace,
-            } => backtrace,
-            Utf8Error {
-                source: _,
-                backtrace,
-            } => backtrace,
-            UnknownPixelFormat { fmt: _, backtrace } => backtrace,
-            UnknownPixelFormatCode { code: _, backtrace } => backtrace,
-            InvalidCall { backtrace } => backtrace,
-        }
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -189,7 +160,16 @@ impl VimbaLibrary {
     pub fn from_dynamic_lib_path<P: AsRef<std::path::Path>>(
         vimbac_path: P,
     ) -> std::result::Result<Self, Error> {
-        let vimba_lib = unsafe { vimba_sys::VimbaC::new(vimbac_path.as_ref()) }?;
+        let vimba_lib = match unsafe { vimba_sys::VimbaC::new(vimbac_path.as_ref()) } {
+            Ok(vimba_lib) => vimba_lib,
+            Err(source) => {
+                let vimbac_path = vimbac_path.as_ref().to_path_buf();
+                return Err(Error::LibLoading {
+                    source,
+                    vimbac_path,
+                });
+            }
+        };
 
         vimba_call!(vimba_lib.VmbStartup())?;
         Ok(VimbaLibrary {
