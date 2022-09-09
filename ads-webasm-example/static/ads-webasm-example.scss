@@ -29,22 +29,6 @@ body {
     padding: 0;
 }
 
-.btn {
-    padding: 2px;
-    margin: 2px;
-    border: 1px solid colors.$body-color-dark;
-    box-sizing: border-box;
-    border-radius: 3px;
-}
-
-.btn:enabled {
-    cursor: pointer;
-}
-
-.btn-active {
-    background: colors.$text-background-dark;
-}
-
 h2 {
     padding: 5px;
     background: colors.$body-color-dark;

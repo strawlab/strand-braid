@@ -24,22 +24,6 @@ body {
     padding: 5px;
 }
 
-.btn {
-    padding: 2px;
-    margin: 2px;
-    border: 1px solid colors.$body-color-dark;
-    box-sizing: border-box;
-    border-radius: 3px;
-}
-
-.btn:enabled {
-    cursor: pointer;
-}
-
-.btn-active {
-    background: colors.$text-background-dark;
-}
-
 .compute-modal {
     background-color: rgba(0, 0, 0, 0.5);
     position: fixed;
