@@ -3,6 +3,8 @@
 @use 'custom_file_upload';
 @use 'lds_ellipsis';
 
+$footer-height: 2.5rem;
+
 @include base.base($body-color-dark: colors.$body-color-dark,
     $body-background-dark: colors.$body-background-dark,
     $modal-background-dark: colors.$modal-background-dark,
@@ -70,16 +72,14 @@ body {
 }
 
 #content-wrap {
-    padding-bottom: 2.5rem;
-    /* Footer height */
+    padding-bottom: $footer-height;
 }
 
 #footer {
     position: absolute;
     bottom: 0;
     width: 100%;
-    height: 2.5rem;
-    /* Footer height */
+    height: $footer-height;
 }
 
 @media (prefers-color-scheme: dark) {
