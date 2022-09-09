@@ -192,7 +192,7 @@ impl Component for Model {
             <div id="page-container">
                 <div id="content-wrap">
                     <h1 style="text-align: center;">{"Braid "}
-                        <a href="https://strawlab.org/braid/"><span class="infoCircle">{"🛈"}</span></a>
+                        <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ⓘ"}</span></a>
                     </h1>
                     <img src="braid-logo-no-text.png" class="center logo-img" width="523" height="118" alt="Braid logo"/>
                     {self.disconnected_dialog()}
