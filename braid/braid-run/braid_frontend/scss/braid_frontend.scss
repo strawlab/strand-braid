@@ -3,8 +3,7 @@
 @use 'recording_path';
 @use 'lds_ellipsis';
 
-@include base.base(
-    $body-color-dark: colors.$body-color-dark,
+@include base.base($body-color-dark: colors.$body-color-dark,
     $body-background-dark: colors.$body-background-dark,
     $modal-background-dark: colors.$modal-background-dark,
     $text-background-dark: colors.$text-background-dark,
@@ -15,7 +14,7 @@
     $modal-background-light: colors.$modal-background-light,
     $text-background-light: colors.$text-background-light,
     $text-color-light: colors.$text-color-light,
-    );
+);
 
 @include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
 
@@ -25,14 +24,16 @@
 }
 
 #content-wrap {
-    padding-bottom: 2.5rem;    /* Footer height */
+    padding-bottom: 2.5rem;
+    /* Footer height */
 }
 
 #footer {
     position: absolute;
     bottom: 0;
     width: 100%;
-    height: 2.5rem;            /* Footer height */
+    height: 2.5rem;
+    /* Footer height */
 }
 
 html,
