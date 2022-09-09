@@ -27,12 +27,6 @@
             border: 0;
         }
 
-        button:disabled,
-        button[disabled] {
-            color: $text-background-dark;
-            border: 1px solid $text-background-dark;
-        }
-
         .modal-container {
             background: $modal-background-dark;
         }
@@ -62,12 +56,6 @@
             background-color: $text-background-light;
             color: $text-color-light;
             border: 0;
-        }
-
-        button:disabled,
-        button[disabled] {
-            color: $text-background-light;
-            border: 1px solid $text-background-light;
         }
 
         .modal-container {
