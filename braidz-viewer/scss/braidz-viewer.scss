@@ -78,5 +78,25 @@ body {
     position: absolute;
     bottom: 0;
     width: 100%;
-    height: 2.5rem;            /* Footer height */
-  }
+    height: 2.5rem;
+    /* Footer height */
+}
+
+@media (prefers-color-scheme: dark) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-dark;
+        border: 1px solid colors.$text-background-dark;
+    }
+}
+
+
+@media (prefers-color-scheme: light) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-light;
+        border: 1px solid colors.$text-background-light;
+    }
+}

@@ -78,3 +78,22 @@ h3 {
     display: none;
 }
 
+
+@media (prefers-color-scheme: dark) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-dark;
+        border: 1px solid colors.$text-background-dark;
+    }
+}
+
+
+@media (prefers-color-scheme: light) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-light;
+        border: 1px solid colors.$text-background-light;
+    }
+}
