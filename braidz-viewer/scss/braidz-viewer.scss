@@ -3,8 +3,7 @@
 @use 'custom_file_upload';
 @use 'lds_ellipsis';
 
-@include base.base(
-    $body-color-dark: colors.$body-color-dark,
+@include base.base($body-color-dark: colors.$body-color-dark,
     $body-background-dark: colors.$body-background-dark,
     $modal-background-dark: colors.$modal-background-dark,
     $text-background-dark: colors.$text-background-dark,
@@ -15,7 +14,7 @@
     $modal-background-light: colors.$modal-background-light,
     $text-background-light: colors.$text-background-light,
     $text-color-light: colors.$text-color-light,
-    );
+);
 
 html,
 body {
@@ -40,7 +39,7 @@ body {
 }
 
 .compute-modal {
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     position: fixed;
     top: 0;
     left: 0;
@@ -65,16 +64,17 @@ body {
     display: none;
 }
 
-  #page-container {
+#page-container {
     position: relative;
     min-height: 100vh;
-  }
+}
 
-  #content-wrap {
-    padding-bottom: 2.5rem;    /* Footer height */
-  }
+#content-wrap {
+    padding-bottom: 2.5rem;
+    /* Footer height */
+}
 
-  #footer {
+#footer {
     position: absolute;
     bottom: 0;
     width: 100%;
