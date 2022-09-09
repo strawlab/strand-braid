@@ -6,7 +6,9 @@ use wasm_bindgen::prelude::*;
 use rust_cam_bui_types::RecordingPath;
 use yew::prelude::*;
 
-use ads_webasm::components::{ConfigField, CsvDataField, MaybeCsvData, RecordingPathWidget};
+use ads_webasm::components::{
+    ConfigField, CsvDataField, EnumToggle, MaybeCsvData, RecordingPathWidget,
+};
 use yew_tincture::components::CheckboxLabel;
 use yew_tincture::components::{Button, RawAndParsed, TypedInput, TypedInputStorage};
 
@@ -17,6 +19,7 @@ enum Msg {
     SetU8(RawAndParsed<u8>),
     SetF32(RawAndParsed<f32>),
     CsvFile(MaybeCsvData<CsvRowType>),
+    ToggleMySelection(MySelection),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -33,11 +36,46 @@ struct Model {
     raw_u8: TypedInputStorage<u8>,
     raw_f32: TypedInputStorage<f32>,
     record_filename: Option<RecordingPath>,
+    my_selection: MySelection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct MyConfig {
     value: u8,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+enum MySelection {
+    SelOne,
+    SelTwo,
+    SelThree,
+}
+
+impl Default for MySelection {
+    fn default() -> MySelection {
+        MySelection::SelTwo
+    }
+}
+
+impl std::fmt::Display for MySelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let s = match self {
+            MySelection::SelOne => "one",
+            MySelection::SelTwo => "two",
+            MySelection::SelThree => "three",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl enum_iter::EnumIter for MySelection {
+    fn variants() -> &'static [Self] {
+        &[
+            MySelection::SelOne,
+            MySelection::SelTwo,
+            MySelection::SelThree,
+        ]
+    }
 }
 
 impl Component for Model {
@@ -52,6 +90,7 @@ impl Component for Model {
             raw_u8: TypedInputStorage::empty(),
             raw_f32: TypedInputStorage::empty(),
             record_filename: None,
+            my_selection: Default::default(),
         }
     }
 
@@ -61,6 +100,9 @@ impl Component for Model {
                 if let Ok(prev) = self.raw_f32.parsed() {
                     self.raw_f32.set_if_not_focused(prev + 1.0);
                 }
+            }
+            Msg::ToggleMySelection(val) => {
+                self.my_selection = val;
             }
             Msg::CsvFile(csv_file) => {
                 self.csv_file = csv_file;
@@ -108,6 +150,16 @@ impl Component for Model {
         html! {
             <div>
                {"Hello from rust"}
+
+
+
+               <div>
+                    <EnumToggle<MySelection>
+                        value={self.my_selection.clone()}
+                        onsignal={ctx.link().callback(|val| {Msg::ToggleMySelection(val)})}
+                    />
+               </div>
+
 
                <div>
                    <RecordingPathWidget
