@@ -7,7 +7,7 @@ cargo build --target wasm32-unknown-unknown --release --bin main
 wasm-bindgen --target web --no-typescript --out-dir pkg --out-name main ../target/wasm32-unknown-unknown/release/main.wasm
 
 cp static/index.html pkg/
-grass -I ../ads-webasm/scss/ static/braid-april-cal-webapp.scss > pkg/style.css
+grass -I ../ads-webasm/scss/ static/braid-april-cal-webapp.scss pkg/style.css
 
 echo Build OK. Now run with:
 echo     microserver --port 8000 --no-spa pkg

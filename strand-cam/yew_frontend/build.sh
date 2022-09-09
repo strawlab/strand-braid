@@ -5,7 +5,7 @@ set -o errexit
 wasm-pack build --target web
 
 # Install grass with: cargo install grass
-grass -I ../../ads-webasm/scss scss/strand-cam-frontend.scss > pkg/style.css
+grass -I ../../ads-webasm/scss scss/strand-cam-frontend.scss pkg/style.css
 
 # above built everything, let's now run it locally
 # (install with `cargo install microserver`)
