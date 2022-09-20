@@ -290,7 +290,7 @@ pub enum SendType {
 
     EndOfFrame(SyncFno),
     /// the multicamera calibration serialized into a flydra xml file
-    CalibrationFlydraXml(Vec<u8>),
+    CalibrationFlydraXml(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

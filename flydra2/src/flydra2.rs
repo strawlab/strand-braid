@@ -938,10 +938,11 @@ impl CoordProcessor {
             recon
                 .to_flydra_xml(&mut flydra_xml_new)
                 .expect("to_flydra_xml");
+            let flydra_xml_str = std::str::from_utf8(&flydra_xml_new).unwrap();
 
             for ms in self.model_servers.iter() {
                 ms.send((
-                    SendType::CalibrationFlydraXml(flydra_xml_new.clone()),
+                    SendType::CalibrationFlydraXml(flydra_xml_str.to_string()),
                     dummy_time.clone(),
                 ))
                 .await
