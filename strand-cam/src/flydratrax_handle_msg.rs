@@ -78,6 +78,7 @@ pub async fn create_message_handler(
                 cur_pos2d = next;
             }
             SendType::EndOfFrame(_fno) => {}
+            SendType::CalibrationFlydraXml(_cal_xml) => {}
         }
 
         {

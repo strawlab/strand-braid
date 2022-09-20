@@ -918,7 +918,25 @@ impl CoordProcessor {
 
         if let Some(ref recon) = self.recon {
             let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps))
+            self.mc2 = Some(self.new_model_collection(recon, fps));
+            let dummy_time = TimeDataPassthrough {
+                frame: SyncFno(0),
+                timestamp: None,
+            };
+            // send calibration here
+            let mut flydra_xml_new: Vec<u8> = Vec::new();
+            recon
+                .to_flydra_xml(&mut flydra_xml_new)
+                .expect("to_flydra_xml");
+
+            for ms in self.model_servers.iter() {
+                ms.send((
+                    SendType::CalibrationFlydraXml(flydra_xml_new.clone()),
+                    dummy_time.clone(),
+                ))
+                .await
+                .expect("send calibration");
+            }
         }
 
         // Restart the frame bundler.

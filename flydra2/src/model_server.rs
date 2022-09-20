@@ -289,6 +289,8 @@ pub enum SendType {
     Death(u32), // obj_id
 
     EndOfFrame(SyncFno),
+    /// the multicamera calibration serialized into a flydra xml file
+    CalibrationFlydraXml(Vec<u8>),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
