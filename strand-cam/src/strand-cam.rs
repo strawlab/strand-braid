@@ -947,6 +947,7 @@ async fn frame_process_task(
             // TODO if kalman_tracking_config or
             // im_pt_detect_cfg.valid_region changes, restart tracker.
             if is_doing_object_detection && maybe_flydra2_stream.is_none() {
+                let mut new_cam = None;
                 if let Some(ref ssa) = shared_store_arc {
                     let region = {
                         let tracker = ssa.write();
@@ -998,6 +999,7 @@ async fn frame_process_task(
 
                                 assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
+                                new_cam = Some(cam_cal.clone());
 
                                 let msg_handler_fut = async move {
                                     flydratrax_handle_msg::create_message_handler(
@@ -1079,6 +1081,14 @@ async fn frame_process_task(
                                 error!("cannot start tracking without circular region to use as camera calibration");
                             }
                         }
+                    }
+                }
+                if let Some(cam) = new_cam {
+                    if let Some(ref mut store) = shared_store_arc {
+                        let mut tracker = store.write();
+                        tracker.modify(|tracker| {
+                            tracker.camera_calibration = Some(cam);
+                        });
                     }
                 }
             }
@@ -3220,6 +3230,7 @@ where
         apriltag_state,
         im_ops_state,
         had_frame_processing_error: false,
+        camera_calibration: None,
     });
 
     let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
