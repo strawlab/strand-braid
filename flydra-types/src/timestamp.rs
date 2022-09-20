@@ -6,17 +6,17 @@ use chrono::Utc;
 
 pub trait Source {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Triggerbox;
 impl Source for Triggerbox {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostClock;
 impl Source for HostClock {}
 
 /// A type that represents a timestamp but is serialized to an f64.
 // TODO: rename from 'Local' because actually the f64 stamp is UTC.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct FlydraFloatTimestampLocal<S> {
     value_f64: NotNan<f64>,
     source: std::marker::PhantomData<S>,
