@@ -19,7 +19,7 @@ pub async fn create_message_handler(
     use mvg::PointWorldFrame;
     use na::Point3;
 
-    info!("starting new flydratask message handler");
+    info!("starting new flydratrax message handler");
 
     let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
 
