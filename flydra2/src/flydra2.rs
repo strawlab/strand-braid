@@ -770,6 +770,12 @@ impl CoordProcessorControl {
     }
 }
 
+pub struct CoordProcessorConfig {
+    pub tracking_params: TrackingParams,
+    pub save_empty_data2d: bool,
+    pub ignore_latency: bool,
+}
+
 // TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
 // (and thus prevent it from being dropped and saving files). We should consider
 // refactoring this so that mostly only Weak<Sender<_>> copies of `braidz_write_tx`
@@ -788,15 +794,19 @@ pub struct CoordProcessor {
 
 impl CoordProcessor {
     pub fn new(
+        cfg: CoordProcessorConfig,
         handle: tokio::runtime::Handle,
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: TrackingParams,
-        save_empty_data2d: bool,
         saving_program_name: &str,
-        ignore_latency: bool,
         valve: stream_cancel::Valve,
     ) -> Result<Self> {
+        let CoordProcessorConfig {
+            tracking_params,
+            save_empty_data2d,
+            ignore_latency,
+        } = cfg;
+
         trace!("CoordProcessor using {:?}", recon);
 
         let recon2 = recon.clone();

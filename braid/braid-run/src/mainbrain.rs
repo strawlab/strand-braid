@@ -20,7 +20,7 @@ use bui_backend::{
     AccessControl, CallbackHandler,
 };
 
-use flydra2::{CoordProcessor, FrameDataAndPoints, MyFloat, StreamItem};
+use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback,
     HttpApiShared, PerCamSaveData, RosCamName, SyncFno, TriggerType, Triggerbox,
@@ -492,13 +492,15 @@ pub async fn pre_run(
 
     let ignore_latency = false;
     let coord_processor = CoordProcessor::new(
+        CoordProcessorConfig {
+            tracking_params,
+            save_empty_data2d,
+            ignore_latency,
+        },
         tokio::runtime::Handle::current(),
         cam_manager.clone(),
         recon.clone(),
-        tracking_params,
-        save_empty_data2d,
         saving_program_name,
-        ignore_latency,
         valve.clone(),
     )?;
     let braidz_write_tx = coord_processor.get_braidz_write_tx();

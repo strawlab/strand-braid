@@ -115,7 +115,7 @@ pub const APP_INFO: AppInfo = AppInfo {
 compile_error!("do not enable 'flydra-feature-detector' except with 'flydra_feat_detect' feature");
 
 #[cfg(feature = "flydratrax")]
-use flydra2::{CoordProcessor, CoordProcessorControl, MyFloat, StreamItem};
+use flydra2::{CoordProcessor, CoordProcessorConfig, CoordProcessorControl, MyFloat, StreamItem};
 
 #[cfg(feature = "imtrack-absdiff")]
 pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
@@ -1032,13 +1032,15 @@ async fn frame_process_task(
                                     flydra_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = CoordProcessor::new(
+                                    CoordProcessorConfig {
+                                        tracking_params,
+                                        save_empty_data2d,
+                                        ignore_latency,
+                                    },
                                     tokio::runtime::Handle::current(),
                                     cam_manager,
                                     Some(recon),
-                                    tracking_params,
-                                    save_empty_data2d,
                                     "strand-cam",
-                                    ignore_latency,
                                     valve.clone(),
                                 )
                                 .expect("create CoordProcessor");

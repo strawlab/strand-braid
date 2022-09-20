@@ -101,13 +101,15 @@ impl BraidStorage {
         let ignore_latency = true;
         let saving_program_name = "braid-process-video";
         let coord_processor = flydra2::CoordProcessor::new(
+            flydra2::CoordProcessorConfig {
+                tracking_params,
+                save_empty_data2d,
+                ignore_latency,
+            },
             tokio::runtime::Handle::current(),
             cam_manager.clone(),
             recon.clone(),
-            tracking_params,
-            save_empty_data2d,
             saving_program_name,
-            ignore_latency,
             valve,
         )?;
 
