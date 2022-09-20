@@ -1037,8 +1037,6 @@ fn test_csv_nan() {
             assert!(row.y.is_nan());
             assert!(!row.area.is_nan());
             assert_eq!(row.area, 1.0);
-
-            break;
         }
         assert_eq!(count, 1);
     }
