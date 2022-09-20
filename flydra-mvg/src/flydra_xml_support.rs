@@ -42,7 +42,7 @@ pub struct SingleCameraCalibration<R: RealField + serde::Serialize> {
     pub non_linear_parameters: FlydraDistortionModel<R>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct FlydraDistortionModel<R: RealField + serde::Serialize> {
     pub fc1: R,
@@ -140,7 +140,7 @@ where
     }
     let mut elements: Vec<R> = Vec::new();
     for row in rows.iter() {
-        let cols: Vec<&str> = row.trim().split_whitespace().collect();
+        let cols: Vec<&str> = row.split_whitespace().collect();
         if cols.len() != 4 {
             return Err(serde::de::Error::custom("expected exactly 4 columns"));
         }
