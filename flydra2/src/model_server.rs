@@ -280,7 +280,7 @@ impl From<flydra_types::KalmanEstimatesRow> for SendKalmanEstimatesRow {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SendType {
     // IMPORTANT NOTE: if you change this type, be sure to change the version
     // value `v`. Search for the string ZP4q and `Braid pose API`.
@@ -363,11 +363,18 @@ pub async fn new_model_server(
 
         let main_task = async move {
             let mut connections: Vec<NewEventStreamConnection> = vec![];
+            let mut current_calibration: Option<(SendType, TimeDataPassthrough)> = None;
             loop {
                 tokio::select! {
                     opt_new_connection = rx_new_connection_valved.next() => {
                         match opt_new_connection {
                             Some(new_connection) => {
+
+                                if let Some(data) = &current_calibration {
+                                    let bytes = get_body(data)?;
+                                    new_connection.chunk_sender.send(bytes.clone()).await.unwrap();
+                                }
+
                                 connections.push(new_connection);
                             }
                             None => {
@@ -377,8 +384,11 @@ pub async fn new_model_server(
                         }
                     }
                     opt_new_data = data_rx.next() => {
-                        match opt_new_data {
+                        match &opt_new_data {
                             Some(data) => {
+                                if let (SendType::CalibrationFlydraXml(_),_) = &data {
+                                    current_calibration = Some(data.clone());
+                                }
                                 send_msg(data, &mut connections).await?;
                             }
                             None => {
@@ -421,10 +431,7 @@ impl ModelServer {
     }
 }
 
-async fn send_msg(
-    data: (SendType, TimeDataPassthrough),
-    connections: &mut Vec<NewEventStreamConnection>,
-) -> Result<()> {
+fn get_body(data: &(SendType, TimeDataPassthrough)) -> Result<hyper::body::Bytes> {
     let (msg, tdpt) = data;
     let latency: f64 = if let Some(ref tt) = tdpt.trigger_timestamp() {
         let now_f64 = datetime_conversion::datetime_to_f64(&chrono::Local::now());
@@ -436,8 +443,8 @@ async fn send_msg(
     // Send updates after each observation for lowest-possible latency.
     let data = ToListener {
         /// Braid pose API
-        v: 2, // <- Bump when ToListener or SendType definition changes ZP4q
-        msg,
+        v: 3, // <- Bump when ToListener or SendType definition changes ZP4q
+        msg: msg.clone(),
         latency,
         synced_frame: tdpt.synced_frame(),
         trigger_timestamp: tdpt.trigger_timestamp(),
@@ -449,6 +456,14 @@ async fn send_msg(
     let buf = format!("event: braid\ndata: {}\n\n", buf);
 
     let bytes: hyper::body::Bytes = buf.into();
+    Ok(bytes)
+}
+
+async fn send_msg(
+    data: &(SendType, TimeDataPassthrough),
+    connections: &mut Vec<NewEventStreamConnection>,
+) -> Result<()> {
+    let bytes = get_body(&data)?;
 
     // Send to all listening connections.
     let keep: Vec<bool> = futures::future::join_all(
