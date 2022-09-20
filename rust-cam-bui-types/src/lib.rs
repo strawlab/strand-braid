@@ -3,7 +3,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate chrono;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct RecordingPath {
     path: String,
     start_time: chrono::DateTime<chrono::Utc>,
