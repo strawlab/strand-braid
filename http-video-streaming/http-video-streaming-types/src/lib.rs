@@ -1,6 +1,4 @@
-#[macro_use]
-extern crate serde_derive;
-extern crate bui_backend_types;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Point {
@@ -165,3 +163,18 @@ mod tests {
 }
 
 pub const VIDEO_STREAM_EVENT_NAME: &str = "http-video-streaming";
+
+#[test]
+fn test_polygon_from_yaml() {
+
+    let mystr = "Polygon:
+    points:
+      - [510.0, 520.0]
+      - [520.0, 530.0]
+      - [510.0, 540.0]
+";
+    let polygon = Shape::Polygon(PolygonParams { points: vec![(510.0, 520.0), (520.0, 530.0), (510.0, 540.0)] });
+
+    let polygon2: Shape = serde_yaml::from_str(&mystr).unwrap();
+    assert_eq!(polygon, polygon2);
+}
