@@ -61,6 +61,8 @@ pub enum Shape {
     // Rectangle(RectangleParams),
     // Mask(MaskImage),
     Polygon(PolygonParams),
+    /// mulitple individual circles
+    MultipleCircles(Vec<CircleParams>),
 }
 
 // from client to server

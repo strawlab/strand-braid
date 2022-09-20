@@ -917,6 +917,9 @@ pub fn compute_mask_image(
         Shape::Everything => {
             // all pixels valid
         }
+        Shape::MultipleCircles(_) => {
+            todo!();
+        }
         Shape::Circle(ref valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);
             for (i, mask_row) in mask_row_iter.enumerate() {

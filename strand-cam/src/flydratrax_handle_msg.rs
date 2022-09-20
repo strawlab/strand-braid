@@ -92,43 +92,48 @@ pub async fn create_message_handler(
                 continue; // skip below, thus preventing LED state change
             }
 
-            let (led_center, led_radius_raw) = match led_program_config.led_on_shape_pixels {
-                video_streaming::Shape::Polygon(ref _points) => {
-                    unimplemented!();
-                }
-                video_streaming::Shape::Circle(ref circ) => (
-                    na::Point2::new(circ.center_x as f64, circ.center_y as f64),
-                    circ.radius as f64,
-                ),
-                video_streaming::Shape::Everything => {
-                    // actually nothing
-                    (na::Point2::new(0.0, 0.0), -1.0)
-                }
-            };
-
-            let led_radius = if *led_state {
-                // LED is on, fly must leave a larger area to turn off LED.
-                led_radius_raw + led_program_config.led_hysteresis_pixels as f64
-            } else {
-                led_radius_raw
-            };
-
-            let next_led_state = match &cur_pos2d {
-                None => false,
-                Some((_cur_obj_id, cur_pt2d)) => {
-                    let this_dist = na::distance(&cur_pt2d.coords, &led_center);
-                    if this_dist <= led_radius {
-                        true
-                    } else {
-                        false
-                    }
-                }
-            };
-
             assert_eq!(
                 led_trigger_mode,
                 strand_cam_storetype::LEDTriggerMode::PositionTriggered
             );
+
+            let circ_params = match led_program_config.led_on_shape_pixels {
+                video_streaming::Shape::Polygon(ref _points) => {
+                    unimplemented!();
+                }
+                video_streaming::Shape::MultipleCircles(ref circles) => {
+                    circles.iter().map(|circ| to_circ_params(circ)).collect()
+                }
+                video_streaming::Shape::Circle(ref circ) => {
+                    vec![to_circ_params(circ)]
+                }
+                video_streaming::Shape::Everything => {
+                    // actually nothing
+                    vec![]
+                }
+            };
+
+            let mut next_led_state = false;
+
+            for (led_center, led_radius_raw) in circ_params.iter() {
+                let led_radius = if *led_state {
+                    // LED is on, fly must leave a larger area to turn off LED.
+                    led_radius_raw + led_program_config.led_hysteresis_pixels as f64
+                } else {
+                    *led_radius_raw
+                };
+
+                match &cur_pos2d {
+                    None => {}
+                    Some((_cur_obj_id, cur_pt2d)) => {
+                        let this_dist = na::distance(&cur_pt2d.coords, &led_center);
+                        if this_dist <= led_radius {
+                            next_led_state = true;
+                            break;
+                        }
+                    }
+                };
+            }
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
@@ -164,4 +169,11 @@ pub async fn create_message_handler(
         }
     }
     Ok(())
+}
+
+fn to_circ_params(circ: &http_video_streaming_types::CircleParams) -> (na::Point2<f64>, f64) {
+    (
+        na::Point2::new(circ.center_x as f64, circ.center_y as f64),
+        circ.radius as f64,
+    )
 }

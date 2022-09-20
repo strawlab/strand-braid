@@ -965,6 +965,9 @@ async fn frame_process_task(
                             video_streaming::Shape::Polygon(_points) => {
                                 unimplemented!();
                             }
+                            video_streaming::Shape::MultipleCircles(_) => {
+                                unimplemented!();
+                            }
                             video_streaming::Shape::Circle(circ) => {
                                 let recon = match &flydratrax_calibration_source {
                                     CalSource::PseudoCal => {
