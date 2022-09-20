@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Point {
@@ -168,15 +168,42 @@ pub const VIDEO_STREAM_EVENT_NAME: &str = "http-video-streaming";
 
 #[test]
 fn test_polygon_from_yaml() {
-
     let mystr = "Polygon:
     points:
       - [510.0, 520.0]
       - [520.0, 530.0]
       - [510.0, 540.0]
 ";
-    let polygon = Shape::Polygon(PolygonParams { points: vec![(510.0, 520.0), (520.0, 530.0), (510.0, 540.0)] });
+    let polygon = Shape::Polygon(PolygonParams {
+        points: vec![(510.0, 520.0), (520.0, 530.0), (510.0, 540.0)],
+    });
 
     let polygon2: Shape = serde_yaml::from_str(&mystr).unwrap();
     assert_eq!(polygon, polygon2);
+}
+
+#[test]
+fn test_multiple_circles_yaml_roundtrip() {
+    let circles = Shape::MultipleCircles(vec![
+        CircleParams {
+            center_x: 1,
+            center_y: 2,
+            radius: 34,
+        },
+        CircleParams {
+            center_x: 10,
+            center_y: 20,
+            radius: 345,
+        },
+        CircleParams {
+            center_x: 100,
+            center_y: 200,
+            radius: 340,
+        },
+    ]);
+
+    let mystr = serde_yaml::to_string(&circles).unwrap();
+    dbg!(&mystr);
+    let circles2: Shape = serde_yaml::from_str(&mystr).unwrap();
+    assert_eq!(circles, circles2);
 }
