@@ -932,11 +932,6 @@ impl CoordProcessor {
         // Ensure that there are no skipped frames.
         let mut contiguous_stream = make_contiguous(bundled);
 
-        if let Some(ref recon) = self.recon {
-            let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps))
-        }
-
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
         while let Some(bundle) = contiguous_stream.next().await {
