@@ -28,7 +28,7 @@ pub struct ToClient {
     pub name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CircleParams {
     pub center_x: i16,
     pub center_y: i16,
