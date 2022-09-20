@@ -318,7 +318,7 @@ impl WritingState {
     fn save_data_2d_distorted(&mut self, fdp: FrameDataAndPoints) -> Result<usize> {
         let data2d_distorted = fdp.to_save(self.save_empty_data2d);
         for row in data2d_distorted.iter() {
-            self.data_2d_wtr.serialize(&row)?;
+            self.data_2d_wtr.serialize(row)?;
         }
         Ok(data2d_distorted.len())
     }

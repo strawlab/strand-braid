@@ -463,7 +463,7 @@ async fn send_msg(
     data: &(SendType, TimeDataPassthrough),
     connections: &mut Vec<NewEventStreamConnection>,
 ) -> Result<()> {
-    let bytes = get_body(&data)?;
+    let bytes = get_body(data)?;
 
     // Send to all listening connections.
     let keep: Vec<bool> = futures::future::join_all(
