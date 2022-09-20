@@ -387,7 +387,7 @@ pub struct FrameDataAndPoints {
 }
 
 impl FrameDataAndPoints {
-    fn to_save(self, save_empty_data2d: bool) -> Vec<Data2dDistortedRowF32> {
+    fn into_save(self, save_empty_data2d: bool) -> Vec<Data2dDistortedRowF32> {
         let frame_data = &self.frame_data;
         let pts_to_save: Vec<Data2dDistortedRowF32> = self
             .points
