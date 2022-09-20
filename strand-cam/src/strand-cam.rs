@@ -3168,6 +3168,12 @@ where
     #[cfg(not(feature = "fiducial"))]
     let format_str_apriltag_csv = "".into();
 
+    #[cfg(feature = "flydratrax")]
+    let has_flydratrax_compiled = true;
+
+    #[cfg(not(feature = "flydratrax"))]
+    let has_flydratrax_compiled = false;
+
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
         is_nvenc_functioning,
@@ -3197,10 +3203,7 @@ where
         is_saving_im_pt_detect_csv: None,
         has_image_tracker_compiled,
         im_pt_detect_cfg,
-        #[cfg(feature = "flydratrax")]
-        has_flydratrax_compiled: true,
-        #[cfg(not(feature = "flydratrax"))]
-        has_flydratrax_compiled: false,
+        has_flydratrax_compiled,
         kalman_tracking_config,
         led_program_config,
         led_box_device_lost: false,
