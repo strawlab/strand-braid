@@ -88,6 +88,10 @@ pub async fn create_message_handler(
             };
             let led_trigger_mode = led_program_config.led_trigger_mode;
 
+            if led_trigger_mode == strand_cam_storetype::LEDTriggerMode::Off {
+                continue; // skip below, thus preventing LED state change
+            }
+
             let (led_center, led_radius_raw) = match led_program_config.led_on_shape_pixels {
                 video_streaming::Shape::Polygon(ref _points) => {
                     unimplemented!();
@@ -109,7 +113,7 @@ pub async fn create_message_handler(
                 led_radius_raw
             };
 
-            let obj_in_led_radius = match &cur_pos2d {
+            let next_led_state = match &cur_pos2d {
                 None => false,
                 Some((_cur_obj_id, cur_pt2d)) => {
                     let this_dist = na::distance(&cur_pt2d.coords, &led_center);
@@ -121,10 +125,10 @@ pub async fn create_message_handler(
                 }
             };
 
-            let next_led_state = match led_trigger_mode {
-                strand_cam_storetype::LEDTriggerMode::Off => continue, // skip below, thus preventing LED state change
-                strand_cam_storetype::LEDTriggerMode::PositionTriggered => obj_in_led_radius,
-            };
+            assert_eq!(
+                led_trigger_mode,
+                strand_cam_storetype::LEDTriggerMode::PositionTriggered
+            );
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
