@@ -387,7 +387,7 @@ pub struct FrameDataAndPoints {
 }
 
 impl FrameDataAndPoints {
-    fn to_save(self, save_empty_data2d: bool) -> Vec<Data2dDistortedRowF32> {
+    fn into_save(self, save_empty_data2d: bool) -> Vec<Data2dDistortedRowF32> {
         let frame_data = &self.frame_data;
         let pts_to_save: Vec<Data2dDistortedRowF32> = self
             .points
@@ -770,6 +770,12 @@ impl CoordProcessorControl {
     }
 }
 
+pub struct CoordProcessorConfig {
+    pub tracking_params: TrackingParams,
+    pub save_empty_data2d: bool,
+    pub ignore_latency: bool,
+}
+
 // TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
 // (and thus prevent it from being dropped and saving files). We should consider
 // refactoring this so that mostly only Weak<Sender<_>> copies of `braidz_write_tx`
@@ -788,15 +794,19 @@ pub struct CoordProcessor {
 
 impl CoordProcessor {
     pub fn new(
+        cfg: CoordProcessorConfig,
         handle: tokio::runtime::Handle,
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        tracking_params: TrackingParams,
-        save_empty_data2d: bool,
         saving_program_name: &str,
-        ignore_latency: bool,
         valve: stream_cancel::Valve,
     ) -> Result<Self> {
+        let CoordProcessorConfig {
+            tracking_params,
+            save_empty_data2d,
+            ignore_latency,
+        } = cfg;
+
         trace!("CoordProcessor using {:?}", recon);
 
         let recon2 = recon.clone();
@@ -918,7 +928,26 @@ impl CoordProcessor {
 
         if let Some(ref recon) = self.recon {
             let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps))
+            self.mc2 = Some(self.new_model_collection(recon, fps));
+            let dummy_time = TimeDataPassthrough {
+                frame: SyncFno(0),
+                timestamp: None,
+            };
+            // send calibration here
+            let mut flydra_xml_new: Vec<u8> = Vec::new();
+            recon
+                .to_flydra_xml(&mut flydra_xml_new)
+                .expect("to_flydra_xml");
+            let flydra_xml_str = std::str::from_utf8(&flydra_xml_new).unwrap();
+
+            for ms in self.model_servers.iter() {
+                ms.send((
+                    SendType::CalibrationFlydraXml(flydra_xml_str.to_string()),
+                    dummy_time.clone(),
+                ))
+                .await
+                .expect("send calibration");
+            }
         }
 
         // Restart the frame bundler.
@@ -931,11 +960,6 @@ impl CoordProcessor {
 
         // Ensure that there are no skipped frames.
         let mut contiguous_stream = make_contiguous(bundled);
-
-        if let Some(ref recon) = self.recon {
-            let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps))
-        }
 
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
@@ -1024,8 +1048,6 @@ fn test_csv_nan() {
             assert!(row.y.is_nan());
             assert!(!row.area.is_nan());
             assert_eq!(row.area, 1.0);
-
-            break;
         }
         assert_eq!(count, 1);
     }

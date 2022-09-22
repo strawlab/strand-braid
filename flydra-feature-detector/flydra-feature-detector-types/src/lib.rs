@@ -4,7 +4,7 @@ extern crate http_video_streaming_types;
 
 use http_video_streaming_types::Shape;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum ContrastPolarity {
     DetectLight,
     DetectDark,

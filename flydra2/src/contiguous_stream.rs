@@ -155,11 +155,11 @@ mod test {
     }
 
     trait VecNums {
-        fn from_nums(self) -> Vec<Blarg>;
+        fn to_nums(self) -> Vec<Blarg>;
     }
 
     impl VecNums for Vec<u64> {
-        fn from_nums(self) -> Vec<Blarg> {
+        fn to_nums(self) -> Vec<Blarg> {
             self.into_iter().map(|current| Blarg { current }).collect()
         }
     }
@@ -184,7 +184,7 @@ mod test {
     }
 
     fn check_contig(inputs: Vec<u64>, expected: Vec<u64>) {
-        let contig = make_contiguous(stream::iter(inputs.from_nums()));
+        let contig = make_contiguous(stream::iter(inputs.to_nums()));
         let actual: Vec<_> = futures::executor::block_on(contig.collect());
         let actual: Vec<u64> = actual.to_nums();
         assert_eq!(actual, expected);

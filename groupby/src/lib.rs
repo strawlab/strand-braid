@@ -153,7 +153,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct GroupedRows<K, T: WithKey<K>> {
     pub group_key: K,
     pub rows: Vec<T>,
@@ -234,7 +234,7 @@ mod tests {
             r
         });
         let mut group_iter = AscendingGroupIter::new(foos_iter);
-        assert!(group_iter.next() == None);
+        assert!(group_iter.next().is_none());
     }
 
     #[test]
@@ -272,7 +272,7 @@ mod tests {
                     rows: vec![Foo { x: 3 }]
                 }))
         );
-        assert!(group_iter.next() == None);
+        assert!(group_iter.next().is_none());
     }
 
     #[test]
@@ -305,7 +305,7 @@ mod tests {
                     rows: vec![Foo { x: 3 }]
                 }))
         );
-        assert!(group_iter.next() == None);
+        assert!(group_iter.next().is_none());
     }
 
     #[test]
@@ -316,7 +316,7 @@ mod tests {
             r
         });
         let mut sorted_iter = BufferedSortIter::new(foos_iter, 100).unwrap();
-        assert!(sorted_iter.next() == None);
+        assert!(sorted_iter.next().is_none());
     }
 
     #[test]
@@ -346,7 +346,7 @@ mod tests {
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
-        assert!(sorted_iter.next() == None);
+        assert!(sorted_iter.next().is_none());
     }
 
     #[test]
@@ -378,7 +378,7 @@ mod tests {
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
-        assert!(sorted_iter.next() == None);
+        assert!(sorted_iter.next().is_none());
     }
 
     #[test]
@@ -407,6 +407,6 @@ mod tests {
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 3 })));
         assert!(sorted_iter.next() == Some(Ok(Foo { x: 4 })));
-        assert!(sorted_iter.next() == None);
+        assert!(sorted_iter.next().is_none());
     }
 }

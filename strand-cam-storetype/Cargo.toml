@@ -16,6 +16,7 @@ ci2-remote-control = { path = "../ci2-remote-control"}
 flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
+mvg = {path="../mvg", features=["serde-serialize"]}
 
 [features]
 default = ["std"]

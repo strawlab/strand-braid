@@ -115,7 +115,7 @@ pub const APP_INFO: AppInfo = AppInfo {
 compile_error!("do not enable 'flydra-feature-detector' except with 'flydra_feat_detect' feature");
 
 #[cfg(feature = "flydratrax")]
-use flydra2::{CoordProcessor, CoordProcessorControl, MyFloat, StreamItem};
+use flydra2::{CoordProcessor, CoordProcessorConfig, CoordProcessorControl, MyFloat, StreamItem};
 
 #[cfg(feature = "imtrack-absdiff")]
 pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
@@ -947,6 +947,7 @@ async fn frame_process_task(
             // TODO if kalman_tracking_config or
             // im_pt_detect_cfg.valid_region changes, restart tracker.
             if is_doing_object_detection && maybe_flydra2_stream.is_none() {
+                let mut new_cam = None;
                 if let Some(ref ssa) = shared_store_arc {
                     let region = {
                         let tracker = ssa.write();
@@ -962,6 +963,9 @@ async fn frame_process_task(
                         current_led_program_config_state = Some(led_program_config.clone());
                         match region {
                             video_streaming::Shape::Polygon(_points) => {
+                                unimplemented!();
+                            }
+                            video_streaming::Shape::MultipleCircles(_) => {
                                 unimplemented!();
                             }
                             video_streaming::Shape::Circle(circ) => {
@@ -998,6 +1002,7 @@ async fn frame_process_task(
 
                                 assert_eq!(recon.len(), 1); // TODO: check if camera name in system and allow that?
                                 let cam_cal = recon.cameras().next().unwrap().to_cam();
+                                new_cam = Some(cam_cal.clone());
 
                                 let msg_handler_fut = async move {
                                     flydratrax_handle_msg::create_message_handler(
@@ -1030,13 +1035,15 @@ async fn frame_process_task(
                                     flydra_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = CoordProcessor::new(
+                                    CoordProcessorConfig {
+                                        tracking_params,
+                                        save_empty_data2d,
+                                        ignore_latency,
+                                    },
                                     tokio::runtime::Handle::current(),
                                     cam_manager,
                                     Some(recon),
-                                    tracking_params,
-                                    save_empty_data2d,
                                     "strand-cam",
-                                    ignore_latency,
                                     valve.clone(),
                                 )
                                 .expect("create CoordProcessor");
@@ -1079,6 +1086,14 @@ async fn frame_process_task(
                                 error!("cannot start tracking without circular region to use as camera calibration");
                             }
                         }
+                    }
+                }
+                if let Some(cam) = new_cam {
+                    if let Some(ref mut store) = shared_store_arc {
+                        let mut tracker = store.write();
+                        tracker.modify(|tracker| {
+                            tracker.camera_calibration = Some(cam);
+                        });
                     }
                 }
             }
@@ -3168,6 +3183,12 @@ where
     #[cfg(not(feature = "fiducial"))]
     let format_str_apriltag_csv = "".into();
 
+    #[cfg(feature = "flydratrax")]
+    let has_flydratrax_compiled = true;
+
+    #[cfg(not(feature = "flydratrax"))]
+    let has_flydratrax_compiled = false;
+
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
         is_nvenc_functioning,
@@ -3197,10 +3218,7 @@ where
         is_saving_im_pt_detect_csv: None,
         has_image_tracker_compiled,
         im_pt_detect_cfg,
-        #[cfg(feature = "flydratrax")]
-        has_flydratrax_compiled: true,
-        #[cfg(not(feature = "flydratrax"))]
-        has_flydratrax_compiled: false,
+        has_flydratrax_compiled,
         kalman_tracking_config,
         led_program_config,
         led_box_device_lost: false,
@@ -3217,6 +3235,7 @@ where
         apriltag_state,
         im_ops_state,
         had_frame_processing_error: false,
+        camera_calibration: None,
     });
 
     let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));

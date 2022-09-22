@@ -316,9 +316,9 @@ impl WritingState {
     }
 
     fn save_data_2d_distorted(&mut self, fdp: FrameDataAndPoints) -> Result<usize> {
-        let data2d_distorted = fdp.to_save(self.save_empty_data2d);
+        let data2d_distorted = fdp.into_save(self.save_empty_data2d);
         for row in data2d_distorted.iter() {
-            self.data_2d_wtr.serialize(&row)?;
+            self.data_2d_wtr.serialize(row)?;
         }
         Ok(data2d_distorted.len())
     }
@@ -858,7 +858,7 @@ mod test {
                 );
             }
             let actual: Data2dDistortedRow = row?;
-            let mut expected_rows = make_frame_data(i as u64).to_save(save_empty_data2d);
+            let mut expected_rows = make_frame_data(i as u64).into_save(save_empty_data2d);
             assert_eq!(expected_rows.len(), 1);
             let expected = expected_rows.pop().unwrap();
             let actual: Data2dDistortedRowF32 = actual.into();

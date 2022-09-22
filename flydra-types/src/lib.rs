@@ -202,7 +202,7 @@ pub struct BraidCameraConfig {
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum StartCameraBackend {
     /// Do not start a camera locally. Rather, wait for a remote camera to connect.
@@ -265,13 +265,13 @@ pub struct RegisterNewCamera {
     pub current_image_png: PngImageData,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UpdateImage {
     /// The current image.
     pub current_image_png: PngImageData,
 }
 
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PngImageData {
     pub data: Vec<u8>,
 }
@@ -294,7 +294,7 @@ impl std::fmt::Debug for PngImageData {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UpdateCamSettings {
     /// The current camera settings
     pub current_cam_settings_buf: String,
@@ -308,7 +308,7 @@ pub struct UpdateFeatureDetectSettings {
     pub current_feature_detect_settings: flydra_feature_detector_types::ImPtDetectCfg,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectedCameraSyncState {
     /// No known reference to other cameras
     Unsynchronized,
@@ -340,7 +340,7 @@ pub struct HttpApiShared {
     pub all_expected_cameras_are_synced: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub struct RecentStats {
     pub total_frames_collected: usize,
     pub frames_collected: usize,
@@ -603,7 +603,7 @@ pub enum HttpApiCallback {
     SetExperimentUuid(String),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PerCam<T> {
     /// The name of the camera used in ROS (e.g. with '-' converted to '_').
     pub ros_cam_name: RosCamName,
@@ -716,7 +716,7 @@ impl RealtimePointsDestAddr {
 #[derive(Debug, Clone)]
 pub struct MainbrainBuiLocation(pub BuiServerInfo);
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {
     // changes to this should update BraidMetadataSchemaTag
     #[serde(with = "crate::timestamp_f64")]

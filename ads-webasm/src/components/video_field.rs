@@ -10,7 +10,7 @@ use yew::{html, Callback, Component, Context, Html, MouseEvent, Properties};
 
 use yew_tincture::components::CheckboxLabel;
 
-use http_video_streaming_types::{CanvasDrawableShape, FirehoseCallbackInner, Point, StrokeStyle};
+use http_video_streaming_types::{CanvasDrawableShape, FirehoseCallbackInner, Point, StrokeStyle, CircleParams};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -290,18 +290,12 @@ impl VideoField {
             match &drawable_shape.shape {
                 Shape::Everything => {}
                 Shape::Circle(circle) => {
-                    ctx.begin_path();
-                    ctx.arc(
-                        // circle
-                        circle.center_x as f64,
-                        circle.center_y as f64,
-                        circle.radius as f64,
-                        0.0,
-                        std::f64::consts::PI * 2.0,
-                    )
-                    .unwrap_throw();
-                    ctx.close_path();
-                    ctx.stroke();
+                    draw_circle(&ctx,circle);
+                }
+                Shape::MultipleCircles(circles) => {
+                    for circle in circles {
+                        draw_circle(&ctx,circle);
+                    }
                 }
                 Shape::Polygon(polygon) => {
                     let p = &polygon.points[..];
@@ -320,4 +314,19 @@ impl VideoField {
             }
         }
     }
+}
+
+fn draw_circle(ctx: &web_sys::CanvasRenderingContext2d,circle: &CircleParams) {
+    ctx.begin_path();
+    ctx.arc(
+        // circle
+        circle.center_x as f64,
+        circle.center_y as f64,
+        circle.radius as f64,
+        0.0,
+        std::f64::consts::PI * 2.0,
+    )
+    .unwrap_throw();
+    ctx.close_path();
+    ctx.stroke();
 }

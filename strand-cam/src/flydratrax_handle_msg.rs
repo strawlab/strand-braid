@@ -19,7 +19,7 @@ pub async fn create_message_handler(
     use mvg::PointWorldFrame;
     use na::Point3;
 
-    info!("starting new flydratask message handler");
+    info!("starting new flydratrax message handler");
 
     let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
 
@@ -78,6 +78,7 @@ pub async fn create_message_handler(
                 cur_pos2d = next;
             }
             SendType::EndOfFrame(_fno) => {}
+            SendType::CalibrationFlydraXml(_cal_xml) => {}
         }
 
         {
@@ -87,43 +88,52 @@ pub async fn create_message_handler(
             };
             let led_trigger_mode = led_program_config.led_trigger_mode;
 
-            let (led_center, led_radius_raw) = match led_program_config.led_on_shape_pixels {
+            if led_trigger_mode == strand_cam_storetype::LEDTriggerMode::Off {
+                continue; // skip below, thus preventing LED state change
+            }
+
+            assert_eq!(
+                led_trigger_mode,
+                strand_cam_storetype::LEDTriggerMode::PositionTriggered
+            );
+
+            let circ_params = match led_program_config.led_on_shape_pixels {
                 video_streaming::Shape::Polygon(ref _points) => {
                     unimplemented!();
                 }
-                video_streaming::Shape::Circle(ref circ) => (
-                    na::Point2::new(circ.center_x as f64, circ.center_y as f64),
-                    circ.radius as f64,
-                ),
+                video_streaming::Shape::MultipleCircles(ref circles) => {
+                    circles.iter().map(|circ| to_circ_params(circ)).collect()
+                }
+                video_streaming::Shape::Circle(ref circ) => {
+                    vec![to_circ_params(circ)]
+                }
                 video_streaming::Shape::Everything => {
                     // actually nothing
-                    (na::Point2::new(0.0, 0.0), -1.0)
+                    vec![]
                 }
             };
 
-            let led_radius = if *led_state {
-                // LED is on, fly must leave a larger area to turn off LED.
-                led_radius_raw + led_program_config.led_hysteresis_pixels as f64
-            } else {
-                led_radius_raw
-            };
+            let mut next_led_state = false;
 
-            let obj_in_led_radius = match &cur_pos2d {
-                None => false,
-                Some((_cur_obj_id, cur_pt2d)) => {
-                    let this_dist = na::distance(&cur_pt2d.coords, &led_center);
-                    if this_dist <= led_radius {
-                        true
-                    } else {
-                        false
+            for (led_center, led_radius_raw) in circ_params.iter() {
+                let led_radius = if *led_state {
+                    // LED is on, fly must leave a larger area to turn off LED.
+                    led_radius_raw + led_program_config.led_hysteresis_pixels as f64
+                } else {
+                    *led_radius_raw
+                };
+
+                match &cur_pos2d {
+                    None => {}
+                    Some((_cur_obj_id, cur_pt2d)) => {
+                        let this_dist = na::distance(&cur_pt2d.coords, &led_center);
+                        if this_dist <= led_radius {
+                            next_led_state = true;
+                            break;
+                        }
                     }
-                }
-            };
-
-            let next_led_state = match led_trigger_mode {
-                strand_cam_storetype::LEDTriggerMode::Off => continue, // skip below, thus preventing LED state change
-                strand_cam_storetype::LEDTriggerMode::PositionTriggered => obj_in_led_radius,
-            };
+                };
+            }
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
@@ -147,6 +157,23 @@ pub async fn create_message_handler(
                         3 => {
                             device_state.ch3.on_state = on_state;
                         }
+                        12 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch2.on_state = on_state;
+                        }
+                        13 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
+                        23 => {
+                            device_state.ch2.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
+                        123 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch2.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
                         other => {
                             error!("unsupported LED channel: {:?}", other);
                         }
@@ -159,4 +186,11 @@ pub async fn create_message_handler(
         }
     }
     Ok(())
+}
+
+fn to_circ_params(circ: &http_video_streaming_types::CircleParams) -> (na::Point2<f64>, f64) {
+    (
+        na::Point2::new(circ.center_x as f64, circ.center_y as f64),
+        circ.radius as f64,
+    )
 }

@@ -670,7 +670,7 @@ impl FlydraFeatureDetector {
             UfmfState::Starting(dest) => {
                 let path = std::path::Path::new(&dest);
                 info!("saving UFMF to path {}", path.display());
-                let f = std::fs::File::create(&path)?;
+                let f = std::fs::File::create(path)?;
                 let ufmf_writer = UFMFWriter::new(
                     f,
                     cast::u16(frame.width())?,
@@ -910,12 +910,15 @@ pub fn compute_mask_image(
 
     let mut mask_image =
         FastImageData::<Chan1, u8>::new(roi_sz.width(), roi_sz.height(), use_value)?;
-    let size = mask_image.size().clone();
+    let size = *mask_image.size();
     let mask_row_iter = mask_image.valid_row_iter_mut(&size)?;
 
     match shape {
         Shape::Everything => {
             // all pixels valid
+        }
+        Shape::MultipleCircles(_) => {
+            todo!();
         }
         Shape::Circle(ref valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);

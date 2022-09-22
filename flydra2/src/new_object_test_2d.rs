@@ -44,22 +44,19 @@ impl HypothesisTest for NewObjectTestFlat3D {
                 let opt_surface_pt_toi: Option<MyFloat> =
                     z0.toi_with_ray(&eye, &air_ray, std::f64::MAX, solid);
 
-                match opt_surface_pt_toi {
-                    Some(toi) => {
-                        let mut surface_pt = air_ray.origin + air_ray.dir * toi;
-                        // Due to numerical error, Z is not exactly zero. Here
-                        // we clamp it to zero.
-                        surface_pt.coords[2] = nalgebra::zero();
-                        let cams_and_reproj_dist = vec![CamAndDist {
-                            ros_cam_name: cam_name.clone(),
-                            reproj_dist: 0.0,
-                        }];
-                        return Some(HypothesisTestResult {
-                            coords: surface_pt,
-                            cams_and_reproj_dist,
-                        });
-                    }
-                    None => {}
+                if let Some(toi) = opt_surface_pt_toi {
+                    let mut surface_pt = air_ray.origin + air_ray.dir * toi;
+                    // Due to numerical error, Z is not exactly zero. Here
+                    // we clamp it to zero.
+                    surface_pt.coords[2] = nalgebra::zero();
+                    let cams_and_reproj_dist = vec![CamAndDist {
+                        ros_cam_name: cam_name.clone(),
+                        reproj_dist: 0.0,
+                    }];
+                    return Some(HypothesisTestResult {
+                        coords: surface_pt,
+                        cams_and_reproj_dist,
+                    });
                 }
             }
         }

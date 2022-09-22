@@ -17,8 +17,8 @@ use flydra_types::CamInfoRow;
 use braidz_parser::open_maybe_gzipped;
 
 use flydra2::{
-    CoordProcessor, Data2dDistortedRow, FrameData, FrameDataAndPoints, NumberedRawUdpPoint,
-    StreamItem,
+    CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData, FrameDataAndPoints,
+    NumberedRawUdpPoint, StreamItem,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
@@ -270,13 +270,15 @@ where
     let save_empty_data2d = true;
     let ignore_latency = true;
     let mut coord_processor = CoordProcessor::new(
+        CoordProcessorConfig {
+            tracking_params,
+            save_empty_data2d,
+            ignore_latency,
+        },
         rt_handle.clone(),
         cam_manager.clone(),
         Some(recon.clone()),
-        tracking_params,
-        save_empty_data2d,
         saving_program_name,
-        ignore_latency,
         valve,
     )?;
 
