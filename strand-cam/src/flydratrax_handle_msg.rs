@@ -157,6 +157,23 @@ pub async fn create_message_handler(
                         3 => {
                             device_state.ch3.on_state = on_state;
                         }
+                        12 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch2.on_state = on_state;
+                        }
+                        13 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
+                        23 => {
+                            device_state.ch2.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
+                        123 => {
+                            device_state.ch1.on_state = on_state;
+                            device_state.ch2.on_state = on_state;
+                            device_state.ch3.on_state = on_state;
+                        }
                         other => {
                             error!("unsupported LED channel: {:?}", other);
                         }
