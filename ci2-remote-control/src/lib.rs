@@ -67,7 +67,7 @@ impl RecordingFrameRate {
 
 impl Default for RecordingFrameRate {
     fn default() -> RecordingFrameRate {
-        RecordingFrameRate::Fps20
+        RecordingFrameRate::Unlimited
     }
 }
 
