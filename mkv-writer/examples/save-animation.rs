@@ -135,7 +135,7 @@ fn main() -> Result<(), anyhow::Error> {
         "nv-h264" => {
             nvenc_libs = Some(nvenc::Dynlibs::new()?);
             let codec =
-                ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options::default());
+                ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options::default());
             (
                 codec,
                 Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),

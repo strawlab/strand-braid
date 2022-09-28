@@ -1519,7 +1519,7 @@ impl CodecSelection {
             Uncompressed => ci2_remote_control::MkvCodec::Uncompressed,
             VP8 => ci2_remote_control::MkvCodec::VP8(ci2_remote_control::VP8Options { bitrate }),
             VP9 => ci2_remote_control::MkvCodec::VP9(ci2_remote_control::VP9Options { bitrate }),
-            H264 => ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options {
+            H264 => ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options {
                 bitrate,
                 cuda_device: 0,
             }),

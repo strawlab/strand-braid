@@ -107,12 +107,53 @@ pub enum MkvCodec {
     Uncompressed,
     VP8(VP8Options),
     VP9(VP9Options),
-    H264(H264Options),
+    H264(MkvH264Options),
 }
 
 impl Default for MkvCodec {
     fn default() -> MkvCodec {
         MkvCodec::VP8(VP8Options::default())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum Mp4Codec {
+    H264NvEnc(NvidiaH264Options),
+    H264OpenH264(OpenH264Options),
+}
+
+impl Default for Mp4Codec {
+    fn default() -> Mp4Codec {
+        Mp4Codec::H264NvEnc(Default::default())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct OpenH264Options {
+    /// The bitrate (used in association with the framerate).
+    pub bitrate: u32,
+}
+
+impl Default for OpenH264Options {
+    fn default() -> Self {
+        Self { bitrate: 1000 }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct NvidiaH264Options {
+    /// The bitrate (used in association with the framerate).
+    pub bitrate: u32,
+    /// The device number of the CUDA device to use.
+    pub cuda_device: i32,
+}
+
+impl Default for NvidiaH264Options {
+    fn default() -> Self {
+        Self {
+            bitrate: 1000,
+            cuda_device: 0,
+        }
     }
 }
 
@@ -139,14 +180,14 @@ impl Default for VP9Options {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct H264Options {
+pub struct MkvH264Options {
     /// The bitrate (used in association with the framerate).
     pub bitrate: u32,
     /// The device number of the CUDA device to use.
     pub cuda_device: i32,
 }
 
-impl Default for H264Options {
+impl Default for MkvH264Options {
     fn default() -> Self {
         Self {
             bitrate: 1000,
@@ -178,6 +219,21 @@ impl Default for MkvRecordingConfig {
             title: None,
             do_trim_size: true,
             gamma: None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct Mp4RecordingConfig {
+    pub codec: Mp4Codec,
+    pub max_framerate: RecordingFrameRate,
+}
+
+impl Default for Mp4RecordingConfig {
+    fn default() -> Self {
+        Self {
+            codec: Mp4Codec::default(),
+            max_framerate: RecordingFrameRate::Unlimited,
         }
     }
 }

@@ -571,7 +571,7 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
         }
         #[cfg(feature = "nv-h264")]
         Codec::H264 => {
-            let opts = ci2_remote_control::H264Options {
+            let opts = ci2_remote_control::MkvH264Options {
                 bitrate: x.bitrate,
                 ..Default::default()
             };
