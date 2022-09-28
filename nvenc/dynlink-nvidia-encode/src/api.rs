@@ -262,14 +262,48 @@ impl<'lib> Encoder<'lib> {
         api_call!(unsafe { func(self.inner.0, &mut params) });
         Ok(())
     }
+
+    /// End the encoder stream
+    ///
+    /// According to the nvenc docs, this can be called multiple times.
+    pub fn end_stream(&self) -> Result<(), NvencError> {
+        let func = load_func!(self.parent.inner, nvEncEncodePicture)?;
+
+        let params = MaybeUninit::zeroed();
+        let mut params: NV_ENC_PIC_PARAMS = unsafe { params.assume_init() };
+
+        params.version = NV_ENC_PIC_PARAMS_VER;
+        params.encodePicFlags = _NV_ENC_PIC_FLAGS::NV_ENC_PIC_FLAG_EOS;
+        api_call!(unsafe { func(self.inner.0, &mut params) });
+        Ok(())
+    }
+
+    pub fn get_sequence_parameter_sets(&self) -> Result<Vec<u8>, NvencError> {
+        let func = load_func!(self.parent.inner, nvEncGetSequenceParams)?;
+
+        let mut buf: Vec<u8> = vec![0; 256];
+        let mut new_len: u32 = 0;
+
+        let mut params = NV_ENC_SEQUENCE_PARAM_PAYLOAD {
+            version: NV_ENC_SEQUENCE_PARAM_PAYLOAD_VER,
+            inBufferSize: buf.len().try_into().unwrap(),
+            spsId: 0,
+            ppsId: 0,
+            spsppsBuffer: buf.as_mut_ptr() as *mut std::ffi::c_void,
+            outSPSPPSPayloadSize: &mut new_len,
+            reserved: [0; 250],
+            reserved2: [std::ptr::null_mut(); 64],
+        };
+
+        api_call!(unsafe { func(self.inner.0, &mut params) });
+
+        buf.truncate(new_len.try_into().unwrap());
+
+        Ok(buf)
+    }
 }
 
-const H264_RATE: f64 = 90000.0;
-
-// remove once we have rust 1.38 everywhere and use dur.as_secs_f64()
-fn as_secs_f64(dur: &std::time::Duration) -> f64 {
-    dur.as_secs() as f64 + (dur.subsec_nanos() as f64 * 1e-9)
-}
+pub const H264_RATE: u32 = 1_000_000;
 
 // same as std::time::Duration::from_secs_f64 in rust 1.38
 fn from_secs_f64(secs: f64) -> std::time::Duration {
@@ -279,11 +313,11 @@ fn from_secs_f64(secs: f64) -> std::time::Duration {
 }
 
 fn dur2raw(dur: &std::time::Duration) -> u64 {
-    (as_secs_f64(dur) * H264_RATE).round() as u64
+    (dur.as_secs_f64() * H264_RATE as f64).round() as u64
 }
 
 fn raw2dur(raw: u64) -> std::time::Duration {
-    from_secs_f64((raw as f64) / H264_RATE)
+    from_secs_f64((raw as f64) / H264_RATE as f64)
 }
 
 #[test]
@@ -434,6 +468,8 @@ pub struct LockedOutputBuffer<'lock, 'lib> {
     picture_type: NvInt,
     /// presentation timestamp (from onset)
     pts: std::time::Duration,
+    output_time_stamp: u64,
+    output_duration: u64,
     dropped: bool,
 }
 
@@ -464,6 +500,12 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
     }
     pub fn pts(&self) -> &std::time::Duration {
         &self.pts
+    }
+    pub fn output_time_stamp(&self) -> u64 {
+        self.output_time_stamp
+    }
+    pub fn output_duration(&self) -> u64 {
+        self.output_duration
     }
     pub fn is_keyframe(&self) -> bool {
         use crate::ffi::_NV_ENC_PIC_TYPE::*;
@@ -510,7 +552,9 @@ impl<'lib> OutputBuffer<'lib> {
 
         api_call!(unsafe { func(self.encoder.inner.0, &mut params) });
 
-        let pts = raw2dur(params.outputTimeStamp);
+        let output_time_stamp = params.outputTimeStamp;
+        let output_duration = params.outputDuration;
+        let pts = raw2dur(output_time_stamp);
         let picture_type = params.pictureType;
 
         let mem = unsafe {
@@ -524,6 +568,8 @@ impl<'lib> OutputBuffer<'lib> {
             inner: self,
             mem,
             pts,
+            output_time_stamp,
+            output_duration,
             picture_type,
             dropped: false,
         })
