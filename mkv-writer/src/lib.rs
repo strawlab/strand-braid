@@ -611,6 +611,7 @@ where
                         }
                     }
                     MyEncoder::Nvidia(mut nv_encoder) => {
+                        nv_encoder.encoder.end_stream()?;
                         // Now done with all frames, drain the pending data.
                         loop {
                             match nv_encoder.vram_queue.get_pending() {
