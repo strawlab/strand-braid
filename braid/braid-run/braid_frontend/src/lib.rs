@@ -244,8 +244,7 @@ impl Model {
                     </label>
 
                     <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
-                    {"(Initiates MKV recording starting with buffered frame.)"}
-
+                    {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
                 </div>
             </div>
         }
