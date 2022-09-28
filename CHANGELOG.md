@@ -20,6 +20,8 @@
 * Build for Ubuntu 22.04 (Jammy)
 * On systems with an Nvidia GPU, set the default encoding for MKV video saving
   to H264 using NvEnc hardware.
+* New light mode for browser UI. Selection between dark and light mode is done
+  according to browser and OS preferences.
 
 ### Changed
 
