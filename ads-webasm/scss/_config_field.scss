@@ -1,0 +1,57 @@
+@mixin config_field($background-dark: black, $background-light: white) {
+
+    @media (prefers-color-scheme: dark) {
+        .config-field-on-server {
+            background: $background-dark;
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        .config-field-on-server {
+            background: $background-light;
+        }
+    }
+
+    .config-field-textarea {
+        width: 100%;
+        font-family: monospace;
+        white-space: pre;
+        font-size: 10px;
+        line-height: 1.4em;
+    }
+
+    .config-field-btns {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+    }
+
+    .config-field-on-server {
+        font-family: monospace;
+        white-space: pre;
+    }
+
+    .config-field-editor {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .config-field-col {
+        display: inline-block;
+    }
+
+    .config-field-left-col {
+        flex-grow: 1;
+    }
+
+    .config-field-middle-col {
+        flex-grow: 0;
+    }
+
+    .config-field-right-col {
+        flex-grow: 1;
+    }
+}

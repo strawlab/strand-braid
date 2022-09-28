@@ -1,0 +1,59 @@
+@use 'colors';
+@use 'base';
+@use 'custom_file_upload';
+@use 'wrap_collapsible';
+@use 'recording_path';
+@use 'ranged_value';
+@use 'config_field';
+
+@include base.base(
+    $body-color-dark: colors.$body-color-dark,
+    $body-background-dark: colors.$body-background-dark,
+    $modal-background-dark: colors.$modal-background-dark,
+    $text-background-dark: colors.$text-background-dark,
+    $text-color-dark: colors.$text-color-dark,
+
+    $body-color-light: colors.$body-color-light,
+    $body-background-light: colors.$body-background-light,
+    $modal-background-light: colors.$modal-background-light,
+    $text-background-light: colors.$text-background-light,
+    $text-color-light: colors.$text-color-light,
+    );
+
+@include config_field.config_field($background-dark: colors.$modal-background-dark, $background-light: colors.$modal-background-light);
+@include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.btn {
+    padding: 2px;
+    margin: 2px;
+    border: 1px solid colors.$body-color-dark;
+    box-sizing: border-box;
+    border-radius: 3px;
+}
+
+.btn:enabled {
+    cursor: pointer;
+}
+
+.btn-active {
+    background: colors.$text-background-dark;
+}
+
+h2 {
+    padding: 5px;
+    background: colors.$body-color-dark;
+    color: colors.$body-background-dark;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
+}
+
+h3 {
+    margin-top: 0.25em;
+    margin-bottom: 0.125em;
+}

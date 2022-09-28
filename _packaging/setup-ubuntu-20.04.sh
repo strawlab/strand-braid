@@ -21,6 +21,9 @@ chmod a+x $CARGO_HOME/bin/wasm-pack
 export PATH="$PATH:$CARGO_HOME/bin"
 wasm-pack --version
 
+# Install grass (SASS proceessor)
+cargo install grass
+
 # TODO: include firmware bundled
 rustc --version
 

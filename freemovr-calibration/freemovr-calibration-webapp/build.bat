@@ -7,7 +7,7 @@ cargo build --target wasm32-unknown-unknown --release --bin native_worker || got
 wasm-bindgen --target no-modules --no-typescript --out-dir pkg --out-name native_worker ../../target/wasm32-unknown-unknown/release/native_worker.wasm || goto :error
 
 copy static\index.html pkg || goto :error
-copy static\style.css pkg || goto :error
+grass  -I ../../ads-webasm/scss/ static/freemovr-calibration-webapp.scss > pkg/style.css
 
 REM Build OK. Now run with:
 REM     microserver --port 8000 --no-spa pkg

@@ -266,6 +266,8 @@ build-freemovr-calibration-webapp:
     - rustup target add wasm32-unknown-unknown
 
     - cargo install wasm-bindgen-cli --version 0.2.83 --force
+    - cargo install grass
+
     - wasm-bindgen --version
 
     - cd freemovr-calibration/freemovr-calibration-webapp
@@ -324,7 +326,6 @@ build-api-docs:
       NUM_JOBS=2
       cargo doc --features serve_files,ipp-sys/2019,fiducial,checkercal
     - cd $CI_PROJECT_DIR
-
     # remove potential old output directory
     - rm -rf build
     - mkdir build
@@ -881,6 +882,7 @@ braid-webapps:
     - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     # ... and latest wasm-bindgen-cli
     - cargo install -f wasm-bindgen-cli
+    - cargo install grass
     - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -1099,7 +1101,7 @@ strand-braid-ubuntu-2204:
 build_simple:
   image: ubuntu:focal
   script:
-    # Install cargo and wasm-pack
+    # Install cargo and wasm-pack and grass
     - _packaging/setup-ubuntu-20.04.sh
     # Put them on the path
     - export PATH="$PATH:$CARGO_HOME/bin"

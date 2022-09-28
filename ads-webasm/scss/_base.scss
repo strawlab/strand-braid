@@ -1,0 +1,135 @@
+@mixin base(
+    $body-color-dark: #adadad,
+    $body-background-dark: #000000,
+    $modal-background-dark: rgba(77, 77, 77, 1.0),
+    $text-background-dark: #5e5e5e,
+    $text-color-dark: #bababa,
+    $body-background-light: #ffffff,
+    $modal-background-light: rgba(178, 178, 178, 1.0),
+    $text-background-light: rgba(178, 178, 178, 1.0),
+    $text-color-light: #404040,
+    $body-color-light: #404040,
+) {
+
+    @media (prefers-color-scheme: dark) {
+        body {
+            background: $body-background-dark;
+            color: $body-color-dark;
+        }
+
+        a {
+            color: $body-color-dark;
+        }
+
+        input[type="text"], textarea {
+            background-color: $text-background-dark;
+            color: $text-color-dark;
+            border: 0;
+        }
+
+        button:disabled,
+        button[disabled]{
+            color: $text-background-dark;
+            border: 1px solid $text-background-dark;
+        }
+
+        .modal-container {
+            background: $modal-background-dark;
+        }
+
+    }
+
+    @media (prefers-color-scheme: light) {
+        body {
+            background: $body-background-light;
+            color: $body-color-light;
+        }
+
+        a {
+            color: $body-color-light;
+        }
+
+        input[type="text"], textarea {
+            background-color: $text-background-light;
+            color: $text-color-light;
+            border: 0;
+        }
+
+        button:disabled,
+        button[disabled]{
+            color: $text-background-light;
+            border: 1px solid $text-background-light;
+        }
+
+        .modal-container {
+            background: $modal-background-light;
+        }
+
+    }
+
+    body {
+        font: 10px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        line-height: 1.4em;
+        margin: 0 auto;
+    }
+
+    .center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .logo-img {
+        background: black;
+        padding: 10px;
+        border-radius: 7px;
+    }
+
+    button {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        font-size: 100%;
+        vertical-align: baseline;
+        font-family: inherit;
+        font-weight: inherit;
+        color: inherit;
+    }
+
+    button,
+    input[type="checkbox"] {
+        outline: none;
+    }
+
+    .wrapper {
+        margin-left: 20px;
+        margin-right: 20px;
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+
+    .modal-container {
+        position: fixed;
+        left: 50px;
+        right: 50px;
+        height: 400px;
+        padding: 20px;
+        box-sizing: border-box;
+        box-shadow: 0 2px 4px 0 rgba(223, 25, 25, 0.92),
+        0 25px 50px 0 rgba(0, 255, 255, 0.91);
+    }
+
+    .infoCircle {
+        display: inline-block;
+        width: 1.0em;
+        height: 1.0em;
+
+        border: 0.08em solid #666;
+        color: #666;
+        text-align: center;
+        border-radius: 50%;
+
+        line-height: 0.9em;
+    }
+}

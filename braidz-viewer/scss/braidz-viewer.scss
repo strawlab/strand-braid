@@ -1,0 +1,82 @@
+@use 'colors';
+@use 'base';
+@use 'custom_file_upload';
+@use 'lds_ellipsis';
+
+@include base.base(
+    $body-color-dark: colors.$body-color-dark,
+    $body-background-dark: colors.$body-background-dark,
+    $modal-background-dark: colors.$modal-background-dark,
+    $text-background-dark: colors.$text-background-dark,
+    $text-color-dark: colors.$text-color-dark,
+
+    $body-color-light: colors.$body-color-light,
+    $body-background-light: colors.$body-background-light,
+    $modal-background-light: colors.$modal-background-light,
+    $text-background-light: colors.$text-background-light,
+    $text-color-light: colors.$text-color-light,
+    );
+
+html,
+body {
+    margin: 0;
+    padding: 5px;
+}
+
+.btn {
+    padding: 2px;
+    margin: 2px;
+    border: 1px solid colors.$body-color-dark;
+    box-sizing: border-box;
+    border-radius: 3px;
+}
+
+.btn:enabled {
+    cursor: pointer;
+}
+
+.btn-active {
+    background: colors.$text-background-dark;
+}
+
+.compute-modal {
+    background-color: rgba(0,0,0,0.5);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+.compute-modal-inner {
+    line-height: 1.5em;
+    position: fixed;
+    background-color: #7f7f7f;
+    color: black;
+    top: 10px;
+    padding: 10px;
+    left: 5%;
+    width: 90%;
+    box-shadow: 10px 5px 5px black;
+    text-align: center;
+}
+
+.display-none {
+    display: none;
+}
+
+  #page-container {
+    position: relative;
+    min-height: 100vh;
+  }
+
+  #content-wrap {
+    padding-bottom: 2.5rem;    /* Footer height */
+  }
+
+  #footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 2.5rem;            /* Footer height */
+  }

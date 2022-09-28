@@ -1,0 +1,45 @@
+@mixin video_field($border-dark: 1px solid black, $border-light: 1px solid white) {
+
+    @media (prefers-color-scheme: dark) {
+        .video-field-canvas {
+            border: $border-dark;
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        .video-field-canvas {
+            border: $border-light;
+        }
+    }
+
+    .video-field-text {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .video-field-fno {
+        display: inline-block;
+        flex-grow: 1;
+    }
+
+    .video-field-mousepos {
+        display: inline-block;
+        flex-grow: 1;
+    }
+
+    .video-field-fps {
+        display: inline-block;
+        flex-grow: 1;
+    }
+
+    .video-field-canvas {
+        padding: 1px;
+        box-sizing: border-box;
+        width: 100%;
+        height: auto;
+        /* max-height: 600px; */
+        cursor: crosshair;
+    }
+
+}
