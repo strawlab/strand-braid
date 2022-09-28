@@ -21,3 +21,4 @@ wasm-logger = "0.2.0"
 
 ads-webasm = {path="../ads-webasm", features=["csv-widget"]}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
+enum-iter = {path="../enum-iter"}

@@ -1,0 +1,62 @@
+@use 'colors';
+@use 'base';
+@use 'recording_path';
+@use 'lds_ellipsis';
+
+$footer-height: 2.5rem;
+
+@include base.base($body-color-dark: colors.$body-color-dark,
+    $body-background-dark: colors.$body-background-dark,
+    $modal-background-dark: colors.$modal-background-dark,
+    $text-background-dark: colors.$text-background-dark,
+    $text-color-dark: colors.$text-color-dark,
+
+    $body-color-light: colors.$body-color-light,
+    $body-background-light: colors.$body-background-light,
+    $modal-background-light: colors.$modal-background-light,
+    $text-background-light: colors.$text-background-light,
+    $text-color-light: colors.$text-color-light,
+);
+
+@include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
+
+#page-container {
+    position: relative;
+    min-height: 100vh;
+}
+
+#content-wrap {
+    padding-bottom: $footer-height;
+}
+
+#footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: $footer-height;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 5px;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-dark;
+        border: 1px solid colors.$text-background-dark;
+    }
+}
+
+
+@media (prefers-color-scheme: light) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-light;
+        border: 1px solid colors.$text-background-light;
+    }
+}

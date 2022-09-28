@@ -1,0 +1,89 @@
+@mixin recording_path($background-dark: solid 1px black, $background-light: solid 1px white) {
+
+    /* For RecordingPathWidget */
+
+    @media (prefers-color-scheme: dark) {
+        .recording-path-widget {
+            border: $background-dark;
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        .recording-path-widget {
+            border: $background-light;
+        }
+    }
+
+    .recording-path-blinker-off {
+        display: inline-block;
+        position: relative;
+        width: 1em;
+        height: 1em;
+    }
+    .recording-path-blinker-on {
+        display: inline-block;
+        position: relative;
+        width: 1em;
+        height: 1em;
+    }
+    .recording-path-blinker-on span {
+        position: absolute;
+        top: 0.1em;
+        width: 0.9em;
+        height: 0.9em;
+        border-radius: 50%;
+        background: red;
+        animation-timing-function: cubic-bezier(0, 1, 1, 0);
+    }
+    .recording-path-blinker-on span:nth-child(1) {
+        left: 0em;
+        animation: recording-path-blinker-animation 1.0s infinite;
+    }
+    @keyframes recording-path-blinker-animation {
+        0% {
+            transform: scale(0);
+        }
+        50% {
+            transform: scale(0);
+        }
+        51% {
+            transform: scale(1);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .recording-path-checkbox {
+        opacity: 0;
+        position: absolute;
+    }
+
+    .recording-path-widget {
+        display: inline-block;
+        vertical-align: middle;
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 50%;
+        margin-left: 0.5em;
+        margin-right: 0.5em;
+    }
+
+    .recording-path-widget-inner {
+        background: red;
+        display: inline-block;
+        vertical-align: middle;
+        width: 1.5em;
+        height: 1.5em;
+        margin: 0.5em;
+    }
+
+    .recording-path-widget-inner-off {
+        border-radius: 50%;
+    }
+
+    /* enable this to customize when recording
+    .recording-path-widget-inner-on {
+    }
+    */
+}

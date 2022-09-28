@@ -1,5 +1,5 @@
-use crate::yew::TargetCast;
 use web_sys::HtmlInputElement;
+use yew::TargetCast;
 use yew::{
     events::KeyboardEvent, html, Callback, Component, Context, Html, InputEvent, Properties,
 };

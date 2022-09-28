@@ -192,9 +192,9 @@ impl Component for Model {
             <div id="page-container">
                 <div id="content-wrap">
                     <h1 style="text-align: center;">{"Braid "}
-                        <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ℹ"}</span></a>
+                        <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ⓘ"}</span></a>
                     </h1>
-                    <img src="braid-logo-no-text.png" width="523" height="118" class="center" alt="Braid logo"/>
+                    <img src="braid-logo-no-text.png" class="center logo-img" width="523" height="118" alt="Braid logo"/>
                     {self.disconnected_dialog()}
                     {self.view_shared(ctx)}
                     <footer id="footer">
@@ -244,8 +244,7 @@ impl Model {
                     </label>
 
                     <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
-                    {"(Initiates MKV recording starting with buffered frame.)"}
-
+                    {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
                 </div>
             </div>
         }

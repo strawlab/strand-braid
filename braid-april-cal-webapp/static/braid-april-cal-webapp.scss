@@ -1,0 +1,76 @@
+@use 'colors';
+@use 'base';
+@use 'ranged_value';
+@use 'custom_file_upload';
+@use 'config_field';
+
+$footer-height: 2.5rem;
+
+@include base.base($body-color-dark: colors.$body-color-dark,
+    $body-background-dark: colors.$body-background-dark,
+    $modal-background-dark: colors.$modal-background-dark,
+    $text-background-dark: colors.$text-background-dark,
+    $text-color-dark: colors.$text-color-dark,
+
+    $body-color-light: colors.$body-color-light,
+    $body-background-light: colors.$body-background-light,
+    $modal-background-light: colors.$modal-background-light,
+    $text-background-light: colors.$text-background-light,
+    $text-color-light: colors.$text-color-light,
+);
+
+@include config_field.config_field($background-dark: colors.$modal-background-dark, $background-light: colors.$modal-background-light);
+
+html,
+body {
+    margin: 0;
+    padding: 5px;
+}
+
+h2 {
+    padding: 5px;
+    background: #adadad;
+    color: #000000;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
+}
+
+h3 {
+    margin-top: 0.25em;
+    margin-bottom: 0.125em;
+}
+
+#page-container {
+    position: relative;
+    min-height: 100vh;
+}
+
+#content-wrap {
+    padding-bottom: $footer-height;
+}
+
+#footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: $footer-height;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-dark;
+        border: 1px solid colors.$text-background-dark;
+    }
+}
+
+
+@media (prefers-color-scheme: light) {
+
+    button:disabled,
+    button[disabled] {
+        color: colors.$text-background-light;
+        border: 1px solid colors.$text-background-light;
+    }
+}

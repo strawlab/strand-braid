@@ -11,7 +11,7 @@ wasm-bindgen --target no-modules --no-typescript --out-dir pkg --out-name native
 
 mkdir -p pkg
 cp static/index.html pkg
-cp static/style.css pkg
+grass -I ../../ads-webasm/scss/ static/freemovr-calibration-webapp.scss pkg/style.css
 
 echo Build OK. Now run with:
 echo     microserver --port 8000 --no-spa pkg

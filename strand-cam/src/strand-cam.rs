@@ -2682,7 +2682,7 @@ fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool
         }
     };
 
-    let opts = ci2_remote_control::H264Options {
+    let opts = ci2_remote_control::MkvH264Options {
         bitrate: 10000,
         ..Default::default()
     };
@@ -3156,7 +3156,7 @@ where
 
     if is_nvenc_functioning {
         mkv_recording_config.codec =
-            ci2_remote_control::MkvCodec::H264(ci2_remote_control::H264Options {
+            ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options {
                 bitrate: 10000,
                 ..Default::default()
             });

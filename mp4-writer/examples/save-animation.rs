@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate log;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
-use ci2_remote_control::MkvRecordingConfig;
+use ci2_remote_control::Mp4RecordingConfig;
 use simple_frame::SimpleFrame;
 
 use machine_vision_formats::pixel_format::RGB8;
@@ -34,7 +34,7 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
 }
 
 fn stamp_frame<'a>(
-    image: &mut simple_frame::SimpleFrame<RGB8>,
+    image: &mut SimpleFrame<RGB8>,
     font: &rusttype::Font<'a>,
     text: &str,
 ) -> Result<(), anyhow::Error> {
@@ -109,14 +109,16 @@ fn usage_exit() -> Result<(), anyhow::Error> {
     println!(
         "Usage:
 
-    variable-framerate nv-h264|vp8"
+    save-animation open-h264|nv-h264"
     );
     Err(anyhow::format_err!("invalid usage"))
 }
 
 fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
-    let output_fname = "variable-framerate.mkv";
+    // let start = Utc::now();
+    let start = chrono::DateTime::from_utc(chrono::NaiveDateTime::from_timestamp(61, 0), Utc);
+    let output_fname = "animation.mp4";
 
     info!("exporting {}", output_fname);
 
@@ -131,32 +133,30 @@ fn main() -> Result<(), anyhow::Error> {
     let mut nvenc_libs = None;
 
     let (codec, libs_and_nv_enc) = match args[1].as_str() {
+        "open-h264" => {
+            let codec = ci2_remote_control::Mp4Codec::H264OpenH264(Default::default());
+            (codec, None)
+        }
         "nv-h264" => {
             nvenc_libs = Some(nvenc::Dynlibs::new()?);
-            let codec =
-                ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options::default());
+            let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
             (
                 codec,
                 Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
             )
-        }
-        "vp8" => {
-            let opts = ci2_remote_control::VP8Options { bitrate: 1000 };
-            let codec = ci2_remote_control::MkvCodec::VP8(opts);
-            (codec, None)
         }
         _ => {
             return usage_exit();
         }
     };
 
-    let cfg = MkvRecordingConfig {
+    let cfg = Mp4RecordingConfig {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
         ..Default::default()
     };
 
-    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, libs_and_nv_enc)?;
+    let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, libs_and_nv_enc)?;
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
     let rgb = convert_image::piston_to_frame(image)?;
@@ -167,39 +167,38 @@ fn main() -> Result<(), anyhow::Error> {
     // This only succeeds if collection consists of one font
     let font = Font::from_bytes(font_data as &[u8]).expect("Error constructing Font");
 
-    // A sequence of inter-frame intervals which are non-constant.
-    #[rustfmt::skip]
-    let frame_dt_sec_seq = [
-        0.0,
-        1.0, 1.0, 1.0, 1.0,
-        0.5, 0.5, 0.5, 0.5,
-        1.0, 1.0, 1.0, 1.0,
-    ];
-
-    let start =
-        DateTime::<Utc>::from_utc(chrono::NaiveDateTime::from_timestamp(60, 123_456_789), Utc);
-    let mut accum = 0.0;
-
-    for (count, frame_dt_sec) in frame_dt_sec_seq.iter().enumerate() {
-        accum += frame_dt_sec;
-
-        let dur = std::time::Duration::from_secs_f64(accum);
-        let dt = chrono::Duration::from_std(dur).unwrap();
+    let mut count = 0;
+    let mut istart = std::time::Instant::now();
+    loop {
+        let dt_msec = 5;
+        let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
 
         let ts = start.checked_add_signed(dt).unwrap();
 
-        let time_string = ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-
-        let mut frame = rgb.clone();
+        if count % 100 == 0 {
+            let el = istart.elapsed();
+            let elf = el.as_secs() as f64 + 1e-9 * el.subsec_nanos() as f64;
+            println!(
+                "frame {}, duration {} msec, timestamp {}",
+                count,
+                elf * 1000.0,
+                ts
+            );
+            istart = std::time::Instant::now();
+        }
+        if count > 1000 {
+            break;
+        }
 
         // The text to render
-        let text = format!("frame {}: {}", count, time_string);
-        println!("{}", text);
+        let text = format!("{}", ts);
+        let mut frame = rgb.clone();
 
         stamp_frame(&mut frame, &font, &text)?;
-        my_mkv_writer.write(&frame, ts)?;
+        count += 1;
+        my_mp4_writer.write(&frame, ts)?;
     }
 
-    my_mkv_writer.finish()?;
+    my_mp4_writer.finish()?;
     Ok(())
 }

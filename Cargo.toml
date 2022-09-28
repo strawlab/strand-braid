@@ -67,6 +67,7 @@ members = [
     "led-box-standalone",
     "machine-vision-shaders",
     "mkv-writer",
+    "mp4-writer",
     "mvg",
     "mvg/mvg-util",
     "ncollide-geom",
