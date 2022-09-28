@@ -707,7 +707,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
         basic_frame::match_all_dynamic_fmts!(frame, f, {
             let buf = encode_y4m_frame(&f, x.colorspace)?;
-            out_fd.write_all(&buf)?;
+            out_fd.write_all(&buf.data)?;
         });
     }
     out_fd.flush()?;

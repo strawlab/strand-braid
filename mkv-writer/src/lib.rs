@@ -702,10 +702,10 @@ where
         #[cfg(feature = "vpx")]
         MyEncoder::Vpx(ref mut vpx_encoder) => {
             let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
-            trace!("got yuv data for frame. {} bytes.", yuv.len());
+            trace!("got yuv data for frame. {} bytes.", yuv.data.len());
 
             let microseconds = elapsed.num_microseconds().ok_or(Error::TimestampTooLarge)?;
-            for frame in vpx_encoder.encode(microseconds, &yuv).unwrap() {
+            for frame in vpx_encoder.encode(microseconds, &yuv.data).unwrap() {
                 trace!("got vpx encoded data: {} bytes.", frame.data.len());
                 state
                     .vt

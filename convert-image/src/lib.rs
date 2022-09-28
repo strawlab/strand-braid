@@ -481,6 +481,29 @@ fn yuv444_into_mono8(
     Ok(())
 }
 
+/// Convert NV12 image data into pre-allocated Mono8 buffer.
+fn nv12_into_mono8(
+    frame: &dyn ImageStride<formats::pixel_format::NV12>,
+    dest: &mut ImageBufferMutRef<Mono8>,
+    dest_stride: usize,
+) -> Result<()> {
+    let luma_size = frame.height() as usize * dest_stride;
+    if dest.data.len() != luma_size {
+        return Err(Error::InvalidAllocatedBufferSize);
+    }
+
+    for (src_row, dest_row) in frame
+        .image_data()
+        .chunks_exact(frame.stride())
+        .take(frame.height() as usize)
+        .zip(dest.data.chunks_exact_mut(dest_stride))
+    {
+        dest_row[..frame.width() as usize].copy_from_slice(&src_row[..frame.width() as usize]);
+    }
+
+    Ok(())
+}
+
 /// A view of image to have pixel format `FMT2`.
 pub struct ReinterpretedImage<'a, FMT1, FMT2> {
     orig: &'a dyn ImageStride<FMT1>,
@@ -841,6 +864,13 @@ where
                     let yuv444 = force_pixel_format_ref(frame);
                     let mut mono8 = force_buffer_pixel_format_ref(dest);
                     yuv444_into_mono8(&yuv444, &mut mono8, dest_stride)?;
+                    Ok(())
+                }
+                formats::pixel_format::PixFmt::NV12 => {
+                    // .. from NV12.
+                    let nv12 = force_pixel_format_ref(frame);
+                    let mut mono8 = force_buffer_pixel_format_ref(dest);
+                    nv12_into_mono8(&nv12, &mut mono8, dest_stride)?;
                     Ok(())
                 }
                 _ => Err(Error::UnimplementedConversion(src_fmt, dest_fmt)),
@@ -1271,6 +1301,24 @@ mod tests {
     }
 
     #[test]
+    fn test_mono8_nv12_roundtrip() -> Result<()> {
+        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
+            width: 256,
+            height: 1,
+            stride: 256,
+            image_data: (0u8..=255u8).collect(),
+            fmt: std::marker::PhantomData,
+        };
+        let nv12 = convert::<_, formats::pixel_format::NV12>(&orig)?;
+        let actual = convert::<_, formats::pixel_format::Mono8>(&nv12)?;
+        for i in 0..256 {
+            assert_eq!(orig.image_data()[i], actual.image_data()[i]);
+        }
+        assert_eq!(orig.image_data(), actual.image_data());
+        Ok(())
+    }
+
+    #[test]
     // Test MONO8->YUV444->MONO8.
     fn test_mono8_yuv_roundtrip() -> Result<()> {
         let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
@@ -1322,13 +1370,46 @@ impl std::fmt::Display for Y4MColorspace {
     }
 }
 
+pub struct Y4MFrame {
+    pub data: Vec<u8>,
+    pub width: i32,
+    pub height: i32,
+    pub y_stride: i32,
+    pub u_stride: i32,
+    pub v_stride: i32,
+}
+
+impl Y4MFrame {
+    pub fn new(data: Vec<u8>, width: u32, height: u32) -> Result<Self> {
+        let width: i32 = width.try_into().unwrap();
+        let height: i32 = height.try_into().unwrap();
+        let y_stride = width;
+        let u_stride = width / 2;
+        let v_stride = width / 2;
+        Ok(Self {
+            data,
+            width,
+            height,
+            y_stride,
+            u_stride,
+            v_stride,
+        })
+    }
+    pub fn data(&self) -> &[u8] {
+        &self.data[..]
+    }
+    pub fn into_data(self) -> Vec<u8> {
+        self.data
+    }
+}
+
 /// Convert any type implementing `ImageStride<FMT>` to a y4m buffer.
 ///
 /// The y4m format is described at <http://wiki.multimedia.cx/index.php?title=YUV4MPEG2>
 pub fn encode_y4m_frame<FMT>(
     frame: &dyn ImageStride<FMT>,
     colorspace: Y4MColorspace,
-) -> Result<Vec<u8>>
+) -> Result<Y4MFrame>
 where
     FMT: PixelFormat,
 {
@@ -1344,9 +1425,13 @@ where
                 {
                     dest_row.copy_from_slice(&src_row[..frame.width() as usize]);
                 }
-                Ok(buf)
+                Ok(Y4MFrame::new(buf, frame.width(), frame.height())?)
             } else {
-                Ok(frame.image_data().to_vec())
+                Ok(Y4MFrame::new(
+                    frame.image_data().to_vec(),
+                    frame.width(),
+                    frame.height(),
+                )?)
             }
         }
         Y4MColorspace::C420paldv => {
@@ -1393,7 +1478,7 @@ where
             final_buf[..y_size].copy_from_slice(&y_plane);
             final_buf[y_size..(y_size + u_size)].copy_from_slice(&u_plane);
             final_buf[(y_size + u_size)..].copy_from_slice(&v_plane);
-            Ok(final_buf)
+            Ok(Y4MFrame::new(final_buf, frame.width(), frame.height())?)
         }
     }
 }
