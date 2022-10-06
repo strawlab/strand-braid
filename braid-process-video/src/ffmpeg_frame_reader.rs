@@ -46,6 +46,7 @@ pub(crate) struct FfmpegFrameReader {
     file_done: bool,
     time_base: ffmpeg::Rational,
     pub(crate) title: Option<String>,
+    count: usize,
 }
 
 impl FfmpegFrameReader {
@@ -93,6 +94,7 @@ impl FfmpegFrameReader {
             file_done: false,
             time_base,
             title,
+            count: 0,
         })
     }
 
@@ -121,10 +123,19 @@ impl FfmpegFrameReader {
                 let mut rgb_frame = Video::empty();
                 self.scaler.run(&decoded, &mut rgb_frame)?;
                 let data = RawFrameSource::Ffmpeg(rgb_frame);
-                Frame { pts_chrono, data }
+                let extra = basic_frame::BasicExtra {
+                    host_timestamp: pts_chrono,
+                    host_framenumber: self.count,
+                };
+                Frame {
+                    pts_chrono,
+                    data,
+                    extra,
+                }
             };
             self.frame_queue.push_back(frame_data);
             frame_available = true;
+            self.count += 1;
         }
 
         Ok(frame_available)

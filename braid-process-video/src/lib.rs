@@ -26,7 +26,7 @@ mod fmf_frame_reader;
 use fmf_frame_reader::FmfFrameReader;
 
 mod frame;
-pub(crate) use frame::Frame;
+pub use frame::Frame;
 
 mod braidz_iter;
 mod synced_iter;
@@ -698,14 +698,14 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
     Ok(())
 }
 
-pub(crate) trait MovieReader {
+pub trait MovieReader {
     fn title(&self) -> Option<&str>;
     fn filename(&self) -> &str;
     fn creation_time(&self) -> &DateTime<Utc>;
     fn next_frame(&mut self) -> Option<Result<Frame>>;
 }
 
-fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
+pub fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
     if filename.to_lowercase().ends_with(".fmf") || filename.to_lowercase().ends_with(".fmf.gz") {
         Ok(Box::new(FmfFrameReader::new(filename)?))
     } else {
