@@ -100,7 +100,7 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
-    #[error("image is padded")]
+    #[error("data is less wide than stride")]
     StrideError {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
@@ -154,25 +154,50 @@ enum MyEncoder<'lib> {
     Uncompressed(UncompressedEncoder),
 }
 
+enum CowData<'a> {
+    View(&'a [u8]),
+    Copy(Vec<u8>),
+}
+
+impl<'a> AsRef<[u8]> for CowData<'a> {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            Self::View(v) => &v,
+            Self::Copy(v) => &v,
+        }
+    }
+}
+
 struct UncompressedEncoder {}
 
 impl UncompressedEncoder {
-    fn encode<'a, FRAME, FMT>(&mut self, raw_frame: &'a FRAME) -> Result<&'a [u8]>
+    fn encode<'a, FRAME, FMT>(&mut self, raw_frame: &'a FRAME) -> Result<CowData<'a>>
     where
         FRAME: ImageStride<FMT>,
         FMT: PixelFormat,
     {
         let pixfmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
         let bpp = pixfmt.bits_per_pixel();
-        let row_bytes = raw_frame.width() * bpp as u32 / 8;
-        if raw_frame.stride() != row_bytes as usize {
+        let row_bytes = (raw_frame.width() * bpp as u32 / 8) as usize;
+        let raw_stride = raw_frame.stride();
+        if raw_stride < row_bytes {
             return Err(Error::StrideError {
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             });
+        } else if raw_stride == row_bytes {
+            Ok(CowData::View(raw_frame.image_data()))
+        } else {
+            // reallocate to remove stride
+            let mut buf = vec![0u8; row_bytes * raw_frame.height() as usize];
+            for row_num in 0..raw_frame.height() as usize {
+                let start_src = row_num * raw_frame.stride();
+                let start_dest = row_num * row_bytes;
+                let src = &raw_frame.image_data()[start_src..start_src + row_bytes];
+                buf[start_dest..start_dest + row_bytes].copy_from_slice(src)
+            }
+            Ok(CowData::Copy(buf))
         }
-        let data = raw_frame.image_data();
-        Ok(data)
     }
 }
 
@@ -699,7 +724,7 @@ where
         MyEncoder::Uncompressed(ref mut encoder) => {
             let timestamp_ns = nanos(&elapsed.to_std().map_err(|_| Error::TimestampTooLarge)?);
             let data = encoder.encode(raw_frame)?;
-            state.vt.add_frame(data, timestamp_ns, true);
+            state.vt.add_frame(data.as_ref(), timestamp_ns, true);
         }
         #[cfg(feature = "vpx")]
         MyEncoder::Vpx(ref mut vpx_encoder) => {
