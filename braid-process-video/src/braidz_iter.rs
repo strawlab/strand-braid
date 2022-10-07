@@ -4,6 +4,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 
 use flydra_types::{CamNum, Data2dDistortedRow};
+use timestamped_frame::ExtraTimeData;
 
 use crate::{argmin::Argmin, peek2::Peek2, MovieReader, SyncedPictures};
 
@@ -147,7 +148,14 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         // Get time of first frame for each reader.
         let t0: Vec<DateTime<Utc>> = frame_readers
             .iter()
-            .map(|x| x.peek1().unwrap().as_ref().unwrap().pts_chrono)
+            .map(|x| {
+                x.peek1()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .extra()
+                    .host_timestamp()
+            })
             .collect();
 
         // Get earliest starting video
@@ -159,7 +167,8 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             .unwrap()
             .as_ref()
             .unwrap()
-            .pts_chrono;
+            .extra()
+            .host_timestamp();
         let earliest_start_cam_num = archive
             .cam_info
             .camid2camn
@@ -297,7 +306,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
                     // Now get the next MKV frame and ensure its timestamp is correct.
                     if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
-                        let p1_pts_chrono = peek1_frame.as_ref().unwrap().pts_chrono;
+                        let p1_pts_chrono = peek1_frame.as_ref().unwrap().extra().host_timestamp();
 
                         if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
                             found = true;

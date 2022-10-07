@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use basic_frame::DynamicFrame;
 use timestamped_frame::ExtraTimeData;
 
-use crate::{Frame, MovieReader};
+use crate::MovieReader;
 
 pub(crate) struct FmfFrameReader {
     filename: String,
@@ -46,7 +46,7 @@ impl MovieReader for FmfFrameReader {
     }
 
     /// Get the next frame
-    fn next_frame(&mut self) -> Option<Result<Frame>> {
+    fn next_frame(&mut self) -> Option<Result<DynamicFrame>> {
         if let Some(frame0) = self.frame0.take() {
             Some(frame0.try_into().map_err(anyhow::Error::from))
         } else {

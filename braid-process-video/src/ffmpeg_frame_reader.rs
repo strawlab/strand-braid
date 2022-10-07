@@ -9,7 +9,8 @@ use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 
-use crate::{frame::RawFrameSource, Frame, MovieReader};
+use crate::MovieReader;
+use basic_frame::DynamicFrame;
 
 /// Convert a Result<T,E> into Option<Result<T,E>> and return Some(Err(E)) on error.
 macro_rules! try_iter {
@@ -38,10 +39,11 @@ pub struct FfmpegFrameReader {
     decoder: ffmpeg::decoder::Video,
     /// The ffmpeg scaler if needed
     scaler: Context,
+
     /// Where the video stream starts in the file
     video_stream_index: usize,
     /// Frames already decoded awaiting consumption
-    frame_queue: VecDeque<Frame>,
+    frame_queue: VecDeque<DynamicFrame>,
     /// Have we reached the end of the file?
     file_done: bool,
     time_base: ffmpeg::Rational,
@@ -72,13 +74,22 @@ impl FfmpegFrameReader {
 
         let context_decoder =
             ffmpeg::codec::context::Context::from_parameters(stream.parameters())?;
+        let codec_tag: u32 = unsafe { *context_decoder.as_ptr() }.codec_tag;
+        let codec_tag_str: Option<String> =
+            String::from_utf8(codec_tag.to_be_bytes().to_vec()).ok();
         let decoder = context_decoder.decoder().video()?;
+
+        let dst_format = if codec_tag_str.as_ref().map(|x| x.as_str()) == Some("008Y") {
+            Pixel::GRAY8
+        } else {
+            Pixel::RGB24
+        };
 
         let scaler = Context::get(
             decoder.format(),
             decoder.width(),
             decoder.height(),
-            Pixel::RGB24,
+            dst_format,
             decoder.width(),
             decoder.height(),
             Flags::BILINEAR,
@@ -110,12 +121,11 @@ impl FfmpegFrameReader {
     /// Returns true if a new frame is available.
     fn pump_decoder(&mut self) -> Result<bool> {
         let mut frame_available = false;
-        let mut decoded = Video::empty();
+        let mut video_input = Video::empty();
         let scale =
             (1e9 * self.time_base.numerator() as f64 / self.time_base.denominator() as f64) as u64;
-        while self.decoder.receive_frame(&mut decoded).is_ok() {
-            // TODO: decode the actual frame rather than just returning PTS
-            let pts = decoded.pts().unwrap();
+        while self.decoder.receive_frame(&mut video_input).is_ok() {
+            let pts = video_input.pts().unwrap();
             let nanosecs = pts as u64 * scale * self.hack_fix_speed;
             log::debug!("pts {}, scale {}, nanosecs {}", pts, scale, nanosecs);
             let pts_chrono = self
@@ -126,18 +136,36 @@ impl FfmpegFrameReader {
                 .unwrap();
 
             let frame_data = {
-                let mut rgb_frame = Video::empty();
-                self.scaler.run(&decoded, &mut rgb_frame)?;
-                let data = RawFrameSource::Ffmpeg(rgb_frame);
-                let extra = basic_frame::BasicExtra {
+                let mut video_output = Video::empty();
+                self.scaler.run(&video_input, &mut video_output)?;
+
+                // convert from ffmpeg to basic_frame::DynamicFrame
+                let width = video_output.width();
+                let height = video_output.height();
+                let stride = video_output.stride(0).try_into().unwrap();
+
+                let ffmpeg_fmt = self.scaler.output().format;
+                let pixel_format = if ffmpeg_fmt == Pixel::RGB24 {
+                    machine_vision_formats::PixFmt::RGB8
+                } else {
+                    assert_eq!(ffmpeg_fmt, Pixel::GRAY8);
+                    machine_vision_formats::PixFmt::Mono8
+                };
+
+                let image_data = video_output.data(0).to_vec();
+                let extra = Box::new(basic_frame::BasicExtra {
                     host_timestamp: pts_chrono,
                     host_framenumber: self.count,
-                };
-                Frame {
-                    pts_chrono,
-                    data,
+                });
+
+                basic_frame::DynamicFrame::new(
+                    width,
+                    height,
+                    stride,
                     extra,
-                }
+                    image_data,
+                    pixel_format,
+                )
             };
             self.frame_queue.push_back(frame_data);
             frame_available = true;
@@ -162,7 +190,7 @@ impl MovieReader for FfmpegFrameReader {
     /// Get the next frame
     ///
     /// Iterate over packets but return frames
-    fn next_frame(&mut self) -> Option<Result<Frame>> {
+    fn next_frame(&mut self) -> Option<Result<DynamicFrame>> {
         // Do we already have a frame waiting?
         if let Some(frame) = self.frame_queue.pop_front() {
             // If yes, return it.

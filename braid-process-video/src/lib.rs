@@ -9,6 +9,7 @@ use ordered_float::NotNan;
 use ffmpeg_next as ffmpeg;
 
 use machine_vision_formats::ImageData;
+use timestamped_frame::ExtraTimeData;
 
 use flydra_types::{Data2dDistortedRow, RawCamName, RosCamName};
 
@@ -25,8 +26,7 @@ pub use ffmpeg_frame_reader::FfmpegFrameReader;
 mod fmf_frame_reader;
 use fmf_frame_reader::FmfFrameReader;
 
-mod frame;
-pub use frame::Frame;
+use basic_frame::DynamicFrame;
 
 mod braidz_iter;
 mod synced_iter;
@@ -59,7 +59,7 @@ pub(crate) const DEFAULT_CAMERA_TEXT_STYLE: &str =
 pub(crate) struct OutTimepointPerCamera {
     timestamp: DateTime<Utc>,
     /// Camera image from MKV or FMF file, if available.
-    image: Option<Frame>,
+    image: Option<DynamicFrame>,
     /// Braidz data. Empty if no braidz data available.
     this_cam_this_frame: Vec<Data2dDistortedRow>,
 }
@@ -67,7 +67,7 @@ pub(crate) struct OutTimepointPerCamera {
 impl OutTimepointPerCamera {
     pub(crate) fn new(
         timestamp: DateTime<Utc>,
-        image: Option<Frame>,
+        image: Option<DynamicFrame>,
         this_cam_this_frame: Vec<Data2dDistortedRow>,
     ) -> Self {
         Self {
@@ -103,8 +103,20 @@ fn synchronize_readers_from(
         log::debug!("filename: {}", reader.as_ref().filename());
 
         // Get information for first frame
-        let p1_pts_chrono = reader.peek1().unwrap().as_ref().unwrap().pts_chrono;
-        let p2_pts_chrono = reader.peek2().unwrap().as_ref().unwrap().pts_chrono;
+        let p1_pts_chrono = reader
+            .peek1()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .extra()
+            .host_timestamp();
+        let p2_pts_chrono = reader
+            .peek2()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .extra()
+            .host_timestamp();
         let mut p1_delta = (p1_pts_chrono - approx_start_time)
             .num_nanoseconds()
             .unwrap()
@@ -121,7 +133,7 @@ fn synchronize_readers_from(
             loop {
                 // Get information for second frame
                 if let Some(p2_frame) = reader.peek2() {
-                    let p2_pts_chrono = p2_frame.as_ref().unwrap().pts_chrono;
+                    let p2_pts_chrono = p2_frame.as_ref().unwrap().extra().host_timestamp();
                     let p2_delta = (p2_pts_chrono - approx_start_time)
                         .num_nanoseconds()
                         .unwrap()
@@ -177,16 +189,35 @@ impl PerCamRender {
                 panic!("")
             }
         };
-        let peek1 = rdr.peek1().unwrap().as_ref().unwrap();
+        let frame_ref: &DynamicFrame = rdr.peek1().unwrap().as_ref().unwrap();
 
-        // Copy first frame for later use in braidz output if needed.
-        let frame0_png_buf =
-            convert_image::frame_to_image(&peek1, convert_image::ImageOptions::Png)
-                .unwrap()
-                .into();
-
-        let width = peek1.width() as usize;
-        let height = peek1.height() as usize;
+        let (frame0_png_buf, width, height) = match frame_ref {
+            DynamicFrame::Mono8(frame_mono8) => {
+                let frame0_png_buf =
+                    convert_image::frame_to_image(frame_mono8, convert_image::ImageOptions::Png)
+                        .unwrap()
+                        .into();
+                (
+                    frame0_png_buf,
+                    frame_mono8.width().try_into().unwrap(),
+                    frame_mono8.height().try_into().unwrap(),
+                )
+            }
+            DynamicFrame::RGB8(frame_rgb8) => {
+                let frame0_png_buf =
+                    convert_image::frame_to_image(frame_rgb8, convert_image::ImageOptions::Png)
+                        .unwrap()
+                        .into();
+                (
+                    frame0_png_buf,
+                    frame_rgb8.width().try_into().unwrap(),
+                    frame_rgb8.height().try_into().unwrap(),
+                )
+            }
+            _ => {
+                panic!("only mono8 or rgb8 supported");
+            }
+        };
 
         Self {
             best_name,
@@ -247,8 +278,18 @@ pub(crate) struct PerCamRenderFrame<'a> {
 }
 
 impl<'a> PerCamRenderFrame<'a> {
-    pub(crate) fn set_original_image(&mut self, frame: &Frame) -> Result<()> {
-        let png_buf = convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png)?;
+    pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
+        let png_buf = match frame {
+            basic_frame::DynamicFrame::Mono8(frame_mono8) => {
+                convert_image::frame_to_image(frame_mono8, convert_image::ImageOptions::Png)?
+            }
+            basic_frame::DynamicFrame::RGB8(frame_rgb8) => {
+                convert_image::frame_to_image(frame_rgb8, convert_image::ImageOptions::Png)?
+            }
+            _ => {
+                panic!("only rgb8 and mono8 supported");
+            }
+        };
         self.png_buf = Some(png_buf);
         Ok(())
     }
@@ -570,8 +611,20 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
                 frame_readers
                     .iter()
                     .map(|reader| {
-                        let p1_pts_chrono = reader.peek1().unwrap().as_ref().unwrap().pts_chrono;
-                        let p2_pts_chrono = reader.peek2().unwrap().as_ref().unwrap().pts_chrono;
+                        let p1_pts_chrono = reader
+                            .peek1()
+                            .unwrap()
+                            .as_ref()
+                            .unwrap()
+                            .extra()
+                            .host_timestamp();
+                        let p2_pts_chrono = reader
+                            .peek2()
+                            .unwrap()
+                            .as_ref()
+                            .unwrap()
+                            .extra()
+                            .host_timestamp();
                         p2_pts_chrono - p1_pts_chrono
                     })
                     .min()
@@ -702,7 +755,7 @@ pub trait MovieReader {
     fn title(&self) -> Option<&str>;
     fn filename(&self) -> &str;
     fn creation_time(&self) -> &DateTime<Utc>;
-    fn next_frame(&mut self) -> Option<Result<Frame>>;
+    fn next_frame(&mut self) -> Option<Result<DynamicFrame>>;
 }
 
 pub fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
@@ -722,7 +775,7 @@ pub fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
 }
 
 impl Iterator for dyn MovieReader {
-    type Item = Result<Frame>;
+    type Item = Result<DynamicFrame>;
     fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
         self.next_frame()
     }

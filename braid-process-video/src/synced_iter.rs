@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 
 use crate::{peek2::Peek2, MovieReader, SyncedPictures};
+use timestamped_frame::ExtraTimeData;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
 pub(crate) struct SyncedIter {
@@ -30,7 +31,14 @@ impl SyncedIter {
         }
         let t0: Vec<DateTime<Utc>> = frame_readers
             .iter()
-            .map(|x| x.peek1().unwrap().as_ref().unwrap().pts_chrono)
+            .map(|x| {
+                x.peek1()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .extra()
+                    .host_timestamp()
+            })
             .collect();
         let mut previous_min = *t0.iter().min().unwrap();
         let mut previous_max = *t0.iter().max().unwrap();
@@ -66,7 +74,7 @@ impl Iterator for SyncedIter {
             .frame_readers
             .iter_mut()
             .filter_map(|frame_reader| {
-                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().pts_chrono);
+                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().extra().host_timestamp());
 
                 let mkv_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;
