@@ -27,7 +27,7 @@ macro_rules! try_iter {
 ///
 /// Since the ffmpeg api reads packet-by-packet, we need something to return
 /// frame-by-frame. This must necessarily decode the packets into frames.
-pub(crate) struct FfmpegFrameReader {
+pub struct FfmpegFrameReader {
     /// The filename of the file
     pub(crate) filename: String,
     /// Creation time of this particular frame reader
@@ -47,10 +47,11 @@ pub(crate) struct FfmpegFrameReader {
     time_base: ffmpeg::Rational,
     pub(crate) title: Option<String>,
     count: usize,
+    hack_fix_speed: u64,
 }
 
 impl FfmpegFrameReader {
-    pub(crate) fn new(filename: &str) -> Result<Self> {
+    pub fn new(filename: &str) -> Result<Self> {
         let ictx = ffmpeg::format::input(&filename)
             .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
         let metadata = ictx.metadata();
@@ -95,7 +96,12 @@ impl FfmpegFrameReader {
             time_base,
             title,
             count: 0,
+            hack_fix_speed: 1,
         })
+    }
+
+    pub fn set_hack_fix_speed(&mut self, hack_fix_speed: u64) {
+        self.hack_fix_speed = hack_fix_speed;
     }
 
     /// The decoder has been given new information, so update our frame queue
@@ -110,7 +116,7 @@ impl FfmpegFrameReader {
         while self.decoder.receive_frame(&mut decoded).is_ok() {
             // TODO: decode the actual frame rather than just returning PTS
             let pts = decoded.pts().unwrap();
-            let nanosecs = pts as u64 * scale;
+            let nanosecs = pts as u64 * scale * self.hack_fix_speed;
             log::debug!("pts {}, scale {}, nanosecs {}", pts, scale, nanosecs);
             let pts_chrono = self
                 .creation_time

@@ -20,7 +20,7 @@ mod argmin;
 #[cfg(feature = "read-mkv")]
 mod ffmpeg_frame_reader;
 #[cfg(feature = "read-mkv")]
-use ffmpeg_frame_reader::FfmpegFrameReader;
+pub use ffmpeg_frame_reader::FfmpegFrameReader;
 
 mod fmf_frame_reader;
 use fmf_frame_reader::FmfFrameReader;
