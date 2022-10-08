@@ -33,4 +33,4 @@ simple-frame = { path = "../simple-frame" }
 [features]
 open-h264=["openh264"]
 
-backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace", "openh264/backtrace"]
+backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace", "openh264?/backtrace"]
