@@ -46,7 +46,7 @@ pub struct FfmpegFrameReader {
     /// Have we reached the end of the file?
     file_done: bool,
     time_base: ffmpeg::Rational,
-    pub(crate) title: Option<String>,
+    metadata: std::collections::HashMap<String, String>,
     count: usize,
     hack_fix_speed: u64,
 }
@@ -55,12 +55,14 @@ impl FfmpegFrameReader {
     pub fn new(filename: &str) -> Result<Self> {
         let ictx = ffmpeg::format::input(&filename)
             .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
-        let metadata = ictx.metadata();
+        let mut metadata = std::collections::HashMap::new();
+        for (key, value) in ictx.metadata().iter() {
+            metadata.insert(key.to_string(), value.to_string());
+        }
         let creation_time_str = metadata.get("creation_time").unwrap();
         let creation_time: DateTime<chrono::FixedOffset> =
             chrono::DateTime::parse_from_rfc3339(creation_time_str)?;
         let creation_time = creation_time.into();
-        let title = metadata.get("title").map(Into::into);
 
         let stream = ictx
             .streams()
@@ -97,7 +99,7 @@ impl FfmpegFrameReader {
             frame_queue: VecDeque::new(),
             file_done: false,
             time_base,
-            title,
+            metadata,
             count: 0,
             hack_fix_speed: 1,
         })
@@ -192,7 +194,7 @@ impl FfmpegFrameReader {
 
 impl MovieReader for FfmpegFrameReader {
     fn title(&self) -> Option<&str> {
-        self.title.as_ref().map(|x| x.as_str())
+        self.metadata.get("title").map(|x| x.as_str())
     }
     fn filename(&self) -> &str {
         &self.filename
