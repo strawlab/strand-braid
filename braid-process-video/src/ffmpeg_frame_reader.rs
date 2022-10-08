@@ -30,7 +30,7 @@ macro_rules! try_iter {
 /// frame-by-frame. This must necessarily decode the packets into frames.
 pub struct FfmpegFrameReader {
     /// The filename of the file
-    pub(crate) filename: String,
+    pub(crate) filename: std::path::PathBuf,
     /// Creation time of this particular frame reader
     pub(crate) creation_time: DateTime<Utc>,
     /// The ffmpeg input
@@ -98,7 +98,7 @@ impl FfmpegFrameReader {
         };
 
         Ok(Self {
-            filename: filename.as_ref().display().to_string(),
+            filename: filename.as_ref().into(),
             creation_time,
             decoder,
             scaler,
@@ -204,7 +204,7 @@ impl MovieReader for FfmpegFrameReader {
     fn title(&self) -> Option<&str> {
         self.metadata.get("title").map(|x| x.as_str())
     }
-    fn filename(&self) -> &str {
+    fn filename(&self) -> &std::path::Path {
         &self.filename
     }
     fn creation_time(&self) -> &DateTime<Utc> {

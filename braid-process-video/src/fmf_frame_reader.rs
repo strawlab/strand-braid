@@ -7,7 +7,7 @@ use timestamped_frame::ExtraTimeData;
 use crate::MovieReader;
 
 pub(crate) struct FmfFrameReader {
-    filename: String,
+    filename: std::path::PathBuf,
     rdr: fmf::reader::FMFReader,
     /// upon file open, we already read the first frame
     frame0: Option<DynamicFrame>,
@@ -15,15 +15,21 @@ pub(crate) struct FmfFrameReader {
 }
 
 impl FmfFrameReader {
-    pub(crate) fn new(filename: &str) -> Result<Self> {
-        let mut rdr = fmf::reader::FMFReader::new(filename)
-            .with_context(|| anyhow::anyhow!("Error from FMFReader opening '{}'", &filename))?;
+    pub(crate) fn new<P: AsRef<std::path::Path>>(filename: P) -> Result<Self> {
+        let mut rdr = fmf::reader::FMFReader::new(&filename).with_context(|| {
+            anyhow::anyhow!(
+                "Error from FMFReader opening '{}'",
+                filename.as_ref().display()
+            )
+        })?;
         let frame0 = rdr
             .next()
             .map(|f| f.map_err(anyhow::Error::from))
-            .unwrap_or_else(|| anyhow::bail!("fmf file with no data '{}'", &filename))?;
+            .unwrap_or_else(|| {
+                anyhow::bail!("fmf file with no data '{}'", filename.as_ref().display())
+            })?;
         let creation_time = frame0.extra().host_timestamp();
-        let filename = filename.to_string();
+        let filename = filename.as_ref().into();
         Ok(Self {
             filename,
             rdr,
@@ -38,7 +44,7 @@ impl MovieReader for FmfFrameReader {
         // There is no metadata, such as a title, in an FMF file.
         None
     }
-    fn filename(&self) -> &str {
+    fn filename(&self) -> &std::path::Path {
         &self.filename
     }
     fn creation_time(&self) -> &DateTime<Utc> {

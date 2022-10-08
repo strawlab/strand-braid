@@ -100,7 +100,7 @@ fn synchronize_readers_from(
 ) {
     // Advance each reader until upcoming frame is not before the start time.
     for reader in readers.iter_mut() {
-        log::debug!("filename: {}", reader.as_ref().filename());
+        log::debug!("filename: {}", reader.as_ref().filename().display());
 
         // Get information for first frame
         let p1_pts_chrono = reader
@@ -753,7 +753,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
 
 pub trait MovieReader {
     fn title(&self) -> Option<&str>;
-    fn filename(&self) -> &str;
+    fn filename(&self) -> &std::path::Path;
     fn creation_time(&self) -> &DateTime<Utc>;
     fn next_frame(&mut self) -> Option<Result<DynamicFrame>>;
 }

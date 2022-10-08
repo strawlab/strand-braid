@@ -91,7 +91,7 @@ impl Iterator for SyncedIter {
                             // Just skip a frame in the file? Not sure about this.
                             log::warn!(
                                 "Two frames within minimum threshold file {}. Skipping frame with timestamp {}.",
-                                frame_reader.as_ref().filename(), timestamp1,
+                                frame_reader.as_ref().filename().display(), timestamp1,
                             );
                             frame_reader.next();
                             frame_reader.next()
