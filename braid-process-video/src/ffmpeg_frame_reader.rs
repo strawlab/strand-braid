@@ -52,9 +52,13 @@ pub struct FfmpegFrameReader {
 }
 
 impl FfmpegFrameReader {
-    pub fn new(filename: &str) -> Result<Self> {
-        let ictx = ffmpeg::format::input(&filename)
-            .with_context(|| anyhow::anyhow!("Error from ffmpeg opening '{}'", &filename))?;
+    pub fn new<P: AsRef<std::path::Path>>(filename: P) -> Result<Self> {
+        let ictx = ffmpeg::format::input(&filename).with_context(|| {
+            anyhow::anyhow!(
+                "Error from ffmpeg opening '{}'",
+                filename.as_ref().display()
+            )
+        })?;
         let mut metadata = std::collections::HashMap::new();
         for (key, value) in ictx.metadata().iter() {
             metadata.insert(key.to_string(), value.to_string());
@@ -71,7 +75,11 @@ impl FfmpegFrameReader {
 
         let video_stream_index = stream.index();
         let time_base = stream.time_base();
-        log::debug!("filename: {}, timebase {:?}", filename, time_base);
+        log::debug!(
+            "filename: {}, timebase {:?}",
+            filename.as_ref().display(),
+            time_base
+        );
 
         let context_decoder =
             ffmpeg::codec::context::Context::from_parameters(stream.parameters())?;
@@ -90,7 +98,7 @@ impl FfmpegFrameReader {
         };
 
         Ok(Self {
-            filename: filename.to_string(),
+            filename: filename.as_ref().display().to_string(),
             creation_time,
             decoder,
             scaler,
