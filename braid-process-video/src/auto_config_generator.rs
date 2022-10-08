@@ -55,8 +55,10 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
             .unwrap()
     ));
 
-    let mut video_options = VideoOutputOptions::default();
-    video_options.time_dilation_factor = time_dilation_factor;
+    let video_options = VideoOutputOptions {
+        time_dilation_factor,
+        ..Default::default()
+    };
     let mut output = vec![OutputConfig::Video(VideoOutputConfig {
         filename: path_to_string(output_video_path)?,
         video_options,

@@ -59,7 +59,7 @@ impl OutputConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct BraidzOutputConfig {
     /// The filename of the output desired.
@@ -78,11 +78,11 @@ impl Validate for BraidzOutputConfig {
     fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
         // Validate `filename`
         let filename = base_join_inner(self.filename, basedir)?;
-        Ok(Valid(Self { filename, ..self }))
+        Ok(Valid(Self { filename }))
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ProcessingConfig {
     pub feature_detection_method: FeatureDetectionMethod,
@@ -90,17 +90,7 @@ pub struct ProcessingConfig {
     pub tracking_parameters_source: TrackingParametersSource,
 }
 
-impl Default for ProcessingConfig {
-    fn default() -> Self {
-        Self {
-            feature_detection_method: FeatureDetectionMethod::default(),
-            camera_calibration_source: CameraCalibrationSource::default(),
-            tracking_parameters_source: TrackingParametersSource::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
 pub enum FeatureDetectionMethod {
     #[serde(rename = "copy")]
@@ -117,7 +107,7 @@ impl Default for FeatureDetectionMethod {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct BrightPointOptions {
     max_num_points: usize,
@@ -129,7 +119,7 @@ impl Default for BrightPointOptions {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
 pub enum CameraCalibrationSource {
     #[serde(rename = "none")]
@@ -144,7 +134,7 @@ impl Default for CameraCalibrationSource {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
 pub enum TrackingParametersSource {
     #[serde(rename = "copy")]
@@ -159,7 +149,7 @@ impl Default for TrackingParametersSource {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct DebugOutputConfig {
     /// The filename of the output desired.
@@ -197,7 +187,6 @@ impl Validate for VideoOutputConfig {
         Ok(Valid(Self {
             filename,
             video_options,
-            ..self
         }))
     }
 }
@@ -213,7 +202,7 @@ impl Default for VideoOutputConfig {
 
 pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv"];
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct VideoOutputOptions {
     /// The space surrounding each image in the composite view.
@@ -244,19 +233,6 @@ pub struct VideoOutputOptions {
     /// The default value of `None` means this value will not be set in the
     /// saved video.
     pub title: Option<String>,
-}
-
-impl Default for VideoOutputOptions {
-    fn default() -> Self {
-        Self {
-            composite_margin_pixels: None,
-            time_dilation_factor: None,
-            feature_radius: None,
-            feature_style: None,
-            cam_text_style: None,
-            title: None,
-        }
-    }
 }
 
 impl VideoOutputOptions {

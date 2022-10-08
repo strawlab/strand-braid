@@ -47,8 +47,8 @@ impl SyncedIter {
         }
 
         // Prepare for first frame.
-        previous_min = previous_min - frame_duration;
-        previous_max = previous_max - frame_duration;
+        previous_min -= frame_duration;
+        previous_max -= frame_duration;
 
         Ok(Self {
             frame_readers,

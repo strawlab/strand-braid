@@ -48,11 +48,9 @@ impl MovieReader for FmfFrameReader {
     /// Get the next frame
     fn next_frame(&mut self) -> Option<Result<DynamicFrame>> {
         if let Some(frame0) = self.frame0.take() {
-            Some(frame0.try_into().map_err(anyhow::Error::from))
+            Some(Ok(frame0))
         } else {
-            self.rdr
-                .next()
-                .map(|f| f.map(|f| f.try_into())?.map_err(anyhow::Error::from))
+            self.rdr.next().map(|f| f.map_err(anyhow::Error::from))
         }
     }
 }

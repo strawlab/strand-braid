@@ -4,7 +4,7 @@ use std::io::Write;
 use crate::{output_braidz::BraidStorage, output_video::VideoStorage, PerCamRenderFrame};
 
 pub(crate) enum OutputStorage<'lib> {
-    Video(VideoStorage<'lib>),
+    Video(Box<VideoStorage<'lib>>),
     Debug(DebugStorage),
     Braid(BraidStorage),
 }

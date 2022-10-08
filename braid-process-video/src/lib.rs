@@ -96,7 +96,7 @@ pub(crate) struct BraidzFrameInfo {
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
-    readers: &mut Vec<Peek2<Box<dyn MovieReader>>>,
+    readers: &mut [Peek2<Box<dyn MovieReader>>],
 ) {
     // Advance each reader until upcoming frame is not before the start time.
     for reader in readers.iter_mut() {
@@ -405,8 +405,8 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
 
     let braidz_summary = braid_archive.as_ref().map(|archive| {
         let path = archive.path();
-        let attr = std::fs::metadata(&path).unwrap();
-        let filename = crate::config::path_to_string(&path).unwrap();
+        let attr = std::fs::metadata(path).unwrap();
+        let filename = crate::config::path_to_string(path).unwrap();
         braidz_parser::summarize_braidz(archive, filename, attr.len())
     });
 
@@ -497,7 +497,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
     });
 
     // Update `sources` with info from braidz archive if they describe same camera.
-    braidz_sources.as_ref().map(|braidz_sources| {
+    if let Some(braidz_sources) = braidz_sources.as_ref() {
         for braidz_cam_id in braidz_sources.iter() {
             let tmp = sources_ref
                 .drain(..)
@@ -525,7 +525,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
 
             *sources_ref = tmp;
         }
-    });
+    };
 
     // If we have no manually specified video sources but do have a braidz file, use that.
     let braidz_only = if sources.is_empty() {
@@ -687,9 +687,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
             }
 
             match output {
-                OutputConfig::Video(v) => Ok(OutputStorage::Video(
+                OutputConfig::Video(v) => Ok(OutputStorage::Video(Box::new(
                     output_video::VideoStorage::new(&v, &output_filename, &sources)?,
-                )),
+                ))),
                 OutputConfig::DebugTxt(_) => Ok(OutputStorage::Debug(DebugStorage {
                     fd: std::fs::File::create(&output_filename)?,
                 })),
@@ -784,7 +784,7 @@ impl Iterator for dyn MovieReader {
 fn gather_frame_data<'a>(
     synced_data: &SyncedPictures,
     sources: &'a [CameraSource],
-    output_storage: &mut Vec<OutputStorage>,
+    output_storage: &mut [OutputStorage],
     cfg: &BraidRetrackVideoConfig,
 ) -> Result<Vec<PerCamRenderFrame<'a>>> {
     let synced_pics: &[OutTimepointPerCamera] = &synced_data.camera_pictures;

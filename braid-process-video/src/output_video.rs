@@ -34,7 +34,7 @@ impl<'lib> VideoStorage<'lib> {
             .max()
             .unwrap();
 
-        let fd = std::fs::File::create(&output_filename)?;
+        let fd = std::fs::File::create(output_filename)?;
 
         let opts = ci2_remote_control::VP9Options { bitrate: 10000 };
         let codec = ci2_remote_control::MkvCodec::VP9(opts);
@@ -194,8 +194,8 @@ impl<'lib> VideoStorage<'lib> {
                             w.single("circle", |d| {
                                 d.attr("cx", xy.0.as_ref())?;
                                 d.attr("cy", xy.1.as_ref())?;
-                                d.attr("r", &feature_radius)?;
-                                d.attr("style", &feature_style)
+                                d.attr("r", feature_radius)?;
+                                d.attr("style", feature_style)
                             })?;
                         }
                         Ok(())
@@ -220,7 +220,7 @@ impl<'lib> VideoStorage<'lib> {
                                 d.attr("x", format!("{}", 10))?;
                                 d.attr("y", format!("{}", 10))?;
                                 d.attr("dy", "1em")?;
-                                d.attr("style", &cam_text_style)?;
+                                d.attr("style", cam_text_style)?;
                                 Ok(())
                             })?
                             .build(|w| w.put_raw(cam_text))?;
@@ -238,7 +238,7 @@ impl<'lib> VideoStorage<'lib> {
         // Get the SVG file contents.
         let fmt_wtr = wtr.into_writer();
         let svg_buf = {
-            let _ = fmt_wtr.error?;
+            fmt_wtr.error?;
             fmt_wtr.inner
         };
 

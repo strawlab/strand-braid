@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
             let abs_cfg_path = config_toml.canonicalize()?;
             let cfg_dir = abs_cfg_path.parent();
 
-            let cfg_str = std::fs::read_to_string(&config_toml)
+            let cfg_str = std::fs::read_to_string(config_toml)
                 .with_context(|| format!("Reading config file '{}'", config_toml.display()))?;
 
             let cfg: BraidRetrackVideoConfig = toml::from_str(&cfg_str).with_context(|| {
