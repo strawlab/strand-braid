@@ -38,8 +38,7 @@ pub struct FfmpegFrameReader {
     /// The ffmpeg decoder
     decoder: ffmpeg::decoder::Video,
     /// The ffmpeg scaler if needed
-    scaler: Context,
-
+    scaler: Option<Context>,
     /// Where the video stream starts in the file
     video_stream_index: usize,
     /// Frames already decoded awaiting consumption
@@ -74,26 +73,19 @@ impl FfmpegFrameReader {
 
         let context_decoder =
             ffmpeg::codec::context::Context::from_parameters(stream.parameters())?;
-        let codec_tag: u32 = unsafe { *context_decoder.as_ptr() }.codec_tag;
-        let codec_tag_str: Option<String> =
-            String::from_utf8(codec_tag.to_be_bytes().to_vec()).ok();
         let decoder = context_decoder.decoder().video()?;
-
-        let dst_format = if codec_tag_str.as_ref().map(|x| x.as_str()) == Some("008Y") {
-            Pixel::GRAY8
-        } else {
-            Pixel::RGB24
+        let scaler = match decoder.format() {
+            Pixel::GRAY8 | Pixel::RGB24 => None,
+            _ => Some(Context::get(
+                decoder.format(),
+                decoder.width(),
+                decoder.height(),
+                Pixel::RGB24,
+                decoder.width(),
+                decoder.height(),
+                Flags::BILINEAR,
+            )?),
         };
-
-        let scaler = Context::get(
-            decoder.format(),
-            decoder.width(),
-            decoder.height(),
-            dst_format,
-            decoder.width(),
-            decoder.height(),
-            Flags::BILINEAR,
-        )?;
 
         Ok(Self {
             filename: filename.to_string(),
@@ -136,15 +128,37 @@ impl FfmpegFrameReader {
                 .unwrap();
 
             let frame_data = {
-                let mut video_output = Video::empty();
-                self.scaler.run(&video_input, &mut video_output)?;
+                // We handle lifetime issues with somewhat complex scopes.
+
+                // Allocate video output if needed.
+                let mut alloced_video_output = if self.scaler.is_some() {
+                    Some(Video::empty())
+                } else {
+                    None
+                };
+
+                // Now fill the video output using FFMPEG's scaler if needed
+                // else just copying the reference to the input if not.
+                let video_output = if let Some(scaler) = &mut self.scaler {
+                    // let ffmpeg convert data to RGB24
+                    {
+                        let mut video_output = alloced_video_output.as_mut().unwrap();
+                        scaler.run(&video_input, &mut video_output)?;
+                    }
+                    // We allocated this just above, to this unwrap will never
+                    // panic.
+                    alloced_video_output.as_ref().unwrap()
+                } else {
+                    // We support this format directly
+                    &video_input
+                };
 
                 // convert from ffmpeg to basic_frame::DynamicFrame
                 let width = video_output.width();
                 let height = video_output.height();
                 let stride = video_output.stride(0).try_into().unwrap();
 
-                let ffmpeg_fmt = self.scaler.output().format;
+                let ffmpeg_fmt = video_output.format();
                 let pixel_format = if ffmpeg_fmt == Pixel::RGB24 {
                     machine_vision_formats::PixFmt::RGB8
                 } else {
