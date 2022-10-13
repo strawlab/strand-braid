@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam-offline-kalmanize"
-version =  "0.12.0-alpha.2" # braid release synchronized
+version =  "0.12.0-alpha.3" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.59"
