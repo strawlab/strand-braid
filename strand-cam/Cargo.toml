@@ -11,6 +11,7 @@ rust-version = "1.60"
 path = "src/strand-cam.rs"
 
 [dependencies]
+jemallocator = {version="0.3", optional=true}
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
 bui-backend = {version="0.14", default-features = false}
@@ -130,6 +131,8 @@ flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]
+
+jemalloc = ["jemallocator"]
 
 vpx = ["mkv-writer/vpx"]
 
