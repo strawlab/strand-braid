@@ -1110,13 +1110,13 @@ build_simple:
 
     # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
-    - wasm-pack build --target web
+    - ./build.sh
     - cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
     - cargo build --release
 
     # Build braid-run with simplest build configuration possible
     - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
-    - wasm-pack build --target web
+    - ./build.sh
     - cd $CI_PROJECT_DIR/braid/braid-run
     - cargo build --release
 
