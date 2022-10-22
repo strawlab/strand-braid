@@ -143,7 +143,7 @@ impl DynamicFrame {
 }
 
 impl DynamicFrame {
-    /// Return the image to a `BasicFrame` of the given pixel format.
+    /// Return the image as a `BasicFrame` of the given pixel format.
     ///
     /// This is done by moving the data. No copy is made.
     ///
