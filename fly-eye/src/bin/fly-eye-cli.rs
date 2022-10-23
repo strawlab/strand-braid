@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
 
-use formats::pixel_format::RGB8;
+use formats::{pixel_format::RGB8, ImageData};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "fly-eye-cli", about = "run fly eye on image file")]
@@ -31,7 +31,7 @@ fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
         width: frame.width,
         height: frame.height,
         stride: frame.stride,
-        image_data: frame.image_data,
+        image_data: frame.buffer().data,
         pixel_format: std::marker::PhantomData,
         extra,
     };

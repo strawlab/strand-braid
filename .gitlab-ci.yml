@@ -58,6 +58,10 @@ test_crates:
     - cargo test --features backend_pyloncxx
     - cd ..
 
+    - cd fly-eye
+    - cargo build --release --features camsrc_pyloncxx
+    - cd ..
+
 test_flydra2:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
