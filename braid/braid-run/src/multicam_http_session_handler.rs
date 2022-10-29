@@ -25,7 +25,7 @@ impl HttpSessionHandler {
             name_to_session: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
-    async fn open_session(&self, cam_name: &RosCamName) -> Result<InsecureSession, hyper::Error> {
+    async fn open_session(&self, cam_name: &RosCamName) -> Result<MaybeSession, hyper::Error> {
         // Create a new session if it doesn't exist.
         let (base_url, token) = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
@@ -52,7 +52,8 @@ impl HttpSessionHandler {
         match result {
             Ok(session) => {
                 let mut name_to_session = self.name_to_session.write();
-                name_to_session.insert(cam_name.clone(), MaybeSession::Alive(session.clone()));
+                let session = MaybeSession::Alive(session);
+                name_to_session.insert(cam_name.clone(), session.clone());
                 Ok(session)
             }
             Err(e) => {
@@ -78,7 +79,7 @@ impl HttpSessionHandler {
         // Create session if needed.
         let session = match opt_session {
             Some(session) => session,
-            None => MaybeSession::Alive(self.open_session(cam_name).await?),
+            None => self.open_session(cam_name).await?,
         };
 
         // Post to session
