@@ -1111,7 +1111,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 let http_session_handler3 = http_session_handler2.clone();
                 let fut_no_err = async move {
                     match http_session_handler3.send_frame_offset(&name2, frame).await {
-                        Ok(_http_response) => {}
+                        Ok(_) => {}
                         Err(e) => {
                             error!("Error sending frame offset: {}", e);
                         }
