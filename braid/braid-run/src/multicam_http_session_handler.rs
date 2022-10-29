@@ -18,8 +18,6 @@ enum MaybeSession {
     Errored,
 }
 
-type MyError = std::io::Error; // anything that implements std::error::Error and Send
-
 impl HttpSessionHandler {
     pub fn new(cam_manager: flydra2::ConnectedCamerasManager) -> Self {
         Self {
@@ -69,12 +67,6 @@ impl HttpSessionHandler {
         cam_name: &RosCamName,
         args: ci2_remote_control::CamArg,
     ) -> Result<(), hyper::Error> {
-        let data = CallbackType::ToCamera(args);
-        let buf = serde_json::to_vec(&data).unwrap();
-        let chunks = vec![Ok::<_, MyError>(buf)];
-        let stream = futures::stream::iter(chunks);
-        let body = hyper::body::Body::wrap_stream(stream);
-
         // Get session if it already exists.
         let opt_session = {
             self.name_to_session
@@ -92,6 +84,10 @@ impl HttpSessionHandler {
         // Post to session
         match session {
             MaybeSession::Alive(mut session) => {
+                let body = hyper::body::Body::from(
+                    serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap(),
+                );
+
                 let result = session.post("callback", body).await;
                 match result {
                     Ok(response) => {
