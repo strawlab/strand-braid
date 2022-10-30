@@ -263,7 +263,8 @@ impl Model {
                             value={self.recording_path.clone()}
                             ontoggle={ctx.link().callback(|checked| {Msg::DoRecordCsvTables(checked)})}
                             />
-
+                        </div>
+                        <div>
                             <RecordingPathWidget
                             label="Record .mkv files"
                             value={self.fake_mkv_recording_path.clone()}
