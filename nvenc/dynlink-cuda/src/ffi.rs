@@ -159,7 +159,7 @@ pub type wctype_t = ::std::os::raw::c_ushort;
 pub type __time32_t = ::std::os::raw::c_long;
 pub type __time64_t = ::std::os::raw::c_longlong;
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct __crt_locale_data_public {
     pub _locale_pctype: *const ::std::os::raw::c_ushort,
     pub _locale_mb_cur_max: ::std::os::raw::c_int,
@@ -217,7 +217,7 @@ fn bindgen_test_layout___crt_locale_data_public() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct __crt_locale_pointers {
     pub locinfo: *mut __crt_locale_data,
     pub mbcinfo: *mut __crt_multibyte_data,
@@ -257,7 +257,7 @@ fn bindgen_test_layout___crt_locale_pointers() {
 }
 pub type _locale_t = *mut __crt_locale_pointers;
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _Mbstatet {
     pub _Wchar: ::std::os::raw::c_ulong,
     pub _Byte: ::std::os::raw::c_ushort,
@@ -976,7 +976,7 @@ extern "C" {
     pub fn _get_fmode(_PMode: *mut ::std::os::raw::c_int) -> errno_t;
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _div_t {
     pub quot: ::std::os::raw::c_int,
     pub rem: ::std::os::raw::c_int,
@@ -1016,7 +1016,7 @@ fn bindgen_test_layout__div_t() {
 }
 pub type div_t = _div_t;
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _ldiv_t {
     pub quot: ::std::os::raw::c_long,
     pub rem: ::std::os::raw::c_long,
@@ -1056,7 +1056,7 @@ fn bindgen_test_layout__ldiv_t() {
 }
 pub type ldiv_t = _ldiv_t;
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _lldiv_t {
     pub quot: ::std::os::raw::c_longlong,
     pub rem: ::std::os::raw::c_longlong,
@@ -1172,7 +1172,7 @@ extern "C" {
     pub fn rand() -> ::std::os::raw::c_int;
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _LDOUBLE {
     pub ld: [::std::os::raw::c_uchar; 10usize],
 }
@@ -1284,7 +1284,7 @@ fn bindgen_test_layout__LONGDOUBLE() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _LDBL12 {
     pub ld12: [::std::os::raw::c_uchar; 12usize],
 }
@@ -2060,7 +2060,7 @@ pub struct CUgraphExec_st {
 }
 pub type CUgraphExec = *mut CUgraphExec_st;
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUuuid_st {
     pub bytes: [::std::os::raw::c_char; 16usize],
 }
@@ -2626,7 +2626,7 @@ fn bindgen_test_layout_CUstreamBatchMemOpParams_union_CUstreamMemOpWriteValuePar
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUstreamBatchMemOpParams_union_CUstreamMemOpFlushRemoteWritesParams_st {
     pub operation: CUstreamBatchMemOpType,
     pub flags: ::std::os::raw::c_uint,
@@ -3063,7 +3063,7 @@ pub mod CUdevice_attribute_enum {
 pub use self::CUdevice_attribute_enum::Type as CUdevice_attribute;
 #[doc = " Legacy device properties"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUdevprop_st {
     #[doc = "< Maximum number of threads per block"]
     pub maxThreadsPerBlock: ::std::os::raw::c_int,
@@ -3798,7 +3798,7 @@ fn bindgen_test_layout_CUaccessPolicyWindow_st() {
 pub type CUaccessPolicyWindow = CUaccessPolicyWindow_st;
 #[doc = " GPU kernel node parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_KERNEL_NODE_PARAMS_st {
     #[doc = "< Kernel to launch"]
     pub func: CUfunction,
@@ -3957,7 +3957,7 @@ fn bindgen_test_layout_CUDA_KERNEL_NODE_PARAMS_st() {
 pub type CUDA_KERNEL_NODE_PARAMS = CUDA_KERNEL_NODE_PARAMS_st;
 #[doc = " Memset node parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_MEMSET_NODE_PARAMS_st {
     #[doc = "< Destination device pointer"]
     pub dst: CUdeviceptr,
@@ -4059,7 +4059,7 @@ fn bindgen_test_layout_CUDA_MEMSET_NODE_PARAMS_st() {
 pub type CUDA_MEMSET_NODE_PARAMS = CUDA_MEMSET_NODE_PARAMS_st;
 #[doc = " Host node parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_HOST_NODE_PARAMS_st {
     #[doc = "< The function to call when the node executes"]
     pub fn_: CUhostFn,
@@ -4604,7 +4604,7 @@ pub type CUoccupancyB2DSize =
     ::std::option::Option<unsafe extern "C" fn(blockSize: ::std::os::raw::c_int) -> size_t>;
 #[doc = " 2D memory copy parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_MEMCPY2D_st {
     #[doc = "< Source X in bytes"]
     pub srcXInBytes: size_t,
@@ -4816,7 +4816,7 @@ fn bindgen_test_layout_CUDA_MEMCPY2D_st() {
 pub type CUDA_MEMCPY2D = CUDA_MEMCPY2D_st;
 #[doc = " 3D memory copy parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_MEMCPY3D_st {
     #[doc = "< Source X in bytes"]
     pub srcXInBytes: size_t,
@@ -5136,7 +5136,7 @@ fn bindgen_test_layout_CUDA_MEMCPY3D_st() {
 pub type CUDA_MEMCPY3D = CUDA_MEMCPY3D_st;
 #[doc = " 3D memory cross-context copy parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_MEMCPY3D_PEER_st {
     #[doc = "< Source X in bytes"]
     pub srcXInBytes: size_t,
@@ -5470,7 +5470,7 @@ fn bindgen_test_layout_CUDA_MEMCPY3D_PEER_st() {
 pub type CUDA_MEMCPY3D_PEER = CUDA_MEMCPY3D_PEER_st;
 #[doc = " Array descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_ARRAY_DESCRIPTOR_st {
     #[doc = "< Width of array"]
     pub Width: size_t,
@@ -5540,7 +5540,7 @@ fn bindgen_test_layout_CUDA_ARRAY_DESCRIPTOR_st() {
 pub type CUDA_ARRAY_DESCRIPTOR = CUDA_ARRAY_DESCRIPTOR_st;
 #[doc = " 3D array descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_ARRAY3D_DESCRIPTOR_st {
     #[doc = "< Width of 3D array"]
     pub Width: size_t,
@@ -5644,7 +5644,7 @@ fn bindgen_test_layout_CUDA_ARRAY3D_DESCRIPTOR_st() {
 pub type CUDA_ARRAY3D_DESCRIPTOR = CUDA_ARRAY3D_DESCRIPTOR_st;
 #[doc = " CUDA array sparse properties"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_ARRAY_SPARSE_PROPERTIES_st {
     pub tileExtent: CUDA_ARRAY_SPARSE_PROPERTIES_st__bindgen_ty_1,
     #[doc = " First mip level at which the mip tail begins."]
@@ -5656,7 +5656,7 @@ pub struct CUDA_ARRAY_SPARSE_PROPERTIES_st {
     pub reserved: [::std::os::raw::c_uint; 4usize],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_ARRAY_SPARSE_PROPERTIES_st__bindgen_ty_1 {
     #[doc = "< Width of sparse tile in elements"]
     pub width: ::std::os::raw::c_uint,
@@ -5823,7 +5823,7 @@ pub union CUDA_RESOURCE_DESC_st__bindgen_ty_1 {
     _bindgen_union_align: [u64; 16usize],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_1 {
     #[doc = "< CUDA array"]
     pub hArray: CUarray,
@@ -5861,7 +5861,7 @@ fn bindgen_test_layout_CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_1() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_2 {
     #[doc = "< CUDA mipmapped array"]
     pub hMipmappedArray: CUmipmappedArray,
@@ -5899,7 +5899,7 @@ fn bindgen_test_layout_CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_2() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_3 {
     #[doc = "< Device pointer"]
     pub devPtr: CUdeviceptr,
@@ -5982,7 +5982,7 @@ fn bindgen_test_layout_CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_3() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_4 {
     #[doc = "< Device pointer"]
     pub devPtr: CUdeviceptr,
@@ -6095,7 +6095,7 @@ fn bindgen_test_layout_CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_4() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_DESC_st__bindgen_ty_1__bindgen_ty_5 {
     pub reserved: [::std::os::raw::c_int; 32usize],
 }
@@ -6490,7 +6490,7 @@ pub mod CUresourceViewFormat_enum {
 pub use self::CUresourceViewFormat_enum::Type as CUresourceViewFormat;
 #[doc = " Resource view descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_RESOURCE_VIEW_DESC_st {
     #[doc = "< Resource view format"]
     pub format: CUresourceViewFormat,
@@ -6637,7 +6637,7 @@ fn bindgen_test_layout_CUDA_RESOURCE_VIEW_DESC_st() {
 pub type CUDA_RESOURCE_VIEW_DESC = CUDA_RESOURCE_VIEW_DESC_st;
 #[doc = " GPU Direct v3 tokens"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_POINTER_ATTRIBUTE_P2P_TOKENS_st {
     pub p2pToken: ::std::os::raw::c_ulonglong,
     pub vaSpaceToken: ::std::os::raw::c_uint,
@@ -6705,7 +6705,7 @@ pub mod CUDA_POINTER_ATTRIBUTE_ACCESS_FLAGS_enum {
 pub use self::CUDA_POINTER_ATTRIBUTE_ACCESS_FLAGS_enum::Type as CUDA_POINTER_ATTRIBUTE_ACCESS_FLAGS;
 #[doc = " Kernel launch parameters"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_LAUNCH_PARAMS_st {
     #[doc = "< Kernel to launch"]
     pub function: CUfunction,
@@ -6909,7 +6909,7 @@ pub union CUDA_EXTERNAL_MEMORY_HANDLE_DESC_st__bindgen_ty_1 {
 #[doc = " ::CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_RESOURCE_KMT"]
 #[doc = " then 'name' must be NULL."]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_MEMORY_HANDLE_DESC_st__bindgen_ty_1__bindgen_ty_1 {
     #[doc = " Valid NT handle. Must be NULL if 'name' is non-NULL"]
     pub handle: *mut ::std::os::raw::c_void,
@@ -7107,7 +7107,7 @@ fn bindgen_test_layout_CUDA_EXTERNAL_MEMORY_HANDLE_DESC_st() {
 pub type CUDA_EXTERNAL_MEMORY_HANDLE_DESC = CUDA_EXTERNAL_MEMORY_HANDLE_DESC_st;
 #[doc = " External memory buffer descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_MEMORY_BUFFER_DESC_st {
     #[doc = " Offset into the memory object where the buffer's base is"]
     pub offset: ::std::os::raw::c_ulonglong,
@@ -7189,7 +7189,7 @@ fn bindgen_test_layout_CUDA_EXTERNAL_MEMORY_BUFFER_DESC_st() {
 pub type CUDA_EXTERNAL_MEMORY_BUFFER_DESC = CUDA_EXTERNAL_MEMORY_BUFFER_DESC_st;
 #[doc = " External memory mipmap descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC_st {
     #[doc = " Offset into the memory object where the base level of the"]
     #[doc = " mipmap chain is."]
@@ -7331,7 +7331,7 @@ pub union CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC_st__bindgen_ty_1 {
 #[doc = " ::CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D11_KEYED_MUTEX_KMT"]
 #[doc = " then 'name' must be NULL."]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC_st__bindgen_ty_1__bindgen_ty_1 {
     #[doc = " Valid NT handle. Must be NULL if 'name' is non-NULL"]
     pub handle: *mut ::std::os::raw::c_void,
@@ -7546,7 +7546,7 @@ pub struct CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS_st__bindgen_ty_1 {
 }
 #[doc = " Parameters for fence objects"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS_st__bindgen_ty_1__bindgen_ty_1 {
     #[doc = " Value of fence to be signaled"]
     pub value: ::std::os::raw::c_ulonglong,
@@ -7649,7 +7649,7 @@ fn bindgen_test_layout_CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS_st__bindgen_ty_1__b
 }
 #[doc = " Parameters for keyed mutex objects"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS_st__bindgen_ty_1__bindgen_ty_3 {
     #[doc = " Value of key to release the mutex with"]
     pub key: ::std::os::raw::c_ulonglong,
@@ -7846,7 +7846,7 @@ pub struct CUDA_EXTERNAL_SEMAPHORE_WAIT_PARAMS_st__bindgen_ty_1 {
 }
 #[doc = " Parameters for fence objects"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_SEMAPHORE_WAIT_PARAMS_st__bindgen_ty_1__bindgen_ty_1 {
     #[doc = " Value of fence to be waited on"]
     pub value: ::std::os::raw::c_ulonglong,
@@ -7947,7 +7947,7 @@ fn bindgen_test_layout_CUDA_EXTERNAL_SEMAPHORE_WAIT_PARAMS_st__bindgen_ty_1__bin
 }
 #[doc = " Parameters for keyed mutex objects"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUDA_EXTERNAL_SEMAPHORE_WAIT_PARAMS_st__bindgen_ty_1__bindgen_ty_3 {
     #[doc = " Value of key to acquire the mutex with"]
     pub key: ::std::os::raw::c_ulonglong,
@@ -8294,7 +8294,7 @@ pub union CUarrayMapInfo_st__bindgen_ty_2 {
     _bindgen_union_align: [u64; 4usize],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUarrayMapInfo_st__bindgen_ty_2__bindgen_ty_1 {
     #[doc = "< For CUDA mipmapped arrays must a valid mipmap level. For CUDA arrays must be zero"]
     pub level: ::std::os::raw::c_uint,
@@ -8437,7 +8437,7 @@ fn bindgen_test_layout_CUarrayMapInfo_st__bindgen_ty_2__bindgen_ty_1() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUarrayMapInfo_st__bindgen_ty_2__bindgen_ty_2 {
     #[doc = "< For CUDA layered arrays must be a valid layer index. Otherwise, must be zero"]
     pub layer: ::std::os::raw::c_uint,
@@ -8705,7 +8705,7 @@ fn bindgen_test_layout_CUarrayMapInfo_st() {
 pub type CUarrayMapInfo = CUarrayMapInfo_st;
 #[doc = " Specifies a location for an allocation."]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUmemLocation_st {
     #[doc = "< Specifies the location type, which modifies the meaning of id."]
     pub type_: CUmemLocationType,
@@ -8759,7 +8759,7 @@ pub mod CUmemAllocationCompType_enum {
 pub use self::CUmemAllocationCompType_enum::Type as CUmemAllocationCompType;
 #[doc = " Specifies the allocation properties for a allocation."]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUmemAllocationProp_st {
     #[doc = " Allocation type"]
     pub type_: CUmemAllocationType,
@@ -8775,7 +8775,7 @@ pub struct CUmemAllocationProp_st {
     pub allocFlags: CUmemAllocationProp_st__bindgen_ty_1,
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUmemAllocationProp_st__bindgen_ty_1 {
     #[doc = " Allocation hint for requesting compressible memory."]
     #[doc = " On devices that support Compute Data Compression, compressible"]
@@ -8937,7 +8937,7 @@ fn bindgen_test_layout_CUmemAllocationProp_st() {
 pub type CUmemAllocationProp = CUmemAllocationProp_st;
 #[doc = " Memory access descriptor"]
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CUmemAccessDesc_st {
     #[doc = "< Location on which the request is to change it's accessibility"]
     pub location: CUmemLocation,
@@ -19536,12 +19536,12 @@ extern "C" {
     pub fn cuFuncGetModule(hmod: *mut CUmodule, hfunc: CUfunction) -> CUresult;
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct __crt_locale_data {
     pub _address: u8,
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct __crt_multibyte_data {
     pub _address: u8,
 }
