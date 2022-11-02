@@ -339,7 +339,7 @@ impl<'lib> Drop for Encoder<'lib> {
             };
             let status = unsafe { func(self.inner.0) };
             assert!(
-                !(status != _NVENCSTATUS::NV_ENC_SUCCESS),
+                status == _NVENCSTATUS::NV_ENC_SUCCESS,
                 "NV_ENC error code: {}",
                 status
             );
@@ -405,7 +405,7 @@ impl<'lock, 'lib> Drop for LockedInputBuffer<'lock, 'lib> {
             let status = unsafe { func(self.inner.encoder.inner.0, self.inner.ptr) };
 
             assert!(
-                !(status != _NVENCSTATUS::NV_ENC_SUCCESS),
+                status == _NVENCSTATUS::NV_ENC_SUCCESS,
                 "NV_ENC error code: {}",
                 status
             );
@@ -443,7 +443,7 @@ impl<'lib> Drop for InputBuffer<'lib> {
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };
             assert!(
-                !(status != _NVENCSTATUS::NV_ENC_SUCCESS),
+                status == _NVENCSTATUS::NV_ENC_SUCCESS,
                 "NV_ENC error code: {}",
                 status
             );
@@ -484,7 +484,7 @@ impl<'lib> Drop for OutputBuffer<'lib> {
 
             let status = unsafe { func(self.encoder.inner.0, self.ptr) };
             assert!(
-                !(status != _NVENCSTATUS::NV_ENC_SUCCESS),
+                status == _NVENCSTATUS::NV_ENC_SUCCESS,
                 "NV_ENC error code: {}",
                 status
             );
@@ -525,7 +525,7 @@ impl<'lock, 'lib> Drop for LockedOutputBuffer<'lock, 'lib> {
             let status = unsafe { func(self.inner.encoder.inner.0, self.inner.ptr) };
 
             assert!(
-                !(status != _NVENCSTATUS::NV_ENC_SUCCESS),
+                status == _NVENCSTATUS::NV_ENC_SUCCESS,
                 "NV_ENC error code: {}",
                 status
             );
