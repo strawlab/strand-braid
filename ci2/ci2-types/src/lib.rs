@@ -7,7 +7,7 @@ extern crate enum_iter;
 
 use enum_iter::EnumIter;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AutoMode {
     Off,
     Once,
@@ -33,13 +33,13 @@ impl Default for AutoMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TriggerMode {
     Off,
     On,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum TriggerSelector {
     AcquisitionStart,
@@ -48,7 +48,7 @@ pub enum TriggerSelector {
     ExposureActive,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AcquisitionMode {
     Continuous,
     SingleFrame,
