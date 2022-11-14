@@ -509,7 +509,8 @@ where
                 if cfg.save_creation_time {
                     // Set DateUTC metadata
                     use chrono::TimeZone;
-                    let millennium_exploded = chrono::Utc.ymd(2001, 1, 1).and_hms(0, 0, 0);
+                    let millennium_exploded =
+                        chrono::Utc.with_ymd_and_hms(2001, 1, 1, 0, 0, 0).unwrap();
                     let elapsed = timestamp.signed_duration_since(millennium_exploded);
                     let nanoseconds = elapsed.num_nanoseconds().expect("nanosec overflow");
                     // https://chromium.googlesource.com/chromium/src/+/11d989c52c6da43c5e8eb9d377ef0286a1cc8fba/remoting/client/plugin/media_source_video_renderer.cc
