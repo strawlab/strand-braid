@@ -541,7 +541,8 @@ impl Agent for MyWorker {
                         .ok()
                         .map(|dt| dt.with_timezone(&chrono::Utc));
 
-                let offset = chrono::FixedOffset::west((tz_offset_minutes * 60.0) as i32);
+                let offset =
+                    chrono::FixedOffset::west_opt((tz_offset_minutes * 60.0) as i32).unwrap();
                 let created_at = created_at.map(|dt| dt.with_timezone(&offset));
 
                 // TODO: why does chrono save this without the timezone offset information?
