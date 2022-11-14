@@ -81,9 +81,10 @@ fn test_serialize_timestamps_to_csv() -> anyhow::Result<()> {
     use chrono::TimeZone;
 
     let t1_orig = 123.123456789;
-    let t2_orig =
-        FlydraFloatTimestampLocal::<HostClock>::from(chrono::Utc.ymd(2100, 1, 1).and_hms(0, 1, 1))
-            .as_f64();
+    let t2_orig = FlydraFloatTimestampLocal::<HostClock>::from(
+        chrono::Utc.with_ymd_and_hms(2100, 1, 1, 0, 1, 1).unwrap(),
+    )
+    .as_f64();
     let row_orig = TriggerClockInfoRow {
         start_timestamp: datetime_conversion::f64_to_datetime(t1_orig).into(),
         framecount: 123,
