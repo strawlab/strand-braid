@@ -22,10 +22,10 @@ fn test_roundtrip_local() {
 
 #[test]
 fn test_roundtrip_nonlocal() {
-
-    let now = chrono::FixedOffset::east(5 * 60 * 60)
-        .ymd(2016, 11, 08)
-        .and_hms(0, 0, 0);
+    let now = chrono::FixedOffset::east_opt(5 * 60 * 60)
+        .unwrap()
+        .with_ymd_and_hms(2016, 11, 08, 0, 0, 0)
+        .unwrap();
     println!("now {:?}", now);
     let now_f64 = datetime_to_f64(&now);
     println!("now_f64 {:?}", now_f64);

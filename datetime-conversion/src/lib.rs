@@ -22,7 +22,7 @@ where
     let secs_f = timestamp_f64.floor();
     let secs = secs_f as i64;
     let nsecs = ((timestamp_f64 - secs_f) * 1e9) as u32;
-    tz.timestamp(secs, nsecs)
+    tz.timestamp_opt(secs, nsecs).unwrap()
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn test_precision() {
     use chrono::TimeZone;
 
     let t1_orig = 123.123456789;
-    let t2_orig = datetime_to_f64(&chrono::Utc.ymd(2100, 1, 1).and_hms(0, 1, 1));
+    let t2_orig = datetime_to_f64(&chrono::Utc.with_ymd_and_hms(2100, 1, 1, 0, 1, 1).unwrap());
 
     // Ensure microsecond precision is kept in floating point representations.
     let t1_bad = t1_orig + 1e-6;
