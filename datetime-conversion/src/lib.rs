@@ -1,5 +1,3 @@
-extern crate chrono;
-
 use chrono::{DateTime, TimeZone, Utc};
 
 pub fn datetime_to_f64<TZ>(dt: &DateTime<TZ>) -> f64

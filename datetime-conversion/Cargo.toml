@@ -2,6 +2,8 @@
 name = "datetime-conversion"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.56"
 
 [dependencies]
 chrono = "0.4.23"
