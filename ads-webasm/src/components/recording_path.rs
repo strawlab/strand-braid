@@ -60,7 +60,7 @@ impl Component for RecordingPathWidget {
                 if (mins_from_utc_f64 - mins_from_utc as f64).abs() > 1e-16 {
                     panic!("Assumption about results of js Date is wrong.");
                 }
-                let offset = chrono::offset::FixedOffset::west(mins_from_utc * 60);
+                let offset = chrono::offset::FixedOffset::west_opt(mins_from_utc * 60).unwrap();
                 let timeval = timeval_utc.with_timezone(&offset);
                 html! {
                     <span>
