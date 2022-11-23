@@ -5,8 +5,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DlError {
-    #[error("ureq error")]
-    UreqError,
+    #[error("ureq error for url: {url}")]
+    UreqError { source: ureq::Error, url: String },
     #[error("IO error")]
     IOError(#[from] std::io::Error),
     #[error("Hash mismatch (expected: {expected}, found: {found}")]
@@ -45,7 +45,10 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
         let agent = ureq::builder()
             .timeout_connect(std::time::Duration::from_secs(10)) // max 10 seconds
             .build();
-        let response = agent.get(url).call().map_err(|_err| DlError::UreqError)?;
+        let response = agent.get(url).call().map_err(|source| DlError::UreqError {
+            source,
+            url: url.into(),
+        })?;
 
         let mut rdr = response.into_reader();
 
