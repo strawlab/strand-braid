@@ -369,6 +369,7 @@ fn parse_args(
         acquisition_duration_allowed_imprecision_msec,
         http_server_addr,
         no_browser,
+        show_url,
     ) = if let Some(braid_addr) = braid_addr {
         for argname in &[
             "pixel_format",
@@ -443,6 +444,7 @@ fn parse_args(
             acquisition_duration_allowed_imprecision_msec,
             Some("127.0.0.1:0".to_string()),
             true,
+            false,
         )
     } else {
         // not braid
@@ -467,10 +469,9 @@ fn parse_args(
             acquisition_duration_allowed_imprecision_msec,
             http_server_addr,
             no_browser,
+            true,
         )
     };
-
-    let show_url = true;
 
     let raise_grab_thread_priority = process_frame_priority.is_some();
 
