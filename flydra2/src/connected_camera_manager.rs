@@ -466,7 +466,7 @@ impl ConnectedCamerasManager {
             // Do notifications associated with synchronization.
             send_new_frame_offset(&ros_cam_name, frame0);
             info!(
-                "cam {} synchronized. frame0: {}",
+                "cam {} synchronized with frame offset: {}",
                 ros_cam_name.as_str(),
                 frame0,
             );
