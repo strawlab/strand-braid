@@ -149,7 +149,7 @@ impl VimbaLibrary {
                     r#"C:\Program Files\Allied Vision\Vimba_6.0\VimbaC\Bin\Win64\VimbaC.dll"#;
 
                 #[cfg(not(target_os = "windows"))]
-                let vimbac_path = "/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so";
+                let vimbac_path = "/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so";
                 std::path::PathBuf::from(vimbac_path)
             }
         };

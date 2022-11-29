@@ -15,10 +15,9 @@ https://www.baslerweb.com/en/sales-support/downloads/software-downloads/
 
 You must install  `Vimba64_v6.0_Linux.tgz`. Install like this:
 
-    sudo mkdir -p /opt/vimba
-    sudo tar xzf Vimba64_v6.0_Linux.tgz -C /opt/vimba
+    sudo tar xzf Vimba64_v6.0_Linux.tgz -C /opt
 
-This will install the following file, among others: `/opt/vimba/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so`.
+This will install the following file, among others: `/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so`.
 
 ## Installation
 
