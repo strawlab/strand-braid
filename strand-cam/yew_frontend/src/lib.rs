@@ -38,10 +38,6 @@ use ci2_types::AutoMode;
 use flydra_feature_detector_types::ImPtDetectCfg;
 use yew_tincture::components::{TypedInput, TypedInputStorage};
 
-// use yew::services::fetch::{Credentials, FetchOptions, FetchService, FetchTask, Request, Response};
-
-// use yew_event_source::{EventSourceService, EventSourceStatus, EventSourceTask, ReadyState};
-
 use ads_webasm::video_data::VideoData;
 
 mod components;
