@@ -48,4 +48,5 @@ fn main() -> anyhow::Result<()> {
         native_options,
         Box::new(|_cc| Box::new(app::LedBoxApp::new(available_ports, box_manager, tx))),
     );
+    Ok(())
 }

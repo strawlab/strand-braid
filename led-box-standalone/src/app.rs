@@ -30,7 +30,7 @@ impl LedBoxApp {
 }
 
 impl eframe::App for LedBoxApp {
-    fn on_exit(&mut self, _gl: &eframe::glow::Context) {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         info!("app sending Cmd::Quit command to serial loop");
         self.cmd_tx.blocking_send(Cmd::Quit).unwrap();
     }

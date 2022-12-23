@@ -228,7 +228,7 @@ led-box-standalone-ubuntu2004-deb:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
 
     - cd led-box-standalone
     - cargo build --release
