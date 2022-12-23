@@ -596,5 +596,5 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
 #[wasm_bindgen(start)]
 pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-    yew::start_app::<Model>();
+    yew::Renderer::<Model>::new().render();
 }

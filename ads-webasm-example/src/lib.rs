@@ -250,6 +250,6 @@ impl Component for Model {
 #[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
     wasm_logger::init(wasm_logger::Config::default());
-    yew::start_app::<Model>();
+    yew::Renderer::<Model>::new().render();
     Ok(())
 }

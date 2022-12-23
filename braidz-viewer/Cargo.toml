@@ -13,9 +13,9 @@ bytesize = "1.0"
 log = "0.4"
 wasm-logger = "0.2.0"
 
-gloo = "0.4"
+gloo = "0.8.0"
 gloo-file = "0.2"
-yew = "0.19"
+yew = {version="0.20.0", features=["csr"]}
 
 wasm-bindgen = "^0.2.45"
 js-sys = "0.3.28"

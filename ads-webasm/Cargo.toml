@@ -7,9 +7,9 @@ rust-version="1.60"
 
 [dependencies]
 log = "0.4"
-yew = "0.19"
+yew = {version="0.20.0", features=["csr"]}
 js-sys = "0.3"
-gloo = "0.4"
+gloo = "0.8.0"
 gloo-file = "0.2"
 gloo-utils = "0.1"
 wasm-bindgen = { version = "0.2.58"}
@@ -18,7 +18,7 @@ serde = "1.0"
 serde_yaml = "0.8"
 serde_derive = "1.0"
 chrono = "0.4.23"
-uuid = { version = "0.8", features = ["v4"] } # add feature flag reqruied for uuid crate
+uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] } # add feature flag required for uuid crate
 ncollide3d = {version="0.33", optional=true}
 csv = {version="1.1", optional=true}
 

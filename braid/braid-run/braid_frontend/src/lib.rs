@@ -468,5 +468,5 @@ async fn post_callback(msg: &HttpApiCallback) -> Result<(), FetchError> {
 #[wasm_bindgen(start)]
 pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-    yew::start_app::<Model>();
+    yew::Renderer::<Model>::new().render();
 }

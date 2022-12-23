@@ -5,7 +5,7 @@ use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 use log::info;
 use yew::{classes, html, Component, Context, Html};
-use yew_agent::{Agent, AgentLink, Bridge, Bridged, HandlerId, Public};
+use yew_agent::{Bridge, Bridged, HandlerId, Public, Worker as Agent, WorkerLink as AgentLink};
 
 use ads_webasm::components::{CsvDataField, MaybeCsvData, ObjWidget};
 use yew_tincture::components::{Button, TypedInput, TypedInputStorage};
@@ -77,8 +77,11 @@ impl Component for Model {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let callback = ctx.link().callback(|v| Msg::DataReceived(v));
-        let worker = MyWorker::bridge(callback);
+        let cb = {
+            let link = ctx.link().clone();
+            move |v| link.send_message(Self::Message::DataReceived(v))
+        };
+        let worker = MyWorker::bridge(std::rc::Rc::new(cb));
 
         Self {
             worker,

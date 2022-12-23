@@ -10,7 +10,9 @@ use yew::{html, Callback, Component, Context, Html, MouseEvent, Properties};
 
 use yew_tincture::components::CheckboxLabel;
 
-use http_video_streaming_types::{CanvasDrawableShape, FirehoseCallbackInner, Point, StrokeStyle, CircleParams};
+use http_video_streaming_types::{
+    CanvasDrawableShape, CircleParams, FirehoseCallbackInner, Point, StrokeStyle,
+};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -159,8 +161,8 @@ impl Component for VideoField {
         false
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
-        let mut video_data = ctx.props().video_data.borrow_mut();
+    fn changed(&mut self, ctx: &Context<Self>, props: &Self::Properties) -> bool {
+        let mut video_data = props.video_data.borrow_mut();
         if let Some(in_msg) = video_data.take() {
             // Here we copy the image data. Todo: can we avoid this?
             let data_url = in_msg.firehose_frame_data_url.clone();
@@ -290,11 +292,11 @@ impl VideoField {
             match &drawable_shape.shape {
                 Shape::Everything => {}
                 Shape::Circle(circle) => {
-                    draw_circle(&ctx,circle);
+                    draw_circle(&ctx, circle);
                 }
                 Shape::MultipleCircles(circles) => {
                     for circle in circles {
-                        draw_circle(&ctx,circle);
+                        draw_circle(&ctx, circle);
                     }
                 }
                 Shape::Polygon(polygon) => {
@@ -316,7 +318,7 @@ impl VideoField {
     }
 }
 
-fn draw_circle(ctx: &web_sys::CanvasRenderingContext2d,circle: &CircleParams) {
+fn draw_circle(ctx: &web_sys::CanvasRenderingContext2d, circle: &CircleParams) {
     ctx.begin_path();
     ctx.arc(
         // circle
