@@ -93,8 +93,8 @@ test_flydra2:
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
-test_crates_rust_1_65:
-  image: rust:1.65.0
+test_crates_rust_1_66:
+  image: rust:1.66.0
   script:
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
@@ -167,16 +167,16 @@ test_crates_rust_1_65:
     - cd ..
 
 test_crates_rust_nightly:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2022-08-30
+    - rustup update --no-self-update nightly-2022-12-20
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly-2022-08-30 test --no-default-features --features std,simd
+    - cargo +nightly-2022-12-20 test --no-default-features --features std,simd
     - cd ..
 
 test_flydra_feature_detector:
@@ -243,7 +243,7 @@ led-box-standalone-ubuntu2004-deb:
     name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -258,7 +258,7 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -872,7 +872,7 @@ fmf-cli-ubuntu2204:
     name: "fmf-cli-ubuntu2204-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -967,7 +967,7 @@ braid-ubuntu2204:
     name: "braid-ubuntu2204-${CI_COMMIT_SHA}"
 
 led-box-linux:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -983,7 +983,7 @@ led-box-linux:
     name: "led-box-linux-${CI_COMMIT_SHA}"
 
 led-box-firmware:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - rustc --version
     - cd led-box-firmware
@@ -1121,7 +1121,7 @@ build_simple:
     - cargo build --release
 
 test_user_guide:
-  image: rust:1.65.0
+  image: rust:1.66.0
   script:
     - cd strand-braid-user/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz
