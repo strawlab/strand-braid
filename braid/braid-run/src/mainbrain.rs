@@ -942,6 +942,9 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             let mut expected_framerate = expected_framerate_arc.write();
             *expected_framerate = Some(rate_actual as f32);
 
+            // Emperically, an Arduino Nano requires 7 seconds to wake up.
+            let sleep_dur = std::time::Duration::from_secs_f32(7.0);
+
             let triggerbox = braid_triggerbox::TriggerboxDevice::new(
                 on_new_clock_model,
                 device_fname,
@@ -949,6 +952,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 Some(triggerbox_data_tx),
                 None,
                 max_triggerbox_measurement_error,
+                sleep_dur,
             )
             .await?;
             let query_dt2 = query_dt.clone();
