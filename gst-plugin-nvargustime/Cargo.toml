@@ -25,4 +25,4 @@ gstreamer-video = "0.16"
 lazy_static = "1.0"
 
 [build-dependencies]
-gst-plugin-version-helper = "0.2"
+gst-plugin-version-helper = "0.7.5"
