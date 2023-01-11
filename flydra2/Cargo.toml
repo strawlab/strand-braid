@@ -21,7 +21,7 @@ parking_lot = "0.12"
 futures = "0.3"
 pin-project = "1.0.11"
 csv = "1.1"
-chrono = "0.4.6"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 serde = {version="^1.0", features=["derive"]}
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
@@ -42,7 +42,7 @@ tempdir = "^0.3"
 phf = { version = "0.7.23", optional = true }
 env_logger = "0.8"
 libflate = "0.1"
-zip = { version = "0.5.13", default-features = false, features=["time"] }
+zip = { version = "0.6.3", default-features = false, features=["time"] }
 walkdir = "2.2"
 
 braidz-types = {path="../braidz-types"}

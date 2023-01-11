@@ -7,7 +7,7 @@ rust-version="1.60"
 
 [dependencies]
 log = "0.4"
-chrono = "0.4.23"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 webm = "1"
 # Idea: use https://github.com/rust-av/vpx-rs/, which also has decoder support.
 vpx-encode = {version="0.6.2", features=["vp9"], optional=true}

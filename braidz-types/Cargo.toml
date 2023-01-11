@@ -9,7 +9,7 @@ rust-version="1.60"
 
 [dependencies]
 serde = {version="^1.0", features=["derive"]}
-chrono = {version="0.4", features=["serde"]}
+chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 
 flydra-types = {path="../flydra-types"}
 mvg = {path="../mvg", features=["serde-serialize"]}

@@ -11,7 +11,7 @@ rust-version="1.60"
 log = "0.4"
 thiserror = "1.0.33"
 anyhow = "1.0"
-chrono = "0.4"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 parking_lot = "0.11"
 lazy_static = "1"
 

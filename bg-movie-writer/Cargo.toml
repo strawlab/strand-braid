@@ -7,7 +7,7 @@ rust-version="1.60"
 
 [dependencies]
 log = "0.4.5"
-chrono = "0.4"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 thiserror = "1.0.33"
 
 mkv-writer = {path="../mkv-writer"}
