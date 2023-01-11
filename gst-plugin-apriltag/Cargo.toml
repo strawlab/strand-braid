@@ -27,7 +27,7 @@ bytes = "0.6"
 ads-apriltag = {path="../apriltag"}
 
 [build-dependencies]
-gst-plugin-version-helper = "0.2"
+gst-plugin-version-helper = "0.7.5"
 
 [dev-dependencies]
 download-verify = {path="../download-verify"}

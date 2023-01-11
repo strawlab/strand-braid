@@ -6,6 +6,4 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-tracing = "0.1"
-tracing-subscriber = "0.2.0"
-tracing-log = {version="0.1", features=["env_logger"]}
+tracing-subscriber = "0.3.16"

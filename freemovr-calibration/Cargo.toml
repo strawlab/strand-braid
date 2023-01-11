@@ -24,7 +24,7 @@ obj = {version="0.10", features=["genmesh"]}
 byteorder = "1.2.2"
 image = "0.24.2"
 csv = "1.1"
-chrono = {version="0.4", features=["serde"]}
+chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 
 dlt = "0.10"
 mvg = {path="../mvg", features=["serde-serialize"]}

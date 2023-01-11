@@ -8,7 +8,7 @@ rust-version="1.60"
 [dependencies]
 thiserror = "1.0.33"
 anyhow = "1.0"
-chrono = "0.4"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 
 machine-vision-formats = "0.1"
 ci2-types = {path="ci2-types"}

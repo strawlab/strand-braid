@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.59"
 
 [dependencies]
-chrono = {version="^0.4.6", features=["serde"]}
+chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 serde = {version="^1.0", features=["derive"]}
 
 flydra-feature-detector-types = {path="../flydra-feature-detector/flydra-feature-detector-types", default-features=false}

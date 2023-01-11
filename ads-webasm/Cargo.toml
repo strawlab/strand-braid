@@ -17,7 +17,7 @@ http = "0.2"
 serde = "1.0"
 serde_yaml = "0.8"
 serde_derive = "1.0"
-chrono = "0.4.23"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] } # add feature flag required for uuid crate
 ncollide3d = {version="0.33", optional=true}
 csv = {version="1.1", optional=true}
