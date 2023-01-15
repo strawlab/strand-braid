@@ -27,11 +27,13 @@ pub fn load_manually() -> Result<SharedLibrary, CudaError> {
     let path = PathBuf::from("nvcuda.dll");
     #[cfg(not(target_os = "windows"))]
     let path = PathBuf::from("libcuda.so");
-    let library = libloading::Library::new(&path).map_err(|source| CudaError::DynLibLoadError {
-        lib: path.display().to_string(),
-        source,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace::capture(),
+    let library = unsafe { libloading::Library::new(&path) }.map_err(|source| {
+        CudaError::DynLibLoadError {
+            lib: path.display().to_string(),
+            source,
+            #[cfg(feature = "backtrace")]
+            backtrace: Backtrace::capture(),
+        }
     })?;
     let library = SharedLibrary::new(library, path);
 

@@ -30,13 +30,14 @@ pub fn load_manually() -> Result<SharedLibrary, NvencError> {
     let path = PathBuf::from("nvEncodeAPI64.dll");
     #[cfg(not(target_os = "windows"))]
     let path = PathBuf::from("libnvidia-encode.so.1");
-    let library =
-        libloading::Library::new(&path).map_err(|source| NvencError::DynLibLoadError {
+    let library = unsafe { libloading::Library::new(&path) }.map_err(|source| {
+        NvencError::DynLibLoadError {
             dynlib: path.display().to_string(),
             source,
             #[cfg(feature = "backtrace")]
             backtrace: Backtrace::capture(),
-        })?;
+        }
+    })?;
 
     let library = SharedLibrary::new(library, path);
 

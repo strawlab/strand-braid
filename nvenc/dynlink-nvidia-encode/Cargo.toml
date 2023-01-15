@@ -6,7 +6,7 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-libloading = "0.5.2"
+libloading = "0.7.3"
 dynlink-cuda = {path="../dynlink-cuda"}
 thiserror = "1.0.33"
 

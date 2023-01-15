@@ -9,7 +9,7 @@ pub enum NvencError {
     #[error("dynamic library `{dynlib}` could not be loaded: `{source}`")]
     DynLibLoadError {
         dynlib: String,
-        source: std::io::Error,
+        source: libloading::Error,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
@@ -29,7 +29,7 @@ pub enum NvencError {
     #[error("Name `{name}` could not be opened: `{source}`")]
     NameFFIError2 {
         name: String,
-        source: std::io::Error,
+        source: libloading::Error,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },

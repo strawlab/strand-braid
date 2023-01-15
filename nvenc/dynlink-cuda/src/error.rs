@@ -8,7 +8,7 @@ pub enum CudaError {
     #[error("dynamic library `{lib}` could not be loaded: `{source}`")]
     DynLibLoadError {
         lib: String,
-        source: std::io::Error,
+        source: libloading::Error,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
@@ -21,7 +21,7 @@ pub enum CudaError {
     #[error("Name `{name}` could not be opened: `{source}`")]
     NameFFIError {
         name: String,
-        source: std::io::Error,
+        source: libloading::Error,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
