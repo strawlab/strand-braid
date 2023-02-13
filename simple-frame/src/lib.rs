@@ -12,9 +12,24 @@ pub struct SimpleFrame<F> {
     /// number of bytes in an image row
     pub stride: u32,
     /// raw image data
-    pub image_data: Vec<u8>,
+    image_data: Vec<u8>,
     /// format of the data
     pub fmt: std::marker::PhantomData<F>,
+}
+
+impl<F> SimpleFrame<F> {
+    pub fn new(width: u32, height: u32, stride: u32, image_data: Vec<u8>) -> Option<Self> {
+        if image_data.len() < stride as usize * height as usize {
+            return None;
+        }
+        Some(Self {
+            width,
+            height,
+            stride,
+            image_data,
+            fmt: std::marker::PhantomData,
+        })
+    }
 }
 
 fn _test_basic_frame_is_send<F: Send>() {

@@ -430,13 +430,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 1;
         image_data[(H + 1) * STRIDE + 6] = 1;
 
-        let im = simple_frame::SimpleFrame {
-            width: W as u32,
-            height: H as u32,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let im =
+            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
 
         let im = clip_low(im, 42);
 
@@ -455,13 +450,9 @@ mod tests {
             #[test]
             fn $name() {
                 const W: usize = 33; // wider than u8x32
-                let im = simple_frame::SimpleFrame {
-                    width: W as u32,
-                    height: 1,
-                    stride: W as u32,
-                    image_data: vec![$orig; W],
-                    fmt: std::marker::PhantomData,
-                };
+
+                let im =
+                    simple_frame::SimpleFrame::new(W as u32, 1, W as u32, vec![$orig; W]).unwrap();
 
                 let im = threshold(im, $op, $thresh, 0, 255);
                 let image_data: Vec<u8> = im.into();
@@ -512,13 +503,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 1;
         image_data[(H + 1) * STRIDE + 6] = 1;
 
-        let im = simple_frame::SimpleFrame {
-            width: W as u32,
-            height: H as u32,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let im =
+            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
 
         let im = threshold(im, CmpOp::LessThan, 42, 0, 255);
 
@@ -548,13 +534,8 @@ mod tests {
         image_data[5 * STRIDE + 4] = 1;
         image_data[6 * STRIDE + 4] = 1;
 
-        let im = simple_frame::SimpleFrame {
-            width: W as u32,
-            height: H as u32,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let im =
+            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
 
         let mr = calculate_moments(&im);
         assert_eq!(mr.u11, 1.0);
@@ -581,13 +562,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 255;
         image_data[(H + 1) * STRIDE + 6] = 255;
 
-        let im = simple_frame::SimpleFrame {
-            width: W as u32,
-            height: H as u32,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let im =
+            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
 
         assert_eq!(spatial_moment_00(&im), 4.0);
         assert_eq!(spatial_moment_10(&im), 14.0);
@@ -618,13 +594,8 @@ mod tests {
         image_data[4 * STRIDE + 23] = 255;
         image_data[5 * STRIDE + 23] = 255;
 
-        let im = simple_frame::SimpleFrame {
-            width: W as u32,
-            height: H as u32,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let im =
+            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
 
         assert_eq!(spatial_moment_00(&im), 89.0);
         assert_eq!(spatial_moment_01(&im), 448.0);

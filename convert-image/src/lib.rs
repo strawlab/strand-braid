@@ -168,13 +168,7 @@ pub fn piston_to_frame(
     let stride = width * 3;
     let data = rgb.into_vec();
 
-    Ok(SimpleFrame {
-        width,
-        height,
-        stride,
-        image_data: data,
-        fmt: std::marker::PhantomData,
-    })
+    Ok(SimpleFrame::new(width, height, stride, data).unwrap())
 }
 
 /// Copy an YUV422 input image to a pre-allocated RGB8 buffer.
@@ -557,13 +551,9 @@ where
                 dest_row[..dest_stride].copy_from_slice(&src_row_full[..dest_stride]);
             });
         // Return the new buffer as a new image.
-        Ok(CowImage::Owned(SimpleFrame {
-            width: frame.width(),
-            height: frame.height(),
-            stride: dest_stride as u32,
-            image_data: dest_buf,
-            fmt: std::marker::PhantomData,
-        }))
+        Ok(CowImage::Owned(
+            SimpleFrame::new(frame.width(), frame.height(), dest_stride as u32, dest_buf).unwrap(),
+        ))
     }
 }
 
@@ -678,7 +668,7 @@ impl<'a, F, FORIG> ImageData<F> for CowImage<'a, F, FORIG> {
     fn buffer(self) -> ImageBuffer<F> {
         match self {
             CowImage::Reinterpreted(im) => ImageBuffer::new(im.image_data().to_vec()),
-            CowImage::Owned(im) => ImageBuffer::new(im.image_data),
+            CowImage::Owned(im) => ImageBuffer::new(im.into()),
         }
     }
 }
@@ -696,13 +686,7 @@ where
     let stride = frame.stride() as u32;
     let image_data = frame.into(); // Move the original data.
 
-    SimpleFrame {
-        width,
-        height,
-        stride,
-        image_data,
-        fmt: std::marker::PhantomData,
-    }
+    SimpleFrame::new(width, height, stride, image_data).unwrap()
 }
 
 /// Force interpretation of data from frame into another pixel_format.
@@ -765,13 +749,9 @@ where
     }
 
     // Return the new buffer as a new image.
-    Ok(CowImage::Owned(SimpleFrame {
-        width: frame.width(),
-        height: frame.height(),
-        stride: dest_stride as u32,
-        image_data: dest_buf,
-        fmt: std::marker::PhantomData,
-    }))
+    Ok(CowImage::Owned(
+        SimpleFrame::new(frame.width(), frame.height(), dest_stride as u32, dest_buf).unwrap(),
+    ))
 }
 
 /// Convert input frame with pixel_format `SRC` into pixel_format `DEST`
@@ -1049,13 +1029,8 @@ mod tests {
                 image_data[start_idx + col] = (row * W as usize + col) as u8;
             }
         }
-        let frame: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: W,
-            height: H,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
         println!("frame: {:?}", frame.image_data());
         println!("frame: \n{}", imstr(&frame));
         let roi = RoiImage::new(&frame, 6, 2, 1, 1).unwrap();
@@ -1087,13 +1062,8 @@ mod tests {
                 image_data[start_idx + col_offset + 2] = ((row * W as usize + col) * 3) as u8 + 2;
             }
         }
-        let frame: SimpleFrame<formats::pixel_format::RGB8> = SimpleFrame {
-            width: W,
-            height: H,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::RGB8> =
+            SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
         println!("frame: {:?}", frame.image_data());
         println!("frame: \n{}", imstr(&frame));
         let roi = RoiImage::new(&frame, 6, 2, 1, 1).unwrap();
@@ -1125,13 +1095,8 @@ mod tests {
                 image_data[start_idx + col] = 0;
             }
         }
-        let frame: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: W,
-            height: H,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
         let buf = frame_to_image(&frame, ImageOptions::Png).unwrap();
 
         // Decode the BMP data into an image.
@@ -1163,25 +1128,15 @@ mod tests {
                 image_data[start_idx + col] = 0;
             }
         }
-        let frame: SimpleFrame<formats::pixel_format::BayerRG8> = SimpleFrame {
-            width: W,
-            height: H,
-            stride: STRIDE as u32,
-            image_data,
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::BayerRG8> =
+            SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
         frame_to_image(&frame, ImageOptions::Jpeg(240)).unwrap();
     }
 
     #[test]
     fn prevent_unnecessary_copy_mono8() {
-        let frame: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: 10,
-            height: 10,
-            stride: 10,
-            image_data: vec![42; 100],
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(10, 10, 10, vec![42; 100]).unwrap();
         // `im2` has only a reference to original data.
         let im2 = convert::<_, formats::pixel_format::Mono8>(&frame).unwrap();
         // Confirm the data are correct.
@@ -1201,13 +1156,8 @@ mod tests {
 
     #[test]
     fn prevent_unnecessary_copy_rgb8() {
-        let frame: SimpleFrame<formats::pixel_format::RGB8> = SimpleFrame {
-            width: 10,
-            height: 10,
-            stride: 30,
-            image_data: vec![42; 300],
-            fmt: std::marker::PhantomData,
-        };
+        let frame: SimpleFrame<formats::pixel_format::RGB8> =
+            SimpleFrame::new(10, 10, 30, vec![42; 300]).unwrap();
         // `im2` has only a reference to original data.
         let im2 = convert::<_, formats::pixel_format::RGB8>(&frame).unwrap();
         // Confirm the data are correct.
@@ -1269,13 +1219,8 @@ mod tests {
     #[test]
     // Test MONO8->RGB8
     fn test_mono8_rgb8() -> Result<()> {
-        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: 256,
-            height: 1,
-            stride: 256,
-            image_data: (0u8..=255u8).collect(),
-            fmt: std::marker::PhantomData,
-        };
+        let orig: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(256, 1, 256, (0u8..=255u8).collect()).unwrap();
         let rgb = convert::<_, formats::pixel_format::RGB8>(&orig)?;
         for (i, rgb_pix) in rgb.image_data().chunks_exact(3).enumerate() {
             assert_eq!(i, rgb_pix[0] as usize);
@@ -1287,13 +1232,8 @@ mod tests {
 
     #[test]
     fn test_mono8_rgb_roundtrip() -> Result<()> {
-        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: 256,
-            height: 1,
-            stride: 256,
-            image_data: (0u8..=255u8).collect(),
-            fmt: std::marker::PhantomData,
-        };
+        let orig: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(256, 1, 256, (0u8..=255u8).collect()).unwrap();
         let rgb = convert::<_, formats::pixel_format::RGB8>(&orig)?;
         let actual = convert::<_, formats::pixel_format::Mono8>(&rgb)?;
         assert_eq!(orig.image_data(), actual.image_data());
@@ -1302,13 +1242,8 @@ mod tests {
 
     #[test]
     fn test_mono8_nv12_roundtrip() -> Result<()> {
-        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: 256,
-            height: 1,
-            stride: 256,
-            image_data: (0u8..=255u8).collect(),
-            fmt: std::marker::PhantomData,
-        };
+        let orig: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(256, 1, 256, (0u8..=255u8).collect()).unwrap();
         let nv12 = convert::<_, formats::pixel_format::NV12>(&orig)?;
         let actual = convert::<_, formats::pixel_format::Mono8>(&nv12)?;
         for i in 0..256 {
@@ -1321,13 +1256,8 @@ mod tests {
     #[test]
     // Test MONO8->YUV444->MONO8.
     fn test_mono8_yuv_roundtrip() -> Result<()> {
-        let orig: SimpleFrame<formats::pixel_format::Mono8> = SimpleFrame {
-            width: 256,
-            height: 1,
-            stride: 256,
-            image_data: (0u8..=255u8).collect(),
-            fmt: std::marker::PhantomData,
-        };
+        let orig: SimpleFrame<formats::pixel_format::Mono8> =
+            SimpleFrame::new(256, 1, 256, (0u8..=255u8).collect()).unwrap();
         let yuv = convert::<_, formats::pixel_format::YUV444>(&orig)?;
         let actual = convert::<_, formats::pixel_format::Mono8>(&yuv)?;
         assert_eq!(orig.image_data(), actual.image_data());

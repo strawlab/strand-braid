@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use ci2_remote_control::MkvRecordingConfig;
 use simple_frame::SimpleFrame;
 
-use machine_vision_formats::pixel_format::RGB8;
+use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageMutData};
 use rusttype::{point, Font, Scale};
 
 struct Rgba(pub [u8; 4]);
@@ -19,7 +19,7 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
     let p = 1.0 - alpha;
     let q = alpha;
 
-    let old: [u8; 3] = self_.image_data[pix_start..pix_start + 3]
+    let old: [u8; 3] = self_.image_data()[pix_start..pix_start + 3]
         .try_into()
         .unwrap();
     let new: [u8; 3] = [
@@ -28,9 +28,9 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
         (old[2] as f64 * p + incoming.0[2] as f64 * q).round() as u8,
     ];
 
-    self_.image_data[pix_start] = new[0];
-    self_.image_data[pix_start + 1] = new[1];
-    self_.image_data[pix_start + 2] = new[2];
+    self_.buffer_mut_ref().data[pix_start] = new[0];
+    self_.buffer_mut_ref().data[pix_start + 1] = new[1];
+    self_.buffer_mut_ref().data[pix_start + 2] = new[2];
 }
 
 fn stamp_frame<'a>(

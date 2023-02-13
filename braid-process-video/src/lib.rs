@@ -239,13 +239,13 @@ impl PerCamRender {
 
         // generate blank first image of the correct size.
         let image_data: Vec<u8> = vec![0; *width * *height];
-        let frame = simple_frame::SimpleFrame::<machine_vision_formats::pixel_format::Mono8> {
-            width: (*width).try_into().unwrap(),
-            stride: (*width).try_into().unwrap(),
-            height: (*height).try_into().unwrap(),
+        let frame = simple_frame::SimpleFrame::<machine_vision_formats::pixel_format::Mono8>::new(
+            (*width).try_into().unwrap(),
+            (*width).try_into().unwrap(),
+            (*height).try_into().unwrap(),
             image_data,
-            fmt: std::marker::PhantomData,
-        };
+        )
+        .unwrap();
         let frame0_png_buf =
             convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png)
                 .unwrap()
