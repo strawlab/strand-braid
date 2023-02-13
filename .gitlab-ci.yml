@@ -839,6 +839,7 @@ fmf-cli-ubuntu2004:
 
     # test mkv-writer start
     - cd $CI_PROJECT_DIR/mkv-writer
+    - cargo test --features vpx --release
     - cargo run --features vpx --example save-animation --release -- vp8
     # test mkv-writer stop
 
