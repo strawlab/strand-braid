@@ -687,7 +687,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
     let buf = format!(
         "{magic} W{width} H{height} \
                     F{raten}:{rated} {inter} A{aspectn}:{aspectd} \
-                    C{colorspace} Xconverted_by-fmf-cli\n",
+                    C{colorspace} XCOLORRANGE=FULL Xconverted_by-fmf-cli\n",
         magic = Y4M_MAGIC,
         width = final_width,
         height = final_height,
