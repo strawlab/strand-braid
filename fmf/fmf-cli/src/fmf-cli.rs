@@ -759,3 +759,161 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn test_y4m() -> anyhow::Result<()> {
+    use machine_vision_formats::pixel_format::{Mono8, RGB8};
+
+    let start = chrono::DateTime::from_utc(
+        chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
+        chrono::Utc,
+    );
+
+    for output_colorspace in [Y4MColorspace::CMono, Y4MColorspace::C420paldv] {
+        for input_colorspace in [PixFmt::Mono8, PixFmt::RGB8] {
+            let tmpdir = tempfile::tempdir()?;
+            let base_path = tmpdir.path().to_path_buf();
+            println!("files in base_path: {}", base_path.display());
+            std::mem::forget(tmpdir);
+
+            const W: usize = 8;
+            const STEP: u8 = 32;
+            assert_eq!(W * STEP as usize, 256);
+
+            let width: u32 = W.try_into().unwrap();
+            let height = 4;
+
+            let mut image_data = vec![0u8; W * height as usize];
+            for row_data in image_data.chunks_exact_mut(W) {
+                for (col, el) in row_data.iter_mut().enumerate() {
+                    let col: u8 = col.try_into().unwrap();
+                    *el = STEP * col;
+                }
+            }
+
+            // make mono8 image. Will covert to input_colorspace below.
+            let frame = basic_frame::BasicFrame {
+                width,
+                height,
+                stride: width,
+                pixel_format: std::marker::PhantomData::<Mono8>,
+                image_data,
+                extra: Box::new(basic_frame::BasicExtra {
+                    host_timestamp: start,
+                    host_framenumber: 0,
+                }),
+            };
+            let orig_rgb8 = convert_image::convert::<_, RGB8>(&frame)?;
+
+            let fmf_fname = base_path.join("test.fmf");
+            let y4m_fname = base_path.join("test.y4m");
+            {
+                let fd = std::fs::File::create(&fmf_fname)?;
+                let mut writer = fmf::FMFWriter::new(fd)?;
+
+                match input_colorspace {
+                    PixFmt::Mono8 => {
+                        let converted_frame = convert_image::convert::<_, Mono8>(&frame)?;
+                        writer.write(&converted_frame, start)?;
+                    }
+                    PixFmt::RGB8 => {
+                        let converted_frame = convert_image::convert::<_, RGB8>(&frame)?;
+                        writer.write(&converted_frame, start)?;
+                    }
+                    _ => {
+                        todo!();
+                    }
+                }
+            }
+
+            let x = ExportY4m {
+                input: fmf_fname,
+                output: Some(y4m_fname.clone()),
+                colorspace: output_colorspace,
+                fps_numerator: 25,
+                fps_denominator: 1,
+                aspect_numerator: 1,
+                aspect_denominator: 1,
+            };
+
+            export_y4m(x)?;
+
+            let loaded = ffmpeg_to_frame(&y4m_fname, &base_path)?;
+            let loaded: &dyn machine_vision_formats::ImageStride<_> = &loaded;
+            let orig_rgb8: &dyn machine_vision_formats::ImageStride<_> = &orig_rgb8;
+            println!("{input_colorspace:?} -> {output_colorspace:?}");
+            for im in [loaded, orig_rgb8].iter() {
+                println!("{:?}", im.image_data());
+            }
+            assert!(are_images_equal(loaded, orig_rgb8));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn are_images_equal<FMT>(
+    frame1: &dyn machine_vision_formats::ImageStride<FMT>,
+    frame2: &dyn machine_vision_formats::ImageStride<FMT>,
+) -> bool
+where
+    FMT: machine_vision_formats::PixelFormat,
+{
+    let width = frame1.width();
+
+    if frame1.width() != frame2.width() {
+        return false;
+    }
+    if frame1.height() != frame2.height() {
+        return false;
+    }
+
+    let fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+    let valid_stride = fmt.bits_per_pixel() as usize * width as usize / 8;
+
+    for (f1_row, f2_row) in frame1
+        .image_data()
+        .chunks_exact(frame1.stride())
+        .zip(frame2.image_data().chunks_exact(frame2.stride()))
+    {
+        let f1_valid = &f1_row[..valid_stride];
+        let f2_valid = &f2_row[..valid_stride];
+        if f1_valid != f2_valid {
+            return false;
+        }
+    }
+
+    true
+}
+
+#[cfg(test)]
+fn ffmpeg_to_frame(
+    fname: &std::path::Path,
+    base_path: &std::path::Path,
+) -> anyhow::Result<simple_frame::SimpleFrame<machine_vision_formats::pixel_format::RGB8>> {
+    use anyhow::Context;
+
+    let png_fname = base_path.join("frame1.png");
+    let args = [
+        "-i",
+        &format!("{}", fname.display()),
+        &format!("{}", png_fname.display()),
+    ];
+    let output = std::process::Command::new("ffmpeg")
+        .args(&args)
+        .output()
+        .with_context(|| format!("When running: ffmpeg {:?}", args))?;
+
+    if !output.status.success() {
+        anyhow::bail!(
+            "'ffmpeg {}' failed. stdout: {}, stderr: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let piston_image =
+        image::open(&png_fname).with_context(|| format!("Opening {}", png_fname.display()))?;
+    let decoded = convert_image::piston_to_frame(piston_image)?;
+    Ok(decoded)
+}
