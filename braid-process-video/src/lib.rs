@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use futures::future::join_all;
 use ordered_float::NotNan;
 
-#[cfg(feature = "read-mkv")]
+#[cfg(feature = "with-ffmpeg")]
 use ffmpeg_next as ffmpeg;
 
 use machine_vision_formats::ImageData;
@@ -18,9 +18,9 @@ use peek2::Peek2;
 
 mod argmin;
 
-#[cfg(feature = "read-mkv")]
+#[cfg(feature = "with-ffmpeg")]
 mod ffmpeg_frame_reader;
-#[cfg(feature = "read-mkv")]
+#[cfg(feature = "with-ffmpeg")]
 pub use ffmpeg_frame_reader::FfmpegFrameReader;
 
 mod fmf_frame_reader;
@@ -58,7 +58,7 @@ pub(crate) const DEFAULT_CAMERA_TEXT_STYLE: &str =
 #[derive(Debug)]
 pub(crate) struct OutTimepointPerCamera {
     timestamp: DateTime<Utc>,
-    /// Camera image from MKV or FMF file, if available.
+    /// Camera image from MP4, MKV, or FMF file (if available).
     image: Option<DynamicFrame>,
     /// Braidz data. Empty if no braidz data available.
     this_cam_this_frame: Vec<Data2dDistortedRow>,
@@ -385,10 +385,12 @@ struct BraidzCamId {
     camn: flydra_types::CamNum,
 }
 
-pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
+pub async fn run_config<'a>(
+    cfg: &'a Valid<BraidRetrackVideoConfig>,
+) -> Result<Vec<std::path::PathBuf>> {
     let cfg = cfg.valid();
 
-    #[cfg(feature = "read-mkv")]
+    #[cfg(feature = "with-ffmpeg")]
     ffmpeg::init().unwrap();
 
     let mut braid_archive = cfg
@@ -545,7 +547,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
             true
         } else {
             log::info!("No sources given (either video files or braidz archive).");
-            return Ok(());
+            return Ok(vec![]);
         }
     } else {
         false
@@ -572,7 +574,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
 
     // Build iterator to iterate over output frames. This is equivalent to
     // iterating over synchronized input frames.
-    let moment_iter: Box<dyn Iterator<Item = _>> = if braidz_only {
+    let (frame_duration, moment_iter): (_, Box<dyn Iterator<Item = _>>) = if braidz_only {
         let braid_archive = braid_archive.unwrap();
         let boxed = Box::new(braid_archive);
         let statik: &'static mut _ = Box::leak(boxed);
@@ -585,7 +587,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
             })
             .collect();
 
-        Box::new(braidz_iter::BraidArchiveNoVideoData::new(statik, camns)?)
+        let braid_archive = braidz_iter::BraidArchiveNoVideoData::new(statik, camns)?;
+        let frame_duration = braid_archive.frame_duration();
+        (frame_duration, Box::new(braid_archive))
     } else {
         let mut frame_readers: Vec<_> = sources
             .iter_mut()
@@ -641,35 +645,38 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
             sync_threshold.num_microseconds().unwrap()
         );
 
-        if let Some(archive) = braid_archive {
-            // In this path, we use the .braidz file as the source of
-            // synchronization.
+        (
+            frame_duration.to_std()?,
+            if let Some(archive) = braid_archive {
+                // In this path, we use the .braidz file as the source of
+                // synchronization.
 
-            let ros_camera_names_ref: Vec<&str> =
-                ros_camera_names.iter().map(|x| x.as_str()).collect();
+                let ros_camera_names_ref: Vec<&str> =
+                    ros_camera_names.iter().map(|x| x.as_str()).collect();
 
-            Box::new(braidz_iter::BraidArchiveSyncVideoData::new(
-                archive,
-                &data2d,
-                &ros_camera_names_ref,
-                frame_readers,
-                sync_threshold,
-            )?)
-        } else if let Some(approx_start_time) = approx_start_time {
-            // In this path, we use the timestamps in the saved videos as the source
-            // of synchronization.
-            synchronize_readers_from(approx_start_time, &mut frame_readers);
+                Box::new(braidz_iter::BraidArchiveSyncVideoData::new(
+                    archive,
+                    &data2d,
+                    &ros_camera_names_ref,
+                    frame_readers,
+                    sync_threshold,
+                )?)
+            } else if let Some(approx_start_time) = approx_start_time {
+                // In this path, we use the timestamps in the saved videos as the source
+                // of synchronization.
+                synchronize_readers_from(approx_start_time, &mut frame_readers);
 
-            Box::new(synced_iter::SyncedIter::new(
-                frame_readers,
-                sync_threshold,
-                frame_duration,
-            )?)
-        } else {
-            anyhow::bail!(
+                Box::new(synced_iter::SyncedIter::new(
+                    frame_readers,
+                    sync_threshold,
+                    frame_duration,
+                )?)
+            } else {
+                anyhow::bail!(
                 "Neither braidz archive nor input videos could be used as source of frame data."
             );
-        }
+            },
+        )
     };
 
     let all_expected_cameras = ros_camera_names
@@ -686,11 +693,19 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
                 std::fs::create_dir_all(dest_dir)?;
             }
 
+            let sample_duration = frame_duration;
+
             match output {
                 OutputConfig::Video(v) => Ok(OutputStorage::Video(Box::new(
-                    output_video::VideoStorage::new(&v, &output_filename, &sources)?,
+                    output_video::VideoStorage::new(
+                        &v,
+                        &output_filename,
+                        &sources,
+                        sample_duration,
+                    )?,
                 ))),
                 OutputConfig::DebugTxt(_) => Ok(OutputStorage::Debug(DebugStorage {
+                    path: output_filename.clone(),
                     fd: std::fs::File::create(&output_filename)?,
                 })),
                 OutputConfig::Braidz(b) => Ok(OutputStorage::Braid(
@@ -748,7 +763,10 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(output_storage
+        .iter()
+        .map(|d| d.path().to_path_buf())
+        .collect())
 }
 
 pub trait MovieReader {
@@ -762,14 +780,14 @@ pub fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
     if filename.to_lowercase().ends_with(".fmf") || filename.to_lowercase().ends_with(".fmf.gz") {
         Ok(Box::new(FmfFrameReader::new(filename)?))
     } else {
-        #[cfg(feature = "read-mkv")]
+        #[cfg(feature = "with-ffmpeg")]
         {
             Ok(Box::new(FfmpegFrameReader::new(filename)?))
         }
 
-        #[cfg(not(feature = "read-mkv"))]
+        #[cfg(not(feature = "with-ffmpeg"))]
         {
-            anyhow::bail!("File not .fmf or .fmf.gz but not compiled 'read-mkv' feature.")
+            anyhow::bail!("File not .fmf or .fmf.gz but not compiled 'with-ffmpeg' feature.")
         }
     }
 }

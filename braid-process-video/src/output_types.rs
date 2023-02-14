@@ -31,10 +31,19 @@ impl<'lib> OutputStorage<'lib> {
         }
         Ok(())
     }
+
+    pub(crate) fn path(&self) -> &std::path::Path {
+        match self {
+            OutputStorage::Debug(d) => &d.path,
+            OutputStorage::Braid(b) => &b.output_braidz_path,
+            OutputStorage::Video(v) => &v.path,
+        }
+    }
 }
 
 pub(crate) struct DebugStorage {
     pub(crate) fd: std::fs::File,
+    pub(crate) path: std::path::PathBuf,
 }
 
 impl DebugStorage {

@@ -20,8 +20,13 @@ test_crates:
 
     - export RUSTFLAGS="-D warnings"
 
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev ffmpeg
     - rustup target add thumbv7em-none-eabihf
+
+    # Test fmf-cli
+    - cd fmf/fmf-cli
+    - cargo test --release
+    - cd ../..
 
     # Test apriltag
     - cd apriltag
@@ -169,6 +174,16 @@ test_crates_rust_1_66:
     - cd fmf
     - cargo test
     - cd ..
+
+    # Test media-utils/strand-convert
+    - cd media-utils/strand-convert
+    - cargo test
+    - cd ../..
+
+    # Test media-utils/show-timestamps
+    - cd media-utils/show-timestamps
+    - cargo test
+    - cd ../..
 
 test_crates_rust_nightly:
   image: rust:1.66.1
@@ -748,8 +763,8 @@ braid-process-video-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features read-mkv,vpx
-    - cargo build --release --features read-mkv,vpx
+    - cargo test --release --features with-ffmpeg
+    - cargo build --release --features with-ffmpeg
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
@@ -769,8 +784,8 @@ braid-process-video-ubuntu2204:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features read-mkv,vpx
-    - cargo build --release --features read-mkv,vpx
+    - cargo test --release --features with-ffmpeg
+    - cargo build --release --features with-ffmpeg
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
@@ -791,7 +806,7 @@ slow-braid-process-video-test:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features read-mkv,vpx -- --include-ignored
+    - cargo test --release --features with-ffmpeg -- --include-ignored
 
 braidz-cli-ubuntu2004:
   image: ubuntu:focal

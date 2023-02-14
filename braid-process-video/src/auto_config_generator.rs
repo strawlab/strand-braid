@@ -41,12 +41,12 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
         }
     }
 
-    // from input in `/path/of/input`, output is `/path/of/input-rendered.mkv`
+    // from input in `/path/of/input`, output is `/path/of/input-rendered.mp4`
     let output_path = source_dir.as_ref().to_path_buf();
 
     let mut output_video_path = output_path.clone();
     output_video_path.set_file_name(format!(
-        "{}-rendered.mkv",
+        "{}-rendered.mp4",
         output_path
             .file_name()
             .unwrap()

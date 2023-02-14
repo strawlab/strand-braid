@@ -98,5 +98,6 @@ async fn main() -> Result<()> {
         cfg_as_string
     );
 
-    run_config(&cfg).await
+    run_config(&cfg).await?;
+    Ok(())
 }

@@ -48,13 +48,12 @@ pub struct FfmpegFrameReader {
     time_base: ffmpeg::Rational,
     metadata: std::collections::HashMap<String, String>,
     count: usize,
-    hack_fix_speed: u64,
 }
 
 impl FfmpegFrameReader {
     pub fn new<P: AsRef<std::path::Path>>(filename: P) -> Result<Self> {
         let ictx = ffmpeg::format::input(&filename).with_context(|| {
-            anyhow::anyhow!(
+            format!(
                 "Error from ffmpeg opening '{}'",
                 filename.as_ref().display()
             )
@@ -109,12 +108,7 @@ impl FfmpegFrameReader {
             time_base,
             metadata,
             count: 0,
-            hack_fix_speed: 1,
         })
-    }
-
-    pub fn set_hack_fix_speed(&mut self, hack_fix_speed: u64) {
-        self.hack_fix_speed = hack_fix_speed;
     }
 
     /// The decoder has been given new information, so update our frame queue
@@ -128,7 +122,7 @@ impl FfmpegFrameReader {
             (1e9 * self.time_base.numerator() as f64 / self.time_base.denominator() as f64) as u64;
         while self.decoder.receive_frame(&mut video_input).is_ok() {
             let pts = video_input.pts().unwrap();
-            let nanosecs = pts as u64 * scale * self.hack_fix_speed;
+            let nanosecs = pts as u64 * scale;
             log::debug!("pts {}, scale {}, nanosecs {}", pts, scale, nanosecs);
             let pts_chrono = self
                 .creation_time

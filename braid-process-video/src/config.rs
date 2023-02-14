@@ -168,7 +168,7 @@ impl Validate for DebugOutputConfig {
 pub struct VideoOutputConfig {
     /// The filename of the output desired.
     pub filename: String,
-    /// If the output type is "mkv", the options for the emitted MKV file.
+    /// If the output type is "mp4", the options for the emitted MP4 file.
     #[serde(default)]
     pub video_options: VideoOutputOptions,
 }
@@ -194,13 +194,13 @@ impl Validate for VideoOutputConfig {
 impl Default for VideoOutputConfig {
     fn default() -> Self {
         Self {
-            filename: "output.mkv".to_string(),
+            filename: "output.mp4".to_string(),
             video_options: VideoOutputOptions::default(),
         }
     }
 }
 
-pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv"];
+pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv", ".mp4"];
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]

@@ -1,0 +1,17 @@
+[package]
+name = "mkv-parser-kit"
+description = "Library for building Matroska (MKV) file parsers"
+version = "0.1.0"
+edition = "2021"
+authors = ["Andrew Straw <strawman@astraw.com>", "Brian Langenberger <bjl@usa.net>"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+bitstream-io = "1.5.0"
+chrono = "0.4.23"
+
+[dev-dependencies]
+anyhow = "1"
+
+[features]
+backtrace = ["anyhow/backtrace"]

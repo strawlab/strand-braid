@@ -653,7 +653,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
         out_fd.write_all(buf.as_bytes())?;
 
         basic_frame::match_all_dynamic_fmts!(frame, f, {
-            let buf = encode_y4m_frame(&f, x.colorspace)?;
+            let buf = encode_y4m_frame(&f, x.colorspace, None)?;
             out_fd.write_all(&buf.data)?;
         });
     }

@@ -29,7 +29,7 @@ jobs:
           toolchain: stable
       - name: Build braid-process-video app
         run: |
-          cargo +stable build --release --features vpx,read-mkv
+          cargo +stable build --release --features vpx,with-ffmpeg
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-ubuntu
@@ -78,7 +78,7 @@ jobs:
           $Env:VPX_VERSION = "1.10.0"
           $Env:VPX_LIB_DIR = "$HOME\unzipped\lib\x64"
           $Env:VPX_INCLUDE_DIR = "$HOME\unzipped\include"
-          cargo build --release --features vpx,read-mkv
+          cargo build --release --features vpx,with-ffmpeg
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-windows
@@ -111,7 +111,7 @@ jobs:
           export VPX_LIB_DIR="/opt/libvpx/1.8.1/lib"
           export VPX_INCLUDE_DIR="/opt/libvpx/1.8.1/include"
           export PATH="$PATH:$HOME/.cargo/bin"
-          cargo build --release --features vpx,read-mkv
+          cargo build --release --features vpx,with-ffmpeg
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-mac

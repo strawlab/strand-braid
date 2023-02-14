@@ -1,0 +1,32 @@
+[package]
+name = "strand-convert"
+version = "0.1.0"
+edition = "2021"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+clap = {version="4.0.10", features=["derive"]}
+env_logger = "0.9"
+anyhow = "1"
+serde_json = "1.0.85"
+log = "0.4.17"
+indicatif = "0.17.1"
+chrono = "0.4.23"
+ordered-float = "3.4.0"
+path-slash = "0.2.1"
+
+basic-frame = { path = "../../basic-frame"}
+convert-image = { path = "../../convert-image"}
+frame-source = { path = "../frame-source"}
+tiff-decoder = { path = "../tiff-decoder", features=["clap"]}
+mp4-writer = { path = "../mp4-writer", features=["openh264"]}
+ci2-remote-control = { path = "../../ci2-remote-control" }
+nvenc = {path="../../nvenc"}
+
+[dev-dependencies]
+download-verify = {path="../../download-verify"}
+tempfile = "3.3.0"
+zip = { version = "0.6.2", default-features = false, features=["deflate", "time"] }
+
+[features]
+backtrace = ["mp4-writer/backtrace", "frame-source/backtrace", "anyhow/backtrace"]

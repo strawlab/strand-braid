@@ -1,0 +1,43 @@
+[package]
+name = "mp4-writer"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version="1.60"
+
+[dependencies]
+log = "0.4"
+chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+mp4 = "0.13.0"
+
+openh264 = {version="0.3.0", optional=true}
+thiserror = "1.0.33"
+machine-vision-formats = "0.1"
+bitvec = "1.0.1"
+h264-reader = "0.6.0"
+
+nvenc = {path="../../nvenc"}
+dynlink-cuda = {path="../../nvenc/dynlink-cuda"}
+dynlink-nvidia-encode = {path="../../nvenc/dynlink-nvidia-encode"}
+
+ci2-remote-control = { path = "../../ci2-remote-control"}
+convert-image = { path = "../../convert-image" }
+basic-frame = { path = "../../basic-frame", features=["convert-image"] }
+less-avc = "0.1.2"
+less-avc-wrapper = {path = "../less-avc-wrapper"}
+frame-source = {path = "../frame-source"}
+serde_json = "1.0.89"
+
+[dev-dependencies]
+env_logger = "0.8"
+anyhow = "1"
+ci2-remote-control = { path = "../../ci2-remote-control"}
+rusttype = "0.8.1"
+image = {version="0.24.2", default-features=false, features=["jpeg","tiff","png"]}
+ttf-firacode = "0.1"
+simple-frame = { path = "../../simple-frame" }
+tempfile = "3.3.0"
+clap = {version="4.0.10", features=["derive"]}
+
+[features]
+backtrace = ["nvenc/backtrace", "dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace", "convert-image/backtrace", "openh264?/backtrace", "less-avc-wrapper/backtrace"]

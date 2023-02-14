@@ -11,6 +11,7 @@ use crate::{
 pub(crate) struct BraidStorage {
     pub(crate) cam_manager: flydra2::ConnectedCamerasManager,
     pub(crate) frame_data_tx: tokio::sync::mpsc::Sender<flydra2::StreamItem>,
+    pub(crate) output_braidz_path: std::path::PathBuf,
 }
 
 impl BraidStorage {
@@ -135,6 +136,7 @@ impl BraidStorage {
         Ok(Self {
             cam_manager,
             frame_data_tx,
+            output_braidz_path,
         })
     }
     pub(crate) async fn render_frame(

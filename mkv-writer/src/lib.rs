@@ -24,41 +24,6 @@ use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
 
-/// Convert to runtime specified pixel format and save to FMF file.
-macro_rules! convert_and_write_mkv {
-    ($new_pixel_format:expr, $writer:expr, $x:expr, $timestamp:expr) => {{
-        use machine_vision_formats::pixel_format::*;
-        match $new_pixel_format {
-            PixFmt::Mono8 => write_converted!(Mono8, $writer, $x, $timestamp),
-            PixFmt::Mono32f => write_converted!(Mono32f, $writer, $x, $timestamp),
-            PixFmt::RGB8 => write_converted!(RGB8, $writer, $x, $timestamp),
-            PixFmt::BayerRG8 => write_converted!(BayerRG8, $writer, $x, $timestamp),
-            PixFmt::BayerRG32f => write_converted!(BayerRG32f, $writer, $x, $timestamp),
-            PixFmt::BayerGB8 => write_converted!(BayerGB8, $writer, $x, $timestamp),
-            PixFmt::BayerGB32f => write_converted!(BayerGB32f, $writer, $x, $timestamp),
-            PixFmt::BayerGR8 => write_converted!(BayerGR8, $writer, $x, $timestamp),
-            PixFmt::BayerGR32f => write_converted!(BayerGR32f, $writer, $x, $timestamp),
-            PixFmt::BayerBG8 => write_converted!(BayerBG8, $writer, $x, $timestamp),
-            PixFmt::BayerBG32f => write_converted!(BayerBG32f, $writer, $x, $timestamp),
-            PixFmt::YUV422 => write_converted!(YUV422, $writer, $x, $timestamp),
-            _ => {
-                return Err(Error::UnsupportedConversion {
-                    #[cfg(feature = "backtrace")]
-                    backtrace: std::backtrace::Backtrace::capture(),
-                });
-            }
-        }
-    }};
-}
-
-/// For a specified runtime specified pixel format, convert and save to FMF file.
-macro_rules! write_converted {
-    ($pixfmt:ty, $writer:expr, $x:expr, $timestamp:expr) => {{
-        let converted_frame = convert_image::convert::<_, $pixfmt>($x)?;
-        $writer.write(&converted_frame, $timestamp)?;
-    }};
-}
-
 // See https://www.fourcc.org/yuv/ and https://www.fourcc.org/rgb/
 #[allow(non_camel_case_types, non_snake_case, dead_code)]
 enum UncompressedFormat {
@@ -272,8 +237,9 @@ where
         frame: &DynamicFrame,
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<()> {
-        let fmt = frame.pixel_format();
-        match_all_dynamic_fmts!(frame, x, convert_and_write_mkv!(fmt, self, x, timestamp));
+        match_all_dynamic_fmts!(frame, x, {
+            self.write(x, timestamp)?;
+        });
         Ok(())
     }
 
@@ -728,7 +694,7 @@ where
         }
         #[cfg(feature = "vpx")]
         MyEncoder::Vpx(ref mut vpx_encoder) => {
-            let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv)?;
+            let yuv = encode_y4m_frame(raw_frame, Y4MColorspace::C420paldv, None)?;
             trace!("got yuv data for frame. {} bytes.", yuv.data.len());
 
             let microseconds = elapsed.num_microseconds().ok_or(Error::TimestampTooLarge)?;

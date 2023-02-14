@@ -31,7 +31,7 @@ futures = "0.3"
 csv = "1.1"
 
 channellib = {path="../channellib"}
-mkv-writer = {path="../mkv-writer"}
+mp4-writer = {path="../media-utils/mp4-writer", features=["openh264"]}
 ci2-remote-control = { path = "../ci2-remote-control"}
 braidz-parser = {path="../braidz-parser"}
 flydra-types = {path="../flydra-types"}
@@ -45,9 +45,8 @@ flydra2 = {path="../flydra2"}
 flydra-mvg = {path="../flydra-mvg"}
 
 [features]
-vpx = ["mkv-writer/vpx"]
-read-mkv = ["ffmpeg-next"]
-backtrace = ["anyhow/backtrace", "mkv-writer/backtrace",
+with-ffmpeg = ["ffmpeg-next"]
+backtrace = ["anyhow/backtrace", "mp4-writer/backtrace",
     "convert-image/backtrace", "braidz-parser/backtrace",
     "fmf/backtrace",
     ]
@@ -55,3 +54,4 @@ backtrace = ["anyhow/backtrace", "mkv-writer/backtrace",
 [dev-dependencies]
 download-verify = {path="../download-verify"}
 serde_json = "1"
+frame-source = { path = "../media-utils/frame-source" }

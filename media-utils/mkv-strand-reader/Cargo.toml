@@ -1,0 +1,16 @@
+[package]
+name = "mkv-strand-reader"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mkv-parser-kit = {path="../mkv-parser-kit"}
+chrono = "0.4.22"
+thiserror = "1"
+
+[dev-dependencies]
+anyhow = "1"
+clap = {version="4.0.10", features=["derive"]}
+
+[features]
+backtrace = ["mkv-parser-kit/backtrace", "anyhow/backtrace"]

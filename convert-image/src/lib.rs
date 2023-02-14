@@ -27,7 +27,10 @@ pub enum Error {
     #[error("ROI size exceeds original image")]
     RoiExceedsOriginal,
     #[error("invalid allocated buffer size")]
-    InvalidAllocatedBufferSize,
+    InvalidAllocatedBufferSize {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
     #[error("invalid allocated buffer stride")]
     InvalidAllocatedBufferStride,
     #[error("{source}")]
@@ -55,9 +58,11 @@ pub enum Error {
     UnimplementedConversion(PixFmt, PixFmt),
 }
 
+const EMPTY_BYTE: u8 = 128;
+
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct RGB888 {
     pub R: u8,
     pub G: u8,
@@ -90,7 +95,7 @@ impl RGB888 {
 
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct YUV444 {
     pub Y: u8,
     pub U: u8,
@@ -185,7 +190,7 @@ fn yuv422_into_rgb(
 
     let expected_size = dest_stride * frame.height() as usize;
     if dest.data.len() != expected_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     use itertools::izip;
@@ -235,7 +240,7 @@ where
 
     let expected_size = dest_stride * frame.height() as usize;
     if dest.data.len() != expected_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     // Convert to Mono8 or RGB8 TODO: if input encoding is YUV already, do
@@ -309,7 +314,7 @@ where
 
     let expected_size = frame.width() as usize * frame.height() as usize * 3;
     if dest.data.len() != expected_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     let src_fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
@@ -361,7 +366,7 @@ fn mono8_into_rgb8(
 
     let expected_size = dest_stride * src.height() as usize;
     if dest.data.len() != expected_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     let w = src.width() as usize;
@@ -393,7 +398,7 @@ fn rgba_into_rgb(
 
     let expected_size = dest_stride * frame.height() as usize;
     if dest.data.len() != expected_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     use itertools::izip;
@@ -423,7 +428,7 @@ fn rgb8_into_mono8(
 ) -> Result<()> {
     let luma_size = frame.height() as usize * dest_stride;
     if dest.data.len() != luma_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     let w = frame.width() as usize;
@@ -454,7 +459,7 @@ fn yuv444_into_mono8(
 ) -> Result<()> {
     let luma_size = frame.height() as usize * dest_stride;
     if dest.data.len() != luma_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     let w = frame.width() as usize;
@@ -483,7 +488,7 @@ fn nv12_into_mono8(
 ) -> Result<()> {
     let luma_size = frame.height() as usize * dest_stride;
     if dest.data.len() != luma_size {
-        return Err(Error::InvalidAllocatedBufferSize);
+        return Err(invalid_buf_size_err());
     }
 
     for (src_row, dest_row) in frame
@@ -774,7 +779,7 @@ where
     if src_fmt == dest_fmt {
         let dest_size = frame.height() as usize * dest_stride;
         if dest.data.len() != dest_size {
-            return Err(Error::InvalidAllocatedBufferSize);
+            return Err(invalid_buf_size_err());
         }
 
         use itertools::izip;
@@ -930,7 +935,7 @@ where
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ImageOptions {
     Jpeg(u8),
     Png,
@@ -960,7 +965,7 @@ where
         let src = frame.image_data();
         let chunk_iter = src.chunks_exact(frame.stride());
         if !chunk_iter.remainder().is_empty() {
-            return Err(Error::InvalidAllocatedBufferSize);
+            return Err(invalid_buf_size_err());
         }
         for src_row in chunk_iter {
             dest.extend_from_slice(&src_row[..packed_stride]);
@@ -1300,30 +1305,110 @@ impl std::fmt::Display for Y4MColorspace {
     }
 }
 
+/// YUV420 planar data
 pub struct Y4MFrame {
     pub data: Vec<u8>,
     pub width: i32,
     pub height: i32,
     pub y_stride: i32,
-    pub u_stride: i32,
-    pub v_stride: i32,
+    colorspace: Y4MColorspace,
+    chroma_stride: usize,
+    alloc_rows: i32,
+    alloc_chroma_rows: i32,
+    /// True if the U and V planes are known to contain no data.
+    is_known_mono_only: bool,
+    forced_block_size: Option<u32>,
+}
+
+impl std::fmt::Debug for Y4MFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Y4MFrame{{width: {}, height: {}, y_stride: {}, chroma_stride: {}, data.len(): {}, alloc_rows: {}, alloc_chroma_rows: {}, is_known_mono_only: {}, forced_block_size: {:?}}}",
+            self.width, self.height, self.y_stride, self.chroma_stride, self.data.len(), self.alloc_rows, self.alloc_chroma_rows, self.is_known_mono_only, self.forced_block_size)
+    }
 }
 
 impl Y4MFrame {
-    pub fn new(data: Vec<u8>, width: u32, height: u32) -> Result<Self> {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        data: Vec<u8>,
+        width: u32,
+        height: u32,
+        stride: i32,
+        chroma_stride: usize,
+        alloc_rows: i32,
+        alloc_chroma_rows: i32,
+        is_known_mono_only: bool,
+        forced_block_size: Option<u32>,
+        colorspace: Y4MColorspace,
+    ) -> Self {
+        let width: i32 = width.try_into().unwrap();
+        let height: i32 = height.try_into().unwrap();
+        let y_stride = stride;
+
+        if let Some(sz) = forced_block_size {
+            debug_assert_eq!(y_stride % sz as i32, 0);
+            debug_assert_eq!(chroma_stride % sz as usize, 0);
+        }
+
+        Self {
+            data,
+            width,
+            height,
+            y_stride,
+            colorspace,
+            chroma_stride,
+            alloc_rows,
+            alloc_chroma_rows,
+            is_known_mono_only,
+            forced_block_size,
+        }
+    }
+
+    pub fn forced_block_size(&self) -> Option<u32> {
+        self.forced_block_size
+    }
+    /// get the size of the luminance plane
+    fn y_size(&self) -> usize {
+        if self.forced_block_size.is_some() {
+            self.y_stride as usize * self.alloc_rows as usize
+        } else {
+            self.y_stride as usize * self.height as usize
+        }
+    }
+    /// get the size of each chrominance plane
+    ///
+    /// The U plane will have this size of data. The V plane will also. If
+    /// requested with `forced_block_size`, this includes potentially invalid
+    /// rows allocated for macroblocks.
+    fn uv_size(&self) -> usize {
+        self.u_stride() * TryInto::<usize>::try_into(self.alloc_chroma_rows).unwrap()
+    }
+    fn mono_new(data: Vec<u8>, width: u32, height: u32) -> Result<Self> {
         let width: i32 = width.try_into().unwrap();
         let height: i32 = height.try_into().unwrap();
         let y_stride = width;
-        let u_stride = width / 2;
-        let v_stride = width / 2;
+        let chroma_stride = 0;
+        let expected_size = width as usize * height as usize;
+        if data.len() != expected_size {
+            return Err(invalid_buf_size_err());
+        }
+        let alloc_chroma_rows = 0;
+
         Ok(Self {
             data,
             width,
             height,
             y_stride,
-            u_stride,
-            v_stride,
+            colorspace: Y4MColorspace::CMono,
+            chroma_stride,
+            alloc_rows: height,
+            alloc_chroma_rows,
+            is_known_mono_only: true,
+            forced_block_size: None,
         })
+    }
+    pub fn is_known_mono_only(&self) -> bool {
+        self.is_known_mono_only
     }
     pub fn data(&self) -> &[u8] {
         &self.data[..]
@@ -1331,6 +1416,244 @@ impl Y4MFrame {
     pub fn into_data(self) -> Vec<u8> {
         self.data
     }
+    pub fn y_plane_data(&self) -> &[u8] {
+        let ysize = self.y_size();
+        &self.data[..ysize]
+    }
+    pub fn u_plane_data(&self) -> &[u8] {
+        let ysize = self.y_size();
+        &self.data[ysize..ysize + self.uv_size()]
+    }
+    pub fn v_plane_data(&self) -> &[u8] {
+        let ysize = self.y_size();
+        &self.data[(ysize + self.uv_size())..]
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width.try_into().unwrap()
+    }
+    pub fn height(&self) -> u32 {
+        self.height.try_into().unwrap()
+    }
+    pub fn y_stride(&self) -> usize {
+        self.y_stride.try_into().unwrap()
+    }
+    pub fn u_stride(&self) -> usize {
+        self.chroma_stride
+    }
+    pub fn v_stride(&self) -> usize {
+        self.chroma_stride
+    }
+    pub fn colorspace(&self) -> Y4MColorspace {
+        self.colorspace
+    }
+}
+
+fn generic_to_c420paldv_macroblocks<FMT>(
+    frame: &dyn ImageStride<FMT>,
+    block_size: u32,
+) -> Result<Y4MFrame>
+where
+    FMT: PixelFormat,
+{
+    // Convert to planar data with macroblock size
+
+    // TODO: convert directly to YUV420 instead of YUV444 for efficiency.
+    // Currently we convert to YUV444 first and then downsample later.
+    let frame_yuv444 = convert::<_, pixel_format::YUV444>(frame)?;
+
+    let width: usize = frame.width().try_into().unwrap();
+
+    // full width (i.e. Y plane)
+    let fullstride: usize = next_multiple(frame.width(), block_size).try_into().unwrap();
+
+    // full height (i.e. Y plane)
+    let num_dest_alloc_rows_luma: usize = next_multiple(frame.height(), block_size)
+        .try_into()
+        .unwrap();
+
+    let half_width = div_ceil(frame.width(), 2);
+
+    // Calculate stride for downsampled chroma planes. It may not really be
+    // "half" size because it needs to be a multiple of the block_size
+    let halfstride: usize = next_multiple(half_width, block_size).try_into().unwrap();
+    let half_height = div_ceil(frame.height(), 2);
+    let valid_chroma_size: usize = halfstride * TryInto::<usize>::try_into(half_height).unwrap();
+    let num_dest_allow_rows_chroma: usize =
+        next_multiple(half_height, block_size).try_into().unwrap();
+
+    // Allocate space for Y U and V planes. We already allocate one big
+    // contiguous chunk with the fullsize Y and quarter size U and V planes.
+    let y_size = fullstride * num_dest_alloc_rows_luma;
+    let full_chroma_size = halfstride * num_dest_allow_rows_chroma;
+    let mut data = vec![EMPTY_BYTE; y_size + 2 * full_chroma_size];
+
+    let (y_plane_dest, uv_data) = data.split_at_mut(y_size);
+    debug_assert_eq!(2 * full_chroma_size, uv_data.len());
+
+    let (u_plane_dest, v_plane_dest) = uv_data.split_at_mut(full_chroma_size);
+
+    // Here we allocate separate buffers for the fullsize U and V plane.
+    let mut fullsize_u_plane = vec![EMPTY_BYTE; fullstride * num_dest_alloc_rows_luma];
+    let mut fullsize_v_plane = vec![EMPTY_BYTE; fullstride * num_dest_alloc_rows_luma];
+
+    // First, fill fullsize Y, U, and V planes. This would be full YUV444 resolution.
+    for (
+        y_plane_dest_row,
+        (fullsize_u_plane_dest_row, (fullsize_v_plane_dest_row, src_yuv444_row)),
+    ) in y_plane_dest.chunks_exact_mut(fullstride).zip(
+        fullsize_u_plane.chunks_exact_mut(fullstride).zip(
+            fullsize_v_plane.chunks_exact_mut(fullstride).zip(
+                frame_yuv444
+                    .image_data()
+                    .chunks_exact(frame_yuv444.stride()),
+            ),
+        ),
+    ) {
+        for (y_dest_pix, (fullsize_u_dest_pix, (fullsize_v_dest_pix, yuv444_pix))) in
+            y_plane_dest_row[..width].iter_mut().zip(
+                fullsize_u_plane_dest_row[..width].iter_mut().zip(
+                    fullsize_v_plane_dest_row[..width]
+                        .iter_mut()
+                        .zip(src_yuv444_row.chunks_exact(3)),
+                ),
+            )
+        {
+            *y_dest_pix = yuv444_pix[0];
+            *fullsize_u_dest_pix = yuv444_pix[1];
+            *fullsize_v_dest_pix = yuv444_pix[2];
+        }
+    }
+
+    let y_data_ptr = y_plane_dest.as_ptr();
+    let u_data_ptr = u_plane_dest.as_ptr();
+    let v_data_ptr = v_plane_dest.as_ptr();
+
+    fn u16(v: u8) -> u16 {
+        v as u16
+    }
+
+    fn u8(v: u16) -> u8 {
+        v as u8
+    }
+
+    let valid_chroma_width: usize = half_width.try_into().unwrap();
+
+    // Now, downsample U and V planes into 420 scaling.
+    for (dest_plane, src_plane_fullsize) in [
+        (u_plane_dest, fullsize_u_plane),
+        (v_plane_dest, fullsize_v_plane),
+    ]
+    .into_iter()
+    {
+        for (dest_row, dest_data) in dest_plane[0..valid_chroma_size]
+            .chunks_exact_mut(halfstride)
+            .enumerate()
+        {
+            let src_row = dest_row * 2;
+            for (dest_col, dest_pix) in dest_data[..valid_chroma_width].iter_mut().enumerate() {
+                let src_col = dest_col * 2;
+
+                let a = u16(src_plane_fullsize[src_row * fullstride + src_col]);
+                let b = u16(src_plane_fullsize[src_row * fullstride + src_col + 1]);
+                let c = u16(src_plane_fullsize[(src_row + 1) * fullstride + src_col]);
+                let d = u16(src_plane_fullsize[(src_row + 1) * fullstride + src_col + 1]);
+                *dest_pix = u8((a + b + c + d) / 4);
+            }
+        }
+    }
+    let result = Y4MFrame::new(
+        data,
+        frame_yuv444.width(),
+        frame_yuv444.height(),
+        fullstride.try_into().unwrap(),
+        halfstride,
+        num_dest_alloc_rows_luma.try_into().unwrap(),
+        num_dest_allow_rows_chroma.try_into().unwrap(),
+        false,
+        Some(block_size),
+        Y4MColorspace::C420paldv,
+    );
+
+    debug_assert_eq!(result.y_stride(), fullstride);
+    debug_assert_eq!(result.u_stride(), halfstride);
+    debug_assert_eq!(result.v_stride(), halfstride);
+
+    debug_assert_eq!(result.y_size(), y_size);
+    debug_assert_eq!(result.uv_size(), full_chroma_size);
+
+    // ---
+
+    debug_assert_eq!(result.y_plane_data().as_ptr(), y_data_ptr);
+    debug_assert_eq!(result.u_plane_data().as_ptr(), u_data_ptr);
+    debug_assert_eq!(result.v_plane_data().as_ptr(), v_data_ptr);
+
+    Ok(result)
+}
+
+fn generic_to_c420paldv<FMT>(frame: &dyn ImageStride<FMT>) -> Result<Y4MFrame>
+where
+    FMT: PixelFormat,
+{
+    // let colorspace = Y4MColorspace::C420paldv;
+    // Convert to YUV444 first, then convert and downsample to YUV420
+    // planar.
+
+    // TODO: convert to YUV422 instead of YUV444 for efficiency.
+    let frame = convert::<_, pixel_format::YUV444>(frame)?;
+
+    // Convert to planar data.
+
+    // TODO: allocate final buffer first and write directly into that. Here we make
+    // intermediate copies.
+    let h = frame.height() as usize;
+    let width = frame.width() as usize;
+
+    let yuv_iter = frame.image_data().chunks_exact(3).map(|yuv| YUV444 {
+        Y: yuv[0],
+        U: yuv[1],
+        V: yuv[2],
+    });
+    // intermediate copy 1
+    let yuv_vec: Vec<YUV444> = yuv_iter.collect();
+
+    // intermediate copy 2a
+    let y_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.Y).collect();
+    let y_size = y_plane.len();
+
+    // intermediate copy 2b
+    let full_u_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.U).collect();
+    // intermediate copy 2c
+    let full_v_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.V).collect();
+
+    // intermediate copy 3a
+    let u_plane = downsample_plane(&full_u_plane, h, width);
+    // intermediate copy 3b
+    let v_plane = downsample_plane(&full_v_plane, h, width);
+
+    let u_size = u_plane.len();
+    let v_size = v_plane.len();
+    debug_assert!(y_size == 4 * u_size);
+    debug_assert!(u_size == v_size);
+
+    // final copy
+    let mut final_buf = vec![EMPTY_BYTE; y_size + u_size + v_size];
+    final_buf[..y_size].copy_from_slice(&y_plane);
+    final_buf[y_size..(y_size + u_size)].copy_from_slice(&u_plane);
+    final_buf[(y_size + u_size)..].copy_from_slice(&v_plane);
+
+    Ok(Y4MFrame::new(
+        final_buf,
+        frame.width().try_into().unwrap(),
+        frame.height().try_into().unwrap(),
+        width.try_into().unwrap(),
+        width / 2,
+        h.try_into().unwrap(),
+        (h / 2).try_into().unwrap(),
+        false,
+        None,
+        Y4MColorspace::C420paldv,
+    ))
 }
 
 /// Convert any type implementing `ImageStride<FMT>` to a y4m buffer.
@@ -1338,26 +1661,32 @@ impl Y4MFrame {
 /// The y4m format is described at <http://wiki.multimedia.cx/index.php?title=YUV4MPEG2>
 pub fn encode_y4m_frame<FMT>(
     frame: &dyn ImageStride<FMT>,
-    colorspace: Y4MColorspace,
+    out_colorspace: Y4MColorspace,
+    forced_block_size: Option<u32>,
 ) -> Result<Y4MFrame>
 where
     FMT: PixelFormat,
 {
-    match colorspace {
+    match out_colorspace {
         Y4MColorspace::CMono => {
+            if let Some(block_size) = forced_block_size {
+                if !((frame.width() % block_size == 0) && (frame.height() % block_size == 0)) {
+                    unimplemented!("conversion to mono with forced block size");
+                }
+            }
             let frame = convert::<_, Mono8>(frame)?;
             if frame.width() as usize != frame.stride() {
                 // Copy into new buffer with no padding.
-                let mut buf = vec![0u8; frame.height() as usize * frame.width() as usize];
+                let mut buf = vec![EMPTY_BYTE; frame.height() as usize * frame.width() as usize];
                 for (dest_row, src_row) in buf
                     .chunks_exact_mut(frame.width() as usize)
                     .zip(frame.image_data().chunks_exact(frame.stride()))
                 {
                     dest_row.copy_from_slice(&src_row[..frame.width() as usize]);
                 }
-                Ok(Y4MFrame::new(buf, frame.width(), frame.height())?)
+                Ok(Y4MFrame::mono_new(buf, frame.width(), frame.height())?)
             } else {
-                Ok(Y4MFrame::new(
+                Ok(Y4MFrame::mono_new(
                     frame.image_data().to_vec(),
                     frame.width(),
                     frame.height(),
@@ -1365,52 +1694,92 @@ where
             }
         }
         Y4MColorspace::C420paldv => {
-            // Convert to YUV444.
-            // TODO: convert to YUV422 instead of YUV444 for efficiency.
-            let frame = convert::<_, pixel_format::YUV444>(frame)?;
-
-            // Convert to planar data.
-
-            // TODO: allocate final buffer first and write directly into that. Here we make
-            // intermediate copies.
-            let h = frame.height() as usize;
-            let width = frame.width() as usize;
-
-            let yuv_iter = frame.image_data().chunks_exact(3).map(|yuv| YUV444 {
-                Y: yuv[0],
-                U: yuv[1],
-                V: yuv[2],
-            });
-            // intermediate copy 1
-            let yuv_vec: Vec<YUV444> = yuv_iter.collect();
-
-            // intermediate copy 2a
-            let y_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.Y).collect();
-            let y_size = y_plane.len();
-
-            // intermediate copy 2b
-            let full_u_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.U).collect();
-            // intermediate copy 2c
-            let full_v_plane: Vec<u8> = yuv_vec.iter().map(|yuv| yuv.V).collect();
-
-            // intermediate copy 3a
-            let u_plane = downsample_plane(&full_u_plane, h, width);
-            // intermediate copy 3b
-            let v_plane = downsample_plane(&full_v_plane, h, width);
-
-            let u_size = u_plane.len();
-            let v_size = v_plane.len();
-            debug_assert!(y_size == 4 * u_size);
-            debug_assert!(u_size == v_size);
-
-            // final copy
-            let mut final_buf = vec![0u8; y_size + u_size + v_size];
-            final_buf[..y_size].copy_from_slice(&y_plane);
-            final_buf[y_size..(y_size + u_size)].copy_from_slice(&u_plane);
-            final_buf[(y_size + u_size)..].copy_from_slice(&v_plane);
-            Ok(Y4MFrame::new(final_buf, frame.width(), frame.height())?)
+            let input_pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
+            match input_pixfmt {
+                PixFmt::Mono8 => {
+                    // Special case for mono8.
+                    Ok(mono8_into_yuv420_planar(frame, forced_block_size))
+                }
+                _ => {
+                    if let Some(block_size) = forced_block_size {
+                        generic_to_c420paldv_macroblocks(frame, block_size)
+                    } else {
+                        generic_to_c420paldv(frame)
+                    }
+                }
+            }
         }
     }
+}
+
+fn mono8_into_yuv420_planar<FMT>(
+    frame: &dyn ImageStride<FMT>,
+    forced_block_size: Option<u32>,
+) -> Y4MFrame
+where
+    FMT: PixelFormat,
+{
+    // Copy intensity data, other planes
+    // at 128.
+    let width: usize = frame.width().try_into().unwrap();
+    let height: usize = frame.height().try_into().unwrap();
+    let src_stride = frame.stride();
+
+    let (luma_stride, chroma_stride): (usize, usize) = if let Some(block_size) = forced_block_size {
+        let w_mbs = div_ceil(frame.width(), block_size);
+        let dest_stride = (w_mbs * block_size).try_into().unwrap();
+
+        let chroma_w_mbs = div_ceil(frame.width() / 2, block_size);
+        let chroma_stride = (chroma_w_mbs * block_size).try_into().unwrap();
+        (dest_stride, chroma_stride)
+    } else {
+        (width, width / 2)
+    };
+
+    let (num_luma_alloc_rows, num_chroma_alloc_rows): (usize, usize) =
+        if let Some(block_size) = forced_block_size {
+            let h_mbs = div_ceil(frame.height(), block_size);
+            let num_dest_alloc_rows = (h_mbs * block_size).try_into().unwrap();
+
+            let chroma_h_mbs = div_ceil(frame.height() / 2, block_size);
+            let num_chroma_alloc_rows = (chroma_h_mbs * block_size).try_into().unwrap();
+
+            (num_dest_alloc_rows, num_chroma_alloc_rows)
+        } else {
+            (height, height / 2)
+        };
+
+    // allocate space for Y U and V planes
+    let expected_size =
+        luma_stride * num_luma_alloc_rows + chroma_stride * num_chroma_alloc_rows * 2;
+    // Fill with value 128, which is neutral chrominance
+    let mut data = vec![128u8; expected_size];
+    // We fill the Y plane (and only the Y plane, leaving the
+    // chrominance planes at 128).
+
+    let luma_fill_size = luma_stride * height;
+
+    for (dest_luma_row_slice, src) in data[..luma_fill_size]
+        .chunks_exact_mut(luma_stride)
+        .zip(frame.image_data().chunks_exact(src_stride))
+    {
+        dest_luma_row_slice[..width].copy_from_slice(&src[..width]);
+    }
+
+    let stride = luma_stride.try_into().unwrap();
+
+    Y4MFrame::new(
+        data,
+        frame.width(),
+        frame.height(),
+        stride,
+        chroma_stride,
+        num_luma_alloc_rows.try_into().unwrap(),
+        num_chroma_alloc_rows.try_into().unwrap(),
+        true,
+        forced_block_size,
+        Y4MColorspace::C420paldv,
+    )
 }
 
 fn downsample_plane(arr: &[u8], h: usize, w: usize) -> Vec<u8> {
@@ -1427,6 +1796,33 @@ fn downsample_plane(arr: &[u8], h: usize, w: usize) -> Vec<u8> {
         }
     }
     result
+}
+
+fn next_multiple(a: u32, b: u32) -> u32 {
+    div_ceil(a, b) * b
+}
+
+#[test]
+fn test_next_multiple() {
+    assert_eq!(next_multiple(10, 2), 10);
+    assert_eq!(next_multiple(11, 2), 12);
+    assert_eq!(next_multiple(15, 3), 15);
+    assert_eq!(next_multiple(16, 3), 18);
+    assert_eq!(next_multiple(18, 3), 18);
+}
+
+fn div_ceil(a: u32, b: u32) -> u32 {
+    // See https://stackoverflow.com/a/72442854
+    (a + b - 1) / b
+}
+
+#[test]
+fn test_div_ceil() {
+    assert_eq!(div_ceil(10, 2), 5);
+    assert_eq!(div_ceil(11, 2), 6);
+    assert_eq!(div_ceil(15, 3), 5);
+    assert_eq!(div_ceil(16, 3), 6);
+    assert_eq!(div_ceil(18, 3), 6);
 }
 
 fn encode_into_nv12_inner<FMT>(
@@ -1522,4 +1918,11 @@ where
     FMT: PixelFormat,
 {
     convert_into(frame, dest, dest_stride)
+}
+
+fn invalid_buf_size_err() -> Error {
+    Error::InvalidAllocatedBufferSize {
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace::capture(),
+    }
 }

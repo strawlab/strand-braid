@@ -8,7 +8,7 @@ extern crate rust_cam_bui_types;
 use enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum RecordingFrameRate {
     Fps1,
     Fps2,
@@ -102,7 +102,7 @@ impl EnumIter for RecordingFrameRate {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum MkvCodec {
     Uncompressed,
     VP8(VP8Options),
@@ -116,31 +116,71 @@ impl Default for MkvCodec {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+/// Configurations which can be used to encode into MP4 files.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Mp4Codec {
+    /// Encode data with Nvidia's NVENC.
     H264NvEnc(NvidiaH264Options),
+    /// Encode data with OpenH264.
     H264OpenH264(OpenH264Options),
+    /// Encode data with LessAVC.
+    H264LessAvc,
+    /// Data is already encoded as a raw H264 stream.
+    H264RawStream,
 }
 
-impl Default for Mp4Codec {
-    fn default() -> Mp4Codec {
-        Mp4Codec::H264NvEnc(Default::default())
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct OpenH264Options {
-    /// The bitrate (used in association with the framerate).
-    pub bitrate: u32,
+    /// Whether OpenH264 should emit debug messages
+    pub debug: bool,
+    pub preset: OpenH264Preset,
 }
 
-impl Default for OpenH264Options {
-    fn default() -> Self {
-        Self { bitrate: 1000 }
+impl OpenH264Options {
+    pub fn debug(&self) -> bool {
+        self.debug
+    }
+    pub fn enable_skip_frame(&self) -> bool {
+        match self.preset {
+            OpenH264Preset::AllFrames => false,
+            OpenH264Preset::SkipFramesBitrate(_) => true,
+        }
+    }
+    pub fn rate_control_mode(&self) -> OpenH264RateControlMode {
+        match self.preset {
+            OpenH264Preset::AllFrames => OpenH264RateControlMode::Off,
+            OpenH264Preset::SkipFramesBitrate(_) => OpenH264RateControlMode::Bitrate,
+        }
+    }
+    pub fn bitrate_bps(&self) -> u32 {
+        match self.preset {
+            OpenH264Preset::AllFrames => 0,
+            OpenH264Preset::SkipFramesBitrate(bitrate) => bitrate,
+        }
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum OpenH264Preset {
+    AllFrames,
+    SkipFramesBitrate(u32),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
+pub enum OpenH264RateControlMode {
+    /// Quality mode.
+    Quality,
+    /// Bitrate mode.
+    Bitrate,
+    /// No bitrate control, only using buffer status, adjust the video quality.
+    Bufferbased,
+    /// Rate control based timestamp.
+    Timestamp,
+    /// Rate control off mode.
+    Off,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct NvidiaH264Options {
     /// The bitrate (used in association with the framerate).
     pub bitrate: u32,
@@ -157,7 +197,7 @@ impl Default for NvidiaH264Options {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct VP8Options {
     pub bitrate: u32,
 }
@@ -168,7 +208,7 @@ impl Default for VP8Options {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct VP9Options {
     pub bitrate: u32,
 }
@@ -179,7 +219,7 @@ impl Default for VP9Options {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct MkvH264Options {
     /// The bitrate (used in association with the framerate).
     pub bitrate: u32,
@@ -226,14 +266,53 @@ impl Default for MkvRecordingConfig {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Mp4RecordingConfig {
     pub codec: Mp4Codec,
+    /// The duration of each frame (reciprocal of framerate)
+    ///
+    /// This value is informational for readers of the recorded `.mp4` to help
+    /// with playback.
+    pub sample_duration: std::time::Duration,
+    /// Limits the recording to a maximum frame rate.
     pub max_framerate: RecordingFrameRate,
+    pub h264_metadata: Option<H264Metadata>,
 }
 
-impl Default for Mp4RecordingConfig {
-    fn default() -> Self {
+/// Universal identifier for our H264 metadata.
+///
+/// Generated with `uuid -v3 ns:URL https://strawlab.org/h264-metadata/`
+pub const H264_METADATA_UUID: [u8; 16] = [
+    // 0ba99cc7-f607-3851-b35e-8c7d8c04da0a
+    0x0B, 0xA9, 0x9C, 0xC7, 0xF6, 0x07, 0x08, 0x51, 0x33, 0x5E, 0x8C, 0x7D, 0x8C, 0x04, 0xDA, 0x0A,
+];
+pub const H264_METADATA_VERSION: &str = "https://strawlab.org/h264-metadata/v1/";
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct H264Metadata {
+    /// version of this structure
+    ///
+    /// Should be equal to H264_METADATA_VERSION.
+    ///
+    /// This field must always be serialized first.
+    pub version: String,
+
+    pub writing_app: String,
+
+    pub creation_time: chrono::DateTime<chrono::FixedOffset>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera_name: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gamma: Option<f32>,
+}
+
+impl H264Metadata {
+    pub fn new(writing_app: &str, creation_time: chrono::DateTime<chrono::FixedOffset>) -> Self {
         Self {
-            codec: Mp4Codec::default(),
-            max_framerate: RecordingFrameRate::Unlimited,
+            version: H264_METADATA_VERSION.to_string(),
+            writing_app: writing_app.to_string(),
+            creation_time,
+            camera_name: None,
+            gamma: None,
         }
     }
 }
@@ -248,7 +327,7 @@ pub enum CsvSaveConfig {
 
 // April tags
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum TagFamily {
     Family36h11,
     FamilyStandard41h12,

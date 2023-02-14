@@ -1,0 +1,26 @@
+[package]
+name = "less-avc-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+less-avc = "0.1.2"
+convert-image = { path = "../../convert-image" }
+basic-frame = { path = "../../basic-frame" }
+machine-vision-formats = "0.1"
+chrono = "0.4.23"
+thiserror = "1"
+
+[dev-dependencies]
+anyhow = "1"
+log = "0.4"
+env_logger = "0.9.1"
+h264-reader = "0.6.0"
+rusttype = "0.9.2"
+ttf-firacode = "0.1"
+image = {version="0.24.2", default-features=false, features=["jpeg","tiff","png"]}
+
+simple-frame = { path = "../../simple-frame" }
+
+[features]
+backtrace = ["less-avc/backtrace", "convert-image/backtrace", "anyhow/backtrace"]

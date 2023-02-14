@@ -39,6 +39,9 @@ impl BraidArchiveNoVideoData {
             accum: vec![],
         })
     }
+    pub(crate) fn frame_duration(&self) -> std::time::Duration {
+        todo!("need to extract frame duration (i.e. reciprocal of framerate) from braid archive");
+    }
 }
 
 fn rows2result(camns: &[CamNum], rows: &[Data2dDistortedRow]) -> SyncedPictures {

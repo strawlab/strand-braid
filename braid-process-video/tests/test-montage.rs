@@ -1,10 +1,24 @@
 use braid_process_video::{
-    run_config, BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig,
-    VideoSourceConfig,
+    BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig, VideoSourceConfig,
 };
 
 const BASE_URL: &str = "https://strawlab-cdn.com/assets/flycube6-videos";
 const SOURCE_JSON: &str = include_str!("source.json");
+
+async fn do_config(cfg: &Valid<BraidRetrackVideoConfig>) -> anyhow::Result<()> {
+    // generate the output
+    let output_fnames = braid_process_video::run_config(&cfg).await?;
+    assert_eq!(output_fnames.len(), 1);
+    let output_fname = output_fnames[0].clone();
+
+    // start parsing output
+    let do_decode_h264 = false;
+    let _src = frame_source::from_path(&output_fname, do_decode_h264)?;
+
+    // TODO: check output. How?
+
+    Ok(())
+}
 
 fn parse_file_list(dirname: &str) -> anyhow::Result<Vec<(String, String)>> {
     let source_json: serde_json::Value = serde_json::from_str(SOURCE_JSON)?;
@@ -53,7 +67,7 @@ fn get_files(dirname: &str) -> anyhow::Result<Valid<BraidRetrackVideoConfig>> {
 
     let input_braidz = input_braidz.map(Into::into);
     let output = vec![OutputConfig::Video(VideoOutputConfig {
-        filename: format!("tests/rendered/{}.mkv", dirname),
+        filename: format!("tests/rendered/{}.mp4", dirname),
         video_options: Default::default(),
     })];
 
@@ -72,7 +86,7 @@ fn init_logging() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-#[cfg(feature = "read-mkv")]
+#[cfg(feature = "with-ffmpeg")]
 #[ignore]
 #[tokio::test]
 async fn test_fc6_led_100fps_2_cams_dark() -> anyhow::Result<()> {
@@ -80,7 +94,7 @@ async fn test_fc6_led_100fps_2_cams_dark() -> anyhow::Result<()> {
     let dirname = "fc6-led-100fps-2-cams-dark";
 
     let cfg = get_files(dirname)?;
-    run_config(&cfg).await?;
+    do_config(&cfg).await?;
     Ok(())
 }
 
@@ -91,7 +105,7 @@ async fn test_fc6_led_4fps_5_cams_bright() -> anyhow::Result<()> {
     let dirname = "fc6-led-4fps-5-cams-bright";
 
     let cfg = get_files(dirname)?;
-    run_config(&cfg).await?;
+    do_config(&cfg).await?;
     Ok(())
 }
 
@@ -102,11 +116,11 @@ async fn test_fc6_led_4fps_5_cams_dark() -> anyhow::Result<()> {
     let dirname = "fc6-led-4fps-5-cams-dark";
 
     let cfg = get_files(dirname)?;
-    run_config(&cfg).await?;
+    do_config(&cfg).await?;
     Ok(())
 }
 
-#[cfg(feature = "read-mkv")]
+#[cfg(feature = "with-ffmpeg")]
 #[ignore]
 #[tokio::test]
 async fn test_fc6_flies_100fps_2_cams() -> anyhow::Result<()> {
@@ -114,6 +128,6 @@ async fn test_fc6_flies_100fps_2_cams() -> anyhow::Result<()> {
     let dirname = "fc6-flies-100fps-2-cams";
 
     let cfg = get_files(dirname)?;
-    run_config(&cfg).await?;
+    do_config(&cfg).await?;
     Ok(())
 }

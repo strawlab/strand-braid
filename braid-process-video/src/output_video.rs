@@ -2,12 +2,15 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::io::Write;
 
-use ci2_remote_control::MkvRecordingConfig;
+use ci2_remote_control::{
+    Mp4Codec, Mp4RecordingConfig, OpenH264Options, OpenH264Preset, RecordingFrameRate,
+};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
 pub(crate) struct VideoStorage<'lib> {
-    pub(crate) mkv_writer: mkv_writer::MkvWriter<'lib, std::fs::File>,
+    pub(crate) path: std::path::PathBuf,
+    pub(crate) mp4_writer: mp4_writer::Mp4Writer<'lib, std::fs::File>,
     /// timestamp of first frame
     pub(crate) first_timestamp: Option<DateTime<Utc>>,
     pub(crate) composite_margin_pixels: usize,
@@ -25,6 +28,7 @@ impl<'lib> VideoStorage<'lib> {
         v: &crate::config::VideoOutputConfig,
         output_filename: &std::path::Path,
         sources: &[crate::CameraSource],
+        sample_duration: std::time::Duration,
     ) -> Result<Self> {
         // compute output width and height
         let cum_width: usize = sources.iter().map(|s| s.per_cam_render.width).sum();
@@ -34,20 +38,30 @@ impl<'lib> VideoStorage<'lib> {
             .max()
             .unwrap();
 
+        if output_filename
+            .extension()
+            .map(|x| x.to_str())
+            .flatten()
+            .map(|x| x.to_ascii_lowercase())
+            != Some("mp4".to_string())
+        {
+            anyhow::bail!("expected extension mp4");
+        }
         let fd = std::fs::File::create(output_filename)?;
 
-        let opts = ci2_remote_control::VP9Options { bitrate: 10000 };
-        let codec = ci2_remote_control::MkvCodec::VP9(opts);
-
-        let mkv_cfg = MkvRecordingConfig {
-            codec,
-            max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
-            save_creation_time: v.video_options.time_dilation_factor.is_none(),
-            title: v.video_options.title.clone(),
-            ..Default::default()
+        // let writing_app = format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        let mp4_cfg = Mp4RecordingConfig {
+            sample_duration,
+            codec: Mp4Codec::H264OpenH264(OpenH264Options {
+                debug: false,
+                preset: OpenH264Preset::AllFrames,
+            }),
+            max_framerate: RecordingFrameRate::Unlimited,
+            // h264_metadata: Some(H264Metadata::new(&writing_app)),
+            h264_metadata: None,
         };
 
-        let mkv_writer = mkv_writer::MkvWriter::new(fd, mkv_cfg, None)?;
+        let mp4_writer = mp4_writer::Mp4Writer::new(fd, mp4_cfg, None)?;
         let composite_margin_pixels = v
             .video_options
             .composite_margin_pixels
@@ -79,7 +93,8 @@ impl<'lib> VideoStorage<'lib> {
         usvg_opt.fontdb.load_system_fonts();
 
         Ok(Self {
-            mkv_writer,
+            path: output_filename.to_path_buf(),
+            mp4_writer: mp4_writer,
             first_timestamp: None,
             composite_margin_pixels,
             feature_radius,
@@ -263,7 +278,7 @@ impl<'lib> VideoStorage<'lib> {
         }
 
         // Save the pixmap into the MKV file being saved.
-        self.mkv_writer.write(&rasterized, save_ts)?;
+        self.mp4_writer.write(&rasterized, save_ts)?;
 
         Ok(())
     }
