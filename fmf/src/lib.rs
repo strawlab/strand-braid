@@ -40,6 +40,9 @@ pub enum FMFError {
     #[error("already closed")]
     AlreadyClosed,
 
+    #[error("reading past the end of the file")]
+    ReadingPastEnd,
+
     #[error("{source}")]
     Io {
         #[from]

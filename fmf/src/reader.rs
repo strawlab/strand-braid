@@ -52,13 +52,17 @@ fn open_buffered<P: AsRef<Path>>(p: &P) -> std::io::Result<std::io::BufReader<Fi
 }
 
 pub struct FMFReader {
+    // We cannot Seek because the gzip Decoder does not implement that.
     f: Box<dyn Read>,
     pixel_format: PixFmt,
     height: u32,
     width: u32,
     image_data_size: usize,
+    // In theory, a corrupt file could have more frames than indicated by the
+    // `n_frames` field in the header, but we assume the file is OK.
     n_frames: usize,
     count: usize,
+    file_pos: usize,
     did_error: bool,
 }
 
@@ -114,7 +118,6 @@ impl FMFReader {
         pos += 8;
         let n_frames = f.read_u64::<LittleEndian>()?.try_into().unwrap();
         pos += 8;
-        let _frame0_pos = pos;
         let count = 0;
 
         Ok(Self {
@@ -125,6 +128,7 @@ impl FMFReader {
             image_data_size,
             n_frames,
             count,
+            file_pos: pos,
             did_error: false,
         })
     }
@@ -144,16 +148,28 @@ impl FMFReader {
         self.pixel_format
     }
 
-    fn next_frame(&mut self) -> FMFResult<DynamicFrame> {
-        debug_assert!(self.count < self.n_frames);
+    pub fn file_pos(&self) -> usize {
+        self.file_pos
+    }
 
-        let f = &mut self.f;
+    /// Return the number of frames indicated in the header.
+    pub fn n_frames(&self) -> usize {
+        self.n_frames
+    }
+
+    fn next_frame(&mut self) -> FMFResult<DynamicFrame> {
+        // Private function to actually read next frame.
+        if self.count >= self.n_frames {
+            return Err(FMFError::ReadingPastEnd);
+        }
 
         let mut timestamp_data: Vec<u8> = vec![0; TIMESTAMP_SIZE];
-        f.read_exact(&mut timestamp_data)?;
+        self.f.read_exact(&mut timestamp_data)?;
+        self.file_pos += TIMESTAMP_SIZE;
 
         let mut image_data: Vec<u8> = vec![0; self.image_data_size];
-        f.read_exact(&mut image_data)?;
+        self.f.read_exact(&mut image_data)?;
+        self.file_pos += self.image_data_size;
 
         let timestamp_f64 = timestamp_data.as_slice().read_f64::<LittleEndian>()?;
         let host_timestamp = f64_to_datetime(timestamp_f64);
