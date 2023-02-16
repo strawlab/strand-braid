@@ -18,37 +18,23 @@ const Y4M_FRAME_MAGIC: &str = "FRAME";
 
 /*
 
-Example export to mkv for RGB8. Will change colors via YUV bit, will loose timestamps:
+Examples of exporting from FMF to MKV with `ffv1` codec. Note these all loose
+timestamp data:
 
-    fmf export-y4m test_rgb8.fmf -o - | ffmpeg -i - -vcodec ffv1 /tmp/test.mkv
+    fmf export-y4m test_rgb8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_yuv.mkv
 
 Example export to mkv for mono8. Will loose timestamps:
 
-    fmf export-y4m /extra2/straw/src2/python-alleskleber-2018-2019-ws/practical-02/data/short-movie20170810_182130.fmf -o - | ffmpeg -i - -vcodec ffv1 /tmp/short-movie20170810_182130-ffv1.mkv
+    fmf export-y4m test_mono8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_mono8.mkv
 
-Example export to mkv via RGB (should be lossless):
+Example export to mkv via RGB (should be lossless for image data). Will loose timestamps:
 
-    fmf export-bgr24 test_rgb8.fmf -o - | ffmpeg -i - -f rawvideo -pix_fmt bgr0 -s 332x332 -r 30 -vcodec ffv1 /tmp/test.mkv
+    fmf export-bgr24 test_rgb8.fmf -o - | ffmpeg -i - -f rawvideo -pix_fmt bgr0 -s 332x332 -r 30 -vcodec ffv1 test_bgr.mkv
 
-Example export to webm:
-
-    fmf export-webm test_rgb8.fmf -o /tmp/test.webm
-
-Idea: use FFMPEG to encode ffv1 stream (or x264 or ...) and then use
-webm/matroska muxer directly to save it with original timestamps.
-
-should be able to set DateUTC MKV meta data with the "creation_time" tag.
-However, this has two problems: 1) the time is only parsed to the second level,
-meaning millisecond (or better) precision is not currently possible and 2) it is
-not possible to specify the timestamp of each frame with the y4m method, only an
-overall framerate.
-
-E.g.
-
-    fmf export-y4m /extra2/straw/src2/python-alleskleber-2018-2019-ws/practical-02/data/short-movie20170810_182130.fmf -o - | ffmpeg -i - -vcodec ffv1 -metadata creation_time=978307200001234  /tmp/short-movie20170810_182130-ffv1.mkv
-
-    fmf export-y4m /extra2/straw/src2/python-alleskleber-2018-2019-ws/practical-02/data/short-movie20170810_182130.fmf -o - | ffmpeg -i - -vcodec ffv1 -metadata creation_time="2012-02-07 12:15:27"  /tmp/short-movie20170810_182130-ffv1.mkv
-
+Note that MKV's `DateUTC` metadata creation time can be set when creating an MKV
+video in ffmpeg with the option `-metadata creation_time="2012-02-07 12:15:27"`.
+However, as of the time of writing, ffmpeg only parses the command line date to
+the second (whereas the MKV spec allows better precision).
 
 */
 
