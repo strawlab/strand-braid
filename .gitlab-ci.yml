@@ -844,7 +844,7 @@ fmf-cli-ubuntu2004:
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release --features nv-h264,import-webm,mkv-writer/vpx
+    - cargo build --release --features nv-h264,mkv-writer/vpx
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/fmf $CI_PROJECT_DIR/build
   artifacts:
@@ -868,7 +868,7 @@ fmf-cli-ubuntu2204:
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release --features nv-h264,import-webm,mkv-writer/vpx
+    - cargo build --release --features nv-h264,mkv-writer/vpx
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/fmf $CI_PROJECT_DIR/build
   artifacts:

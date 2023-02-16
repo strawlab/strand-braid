@@ -143,11 +143,6 @@ enum Opt {
         #[structopt(parse(from_os_str), long = "output", short = "o", name = "OUTPUT-FMF")]
         output: PathBuf,
     },
-
-    /// import a webm file, converting it to an FMF file
-    #[cfg(feature = "import-webm")]
-    #[structopt(name = "import-webm")]
-    ImportWebm(ImportWebm),
 }
 
 #[derive(StructOpt, Debug)]
@@ -269,18 +264,6 @@ impl std::str::FromStr for Autocrop {
     }
 }
 
-#[cfg(feature = "import-webm")]
-#[derive(StructOpt, Debug)]
-struct ImportWebm {
-    /// Filename of input webm
-    #[structopt(parse(from_os_str), name = "INPUT-WEBM")]
-    input: PathBuf,
-
-    /// Filename of output .fmf, "-" for stdout
-    #[structopt(parse(from_os_str), long = "output", short = "o")]
-    output: Option<PathBuf>,
-}
-
 /// convert None into default name, convert "-" into None (for stdout)
 fn default_filename(path: &Path, output: Option<PathBuf>, ext: &str) -> Option<PathBuf> {
     match output {
@@ -387,28 +370,6 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
         writer.write(&converted_frame, chrono::Utc::now())?;
     }
     Ok(())
-}
-
-#[cfg(feature = "import-webm")]
-fn import_webm(x: ImportWebm) -> Result<()> {
-    let output_fname = default_filename(&x.input, x.output, "fmf");
-
-    info!(
-        "importing {} to {}",
-        x.input.display(),
-        display_filename(&output_fname, "<stdout>").display()
-    );
-
-    let in_fd = std::fs::File::open(&x.input).unwrap();
-
-    let _reader = webm::parser::Reader::new(in_fd);
-
-    unimplemented!();
-
-    // let f = std::fs::File::create(&output_fname)?;
-    // let mut writer = fmf::FMFWriter::new(f)?;
-
-    // Ok(())
 }
 
 fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
@@ -737,10 +698,6 @@ fn main() -> Result<()> {
         }
         Opt::ImportImages { input, output } => {
             import_images(&input, output)?;
-        }
-        #[cfg(feature = "import-webm")]
-        Opt::ImportWebm(x) => {
-            import_webm(x)?;
         }
     }
     Ok(())

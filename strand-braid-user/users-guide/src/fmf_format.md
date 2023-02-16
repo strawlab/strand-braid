@@ -66,7 +66,6 @@ SUBCOMMANDS:
     export-y4m       export to y4m (YUV4MPEG2) format
     help             Prints this message or the help of the given subcommand(s)
     import-images    import a sequence of images, converting it to an FMF file
-    import-webm      import a webm file, converting it to an FMF file
     info             print information about an fmf file
 ```
 
