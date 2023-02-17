@@ -4,9 +4,10 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 
 use flydra_types::{CamNum, Data2dDistortedRow};
+use frame_source::FrameData;
 use timestamped_frame::ExtraTimeData;
 
-use crate::{argmin::Argmin, peek2::Peek2, MovieReader, SyncedPictures};
+use crate::{argmin::Argmin, peek2::Peek2, SyncedPictures};
 
 fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) -> bool {
     let dist = a.signed_duration_since(*b);
@@ -121,7 +122,7 @@ impl Iterator for BraidArchiveNoVideoData {
 }
 
 struct BraidArchivePerCam<'a> {
-    frame_reader: Peek2<Box<dyn MovieReader>>,
+    frame_reader: Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
@@ -140,7 +141,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
         ros_camera_names: &[&str],
-        frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
+        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
         sync_threshold: chrono::Duration,
     ) -> Result<Self> {
         assert_eq!(ros_camera_names.len(), frame_readers.len());
@@ -156,6 +157,8 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
                     .unwrap()
                     .as_ref()
                     .unwrap()
+                    .decoded()
+                    .unwrap()
                     .extra()
                     .host_timestamp()
             })
@@ -169,6 +172,8 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             .peek1()
             .unwrap()
             .as_ref()
+            .unwrap()
+            .decoded()
             .unwrap()
             .extra()
             .host_timestamp();
@@ -309,7 +314,13 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
                     // Now get the next MKV frame and ensure its timestamp is correct.
                     if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
-                        let p1_pts_chrono = peek1_frame.as_ref().unwrap().extra().host_timestamp();
+                        let p1_pts_chrono = peek1_frame
+                            .as_ref()
+                            .unwrap()
+                            .decoded()
+                            .unwrap()
+                            .extra()
+                            .host_timestamp();
 
                         if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
                             found = true;
@@ -334,7 +345,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                     };
 
                     let mkv_frame = match mkv_frame {
-                        Some(Ok(f)) => Some(f),
+                        Some(Ok(f)) => f.take_decoded(),
                         Some(Err(e)) => {
                             return Err(e);
                         }

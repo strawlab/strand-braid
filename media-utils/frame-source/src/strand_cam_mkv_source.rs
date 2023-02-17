@@ -37,6 +37,16 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
     fn height(&self) -> u32 {
         self.parsed.height
     }
+    fn camera_name(&self) -> Option<&str> {
+        self.parsed
+            .metadata
+            .camera_name
+            .as_ref()
+            .map(|x| x.as_ref())
+    }
+    fn gamma(&self) -> Option<f32> {
+        self.parsed.metadata.gamma
+    }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 && self.src_format == Format::H264 {
             if self.keyframes_cache.is_none() {

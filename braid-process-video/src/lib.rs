@@ -2,11 +2,9 @@ use std::{collections::BTreeMap, io::Write};
 
 use anyhow::{Context as ContextTrait, Result};
 use chrono::{DateTime, Utc};
+use frame_source::{FrameData, FrameDataSource};
 use futures::future::join_all;
 use ordered_float::NotNan;
-
-#[cfg(feature = "with-ffmpeg")]
-use ffmpeg_next as ffmpeg;
 
 use machine_vision_formats::ImageData;
 use timestamped_frame::ExtraTimeData;
@@ -17,14 +15,6 @@ mod peek2;
 use peek2::Peek2;
 
 mod argmin;
-
-#[cfg(feature = "with-ffmpeg")]
-mod ffmpeg_frame_reader;
-#[cfg(feature = "with-ffmpeg")]
-pub use ffmpeg_frame_reader::FfmpegFrameReader;
-
-mod fmf_frame_reader;
-use fmf_frame_reader::FmfFrameReader;
 
 use basic_frame::DynamicFrame;
 
@@ -96,11 +86,11 @@ pub(crate) struct BraidzFrameInfo {
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
-    readers: &mut [Peek2<Box<dyn MovieReader>>],
+    readers: &mut [Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>],
 ) {
     // Advance each reader until upcoming frame is not before the start time.
     for reader in readers.iter_mut() {
-        log::debug!("filename: {}", reader.as_ref().filename().display());
+        // log::debug!("filename: {}", reader.as_ref().filename().display());
 
         // Get information for first frame
         let p1_pts_chrono = reader
@@ -108,12 +98,16 @@ fn synchronize_readers_from(
             .unwrap()
             .as_ref()
             .unwrap()
+            .decoded()
+            .unwrap()
             .extra()
             .host_timestamp();
         let p2_pts_chrono = reader
             .peek2()
             .unwrap()
             .as_ref()
+            .unwrap()
+            .decoded()
             .unwrap()
             .extra()
             .host_timestamp();
@@ -133,7 +127,13 @@ fn synchronize_readers_from(
             loop {
                 // Get information for second frame
                 if let Some(p2_frame) = reader.peek2() {
-                    let p2_pts_chrono = p2_frame.as_ref().unwrap().extra().host_timestamp();
+                    let p2_pts_chrono = p2_frame
+                        .as_ref()
+                        .unwrap()
+                        .decoded()
+                        .unwrap()
+                        .extra()
+                        .host_timestamp();
                     let p2_delta = (p2_pts_chrono - approx_start_time)
                         .num_nanoseconds()
                         .unwrap()
@@ -189,7 +189,7 @@ impl PerCamRender {
                 panic!("")
             }
         };
-        let frame_ref: &DynamicFrame = rdr.peek1().unwrap().as_ref().unwrap();
+        let frame_ref: &DynamicFrame = rdr.peek1().unwrap().as_ref().unwrap().decoded().unwrap();
 
         let (frame0_png_buf, width, height) = match frame_ref {
             DynamicFrame::Mono8(frame_mono8) => {
@@ -306,7 +306,7 @@ struct CameraSource {
 }
 
 impl CameraSource {
-    fn take_reader(&mut self) -> Option<Peek2<Box<dyn MovieReader>>> {
+    fn take_reader(&mut self) -> Option<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>> {
         match &mut self.cam_id {
             CameraIdentifier::MovieOnly(ref mut m) | CameraIdentifier::Both((ref mut m, _)) => {
                 m.reader.take()
@@ -348,13 +348,21 @@ impl CameraIdentifier {
             }
         }
     }
+    fn frame0_time(&self) -> chrono::DateTime<chrono::FixedOffset> {
+        match self {
+            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => m.frame0_time,
+            CameraIdentifier::BraidzOnly(_b) => {
+                todo!()
+            }
+        }
+    }
 }
 
 struct MovieCamId {
     /// Full path of the movie, including directory if given
     _full_path: std::path::PathBuf,
     /// The file reader
-    reader: Option<Peek2<Box<dyn MovieReader>>>,
+    reader: Option<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
     /// File name of the movie (without directory path)
     filename: String,
     /// Name of camera given in configuration file
@@ -365,6 +373,7 @@ struct MovieCamId {
     title_as_ros: Option<String>,
     /// Filename converted to ROS name (`-` replaced with `_`)
     filename_as_ros: Option<String>,
+    frame0_time: chrono::DateTime<chrono::FixedOffset>,
 }
 
 impl MovieCamId {
@@ -385,13 +394,8 @@ struct BraidzCamId {
     camn: flydra_types::CamNum,
 }
 
-pub async fn run_config<'a>(
-    cfg: &'a Valid<BraidRetrackVideoConfig>,
-) -> Result<Vec<std::path::PathBuf>> {
+pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std::path::PathBuf>> {
     let cfg = cfg.valid();
-
-    #[cfg(feature = "with-ffmpeg")]
-    ffmpeg::init().unwrap();
 
     let mut braid_archive = cfg
         .input_braidz
@@ -425,15 +429,31 @@ pub async fn run_config<'a>(
 
     let movie_re = regex::Regex::new(r"^movie\d{8}_\d{6}_(.*)$").unwrap();
 
+    let frame_sources: Vec<Result<_>> = cfg
+        .input_video
+        .iter()
+        .map(|s| {
+            let do_decode_h264 = true;
+            frame_source::from_path(&s.filename, do_decode_h264)
+        })
+        .collect();
+    let frame_sources: Result<Vec<_>> = frame_sources.into_iter().collect();
+    let frame_sources: Vec<_> = frame_sources?;
+
+    let frame_sources = Box::new(frame_sources);
+    let frame_sources: &'static mut [Box<dyn FrameDataSource>] = frame_sources.leak();
+
     // Get `sources` from video inputs, parsing all camera names.
     let mut sources: Vec<CameraSource> = cfg
         .input_video
         .iter()
-        .map(|s| {
-            let reader = open_movie(&s.filename)?;
-            let title: Option<String> = reader.title().map(Into::into);
+        .zip(frame_sources.iter_mut())
+        .map(|(s, frame_source)| {
+            let frame0_time = frame_source.frame0_time().unwrap();
 
-            let reader = Some(Peek2::new(reader));
+            let title: Option<String> = frame_source.camera_name().map(Into::into);
+
+            let reader = Some(Peek2::new(frame_source.iter()));
 
             let title_as_ros: Option<String> = title
                 .as_ref()
@@ -472,6 +492,7 @@ pub async fn run_config<'a>(
                 title,
                 title_as_ros,
                 filename_as_ros,
+                frame0_time,
                 reader,
             });
 
@@ -596,13 +617,12 @@ pub async fn run_config<'a>(
             .map(|s| s.take_reader().unwrap())
             .collect();
 
+        let frame0_times: Vec<chrono::DateTime<chrono::FixedOffset>> =
+            sources.iter().map(|s| s.cam_id.frame0_time()).collect();
+
         // Determine which video started last and what time was the last start time.
         // This time is where we will start from.
-        let approx_start_time: Option<DateTime<Utc>> = frame_readers
-            .iter()
-            .map(|reader| reader.as_ref().creation_time())
-            .max()
-            .map(Clone::clone);
+        let approx_start_time: Option<DateTime<_>> = frame0_times.iter().max().map(Clone::clone);
 
         if let Some(approx_start_time) = &approx_start_time {
             log::info!("start time determined from videos: {}", approx_start_time);
@@ -620,12 +640,16 @@ pub async fn run_config<'a>(
                             .unwrap()
                             .as_ref()
                             .unwrap()
+                            .decoded()
+                            .unwrap()
                             .extra()
                             .host_timestamp();
                         let p2_pts_chrono = reader
                             .peek2()
                             .unwrap()
                             .as_ref()
+                            .unwrap()
+                            .decoded()
                             .unwrap()
                             .extra()
                             .host_timestamp();
@@ -664,7 +688,7 @@ pub async fn run_config<'a>(
             } else if let Some(approx_start_time) = approx_start_time {
                 // In this path, we use the timestamps in the saved videos as the source
                 // of synchronization.
-                synchronize_readers_from(approx_start_time, &mut frame_readers);
+                synchronize_readers_from(approx_start_time.into(), &mut frame_readers);
 
                 Box::new(synced_iter::SyncedIter::new(
                     frame_readers,
@@ -767,36 +791,6 @@ pub async fn run_config<'a>(
         .iter()
         .map(|d| d.path().to_path_buf())
         .collect())
-}
-
-pub trait MovieReader {
-    fn title(&self) -> Option<&str>;
-    fn filename(&self) -> &std::path::Path;
-    fn creation_time(&self) -> &DateTime<Utc>;
-    fn next_frame(&mut self) -> Option<Result<DynamicFrame>>;
-}
-
-pub fn open_movie(filename: &str) -> Result<Box<dyn MovieReader>> {
-    if filename.to_lowercase().ends_with(".fmf") || filename.to_lowercase().ends_with(".fmf.gz") {
-        Ok(Box::new(FmfFrameReader::new(filename)?))
-    } else {
-        #[cfg(feature = "with-ffmpeg")]
-        {
-            Ok(Box::new(FfmpegFrameReader::new(filename)?))
-        }
-
-        #[cfg(not(feature = "with-ffmpeg"))]
-        {
-            anyhow::bail!("File not .fmf or .fmf.gz but not compiled 'with-ffmpeg' feature.")
-        }
-    }
-}
-
-impl Iterator for dyn MovieReader {
-    type Item = Result<DynamicFrame>;
-    fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
-        self.next_frame()
-    }
 }
 
 fn gather_frame_data<'a>(

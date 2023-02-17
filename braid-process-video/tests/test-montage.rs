@@ -86,7 +86,6 @@ fn init_logging() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-#[cfg(feature = "with-ffmpeg")]
 #[ignore]
 #[tokio::test]
 async fn test_fc6_led_100fps_2_cams_dark() -> anyhow::Result<()> {
@@ -120,7 +119,6 @@ async fn test_fc6_led_4fps_5_cams_dark() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "with-ffmpeg")]
 #[ignore]
 #[tokio::test]
 async fn test_fc6_flies_100fps_2_cams() -> anyhow::Result<()> {

@@ -22,9 +22,9 @@ impl<I: std::iter::Iterator> Peek2<I> {
             }
         }
     }
-    pub(crate) fn as_ref(&self) -> &I {
-        &self.inner
-    }
+    // pub(crate) fn as_ref(&self) -> &I {
+    //     &self.inner
+    // }
     pub(crate) fn peek1(&self) -> Option<&I::Item> {
         self.slot1.as_ref()
     }

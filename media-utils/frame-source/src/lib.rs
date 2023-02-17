@@ -23,6 +23,12 @@ pub trait FrameDataSource {
     fn width(&self) -> u32;
     /// Get the height of the source images, in pixels.
     fn height(&self) -> u32;
+    fn camera_name(&self) -> Option<&str> {
+        None
+    }
+    fn gamma(&self) -> Option<f32> {
+        None
+    }
     /// Get the timestamp of the first frame.
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>>;
     /// Set source to skip the first N frames.
@@ -78,6 +84,20 @@ impl FrameData {
     /// Starts with 0.
     pub fn idx(&self) -> usize {
         self.idx
+    }
+
+    pub fn decoded(&self) -> Option<&DynamicFrame> {
+        match &self.image {
+            ImageData::Decoded(frame) => Some(&frame),
+            _ => None,
+        }
+    }
+
+    pub fn take_decoded(self) -> Option<DynamicFrame> {
+        match self.image {
+            ImageData::Decoded(frame) => Some(frame),
+            _ => None,
+        }
     }
 }
 

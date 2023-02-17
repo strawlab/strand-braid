@@ -763,8 +763,8 @@ braid-process-video-ubuntu2004:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features with-ffmpeg
-    - cargo build --release --features with-ffmpeg
+    - cargo test --release
+    - cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
@@ -784,8 +784,8 @@ braid-process-video-ubuntu2204:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features with-ffmpeg
-    - cargo build --release --features with-ffmpeg
+    - cargo test --release
+    - cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
@@ -806,7 +806,7 @@ slow-braid-process-video-test:
     - export RUSTFLAGS="-D warnings"
 
     - cd braid-process-video
-    - cargo test --release --features with-ffmpeg -- --include-ignored
+    - cargo test --release -- --include-ignored
 
 braidz-cli-ubuntu2004:
   image: ubuntu:focal

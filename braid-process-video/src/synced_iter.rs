@@ -1,12 +1,13 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use crate::{peek2::Peek2, MovieReader, SyncedPictures};
+use crate::{peek2::Peek2, SyncedPictures};
+use frame_source::FrameData;
 use timestamped_frame::ExtraTimeData;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
 pub(crate) struct SyncedIter {
-    frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
+    frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
@@ -17,7 +18,7 @@ pub(crate) struct SyncedIter {
 
 impl SyncedIter {
     pub(crate) fn new(
-        frame_readers: Vec<Peek2<Box<dyn MovieReader>>>,
+        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
     ) -> Result<Self> {
@@ -35,6 +36,8 @@ impl SyncedIter {
                 x.peek1()
                     .unwrap()
                     .as_ref()
+                    .unwrap()
+                    .decoded()
                     .unwrap()
                     .extra()
                     .host_timestamp()
@@ -74,7 +77,7 @@ impl Iterator for SyncedIter {
             .frame_readers
             .iter_mut()
             .filter_map(|frame_reader| {
-                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().extra().host_timestamp());
+                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().decoded().unwrap().extra().host_timestamp());
 
                 let mkv_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;
@@ -89,9 +92,13 @@ impl Iterator for SyncedIter {
                             None
                         } else if timestamp1 < min_threshold {
                             // Just skip a frame in the file? Not sure about this.
+                            // log::warn!(
+                            //     "Two frames within minimum threshold file {}. Skipping frame with timestamp {}.",
+                            //     frame_reader.as_ref().filename().display(), timestamp1,
+                            // );
                             log::warn!(
-                                "Two frames within minimum threshold file {}. Skipping frame with timestamp {}.",
-                                frame_reader.as_ref().filename().display(), timestamp1,
+                                "Two frames within minimum threshold. Skipping frame with timestamp {}.",
+                                timestamp1,
                             );
                             frame_reader.next();
                             frame_reader.next()
@@ -107,7 +114,7 @@ impl Iterator for SyncedIter {
 
                 if let Some(timestamp1) = timestamp1 {
                     let mkv_frame = match mkv_frame {
-                        Some(Ok(f)) => Some(f),
+                        Some(Ok(f)) => Some(f.take_decoded().unwrap()),
                         Some(Err(e)) => {
                             return Some(Err(e));
                         }

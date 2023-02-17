@@ -9,7 +9,6 @@ description = "process videos within the Braid multi-camera framework"
 # apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
 log = "0.4"
 env_logger = "0.8"
-ffmpeg-next = {version="5.1.1", optional=true}
 tokio = {version="1.17", features=["macros","rt","tracing"]}
 tokio-stream = "0.1.8"
 stream-cancel = "0.8"
@@ -43,9 +42,9 @@ fmf = {path="../fmf"}
 timestamped-frame = {path="../timestamped-frame"}
 flydra2 = {path="../flydra2"}
 flydra-mvg = {path="../flydra-mvg"}
+frame-source = {path="../media-utils/frame-source"}
 
 [features]
-with-ffmpeg = ["ffmpeg-next"]
 backtrace = ["anyhow/backtrace", "mp4-writer/backtrace",
     "convert-image/backtrace", "braidz-parser/backtrace",
     "fmf/backtrace",
