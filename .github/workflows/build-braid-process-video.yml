@@ -7,29 +7,20 @@ on:
     branches: ["**"]
 
 jobs:
-  # For building with VPX, see
-  # https://github.com/astraw/env-libvpx-sys/blob/master/.github/workflows/rust.yml
-
   braid-process-video-app-ubuntu-20-04:
-    # The ubuntu binary will depend on the libvpx package being installed. TODO:
-    # notify the user that this is required (or build a .deb that requires it).
     runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: braid-process-video
     steps:
       - uses: actions/checkout@v2
-      - name: download and extract libvpx
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Build braid-process-video app
         run: |
-          cargo +stable build --release --features vpx,with-ffmpeg
+          cargo +stable build --release
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-ubuntu
@@ -40,14 +31,6 @@ jobs:
     defaults:
       run:
         working-directory: braid-process-video
-    strategy:
-      matrix:
-        include:
-          - ffmpeg_version: latest
-            ffmpeg_download_url: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z
-      fail-fast: false
-    env:
-      FFMPEG_DOWNLOAD_URL: ${{ matrix.ffmpeg_download_url }}
     steps:
       - uses: actions/checkout@v2
       - name: download and extract libvpx
@@ -57,28 +40,13 @@ jobs:
           dir
           dir $HOME\unzipped
           dir $HOME\unzipped\lib\x64
-      - name: Install ffmpeg
-        # See https://github.com/zmwangx/rust-ffmpeg/blob/master/.github/workflows/build.yml
-        run: |
-          $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-          Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-          Invoke-WebRequest "${env:FFMPEG_DOWNLOAD_URL}" -OutFile ffmpeg-release-full-shared.7z
-          7z x ffmpeg-release-full-shared.7z
-          mkdir ffmpeg
-          mv ffmpeg-*/* ffmpeg/
-          Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
-          Add-Content $env:GITHUB_PATH "${pwd}\ffmpeg\bin`n"
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Build braid-process-video app
         run: |
-          $Env:VPX_STATIC = "1"
-          $Env:VPX_VERSION = "1.10.0"
-          $Env:VPX_LIB_DIR = "$HOME\unzipped\lib\x64"
-          $Env:VPX_INCLUDE_DIR = "$HOME\unzipped\include"
-          cargo build --release --features vpx,with-ffmpeg
+          cargo build --release
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-windows
@@ -91,27 +59,14 @@ jobs:
         working-directory: braid-process-video
     steps:
       - uses: actions/checkout@v2
-      - name: download and extract libvpx
-        run: |
-          cd /tmp
-          curl --show-error --fail --silent -O -L https://strawlab-cdn.com/assets/libvpx-1.8.1.sierra.bottle.tar.gz
-          sudo mkdir -p /opt
-          sudo tar xvzf /tmp/libvpx-1.8.1.sierra.bottle.tar.gz -C /opt
-      - name: Install dependencies
-        run: |
-          brew install ffmpeg pkg-config
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Build braid-process-video app
         run: |
-          export VPX_STATIC=1
-          export VPX_VERSION="1.8.1"
-          export VPX_LIB_DIR="/opt/libvpx/1.8.1/lib"
-          export VPX_INCLUDE_DIR="/opt/libvpx/1.8.1/include"
           export PATH="$PATH:$HOME/.cargo/bin"
-          cargo build --release --features vpx,with-ffmpeg
+          cargo build --release
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-mac
