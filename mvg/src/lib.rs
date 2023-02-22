@@ -42,8 +42,9 @@ pub enum MvgError {
     NoValidRootFound,
     #[error("not implemented operation in mvg")]
     NotImplemented,
-    #[error("cannot convert to or from flydra xml")]
+    #[error("cannot convert to or from flydra xml: {msg}")]
     FailedFlydraXmlConversion {
+        msg: &'static str,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },

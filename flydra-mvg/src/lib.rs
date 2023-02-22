@@ -600,6 +600,7 @@ where
         let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)
             .map_err(|_e| {
             MvgError::FailedFlydraXmlConversion {
+                msg: "XML parsing error",
                 #[cfg(feature = "backtrace")]
                 backtrace: Backtrace::capture(),
             }
@@ -632,6 +633,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
             return Err(MvgError::FailedFlydraXmlConversion {
+                msg: "3rd term of radial distortion not supported",
                 #[cfg(feature = "backtrace")]
                 backtrace: Backtrace::capture(),
             });
@@ -716,6 +718,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         let epsilon = 0.03;
         if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
             return Err(MvgError::FailedFlydraXmlConversion {
+                msg: "skew not supported",
                 #[cfg(feature = "backtrace")]
                 backtrace: Backtrace::capture(),
             });
