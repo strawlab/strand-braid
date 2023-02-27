@@ -537,7 +537,6 @@ mod tests {
         for fname in fnames {
             let f = basepath.join(fname);
             let mut fd = std::fs::File::create(&f).unwrap();
-            // write!(&fd, "This is file {}.", fname);
             fd.write_all(fname.as_bytes())?;
         }
         Ok(())
