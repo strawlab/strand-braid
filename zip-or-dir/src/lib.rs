@@ -206,7 +206,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                 let zipfile = zip_archive.by_name(relname_str)?;
                 Ok(BufReader::new(Box::new(zipfile)))
             }
-            None => Ok(BufReader::new(Box::new(std::fs::File::open(&dirpath)?))),
+            None => Ok(BufReader::new(Box::new(std::fs::File::open(dirpath)?))),
         }
     }
 
@@ -444,7 +444,7 @@ impl SlashJoin for PathBuf {
 /// created zip file. The contents of the source are walked recursively to copy
 /// it entirely.
 pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Result<()> {
-    let mut src_archive = ZipDirArchive::auto_from_path(src.as_ref().to_path_buf()).unwrap();
+    let mut src_archive = ZipDirArchive::auto_from_path(src.as_ref()).unwrap();
     let mut zipfile = std::fs::File::create(dest)?;
     copy_archive_to_zipfile(&mut src_archive, &mut zipfile)
 }
@@ -474,6 +474,7 @@ pub fn copy_archive_to_zipfile<R: Read + Seek>(
 }
 
 /// copy from src into zip file
+#[allow(clippy::only_used_in_recursion)]
 fn copy_dir<R: Read + Seek>(
     src: &mut ZipDirArchive<R>,
     relname: Option<&Path>,

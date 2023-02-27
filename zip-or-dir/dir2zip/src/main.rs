@@ -8,7 +8,6 @@
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().map(String::from).collect();
     if args.len() != 3 {
-        assert!(args.len() >= 1);
         eprintln!("Usage: {} <INPUT> <OUTPUT.zip>", args[0]);
         anyhow::bail!("No <INPUT> or <OUTPUT.zip> filename given");
     }
