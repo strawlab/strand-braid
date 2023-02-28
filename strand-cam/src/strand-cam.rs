@@ -1236,11 +1236,15 @@ async fn frame_process_task(
                     opt_frame_offset.clone(),
                     extracted_frame_info.host_framenumber,
                 );
-                let save_mkv_fmf_stamp = if let Some(trigger_timestamp) = &opt_trigger_stamp {
-                    trigger_timestamp.into()
-                } else {
-                    extracted_frame_info.host_timestamp
-                };
+                let (timestamp_source, save_mkv_fmf_stamp) =
+                    if let Some(trigger_timestamp) = &opt_trigger_stamp {
+                        (TimestampSource::BraidTrigger, trigger_timestamp.into())
+                    } else {
+                        (
+                            TimestampSource::HostAcquiredTimestamp,
+                            extracted_frame_info.host_timestamp,
+                        )
+                    };
 
                 if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
                     if let Some(ref mut store) = shared_store_arc {
@@ -1430,8 +1434,12 @@ async fn frame_process_task(
                                     // If mu00 is 0.0, these will be NaN. CBOR explicitly can represent NaNs.
 
                                     let mc = ToDevice::Centroid(MomentCentroid {
-                                        x,
-                                        y,
+                                        schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
+                                        timestamp: save_mkv_fmf_stamp.clone(),
+                                        timestamp_source,
+                                        mu00,
+                                        mu01,
+                                        mu10,
                                         center_x: store_cache_ref.im_ops_state.center_x,
                                         center_y: store_cache_ref.im_ops_state.center_y,
                                     });
@@ -2541,12 +2549,24 @@ unsafe impl Send for ProcessFrameCbData {}
 #[cfg(not(feature = "plugin-process-frame"))]
 struct ProcessFrameCbData {}
 
-#[derive(Debug, Serialize, Deserialize)]
-struct MomentCentroid {
-    x: f32,
-    y: f32,
-    center_x: u32,
-    center_y: u32,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub enum TimestampSource {
+    BraidTrigger,
+    HostAcquiredTimestamp,
+}
+
+const MOMENT_CENTROID_SCHEMA_VERSION: u8 = 1;
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct MomentCentroid {
+    pub schema_version: u8,
+    pub timestamp_source: TimestampSource,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub mu00: f32,
+    pub mu01: f32,
+    pub mu10: f32,
+    pub center_x: u32,
+    pub center_y: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
