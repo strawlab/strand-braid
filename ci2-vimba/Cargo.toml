@@ -15,7 +15,7 @@ machine-vision-formats = "0.1"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 parking_lot = "0.12.1"
 lazy_static = "1"
-tempfile = "3.3.0"
+tempfile = "3.4.0"
 
 vimba-sys = "0.2.0"
 

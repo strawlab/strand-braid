@@ -25,7 +25,7 @@ nvenc = {path="../../nvenc"}
 
 [dev-dependencies]
 download-verify = {path="../../download-verify"}
-tempfile = "3.3.0"
+tempfile = "3.4.0"
 zip = { version = "0.6.2", default-features = false, features=["deflate", "time"] }
 
 [features]

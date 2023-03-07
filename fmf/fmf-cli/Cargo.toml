@@ -33,7 +33,7 @@ ci2-remote-control = { path = "../../ci2-remote-control"}
 nvenc = {path="../../nvenc",optional=true}
 
 [dev-dependencies]
-tempfile = "3.3.0"
+tempfile = "3.4.0"
 
 [features]
 nv-h264 = ["nvenc"]

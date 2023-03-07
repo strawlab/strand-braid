@@ -36,7 +36,7 @@ rusttype = "0.8.1"
 image = {version="0.24.2", default-features=false, features=["jpeg","tiff","png"]}
 ttf-firacode = "0.1"
 simple-frame = { path = "../../simple-frame" }
-tempfile = "3.3.0"
+tempfile = "3.4.0"
 clap = {version="4.0.10", features=["derive"]}
 
 [features]
