@@ -218,7 +218,7 @@ fn parse_args(
             parser = parser.arg(
                 Arg::with_name("braid_addr")
                     .long("braid_addr")
-                    .help("Braid HTTP API address (IP:Port)")
+                    .help("Braid HTTP API address (e.g. 'http://host:port/')")
                     .takes_value(true),
             );
         }
