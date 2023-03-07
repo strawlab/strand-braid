@@ -7,11 +7,19 @@ const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
 fn test_run_end_to_end() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(tempdir::TempDir::new("strand-convert").unwrap());
+    let flydra_csv_temp_dir = Some(
+        tempfile::Builder::new()
+            .prefix("strand-convert")
+            .tempdir()
+            .unwrap(),
+    );
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
-    let output_dir = tempdir::TempDir::new("strand-convert-output").unwrap();
+    let output_dir = tempfile::Builder::new()
+        .prefix("strand-convert-output")
+        .tempdir()
+        .unwrap();
     // The output .braidz filename:
     let output_braidz = output_dir.as_ref().join("out.braidz");
 
@@ -45,11 +53,19 @@ fn test_run_end_to_end() {
 fn test_z_values_zero() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(tempdir::TempDir::new("strand-convert").unwrap());
+    let flydra_csv_temp_dir = Some(
+        tempfile::Builder::new()
+            .prefix("strand-convert")
+            .tempdir()
+            .unwrap(),
+    );
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
-    let output_dir = tempdir::TempDir::new("strand-convert-output").unwrap();
+    let output_dir = tempfile::Builder::new()
+        .prefix("strand-convert-output")
+        .tempdir()
+        .unwrap();
     // The output .braidz filename:
     let output_braidz = output_dir.as_ref().join("out.braidz");
 

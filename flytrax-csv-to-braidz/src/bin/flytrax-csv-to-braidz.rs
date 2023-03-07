@@ -89,7 +89,9 @@ fn open_files_and_run() -> anyhow::Result<()> {
         None => None,
     };
 
-    let flydra_csv_temp_dir = tempdir::TempDir::new("strand-convert")?;
+    let flydra_csv_temp_dir = tempfile::Builder::new()
+        .prefix("strand-convert")
+        .tempdir()?;
 
     info!("strand-cam csv conversion to temporary flydra format:");
     info!(

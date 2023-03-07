@@ -27,7 +27,7 @@ hyper = "0.14"
 futures = "0.3"
 tokio = {version="1.0.1", default-features=false, features=["macros"]}
 includedir = { version = "0.5", optional = true }
-tempdir = "^0.3"
+tempfile = "3.4.0"
 phf = { version = "0.7.23", optional = true }
 anyhow = "1.0"
 

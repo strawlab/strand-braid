@@ -141,7 +141,7 @@ impl StrandCamConfig {
 
 async fn kalmanize_2d<R>(
     point_detection_csv_reader: R,
-    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
+    flydra_csv_temp_dir: Option<&tempfile::TempDir>,
     output_braidz: &std::path::Path,
     tracking_params: TrackingParams,
     to_recon_func: fn(
@@ -162,7 +162,11 @@ where
     let flydra_csv_temp_dir = match flydra_csv_temp_dir {
         Some(x) => x,
         None => {
-            owned_temp_dir = Some(tempdir::TempDir::new("tmp-strand-convert")?);
+            owned_temp_dir = Some(
+                tempfile::Builder::new()
+                    .prefix("tmp-strand-convert")
+                    .tempdir()?,
+            );
             owned_temp_dir.as_ref().unwrap()
         }
     };
@@ -226,7 +230,7 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
-    flydra_csv_temp_dir: &tempdir::TempDir,
+    flydra_csv_temp_dir: &tempfile::TempDir,
     row_filters: &[RowFilter],
 ) -> Result<usize>
 where
@@ -490,7 +494,7 @@ pub struct PseudoCalParams {
 ///   converted to a file that ends with `.braidz`.
 pub fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    flydra_csv_temp_dir: Option<&tempdir::TempDir>,
+    flydra_csv_temp_dir: Option<&tempfile::TempDir>,
     output_braidz: &std::path::Path,
     calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
