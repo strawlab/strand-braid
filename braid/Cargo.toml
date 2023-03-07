@@ -13,7 +13,6 @@ log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
 dotenv = "0.15"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-human-panic = "1.0.3"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 flydra-types = {path="../flydra-types"}

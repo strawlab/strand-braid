@@ -28,12 +28,6 @@ where
     M: ci2::CameraModule<CameraType = C>,
     C: 'static + ci2::Camera + Send,
 {
-    human_panic::setup_panic!(human_panic::Metadata {
-        version: format!("{}", env!("CARGO_PKG_VERSION")).into(),
-        name: env!("CARGO_PKG_NAME").into(),
-        authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
-        homepage: env!("CARGO_PKG_HOMEPAGE").into(),
-    });
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {

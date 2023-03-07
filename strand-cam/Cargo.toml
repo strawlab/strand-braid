@@ -79,7 +79,6 @@ nalgebra = {version="0.30", optional = true }
 opencv-ros-camera = "0.12"
 alga = { version = "0.9", optional = true }
 approx = { version = "0.5", optional = true }
-human-panic = "1.0.3"
 byteorder = "1.4"
 
 braid-config-data = {path="../braid-config-data"}
