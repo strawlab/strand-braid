@@ -15,8 +15,6 @@ use fastimage::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
 
-pub(crate) const NUM_BG_START_IMAGES: usize = 20;
-
 type ToWorker = (DynamicFrame, ImPtDetectCfg);
 type FromWorker = (
     FastImageData<Chan1, f32>,
@@ -232,7 +230,7 @@ impl BackgroundModelWorker {
             raw_im_full,
             &mut self.mean_background,
             self.current_roi.size(),
-            1.0 / NUM_BG_START_IMAGES as f32,
+            cfg.alpha,
         )?;
         ripp::convert_32f8u_c1r(
             &self.mean_background,
@@ -247,7 +245,7 @@ impl BackgroundModelWorker {
             &this_squared,
             &mut self.mean_squared_im,
             self.current_roi.size(),
-            1.0 / NUM_BG_START_IMAGES as f32,
+            cfg.alpha,
         )?;
 
         let mut mean2 = FastImageData::copy_from_32f_c1(&self.mean_background)?;

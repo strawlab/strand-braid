@@ -50,10 +50,12 @@ mod borrow_fastimage;
 use crate::borrow_fastimage::borrow_fi;
 
 mod background_model;
-use crate::background_model::{BackgroundModel, NUM_BG_START_IMAGES};
+use crate::background_model::BackgroundModel;
 
 mod errors;
 pub use crate::errors::*;
+
+const NUM_BG_START_IMAGES: usize = 20;
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
