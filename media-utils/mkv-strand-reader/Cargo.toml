@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 mkv-parser-kit = {path="../mkv-parser-kit"}
-chrono = "0.4.22"
+chrono = {version="0.4.23", default-features=false}
 thiserror = "1"
 
 [dev-dependencies]

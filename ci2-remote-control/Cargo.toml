@@ -9,4 +9,4 @@ serde_derive = "1.0"
 ci2-types = {path="../ci2/ci2-types"}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
 enum-iter = {path="../enum-iter"}
-chrono = "0.4.23"
+chrono = {version="0.4.23", default-features=false}

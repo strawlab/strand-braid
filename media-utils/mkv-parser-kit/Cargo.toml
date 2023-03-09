@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 
 [dependencies]
 bitstream-io = "1.5.0"
-chrono = "0.4.23"
+chrono = {version="0.4.23", default-features=false}
 
 [dev-dependencies]
 anyhow = "1"
