@@ -46,6 +46,8 @@
 ### Fixed
 
 * When saving MKV files, the maximum framerate parameter is respected.
+* The `alpha` parameter in the feature detector was inadvertently ignored. This
+  has been corrected. Thanks to Antoine Cribellier for noticing this.
 
 ## 0.11.1 - 2021-12-04
 
