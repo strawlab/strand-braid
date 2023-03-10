@@ -22,9 +22,7 @@ lazy_static! {
         let tracking_example = flydra_types::default_tracking_params_flat_3d();
         let tracking_buf_buf = toml::to_string(&tracking_example).unwrap();
 
-        format!("EXAMPLE .TOML FILES:\n\n# Example calibration .toml file:\n```\n{}```\n\n# Example tracking parameter .toml file:\n```\n{}```",
-            cal_buf,
-            tracking_buf_buf)
+        format!("EXAMPLE .TOML FILES:\n\n# Example calibration .toml file:\n```\n{cal_buf}```\n\n# Example tracking parameter .toml file:\n```\n{tracking_buf_buf}```")
     };
 }
 
@@ -81,7 +79,7 @@ fn open_files_and_run() -> anyhow::Result<()> {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
-            let buf = std::fs::read_to_string(&fname)
+            let buf = std::fs::read_to_string(fname)
                 .map_err(anyhow::Error::from)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
             Some(buf)

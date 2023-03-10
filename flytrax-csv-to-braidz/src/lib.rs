@@ -337,7 +337,7 @@ fn is_inside_calibration_region(
 ) -> bool {
     let dist2 = (record.x_px - pseudo_cal_params.center_x as f64).powi(2)
         + (record.y_px - pseudo_cal_params.center_y as f64).powi(2);
-    dist2 as f64 <= (pseudo_cal_params.radius as f64).powi(2)
+    dist2 <= (pseudo_cal_params.radius as f64).powi(2)
 }
 
 fn config25_upgrade(
@@ -511,7 +511,7 @@ where
         point_detection_csv_reader,
         flydra_csv_temp_dir,
         output_braidz,
-        tracking_params.try_into()?,
+        tracking_params,
         &calibration_params,
         rt_handle,
         row_filters,
