@@ -176,7 +176,7 @@ pub fn from_path<P: AsRef<std::path::Path>>(
     } else {
         let dirname = input_path;
 
-        if !std::fs::metadata(&input)?.is_dir() {
+        if !std::fs::metadata(&dirname)?.is_dir() {
             anyhow::bail!("Attempting to open \"{}\" as directory with TIFF stack failed because it is not a directory.", dirname.display());
         }
         let pattern = dirname.join("*.tif");
