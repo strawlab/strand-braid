@@ -93,6 +93,7 @@ members = [
     "simple-frame",
     "simple-obj-parse",
     "strand-cam",
+    "strand-cam/strand-cam-offline-checkerboards",
     "strand-cam/strand-cam-pylon",
     "strand-cam/strand-cam-vimba",
     "strand-cam/yew_frontend",
