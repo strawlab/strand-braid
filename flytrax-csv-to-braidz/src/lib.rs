@@ -21,7 +21,7 @@ fn remove_trailing_newline(line1: &str) -> &str {
     }
 }
 
-fn read_csv_commented_header<R>(point_detection_csv_reader: &mut R) -> Result<serde_yaml::Value>
+fn read_csv_commented_header<R>(point_detection_csv_reader: &mut R) -> Result<FullCfgFview2_0_26>
 where
     R: BufRead,
 {
@@ -108,7 +108,8 @@ where
 
     let header_lines = state.finish()?;
     let header = header_lines.join("\n");
-    Ok(serde_yaml::from_str(&header)?)
+    let yaml = serde_yaml::from_str(&header)?;
+    Ok(StrandCamConfig::from_value(yaml)?.into_latest())
 }
 
 pub enum StrandCamConfig {
@@ -144,11 +145,6 @@ async fn kalmanize_2d<R>(
     flydra_csv_temp_dir: Option<&tempfile::TempDir>,
     output_braidz: &std::path::Path,
     tracking_params: TrackingParams,
-    to_recon_func: fn(
-        serde_yaml::Value,
-        &PseudoCalParams,
-    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-    to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     rt_handle: tokio::runtime::Handle,
     row_filters: &[RowFilter],
@@ -173,8 +169,6 @@ where
 
     let num_points_converted = convert_strand_cam_csv_to_flydra_csv_dir(
         point_detection_csv_reader,
-        to_recon_func,
-        to_ts0,
         pseudo_cal_params,
         flydra_csv_temp_dir,
         row_filters,
@@ -224,11 +218,6 @@ pub enum RowFilter {
 
 fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
     mut point_detection_csv_reader: R,
-    to_recon_func: fn(
-        serde_yaml::Value,
-        &PseudoCalParams,
-    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-    to_ts0: fn(&serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>>,
     pseudo_cal_params: &PseudoCalParams,
     flydra_csv_temp_dir: &tempfile::TempDir,
     row_filters: &[RowFilter],
@@ -236,9 +225,10 @@ fn convert_strand_cam_csv_to_flydra_csv_dir<R>(
 where
     R: BufRead,
 {
-    let header = read_csv_commented_header(&mut point_detection_csv_reader)?;
-    let ts0 = to_ts0(&header)?;
-    let recon = to_recon_func(header, pseudo_cal_params)?;
+    let cfg = read_csv_commented_header(&mut point_detection_csv_reader)?;
+
+    let ts0 = to_ts0(&cfg)?;
+    let recon = to_recon_func(&cfg, pseudo_cal_params)?;
 
     assert_eq!(recon.len(), 1);
 
@@ -368,8 +358,7 @@ fn config25_upgrade(
     }
 }
 
-fn to_ts0(cfg: &serde_yaml::Value) -> Result<chrono::DateTime<chrono::Utc>> {
-    let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg.clone())?.into_latest();
+fn to_ts0(cfg: &FullCfgFview2_0_26) -> Result<chrono::DateTime<chrono::Utc>> {
     Ok(chrono::DateTime::with_timezone(
         &cfg.created_at,
         &chrono::Utc,
@@ -381,12 +370,9 @@ fn get_cam_name(cfg: &strand_cam_csv_config_types::CameraCfgFview2_0_26) -> &str
 }
 
 fn to_recon_func(
-    cfg: serde_yaml::Value,
+    cfg: &FullCfgFview2_0_26,
     pseudo_cal_params: &PseudoCalParams,
 ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>> {
-    // let cfg: FullCfgFview2_0_26 = StrandCamConfig::from_value(cfg)?.into_latest();
-    let cfg = StrandCamConfig::from_value(cfg)?.into_latest();
-
     let cam_name = get_cam_name(&cfg.camera);
 
     let cal_data = PseudoCameraCalibrationData {
@@ -526,8 +512,6 @@ where
         flydra_csv_temp_dir,
         output_braidz,
         tracking_params.try_into()?,
-        to_recon_func,
-        to_ts0,
         &calibration_params,
         rt_handle,
         row_filters,
