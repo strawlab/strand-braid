@@ -3,8 +3,8 @@ use flytrax_csv_to_braidz::{parse_configs_and_run, RowFilter};
 const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
 const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
 
-#[test]
-fn test_run_end_to_end() {
+#[tokio::test]
+async fn test_run_end_to_end() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
     let flydra_csv_temp_dir = Some(
@@ -35,6 +35,7 @@ fn test_run_end_to_end() {
         &row_filters,
         &format!("{}:{}", file!(), line!()),
     )
+    .await
     .unwrap();
 
     let reader = zip_or_dir::ZipDirArchive::auto_from_path(output_braidz).unwrap();
@@ -49,8 +50,8 @@ fn test_run_end_to_end() {
     output_dir.close().unwrap();
 }
 
-#[test]
-fn test_z_values_zero() {
+#[tokio::test]
+async fn test_z_values_zero() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
     let flydra_csv_temp_dir = Some(
@@ -79,6 +80,7 @@ fn test_z_values_zero() {
         &row_filters,
         &format!("{}:{}", file!(), line!()),
     )
+    .await
     .unwrap();
 
     let reader = zip_or_dir::ZipDirArchive::auto_from_path(output_braidz).unwrap();

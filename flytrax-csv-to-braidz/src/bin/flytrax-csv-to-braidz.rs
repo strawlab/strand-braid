@@ -49,15 +49,16 @@ struct Opt {
     track_all_points_outside_calibration_region: bool,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
     }
 
-    open_files_and_run()
+    open_files_and_run().await
 }
 
-fn open_files_and_run() -> anyhow::Result<()> {
+async fn open_files_and_run() -> anyhow::Result<()> {
     env_logger::init();
     let opt = Opt::from_args();
 
@@ -126,7 +127,8 @@ fn open_files_and_run() -> anyhow::Result<()> {
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,
         "flytrax-csv-to-braidz",
-    )?;
+    )
+    .await?;
 
     flydra_csv_temp_dir.close()?;
 

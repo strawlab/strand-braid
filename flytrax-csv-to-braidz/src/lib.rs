@@ -146,7 +146,6 @@ async fn kalmanize_2d<R>(
     output_braidz: &std::path::Path,
     tracking_params: TrackingParams,
     pseudo_cal_params: &PseudoCalParams,
-    rt_handle: tokio::runtime::Handle,
     row_filters: &[RowFilter],
     saving_program_name: &str,
 ) -> Result<()>
@@ -191,7 +190,7 @@ where
         None,
         tracking_params,
         braid_offline::KalmanizeOptions::default(),
-        rt_handle,
+        tokio::runtime::Handle::current(),
         save_performance_histograms,
         saving_program_name,
     )
@@ -478,7 +477,7 @@ pub struct PseudoCalParams {
 /// - `output_braidz` is used to initially create a "braid dir" (typically
 ///   ending with `.braid` in the name). Upon closing, this directory will be
 ///   converted to a file that ends with `.braidz`.
-pub fn parse_configs_and_run<R>(
+pub async fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
     flydra_csv_temp_dir: Option<&tempfile::TempDir>,
     output_braidz: &std::path::Path,
@@ -490,12 +489,6 @@ pub fn parse_configs_and_run<R>(
 where
     R: BufRead,
 {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
-
-    let rt_handle = runtime.handle().clone();
-
     let tracking_params = match tracking_params_buf {
         Some(buf) => {
             let tracking_params: flydra_types::TrackingParams =
@@ -507,14 +500,14 @@ where
 
     let calibration_params = toml::from_str(calibration_params_buf).map_err(anyhow::Error::from)?;
 
-    runtime.block_on(kalmanize_2d(
+    kalmanize_2d(
         point_detection_csv_reader,
         flydra_csv_temp_dir,
         output_braidz,
         tracking_params,
         &calibration_params,
-        rt_handle,
         row_filters,
         saving_program_name,
-    ))
+    )
+    .await
 }
