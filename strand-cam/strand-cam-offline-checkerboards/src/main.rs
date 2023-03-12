@@ -7,7 +7,7 @@ use log::{error, info};
 
 #[derive(Parser, Debug)]
 struct Cli {
-    /// Sets input file name
+    /// Sets input directory name with .png files
     input_dirname: std::path::PathBuf,
 
     /// Width of checkerboard pattern, in number of corners (e.g. 8x8 checks
@@ -106,7 +106,6 @@ fn main() -> Result<()> {
         Ok(intrinsics) => {
             info!("got calibrated intrinsics: {:?}", intrinsics);
 
-            // let ros_cam_name = dirname.clone();
             let ros_cam_name = dirname.as_os_str().to_str().unwrap().to_string();
 
             // Convert from mvg to ROS format.
@@ -123,22 +122,19 @@ fn main() -> Result<()> {
             let local = chrono::Local::now();
             let cam_info_file_stamped = local.format(&format_str).to_string();
             dbg!(&cam_info_file_stamped);
-            // let cam_info_file_stamped = dirname.join(stamped);
 
             let cam_info_file = format!("{}.yaml", ros_cam_name);
 
-            // Save timestamped version first for backup
-            // purposes (since below we overwrite the
-            // non-timestamped file).
+            // Save timestamped version first for backup purposes (since below
+            // we overwrite the non-timestamped file).
             {
                 let f = std::fs::File::create(&cam_info_file_stamped)
                     .with_context(|| format!("Saving file {cam_info_file_stamped}"))?;
                 serde_yaml::to_writer(f, &ci)?;
             }
 
-            // Now copy the successfully saved file into
-            // the non-timestamped name. This will
-            // overwrite an existing file.
+            // Now copy the successfully saved file into the non-timestamped
+            // name. This will overwrite an existing file.
             std::fs::copy(&cam_info_file_stamped, &cam_info_file)
                 .with_context(|| format!("Copying to file {cam_info_file}"))?;
 
