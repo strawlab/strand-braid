@@ -6,17 +6,15 @@ type Coords2D = (f64, f64);
 
 #[derive(Serialize, Deserialize)]
 pub struct CheckerBoardData {
-    // dim: f64,
     n_rows: usize,
     n_cols: usize,
     points: Vec<Coords2D>,
 }
 
 impl CheckerBoardData {
-    pub fn new(_dim: f64, n_rows: usize, n_cols: usize, points: &[Coords2D]) -> Self {
+    pub fn new(n_rows: usize, n_cols: usize, points: &[Coords2D]) -> Self {
         let points = points.to_vec();
         Self {
-            // dim,
             n_rows,
             n_cols,
             points,

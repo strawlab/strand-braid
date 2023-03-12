@@ -96,9 +96,8 @@ fn main() -> Result<()> {
     let goodcorners: Vec<camcal::CheckerBoardData> = collected_corners
         .iter()
         .map(|corners| {
-            let dim = 1.234; // TODO make this useful
             let x: Vec<(f64, f64)> = corners.iter().map(|x| (x.0 as f64, x.1 as f64)).collect();
-            camcal::CheckerBoardData::new(dim, n_rows as usize, n_cols as usize, &x)
+            camcal::CheckerBoardData::new(n_rows as usize, n_cols as usize, &x)
         })
         .collect();
 

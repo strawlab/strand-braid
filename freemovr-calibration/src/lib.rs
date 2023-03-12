@@ -39,8 +39,8 @@ type Result<T> = std::result::Result<T, Error>;
 #[serde(deny_unknown_fields)]
 /// Used to compute intrinsic camera parameters
 pub struct Checkerboard {
-    #[serde(rename = "size")]
-    dim: f64,
+    #[serde(rename = "size", skip_serializing, default)]
+    _size: f64,
     #[serde(rename = "columns")]
     n_cols: usize,
     #[serde(rename = "rows")]
@@ -78,7 +78,7 @@ impl FloatImage {
 #[cfg(feature = "opencv")]
 fn to_camcal(board: &Checkerboard) -> camcal::CheckerBoardData {
     let corners: Vec<(f64, f64)> = board.corners.clone();
-    camcal::CheckerBoardData::new(board.dim, board.n_rows, board.n_cols, &corners)
+    camcal::CheckerBoardData::new(board.n_rows, board.n_cols, &corners)
 }
 
 fn parse_multi_display_yaml<R: std::io::Read>(
