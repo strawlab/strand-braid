@@ -832,12 +832,12 @@ pub trait FastImage {
         }
         let stride_n_pixels = self.stride() as usize / std::mem::size_of::<Self::D>();
         let pixel_width = size.width() as usize;
-        let total_n_pixels = stride_n_pixels * size.height() as usize;
-        Ok(ValidChunksExact::new(
-            &self.image_slice()[..total_n_pixels],
-            stride_n_pixels,
-            pixel_width,
-        ))
+        let mut slice = self.image_slice();
+        let max_n_pixels = stride_n_pixels * size.height() as usize;
+        if max_n_pixels < slice.len() {
+            slice = &slice[..max_n_pixels];
+        }
+        Ok(ValidChunksExact::new(slice, stride_n_pixels, pixel_width))
     }
 
     /// Get the raw data for a pixel.
@@ -923,9 +923,13 @@ pub trait MutableFastImage: FastImage {
         }
         let stride_n_pixels = self.stride() as usize / std::mem::size_of::<Self::D>();
         let pixel_width = size.width() as usize;
-        let total_n_pixels = stride_n_pixels * size.height() as usize;
+        let mut slice = self.image_slice_mut();
+        let max_n_pixels = stride_n_pixels * size.height() as usize;
+        if max_n_pixels < slice.len() {
+            slice = &mut slice[..max_n_pixels];
+        }
         Ok(ValidChunksExactMut::new(
-            &mut self.image_slice_mut()[..total_n_pixels],
+            slice,
             stride_n_pixels,
             pixel_width,
         ))

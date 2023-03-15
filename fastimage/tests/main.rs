@@ -144,6 +144,61 @@ fn test_view() {
 }
 
 #[test]
+fn test_end_of_roi() {
+    let w = 10;
+    let h = 10;
+    let mut im10 = FastImageData::<Chan1, u8>::new(w, h, 0).unwrap();
+
+    // fill array with useful pattern
+    for row in 0..h as usize {
+        for col in 0..w as usize {
+            im10.pixel_slice_mut(row, col)[0] = (row * 10_usize + col) as u8;
+        }
+    }
+
+    // generate an ROI
+    let roi_sz = fastimage::FastImageSize::new(3, 4);
+    let roi = fastimage::FastImageRegion::new(fastimage::Point::new(7, 6), roi_sz);
+
+    // check contents of ROI for FastImageView
+    {
+        let im10_view = fastimage::FastImageView::view_region(&mut im10, &roi);
+        assert!(im10_view.pixel_slice(0, 0)[0] == 67);
+        assert!(im10_view.pixel_slice(0, 1)[0] == 68);
+        assert!(im10_view.pixel_slice(0, 2)[0] == 69);
+        assert!(im10_view.pixel_slice(3, 0)[0] == 97);
+        assert!(im10_view.pixel_slice(3, 1)[0] == 98);
+        assert!(im10_view.pixel_slice(3, 2)[0] == 99);
+        assert!(im10_view.size() == &roi_sz);
+    }
+
+    let value = 123;
+    let result_im = FastImageData::<Chan1, u8>::new(3, 4, value).unwrap();
+
+    {
+        // check contents of ROI for MutableFastImageView
+        let mut im10_view = fastimage::MutableFastImageView::view_region(&mut im10, &roi);
+        assert!(im10_view.pixel_slice(0, 0)[0] == 67);
+        assert!(im10_view.pixel_slice(0, 1)[0] == 68);
+        assert!(im10_view.pixel_slice(0, 2)[0] == 69);
+        assert!(im10_view.pixel_slice(3, 0)[0] == 97);
+        assert!(im10_view.pixel_slice(3, 1)[0] == 98);
+        assert!(im10_view.pixel_slice(3, 2)[0] == 99);
+        assert!(im10_view.size() == &roi_sz);
+        // set contents of ROI
+        ripp::set_8u_c1r(value, &mut im10_view, &roi_sz).unwrap();
+        // check contents of ROI after set
+        assert!(im10_view.all_equal(&result_im));
+    }
+
+    // check contents of ROI after set
+    {
+        let im10_view = fastimage::FastImageView::view_region(&im10, &roi);
+        assert!(im10_view.all_equal(&result_im));
+    }
+}
+
+#[test]
 fn test_mask() {
     let mut im_dest = FastImageData::<Chan1, u8>::new(3, 4, 123).unwrap();
     let size = *im_dest.size();

@@ -781,9 +781,9 @@ pub trait MutableFastImage: FastImage {
         }
         let stride_n_pixels = self.stride() as usize / std::mem::size_of::<Self::D>();
         let pixel_width = size.width() as usize;
-        let total_n_pixels = stride_n_pixels * size.height() as usize;
+        let max_n_pixels = stride_n_pixels * size.height() as usize;
         Ok(ValidChunksExactMut::new(
-            &mut self.image_slice_mut()[..total_n_pixels],
+            &mut self.image_slice_mut()[..max_n_pixels],
             stride_n_pixels,
             pixel_width,
         ))
