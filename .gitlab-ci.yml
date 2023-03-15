@@ -113,6 +113,11 @@ test_crates_rust_1_66:
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
 
+    # Test fastfreeimage
+    - cd fastfreeimage
+    - cargo test
+    - cd ..
+
     # Test mvg
     - cd mvg
     - cargo test
