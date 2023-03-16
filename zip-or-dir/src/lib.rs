@@ -80,8 +80,8 @@ pub enum Error {
     UnexpectedZipContent,
     #[error("unexpected zip file name")]
     UnexpectedZipName,
-    #[error("attempting to list contents of non-directory")]
-    NotDirectory,
+    #[error("directory does not exist: {0}")]
+    NotDirectory(String),
 }
 
 impl From<zip::result::ZipError> for Error {
@@ -274,8 +274,10 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                     }
                 }
                 result = unique_single_components.into_iter().collect();
-                if result.is_empty() && relname.is_some() && !found_any {
-                    return Err(Error::NotDirectory);
+                if let Some(relname) = relname {
+                    if result.is_empty() && !found_any {
+                        return Err(not_dir_error(relname));
+                    }
                 }
             }
             None => {
@@ -286,7 +288,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                         match e.kind() {
                             std::io::ErrorKind::NotFound => {
                                 // not found
-                                return Err(Error::NotDirectory);
+                                return Err(not_dir_error(dirpath));
                             }
                             _ => {
                                 return Err(e.into());
@@ -695,4 +697,8 @@ mod tests {
 
         Ok(())
     }
+}
+
+fn not_dir_error<P: AsRef<Path>>(relname: P) -> Error {
+    Error::NotDirectory(format!("{}", relname.as_ref().display()))
 }

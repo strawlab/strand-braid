@@ -364,7 +364,7 @@ where
                 )
             })
             .collect(),
-        Err(zip_or_dir::Error::NotDirectory) => Default::default(),
+        Err(zip_or_dir::Error::NotDirectory(_)) => Default::default(),
         Err(e) => return Err(e.into()),
     };
 
