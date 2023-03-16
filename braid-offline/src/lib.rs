@@ -282,15 +282,33 @@ where
         valve,
     )?;
 
+    let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
+    let mut found_image_paths: Vec<_> = match images_dirname.list_paths() {
+        Ok(paths) => paths,
+        Err(zip_or_dir::Error::NotDirectory(_)) => vec![],
+        Err(e) => {
+            return Err(e.into());
+        }
+    };
+
     for cam_name in recon.cam_names() {
+        let fname = format!("{}.png", cam_name);
+        let fname = fname.as_str();
+
         let mut old_image_fname = data_src.path_starter();
         old_image_fname.push(IMAGES_DIRNAME);
-        old_image_fname.push(cam_name);
-        old_image_fname.set_extension("png");
+        old_image_fname.push(fname);
 
         if !old_image_fname.exists() {
             warn!("Image file {} not found", old_image_fname.display());
             continue;
+        }
+
+        if let Some(idx) = found_image_paths
+            .iter()
+            .position(|x| &format!("{}", x.display()) == fname)
+        {
+            found_image_paths.remove(idx);
         }
 
         let mut new_image_fname: PathBuf = output_dirname.to_path_buf();
@@ -301,6 +319,14 @@ where
 
         let reader = old_image_fname.open()?;
         copy_to(reader, new_image_fname)?;
+    }
+
+    for unused in found_image_paths.iter() {
+        log::warn!(
+            "Unexpected file {}/{} found",
+            IMAGES_DIRNAME,
+            unused.display()
+        );
     }
 
     // open the data2d CSV file
