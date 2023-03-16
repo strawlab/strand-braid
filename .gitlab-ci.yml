@@ -154,6 +154,7 @@ test_crates_rust_1_68:
     - cargo test
     - cargo test --no-default-features --features std
     - cargo build --no-default-features --target thumbv7em-none-eabihf
+    - cargo bench --no-run
     - cd ..
 
     # Test braidz-parser

@@ -11,13 +11,7 @@ fn get_im() -> simple_frame::SimpleFrame<Mono8> {
     image_data[5 * W + 4] = 1;
     image_data[6 * W + 4] = 1;
 
-    simple_frame::SimpleFrame {
-        width: W as u32,
-        height: H as u32,
-        stride: W as u32,
-        image_data,
-        fmt: std::marker::PhantomData,
-    }
+    simple_frame::SimpleFrame::new(W as u32, H as u32, W as u32, image_data).unwrap()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
