@@ -311,10 +311,12 @@ impl ConnectedCamerasManager {
                 );
                 pre_existing
             } else {
-                debug!(
-                    "registering camera {}, which is not in existing calibration",
-                    ros_cam_name.as_str()
-                );
+                if self.recon.is_some() {
+                    log::warn!(
+                        "Camera {} connected, but this is not in existing calibration.",
+                        ros_cam_name.as_str()
+                    );
+                }
                 // unknown (and thus un-calibrated) camera
                 let cam_num_inner = inner.next_cam_num;
                 inner.next_cam_num.0 += 1;
