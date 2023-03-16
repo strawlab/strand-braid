@@ -101,9 +101,15 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             let tracking_parameters = match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
-                    let kest_reader = csv::Reader::from_reader(rdr);
-                    for row in kest_reader.into_deserialize().early_eof_ok() {
+                    let textlog_rdr = csv::Reader::from_reader(rdr);
+                    for row in textlog_rdr.into_deserialize().early_eof_ok() {
                         let row: TextlogRow = row?;
+
+                        log::debug!(
+                            "Line in {}: {}",
+                            flydra_types::TEXTLOG_CSV_FNAME,
+                            row.message
+                        );
 
                         // TODO: fix DRY in `calc_fps_from_data()`.
                         let line1_start = "MainBrain running at ";
@@ -114,6 +120,9 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                             if fps_str != "unknown" {
                                 expected_fps = fps_str.parse()?;
                             }
+                            // No more parsing of this line. In particular, it
+                            // is not JSON.
+                            continue;
                         }
 
                         // parse to unstructured json
