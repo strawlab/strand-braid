@@ -197,6 +197,11 @@ test_crates_rust_1_68:
     - cargo test
     - cd ../..
 
+    # Test media-utils/mkv-strand-reader
+    - cd media-utils/mkv-strand-reader
+    - cargo test
+    - cd ../..
+
 test_crates_rust_nightly:
   image: rust:1.68
   script:
