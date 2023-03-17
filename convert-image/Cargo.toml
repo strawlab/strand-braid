@@ -7,11 +7,13 @@ rust-version="1.60"
 
 [dependencies]
 machine-vision-formats = "0.1.1"
-simple-frame = { path = "../simple-frame" }
 image = {version="0.24.2", default-features=false, features=["jpeg","png"]}
 thiserror = "1.0.33"
 bayer = {version="0.1", default-features=false}
 itertools = "0.10.3"
+
+image-iter = { path = "../image-iter" }
+simple-frame = { path = "../simple-frame" }
 
 [features]
 backtrace=[]
