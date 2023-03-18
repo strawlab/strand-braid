@@ -33,6 +33,8 @@ pub enum Error {
         #[from]
         source: std::alloc::LayoutError,
     },
+    #[error("ROI size error")]
+    ROISizeError,
 }
 
 // ---------------------------
@@ -430,9 +432,13 @@ impl<'a> FastImageView<'a, Chan1, u8> {
             src.width() as ipp_ctypes::c_int,
             src.height() as ipp_ctypes::c_int,
         )
+        .unwrap()
     }
 
-    pub fn view_region<S: FastImage<D = u8, C = Chan1>>(src: &'a S, roi: &FastImageRegion) -> Self {
+    pub fn view_region<S: FastImage<D = u8, C = Chan1>>(
+        src: &'a S,
+        roi: &FastImageRegion,
+    ) -> Result<Self> {
         let i0 =
             roi.left_bottom.y() as usize * src.stride() as usize + roi.left_bottom.x() as usize;
         FastImageView::view_raw(
@@ -448,12 +454,20 @@ impl<'a> FastImageView<'a, Chan1, u8> {
         stride: ipp_ctypes::c_int,
         width_pixels: ipp_ctypes::c_int,
         height_pixels: ipp_ctypes::c_int,
-    ) -> Self {
-        Self {
-            channel_phantom: PhantomData,
-            data,
-            stride,
-            size: FastImageSize::new(width_pixels, height_pixels),
+    ) -> Result<Self> {
+        let width: usize = width_pixels.try_into().unwrap();
+        let height: usize = height_pixels.try_into().unwrap();
+        let strideu: usize = stride.try_into().unwrap();
+        let min_size = (height - 1) * strideu + width;
+        if data.len() >= min_size {
+            Ok(Self {
+                channel_phantom: PhantomData,
+                data,
+                stride,
+                size: FastImageSize::new(width_pixels, height_pixels),
+            })
+        } else {
+            Err(Error::ROISizeError)
         }
     }
 }
@@ -553,13 +567,13 @@ where
 impl<'a> MutableFastImageView<'a, Chan1, u8> {
     pub fn view<S: MutableFastImage<D = u8, C = Chan1>>(src: &'a mut S) -> Self {
         let (stride, width, height) = (src.stride(), src.width(), src.height());
-        MutableFastImageView::view_raw(src.image_slice_mut(), stride, width, height)
+        MutableFastImageView::view_raw(src.image_slice_mut(), stride, width, height).unwrap()
     }
 
     pub fn view_region<S: MutableFastImage<D = u8, C = Chan1>>(
         src: &'a mut S,
         roi: &FastImageRegion,
-    ) -> Self {
+    ) -> Result<Self> {
         let stride = src.stride();
         let i0 = roi.left_bottom.y() as usize * stride as usize + roi.left_bottom.x() as usize;
         let data = src.image_slice_mut();
@@ -571,12 +585,20 @@ impl<'a> MutableFastImageView<'a, Chan1, u8> {
         stride: ipp_ctypes::c_int,
         width_pixels: ipp_ctypes::c_int,
         height_pixels: ipp_ctypes::c_int,
-    ) -> Self {
-        Self {
-            channel_phantom: PhantomData,
-            data,
-            stride,
-            size: FastImageSize::new(width_pixels, height_pixels),
+    ) -> Result<Self> {
+        let width: usize = width_pixels.try_into().unwrap();
+        let height: usize = height_pixels.try_into().unwrap();
+        let strideu: usize = stride.try_into().unwrap();
+        let min_size = (height - 1) * strideu + width;
+        if data.len() >= min_size {
+            Ok(Self {
+                channel_phantom: PhantomData,
+                data,
+                stride,
+                size: FastImageSize::new(width_pixels, height_pixels),
+            })
+        } else {
+            Err(Error::ROISizeError)
         }
     }
 }
@@ -1398,7 +1420,7 @@ pub mod ripp {
         let roi = FastImageRegion::new(Point::new(0, 0), size.clone());
 
         let im_view1 = FastImageView::view_region(src, &roi);
-        let im_view: &dyn FastImage<C = Chan1, D = u8> = &im_view1;
+        let im_view: &dyn FastImage<C = Chan1, D = u8> = &im_view1?;
 
         result.results = Some(imops::calculate_moments(&im_view));
         Ok(())
