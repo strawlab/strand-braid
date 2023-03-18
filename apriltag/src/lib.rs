@@ -1,5 +1,7 @@
 use std::{convert::TryInto, os::raw::c_char};
 
+use machine_vision_formats::pixel_format::Mono8;
+
 /// Associates array pointer destroy function to a Zarray.
 pub trait ArrayDealloc {
     // Call `apriltag_x_destroy()` for the correct array type.
@@ -78,16 +80,20 @@ pub struct ImageU8Owned {
 }
 
 impl ImageU8Owned {
-    pub fn new(width: i32, height: i32, stride: i32, mut data: Vec<u8>) -> Self {
-        debug_assert!((height * stride) as usize == data.len());
-        let inner = apriltag_sys::image_u8 {
-            width,
-            height,
-            stride,
-            buf: data.as_mut_ptr(),
-        };
+    pub fn new(width: i32, height: i32, stride: i32, mut data: Vec<u8>) -> Option<Self> {
+        let min_size = (height as usize - 1) * stride as usize + width as usize;
+        if data.len() >= min_size {
+            let inner = apriltag_sys::image_u8 {
+                width,
+                height,
+                stride,
+                buf: data.as_mut_ptr(),
+            };
 
-        Self { inner, data }
+            Some(Self { inner, data })
+        } else {
+            None
+        }
     }
 }
 
@@ -121,13 +127,30 @@ pub struct ImageU8Borrowed<'a> {
 }
 
 impl<'a> ImageU8Borrowed<'a> {
-    pub fn new(width: i32, height: i32, stride: i32, data: &'a [u8]) -> Self {
-        debug_assert!((height * stride) as usize == data.len());
+    pub fn new(width: i32, height: i32, stride: i32, data: &'a [u8]) -> Option<Self> {
+        let min_size = (height as usize - 1) * stride as usize + width as usize;
+        if data.len() >= min_size {
+            let inner = apriltag_sys::image_u8 {
+                width,
+                height,
+                stride,
+                buf: data.as_ptr() as *mut u8,
+            };
+
+            Some(Self {
+                inner,
+                data_lifetime: std::marker::PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+    pub fn view(im: &dyn machine_vision_formats::AsImageStride<Mono8>) -> Self {
         let inner = apriltag_sys::image_u8 {
-            width,
-            height,
-            stride,
-            buf: data.as_ptr() as *mut u8,
+            width: im.width().try_into().unwrap(),
+            height: im.height().try_into().unwrap(),
+            stride: im.stride().try_into().unwrap(),
+            buf: im.buffer_ref().data.as_ptr() as *mut u8,
         };
 
         Self {

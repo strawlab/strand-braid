@@ -1959,25 +1959,6 @@ where
     Ok(())
 }
 
-/// Copy any type implementing `ImageStride<FMT>` to a "gray8" ("mono8") buffer.
-pub fn encode_into_mono8<FMT>(
-    frame: &dyn ImageStride<FMT>,
-    dest: &mut ImageBufferMutRef<Mono8>,
-    dest_stride: usize,
-) -> Result<()>
-where
-    FMT: PixelFormat,
-{
-    let mut dest_mono8 = RawRefMutImage::<'_, Mono8> {
-        width: frame.width(),
-        height: frame.height(),
-        stride: dest_stride,
-        buf: dest.data,
-        fmt: std::marker::PhantomData,
-    };
-    convert_into(frame, &mut dest_mono8)
-}
-
 fn invalid_buf_size_err() -> Error {
     Error::InvalidAllocatedBufferSize {
         #[cfg(feature = "backtrace")]

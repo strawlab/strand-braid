@@ -8,8 +8,8 @@ rust-version="1.60"
 
 [dependencies]
 apriltag-sys = "0.3"
+machine-vision-formats = "0.1"
 
 [dev-dependencies]
-machine-vision-formats = "0.1"
 convert-image = { path = "../convert-image" }
 image = {version="0.24.2", default-features=false, features=["jpeg"]}

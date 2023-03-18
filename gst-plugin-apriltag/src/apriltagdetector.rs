@@ -191,7 +191,7 @@ fn do_detections(
         &data[..3]
     );
 
-    let im = apriltag::ImageU8Borrowed::new(width, height, stride, data);
+    let im = apriltag::ImageU8Borrowed::new(width, height, stride, data).unwrap();
 
     // given our caps, this is a video/x-raw Gray8 video frame
     let result = td.detect(&im.inner());

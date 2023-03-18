@@ -2392,14 +2392,8 @@ fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
 
 #[cfg(feature = "fiducial")]
 fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
-    use machine_vision_formats::{ImageData, Stride};
     match frame {
-        DynamicFrame::Mono8(frame) => Some(apriltag::ImageU8Borrowed::new(
-            frame.width().try_into().unwrap(),
-            frame.height().try_into().unwrap(),
-            frame.stride().try_into().unwrap(),
-            frame.image_data(),
-        )),
+        DynamicFrame::Mono8(frame) => Some(apriltag::ImageU8Borrowed::view(frame)),
         _ => None,
     }
 }
