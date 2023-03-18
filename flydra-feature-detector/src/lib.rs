@@ -302,7 +302,7 @@ impl TrackingState {
             let right2 = std::cmp::min(right2, self.background.current_roi.right());
             let bottom2 = std::cmp::max(bottom2, self.background.current_roi.bottom());
             let top2 = std::cmp::min(top2, self.background.current_roi.top());
-            let roi2_sz = FastImageSize::new(right2 - left2 + 1, top2 - bottom2 + 1);
+            let roi2_sz = FastImageSize::new(right2 - left2, top2 - bottom2);
 
             let roi2 = FastImageRegion::new(fastimage::Point::new(left2, bottom2), roi2_sz);
             {
