@@ -208,10 +208,16 @@ test_crates_rust_1_68:
     - cargo test
     - cd ../..
 
+    # Test image-iter
     - cd image-iter
     - cargo test
     - cargo test --no-default-features --features std
     - cargo build --no-default-features --target thumbv7em-none-eabihf
+    - cd ..
+
+    # Test flydra-feature-detector
+    - cd flydra-feature-detector
+    - cargo test --release --features do_not_use_ipp
     - cd ..
 
 test_crates_rust_nightly:
