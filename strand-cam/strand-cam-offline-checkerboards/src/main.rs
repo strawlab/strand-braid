@@ -7,9 +7,8 @@ use log::{error, info};
 
 #[derive(Parser, Debug)]
 struct Cli {
-    /// Sets input directory name with .png files
+    /// Input directory name (with .png files)
     input_dirname: std::path::PathBuf,
-
     /// Width of checkerboard pattern, in number of corners (e.g. 8x8 checks
     /// would be 7x7 corners)
     #[arg(default_value_t = 7)]
