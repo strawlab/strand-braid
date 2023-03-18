@@ -7,7 +7,8 @@ use std::simd::{SimdFloat, SimdPartialEq, SimdPartialOrd};
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.
 
-use machine_vision_formats::{pixel_format::Mono8, ImageMutData, ImageStride};
+use image_iter::ImageStride;
+use machine_vision_formats::{pixel_format::Mono8, ImageMutData};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Power {
@@ -44,13 +45,10 @@ where
 {
     let mut accum: f32 = 0.0;
 
-    let full_data = im.image_data();
-    let datalen = im.height() as usize * im.stride();
-    let data = &full_data[..datalen];
-    let chunk_iter = data.chunks_exact(im.stride());
+    let chunk_iter = im.rowchunks_exact();
 
     for (row, rowdata) in chunk_iter.enumerate() {
-        for (col, element) in rowdata[..im.width() as usize].iter().enumerate() {
+        for (col, element) in rowdata.iter().enumerate() {
             accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f32;
         }
     }

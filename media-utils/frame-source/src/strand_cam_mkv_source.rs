@@ -200,7 +200,9 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 
         self.rdr.seek(std::io::SeekFrom::Start(bd.start_idx))?;
         let mut image_data = vec![0u8; bd.size];
-        self.rdr.read_exact(&mut image_data)?;
+        self.rdr
+            .read_exact(&mut image_data)
+            .with_context(|| format!("reading {} bytes from mkv at {}", bd.size, bd.start_idx))?;
 
         let pts = bd.pts;
         let pts_chrono = metadata.creation_time + chrono::Duration::from_std(pts)?;

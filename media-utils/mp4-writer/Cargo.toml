@@ -26,6 +26,8 @@ basic-frame = { path = "../../basic-frame", features=["convert-image"] }
 less-avc = "0.1.2"
 less-avc-wrapper = {path = "../less-avc-wrapper"}
 frame-source = {path = "../frame-source"}
+image-iter = { path = "../../image-iter" }
+
 serde_json = "1.0.89"
 
 [dev-dependencies]

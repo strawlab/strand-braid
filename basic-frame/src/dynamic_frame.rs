@@ -209,14 +209,18 @@ impl DynamicFrame {
             let dest_stride = dest_fmt.bits_per_pixel() as usize * width as usize / 8;
             let dest_size = height as usize * dest_stride;
             let mut dest_buf = vec![0u8; dest_size];
-            use formats::ImageBufferMutRef;
-            let mut dest: ImageBufferMutRef<FMT> = ImageBufferMutRef::new(&mut dest_buf);
 
-            match_all_dynamic_fmts!(
-                &self,
-                x,
-                convert_image::convert_into(x, &mut dest, dest_stride)?
-            );
+            {
+                let mut dest = image_iter::ReinterpretedImageMut {
+                    orig: &mut dest_buf,
+                    width,
+                    height,
+                    stride: dest_stride,
+                    fmt: std::marker::PhantomData::<FMT>,
+                };
+
+                match_all_dynamic_fmts!(&self, x, convert_image::convert_into(x, &mut dest)?);
+            }
 
             let image_data = dest_buf;
 

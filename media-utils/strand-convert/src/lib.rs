@@ -931,7 +931,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     if peeked_into_error {
         // raise the error we saw coming
-        stack_iter.next().unwrap()?;
+        stack_iter
+            .next()
+            .unwrap()
+            .with_context(|| format!("reading input {}", input_path.display()))?;
     }
 
     // Done reading. Summarize reading.

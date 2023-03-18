@@ -16,8 +16,7 @@ use convert_image::convert_into;
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 use machine_vision_formats::{
-    pixel_format::NV12, ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageStride,
-    PixelFormat, Stride,
+    pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
 };
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
@@ -676,8 +675,8 @@ trait PtsDur {
     fn pts_dur(&self) -> std::time::Duration;
 }
 
-fn write_frame<'lib, T, FRAME, FMT>(
-    state: &mut RecordingState<'lib, T>,
+fn write_frame<T, FRAME, FMT>(
+    state: &mut RecordingState<'_, T>,
     raw_frame: &FRAME,
     timestamp: chrono::DateTime<chrono::Utc>,
 ) -> Result<()>
@@ -782,9 +781,16 @@ where
                 // Scope for locked input buffer.
                 let mut inbuf = vram_buf.in_buf.lock()?;
                 let dest_stride = inbuf.pitch();
-                let dptr = inbuf.mem_mut();
-                let mut dest: ImageBufferMutRef<NV12> = ImageBufferMutRef::new(dptr);
-                convert_into(raw_frame, &mut dest, dest_stride)?;
+
+                let mut dest = image_iter::ReinterpretedImageMut {
+                    orig: inbuf.mem_mut(),
+                    width: raw_frame.width(),
+                    height: raw_frame.height(),
+                    stride: dest_stride,
+                    fmt: std::marker::PhantomData::<pixel_format::NV12>,
+                };
+
+                convert_into(raw_frame, &mut dest)?;
                 // Now vram_buf.in_buf has the nv12 encoded data.
                 dest_stride
             };

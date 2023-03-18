@@ -181,12 +181,12 @@ impl TrackingState {
         // Create ROI views of the entire frame. At the moment, this is a low cost noop. However,
         // in the future we may want to divide a high-resolution image into multiple smaller tiles
         // and process those independently. Therefore, we keep these views in the code.
-        let raw_im_small = FastImageView::view_region(raw_im_full, &self.background.current_roi);
+        let raw_im_small = FastImageView::view_region(raw_im_full, &self.background.current_roi)?;
         let mean_im_roi_view =
-            FastImageView::view_region(&self.background.mean_im, &self.background.current_roi);
+            FastImageView::view_region(&self.background.mean_im, &self.background.current_roi)?;
 
         let mut absdiff_im_roi_view =
-            MutableFastImageView::view_region(&mut self.absdiff_im, &self.background.current_roi);
+            MutableFastImageView::view_region(&mut self.absdiff_im, &self.background.current_roi)?;
 
         // find difference from mean
         match cfg.polarity {
@@ -245,7 +245,7 @@ impl TrackingState {
         let origin = fastimage::Point::new(0, 0);
 
         let mut cmpdiff_im_roi_view =
-            MutableFastImageView::view_region(&mut self.cmpdiff_im, &self.background.current_roi);
+            MutableFastImageView::view_region(&mut self.cmpdiff_im, &self.background.current_roi)?;
 
         let mut n_found_points = 0;
         while n_found_points < cfg.max_num_points {
@@ -302,12 +302,12 @@ impl TrackingState {
             let right2 = std::cmp::min(right2, self.background.current_roi.right());
             let bottom2 = std::cmp::max(bottom2, self.background.current_roi.bottom());
             let top2 = std::cmp::min(top2, self.background.current_roi.top());
-            let roi2_sz = FastImageSize::new(right2 - left2 + 1, top2 - bottom2 + 1);
+            let roi2_sz = FastImageSize::new(right2 - left2, top2 - bottom2);
 
             let roi2 = FastImageRegion::new(fastimage::Point::new(left2, bottom2), roi2_sz);
             {
                 let mut absdiff_im_roi2_view =
-                    MutableFastImageView::view_region(&mut absdiff_im_roi_view, &roi2);
+                    MutableFastImageView::view_region(&mut absdiff_im_roi_view, &roi2)?;
 
                 // (to reduce moment arm:) if pixel < self.clear_fraction*max(pixel): pixel=0
                 let clear_despeckle_thresh = (cfg.clear_fraction * max_abs_diff as f32) as u8;
@@ -696,7 +696,7 @@ impl FlydraFeatureDetector {
             frame.stride() as ipp_ctypes::c_int,
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
-        );
+        )?;
 
         if *raw_im_full.size() != self.roi_sz {
             return Err(Error::ImageSizeChanged(

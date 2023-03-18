@@ -114,7 +114,7 @@ impl BackgroundModel {
                         frame.stride() as ipp_ctypes::c_int,
                         frame.width() as ipp_ctypes::c_int,
                         frame.height() as ipp_ctypes::c_int,
-                    );
+                    ).expect("view full raw image");
 
                     worker.do_bg_update(&raw_im_full, &cfg).expect("bg update");
 

@@ -62,6 +62,7 @@ members = [
     "gst-plugin-nvargustime",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
+    "image-iter",
     "imagesrc",
     "imagesrc-gst",
     "imops",

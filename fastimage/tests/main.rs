@@ -107,7 +107,7 @@ fn test_view() {
 
     // check contents of ROI for FastImageView
     {
-        let im10_view = fastimage::FastImageView::view_region(&mut im10, &roi);
+        let im10_view = fastimage::FastImageView::view_region(&mut im10, &roi).unwrap();
         assert!(im10_view.pixel_slice(0, 0)[0] == 52);
         assert!(im10_view.pixel_slice(0, 1)[0] == 53);
         assert!(im10_view.pixel_slice(0, 2)[0] == 54);
@@ -122,7 +122,7 @@ fn test_view() {
 
     {
         // check contents of ROI for MutableFastImageView
-        let mut im10_view = fastimage::MutableFastImageView::view_region(&mut im10, &roi);
+        let mut im10_view = fastimage::MutableFastImageView::view_region(&mut im10, &roi).unwrap();
         assert!(im10_view.pixel_slice(0, 0)[0] == 52);
         assert!(im10_view.pixel_slice(0, 1)[0] == 53);
         assert!(im10_view.pixel_slice(0, 2)[0] == 54);
@@ -138,7 +138,7 @@ fn test_view() {
 
     // check contents of ROI after set
     {
-        let im10_view = fastimage::FastImageView::view_region(&im10, &roi);
+        let im10_view = fastimage::FastImageView::view_region(&im10, &roi).unwrap();
         assert!(im10_view.all_equal(&result_im));
     }
 }
@@ -162,7 +162,7 @@ fn test_end_of_roi() {
 
     // check contents of ROI for FastImageView
     {
-        let im10_view = fastimage::FastImageView::view_region(&mut im10, &roi);
+        let im10_view = fastimage::FastImageView::view_region(&mut im10, &roi).unwrap();
         assert!(im10_view.pixel_slice(0, 0)[0] == 67);
         assert!(im10_view.pixel_slice(0, 1)[0] == 68);
         assert!(im10_view.pixel_slice(0, 2)[0] == 69);
@@ -177,7 +177,7 @@ fn test_end_of_roi() {
 
     {
         // check contents of ROI for MutableFastImageView
-        let mut im10_view = fastimage::MutableFastImageView::view_region(&mut im10, &roi);
+        let mut im10_view = fastimage::MutableFastImageView::view_region(&mut im10, &roi).unwrap();
         assert!(im10_view.pixel_slice(0, 0)[0] == 67);
         assert!(im10_view.pixel_slice(0, 1)[0] == 68);
         assert!(im10_view.pixel_slice(0, 2)[0] == 69);
@@ -193,7 +193,7 @@ fn test_end_of_roi() {
 
     // check contents of ROI after set
     {
-        let im10_view = fastimage::FastImageView::view_region(&im10, &roi);
+        let im10_view = fastimage::FastImageView::view_region(&im10, &roi).unwrap();
         assert!(im10_view.all_equal(&result_im));
     }
 }

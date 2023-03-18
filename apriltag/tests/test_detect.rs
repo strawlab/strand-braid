@@ -1,5 +1,5 @@
 use ads_apriltag as apriltag;
-use machine_vision_formats::{ImageBufferMutRef, ImageData};
+use machine_vision_formats::pixel_format::Mono8;
 
 #[test]
 fn test_detect_standard_41h12() {
@@ -18,14 +18,8 @@ fn test_detect_standard_41h12() {
     let image = image::load_from_memory(file_buf).unwrap();
     let rgb = convert_image::piston_to_frame(image).unwrap();
 
-    let width = rgb.width() as usize;
-    let height = rgb.height() as usize;
-    let stride = rgb.width() as usize;
-    let mut im_data = vec![0; height * stride];
-    let mut dest = ImageBufferMutRef::new(&mut im_data[..]);
-    convert_image::encode_into_mono8(&rgb, &mut dest, stride).unwrap();
-
-    let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
+    let dest = convert_image::convert::<_, Mono8>(&rgb).unwrap();
+    let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
 
     println!("got {} detection(s):", detections.len());
@@ -61,14 +55,8 @@ fn test_detect_standard_36h11() {
     let image = image::load_from_memory(file_buf).unwrap();
     let rgb = convert_image::piston_to_frame(image).unwrap();
 
-    let width = rgb.width() as usize;
-    let height = rgb.height() as usize;
-    let stride = rgb.width() as usize;
-    let mut im_data = vec![0; height * stride];
-    let mut dest = ImageBufferMutRef::new(&mut im_data[..]);
-    convert_image::encode_into_mono8(&rgb, &mut dest, stride).unwrap();
-
-    let im = apriltag::ImageU8Owned::new(width as i32, height as i32, stride as i32, im_data);
+    let dest = convert_image::convert::<_, Mono8>(&rgb).unwrap();
+    let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
     assert!(detections.len() == 0);
 }

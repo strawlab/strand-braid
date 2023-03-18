@@ -1,6 +1,6 @@
 use machine_vision_formats::{
     ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageMutData, ImageStride,
-    OwnedImageStride, Stride,
+    OwnedImageStride, PixelFormat, Stride,
 };
 
 #[derive(Clone)]
@@ -17,11 +17,38 @@ pub struct SimpleFrame<F> {
     pub fmt: std::marker::PhantomData<F>,
 }
 
-impl<F> SimpleFrame<F> {
+impl<F> SimpleFrame<F>
+where
+    F: PixelFormat,
+{
+    /// Move a Vec<u8> buffer as the backing store for a SimpleFrame for image.
+    ///
+    /// Returns None if the buffer is not large enough to store an image of the
+    /// desired properties.
     pub fn new(width: u32, height: u32, stride: u32, image_data: Vec<u8>) -> Option<Self> {
-        if image_data.len() < stride as usize * height as usize {
+        let fmt = machine_vision_formats::pixel_format::pixfmt::<F>().unwrap();
+        let valid_stride = fmt.bits_per_pixel() as usize * width as usize / 8;
+
+        let sz = stride as usize * (height as usize - 1) + valid_stride;
+
+        if image_data.len() < sz {
             return None;
         }
+        Some(Self {
+            width,
+            height,
+            stride,
+            image_data,
+            fmt: std::marker::PhantomData,
+        })
+    }
+    /// Allocate minimium size buffer for image and fill with zeros
+    pub fn zeros(width: u32, height: u32, stride: u32) -> Option<Self> {
+        let fmt = machine_vision_formats::pixel_format::pixfmt::<F>().unwrap();
+        let valid_stride = fmt.bits_per_pixel() as usize * width as usize / 8;
+
+        let sz = stride as usize * (height as usize - 1) + valid_stride;
+        let image_data = vec![0u8; sz];
         Some(Self {
             width,
             height,

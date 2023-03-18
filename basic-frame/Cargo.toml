@@ -8,5 +8,7 @@ rust-version="1.60"
 [dependencies]
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 machine-vision-formats = "0.1"
+
 timestamped-frame = { path = "../timestamped-frame" }
 convert-image = {path = "../convert-image", optional=true }
+image-iter = { path = "../image-iter" }
