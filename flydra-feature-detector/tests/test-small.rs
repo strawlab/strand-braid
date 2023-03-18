@@ -1,14 +1,18 @@
 use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
-// At some point, I was having trouble tracking small frames, so I wrote this
-// test.
+fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 #[tokio::test]
 async fn track_small() -> anyhow::Result<()> {
+    // At some point, I was having trouble tracking small frames, so I wrote
+    // this test.
+
     const W: u32 = 32;
     const H: u32 = 16;
 
-    env_logger::init();
+    init();
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
@@ -40,11 +44,12 @@ async fn track_small() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn track_moving_stride() -> anyhow::Result<()> {
+    // Test with stride not equal width and moving point.
     const W: u32 = 31;
     const STRIDE: usize = 32;
     const H: u32 = 16;
 
-    env_logger::init();
+    init();
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 

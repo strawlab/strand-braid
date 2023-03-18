@@ -6,7 +6,7 @@ const SHA256SUM: &str = "8c9733b7741ae6c0dbe9bd5595db17d0c8eeede743736aac3bf51e5
 
 #[tokio::test]
 async fn track_fmf() -> anyhow::Result<()> {
-    env_logger::init();
+    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
