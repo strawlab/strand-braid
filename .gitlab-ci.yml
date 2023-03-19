@@ -195,7 +195,7 @@ test_crates_rust_1_68:
 
     # Test media-utils/strand-convert
     - cd media-utils/strand-convert
-    - cargo test
+    - cargo test -- --test-threads 1
     - cd ../..
 
     # Test media-utils/show-timestamps
