@@ -9,6 +9,7 @@ use enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RecordingFrameRate {
     Fps1,
     Fps2,
@@ -21,6 +22,7 @@ pub enum RecordingFrameRate {
     Fps50,
     Fps60,
     Fps100,
+    #[default]
     Unlimited,
 }
 
@@ -65,11 +67,7 @@ impl RecordingFrameRate {
     }
 }
 
-impl Default for RecordingFrameRate {
-    fn default() -> RecordingFrameRate {
-        RecordingFrameRate::Unlimited
-    }
-}
+
 
 // use Debug to impl Display
 impl std::fmt::Display for RecordingFrameRate {
@@ -89,7 +87,7 @@ impl std::fmt::Display for RecordingFrameRate {
             Fps100 => "100 fps",
             Unlimited => "unlimited",
         };
-        write!(fmt, "{}", s)
+        write!(fmt, "{s}")
     }
 }
 
@@ -328,7 +326,9 @@ pub enum CsvSaveConfig {
 // April tags
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TagFamily {
+    #[default]
     Family36h11,
     FamilyStandard41h12,
     Family16h5,
@@ -339,11 +339,7 @@ pub enum TagFamily {
     FamilyStandard52h13,
 }
 
-impl Default for TagFamily {
-    fn default() -> Self {
-        TagFamily::Family36h11
-    }
-}
+
 
 impl EnumIter for TagFamily {
     fn variants() -> &'static [Self] {
@@ -375,7 +371,7 @@ impl std::fmt::Display for TagFamily {
             FamilyStandard52h13 => "standard-52h13".to_string(),
         };
 
-        write!(f, "{}", fam)
+        write!(f, "{fam}")
     }
 }
 

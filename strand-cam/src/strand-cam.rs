@@ -457,10 +457,7 @@ impl FpsCalc {
             if n_frames < self.frames_to_average {
                 reset_previous = false;
             } else {
-                let dur_nsec = stamp
-                    .clone()
-                    .signed_duration_since(prev_stamp.clone())
-                    .num_nanoseconds();
+                let dur_nsec = stamp.signed_duration_since(*prev_stamp).num_nanoseconds();
                 if let Some(nsec) = dur_nsec {
                     result = Some(n_frames as f64 / nsec as f64 * 1.0e9);
                 }
@@ -801,7 +798,7 @@ async fn frame_process_task(
         my_runtime.spawn(convert_stream(
             ros_cam_name.clone(),
             transmit_feature_detect_settings_rx,
-            transmit_msg_tx.clone(),
+            transmit_msg_tx,
         ));
 
         let transmit_msg_rx = info.transmit_msg_rx;
@@ -1167,7 +1164,7 @@ async fn frame_process_task(
             }
             Msg::StartFMF((dest, recording_framerate)) => {
                 let path = Path::new(&dest);
-                let f = std::fs::File::create(&path)?;
+                let f = std::fs::File::create(path)?;
                 fmf_writer = Some(FmfWriteInfo::new(FMFWriter::new(f)?, recording_framerate));
             }
             Msg::StartMkv((format_str_mkv, mkv_recording_config)) => {
@@ -1233,7 +1230,7 @@ async fn frame_process_task(
                 let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
                 let opt_trigger_stamp = flydra_types::get_start_ts(
                     opt_clock_model.as_ref(),
-                    opt_frame_offset.clone(),
+                    opt_frame_offset,
                     extracted_frame_info.host_framenumber,
                 );
                 let (timestamp_source, save_mkv_fmf_stamp) =
@@ -1282,6 +1279,7 @@ async fn frame_process_task(
                     #[allow(unused_mut)]
                     let mut results = Vec::new();
                     #[cfg(not(feature = "checkercal"))]
+                    #[allow(clippy::let_unit_value)]
                     let _ = inner;
                     #[cfg(feature = "checkercal")]
                     {
@@ -1435,7 +1433,7 @@ async fn frame_process_task(
 
                                     let mc = ToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        timestamp: save_mkv_fmf_stamp.clone(),
+                                        timestamp: save_mkv_fmf_stamp,
                                         timestamp_source,
                                         mu00,
                                         mu01,
@@ -1480,10 +1478,9 @@ async fn frame_process_task(
                                 if let Some(socket) = &mut im_ops_socket {
                                     if let Some(mc) = mc {
                                         let buf = serde_cbor::to_vec(&mc).unwrap();
-                                        match socket.send_to(
-                                            &buf,
-                                            &store_cache_ref.im_ops_state.destination,
-                                        ) {
+                                        match socket
+                                            .send_to(&buf, store_cache_ref.im_ops_state.destination)
+                                        {
                                             Ok(_n_bytes) => {}
                                             Err(e) => {
                                                 log::error!(
@@ -1732,7 +1729,7 @@ async fn frame_process_task(
                                         let cfg_yaml = serde_yaml::to_string(&full_cfg).unwrap();
                                         writeln!(fd, "# -- start of yaml config --")?;
                                         for line in cfg_yaml.lines() {
-                                            writeln!(fd, "# {}", line)?;
+                                            writeln!(fd, "# {line}")?;
                                         }
                                         writeln!(fd, "# -- end of yaml config --")?;
                                     }
@@ -1766,7 +1763,7 @@ async fn frame_process_task(
                                         .host_timestamp()
                                         .signed_duration_since(inner.last_save);
                                     // save found points
-                                    if interval >= inner.min_interval && points.len() >= 1 {
+                                    if interval >= inner.min_interval && !points.is_empty() {
                                         let time_microseconds = frame
                                             .extra()
                                             .host_timestamp()
@@ -1784,15 +1781,15 @@ async fn frame_process_task(
                                                 {
                                                     led1 = format!(
                                                         "{}",
-                                                        get_intensity(&device_state, 1)
+                                                        get_intensity(device_state, 1)
                                                     );
                                                     led2 = format!(
                                                         "{}",
-                                                        get_intensity(&device_state, 2)
+                                                        get_intensity(device_state, 2)
                                                     );
                                                     led3 = format!(
                                                         "{}",
-                                                        get_intensity(&device_state, 3)
+                                                        get_intensity(device_state, 3)
                                                     );
                                                 }
                                             }
@@ -1803,7 +1800,7 @@ async fn frame_process_task(
                                                     Some((slope, _ecc)) => {
                                                         let orientation_mod_pi =
                                                             f32::atan(slope as f32);
-                                                        format!("{:.3}", orientation_mod_pi)
+                                                        format!("{orientation_mod_pi:.3}")
                                                     }
                                                     None => "".to_string(),
                                                 };
@@ -1837,7 +1834,7 @@ async fn frame_process_task(
                                     y: pt.y0_abs as f32,
                                     theta: pt
                                         .maybe_slope_eccentricty
-                                        .and_then(|(slope, _ecc)| Some(f32::atan(slope as f32))),
+                                        .map(|(slope, _ecc)| f32::atan(slope as f32)),
                                     area: Some(pt.area as f32),
                                 })
                                 .collect();
@@ -2127,13 +2124,13 @@ fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<Dat
             Ok(DatagramSocket::Uds(socket))
         }
         #[cfg(not(feature = "flydra-uds"))]
-        &RealtimePointsDestAddr::UnixDomainSocket(ref _uds) => {
+        RealtimePointsDestAddr::UnixDomainSocket(_uds) => {
             Err(StrandCamError::UnixDomainSocketsNotSupported(
                 #[cfg(feature = "backtrace")]
                 Backtrace::capture(),
             ))
         }
-        &RealtimePointsDestAddr::IpAddr(ref dest_ip_addr) => {
+        RealtimePointsDestAddr::IpAddr(dest_ip_addr) => {
             let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
             let mut dest_addrs: Vec<SocketAddr> = dest.to_socket_addrs()?.collect();
 
@@ -2174,7 +2171,7 @@ fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16
         1 => &device_state.ch1,
         2 => &device_state.ch2,
         3 => &device_state.ch3,
-        c => panic!("unknown channel {}", c),
+        c => panic!("unknown channel {c}"),
     };
     match ch.on_state {
         led_box_comms::OnState::Off => 0,
@@ -2403,7 +2400,7 @@ async fn check_version(
     known_version: Arc<RwLock<semver::Version>>,
     app_name: &'static str,
 ) -> hyper::Result<()> {
-    let url = format!("https://version-check.strawlab.org/{}", app_name);
+    let url = format!("https://version-check.strawlab.org/{app_name}");
     let url = url.parse::<hyper::Uri>().unwrap();
     let agent = format!("{}/{}", app_name, *known_version.read());
 
@@ -2451,7 +2448,7 @@ async fn check_version(
 
     let data: Vec<u8> = chunks.into_iter().fold(vec![], |mut buf, chunk| {
         // trace!("got chunk: {}", String::from_utf8_lossy(&chunk));
-        buf.extend_from_slice(&*chunk);
+        buf.extend_from_slice(&chunk);
         buf
     });
     let version: VersionResponse = match serde_json::from_slice(&data) {
@@ -2715,7 +2712,7 @@ fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool
         }
     };
 
-    let mut mkv_writer = mkv_writer::MkvWriter::new(&mut buf, nv_cfg_test.clone(), Some(nv_enc))?;
+    let mut mkv_writer = mkv_writer::MkvWriter::new(&mut buf, nv_cfg_test, Some(nv_enc))?;
     mkv_writer.write_dynamic(&frame, chrono::Utc::now())?;
     mkv_writer.finish()?;
 
@@ -2813,7 +2810,7 @@ where
     let mut cam = match mymod.threaded_async_camera(name) {
         Ok(cam) => cam,
         Err(e) => {
-            let msg = format!("{}", e);
+            let msg = format!("{e}");
             error!("{}", msg);
             return Err(e.into());
         }
@@ -2955,9 +2952,9 @@ where
 
     #[cfg(feature = "flydra_feat_detect")]
     let tracker_cfg = match &tracker_cfg_src {
-        &ImPtDetectCfgSource::ChangedSavedToDisk(ref src) => {
+        ImPtDetectCfgSource::ChangedSavedToDisk(src) => {
             // Retrieve the saved preferences
-            let (ref app_info, ref prefs_key) = src;
+            let (app_info, ref prefs_key) = src;
             match ImPtDetectCfg::load(app_info, prefs_key) {
                 Ok(cfg) => cfg,
                 Err(e) => {
@@ -2969,7 +2966,7 @@ where
                 }
             }
         }
-        &ImPtDetectCfgSource::ChangesNotSavedToDisk(ref cfg) => cfg.clone(),
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
     };
 
     #[cfg(feature = "flydra_feat_detect")]
@@ -3162,7 +3159,7 @@ where
     let mut mkv_recording_config = MkvRecordingConfig {
         writing_application: Some(get_mkv_writing_application(is_braid)),
         title: Some(cam_name.as_str().to_string()),
-        gamma: camera_gamma.clone(),
+        gamma: camera_gamma,
         ..Default::default()
     };
 
@@ -3308,10 +3305,7 @@ where
     let url = http_camserver_info.guess_base_url_with_token();
 
     if args.show_url {
-        println!(
-            "Depending on things, you may be able to login with this url: {}",
-            url,
-        );
+        println!("Depending on things, you may be able to login with this url: {url}",);
 
         if !is_loopback {
             println!("This same URL as a QR code:");
@@ -3714,7 +3708,7 @@ where
                         }
                         if cfg.gamma.is_none() {
                             // The gamma is not set in the web UI
-                            cfg.gamma = camera_gamma.clone();
+                            cfg.gamma = camera_gamma;
                         }
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
@@ -4114,7 +4108,7 @@ where
                                 if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
                                     tracker_cfg_src
                                 {
-                                    let (ref app_info, ref prefs_key) = src;
+                                    let (app_info, ref prefs_key) = src;
                                     match cfg2.save(app_info, prefs_key) {
                                         Ok(()) => {
                                             info!("saved new detection config");
@@ -4629,7 +4623,7 @@ where
                             // error!("unknown message received: {:?}", msg);
                         }
                         Err(e) => {
-                            panic!("unexpected error: {}: {:?}", e, e);
+                            panic!("unexpected error: {e}: {e:?}");
                         }
                     }
                 }

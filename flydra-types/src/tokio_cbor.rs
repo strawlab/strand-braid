@@ -35,7 +35,7 @@ impl Decoder for CborPacketCodec {
             Err(e) => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("serde_cbor::error::Error {:?}", e),
+                    format!("serde_cbor::error::Error {e:?}"),
                 ));
             }
         };

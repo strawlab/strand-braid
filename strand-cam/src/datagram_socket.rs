@@ -14,7 +14,7 @@ pub(crate) enum DatagramSocket {
 impl std::fmt::Debug for DatagramSocket {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DatagramSocket::Udp(s) => writeln!(fmt, "DatagramSocket::Udp({:?})", s),
+            DatagramSocket::Udp(s) => writeln!(fmt, "DatagramSocket::Udp({s:?})"),
             #[cfg(feature = "flydra-uds")]
             DatagramSocket::Uds(s) => writeln!(fmt, "DatagramSocket::Uds({:?})", s),
         }

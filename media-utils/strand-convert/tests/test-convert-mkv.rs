@@ -98,7 +98,7 @@ fn mkv_color_nvenc_h264() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -115,7 +115,7 @@ fn mkv_mono_nvenc_h264() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -132,7 +132,7 @@ fn mkv_mono_uncompressed() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -150,7 +150,7 @@ fn mp4_color_nvenc_h264() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -178,7 +178,7 @@ fn mp4_mono_nvenc_h264() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -201,7 +201,7 @@ fn tiff_12bit_mono() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
@@ -226,7 +226,7 @@ fn fmf_gz_mono() -> Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
-        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        format!("{URL_BASE}/{FNAME}").as_str(),
         FNAME,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;

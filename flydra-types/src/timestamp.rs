@@ -25,7 +25,7 @@ pub struct FlydraFloatTimestampLocal<S> {
 impl<S> Debug for FlydraFloatTimestampLocal<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let dt: chrono::DateTime<Utc> = self.into();
-        write!(f, "FlydraFloatTimestampLocal {{ {:?} }}", dt)
+        write!(f, "FlydraFloatTimestampLocal {{ {dt:?} }}")
     }
 }
 

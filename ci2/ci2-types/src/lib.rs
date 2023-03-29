@@ -8,9 +8,11 @@ extern crate enum_iter;
 use enum_iter::EnumIter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum AutoMode {
     Off,
     Once,
+    #[default]
     Continuous,
 }
 
@@ -27,11 +29,7 @@ impl EnumIter for AutoMode {
     }
 }
 
-impl Default for AutoMode {
-    fn default() -> Self {
-        AutoMode::Continuous
-    }
-}
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TriggerMode {

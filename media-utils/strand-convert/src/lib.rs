@@ -155,7 +155,7 @@ impl ImageSequenceWriter {
         use std::io::Write;
 
         let file = format!("frame{:05}.png", self.index);
-        let fname = self.dirname.join(&file);
+        let fname = self.dirname.join(file);
         let buf = match_all_dynamic_fmts!(
             frame,
             x,
@@ -243,7 +243,7 @@ impl std::fmt::Display for Encoder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         let tmp = self.to_possible_value().unwrap();
         let s = tmp.get_name();
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -415,7 +415,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     if is_file {
         output_basename = input_path.as_path().with_extension(""); // removes extension but keeps leading directory.
 
-        let mut ext: Option<&str> = input_path.extension().map(|x| x.to_str()).flatten();
+        let mut ext: Option<&str> = input_path.extension().and_then(|x| x.to_str());
         if ext == Some("gz") {
             if let Some(input_path) = input_path.as_os_str().to_str() {
                 if input_path.to_lowercase().ends_with(".fmf.gz") {
@@ -522,11 +522,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         h264_metadata.gamma = Some(*gamma);
     }
 
-    let ignore_timing = if cli.export_pngs || cli.ignore_timing {
-        true
-    } else {
-        false
-    };
+    let ignore_timing = cli.export_pngs || cli.ignore_timing;
 
     let timing_info = if !ignore_timing {
         let desired_interval = if let Some(frame_interval_msec) = cli.frame_interval_msec {
@@ -541,7 +537,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 // at most only a single frame, so interval does not matter.
                 Duration::from_nanos(1_000_000)
             } else {
-                let deltas: Vec<f64> = ((&timestamps[1..])
+                let deltas: Vec<f64> = (timestamps[1..]
                     .iter()
                     .zip(timestamps[..timestamps.len() - 1].iter()))
                 .map(|(t1, t0)| t1.as_secs_f64() - t0.as_secs_f64())
@@ -596,27 +592,21 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let output_fname = if let Some(cli_output) = cli.output {
         cli_output
+    } else if !cli.export_pngs {
+        append_extension(output_basename.as_path(), ".mp4")
     } else {
-        if !cli.export_pngs {
-            append_extension(output_basename.as_path(), ".mp4")
-        } else {
-            output_basename.as_path().into()
-        }
+        output_basename.as_path().into()
     };
 
-    if !cli.export_pngs {
-        if output_fname.as_path().extension() != Some(std::ffi::OsStr::new("mp4")) {
-            anyhow::bail!("Will not continue. Output extension not .mp4");
-        }
+    if !cli.export_pngs && output_fname.as_path().extension() != Some(std::ffi::OsStr::new("mp4")) {
+        anyhow::bail!("Will not continue. Output extension not .mp4");
     }
 
-    if !cli.overwrite {
-        if output_fname.exists() {
-            anyhow::bail!(
-                "Will not continue, output exists: {}",
-                output_fname.display()
-            );
-        }
+    if !cli.overwrite && output_fname.exists() {
+        anyhow::bail!(
+            "Will not continue, output exists: {}",
+            output_fname.display()
+        );
     }
 
     if cli.export_pngs {
@@ -638,7 +628,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let mut stack_iter = src.iter();
 
-    h264_metadata.creation_time = frame0_time.clone();
+    h264_metadata.creation_time = frame0_time;
 
     let encoder = if cli.export_pngs {
         Encoder::LessAvc // this is a dummy value.
@@ -751,7 +741,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             desired_precision: _,
         } = &timing_info
         {
-            desired_interval.clone()
+            *desired_interval
         } else {
             let (arbitrarily, frame_interval_msec) = if let Some(msec) = cli.frame_interval_msec {
                 ("as requested ", msec)
@@ -898,7 +888,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 output_writer.write_dynamic(&frame, frame_timestamp_utc)?;
             }
             ImageData::Decoded(frame) => {
-                output_writer.write_dynamic(&frame, frame_timestamp_utc)?;
+                output_writer.write_dynamic(frame, frame_timestamp_utc)?;
             }
             ImageData::EncodedH264(encoded_h264) => {
                 output_writer
@@ -965,7 +955,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         log::info!(
             "Saved movie statistics: {out_fno} frames, codec: H264, encoder: {encoder}, size: {}, duration: {}, fps: {:.1}, byterate: {}, filename: {}",
-            HumanBytes(out_bytes as u64),
+            HumanBytes(out_bytes),
             HumanDuration(prev_dest_pts),
             fps,
             HumanBytes(out_bytes_per_second as u64),

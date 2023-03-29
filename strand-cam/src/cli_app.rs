@@ -290,7 +290,7 @@ fn parse_args(
     let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
     let camera_settings_filename = matches
         .value_of("camera_settings_filename")
-        .map(|s| PathBuf::from(s));
+        .map(PathBuf::from);
 
     #[cfg(feature = "flydratrax")]
     let camera_xml_calibration = matches
@@ -403,10 +403,10 @@ fn parse_args(
             let camdata_addr = {
                 let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
                 let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
-                let camdata_addr = Some(flydra_types::RealtimePointsDestAddr::IpAddr(
-                    addr_info_ip.clone(),
-                ));
-                camdata_addr
+                
+                Some(flydra_types::RealtimePointsDestAddr::IpAddr(
+                    addr_info_ip,
+                ))
             };
 
             let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
