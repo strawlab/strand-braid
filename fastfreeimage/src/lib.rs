@@ -3,6 +3,7 @@
     feature = "backtrace",
     feature(error_generic_member_access, provide_any)
 )]
+#![cfg_attr(feature = "portsimd", feature(portable_simd))]
 
 use std::marker::PhantomData;
 pub use std::os::raw as ipp_ctypes;
@@ -10,7 +11,7 @@ pub use std::os::raw as ipp_ctypes;
 /// SIMD vector width, in bytes. Also used for alignment.
 const VECWIDTH: usize = 32;
 #[cfg(feature = "portsimd")]
-use std::simd::u8x32;
+use std::simd::{u8x32, SimdPartialOrd};
 
 // ---------------------------
 // errors
@@ -40,20 +41,18 @@ pub enum Error {
 // ---------------------------
 
 #[cfg(feature = "portsimd")]
-const ONE_U8X32: u8x32 = u8x32::splat(1);
-#[cfg(feature = "portsimd")]
-const TWO_U8X32: u8x32 = u8x32::splat(2);
-
-#[cfg(feature = "portsimd")]
 #[inline]
 fn absdiff_u8x32(im1: u8x32, im2: u8x32) -> u8x32 {
     // see V6 of https://stackoverflow.com/a/35779655/1633026
 
+    let one = u8x32::splat(1);
+    let two = u8x32::splat(2);
+
     let a = im1 - im2;
-    let b_mask_i8 = im1.lanes_lt(im2); // 0 false, -1 true
+    let b_mask_i8 = im1.simd_lt(im2); // 0 false, -1 true
     let b: u8x32 = unsafe { std::mem::transmute(b_mask_i8) }; // 0 false, 255 true
-    let b = b * TWO_U8X32; // 0 false, 254 true
-    let b = b + ONE_U8X32; // 1 false, 255 true
+    let b = b * two; // 0 false, 254 true
+    let b = b + one; // 1 false, 255 true
 
     a * b
 }
