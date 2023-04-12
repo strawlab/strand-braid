@@ -233,6 +233,11 @@ test_crates_rust_nightly:
     - cargo +nightly-2023-03-15 test --no-default-features --features std,simd
     - cd ..
 
+    # Test fastfreeimage
+    - cd fastfreeimage
+    - cargo +nightly-2023-03-15 test --features portsimd
+    - cd ..
+
 test_flydra_feature_detector:
   image: ubuntu:focal
   script:
