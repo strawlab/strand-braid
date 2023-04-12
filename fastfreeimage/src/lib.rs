@@ -13,6 +13,12 @@ const VECWIDTH: usize = 32;
 #[cfg(feature = "portsimd")]
 use std::simd::{u8x32, SimdPartialOrd};
 
+#[cfg(feature = "portsimd")]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
+
+#[cfg(not(feature = "portsimd"))]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
+
 // ---------------------------
 // errors
 
