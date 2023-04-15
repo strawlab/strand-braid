@@ -47,6 +47,7 @@ fn main() -> anyhow::Result<()> {
         "LED box control",
         native_options,
         Box::new(|_cc| Box::new(app::LedBoxApp::new(available_ports, box_manager, tx))),
-    );
+    )
+    .map_err(|e| anyhow::anyhow!("running failed with error {e}"))?;
     Ok(())
 }
