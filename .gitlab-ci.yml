@@ -69,6 +69,7 @@ test_crates:
     - cargo test --features backend_pyloncxx
     - cd ..
 
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
     - cd fly-eye
     - cargo build --release --features camsrc_pyloncxx
     - cd ..
