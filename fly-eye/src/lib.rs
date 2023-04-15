@@ -54,82 +54,91 @@ pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
             None => Ok(rx.recv().unwrap()),        // ensure we have first frame
         };
 
-        if let Ok(frame) = result_frame {
-            let width = frame.width();
-            let height = frame.height();
-            let stride = frame.stride();
-            let pixel_format = frame.pixel_format();
-            let imdata: Vec<u8> = frame.into();
+        match result_frame {
+            Ok(frame) => {
+                let width = frame.width();
+                let height = frame.height();
+                let stride = frame.stride();
+                let pixel_format = frame.pixel_format();
+                let imdata: Vec<u8> = frame.into();
 
-            if inner.is_none() {
-                // perform initial allocations
+                if inner.is_none() {
+                    // perform initial allocations
 
-                let (uni_ty, vert_src, frag_src, ifmt) =
-                    shaders::get_programs(width, height, pixel_format);
+                    let (uni_ty, vert_src, frag_src, ifmt) =
+                        shaders::get_programs(width, height, pixel_format);
 
-                debug!("using internal format {:?}", ifmt);
+                    debug!("using internal format {:?}", ifmt);
 
-                let format = match ifmt {
-                    shaders::InternalFormat::Rgb8 => {
-                        glium::texture::UncompressedFloatFormat::U8U8U8U8
-                    }
-                    shaders::InternalFormat::Raw8 => glium::texture::UncompressedFloatFormat::U8,
-                };
+                    let format = match ifmt {
+                        shaders::InternalFormat::Rgb8 => {
+                            glium::texture::UncompressedFloatFormat::U8U8U8U8
+                        }
+                        shaders::InternalFormat::Raw8 => {
+                            glium::texture::UncompressedFloatFormat::U8
+                        }
+                    };
 
-                let opengl_texture = match pixel_format {
-                    formats::pixel_format::PixFmt::RGB8 => {
-                        let texdata = glium::texture::RawImage2d::from_raw_rgb(
-                            imdata.clone(),
-                            (width, height),
-                        );
-                        glium::Texture2d::new(&display, texdata).unwrap()
-                    }
-                    _ => glium::Texture2d::empty_with_format(
+                    let opengl_texture = match pixel_format {
+                        formats::pixel_format::PixFmt::RGB8 => {
+                            let texdata = glium::texture::RawImage2d::from_raw_rgb(
+                                imdata.clone(),
+                                (width, height),
+                            );
+                            glium::Texture2d::new(&display, texdata).unwrap()
+                        }
+                        _ => glium::Texture2d::empty_with_format(
+                            &display,
+                            format,
+                            glium::texture::MipmapsOption::NoMipmap,
+                            width,
+                            height,
+                        )
+                        .unwrap(),
+                    };
+
+                    let n_pixels = stride as u32 * height; // make stride width for easy copy
+                    let p_buffer = glium::texture::pixel_buffer::PixelBuffer::new_empty(
                         &display,
-                        format,
-                        glium::texture::MipmapsOption::NoMipmap,
-                        width,
-                        height,
-                    )
-                    .unwrap(),
-                };
-
-                let n_pixels = stride as u32 * height; // make stride width for easy copy
-                let p_buffer = glium::texture::pixel_buffer::PixelBuffer::new_empty(
-                    &display,
-                    n_pixels as usize,
-                );
-
-                let program =
-                    glium::Program::from_source(&display, vert_src, frag_src, None).unwrap();
-                let uniform_type = uni_ty;
-                inner = Some(Inner {
-                    program,
-                    opengl_texture,
-                    p_buffer,
-                    uniform_type,
-                })
-            }
-
-            if let Some(ref inner) = inner {
-                if pixel_format == formats::pixel_format::PixFmt::RGB8 {
-                    unimplemented!("RGB data not coverted to pbuffer");
-                }
-                inner.p_buffer.write(&imdata);
-                inner
-                    .opengl_texture
-                    .main_level()
-                    .raw_upload_from_pixel_buffer(
-                        inner.p_buffer.as_slice(),
-                        0..width,
-                        0..height,
-                        0..1,
+                        n_pixels as usize,
                     );
-            } else {
-                panic!("reached unreachable state");
+
+                    let program =
+                        glium::Program::from_source(&display, vert_src, frag_src, None).unwrap();
+                    let uniform_type = uni_ty;
+                    inner = Some(Inner {
+                        program,
+                        opengl_texture,
+                        p_buffer,
+                        uniform_type,
+                    })
+                }
+
+                if let Some(ref inner) = inner {
+                    if pixel_format == formats::pixel_format::PixFmt::RGB8 {
+                        unimplemented!("RGB data not coverted to pbuffer");
+                    }
+                    inner.p_buffer.write(&imdata);
+                    inner
+                        .opengl_texture
+                        .main_level()
+                        .raw_upload_from_pixel_buffer(
+                            inner.p_buffer.as_slice(),
+                            0..width,
+                            0..height,
+                            0..1,
+                        );
+                } else {
+                    panic!("reached unreachable state");
+                }
             }
-        } else {
-            error!("ignoring error ({}:{})", file!(), line!());
+            Err(e) => {
+                if e.is_disconnected() {
+                    Err::<(), _>(e).unwrap(); // todo: cleaner exit
+                } else {
+                    assert!(e.is_empty());
+                }
+            }
         }
 
         // drawing a frame
