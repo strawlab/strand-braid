@@ -16,10 +16,9 @@ mod fly_eye;
 mod screen_quad;
 
 use channellib::Receiver;
-use glium::Surface;
-use winit::event::{ElementState, Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::WindowBuilder;
+use glium::{glutin, Surface};
+
+use glutin::window::WindowBuilder;
 
 #[cfg(feature = "fly-eye")]
 use fly_eye as coords;
@@ -34,7 +33,7 @@ struct Inner {
 }
 
 pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
-    let event_loop = EventLoop::new();
+    let event_loop = glutin::event_loop::EventLoop::new();
     let window = WindowBuilder::new().with_title("Fly Eye");
     let context = glutin::ContextBuilder::new().with_vsync(true);
     let display = glium::Display::new(window, context, &event_loop).expect("open display");
@@ -178,18 +177,17 @@ pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
         target.finish().unwrap();
 
         match event {
-            Event::WindowEvent { event, .. } => {
-                match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. }
-                        if ElementState::Pressed == input.state =>
-                    {
-                        // if let glutin::VirtualKeyCode::Escape = key {
-                        *control_flow = ControlFlow::Exit
-                    }
-                    _ => (),
+            winit::event::Event::WindowEvent { event, .. } => match event {
+                winit::event::WindowEvent::CloseRequested => {
+                    *control_flow = winit::event_loop::ControlFlow::Exit
                 }
-            }
+                winit::event::WindowEvent::KeyboardInput { input, .. }
+                    if winit::event::ElementState::Pressed == input.state =>
+                {
+                    *control_flow = winit::event_loop::ControlFlow::Exit
+                }
+                _ => (),
+            },
             _ => (),
         };
     });
