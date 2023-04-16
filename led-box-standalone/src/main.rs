@@ -40,6 +40,7 @@ fn main() -> anyhow::Result<()> {
                     .unwrap()
                     .block_on(async { handle_box(box_manager, cmd_rx).await })
             })
+            .map_err(|e| anyhow::anyhow!("runtime failed with error {e}"))?
     };
 
     let native_options = eframe::NativeOptions::default();

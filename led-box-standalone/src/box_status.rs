@@ -129,15 +129,24 @@ pub async fn handle_box(
         .send(led_box_comms::ToDevice::VersionRequest)
         .await?;
 
-    let msg = serial_reader.next().await.unwrap().unwrap();
-    assert_eq!(
-        msg,
-        led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION)
-    );
-    info!(
-        "Connected to firmware version {}",
-        led_box_comms::COMM_VERSION
-    );
+    match serial_reader.next().await {
+        Some(Ok(from_device_msg)) => {
+            assert_eq!(
+                from_device_msg,
+                led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION)
+            );
+            info!(
+                "Connected to firmware version {}",
+                led_box_comms::COMM_VERSION
+            );
+        }
+        Some(Err(e)) => {
+            return Err(e.into());
+        }
+        None => {
+            anyhow::bail!("device closed serial connection prior to first read.");
+        }
+    };
 
     let msg = ToDevice::DeviceState(next_state);
     to_box_writer.send(msg).await.unwrap();
