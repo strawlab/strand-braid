@@ -703,6 +703,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - cp $CI_PROJECT_DIR/_packaging/strand-braid/strand-cam-flydratrax-pylon.desktop $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
     - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
@@ -740,6 +741,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - cp $CI_PROJECT_DIR/_packaging/strand-braid/strand-cam-flydratrax-pylon.desktop $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
     - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon jammy > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog

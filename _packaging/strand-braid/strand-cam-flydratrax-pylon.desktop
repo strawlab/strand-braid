@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.1.0
+Type=Application
+Categories=Application
+Exec=gnome-terminal -e "bash -c '/usr/bin/strand-cam-flydratrax-pylon --led-box /dev/ttyACM0;$SHELL'"
+Name=Strand Camera (flydratrax, pylon)
+Terminal=false
+GenericName=Live camera-based tracking
+Comment=

@@ -10,6 +10,7 @@ flytrax-csv-to-braidz usr/bin
 fmf usr/bin
 strand-cam-pylon usr/bin
 strand-cam-flydratrax-pylon usr/bin
+strand-cam-flydratrax-pylon.desktop usr/share/applications
 strand-cam-vimba usr/bin
 
 # # Commented out because we do not want to distribute this library:
