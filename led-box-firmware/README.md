@@ -25,7 +25,7 @@ now be copied onto the emulated USB mass storage device of the Nucleo board.
 
 We use the Knurling project to facilitate debugging. `probe-rs` can be used to
 debug the device from a host computer and view log messages send using the
-`defmt` infrastructure.
+`defmt` infrastructure. Install `probe-run` with `cargo install probe-run`.
 
 To see `defmt` messages, compile with the `DEFMT_LOG` environment variable
 set appropriately. (By default, `defmt` will show only error level messages.)
