@@ -347,6 +347,9 @@ impl DisplayMsecDuration for Duration {
 }
 
 #[inline]
+// next_dest_pts is the desired time for next frame to save to the destination
+// next_src_pts is the time of the next incoming source frame
+// prev_dest_pts is the previously frame previously saved to the destination
 fn is_needed_now(
     next_dest_pts: Duration,
     next_src_pts: Duration,
@@ -365,7 +368,7 @@ fn is_needed_now(
             next_dest_pts.msec(),next_src_pts.msec(),prev_dest_pts.msec(),desired_precision.msec(),next_src_pts.msec(),diff.msec(),
         );
 
-        if (next_dest_pts - prev_dest_pts) > *desired_interval * 100 {
+        if next_dest_pts > (prev_dest_pts + (*desired_interval * 100)) {
             anyhow::bail!("gap in source data of more than 100 frames (next_src_pts: {}, prev_dest_pts: {}, desired_interval: {})", next_src_pts.msec(), prev_dest_pts.msec(), desired_interval.msec());
         }
 
@@ -408,6 +411,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     let mut camera_name = None;
     let mut gamma = None;
 
+    let mut h264_already_has_metadata = false;
+
     let writing_app = format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     log::info!("input: {}", cli.input);
@@ -423,9 +428,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 }
             }
         }
+
+        let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {
             Some("mkv") => {
-                let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
                 let mkv_video = strand_cam_mkv_source::from_path(&cli.input, do_decode_h264)?;
                 let metadata = &mkv_video.parsed.metadata;
                 camera_name = metadata.camera_name.clone();
@@ -440,10 +446,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = encoder;
             }
             Some("mp4") => {
-                let mp4_video = mp4_source::from_path(&cli.input)?;
+                let mp4_video = mp4_source::from_path(&cli.input, do_decode_h264)?;
                 if let Some(metadata) = &mp4_video.h264_metadata {
                     camera_name = metadata.camera_name.clone();
                     gamma = metadata.gamma;
+                    h264_already_has_metadata = true;
                 }
                 log::debug!("  MP4 video");
                 src = Box::new(mp4_video);
@@ -757,11 +764,22 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             duration
         };
 
+        let h264_metadata = match encoder {
+            Encoder::NoneCopyExistingH264 => {
+                if h264_already_has_metadata {
+                    None
+                } else {
+                    Some(h264_metadata)
+                }
+            }
+            _ => Some(h264_metadata),
+        };
+
         let mp4_cfg = ci2_remote_control::Mp4RecordingConfig {
             codec,
             sample_duration,
             max_framerate: Default::default(),
-            h264_metadata: Some(h264_metadata),
+            h264_metadata,
         };
 
         let out_fd = std::fs::File::create(&output_fname)

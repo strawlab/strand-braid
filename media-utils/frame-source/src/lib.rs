@@ -88,7 +88,7 @@ impl FrameData {
 
     pub fn decoded(&self) -> Option<&DynamicFrame> {
         match &self.image {
-            ImageData::Decoded(frame) => Some(&frame),
+            ImageData::Decoded(frame) => Some(frame),
             _ => None,
         }
     }
@@ -155,10 +155,7 @@ pub fn from_path<P: AsRef<std::path::Path>>(
                     return Ok(Box::new(mkv_video));
                 }
                 Some("mp4") => {
-                    if do_decode_h264 {
-                        anyhow::bail!("Not implemented: decoding h264 in mp4 files");
-                    }
-                    let mp4_video = mp4_source::from_path(&input)?;
+                    let mp4_video = mp4_source::from_path(&input, do_decode_h264)?;
                     return Ok(Box::new(mp4_video));
                 }
                 _ => {}

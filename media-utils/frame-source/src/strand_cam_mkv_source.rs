@@ -11,6 +11,7 @@ use mkv_strand_reader::ParsedStrandCamMkv;
 
 use super::*;
 
+// NAL unit start for b"MISPmicrosectime":
 const PRECISION_TIME_NALU_START: &[u8] = &[
     0x00, 0x00, 0x00, 0x01, 0x06, 0x05, 28, b'M', b'I', b'S', b'P', b'm', b'i', b'c', b'r', b'o',
     b's', b'e', b'c', b't', b'i', b'm', b'e',
@@ -27,7 +28,6 @@ pub struct StrandCamMkvSource<R: Read + Seek> {
     is_uncompressed: bool,
     h264_decoder_state: Option<openh264::decoder::Decoder>,
     keyframes_cache: Option<Vec<usize>>,
-    do_decode_h264: bool,
 }
 
 impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
@@ -47,6 +47,9 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
     fn gamma(&self) -> Option<f32> {
         self.parsed.metadata.gamma
     }
+    fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+        Some(self.parsed.metadata.creation_time)
+    }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 && self.src_format == Format::H264 {
             if self.keyframes_cache.is_none() {
@@ -54,10 +57,12 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
             }
             let keyframes = self.keyframes_cache.as_ref().unwrap();
 
-            if !self.do_decode_h264 {
-                anyhow::bail!("cannot skip frames without decoding H264");
-            }
-            let decoder = self.h264_decoder_state.as_mut().unwrap();
+            let decoder = match self.h264_decoder_state.as_mut() {
+                Some(decoder) => decoder,
+                None => {
+                    anyhow::bail!("cannot skip frames without decoding H264");
+                }
+            };
 
             let mut best_keyframe = keyframes[0];
             let target_frame = n_frames + 1; // we skip N so want N+1.
@@ -104,12 +109,8 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
         self.keyframes_cache = None;
         Ok(())
     }
-
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         anyhow::bail!("mkv luminance scanning not implemented");
-    }
-    fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
-        Some(self.parsed.metadata.creation_time)
     }
     fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_> {
         Box::new(StrandCamMkvSourceIter {
@@ -166,7 +167,6 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
             is_uncompressed,
             h264_decoder_state,
             keyframes_cache: None,
-            do_decode_h264,
         })
     }
 
@@ -236,8 +236,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                     anyhow::bail!("unexpected image data");
                 }
                 let has_precision_timestamp = image_data.starts_with(PRECISION_TIME_NALU_START);
-                if self.do_decode_h264 {
-                    let decoder = self.h264_decoder_state.as_mut().unwrap();
+                if let Some(decoder) = self.h264_decoder_state.as_mut() {
                     let dynamic_frame = if let Some(decoded_yuv) = decoder.decode(&image_data)? {
                         let dim = decoded_yuv.dimension_rgb();
 
