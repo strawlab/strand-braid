@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-less-avc = "0.1.2"
+less-avc = "0.1.3"
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 machine-vision-formats = "0.1"

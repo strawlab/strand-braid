@@ -26,6 +26,8 @@ use thiserror::Error;
 const MOVIE_TIMESCALE: u32 = 1_000_000;
 const TRACK_ID: u32 = 1;
 
+const ANNEX_B_START: &[u8] = &[0x00, 0x00, 0x00, 0x01];
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("{source}")]
@@ -189,7 +191,7 @@ where
         };
         let h264_parser = H264Parser::new(sample_duration, config.h264_metadata.clone());
         Ok(Self {
-            inner: Some(WriteState::Configured((fd, config, h264_parser))),
+            inner: Some(WriteState::Configured(Box::new((fd, config, h264_parser)))),
             nv_enc,
         })
     }
@@ -206,42 +208,48 @@ where
         frame0_time: chrono::DateTime<chrono::Utc>,
         insert_precision_timestamp: bool,
     ) -> Result<()> {
-        let mut inner = self.inner.take();
+        let inner = self.inner.take();
 
-        let is_keyframe = parse_h264_is_idr_frame(&data)?;
+        let is_keyframe = parse_h264_is_idr_frame(data)?;
 
         let pts = timestamp - frame0_time;
         let output_time_stamp = dur2raw(&pts.to_std().unwrap());
         let sample = match &data {
-            frame_source::H264EncodingVariant::AnnexB(buf) => AnnexBSample {
-                pts,
-                output_time_stamp,
-                is_keyframe,
-                bytes: buf.clone(),
-            },
-            frame_source::H264EncodingVariant::Avcc(buf) => {
-                let nal_iter = iter_avcc_bufs(buf);
-                let mut bytes = Vec::with_capacity(buf.len());
-                for nal_ebsp_bytes in nal_iter {
-                    let nal_ebsp_bytes = nal_ebsp_bytes?;
-                    bytes.extend(&[0, 0, 0, 1]);
-                    bytes.extend(nal_ebsp_bytes);
-                }
-                AnnexBSample {
+            frame_source::H264EncodingVariant::AnnexB(buf) => {
+                let nals = my_split(&buf[..], ANNEX_B_START)
+                    .map(|x| x.to_vec())
+                    .collect();
+
+                EbspNals {
                     pts,
                     output_time_stamp,
                     is_keyframe,
-                    bytes,
+                    nals,
+                }
+            }
+            frame_source::H264EncodingVariant::Avcc(buf) => {
+                let nal_iter = iter_avcc_bufs(buf);
+                let mut nals = Vec::new();
+                for nal_ebsp_bytes in nal_iter {
+                    let nal_ebsp_bytes = nal_ebsp_bytes?;
+                    nals.push(nal_ebsp_bytes.to_vec());
+                }
+                EbspNals {
+                    pts,
+                    output_time_stamp,
+                    is_keyframe,
+                    nals,
                 }
             }
         };
 
         let mut state = match inner {
-            Some(WriteState::Configured((fd, _cfg, ref mut h264_parser))) => {
+            Some(WriteState::Configured(mut mybox)) => {
+                let (fd, _cfg, ref mut h264_parser) = *mybox;
                 if insert_precision_timestamp {
-                    h264_parser.push_annex_b(sample, Some(timestamp));
+                    h264_parser.push_nals(sample, Some(timestamp));
                 } else {
-                    h264_parser.push_annex_b(sample, None);
+                    h264_parser.push_nals(sample, None);
                 }
                 let mp4_writer = start_mp4_writer(
                     fd,
@@ -266,11 +274,11 @@ where
                 let my_encoder = MyEncoder::CopyRawH264 {
                     h264_parser: h264_parser.clone(),
                 };
-                RecordingState {
+                Box::new(RecordingState {
                     mp4_segment,
                     my_encoder,
                     inner: None,
-                }
+                })
             }
             Some(WriteState::Recording(mut state)) => {
                 match &mut state.my_encoder {
@@ -278,9 +286,9 @@ where
                         ref mut h264_parser,
                     } => {
                         if insert_precision_timestamp {
-                            h264_parser.push_annex_b(sample, Some(timestamp));
+                            h264_parser.push_nals(sample, Some(timestamp));
                         } else {
-                            h264_parser.push_annex_b(sample, None);
+                            h264_parser.push_nals(sample, None);
                         }
                     }
                     _ => {
@@ -343,7 +351,8 @@ where
         let inner = self.inner.take();
 
         match inner {
-            Some(WriteState::Configured((fd, cfg, h264_parser))) => {
+            Some(WriteState::Configured(mybox)) => {
+                let (fd, cfg, h264_parser) = *mybox;
                 let frame = trim_image(frame, frame.width(), frame.height());
 
                 let width = frame.width();
@@ -520,7 +529,7 @@ where
 
                 write_frame(&mut state, &frame, timestamp)?;
 
-                self.inner = Some(WriteState::Recording(state));
+                self.inner = Some(WriteState::Recording(Box::new(state)));
 
                 Ok(())
             }
@@ -637,13 +646,16 @@ where
     }
 }
 
-fn nv_outbuf_to_sample(outbuf: dynlink_nvidia_encode::api::LockedOutputBuffer) -> AnnexBSample {
-    let bytes: Vec<u8> = outbuf.mem().to_vec(); // copy data
-    AnnexBSample {
+fn nv_outbuf_to_sample(outbuf: dynlink_nvidia_encode::api::LockedOutputBuffer) -> EbspNals {
+    let nals = my_split(outbuf.mem(), ANNEX_B_START)
+        .map(|x| x.to_vec())
+        .collect();
+
+    EbspNals {
         pts: chrono::Duration::from_std(*outbuf.pts()).unwrap(),
         output_time_stamp: outbuf.output_time_stamp(),
         is_keyframe: outbuf.is_keyframe(),
-        bytes,
+        nals,
     }
 }
 
@@ -693,17 +705,18 @@ where
             });
         }
         (MyEncoder::LessH264(encoder), Some(state_inner)) => {
-            let bytes = encoder.encoder.encode(raw_frame)?;
+            let nals = encoder.encoder.encode_to_nal_units(raw_frame)?;
+
             let is_keyframe = true;
 
             let pts = timestamp - encoder.first_timestamp;
             let output_time_stamp = dur2raw(&pts.to_std().unwrap());
 
-            let sample = AnnexBSample {
+            let sample = EbspNals {
                 pts,
                 output_time_stamp,
                 is_keyframe,
-                bytes,
+                nals,
             };
 
             encoder.inner_save_data(
@@ -730,19 +743,20 @@ where
                 (encoded.frame_type() == FrameType::IDR) | (encoded.frame_type() == FrameType::I);
 
             // todo: preallocate and keep buffer available by using write_vec
-            let bytes = encoded.to_vec();
-            // if bytes.len() == 0 {
-            //     panic!("did not encode frame!?");
-            // }
+            let annex_b_data = encoded.to_vec();
+
+            let nals = my_split(&annex_b_data, ANNEX_B_START)
+                .map(|x| x.to_vec())
+                .collect();
 
             let pts = timestamp - encoder.first_timestamp;
             let output_time_stamp = dur2raw(&pts.to_std().unwrap());
 
-            let sample = AnnexBSample {
+            let sample = EbspNals {
                 pts,
                 output_time_stamp,
                 is_keyframe,
-                bytes,
+                nals,
             };
 
             encoder.inner_save_data(
@@ -813,8 +827,8 @@ enum WriteState<'lib, T>
 where
     T: std::io::Write + std::io::Seek,
 {
-    Configured((T, Mp4RecordingConfig, H264Parser)),
-    Recording(RecordingState<'lib, T>),
+    Configured(Box<(T, Mp4RecordingConfig, H264Parser)>),
+    Recording(Box<RecordingState<'lib, T>>),
     Finished,
 }
 
@@ -843,13 +857,13 @@ struct LessEncoderWrapper {
 }
 
 impl LessEncoderWrapper {
-    fn compute_utc_timestamp(&self, sample: &AnnexBSample) -> chrono::DateTime<chrono::Utc> {
+    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
         &mut self,
         mp4_segment: &mut MaybeMp4Writer<T>,
-        sample: AnnexBSample,
+        sample: EbspNals,
         trim_width: u32,
         trim_height: u32,
     ) -> Result<()>
@@ -857,7 +871,7 @@ impl LessEncoderWrapper {
         T: std::io::Write + std::io::Seek,
     {
         let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_annex_b(sample, Some(utc_timestamp));
+        self.h264_parser.push_nals(sample, Some(utc_timestamp));
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -888,13 +902,13 @@ struct NvEncoder<'lib> {
 }
 
 impl<'lib> NvEncoder<'lib> {
-    fn compute_utc_timestamp(&self, sample: &AnnexBSample) -> chrono::DateTime<chrono::Utc> {
+    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
         &mut self,
         mp4_segment: &mut MaybeMp4Writer<T>,
-        sample: AnnexBSample,
+        sample: EbspNals,
         trim_width: u32,
         trim_height: u32,
     ) -> Result<()>
@@ -902,7 +916,7 @@ impl<'lib> NvEncoder<'lib> {
         T: std::io::Write + std::io::Seek,
     {
         let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_annex_b(sample, Some(utc_timestamp));
+        self.h264_parser.push_nals(sample, Some(utc_timestamp));
         let mut mp4_writer = match std::mem::replace(mp4_segment, MaybeMp4Writer::Nothing) {
             MaybeMp4Writer::Mp4Writer(mp4_writer) => mp4_writer,
             MaybeMp4Writer::Starting(fd) => {
@@ -977,13 +991,13 @@ struct OpenH264Encoder {
 
 #[cfg(feature = "openh264")]
 impl OpenH264Encoder {
-    fn compute_utc_timestamp(&self, sample: &AnnexBSample) -> chrono::DateTime<chrono::Utc> {
+    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
         &mut self,
         mp4_segment: &mut MaybeMp4Writer<T>,
-        sample: AnnexBSample,
+        sample: EbspNals,
         trim_width: u32,
         trim_height: u32,
     ) -> Result<()>
@@ -991,7 +1005,7 @@ impl OpenH264Encoder {
         T: std::io::Write + std::io::Seek,
     {
         let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_annex_b(sample, Some(utc_timestamp));
+        self.h264_parser.push_nals(sample, Some(utc_timestamp));
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -1060,9 +1074,9 @@ impl H264Parser {
         self.pps.as_deref()
     }
 
-    fn push_annex_b(
+    fn push_nals(
         &mut self,
-        sample: AnnexBSample,
+        nals: EbspNals,
         mut precision_timestamp: Option<chrono::DateTime<chrono::Utc>>,
     ) {
         // We assume that sample contains one or more compete NAL units and
@@ -1071,7 +1085,7 @@ impl H264Parser {
         // because of these assumptions but rather tuned to the output of
         // less-avc, nvenc and openh264 as we use them.
 
-        let mut all_avcc_nal_units: Vec<u8> = Vec::with_capacity(sample.bytes.len() + 32);
+        let mut all_avcc_nal_units: Vec<u8> = Vec::with_capacity(nals.annex_b_size() + 32);
 
         if !self.first_frame_done {
             use less_avc::{nal_unit::*, sei::UserDataUnregistered};
@@ -1091,7 +1105,7 @@ impl H264Parser {
                 )
                 .to_annex_b_data();
 
-                debug_assert_eq!(&annex_b_data[..4], &[0x00, 0x00, 0x00, 0x01]);
+                debug_assert_eq!(&annex_b_data[..4], ANNEX_B_START);
 
                 // Don't use the start code from Annex B but do use the raw EBSP
                 // NALU.
@@ -1102,7 +1116,7 @@ impl H264Parser {
         }
 
         // Split into Encapsulated Byte Sequence Payload (EBSP) message
-        for ebsp_msg in my_split(&sample.bytes[..], &[0x00, 0x00, 0x00, 0x01]) {
+        for ebsp_msg in nals.nals.iter() {
             let mut did_sps_pps = false;
             if !ebsp_msg.is_empty() {
                 let code = ebsp_msg[0];
@@ -1144,9 +1158,9 @@ impl H264Parser {
         if self
             .last_sample
             .replace(ParsedH264Frame {
-                output_time_stamp: sample.output_time_stamp,
+                output_time_stamp: nals.output_time_stamp,
                 duration: self.sample_duration,
-                is_keyframe: sample.is_keyframe,
+                is_keyframe: nals.is_keyframe,
                 avcc_buf: all_avcc_nal_units,
             })
             .is_some()
@@ -1173,12 +1187,23 @@ fn parsed_to_mp4_sample(orig: ParsedH264Frame) -> mp4::Mp4Sample {
     }
 }
 
-struct AnnexBSample {
+/// Encapsulated NAL Units
+///
+/// Stored neither in AnnexB nor AVCC format, just as buffers of encapsulated
+/// bytes. A single MP4 sample can be composed of multiple such H264 NAL units.
+struct EbspNals {
     pts: chrono::Duration,
     /// in units of `movie_timescale`
     output_time_stamp: u64,
     is_keyframe: bool,
-    bytes: Vec<u8>,
+    nals: Vec<Vec<u8>>,
+}
+
+impl EbspNals {
+    fn annex_b_size(&self) -> usize {
+        let raw_sz: usize = self.nals.iter().map(|x| x.len()).sum();
+        raw_sz + 4 * self.nals.len()
+    }
 }
 
 #[derive(Clone)]
@@ -1484,6 +1509,7 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
             _ => {}
         }
     }
+    #[allow(clippy::unnecessary_lazy_evaluations)]
     is_keyframe.ok_or_else(|| Error::BadInputData {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace::capture(),

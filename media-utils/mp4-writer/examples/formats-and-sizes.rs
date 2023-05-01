@@ -123,11 +123,10 @@ fn main() -> Result<(), anyhow::Error> {
                 }
                 "rgb8" => {
                     let image_row_rgb8: Vec<u8> = (0..width)
-                        .map(|idx| {
+                        .flat_map(|idx| {
                             let val = ((idx as f64) * 255.0 / (width - 1) as f64) as u8;
                             [val; 3]
                         })
-                        .flatten()
                         .collect();
                     assert_eq!(image_row_rgb8.len(), width * 3);
                     assert_eq!(image_row_rgb8[0], 0);

@@ -87,7 +87,7 @@ pub struct WrappedLessEncoder {
 }
 
 impl WrappedLessEncoder {
-    pub fn encode<FRAME, FMT>(&mut self, frame: &FRAME) -> Result<Vec<u8>>
+    pub fn encode_to_nal_units<FRAME, FMT>(&mut self, frame: &FRAME) -> Result<Vec<Vec<u8>>>
     where
         FRAME: ImageStride<FMT>,
         FMT: PixelFormat,
@@ -95,29 +95,31 @@ impl WrappedLessEncoder {
         let y4m = convert_to_y4m(frame)?;
         let y4m_ref = gen_y4m_ref(&y4m)?;
 
-        let (buf, encoder) = match self.inner.take() {
+        let (nals, encoder) = match self.inner.take() {
             None => {
                 let (nal_units, encoder) = less_avc::LessEncoder::new(&y4m_ref)?;
-                let buf: Vec<u8> = nal_units
+                let nals: Vec<Vec<u8>> = nal_units
                     .into_iter()
-                    .map(|nal_unit| nal_unit.to_annex_b_data())
-                    .flatten()
+                    .map(|nal_unit| nal_unit.to_nal_unit())
                     .collect();
-                (buf, encoder)
+                (nals, encoder)
             }
             Some(mut encoder) => {
                 let nal_unit = encoder.encode(&y4m_ref)?;
-                (nal_unit.to_annex_b_data(), encoder)
+                (vec![nal_unit.to_nal_unit()], encoder)
             }
         };
 
         self.inner = Some(encoder);
 
-        Ok(buf)
+        Ok(nals)
     }
 
-    pub fn encode_dynamic(&mut self, frame: &basic_frame::DynamicFrame) -> Result<Vec<u8>> {
-        basic_frame::match_all_dynamic_fmts!(frame, f, { self.encode(f) })
+    pub fn encode_dynamic_to_nal_units(
+        &mut self,
+        frame: &basic_frame::DynamicFrame,
+    ) -> Result<Vec<Vec<u8>>> {
+        basic_frame::match_all_dynamic_fmts!(frame, f, { self.encode_to_nal_units(f) })
     }
 }
 

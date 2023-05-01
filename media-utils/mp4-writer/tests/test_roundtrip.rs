@@ -20,11 +20,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
     // Potentially do not delete temporary directory
     let save_output = match std::env::var_os(env_var_name) {
         Some(v) => {
-            if &v != "0" {
-                true
-            } else {
-                false
-            }
+            &v != "0"
         }
         None => false,
     };
@@ -201,8 +197,8 @@ fn generate_image(
                 assert_eq!(image_row_mono8[image_row_mono8.len() - 1], 255);
 
                 let stride = next16(width as IType) as usize;
-                let mut image_data = vec![0u8; stride * height as usize];
-                for row in 0..(height as usize) {
+                let mut image_data = vec![0u8; stride * height];
+                for row in 0..height {
                     let start_idx = row * stride;
                     let dest_row = &mut image_data[start_idx..(start_idx + width)];
                     dest_row.copy_from_slice(&image_row_mono8);
@@ -221,11 +217,10 @@ fn generate_image(
             }
             "rgb8" => {
                 let image_row_rgb8: Vec<u8> = (0..width)
-                    .map(|idx| {
+                    .flat_map(|idx| {
                         let val = ((idx as f64) * 255.0 / (width - 1) as f64) as u8;
                         [val; 3]
                     })
-                    .flatten()
                     .collect();
                 assert_eq!(image_row_rgb8.len(), width * 3);
                 assert_eq!(image_row_rgb8[0], 0);
@@ -284,7 +279,7 @@ fn ffmpeg_to_frame(
         &format!("{}", png_fname.display()),
     ];
     let output = std::process::Command::new("ffmpeg")
-        .args(&args)
+        .args(args)
         .output()
         .with_context(|| format!("When running: ffmpeg {:?}", args))?;
 

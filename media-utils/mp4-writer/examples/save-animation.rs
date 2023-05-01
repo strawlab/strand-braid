@@ -57,9 +57,9 @@ fn put_pixel(self_: &mut SimpleFrame<RGB8>, x: u32, y: u32, incoming: Rgba) {
     self_.buffer_mut_ref().data[pix_start + 2] = new[2];
 }
 
-fn stamp_frame<'a>(
+fn stamp_frame(
     image: &mut SimpleFrame<RGB8>,
-    font: &rusttype::Font<'a>,
+    font: &rusttype::Font<'_>,
     text: &str,
 ) -> Result<(), anyhow::Error> {
     // from https://gitlab.redox-os.org/redox-os/rusttype/blob/master/dev/examples/image.rs
@@ -84,7 +84,7 @@ fn stamp_frame<'a>(
     let width = glyphs
         .iter()
         .rev()
-        .map(|g| g.position().x as f32 + g.unpositioned().h_metrics().advance_width)
+        .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
         .next()
         .unwrap_or(0.0)
         .ceil() as usize;
@@ -135,7 +135,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     // let start = Utc::now();
     let start = chrono::DateTime::from_utc(
-        chrono::NaiveDateTime::from_timestamp_opt(1 * 60 * 60, 0).unwrap(),
+        chrono::NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
         Utc,
     );
 
