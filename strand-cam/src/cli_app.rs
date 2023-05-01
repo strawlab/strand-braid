@@ -137,7 +137,7 @@ fn parse_args(
             .arg(
                 Arg::with_name("mkv_filename_template")
                     .long("mkv_filename_template")
-                    .default_value(&arg_default.mkv_filename_template)
+                    .default_value(&arg_default.mp4_filename_template)
                     .help("Set the initial filename template of the destination to be saved to.")
                     .takes_value(true),
             )
@@ -485,7 +485,7 @@ fn parse_args(
         pixel_format,
         http_server_addr,
         no_browser,
-        mkv_filename_template,
+        mp4_filename_template: mkv_filename_template,
         fmf_filename_template,
         ufmf_filename_template,
         #[cfg(feature = "flydra_feat_detect")]

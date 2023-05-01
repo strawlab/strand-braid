@@ -61,7 +61,9 @@ use std::{error::Error as StdError, future::Future, path::Path, pin::Pin};
 
 #[cfg(feature = "flydra_feat_detect")]
 use ci2_remote_control::CsvSaveConfig;
-use ci2_remote_control::{CamArg, MkvRecordingConfig, RecordingFrameRate};
+use ci2_remote_control::{
+    CamArg, CodecSelection, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options, RecordingFrameRate,
+};
 use flydra_types::{
     BuiServerInfo, CamHttpServerInfo, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr,
     RosCamName, StartSoftwareFrameRateLimit,
@@ -211,10 +213,10 @@ pub enum StrandCamError {
         mvg::MvgError,
     ),
     #[error("{0}")]
-    MkvWriterError(
+    Mp4WriterError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
-        mkv_writer::Error,
+        mp4_writer::Error,
     ),
     #[error("{0}")]
     AddrParseError(#[from] std::net::AddrParseError),
@@ -377,8 +379,8 @@ impl Drop for CloseAppOnThreadExit {
 }
 
 pub(crate) enum Msg {
-    StartMkv((String, MkvRecordingConfig)),
-    StopMkv,
+    StartMp4,
+    StopMp4,
     StartFMF((String, RecordingFrameRate)),
     StopFMF,
     #[cfg(feature = "flydra_feat_detect")]
@@ -387,7 +389,7 @@ pub(crate) enum Msg {
     StopUFMF,
     #[cfg(feature = "flydra_feat_detect")]
     SetTracking(bool),
-    PostTriggerStartMkv((String, MkvRecordingConfig)),
+    PostTriggerStartMp4,
     SetPostTriggerBufferSize(usize),
     Mframe(DynamicFrame),
     #[cfg(feature = "flydra_feat_detect")]
@@ -771,7 +773,7 @@ async fn frame_process_task(
 
     #[cfg(feature = "fiducial")]
     let mut apriltag_writer: Option<_> = None;
-    let mut my_mkv_writer: Option<bg_movie_writer::BgMovieWriter> = None;
+    let mut my_mp4_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
     #[cfg(feature = "flydra_feat_detect")]
     let mut ufmf_state: Option<UfmfState> = Some(UfmfState::Stopped);
@@ -1167,22 +1169,43 @@ async fn frame_process_task(
                 let f = std::fs::File::create(path)?;
                 fmf_writer = Some(FmfWriteInfo::new(FMFWriter::new(f)?, recording_framerate));
             }
-            Msg::StartMkv((format_str_mkv, mkv_recording_config)) => {
-                my_mkv_writer = Some(bg_movie_writer::BgMovieWriter::new_mkv_writer(
-                    format_str_mkv,
-                    mkv_recording_config,
-                    100,
-                ));
-            }
             #[cfg(feature = "flydra_feat_detect")]
             Msg::StartUFMF(dest) => {
                 ufmf_state = Some(UfmfState::Starting(dest));
             }
-            Msg::PostTriggerStartMkv((format_str_mkv, mkv_recording_config)) => {
-                let frames = post_trig_buffer.get_and_clear();
-                let mut raw = bg_movie_writer::BgMovieWriter::new_mkv_writer(
-                    format_str_mkv,
-                    mkv_recording_config,
+            Msg::StartMp4 | Msg::PostTriggerStartMp4 => {
+                // get buffer of accumulated frames
+                let frames = match msg {
+                    Msg::PostTriggerStartMp4 => post_trig_buffer.get_and_clear(),
+                    Msg::StartMp4 => std::collections::VecDeque::with_capacity(0),
+                    _ => unreachable!(),
+                };
+
+                let local = chrono::Local::now();
+
+                // Get start time, either from buffered frames if present or current time.
+                let creation_time = if let Some(frame0) = frames.get(0) {
+                    frame0.extra().host_timestamp().into()
+                } else {
+                    local
+                };
+
+                let (format_str_mp4, mp4_recording_config) = {
+                    // scope for reading cache
+                    let tracker = shared_store_arc.as_ref().unwrap().read();
+                    let shared: &StoreType = tracker.as_ref();
+
+                    let mp4_recording_config = FinalMp4RecordingConfig::new(&shared, creation_time);
+
+                    (shared.format_str_mp4.clone(), mp4_recording_config)
+                };
+
+                let filename = creation_time.format(format_str_mp4.as_str()).to_string();
+                let is_recording_mp4 = Some(RecordingPath::new(filename.clone()));
+
+                let mut raw = bg_movie_writer::BgMovieWriter::new_mp4_writer(
+                    format_str_mp4,
+                    mp4_recording_config.final_cfg,
                     frames.len() + 100,
                 );
                 for mut frame in frames.into_iter() {
@@ -1194,7 +1217,14 @@ async fn frame_process_task(
                     let ts = frame.extra().host_timestamp();
                     raw.write(frame, ts)?;
                 }
-                my_mkv_writer = Some(raw);
+                my_mp4_writer = Some(raw);
+
+                if let Some(ref mut store) = shared_store_arc {
+                    let mut tracker = store.write();
+                    tracker.modify(|tracker| {
+                        tracker.is_recording_mp4 = is_recording_mp4;
+                    });
+                }
             }
             Msg::StartAprilTagRec(format_str_apriltags_csv) => {
                 #[cfg(feature = "fiducial")]
@@ -1233,7 +1263,7 @@ async fn frame_process_task(
                     opt_frame_offset,
                     extracted_frame_info.host_framenumber,
                 );
-                let (timestamp_source, save_mkv_fmf_stamp) =
+                let (timestamp_source, save_mp4_fmf_stamp) =
                     if let Some(trigger_timestamp) = &opt_trigger_stamp {
                         (TimestampSource::BraidTrigger, trigger_timestamp.into())
                     } else {
@@ -1433,7 +1463,7 @@ async fn frame_process_task(
 
                                     let mc = ToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        timestamp: save_mkv_fmf_stamp,
+                                        timestamp: save_mp4_fmf_stamp,
                                         timestamp_source,
                                         mu00,
                                         mu01,
@@ -1846,9 +1876,9 @@ async fn frame_process_task(
                     (all_points, blkajdsfads)
                 };
 
-                if let Some(ref mut inner) = my_mkv_writer {
+                if let Some(ref mut inner) = my_mp4_writer {
                     let data = frame.clone(); // copy entire frame data
-                    inner.write(data, save_mkv_fmf_stamp)?;
+                    inner.write(data, save_mp4_fmf_stamp)?;
                 }
 
                 if let Some(ref mut inner) = fmf_writer {
@@ -1856,16 +1886,16 @@ async fn frame_process_task(
                     let do_save = match inner.last_saved_stamp {
                         None => true,
                         Some(stamp) => {
-                            let elapsed = save_mkv_fmf_stamp - stamp;
+                            let elapsed = save_mp4_fmf_stamp - stamp;
                             elapsed
                                 >= chrono::Duration::from_std(inner.recording_framerate.interval())?
                         }
                     };
                     if do_save {
                         match_all_dynamic_fmts!(&frame, x, {
-                            inner.writer.write(x, save_mkv_fmf_stamp)?
+                            inner.writer.write(x, save_mp4_fmf_stamp)?
                         });
-                        inner.last_saved_stamp = Some(save_mkv_fmf_stamp);
+                        inner.last_saved_stamp = Some(save_mp4_fmf_stamp);
                     }
                 }
 
@@ -2081,9 +2111,15 @@ async fn frame_process_task(
             Msg::SetClockModel(cm) => {
                 opt_clock_model = cm;
             }
-            Msg::StopMkv => {
-                if let Some(mut inner) = my_mkv_writer.take() {
+            Msg::StopMp4 => {
+                if let Some(mut inner) = my_mp4_writer.take() {
                     inner.finish()?;
+                }
+                if let Some(ref mut store) = shared_store_arc {
+                    let mut tracker = store.write();
+                    tracker.modify(|tracker| {
+                        tracker.is_recording_mp4 = None;
+                    });
                 }
             }
             Msg::StopFMF => {
@@ -2470,18 +2506,6 @@ async fn check_version(
     Ok(())
 }
 
-fn get_mkv_writing_application(is_braid: bool) -> String {
-    if is_braid {
-        format!(
-            "braid-{}-{}",
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION")
-        )
-    } else {
-        format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
-    }
-}
-
 fn display_qr_url(url: &str) {
     use qrcodegen::{QrCode, QrCodeEcc};
     use std::io::stdout;
@@ -2577,7 +2601,7 @@ pub struct StrandCamArgs {
     pub pixel_format: Option<String>,
     pub http_server_addr: Option<String>,
     pub no_browser: bool,
-    pub mkv_filename_template: String,
+    pub mp4_filename_template: String,
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
     #[cfg(feature = "flydra_feat_detect")]
@@ -2647,7 +2671,7 @@ impl Default for StrandCamArgs {
             pixel_format: None,
             http_server_addr: None,
             no_browser: true,
-            mkv_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mkv".to_string(),
+            mp4_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4".to_string(),
             fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
             ufmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf".to_string(),
             #[cfg(feature = "fiducial")]
@@ -2682,7 +2706,16 @@ impl Default for StrandCamArgs {
     }
 }
 
-fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool> {
+fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
+    let cfg = Mp4RecordingConfig {
+        codec: Mp4Codec::H264NvEnc(NvidiaH264Options {
+            bitrate: 1000,
+            cuda_device: 0,
+        }),
+        h264_metadata: None,
+        max_framerate: RecordingFrameRate::Fps30,
+        sample_duration: std::time::Duration::from_millis(5),
+    };
     let mut nv_cfg_test = cfg.clone();
 
     let libs = match nvenc::Dynlibs::new() {
@@ -2693,12 +2726,12 @@ fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool
         }
     };
 
-    let opts = ci2_remote_control::MkvH264Options {
+    let opts = ci2_remote_control::NvidiaH264Options {
         bitrate: 10000,
         ..Default::default()
     };
 
-    nv_cfg_test.codec = ci2_remote_control::MkvCodec::H264(opts);
+    nv_cfg_test.codec = ci2_remote_control::Mp4Codec::H264NvEnc(opts);
 
     // Temporary variable to hold file data. This will be dropped
     // at end of scope.
@@ -2712,11 +2745,11 @@ fn test_nvenc_save(cfg: &MkvRecordingConfig, frame: DynamicFrame) -> Result<bool
         }
     };
 
-    let mut mkv_writer = mkv_writer::MkvWriter::new(&mut buf, nv_cfg_test, Some(nv_enc))?;
-    mkv_writer.write_dynamic(&frame, chrono::Utc::now())?;
-    mkv_writer.finish()?;
+    let mut mp4_writer = mp4_writer::Mp4Writer::new(&mut buf, nv_cfg_test, Some(nv_enc))?;
+    mp4_writer.write_dynamic(&frame, chrono::Utc::now())?;
+    mp4_writer.finish()?;
 
-    debug!("MKV video with nvenc h264 encoding succeeded.");
+    debug!("MP4 video with nvenc h264 encoding succeeded.");
 
     // When `buf` goes out of scope, it will be dropped.
     Ok(true)
@@ -2824,7 +2857,8 @@ where
     let camera_gamma = cam
         .feature_float("Gamma")
         .map_err(|e| log::warn!("Ignoring error getting gamma: {}", e))
-        .ok();
+        .ok()
+        .map(|x: f64| x as f32);
 
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
         if let Some(camera_settings_filename) = &args.camera_settings_filename {
@@ -3132,6 +3166,12 @@ where
             Vec::new()
         }
     };
+    let mp4_cuda_device = if !cuda_devices.is_empty() {
+        cuda_devices[0].as_str()
+    } else {
+        ""
+    }
+    .into();
 
     #[cfg(not(feature = "fiducial"))]
     let apriltag_state = None;
@@ -3156,28 +3196,17 @@ where
 
     // -----------------------------------------------
     // Check if we can use nv h264 and, if so, set that as default.
-    let mut mkv_recording_config = MkvRecordingConfig {
-        writing_application: Some(get_mkv_writing_application(is_braid)),
-        title: Some(cam_name.as_str().to_string()),
-        gamma: camera_gamma,
-        ..Default::default()
+    let is_nvenc_functioning = test_nvenc_save(frame)?;
+
+    let mp4_codec = match is_nvenc_functioning {
+        true => CodecSelection::H264Nvenc,
+        false => CodecSelection::H264OpenH264,
     };
-
-    let is_nvenc_functioning = test_nvenc_save(&mkv_recording_config, frame)?;
-
-    if is_nvenc_functioning {
-        mkv_recording_config.codec =
-            ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options {
-                bitrate: 10000,
-                ..Default::default()
-            });
-    } else {
-    }
 
     // -----------------------------------------------
 
-    let mkv_filename_template = args
-        .mkv_filename_template
+    let mp4_filename_template = args
+        .mp4_filename_template
         .replace("{CAMNAME}", cam_name.as_str());
     let fmf_filename_template = args
         .fmf_filename_template
@@ -3203,17 +3232,20 @@ where
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
         is_nvenc_functioning,
-        is_recording_mkv: None,
+        is_recording_mp4: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,
         format_str_apriltag_csv,
-        format_str_mkv: mkv_filename_template,
+        format_str_mp4: mp4_filename_template,
         format_str: fmf_filename_template,
         format_str_ufmf: ufmf_filename_template,
         camera_name: cam.name().into(),
+        camera_gamma,
         recording_filename: None,
-        recording_framerate: RecordingFrameRate::default(),
-        mkv_recording_config,
+        mp4_bitrate: Default::default(),
+        mp4_codec,
+        mp4_max_framerate: Default::default(),
+        mp4_cuda_device,
         gain: gain_ranged,
         gain_auto,
         exposure_time: exposure_ranged,
@@ -3695,27 +3727,23 @@ where
                     },
                     CamArg::SetRecordingFps(v) => {
                         let mut tracker = shared_store_arc.write();
-                        tracker.modify(|tracker| tracker.recording_framerate = v);
+                        tracker.modify(|tracker| tracker.mp4_max_framerate = v);
                     }
-                    CamArg::SetMkvRecordingConfig(mut cfg) => {
-                        if cfg.writing_application.is_none() {
-                            // The writing application is not set in the web UI
-                            cfg.writing_application = Some(get_mkv_writing_application(is_braid));
-                        }
-                        if cfg.title.is_none() {
-                            // The title is not set in the web UI
-                            cfg.title = Some(cam_name.as_str().to_string());
-                        }
-                        if cfg.gamma.is_none() {
-                            // The gamma is not set in the web UI
-                            cfg.gamma = camera_gamma;
-                        }
+                    CamArg::SetMp4CudaDevice(v) => {
                         let mut tracker = shared_store_arc.write();
-                        tracker.modify(|tracker| tracker.mkv_recording_config = cfg);
+                        tracker.modify(|tracker| tracker.mp4_cuda_device = v);
                     }
-                    CamArg::SetMkvRecordingFps(v) => {
+                    CamArg::SetMp4MaxFramerate(v) => {
                         let mut tracker = shared_store_arc.write();
-                        tracker.modify(|tracker| tracker.mkv_recording_config.max_framerate = v);
+                        tracker.modify(|tracker| tracker.mp4_max_framerate = v);
+                    }
+                    CamArg::SetMp4Bitrate(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.mp4_bitrate = v);
+                    }
+                    CamArg::SetMp4Codec(v) => {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|tracker| tracker.mp4_codec = v);
                     }
                     CamArg::SetExposureAuto(v) => match cam.set_exposure_auto(v) {
                         Ok(()) => {
@@ -3808,41 +3836,28 @@ where
                         let mut tracker = shared_store_arc.write();
                         tracker.modify(|tracker| tracker.format_str = v);
                     }
-                    CamArg::SetIsRecordingMkv(do_recording) => {
+                    CamArg::SetIsRecordingMp4(do_recording) => {
                         // Copy values from cache and release the lock immediately.
-                        let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
+                        let is_recording_mp4 = {
                             let tracker = shared_store_arc.read();
                             let shared: &StoreType = tracker.as_ref();
-                            (
-                                shared.is_recording_mkv.clone(),
-                                shared.format_str_mkv.clone(),
-                                shared.mkv_recording_config.clone(),
-                            )
+                            shared.is_recording_mp4.is_some()
                         };
 
-                        if is_recording_mkv.is_some() != do_recording {
+                        if is_recording_mp4 != do_recording {
                             // Compute new values.
-                            let (msg, new_val) = if do_recording {
-                                info!("Start MKV recording");
+                            let msg = if do_recording {
+                                info!("Start MP4 recording");
 
                                 // change state
-                                (
-                                    Msg::StartMkv((format_str_mkv.clone(), mkv_recording_config)),
-                                    Some(RecordingPath::new(format_str_mkv)),
-                                )
+                                Msg::StartMp4
                             } else {
-                                info!("Stopping MKV recording");
-                                (Msg::StopMkv, None)
+                                info!("Stopping MP4 recording");
+                                Msg::StopMp4
                             };
 
                             // Send the command.
                             tx_frame2.send(msg).await?;
-
-                            // Save the new recording state.
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                shared.is_recording_mkv = new_val;
-                            });
                         }
                     }
                     CamArg::ToggleAprilTagFamily(family) => {
@@ -3950,31 +3965,9 @@ where
                             });
                         }
                     }
-
                     CamArg::PostTrigger => {
-                        info!("Start MKV recording via post trigger.");
-                        let (is_recording_mkv, format_str_mkv, mkv_recording_config) = {
-                            let tracker = shared_store_arc.read();
-                            let shared: &StoreType = tracker.as_ref();
-                            (
-                                shared.is_recording_mkv.clone(),
-                                shared.format_str_mkv.clone(),
-                                shared.mkv_recording_config.clone(),
-                            )
-                        };
-
-                        tx_frame2
-                            .send(Msg::PostTriggerStartMkv((
-                                format_str_mkv.clone(),
-                                mkv_recording_config,
-                            )))
-                            .await?;
-                        {
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                shared.is_recording_mkv = Some(RecordingPath::new(format_str_mkv));
-                            })
-                        }
+                        info!("Start MP4 recording via post trigger.");
+                        tx_frame2.send(Msg::PostTriggerStartMp4).await?;
                     }
                     CamArg::SetPostTriggerBufferSize(size) => {
                         info!("Set post trigger buffer size to {size}.");
@@ -3988,7 +3981,7 @@ where
                             (
                                 shared.is_recording_fmf.clone(),
                                 shared.format_str.clone(),
-                                shared.recording_framerate.clone(),
+                                shared.mp4_max_framerate.clone(),
                             )
                         };
 
@@ -4415,7 +4408,7 @@ where
             // In theory, all things currently being saved should nicely stop themselves when dropped.
             // For now, while we are working on ctrlc handling, we manually stop them.
             tx_frame2.send(Msg::StopFMF).await?;
-            tx_frame2.send(Msg::StopMkv).await?;
+            tx_frame2.send(Msg::StopMp4).await?;
             #[cfg(feature = "flydra_feat_detect")]
             tx_frame2.send(Msg::StopUFMF).await?;
             #[cfg(feature = "flydra_feat_detect")]
@@ -4877,5 +4870,75 @@ fn send_cam_settings_to_braid(
         Some(fut)
     } else {
         None
+    }
+}
+
+fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
+    use ci2_remote_control::BitrateSelection::*;
+    match br {
+        Bitrate500 => 500,
+        Bitrate1000 => 1000,
+        Bitrate2000 => 2000,
+        Bitrate3000 => 3000,
+        Bitrate4000 => 4000,
+        Bitrate5000 => 5000,
+        Bitrate10000 => 10000,
+        BitrateUnlimited => std::u32::MAX,
+    }
+}
+
+struct FinalMp4RecordingConfig {
+    final_cfg: Mp4RecordingConfig,
+}
+
+impl FinalMp4RecordingConfig {
+    fn new(shared: &StoreType, creation_time: chrono::DateTime<chrono::Local>) -> Self {
+        let max_framerate = shared.mp4_max_framerate.clone();
+        let sample_duration = match max_framerate {
+            RecordingFrameRate::Unlimited => {
+                std::time::Duration::from_secs_f32(1.0 / shared.measured_fps)
+            }
+            fr => fr.interval(),
+        };
+
+        let cuda_device = shared
+            .cuda_devices
+            .iter()
+            .position(|x| x == &shared.mp4_cuda_device)
+            .unwrap_or(0);
+        let cuda_device = cuda_device.try_into().unwrap();
+        let codec = match shared.mp4_codec {
+            CodecSelection::H264Nvenc => Mp4Codec::H264NvEnc(NvidiaH264Options {
+                bitrate: bitrate_to_u32(&shared.mp4_bitrate),
+                cuda_device,
+            }),
+            CodecSelection::H264OpenH264 => {
+                use ci2_remote_control::{BitrateSelection::*, OpenH264Preset};
+                let preset = match &shared.mp4_bitrate {
+                    BitrateUnlimited => OpenH264Preset::AllFrames,
+                    br => OpenH264Preset::SkipFramesBitrate(bitrate_to_u32(br)),
+                };
+                Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+                    debug: false,
+                    preset,
+                })
+            }
+        };
+        // See https://github.com/chronotope/chrono/issues/576
+        let fixed = chrono::DateTime::<chrono::FixedOffset>::from_utc(
+            creation_time.naive_utc(),
+            *creation_time.offset(),
+        );
+
+        let mut h264_metadata = ci2_remote_control::H264Metadata::new("strand-cam", fixed);
+        h264_metadata.camera_name = Some(shared.camera_name.clone());
+        h264_metadata.gamma = shared.camera_gamma;
+        let final_cfg = Mp4RecordingConfig {
+            sample_duration,
+            codec,
+            max_framerate: shared.mp4_max_framerate.clone(),
+            h264_metadata: Some(h264_metadata),
+        };
+        FinalMp4RecordingConfig { final_cfg }
     }
 }

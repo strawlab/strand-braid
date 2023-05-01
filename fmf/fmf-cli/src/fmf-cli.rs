@@ -4,7 +4,7 @@ extern crate log;
 use anyhow::Result;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
-use ci2_remote_control::MkvRecordingConfig;
+use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
 use machine_vision_formats::{
     pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, Stride,
@@ -23,7 +23,7 @@ timestamp data:
 
     fmf export-y4m test_rgb8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_yuv.mkv
 
-Example export to mkv for mono8. Will loose timestamps:
+Example export to mkv for mono8. Will lose timestamps:
 
     fmf export-y4m test_mono8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_mono8.mkv
 
@@ -35,6 +35,10 @@ Note that MKV's `DateUTC` metadata creation time can be set when creating an MKV
 video in ffmpeg with the option `-metadata creation_time="2012-02-07 12:15:27"`.
 However, as of the time of writing, ffmpeg only parses the command line date to
 the second (whereas the MKV spec allows better precision).
+
+Example export to mp4:
+
+    fmf export-mp4 test_rgb8.fmf -o /tmp/test.mp4
 
 */
 
@@ -128,9 +132,9 @@ enum Opt {
     // /// export to bgr24 raw
     // #[structopt(name = "export-bgr24")]
     // ExportBgr24(ExportBgr24),
-    /// export to mkv
-    #[structopt(name = "export-mkv")]
-    ExportMkv(ExportMkv),
+    /// export to mp4
+    #[structopt(name = "export-mp4")]
+    ExportMp4(ExportMp4),
 
     /// import a sequence of images, converting it to an FMF file
     #[structopt(name = "import-images")]
@@ -192,12 +196,12 @@ struct ExportY4m {
 // }
 
 #[derive(StructOpt, Debug)]
-struct ExportMkv {
+struct ExportMp4 {
     /// Filename of input fmf
     #[structopt(parse(from_os_str), name = "INPUT-FMF")]
     input: PathBuf,
 
-    /// Filename of output .mkv, "-" for stdout
+    /// Filename of output .mp4, "-" for stdout
     #[structopt(parse(from_os_str), long = "output", short = "o")]
     output: Option<PathBuf>,
 
@@ -205,41 +209,29 @@ struct ExportMkv {
     // #[structopt(long="autocrop", short="a", default_value="mod16")]
     // autocrop: Autocrop,
     /// video bitrate
-    #[structopt(long = "bitrate", short = "b", default_value = "1000")]
-    bitrate: u32,
+    #[structopt(long = "bitrate", short = "b")]
+    bitrate: Option<u32>,
 
     /// video codec
     #[structopt(long = "codec", default_value = "vp9", help=VALID_CODECS)]
     codec: Codec,
-
-    /// title stored in MKV metadata
-    #[structopt(long = "title")]
-    title: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum Codec {
-    Vp8,
-    Vp9,
-    #[cfg(feature = "nv-h264")]
-    H264,
+    NvencH264,
+    OpenH264,
 }
 
-#[cfg(not(feature = "nv-h264"))]
-const VALID_CODECS: &str = "Codec must be one of: vp8 vp9";
-
-#[cfg(feature = "nv-h264")]
-const VALID_CODECS: &str = "Codec must be one of: vp8 vp9 h264";
+const VALID_CODECS: &str = "Codec must be one of: nvenc-h264 open-h264";
 
 impl std::str::FromStr for Codec {
     type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let s = s.to_lowercase();
         match s.as_str() {
-            "vp8" => Ok(Codec::Vp8),
-            "vp9" => Ok(Codec::Vp9),
-            #[cfg(feature = "nv-h264")]
-            "h264" => Ok(Codec::H264),
+            "nvenc-h264" => Ok(Codec::NvencH264),
+            "open-h264" => Ok(Codec::OpenH264),
             c => Err(format!("unknown codec: {} ({})", c, VALID_CODECS)),
         }
     }
@@ -486,11 +478,11 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
 //     Ok(())
 // }
 
-fn export_mkv(x: ExportMkv) -> Result<()> {
+fn export_mp4(x: ExportMp4) -> Result<()> {
     // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
     // also this https://www.webmproject.org/docs/webm-sdk/example_vp9_lossless_encoder.html
 
-    let output_fname = default_filename(&x.input, x.output, "mkv");
+    let output_fname = default_filename(&x.input, x.output, "mp4");
 
     info!(
         "exporting {} to {}",
@@ -500,63 +492,94 @@ fn export_mkv(x: ExportMkv) -> Result<()> {
 
     let out_fd = match &output_fname {
         None => {
-            anyhow::bail!("Cannot export mkv to stdout."); // Seek required
+            anyhow::bail!("Cannot export mp4 to stdout."); // Seek required
         }
         Some(path) => std::fs::File::create(&path)?,
     };
 
-    let reader = fmf::FMFReader::new(&x.input)?;
+    let mut reader = fmf::FMFReader::new(&x.input)?;
 
-    let codec = match x.codec {
-        Codec::Vp8 => {
-            let opts = ci2_remote_control::VP8Options { bitrate: x.bitrate };
-            ci2_remote_control::MkvCodec::VP8(opts)
+    let libs = if x.codec == Codec::NvencH264 {
+        Some(nvenc::Dynlibs::new()?)
+    } else {
+        None
+    };
+
+    let (codec, nv_enc) = match x.codec {
+        Codec::NvencH264 => {
+            let mut opts = NvidiaH264Options::default();
+            if let Some(bitrate) = x.bitrate {
+                opts.bitrate = bitrate;
+            }
+            let nv_enc = Some(nvenc::NvEnc::new(libs.as_ref().unwrap())?);
+            (ci2_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
         }
-        Codec::Vp9 => {
-            let opts = ci2_remote_control::VP9Options { bitrate: x.bitrate };
-            ci2_remote_control::MkvCodec::VP9(opts)
-        }
-        #[cfg(feature = "nv-h264")]
-        Codec::H264 => {
-            let opts = ci2_remote_control::MkvH264Options {
-                bitrate: x.bitrate,
-                ..Default::default()
+        Codec::OpenH264 => {
+            let opts = match x.bitrate {
+                None => OpenH264Options {
+                    debug: false,
+                    preset: ci2_remote_control::OpenH264Preset::AllFrames,
+                },
+                Some(bitrate) => OpenH264Options {
+                    debug: false,
+                    preset: ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate),
+                },
             };
-            ci2_remote_control::MkvCodec::H264(opts)
+            dbg!(&opts);
+            (ci2_remote_control::Mp4Codec::H264OpenH264(opts), None)
         }
     };
 
-    let cfg = MkvRecordingConfig {
+    // read first frames to get duration.
+    const BUFSZ: usize = 50;
+    let mut buffered_first = Vec::with_capacity(BUFSZ);
+    while let Some(next) = reader.next() {
+        buffered_first.push(Ok(next?));
+        if buffered_first.len() >= BUFSZ {
+            break;
+        }
+    }
+    // collect timestamps
+    let ts_first: Vec<_> = buffered_first
+        .iter()
+        .map(|res_frame| res_frame.as_ref().unwrap().extra().host_timestamp())
+        .collect();
+    // collect deltas
+    let dt_first: Vec<f64> = ts_first
+        .windows(2)
+        .map(|tss| {
+            assert_eq!(tss.len(), 2);
+            dbg!(&tss);
+            (tss[1] - tss[0]).to_std().unwrap().as_secs_f64()
+        })
+        .collect();
+    dbg!(&dt_first);
+    // sum of deltas
+    let sum_dt: f64 = dt_first.iter().sum();
+    // average of deltas
+    let sample_duration = std::time::Duration::from_secs_f64(sum_dt / dt_first.len() as f64);
+
+    let cfg = Mp4RecordingConfig {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
-        writing_application: Some("fmf-cli".to_string()),
-        title: x.title,
-        ..Default::default()
+        h264_metadata: None,
+        sample_duration,
     };
 
-    #[cfg(feature = "nv-h264")]
-    let libs = nvenc::Dynlibs::new()?;
-
-    #[cfg(feature = "nv-h264")]
-    let nv_enc = Some(nvenc::NvEnc::new(&libs)?);
-
-    #[cfg(not(feature = "nv-h264"))]
-    let nv_enc = None;
-
     debug!("opening file {}", output_fname.unwrap().display());
-    let mut my_mkv_writer = mkv_writer::MkvWriter::new(out_fd, cfg, nv_enc)?;
+    let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, nv_enc)?;
 
-    for (fno, fmf_frame) in reader.enumerate() {
+    for (fno, fmf_frame) in buffered_first.into_iter().chain(reader).enumerate() {
         let fmf_frame = fmf_frame?;
         debug!("saving frame {}", fno);
         let ts = fmf_frame.extra().host_timestamp();
         match_all_dynamic_fmts!(fmf_frame, frame, {
-            my_mkv_writer.write(&frame, ts)?;
+            my_mp4_writer.write(&frame, ts)?;
         });
     }
 
     debug!("finishing file");
-    my_mkv_writer.finish()?;
+    my_mp4_writer.finish()?;
     Ok(())
 }
 
@@ -693,8 +716,8 @@ fn main() -> Result<()> {
         // Opt::ExportBgr24(x) => {
         //     export_bgr24(x)?;
         // },
-        Opt::ExportMkv(x) => {
-            export_mkv(x)?;
+        Opt::ExportMp4(x) => {
+            export_mp4(x)?;
         }
         Opt::ImportImages { input, output } => {
             import_images(&input, output)?;

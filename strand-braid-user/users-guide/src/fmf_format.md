@@ -61,7 +61,7 @@ FLAGS:
 SUBCOMMANDS:
     export-fmf       export an fmf file
     export-jpeg      export a sequence of jpeg images
-    export-mkv       export to mkv
+    export-mp4       export to mp4
     export-png       export a sequence of png images
     export-y4m       export to y4m (YUV4MPEG2) format
     help             Prints this message or the help of the given subcommand(s)

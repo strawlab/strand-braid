@@ -176,8 +176,8 @@ pub struct VideoOutputConfig {
 impl Validate for VideoOutputConfig {
     /// Validate the configuration.
     ///
-    /// If `basedir` is not `None`, it specifies the directory in which relative
-    /// filenames are searched.
+    /// If `basedir` is not `None`, it specifies the directory for relative
+    /// filenames.
     fn validate<P: AsRef<Path>>(self, basedir: Option<P>) -> Result<Valid<Self>> {
         // Validate `filename`
         let filename = base_join_inner(self.filename, basedir)?;

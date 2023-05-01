@@ -20,10 +20,10 @@ pub enum Error {
         backtrace: Backtrace,
     },
     #[error("webm writer error: {0}")]
-    MkvWriterError(
+    Mp4WriterError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
-        mkv_writer::Error,
+        mp4_writer::Error,
     ),
     #[error("SendError")]
     SendError(#[cfg(feature = "backtrace")] Backtrace),
@@ -76,13 +76,13 @@ pub struct BgMovieWriter {
 }
 
 impl BgMovieWriter {
-    pub fn new_mkv_writer(
-        format_str_mkv: String,
-        mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
+    pub fn new_mp4_writer(
+        format_str_mp4: String,
+        mp4_recording_config: ci2_remote_control::Mp4RecordingConfig,
         queue_size: usize,
     ) -> Self {
         let (err_tx, err_rx) = channellib::unbounded();
-        let tx = launch_runner(format_str_mkv, mkv_recording_config, queue_size, err_tx);
+        let tx = launch_runner(format_str_mp4, mp4_recording_config, queue_size, err_tx);
         Self {
             tx,
             is_done: false,
@@ -137,8 +137,8 @@ macro_rules! thread_try {
 }
 
 fn launch_runner(
-    format_str_mkv: String,
-    mkv_recording_config: ci2_remote_control::MkvRecordingConfig,
+    format_str_mp4: String,
+    mp4_recording_config: ci2_remote_control::Mp4RecordingConfig,
     size: usize,
     err_tx: channellib::Sender<Error>,
 ) -> channellib::Sender<Msg> {
@@ -159,12 +159,12 @@ fn launch_runner(
                     if raw.is_none() {
                         let local: chrono::DateTime<chrono::Local> =
                             stamp.with_timezone(&chrono::Local);
-                        let filename = local.format(&format_str_mkv).to_string();
+                        let filename = local.format(&format_str_mp4).to_string();
                         let path = std::path::Path::new(&filename);
                         let f = thread_try!(err_tx, std::fs::File::create(&path));
 
-                        let nv_enc = match &mkv_recording_config.codec {
-                            ci2_remote_control::MkvCodec::H264(_opts) => {
+                        let nv_enc = match &mp4_recording_config.codec {
+                            ci2_remote_control::Mp4Codec::H264NvEnc(_opts) => {
                                 // Now we know nvidia-encode is wanted, so
                                 // here we panic if this is not possible. In
                                 // the UI, users should not be able to choose
@@ -195,13 +195,13 @@ fn launch_runner(
                         };
 
                         log::info!(
-                            "saving MKV to {}",
+                            "saving MP4 to {}",
                             std::fs::canonicalize(path).unwrap().display()
                         );
 
                         raw = Some(thread_try!(
                             err_tx,
-                            mkv_writer::MkvWriter::new(f, mkv_recording_config.clone(), nv_enc)
+                            mp4_writer::Mp4Writer::new(f, mp4_recording_config.clone(), nv_enc)
                         ));
                     }
                     if let Some(ref mut r) = &mut raw {
@@ -211,7 +211,7 @@ fn launch_runner(
                                 let elapsed = stamp - last_stamp;
                                 elapsed
                                     >= chrono::Duration::from_std(
-                                        mkv_recording_config.max_framerate.interval(),
+                                        mp4_recording_config.max_framerate.interval(),
                                     )
                                     .unwrap()
                             }
@@ -225,8 +225,8 @@ fn launch_runner(
                     }
                 }
                 Msg::Finish => {
-                    if let Some(mut mkv_writer) = raw {
-                        thread_try!(err_tx, mkv_writer.finish());
+                    if let Some(mut mp4_writer) = raw {
+                        thread_try!(err_tx, mp4_writer.finish());
                     }
                     return; // end the thread
                 }

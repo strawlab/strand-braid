@@ -68,7 +68,7 @@ pub struct FMFReader {
 
 impl FMFReader {
     pub fn new<P: AsRef<Path>>(path: P) -> FMFResult<FMFReader> {
-        let extension = path.as_ref().extension().map(|x| x.to_str()).flatten();
+        let extension = path.as_ref().extension().and_then(|x| x.to_str());
         let mut f: Box<dyn Read> = if extension == Some("gz") {
             let gz_fd = open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,

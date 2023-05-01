@@ -192,7 +192,7 @@ impl<F: Write + Seek> FMFWriterInner<F> {
         let bytes_per_pixel = pixel_format.bits_per_pixel() / 8;
 
         let row_bytes = w as usize * bytes_per_pixel as usize;
-        let chunksize = (row_bytes * h as usize + 8) as usize;
+        let chunksize = row_bytes * h as usize + 8;
 
         let mut pos = 0;
         f.write_u32::<LittleEndian>(3)?;

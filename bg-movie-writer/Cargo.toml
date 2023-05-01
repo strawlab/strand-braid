@@ -10,7 +10,7 @@ log = "0.4.5"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 thiserror = "1.0.33"
 
-mkv-writer = {path="../mkv-writer"}
+mp4-writer = { path="../media-utils/mp4-writer" }
 machine-vision-formats = "0.1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 nvenc = {path="../nvenc"}
@@ -18,4 +18,4 @@ basic-frame = { path = "../basic-frame" }
 channellib = {path="../channellib"}
 
 [features]
-backtrace = ["mkv-writer/backtrace", "channellib/backtrace"]
+backtrace = ["mp4-writer/backtrace", "channellib/backtrace"]

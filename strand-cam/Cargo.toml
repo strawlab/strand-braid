@@ -86,7 +86,7 @@ opencv-calibrate = {path="../opencv-calibrate", optional=true}
 camcal = {path="../camcal", optional=true}
 posix-scheduler = { path = "../posix-scheduler", optional=true}
 rust-cam-bui-types = {path="../rust-cam-bui-types"}
-mkv-writer = { path = "../mkv-writer" }
+mp4-writer = { path = "../media-utils/mp4-writer" }
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 plugin-defs = {path="../plugin-defs", optional=true}
 bg-movie-writer = {path="../bg-movie-writer"}
@@ -106,7 +106,7 @@ default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = ["ci2/backtrace", "mkv-writer/backtrace", "bg-movie-writer/backtrace",
+backtrace = ["ci2/backtrace", "mp4-writer/backtrace", "bg-movie-writer/backtrace",
     "convert-image/backtrace", "http-video-streaming/backtrace",
     "flydra-feature-detector?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
 
@@ -130,10 +130,6 @@ flydratrax = ["mvg", "nalgebra", "strand-cam-pseudo-cal", "flydra-mvg",
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]
-
-jemalloc = ["jemallocator"]
-
-vpx = ["mkv-writer/vpx"]
 
 use_ipp = ["flydra-feature-detector?/use_ipp"]
 do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]

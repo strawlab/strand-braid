@@ -466,7 +466,7 @@ strand-cam-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -505,7 +505,7 @@ strand-cam-pylon-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -545,7 +545,7 @@ strand-cam-vimba-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -585,7 +585,7 @@ strand-cam-vimba-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -697,7 +697,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -735,7 +735,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/vpx strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/posix_sched_fifo strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -902,7 +902,7 @@ fmf-cli-ubuntu2004:
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release --features nv-h264,mkv-writer/vpx
+    - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/fmf $CI_PROJECT_DIR/build
   artifacts:
@@ -926,7 +926,7 @@ fmf-cli-ubuntu2204:
     # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release --features nv-h264,mkv-writer/vpx
+    - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/fmf $CI_PROJECT_DIR/build
   artifacts:

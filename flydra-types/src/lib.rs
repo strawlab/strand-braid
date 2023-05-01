@@ -332,7 +332,7 @@ pub struct HttpApiShared {
     pub csv_tables_dirname: Option<RecordingPath>,
     // This is "fake" because it only signals if each of the connected computers
     // is recording MKVs.
-    pub fake_mkv_recording_path: Option<RecordingPath>,
+    pub fake_mp4_recording_path: Option<RecordingPath>,
     pub post_trigger_buffer_size: usize,
     pub calibration_filename: Option<String>,
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
@@ -599,13 +599,13 @@ pub enum HttpApiCallback {
     /// .braidz file)
     DoRecordCsvTables(bool),
     /// Start or stop recording MKV videos for all cameras
-    DoRecordMkvFiles(bool),
+    DoRecordMp4Files(bool),
     /// set uuid in the experiment_info table
     SetExperimentUuid(String),
     /// Set the number of frames to buffer in each camera
     SetPostTriggerBufferSize(usize),
     /// Initiate MKV recording using post trigger
-    PostTriggerMkvRecording,
+    PostTriggerMp4Recording,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]

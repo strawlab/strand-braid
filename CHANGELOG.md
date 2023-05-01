@@ -2,15 +2,22 @@
 
 ### Added
 
+* Support for saving video .mp4 files in Strand Camera, `braid-process-video`,
+  `strand-convert`, and other utilities. Video is encoded with the H.264 codec
+  and metadata, including precise timestamps, are stored in the h264 stream.
+  Uncompressed 8bit and high dynamic range images can be saved using
+  [less-avc](https://crates.io/crates/less-avc). With [appropriate NVENC
+  hardware](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new),
+  hardware-accelerated encoding is also supported.
 * Added support from Allied Vision Technologies cameras using the Vimba driver.
   In the braid .toml configuration file, specify the camera with `start_backend =
   "vimba"`.
-* Braid can now start saving MKV files in all cameras with a single button.
+* Braid can now start saving MP4 files in all cameras with a single button.
   Furthermore, additional support for post-triggering of all cameras can be
   done.
-* Added support to save raw, uncompressed video to the MKV container format.
-* Save camera gamma to MKV files.
-* Strand Cam defaults to including the camera name in the saved MKV, FMF, uFMF,
+* Added support to save raw, uncompressed video to the MP4 container format.
+* Save camera gamma to MP4 files.
+* Strand Cam defaults to including the camera name in the saved MP4, FMF, uFMF,
   and April Tags .csv.gz files.
 * Substantial improvements to the `braid-process-video` program for processing
   saved videos and data.
@@ -18,13 +25,14 @@
   as close to just working as possible. The browser frontends still need to be
   built but an explicit compile time error is shown if this remains to be done.
 * Build for Ubuntu 22.04 (Jammy)
-* On systems with an Nvidia GPU, set the default encoding for MKV video saving
+* On systems with an Nvidia GPU, set the default encoding for MP4 video saving
   to H264 using NvEnc hardware.
 * New light mode for browser UI. Selection between dark and light mode is done
   according to browser and OS preferences.
 
 ### Changed
 
+* No longer saves .mkv files. (Will now save .mp4 files instead.)
 * Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
 * Braid no longer runs an in-process strand-cam but rather launches a child
   process for each camera. This enables support of other camera drivers and will
@@ -36,16 +44,16 @@
   setting is now `start_backend = "pylon"` to enable Basler Pylon cameras to
   continue with existing Braid `.toml` configuration files.)
 * Rename command line program `offline-retrack` to `braid-offline-retrack`.
-* MKV and FMF files use frame timestamps computed from the triggerbox device if
+* MP4 and FMF files use frame timestamps computed from the triggerbox device if
   available.
-* When saving MKV, FMF and April Tag CSV files, default filenames include the
+* When saving MP4, FMF and April Tag CSV files, default filenames include the
   camera name.
 * Rename command line program `strand-cam-offline-kalmanize` to
   `flytrax-csv-to-braidz`.
 
 ### Fixed
 
-* When saving MKV files, the maximum framerate parameter is respected.
+* When saving MP4 files, the maximum framerate parameter is respected.
 * The `alpha` parameter in the feature detector was inadvertently ignored. This
   has been corrected. Thanks to Antoine Cribellier for noticing this.
 

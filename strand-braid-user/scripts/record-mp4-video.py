@@ -90,15 +90,15 @@ def main():
 
     print(
         "Will record with the following configuration: {}".format(
-            strand_cam.get_current_state()["mkv_recording_config"]
+            strand_cam.get_current_state()["mp4_recording_config"]
         ),
     )
 
-    strand_cam.send_to_camera({"SetIsRecordingMkv": True})
+    strand_cam.send_to_camera({"SetIsRecordingMp4": True})
     print("Recording for 5 seconds...")
     time.sleep(5.0)
 
-    strand_cam.send_to_camera({"SetIsRecordingMkv": False})
+    strand_cam.send_to_camera({"SetIsRecordingMp4": False})
     print("...finished.")
 
 

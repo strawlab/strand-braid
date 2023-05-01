@@ -1,3 +1,5 @@
+use mkv_writer::{MkvCodec, MkvRecordingConfig};
+
 fn usage_exit() -> Result<(), anyhow::Error> {
     println!(
         "Usage:
@@ -22,8 +24,8 @@ fn main() -> Result<(), anyhow::Error> {
     let fps = 20.0;
     let dt_nano = (1.0 / fps * 1e9) as i64;
 
-    let cfg = ci2_remote_control::MkvRecordingConfig {
-        codec: ci2_remote_control::MkvCodec::VP9(ci2_remote_control::VP9Options { bitrate: 10000 }),
+    let cfg = MkvRecordingConfig {
+        codec: MkvCodec::VP9(mkv_writer::VP9Options { bitrate: 10000 }),
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
         ..Default::default()
     };

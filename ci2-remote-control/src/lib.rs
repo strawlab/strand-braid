@@ -100,22 +100,7 @@ impl EnumIter for RecordingFrameRate {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub enum MkvCodec {
-    Uncompressed,
-    VP8(VP8Options),
-    VP9(VP9Options),
-    H264(MkvH264Options),
-}
-
-impl Default for MkvCodec {
-    fn default() -> MkvCodec {
-        MkvCodec::VP8(VP8Options::default())
-    }
-}
-
-/// Configurations which can be used to encode into MP4 files.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Mp4Codec {
     /// Encode data with Nvidia's NVENC.
     H264NvEnc(NvidiaH264Options),
@@ -127,7 +112,7 @@ pub enum Mp4Codec {
     H264RawStream,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct OpenH264Options {
     /// Whether OpenH264 should emit debug messages
     pub debug: bool,
@@ -164,6 +149,12 @@ pub enum OpenH264Preset {
     SkipFramesBitrate(u32),
 }
 
+impl Default for OpenH264Preset {
+    fn default() -> Self {
+        Self::SkipFramesBitrate(5000)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 pub enum OpenH264RateControlMode {
     /// Quality mode.
@@ -191,72 +182,6 @@ impl Default for NvidiaH264Options {
         Self {
             bitrate: 1000,
             cuda_device: 0,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct VP8Options {
-    pub bitrate: u32,
-}
-
-impl Default for VP8Options {
-    fn default() -> Self {
-        Self { bitrate: 1000 }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct VP9Options {
-    pub bitrate: u32,
-}
-
-impl Default for VP9Options {
-    fn default() -> Self {
-        Self { bitrate: 1000 }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct MkvH264Options {
-    /// The bitrate (used in association with the framerate).
-    pub bitrate: u32,
-    /// The device number of the CUDA device to use.
-    pub cuda_device: i32,
-}
-
-impl Default for MkvH264Options {
-    fn default() -> Self {
-        Self {
-            bitrate: 1000,
-            cuda_device: 0,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct MkvRecordingConfig {
-    pub codec: MkvCodec,
-    pub max_framerate: RecordingFrameRate,
-    pub writing_application: Option<String>,
-    pub save_creation_time: bool,
-    pub title: Option<String>,
-    /// Automatically trim image width and height by removing right pixels if
-    /// needed by encoder.
-    pub do_trim_size: bool,
-    pub gamma: Option<f64>,
-}
-
-impl Default for MkvRecordingConfig {
-    fn default() -> Self {
-        Self {
-            codec: MkvCodec::default(),
-            max_framerate: RecordingFrameRate::Unlimited,
-            writing_application: None,
-            save_creation_time: true,
-            title: None,
-            do_trim_size: true,
-            gamma: None,
         }
     }
 }
@@ -375,6 +300,77 @@ impl std::fmt::Display for TagFamily {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum BitrateSelection {
+    Bitrate500,
+    Bitrate1000,
+    Bitrate2000,
+    Bitrate3000,
+    Bitrate4000,
+    Bitrate5000,
+    Bitrate10000,
+    BitrateUnlimited,
+}
+
+impl Default for BitrateSelection {
+    fn default() -> BitrateSelection {
+        BitrateSelection::Bitrate1000
+    }
+}
+
+impl std::fmt::Display for BitrateSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use BitrateSelection::*;
+        match self {
+            Bitrate500 => write!(f, "500"),
+            Bitrate1000 => write!(f, "1000"),
+            Bitrate2000 => write!(f, "2000"),
+            Bitrate3000 => write!(f, "3000"),
+            Bitrate4000 => write!(f, "4000"),
+            Bitrate5000 => write!(f, "5000"),
+            Bitrate10000 => write!(f, "10000"),
+            BitrateUnlimited => write!(f, "Unlimited"),
+        }
+    }
+}
+
+impl enum_iter::EnumIter for BitrateSelection {
+    fn variants() -> &'static [Self] {
+        &[
+            BitrateSelection::Bitrate500,
+            BitrateSelection::Bitrate1000,
+            BitrateSelection::Bitrate2000,
+            BitrateSelection::Bitrate3000,
+            BitrateSelection::Bitrate4000,
+            BitrateSelection::Bitrate5000,
+            BitrateSelection::Bitrate10000,
+            BitrateSelection::BitrateUnlimited,
+        ]
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum CodecSelection {
+    H264Nvenc,
+    H264OpenH264,
+}
+
+impl std::fmt::Display for CodecSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let x = match self {
+            CodecSelection::H264Nvenc => "H264Nvenc",
+            CodecSelection::H264OpenH264 => "H264OpenH264",
+        };
+        write!(f, "{}", x)
+    }
+}
+
+impl enum_iter::EnumIter for CodecSelection {
+    fn variants() -> &'static [Self] {
+        &[CodecSelection::H264Nvenc, CodecSelection::H264OpenH264]
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CamArg {
     /// Ignore future frame processing errors for this duration of seconds from current time.
@@ -389,9 +385,11 @@ pub enum CamArg {
     SetGain(f64),
     SetGainAuto(ci2_types::AutoMode),
     SetRecordingFps(RecordingFrameRate),
-    SetMkvRecordingConfig(MkvRecordingConfig),
-    SetMkvRecordingFps(RecordingFrameRate),
-    SetIsRecordingMkv(bool),
+    SetMp4Bitrate(BitrateSelection),
+    SetMp4Codec(CodecSelection),
+    SetMp4CudaDevice(String),
+    SetMp4MaxFramerate(RecordingFrameRate),
+    SetIsRecordingMp4(bool),
     SetIsRecordingFmf(bool),
     /// used only with image-tracker crate
     SetIsRecordingUfmf(bool),

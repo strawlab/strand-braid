@@ -5,10 +5,12 @@
 The `braid-process-video` program will takes video files and process them to
 produce various outputs.
 
+<!--- todo: convert image to show .mp4 not .mkv -->
+
 ![braid-process-video.png](braid-process-video.png)
 
-As shown in the figure, this program takes `.mkv` (or `.fmf`) video input files
-saved by Braid and a configuration file and then creates an output `.mkv` video
+As shown in the figure, this program takes `.mp4` (or `.fmf`) video input files
+saved by Braid and a configuration file and then creates an output `.mp4` video
 which stitches the input videos together. Optionally, it can also plot 2D
 detections from a `.braidz` file on top of the raw video.
 
@@ -38,14 +40,14 @@ input_braidz = "20211011_163203.braidz"
 # This stanza specified that an output video will be made.
 [[output]]
 type = 'video'
-filename = 'composite.mkv'
+filename = 'composite.mp4'
 
 # The following sections specify video sources to use as input.
 [[input_video]]
-filename = 'movie20211011_163224.mkv'
+filename = 'movie20211011_163224.mp4'
 
 [[input_video]]
-filename = 'movie20211011_163228.mkv'
+filename = 'movie20211011_163228.mp4'
 ```
 
 With such a configuration file, run the program like so:

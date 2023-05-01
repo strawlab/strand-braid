@@ -78,5 +78,19 @@
             "movie20211109_083843_Basler-21736806.mkv",
             "3e266ff18e1f2136c157237cbe87c566700d4990eab55ad3873e52a5c5ee8fd3"
         ]
+    ],
+    "fc6-flies-100fps-2-cams-mp4": [
+        [
+            "20211109_083835.braidz",
+            "67805f9c1f57bcdd11ba9f61d430164058aa878dfabcb21626c5c60abd88f5c6"
+        ],
+        [
+            "movie20211109_083845_Basler-21425984.mp4",
+            "df5ad781ddb46f8792877fbaad3c233707f0705bc4fe04ff244a51c04b990ea2"
+        ],
+        [
+            "movie20211109_083843_Basler-21736806.mp4",
+            "db3c40aba3b93c913e6e756de8fde2288e9668c5c4b1d719ee9d8a1da981a4ff"
+        ]
     ]
 }

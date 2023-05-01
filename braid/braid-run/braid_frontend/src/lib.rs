@@ -46,7 +46,7 @@ struct Model {
     fail_msg: String,
     html_page_title: Option<String>,
     recording_path: Option<RecordingPath>,
-    fake_mkv_recording_path: Option<RecordingPath>,
+    fake_mp4_recording_path: Option<RecordingPath>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
     _listener: EventListener,
 }
@@ -57,10 +57,10 @@ enum Msg {
     NewServerState(HttpApiShared),
     FailedDecode(serde_json::Error),
     DoRecordCsvTables(bool),
-    DoRecordMkvFiles(bool),
+    DoRecordMp4Files(bool),
     SendMessageFetchState(FetchState),
     SetPostTriggerBufferSize(usize),
-    PostTriggerMkvRecording,
+    PostTriggerMp4Recording,
 }
 
 // -----------------------------------------------------------------------------
@@ -123,7 +123,7 @@ impl Component for Model {
             fail_msg: "".to_string(),
             html_page_title: None,
             recording_path: None,
-            fake_mkv_recording_path: None,
+            fake_mp4_recording_path: None,
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
             _listener: listener,
         }
@@ -136,7 +136,7 @@ impl Component for Model {
             }
             Msg::NewServerState(data_result) => {
                 self.recording_path = data_result.csv_tables_dirname.clone();
-                self.fake_mkv_recording_path = data_result.fake_mkv_recording_path.clone();
+                self.fake_mp4_recording_path = data_result.fake_mp4_recording_path.clone();
                 let title = if data_result.csv_tables_dirname.is_none() {
                     data_result.flydra_app_name.clone()
                 } else {
@@ -174,14 +174,14 @@ impl Component for Model {
                     .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
                 return false; // Don't update DOM, do that when backend notifies us of new state.
             }
-            Msg::DoRecordMkvFiles(val) => {
-                return self.send_to_all_cams(&ctx, HttpApiCallback::DoRecordMkvFiles(val));
+            Msg::DoRecordMp4Files(val) => {
+                return self.send_to_all_cams(&ctx, HttpApiCallback::DoRecordMp4Files(val));
             }
             Msg::SetPostTriggerBufferSize(val) => {
                 return self.send_to_all_cams(&ctx, HttpApiCallback::SetPostTriggerBufferSize(val));
             }
-            Msg::PostTriggerMkvRecording => {
-                return self.send_to_all_cams(&ctx, HttpApiCallback::PostTriggerMkvRecording);
+            Msg::PostTriggerMp4Recording => {
+                return self.send_to_all_cams(&ctx, HttpApiCallback::PostTriggerMp4Recording);
             }
         }
         true
@@ -243,8 +243,8 @@ impl Model {
                             />
                     </label>
 
-                    <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
-                    {"(Initiates MKV recording as set above. MKV recording must be manually stopped.)"}
+                    <Button title={"Post Trigger MP4 Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMp4Recording)}/>
+                    {"(Initiates MP4 recording as set above. MP4 recording must be manually stopped.)"}
                 </div>
             </div>
         }
@@ -266,9 +266,9 @@ impl Model {
                         </div>
                         <div>
                             <RecordingPathWidget
-                            label="Record .mkv files"
-                            value={self.fake_mkv_recording_path.clone()}
-                            ontoggle={ctx.link().callback(|checked| {Msg::DoRecordMkvFiles(checked)})}
+                            label="Record .mp4 files"
+                            value={self.fake_mp4_recording_path.clone()}
+                            ontoggle={ctx.link().callback(|checked| {Msg::DoRecordMp4Files(checked)})}
                             />
                         </div>
 

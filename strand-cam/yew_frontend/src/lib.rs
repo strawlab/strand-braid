@@ -12,8 +12,6 @@ use ci2_remote_control::CamArg;
 
 use led_box_comms::ToDevice as ToLedBoxDevice;
 
-use serde::{Deserialize, Serialize};
-
 use gloo_events::EventListener;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
@@ -27,9 +25,11 @@ use ads_webasm::components::{EnumToggle, VecToggle};
 use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::ToClient as FirehoseImageData;
 
-use strand_cam_storetype::CallbackType;
-use strand_cam_storetype::StoreType as ServerState;
-use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
+use ci2_remote_control::{BitrateSelection, CodecSelection};
+use strand_cam_storetype::{
+    CallbackType, KalmanTrackingConfig, LedProgramConfig, StoreType as ServerState,
+};
+
 use yew_tincture::components::CheckboxLabel;
 
 use ci2_remote_control::{RecordingFrameRate, TagFamily};
@@ -101,10 +101,10 @@ enum Msg {
     // only used when image-tracker crate used
     ToggleUfmfSave(bool),
 
-    ToggleMkvSave(bool),
-    ToggleMkvRecordingFrameRate(RecordingFrameRate),
-    ToggleMkvBitrate(BitrateSelection),
-    ToggleMkvCodec(String),
+    ToggleMp4Save(bool),
+    ToggleMp4RecordingFrameRate(RecordingFrameRate),
+    ToggleMp4Bitrate(BitrateSelection),
+    ToggleMp4Codec(String),
     ToggleCudaDevice(String),
 
     // only used when image-tracker crate used
@@ -122,7 +122,7 @@ enum Msg {
     ClearCheckerboards,
 
     SetPostTriggerBufferSize(usize),
-    PostTriggerMkvRecording,
+    PostTriggerMp4Recording,
 
     SendMessageFetchState(FetchState),
 }
@@ -440,26 +440,15 @@ impl Component for Model {
                 self.send_cam_message(CamArg::SetRecordingFps(v), ctx);
                 return false; // don't update DOM, do that on return
             }
-            Msg::ToggleMkvRecordingFrameRate(v) => {
-                self.send_cam_message(CamArg::SetMkvRecordingFps(v), ctx);
+            Msg::ToggleMp4RecordingFrameRate(v) => {
+                self.send_cam_message(CamArg::SetMp4MaxFramerate(v), ctx);
                 return false; // don't update DOM, do that on return
             }
-            Msg::ToggleMkvBitrate(v) => {
-                let mut old_config = if let Some(ref state) = self.server_state {
-                    state.mkv_recording_config.clone()
-                } else {
-                    ci2_remote_control::MkvRecordingConfig::default()
-                };
-                match &mut old_config.codec {
-                    ci2_remote_control::MkvCodec::Uncompressed => {}
-                    ci2_remote_control::MkvCodec::VP8(ref mut o) => o.bitrate = v.to_u32(),
-                    ci2_remote_control::MkvCodec::VP9(ref mut o) => o.bitrate = v.to_u32(),
-                    ci2_remote_control::MkvCodec::H264(ref mut o) => o.bitrate = v.to_u32(),
-                }
-                self.send_cam_message(CamArg::SetMkvRecordingConfig(old_config), ctx);
+            Msg::ToggleMp4Bitrate(bitrate) => {
+                self.send_cam_message(CamArg::SetMp4Bitrate(bitrate), ctx);
                 return false; // don't update DOM, do that on return
             }
-            Msg::ToggleMkvCodec(name) => {
+            Msg::ToggleMp4Codec(name) => {
                 if let Some(ref shared) = self.server_state {
                     let available_codecs = shared.available_codecs();
                     let opt_idx = available_codecs
@@ -467,36 +456,13 @@ impl Component for Model {
                         .position(|c| &format!("{c}") == &name);
                     if let Some(idx) = opt_idx {
                         let v = available_codecs[idx].clone();
-                        let default = ci2_remote_control::MkvRecordingConfig::default();
-                        let old_config = {
-                            if let Some(ref state) = self.server_state {
-                                state.mkv_recording_config.clone()
-                            } else {
-                                default
-                            }
-                        };
-                        let cfg = ci2_remote_control::MkvRecordingConfig {
-                            codec: v.get_codec(&old_config.codec),
-                            max_framerate: old_config.max_framerate.clone(),
-                            ..Default::default()
-                        };
-                        self.send_cam_message(CamArg::SetMkvRecordingConfig(cfg), ctx);
+                        self.send_cam_message(CamArg::SetMp4Codec(v), ctx);
                     }
                 }
                 return false; // don't update DOM, do that on return
             }
-            Msg::ToggleCudaDevice(cuda_device) => {
-                if let Some(ref shared) = self.server_state {
-                    let mut cfg = shared.mkv_recording_config.clone();
-                    // TODO: right now, the selected CUDA device is a property
-                    // of the H264 codec options. This means that if a different
-                    // codec is selected, the user's choice is forgotten.
-                    let cuda_device = cuda_device.parse().unwrap();
-                    if let ci2_remote_control::MkvCodec::H264(ref mut opts) = &mut cfg.codec {
-                        opts.cuda_device = cuda_device;
-                    }
-                    self.send_cam_message(CamArg::SetMkvRecordingConfig(cfg), ctx);
-                }
+            Msg::ToggleCudaDevice(v) => {
+                self.send_cam_message(CamArg::SetMp4CudaDevice(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             Msg::ToggleFmfSave(v) => {
@@ -508,8 +474,8 @@ impl Component for Model {
                 self.send_cam_message(CamArg::SetIsRecordingUfmf(v), ctx);
                 return false; // don't update DOM, do that on return
             }
-            Msg::ToggleMkvSave(v) => {
-                self.send_cam_message(CamArg::SetIsRecordingMkv(v), ctx);
+            Msg::ToggleMp4Save(v) => {
+                self.send_cam_message(CamArg::SetIsRecordingMp4(v), ctx);
                 return false; // don't update DOM, do that on return
             }
             // only used when image-tracker crate used
@@ -556,7 +522,7 @@ impl Component for Model {
                 return false;
             }
 
-            Msg::PostTriggerMkvRecording => {
+            Msg::PostTriggerMp4Recording => {
                 self.send_cam_message(CamArg::PostTrigger, ctx);
                 return false; // don't update DOM, do that on return
             }
@@ -578,7 +544,7 @@ impl Component for Model {
                     { self.view_decode_error(ctx) }
                     { self.view_led_box(ctx) }
                     { self.view_led_triggering(ctx) }
-                    { self.view_mkv_recording_options(ctx) }
+                    { self.view_mp4_recording_options(ctx) }
                     { self.view_post_trigger_options(ctx) }
                     { self.point_detection_ui(ctx) }
                     { self.apriltag_detection_ui(ctx) }
@@ -747,30 +713,28 @@ impl Model {
         }
     }
 
-    fn view_mkv_recording_options(&self, ctx: &Context<Self>) -> Html {
+    fn view_mp4_recording_options(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state {
             let available_codecs = shared.available_codecs();
 
-            let selected_codec = if let Some(codec) =
-                match_avail(&available_codecs, &shared.mkv_recording_config.codec)
-            {
-                format!("{codec}")
-            } else {
-                log::warn!(
-                    "Could not find codec {:?} among available {:?}",
-                    shared.mkv_recording_config.codec,
-                    available_codecs
-                );
-                "".to_string()
-            };
+            let selected_codec =
+                if let Some(codec) = match_avail(&available_codecs, &shared.mp4_codec) {
+                    format!("{codec}")
+                } else {
+                    log::warn!(
+                        "Could not find codec {:?} among available {:?}",
+                        shared.mp4_codec,
+                        available_codecs
+                    );
+                    "".to_string()
+                };
 
             // TODO: should we bother showing devices if only 1?
             let cuda_select_div = if !shared.cuda_devices.is_empty() {
-                let selected_cuda = match &shared.mkv_recording_config.codec {
-                    ci2_remote_control::MkvCodec::H264(ref opts) => {
-                        Some(format!("{}", opts.cuda_device))
-                    }
-                    _ => None,
+                let selected_cuda = if shared.mp4_cuda_device.as_str() != "" {
+                    Some(shared.mp4_cuda_device.clone())
+                } else {
+                    None
                 };
                 html! {<div>
                     <h5>{"NVIDIA device to use for H264 encoding"}</h5>
@@ -788,7 +752,7 @@ impl Model {
 
             html! {
                 <div class="wrap-collapsible">
-                    <CheckboxLabel label="MKV Recording Options" initially_checked=true />
+                    <CheckboxLabel label="MP4 Recording Options" initially_checked=true />
                     <div>
                         <p>{"Record video files."}</p>
                     </div>
@@ -796,33 +760,33 @@ impl Model {
 
                         <div>
                             <RecordingPathWidget
-                                label={"Record MKV file"}
-                                value={shared.is_recording_mkv.clone()}
-                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleMkvSave(checked)})}
+                                label={"Record MP4 file"}
+                                value={shared.is_recording_mp4.clone()}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleMp4Save(checked)})}
                                 />
                         </div>
                         <div>
-                            <h5>{"MKV Max Framerate"}</h5>
+                            <h5>{"MP4 Max Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
-                                value={shared.mkv_recording_config.max_framerate.clone()}
-                                onsignal={ctx.link().callback(Msg::ToggleMkvRecordingFrameRate)}
+                                value={shared.mp4_max_framerate.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleMp4RecordingFrameRate)}
                             />
                         </div>
 
                         <div>
-                            <h5>{"MKV Codec"}</h5>
+                            <h5>{"MP4 Codec"}</h5>
                             <VecToggle<CodecSelection>
                                 values={available_codecs}
                                 selected={Some(selected_codec)}
-                                onsignal={ctx.link().callback(Msg::ToggleMkvCodec)}
+                                onsignal={ctx.link().callback(Msg::ToggleMp4Codec)}
                             />
                         </div>
 
                         <div>
-                            <h5>{"MKV Bitrate"}</h5>
+                            <h5>{"MP4 Bitrate"}</h5>
                             <EnumToggle<BitrateSelection>
-                                value={get_bitrate(&shared.mkv_recording_config.codec).unwrap()}
-                                onsignal={ctx.link().callback(Msg::ToggleMkvBitrate)}
+                                value={shared.mp4_bitrate.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleMp4Bitrate)}
                             />
                         </div>
 
@@ -854,8 +818,8 @@ impl Model {
                             />
                     </label>
 
-                    <Button title={"Post Trigger MKV Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMkvRecording)}/>
-                    {"(Initiates MKV recording starting with buffered frames. MKV recording must be manually stopped.)"}
+                    <Button title={"Post Trigger MP4 Recording"} onsignal={ctx.link().callback(|_| Msg::PostTriggerMp4Recording)}/>
+                    {"(Initiates MP4 recording starting with buffered frames. MP4 recording must be manually stopped.)"}
 
                 </div>
             </div>
@@ -896,7 +860,7 @@ impl Model {
                         <div>
                             <h5>{"Record FMF Framerate"}</h5>
                             <EnumToggle<RecordingFrameRate>
-                                value={shared.recording_framerate.clone()}
+                                value={shared.mp4_max_framerate.clone()}
                                 onsignal={ctx.link().callback(Msg::ToggleFmfRecordingFrameRate)}
                             />
                         </div>
@@ -1419,132 +1383,7 @@ fn get_strand_cam_name(server_state: Option<&ServerState>) -> &'static str {
     }
 }
 
-fn get_bitrate(bitrate: &ci2_remote_control::MkvCodec) -> Result<BitrateSelection, ()> {
-    use crate::BitrateSelection::*;
-    let bitrate: u32 = match bitrate {
-        ci2_remote_control::MkvCodec::Uncompressed => BitrateSelection::default().to_u32(),
-        ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
-        ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,
-        ci2_remote_control::MkvCodec::H264(c) => c.bitrate,
-    };
-    let x = match bitrate {
-        500 => Bitrate500,
-        1000 => Bitrate1000,
-        2000 => Bitrate2000,
-        3000 => Bitrate3000,
-        4000 => Bitrate4000,
-        5000 => Bitrate5000,
-        10000 => Bitrate10000,
-        _ => return Err(()),
-    };
-    Ok(x)
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-enum BitrateSelection {
-    Bitrate500,
-    Bitrate1000,
-    Bitrate2000,
-    Bitrate3000,
-    Bitrate4000,
-    Bitrate5000,
-    Bitrate10000,
-}
-
-impl BitrateSelection {
-    fn to_u32(&self) -> u32 {
-        use crate::BitrateSelection::*;
-        match self {
-            Bitrate500 => 500,
-            Bitrate1000 => 1000,
-            Bitrate2000 => 2000,
-            Bitrate3000 => 3000,
-            Bitrate4000 => 4000,
-            Bitrate5000 => 5000,
-            Bitrate10000 => 10000,
-        }
-    }
-}
-
-impl Default for BitrateSelection {
-    fn default() -> BitrateSelection {
-        BitrateSelection::Bitrate1000
-    }
-}
-
-impl std::fmt::Display for BitrateSelection {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.to_u32())
-    }
-}
-
-impl enum_iter::EnumIter for BitrateSelection {
-    fn variants() -> &'static [Self] {
-        &[
-            BitrateSelection::Bitrate500,
-            BitrateSelection::Bitrate1000,
-            BitrateSelection::Bitrate2000,
-            BitrateSelection::Bitrate3000,
-            BitrateSelection::Bitrate4000,
-            BitrateSelection::Bitrate5000,
-            BitrateSelection::Bitrate10000,
-        ]
-    }
-}
-
 // -------
-
-#[derive(Clone, PartialEq, Debug)]
-enum CodecSelection {
-    H264,
-    VP8,
-    VP9,
-    Uncompressed,
-}
-
-impl CodecSelection {
-    fn get_codec(&self, old: &ci2_remote_control::MkvCodec) -> ci2_remote_control::MkvCodec {
-        use crate::CodecSelection::*;
-        let bitrate = match old {
-            ci2_remote_control::MkvCodec::Uncompressed => BitrateSelection::default().to_u32(),
-            ci2_remote_control::MkvCodec::VP8(c) => c.bitrate,
-            ci2_remote_control::MkvCodec::VP9(c) => c.bitrate,
-            ci2_remote_control::MkvCodec::H264(c) => c.bitrate,
-        };
-        match self {
-            Uncompressed => ci2_remote_control::MkvCodec::Uncompressed,
-            VP8 => ci2_remote_control::MkvCodec::VP8(ci2_remote_control::VP8Options { bitrate }),
-            VP9 => ci2_remote_control::MkvCodec::VP9(ci2_remote_control::VP9Options { bitrate }),
-            H264 => ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options {
-                bitrate,
-                cuda_device: 0,
-            }),
-        }
-    }
-}
-
-impl std::fmt::Display for CodecSelection {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let x = match self {
-            CodecSelection::Uncompressed => "RAW",
-            CodecSelection::VP8 => "VP8",
-            CodecSelection::VP9 => "VP9",
-            CodecSelection::H264 => "H264",
-        };
-        write!(f, "{}", x)
-    }
-}
-
-impl enum_iter::EnumIter for CodecSelection {
-    fn variants() -> &'static [Self] {
-        &[
-            CodecSelection::Uncompressed,
-            CodecSelection::VP8,
-            CodecSelection::VP9,
-            CodecSelection::H264,
-        ]
-    }
-}
 
 trait HasAvail {
     fn available_codecs(&self) -> Vec<CodecSelection>;
@@ -1553,34 +1392,16 @@ trait HasAvail {
 impl HasAvail for ServerState {
     fn available_codecs(&self) -> Vec<CodecSelection> {
         if !self.cuda_devices.is_empty() && self.is_nvenc_functioning {
-            vec![
-                CodecSelection::Uncompressed,
-                CodecSelection::VP8,
-                CodecSelection::VP9,
-                CodecSelection::H264,
-            ]
+            vec![CodecSelection::H264Nvenc, CodecSelection::H264OpenH264]
         } else {
-            vec![
-                CodecSelection::Uncompressed,
-                CodecSelection::VP8,
-                CodecSelection::VP9,
-            ]
+            vec![CodecSelection::H264OpenH264]
         }
     }
 }
 
-fn match_avail(
-    avail: &[CodecSelection],
-    selected: &ci2_remote_control::MkvCodec,
-) -> Option<CodecSelection> {
-    let result = match selected {
-        ci2_remote_control::MkvCodec::Uncompressed => CodecSelection::Uncompressed,
-        ci2_remote_control::MkvCodec::VP8(_) => CodecSelection::VP8,
-        ci2_remote_control::MkvCodec::VP9(_) => CodecSelection::VP9,
-        ci2_remote_control::MkvCodec::H264(_) => CodecSelection::H264,
-    };
-    if avail.contains(&result) {
-        Some(result)
+fn match_avail(avail: &[CodecSelection], selected: &CodecSelection) -> Option<CodecSelection> {
+    if avail.contains(&selected) {
+        Some(selected.clone())
     } else {
         None
     }

@@ -200,7 +200,7 @@ impl HttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::SetIsRecordingMkv(start_saving);
+        let args = ci2_remote_control::CamArg::SetIsRecordingMp4(start_saving);
         self.post(&cam_name, args).await?;
         Ok(())
     }

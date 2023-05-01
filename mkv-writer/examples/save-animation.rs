@@ -3,7 +3,7 @@ extern crate log;
 
 use chrono::Utc;
 
-use ci2_remote_control::MkvRecordingConfig;
+use mkv_writer::{MkvCodec, MkvRecordingConfig};
 use simple_frame::SimpleFrame;
 
 use machine_vision_formats::{pixel_format::RGB8, ImageData, ImageMutData};
@@ -134,20 +134,19 @@ fn main() -> Result<(), anyhow::Error> {
     let (codec, libs_and_nv_enc) = match args[1].as_str() {
         "nv-h264" => {
             nvenc_libs = Some(nvenc::Dynlibs::new()?);
-            let codec =
-                ci2_remote_control::MkvCodec::H264(ci2_remote_control::MkvH264Options::default());
+            let codec = MkvCodec::H264(Default::default());
             (
                 codec,
                 Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
             )
         }
         "vp8" => {
-            let opts = ci2_remote_control::VP8Options { bitrate: 1000 };
-            let codec = ci2_remote_control::MkvCodec::VP8(opts);
+            let opts = mkv_writer::VP8Options { bitrate: 1000 };
+            let codec = MkvCodec::VP8(opts);
             (codec, None)
         }
         "uncompressed" => {
-            let codec = ci2_remote_control::MkvCodec::Uncompressed;
+            let codec = MkvCodec::Uncompressed;
             (codec, None)
         }
         _ => {

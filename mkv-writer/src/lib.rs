@@ -8,7 +8,7 @@ use std::rc::Rc;
 #[macro_use]
 extern crate log;
 
-use ci2_remote_control::MkvRecordingConfig;
+use ci2_remote_control::RecordingFrameRate;
 use convert_image::convert_into;
 
 #[cfg(feature = "vpx")]
@@ -22,6 +22,86 @@ use machine_vision_formats::{
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum MkvCodec {
+    Uncompressed,
+    VP8(VP8Options),
+    VP9(VP9Options),
+    H264(MkvH264Options),
+}
+
+impl Default for MkvCodec {
+    fn default() -> MkvCodec {
+        MkvCodec::VP8(VP8Options::default())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct MkvH264Options {
+    /// The bitrate (used in association with the framerate).
+    pub bitrate: u32,
+    /// The device number of the CUDA device to use.
+    pub cuda_device: i32,
+}
+
+impl Default for MkvH264Options {
+    fn default() -> Self {
+        Self {
+            bitrate: 1000,
+            cuda_device: 0,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct MkvRecordingConfig {
+    pub codec: MkvCodec,
+    pub max_framerate: RecordingFrameRate,
+    pub writing_application: Option<String>,
+    pub save_creation_time: bool,
+    pub title: Option<String>,
+    /// Automatically trim image width and height by removing right pixels if
+    /// needed by encoder.
+    pub do_trim_size: bool,
+    pub gamma: Option<f64>,
+}
+
+impl Default for MkvRecordingConfig {
+    fn default() -> Self {
+        Self {
+            codec: MkvCodec::default(),
+            max_framerate: RecordingFrameRate::Unlimited,
+            writing_application: None,
+            save_creation_time: true,
+            title: None,
+            do_trim_size: true,
+            gamma: None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VP8Options {
+    pub bitrate: u32,
+}
+
+impl Default for VP8Options {
+    fn default() -> Self {
+        Self { bitrate: 1000 }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VP9Options {
+    pub bitrate: u32,
+}
+
+impl Default for VP9Options {
+    fn default() -> Self {
+        Self { bitrate: 1000 }
+    }
+}
 
 // See https://www.fourcc.org/yuv/ and https://www.fourcc.org/rgb/
 #[allow(non_camel_case_types, non_snake_case, dead_code)]
@@ -258,7 +338,7 @@ where
                 use webm::mux;
 
                 let frame = match cfg.codec {
-                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                    MkvCodec::VP8(_) | MkvCodec::VP9(_) => {
                         // The VPX encoder will error if the width is not divisible by 2.
                         let orig_width = frame.width();
                         let orig_height = frame.height();
@@ -310,7 +390,7 @@ where
                 let mut opt_uncompressed_encoder = None;
 
                 let (vpx_tup, mux_codec, mux_fourcc) = match &cfg.codec {
-                    ci2_remote_control::MkvCodec::Uncompressed => {
+                    MkvCodec::Uncompressed => {
                         use machine_vision_formats::pixel_format::*;
                         let pixfmt = pixfmt::<FMT>().unwrap();
                         let fourcc = match pixfmt {
@@ -331,25 +411,25 @@ where
                         )
                     }
                     #[cfg(feature = "vpx")]
-                    ci2_remote_control::MkvCodec::VP8(ref opts) => (
+                    MkvCodec::VP8(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP8, opts.bitrate)),
                         webm::mux::VideoCodecId::VP8,
                         None,
                     ),
                     #[cfg(feature = "vpx")]
-                    ci2_remote_control::MkvCodec::VP9(ref opts) => (
+                    MkvCodec::VP9(ref opts) => (
                         Some((vpx_encode::VideoCodecId::VP9, opts.bitrate)),
                         webm::mux::VideoCodecId::VP9,
                         None,
                     ),
                     #[cfg(not(feature = "vpx"))]
-                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                    MkvCodec::VP8(_) | MkvCodec::VP9(_) => {
                         return Err(Error::NoVpxAvailable {
                             #[cfg(feature = "backtrace")]
                             backtrace: std::backtrace::Backtrace::capture(),
                         });
                     }
-                    ci2_remote_control::MkvCodec::H264(ref opts) => {
+                    MkvCodec::H264(ref opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
                             Some(ref nv_enc) => {
@@ -463,15 +543,15 @@ where
                 let vpx_tup: Option<u8> = vpx_tup;
 
                 let my_encoder = match cfg.codec {
-                    ci2_remote_control::MkvCodec::Uncompressed => {
+                    MkvCodec::Uncompressed => {
                         let enc = opt_uncompressed_encoder.unwrap();
                         MyEncoder::Uncompressed(enc)
                     }
-                    ci2_remote_control::MkvCodec::H264(_) => {
+                    MkvCodec::H264(_) => {
                         let enc = opt_h264_encoder.unwrap();
                         MyEncoder::Nvidia(enc)
                     }
-                    ci2_remote_control::MkvCodec::VP8(_) | ci2_remote_control::MkvCodec::VP9(_) => {
+                    MkvCodec::VP8(_) | MkvCodec::VP9(_) => {
                         let vpx_tup = vpx_tup.unwrap();
                         #[cfg(feature = "vpx")]
                         {

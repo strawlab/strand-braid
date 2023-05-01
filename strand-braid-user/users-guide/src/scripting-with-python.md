@@ -7,8 +7,8 @@ like a web browser does it.
 
 ## Demo: changing tracking settings from a Python script
 
-TODO: describe how to use and modify the [`record-mkv-video.py`
-demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/record-mkv-video.py).
+TODO: describe how to use and modify the [`record-mp4-video.py`
+demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/record-mp4-video.py).
 
 ## Advanced: automating manual actions
 

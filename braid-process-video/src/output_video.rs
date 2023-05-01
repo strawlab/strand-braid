@@ -2,11 +2,24 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::io::Write;
 
-use ci2_remote_control::{
-    Mp4Codec, Mp4RecordingConfig, OpenH264Options, OpenH264Preset, RecordingFrameRate,
-};
+use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
+
+fn default_mp4_config(sample_duration: std::time::Duration) -> Mp4RecordingConfig {
+    use ci2_remote_control::OpenH264Preset;
+    let preset = OpenH264Preset::AllFrames;
+    let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+        debug: false,
+        preset,
+    });
+    Mp4RecordingConfig {
+        sample_duration,
+        codec,
+        max_framerate: Default::default(),
+        h264_metadata: None,
+    }
+}
 
 pub(crate) struct VideoStorage<'lib> {
     pub(crate) path: std::path::PathBuf,
@@ -40,8 +53,7 @@ impl<'lib> VideoStorage<'lib> {
 
         if output_filename
             .extension()
-            .map(|x| x.to_str())
-            .flatten()
+            .and_then(|x| x.to_str())
             .map(|x| x.to_ascii_lowercase())
             != Some("mp4".to_string())
         {
@@ -49,17 +61,7 @@ impl<'lib> VideoStorage<'lib> {
         }
         let fd = std::fs::File::create(output_filename)?;
 
-        // let writing_app = format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        let mp4_cfg = Mp4RecordingConfig {
-            sample_duration,
-            codec: Mp4Codec::H264OpenH264(OpenH264Options {
-                debug: false,
-                preset: OpenH264Preset::AllFrames,
-            }),
-            max_framerate: RecordingFrameRate::Unlimited,
-            // h264_metadata: Some(H264Metadata::new(&writing_app)),
-            h264_metadata: None,
-        };
+        let mp4_cfg = default_mp4_config(sample_duration);
 
         let mp4_writer = mp4_writer::Mp4Writer::new(fd, mp4_cfg, None)?;
         let composite_margin_pixels = v
@@ -94,7 +96,7 @@ impl<'lib> VideoStorage<'lib> {
 
         Ok(Self {
             path: output_filename.to_path_buf(),
-            mp4_writer: mp4_writer,
+            mp4_writer,
             first_timestamp: None,
             composite_margin_pixels,
             feature_radius,

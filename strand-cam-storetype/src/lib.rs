@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::{CircleParams, Shape};
 
-use ci2_remote_control::{MkvRecordingConfig, RecordingFrameRate, TagFamily};
+use ci2_remote_control::{BitrateSelection, CodecSelection, RecordingFrameRate, TagFamily};
 use flydra_feature_detector_types::ImPtDetectCfg;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -33,19 +33,24 @@ pub struct StoreType {
     pub is_braid: bool,
     /// Whether we have Nvidia NvEnc encoder available.
     pub is_nvenc_functioning: bool,
-    /// is saving MKV file
-    pub is_recording_mkv: Option<RecordingPath>,
+    /// is saving MP4 file
+    pub is_recording_mp4: Option<RecordingPath>,
     /// is saving FMF file
     pub is_recording_fmf: Option<RecordingPath>,
     /// is saving UFMF file
     pub is_recording_ufmf: Option<RecordingPath>,
-    pub format_str_mkv: String,
+    pub format_str_mp4: String,
     pub format_str: String,
     pub format_str_ufmf: String,
     pub camera_name: String,
+    pub camera_gamma: Option<f32>,
     pub recording_filename: Option<String>,
-    pub recording_framerate: RecordingFrameRate,
-    pub mkv_recording_config: MkvRecordingConfig,
+    pub mp4_max_framerate: RecordingFrameRate,
+    // pub mp4_recording_config: Mp4RecordingConfig,
+    pub mp4_bitrate: BitrateSelection,
+    pub mp4_codec: CodecSelection,
+    /// CUDA device number (only used if using nvidia encoder)
+    pub mp4_cuda_device: String,
     pub gain_auto: Option<ci2_types::AutoMode>,
     pub gain: RangedValue,
     pub exposure_auto: Option<ci2_types::AutoMode>,

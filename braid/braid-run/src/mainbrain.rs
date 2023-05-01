@@ -82,9 +82,9 @@ impl MyCallbackHandler {
         let mut tracker = self.shared_data.write();
         tracker.modify(|store| {
             if start_saving {
-                store.fake_mkv_recording_path = Some(RecordingPath::new("".to_string()));
+                store.fake_mp4_recording_path = Some(RecordingPath::new("".to_string()));
             } else {
-                store.fake_mkv_recording_path = None;
+                store.fake_mp4_recording_path = None;
             }
         });
     }
@@ -169,8 +169,8 @@ impl CallbackHandler for MyCallbackHandler {
                     )
                     .await;
                 }
-                DoRecordMkvFiles(start_saving) => {
-                    debug!("got DoRecordMkvFiles({start_saving})");
+                DoRecordMp4Files(start_saving) => {
+                    debug!("got DoRecordMp4Files({start_saving})");
 
                     self.http_session_handler
                         .toggle_saving_mkv_files_all(start_saving)
@@ -198,12 +198,12 @@ impl CallbackHandler for MyCallbackHandler {
                         });
                     }
                 }
-                PostTriggerMkvRecording => {
-                    debug!("got PostTriggerMkvRecording");
+                PostTriggerMp4Recording => {
+                    debug!("got PostTriggerMp4Recording");
 
                     let is_saving = {
                         let tracker = self.shared_data.read();
-                        (*tracker).as_ref().fake_mkv_recording_path.is_some()
+                        (*tracker).as_ref().fake_mp4_recording_path.is_some()
                     };
 
                     if !is_saving {
@@ -605,7 +605,7 @@ pub async fn pre_run(
     let shared = HttpApiShared {
         fake_sync,
         csv_tables_dirname: None,
-        fake_mkv_recording_path: None,
+        fake_mp4_recording_path: None,
         post_trigger_buffer_size: 0,
         clock_model_copy: None,
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),

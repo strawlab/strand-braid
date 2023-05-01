@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use anyhow::Result;
+use ci2_remote_control::H264Metadata;
+use frame_source::FrameDataSource;
 
 // use frame_source::{EncodedH264, ImageData};
 
@@ -53,6 +55,33 @@ use anyhow::Result;
 //     Ok(true)
 // }
 
+fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
+    let input_ext = fname.as_ref().extension().and_then(|x| x.to_str());
+    match input_ext {
+        Some("mkv") => {
+            let mkv_video = frame_source::strand_cam_mkv_source::from_path(&fname, false)?;
+            let metadata = &mkv_video.parsed.metadata;
+            let camera_name = metadata.camera_name.clone();
+            let gamma = metadata.gamma;
+            let creation_time = mkv_video.frame0_time().unwrap();
+            Ok(H264Metadata {
+                version: ci2_remote_control::H264_METADATA_VERSION.into(),
+                writing_app: metadata.writing_app.clone(),
+                camera_name,
+                gamma,
+                creation_time,
+            })
+        }
+        Some("mp4") => {
+            let mp4_video = frame_source::mp4_source::from_path(&fname, false)?;
+            Ok(mp4_video.h264_metadata.unwrap())
+        }
+        ext => {
+            todo!("unsuported extension {ext:?}");
+        }
+    }
+}
+
 fn do_convert<P: AsRef<Path>>(
     fname: P,
     autoscale_hdr: bool,
@@ -79,6 +108,18 @@ fn do_convert<P: AsRef<Path>>(
 
     // // Actually test output of mp4
     // assert!(are_equivalent(&fname, &outfile)?);
+
+    let input_ext = fname.as_ref().extension().and_then(|x| x.to_str());
+    match input_ext {
+        Some("mp4") | Some("mkv") => {
+            // check metadata
+            let input_md = get_metadata(&fname)?;
+            let mut output_md = get_metadata(&outfile)?;
+            output_md.writing_app = input_md.writing_app.clone(); // this may have changed
+            assert_eq!(input_md, output_md);
+        }
+        _ => {}
+    }
 
     if test_size {
         // Test that the mp4 is no more than 5% larger.

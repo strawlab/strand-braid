@@ -20,8 +20,7 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
     let mut input_video = vec![];
 
     for entry in std::fs::read_dir(source_dir.as_ref())? {
-        let fname = entry?.path();
-        let filename = path_to_string(fname)?;
+        let filename = path_to_string(entry?.path())?;
 
         if filename.to_lowercase().ends_with(".braidz") {
             if input_braidz.is_some() {
@@ -44,16 +43,17 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
     // from input in `/path/of/input`, output is `/path/of/input-rendered.mp4`
     let output_path = source_dir.as_ref().to_path_buf();
 
-    let mut output_video_path = output_path.clone();
-    output_video_path.set_file_name(format!(
+    let output_file_name = format!(
         "{}-rendered.mp4",
         output_path
+            .as_path()
             .file_name()
             .unwrap()
             .to_os_string()
             .to_str()
             .unwrap()
-    ));
+    );
+    let output_video_path = source_dir.as_ref().with_file_name(output_file_name);
 
     let video_options = VideoOutputOptions {
         time_dilation_factor,
@@ -88,5 +88,5 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
         ..Default::default()
     };
 
-    cfg.validate(Some(source_dir))
+    cfg.validate::<std::path::PathBuf>(None)
 }
