@@ -1,0 +1,27 @@
+{
+    "name": "BRAIDZ Viewer",
+    "icons": [
+        {
+            "src": "braidz-viewer.svg",
+            "sizes": "any"
+        },
+        {
+            "src": "braidz-viewer-72px.png",
+            "sizes": "72x72"
+        },
+        {
+            "src": "braidz-viewer.png",
+            "sizes": "512x512"
+        }
+    ],
+    "start_url": "https://braidz.strawlab.org/",
+    "file_handlers": [
+        {
+          "action": "/",
+          "accept": {
+            "application/zip": [".braidz"]
+          }
+        }
+    ],
+    "display": "standalone"
+}
