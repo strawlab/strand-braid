@@ -22,8 +22,8 @@ use web_sys::{self, console::log_1, Event, HtmlInputElement};
 
 // -----------------------------------------------------------------------------
 
-const TOPVIEW: &'static str = "3d-topview-canvas";
-const SIDE1VIEW: &'static str = "3d-side1view-canvas";
+const TOPVIEW: &str = "3d-topview-canvas";
+const SIDE1VIEW: &str = "3d-side1view-canvas";
 
 // -----------------------------------------------------------------------------
 
@@ -150,7 +150,6 @@ impl Component for Model {
                     let files = js_sys::try_iter(&files)
                         .unwrap_throw()
                         .unwrap_throw()
-                        .into_iter()
                         .map(|v| web_sys::File::from(v.unwrap_throw()))
                         .map(File::from);
                     result.extend(files);
@@ -169,13 +168,13 @@ impl Component for Model {
     fn view(&self, ctx: &Context<Self>) -> Html {
         use crate::MaybeValidBraidzFile::*;
         let braidz_file_part = match &self.braidz_file {
-            &Valid(ref fd) => detail_table_valid(&fd),
+            Valid(fd) => detail_table_valid(fd),
             &NotLoaded => {
                 html! {
                     <div><p></p>{"No BRAIDZ file loaded."}</div>
                 }
             }
-            &ParseFail(ref _e) => {
+            ParseFail(_e) => {
                 html! {
                 <div>{"Parsing file failed."}</div>
                 }
@@ -190,12 +189,10 @@ impl Component for Model {
                       Please reload this page and try again."}
                 </div>
             }
+        } else if let Valid(ref fd) = &self.braidz_file {
+            add_2d_dom_elements(fd)
         } else {
-            if let Valid(ref fd) = &self.braidz_file {
-                add_2d_dom_elements(fd)
-            } else {
-                empty()
-            }
+            empty()
         };
 
         let the_3d_part = if let Valid(ref fd) = &self.braidz_file {
@@ -238,8 +235,8 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div ondrop={ctx.link().callback(|e| Msg::FileDropped(e))}
-                                         ondragover={ctx.link().callback(|e| Msg::FileDraggedOver(e))}
+                    <div ondrop={ctx.link().callback(Msg::FileDropped)}
+                                         ondragover={ctx.link().callback(Msg::FileDraggedOver)}
                                          class={"file-upload-div"}>
                         <label class={classes!("btn","custum-file-uplad")}>{"Select a BRAIDZ file."}
                             <input
@@ -288,7 +285,7 @@ fn empty() -> Html {
 
 fn update_2d_canvas(model: &mut Model) {
     match &model.braidz_file {
-        &MaybeValidBraidzFile::Valid(ref fd) => {
+        MaybeValidBraidzFile::Valid(fd) => {
             for (camid, camn) in fd.archive.cam_info.camid2camn.iter() {
                 let canv_id = get_canv_id(camid);
                 let backend = CanvasBackend::new(&canv_id);
@@ -302,7 +299,7 @@ fn update_2d_canvas(model: &mut Model) {
                 root.fill(&WHITE).unwrap_throw();
 
                 match &fd.archive.data2d_distorted {
-                    &Some(ref d2d) => {
+                    Some(d2d) => {
                         let frame_lim = &d2d.frame_lim;
                         let seq = d2d.qz.get(camn).expect("get camn");
 
@@ -358,12 +355,12 @@ fn update_canvas(model: &mut Model) {
     let mut ylim = -1.0..1.0;
     let mut zlim = -1.0..1.0;
     match &model.braidz_file {
-        &MaybeValidBraidzFile::Valid(ref fd) => {
+        MaybeValidBraidzFile::Valid(fd) => {
             if let Some(ref k) = &fd.archive.kalman_estimates_info {
                 trajectories = Some(&k.trajectories);
-                xlim = k.xlim[0] as f64..k.xlim[1] as f64;
-                ylim = k.ylim[0] as f64..k.ylim[1] as f64;
-                zlim = k.zlim[0] as f64..k.zlim[1] as f64;
+                xlim = k.xlim[0]..k.xlim[1];
+                ylim = k.ylim[0]..k.ylim[1];
+                zlim = k.zlim[0]..k.zlim[1];
             }
         }
         _ => {}
@@ -374,18 +371,8 @@ fn update_canvas(model: &mut Model) {
     }
 
     let mut do_3d_plots = false;
-    if xlim.start.is_finite() {
-        if xlim.end.is_finite() {
-            if ylim.start.is_finite() {
-                if ylim.end.is_finite() {
-                    if zlim.start.is_finite() {
-                        if zlim.end.is_finite() {
-                            do_3d_plots = true;
-                        }
-                    }
-                }
-            }
-        }
+    if xlim.start.is_finite() && xlim.end.is_finite() && ylim.start.is_finite() && ylim.end.is_finite() && zlim.start.is_finite() && zlim.end.is_finite() {
+        do_3d_plots = true;
     }
 
     // top view
@@ -417,7 +404,7 @@ fn update_canvas(model: &mut Model) {
             .draw()
             .unwrap_throw();
 
-        if let Some(ref traj) = trajectories {
+        if let Some(traj) = trajectories {
             for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
@@ -456,7 +443,7 @@ fn update_canvas(model: &mut Model) {
             .draw()
             .unwrap_throw();
 
-        if let Some(ref traj) = trajectories {
+        if let Some(traj) = trajectories {
             for (_obj_id, traj_data) in traj.iter() {
                 chart
                     .draw_series(LineSeries::new(
@@ -545,13 +532,13 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
     let kest_est = if let Some(ref k) = &summary.kalman_estimates_summary {
         format!("{}", k.num_trajectories)
     } else {
-        format!("(No 3D data)")
+        "(No 3D data)".to_string()
     };
 
     let total_distance = if let Some(ref k) = &summary.kalman_estimates_summary {
         format!("{}", k.total_distance)
     } else {
-        format!("(No 3D data)")
+        "(No 3D data)".to_string()
     };
 
     let (bx, by, bz) = if let Some(ref k) = &summary.kalman_estimates_summary {
@@ -561,12 +548,12 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
             format!("{} {}", k.z_limits[0], k.z_limits[1]),
         )
     } else {
-        let n = format!("(No 3D data)");
+        let n = "(No 3D data)".to_string();
         (n.clone(), n.clone(), n)
     };
 
     let frame_range_str = match &summary.data2d_summary {
-        &Some(ref x) => format!("{} - {}", x.frame_limits[0], x.frame_limits[1]),
+        Some(x) => format!("{} - {}", x.frame_limits[0], x.frame_limits[1]),
         &None => "no frames".to_string(),
     };
 
@@ -574,7 +561,7 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
         <div>
             <table>
                 <tr><td>{"File name:"}</td><td>{&fd.filename}</td></tr>
-                <tr><td>{"File size:"}</td><td>{bytesize::to_string(fd.filesize as u64, false)}</td></tr>
+                <tr><td>{"File size:"}</td><td>{bytesize::to_string(fd.filesize, false)}</td></tr>
                 <tr><td>{"Schema version:"}</td><td>{format!("{}", md.schema)}</td></tr>
                 <tr><td>{"Git revision:"}</td><td>{&md.git_revision}</td></tr>
                 <tr><td>{"Original recording time:"}</td><td>{orig_rec_time}</td></tr>

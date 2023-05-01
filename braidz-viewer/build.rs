@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn git_hash() -> (String, String) {
     let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
+        .args(["rev-parse", "HEAD"])
         .output()
         .expect("git");
     let git_rev = String::from_utf8(output.stdout)
@@ -11,7 +11,7 @@ fn git_hash() -> (String, String) {
         .to_string();
 
     let output = Command::new("git")
-        .args(&["show", "--no-patch", "--no-notes", "--pretty=%cd"])
+        .args(["show", "--no-patch", "--no-notes", "--pretty=%cd"])
         .output()
         .expect("git");
     let git_date = String::from_utf8(output.stdout)
