@@ -171,9 +171,10 @@
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>The <code>braid-process-video</code> program will takes video files and process them to
 produce various outputs.</p>
+<!--- todo: convert image to show .mp4 not .mkv -->
 <p><img src="braid-process-video.png" alt="braid-process-video.png" /></p>
-<p>As shown in the figure, this program takes <code>.mkv</code> (or <code>.fmf</code>) video input files
-saved by Braid and a configuration file and then creates an output <code>.mkv</code> video
+<p>As shown in the figure, this program takes <code>.mp4</code> (or <code>.fmf</code>) video input files
+saved by Braid and a configuration file and then creates an output <code>.mp4</code> video
 which stitches the input videos together. Optionally, it can also plot 2D
 detections from a <code>.braidz</code> file on top of the raw video.</p>
 <h2><a class="header" href="#note" id="note">Note</a></h2>
@@ -195,14 +196,14 @@ input_braidz = &quot;20211011_163203.braidz&quot;
 # This stanza specified that an output video will be made.
 [[output]]
 type = 'video'
-filename = 'composite.mkv'
+filename = 'composite.mp4'
 
 # The following sections specify video sources to use as input.
 [[input_video]]
-filename = 'movie20211011_163224.mkv'
+filename = 'movie20211011_163224.mp4'
 
 [[input_video]]
-filename = 'movie20211011_163228.mkv'
+filename = 'movie20211011_163228.mp4'
 </code></pre>
 <p>With such a configuration file, run the program like so:</p>
 <pre><code class="language-ignore">braid-process-video config-toml --config-toml braid-bundle-videos.toml

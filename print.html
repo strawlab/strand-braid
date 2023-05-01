@@ -192,15 +192,16 @@ occurs in realtime.</li>
 <li>Sufficient and fast interfaces to cameras. If your cameras are USB3 or Gigabit
 ethernet, your computer needs to support enough bandwidth.</li>
 <li>Disk space and speed. For realtime tracking, the tracking data is only modest
-in size and so no particularly high performance requirements exist. For
-streaming uncompressed raw video to disk (with the FMF format), very fast
-disks and lots of disk space are required. As an alternative, compressed
-videos can be saved to the MKV format. This requires either substantial CPU
-usage (VP8 or VP9 encoding) or NVIDIA hardware (h264 encoding with NVENC, see below).</li>
+in size and so no particularly high performance requirements exist. With
+Nvidia hardware that supports NVENC hardware-accelerated encoding (see below),
+compressed, H.264 encoded video can be saved to MP4 files with also only
+modest CPU and disk requirements are present. For streaming uncompressed, raw
+video to disk (with MP4 or the FMF format), very fast disks and lots of disk
+space are required.</li>
 </ul>
 <h3><a class="header" href="#hardware-accelerated-video-encoding-using-nvidia-video-cards" id="hardware-accelerated-video-encoding-using-nvidia-video-cards">Hardware-accelerated video encoding using nvidia video cards</a></h3>
-<p>NVIDIA video encoding hardware is optionally used to encode h264 videos in the
-MKV format. This is very nice because it takes almost no CPU and full framerate
+<p>NVIDIA video encoding hardware is optionally used to encode H.264 videos in the
+MP4 format. This is very nice because it takes almost no CPU and full framerate
 videos can be recorded from your cameras during live tracking with little or no
 loss of performance. This depends on NVIDIA's library called NVENC. Please see
 NVIDIA's site for <a href="https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new">supported
@@ -705,7 +706,7 @@ can also be controlled from a Python script. The general technique is to use a
 Python library to connect to a running Strand Cam (or Braid) program exactly
 like a web browser does it.</p>
 <h2><a class="header" href="#demo-changing-tracking-settings-from-a-python-script" id="demo-changing-tracking-settings-from-a-python-script">Demo: changing tracking settings from a Python script</a></h2>
-<p>TODO: describe how to use and modify the <a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/record-mkv-video.py"><code>record-mkv-video.py</code>
+<p>TODO: describe how to use and modify the <a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/record-mp4-video.py"><code>record-mp4-video.py</code>
 demo</a>.</p>
 <h2><a class="header" href="#advanced-automating-manual-actions" id="advanced-automating-manual-actions">Advanced: automating manual actions</a></h2>
 <p>TODO: describe how to use the developer tools to watch the network requests from
@@ -720,9 +721,10 @@ directory.</p>
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>The <code>braid-process-video</code> program will takes video files and process them to
 produce various outputs.</p>
+<!--- todo: convert image to show .mp4 not .mkv -->
 <p><img src="braid-process-video.png" alt="braid-process-video.png" /></p>
-<p>As shown in the figure, this program takes <code>.mkv</code> (or <code>.fmf</code>) video input files
-saved by Braid and a configuration file and then creates an output <code>.mkv</code> video
+<p>As shown in the figure, this program takes <code>.mp4</code> (or <code>.fmf</code>) video input files
+saved by Braid and a configuration file and then creates an output <code>.mp4</code> video
 which stitches the input videos together. Optionally, it can also plot 2D
 detections from a <code>.braidz</code> file on top of the raw video.</p>
 <h2><a class="header" href="#note" id="note">Note</a></h2>
@@ -744,14 +746,14 @@ input_braidz = &quot;20211011_163203.braidz&quot;
 # This stanza specified that an output video will be made.
 [[output]]
 type = 'video'
-filename = 'composite.mkv'
+filename = 'composite.mp4'
 
 # The following sections specify video sources to use as input.
 [[input_video]]
-filename = 'movie20211011_163224.mkv'
+filename = 'movie20211011_163224.mp4'
 
 [[input_video]]
-filename = 'movie20211011_163228.mkv'
+filename = 'movie20211011_163228.mp4'
 </code></pre>
 <p>With such a configuration file, run the program like so:</p>
 <pre><code class="language-ignore">braid-process-video config-toml --config-toml braid-bundle-videos.toml
@@ -811,7 +813,7 @@ FLAGS:
 SUBCOMMANDS:
     export-fmf       export an fmf file
     export-jpeg      export a sequence of jpeg images
-    export-mkv       export to mkv
+    export-mp4       export to mp4
     export-png       export a sequence of png images
     export-y4m       export to y4m (YUV4MPEG2) format
     help             Prints this message or the help of the given subcommand(s)
