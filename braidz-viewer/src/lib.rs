@@ -226,7 +226,9 @@ impl Component for Model {
                         </div>
                     </div>
                 </div>
-                <div id="content-wrap">
+                <div id="content-wrap"
+                    ondrop={ctx.link().callback(Msg::FileDropped)}
+                    ondragover={ctx.link().callback(Msg::FileDraggedOver)}>
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
                         {"Viewer for files saved by "}
@@ -235,9 +237,7 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div ondrop={ctx.link().callback(Msg::FileDropped)}
-                                         ondragover={ctx.link().callback(Msg::FileDraggedOver)}
-                                         class={"file-upload-div"}>
+                    <div class={"file-upload-div"}>
                         <label class={classes!("btn","custum-file-uplad")}>{"Select a BRAIDZ file."}
                             <input
                                 type="file"
