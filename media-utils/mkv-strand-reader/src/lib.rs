@@ -337,7 +337,7 @@ pub fn infer_timezone(
                     // There was a datetime, but we could not parse it
                     // correctly. It's not clear to me if this could ever
                     // happen.
-                    if &joined != &test_str {
+                    if joined != test_str {
                         return Err(Error::DatetimeInFilenameNotParsedCorrectly);
                     }
                 }
