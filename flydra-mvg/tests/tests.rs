@@ -61,7 +61,7 @@ fn test_distortion_and_water_flydra_xml() {
         ("Basler_21426006".to_string(), DistortedPixel { coords: Point2::new( 248.31394233, 238.94298696)}),
     ]};
 
-    for &(ref cam_name, ref expected) in points_orig.iter() {
+    for (cam_name, expected) in points_orig.iter() {
         let cam = cams.cam_by_name(cam_name).unwrap();
         let actual = cam.project_3d_to_distorted_pixel(&pt);
         assert_relative_eq!(actual.coords, expected.coords, max_relative = 1e-3);
@@ -183,7 +183,7 @@ fn test_simple_flydra_xml() {
         ("cam5_0".to_string(), DistortedPixel { coords: Point2::new( 412.130819,   240.21668937)}),
     ]};
 
-    for &(ref cam_name, ref expected) in points_orig.iter() {
+    for (cam_name, expected) in points_orig.iter() {
         let cam = cams.cam_by_name(cam_name).unwrap();
         let actual = cam.project_3d_to_distorted_pixel(&pt);
         println!("{}: actual {:?}, expected {:?}", cam_name, actual, expected);

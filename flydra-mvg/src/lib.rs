@@ -455,7 +455,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     ) -> Result<WorldCoordAndUndistorted2D<R>> {
         let upoints: Vec<(String, UndistortedPixel<R>)> = points
             .iter()
-            .filter_map(|&(ref name, ref pt)| {
+            .filter_map(|(name, pt)| {
                 self.cam_by_name(name)
                     .map(|cam| (name.clone(), cam.undistort(pt)))
             })
@@ -480,7 +480,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
         let mut rays: Vec<Ray<WorldFrame, _>> = Vec::with_capacity(points.len());
 
-        for &(ref name, ref xy) in points.iter() {
+        for (name, xy) in points.iter() {
             let cam = self.cam_by_name(name).ok_or(MvgError::UnknownCamera)?;
             let air_ray = cam.project_pixel_to_ray(xy);
             let solid = false; // will intersect either side of plane
@@ -542,7 +542,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     ) -> Result<Vec<R>> {
         let this_dists = points
             .iter()
-            .map(|&(ref cam_name, ref orig)| {
+            .map(|(cam_name, orig)| {
                 Ok(na::distance(
                     &self
                         .cam_by_name(cam_name)
