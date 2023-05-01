@@ -21,7 +21,7 @@ jobs:
           toolchain: nightly
       - name: Build FMF CLI app
         run: |
-          cargo +nightly build --release --features nv-h264,backtrace
+          cargo +nightly build --release --features backtrace
       - uses: actions/upload-artifact@v2
         with:
           name: fmf-ubuntu
@@ -40,7 +40,7 @@ jobs:
           toolchain: nightly
       - name: Build FMF CLI app
         run: |
-          cargo +nightly build --release --features nv-h264,backtrace
+          cargo +nightly build --release --features backtrace
       - uses: actions/upload-artifact@v2
         with:
           name: fmf-windows
