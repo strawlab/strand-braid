@@ -28,9 +28,9 @@ impl<R> MultiCameraSystem<R>
 where
     R: RealField + Serialize + DeserializeOwned + Default + Copy,
 {
-    pub fn to_pymvg_writer<W: std::io::Write>(&self, mut writer: &mut W) -> Result<()> {
+    pub fn to_pymvg_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<()> {
         let sys = self.to_pymvg()?;
-        serde_json::to_writer(&mut writer, &sys)?;
+        serde_json::to_writer(writer, &sys)?;
         Ok(())
     }
     pub fn from_pymvg_json<Rd: Read>(reader: Rd) -> Result<Self> {
@@ -109,7 +109,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     ) -> Result<Vec<R>> {
         let this_dists = points
             .iter()
-            .map(|&(ref cam_name, ref orig)| {
+            .map(|(cam_name, orig)| {
                 Ok(na::distance(
                     &self
                         .cams_by_name
@@ -145,7 +145,7 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
 
     fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
         let mut rays: Vec<Ray<WorldFrame, R>> = Vec::with_capacity(points.len());
-        for &(ref name, ref xy) in points.iter() {
+        for (name, xy) in points.iter() {
             // Get camera.
             let cam = self.cams_by_name.get(name).ok_or(MvgError::UnknownCamera)?;
             // Get ray from point `xy` in camera coords.
