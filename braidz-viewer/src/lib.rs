@@ -284,68 +284,66 @@ fn empty() -> Html {
 }
 
 fn update_2d_canvas(model: &mut Model) {
-    match &model.braidz_file {
-        MaybeValidBraidzFile::Valid(fd) => {
-            for (camid, camn) in fd.archive.cam_info.camid2camn.iter() {
-                let canv_id = get_canv_id(camid);
-                let backend = CanvasBackend::new(&canv_id);
-                let backend = if let Some(be) = backend {
-                    be
-                } else {
-                    model.did_error = true;
-                    return;
-                };
-                let root = backend.into_drawing_area();
-                root.fill(&WHITE).unwrap_throw();
+    if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file {
+        for (camid, camn) in fd.archive.cam_info.camid2camn.iter() {
+            let canv_id = get_canv_id(camid);
+            let backend = CanvasBackend::new(&canv_id);
+            let backend = if let Some(be) = backend {
+                be
+            } else {
+                model.did_error = true;
+                return;
+            };
+            let root = backend.into_drawing_area();
+            root.fill(&WHITE).unwrap_throw();
 
-                match &fd.archive.data2d_distorted {
-                    Some(d2d) => {
-                        let frame_lim = &d2d.frame_lim;
-                        let seq = d2d.qz.get(camn).expect("get camn");
+            match &fd.archive.data2d_distorted {
+                Some(d2d) => {
+                    let frame_lim = &d2d.frame_lim;
+                    let seq = d2d.qz.get(camn).expect("get camn");
 
-                        let mut chart = ChartBuilder::on(&root)
-                            // .caption(format!("y=x^{}", pow), font)
-                            .x_label_area_size(30)
-                            .y_label_area_size(30)
-                            .build_cartesian_2d(
-                                frame_lim[0] as i64..frame_lim[1] as i64,
-                                0.0..*seq.max_pixel,
-                            )
-                            .unwrap_throw();
+                    let mut chart = ChartBuilder::on(&root)
+                        // .caption(format!("y=x^{}", pow), font)
+                        .x_label_area_size(30)
+                        .y_label_area_size(30)
+                        .build_cartesian_2d(
+                            frame_lim[0] as i64..frame_lim[1] as i64,
+                            0.0..*seq.max_pixel,
+                        )
+                        .unwrap_throw();
 
-                        chart
-                            .configure_mesh()
-                            .x_labels(3)
-                            .y_labels(3)
-                            .x_desc("Frame")
-                            .y_desc("Pixel")
-                            .draw()
-                            .unwrap_throw();
+                    chart
+                        .configure_mesh()
+                        .x_labels(3)
+                        .y_labels(3)
+                        .x_desc("Frame")
+                        .y_desc("Pixel")
+                        .draw()
+                        .unwrap_throw();
 
-                        chart
-                            .draw_series(
-                                seq.frame
-                                    .iter()
-                                    .zip(seq.xdata.iter())
-                                    .map(|(frame, x)| Circle::new((*frame, **x), 2, RED.filled())),
-                            )
-                            .unwrap_throw();
+                    chart
+                        .draw_series(
+                            seq.frame
+                                .iter()
+                                .zip(seq.xdata.iter())
+                                .map(|(frame, x)| Circle::new((*frame, **x), 2, RED.filled())),
+                        )
+                        .unwrap_throw();
 
-                        chart
-                            .draw_series(
-                                seq.frame.iter().zip(seq.ydata.iter()).map(|(frame, y)| {
-                                    Circle::new((*frame, **y), 2, GREEN.filled())
-                                }),
-                            )
-                            .unwrap_throw();
-                    }
-                    &None => {
-                        log_1(&("no data2d_distorted - cannot plot".into()));
-                    }
+                    chart
+                        .draw_series(
+                            seq.frame
+                                .iter()
+                                .zip(seq.ydata.iter())
+                                .map(|(frame, y)| Circle::new((*frame, **y), 2, GREEN.filled())),
+                        )
+                        .unwrap_throw();
+                }
+                &None => {
+                    log_1(&("no data2d_distorted - cannot plot".into()));
                 }
             }
         }
-        _ => {}
     }
 }
 
@@ -354,16 +352,13 @@ fn update_canvas(model: &mut Model) {
     let mut xlim = -1.0..1.0;
     let mut ylim = -1.0..1.0;
     let mut zlim = -1.0..1.0;
-    match &model.braidz_file {
-        MaybeValidBraidzFile::Valid(fd) => {
-            if let Some(ref k) = &fd.archive.kalman_estimates_info {
-                trajectories = Some(&k.trajectories);
-                xlim = k.xlim[0]..k.xlim[1];
-                ylim = k.ylim[0]..k.ylim[1];
-                zlim = k.zlim[0]..k.zlim[1];
-            }
+    if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file {
+        if let Some(ref k) = &fd.archive.kalman_estimates_info {
+            trajectories = Some(&k.trajectories);
+            xlim = k.xlim[0]..k.xlim[1];
+            ylim = k.ylim[0]..k.ylim[1];
+            zlim = k.zlim[0]..k.zlim[1];
         }
-        _ => {}
     }
 
     if trajectories.is_none() {
@@ -371,7 +366,13 @@ fn update_canvas(model: &mut Model) {
     }
 
     let mut do_3d_plots = false;
-    if xlim.start.is_finite() && xlim.end.is_finite() && ylim.start.is_finite() && ylim.end.is_finite() && zlim.start.is_finite() && zlim.end.is_finite() {
+    if xlim.start.is_finite()
+        && xlim.end.is_finite()
+        && ylim.start.is_finite()
+        && ylim.end.is_finite()
+        && zlim.start.is_finite()
+        && zlim.end.is_finite()
+    {
         do_3d_plots = true;
     }
 
