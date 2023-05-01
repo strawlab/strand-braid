@@ -125,7 +125,7 @@ where
         };
         let observation_matrix_transpose = observation_matrix.transpose();
 
-        let r = nalgebra::convert(ekf_observation_covariance_pixels as f64);
+        let r = nalgebra::convert(ekf_observation_covariance_pixels);
         let zero = nalgebra::convert(0.0);
         let observation_noise_covariance = OMatrix::<R, U2, U2>::new(r, zero, zero, r);
         Self {
@@ -698,7 +698,7 @@ fn histogram_record(
     };
 
     // Record the value in the histogram.
-    hist.histogram.record(value as u64)?;
+    hist.histogram.record(value)?;
 
     *hist_store = Some(hist);
 
