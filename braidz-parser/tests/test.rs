@@ -20,8 +20,8 @@ fn test_20201104_174158() {
     )
     .unwrap();
 
-    let attr = std::fs::metadata(&FILE1_FNAME).unwrap();
-    let archive = braidz_parser::braidz_parse_path(&FILE1_FNAME).unwrap();
+    let attr = std::fs::metadata(FILE1_FNAME).unwrap();
+    let archive = braidz_parser::braidz_parse_path(FILE1_FNAME).unwrap();
     let _summary = braidz_parser::summarize_braidz(&archive, FILE1_FNAME.to_string(), attr.len());
 }
 
@@ -41,7 +41,7 @@ fn test_20191125_104254() {
     )
     .unwrap();
 
-    let attr = std::fs::metadata(&FILE2_FNAME).unwrap();
-    let archive = braidz_parser::braidz_parse_path(&FILE2_FNAME).unwrap();
+    let attr = std::fs::metadata(FILE2_FNAME).unwrap();
+    let archive = braidz_parser::braidz_parse_path(FILE2_FNAME).unwrap();
     let _summary = braidz_parser::summarize_braidz(&archive, FILE2_FNAME.to_string(), attr.len());
 }
