@@ -229,7 +229,7 @@ impl Component for Model {
                 <div id="content-wrap">
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
-                        {"Online viewer for files saved by "}
+                        {"Viewer for files saved by "}
                         <a href="https://strawlab.org/braid">{"Braid"}</a>{". Created by the "}
                         <a href="https://strawlab.org/">{"Straw Lab"}</a>{", University of Freiburg."}
                     </p>

@@ -3,9 +3,9 @@
 A `.braidz` file contains the results of realtime tracking, the tracking
 parameters, and so on.
 
-## Online viewer
+## Viewer
 
-An online viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.strawlab.org/).
+A viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.strawlab.org/).
 
 ## Analysis scripts
 
