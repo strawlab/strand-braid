@@ -15,7 +15,7 @@ tiff = "0.7.4"
 kamadak-exif = "0.5.5"
 mp4 = "0.13.0"
 h264-reader = "0.6.0"
-openh264 = {version="0.3.0"}
+openh264 = "0.4.0"
 
 basic-frame = { path = "../../basic-frame" }
 ci2-remote-control = { path = "../../ci2-remote-control" }
