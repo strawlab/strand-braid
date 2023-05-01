@@ -2,8 +2,11 @@
 
 ## Building
 
-This user's guide can be built with [mdBook](https://rust-lang.github.io/mdBook)
-into a website with the command:
+This user's guide can be built with
+[mdBook](https://rust-lang.github.io/mdBook). (If you have `cargo` installed,
+you can install this with `cargo install mdbook`.)
+
+Build the User's Guide website with the command:
 
     mdbook build
 
