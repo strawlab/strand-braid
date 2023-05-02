@@ -3271,7 +3271,7 @@ where
         has_checkercal_compiled: true,
         #[cfg(not(feature = "checkercal"))]
         has_checkercal_compiled: false,
-        checkerboard_data: strand_cam_storetype::CheckerboardCalState::new(),
+        checkerboard_data: strand_cam_storetype::CheckerboardCalState::default(),
         checkerboard_save_debug: None,
         post_trigger_buffer_size: 0,
         cuda_devices,

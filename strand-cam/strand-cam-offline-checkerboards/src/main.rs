@@ -55,7 +55,7 @@ fn main() -> Result<()> {
     let dirname = cli.input_dirname;
     let fnames = get_png_files(&dirname)?;
 
-    let mut checkerboard_data = strand_cam_storetype::CheckerboardCalState::new();
+    let mut checkerboard_data = strand_cam_storetype::CheckerboardCalState::default();
     checkerboard_data.width = cli.pattern_width.try_into().unwrap();
     checkerboard_data.height = cli.pattern_height.try_into().unwrap();
 

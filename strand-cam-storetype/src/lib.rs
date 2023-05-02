@@ -194,8 +194,8 @@ pub struct CheckerboardCalState {
     pub height: u32,
 }
 
-impl CheckerboardCalState {
-    pub fn new() -> Self {
+impl Default for CheckerboardCalState {
+    fn default() -> Self {
         Self {
             enabled: false,
             num_checkerboards_collected: 0,
