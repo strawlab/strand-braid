@@ -30,7 +30,7 @@ impl Component for LedBoxControl {
                 if let Some(ref callback) = ctx.props().onsignal {
                     let mut next_state = ctx.props().device_state.clone();
                     {
-                        let mut chan_ref: &mut ChannelState = match command.channel_num {
+                        let chan_ref: &mut ChannelState = match command.channel_num {
                             1 => &mut next_state.ch1,
                             2 => &mut next_state.ch2,
                             3 => &mut next_state.ch3,
