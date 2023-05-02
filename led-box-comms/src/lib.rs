@@ -96,7 +96,7 @@ pub struct ChannelState {
 impl ChannelState {
     pub const fn default(num: u8) -> ChannelState {
         ChannelState {
-            num: num,
+            num,
             on_state: OnState::Off,
             intensity: MAX_INTENSITY,
         }
@@ -111,22 +111,16 @@ impl Default for ChannelState {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 #[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
+#[derive(Default)]
 pub enum OnState {
+    #[default]
     Off,
     ConstantOn,
 }
 
-impl Default for OnState {
-    fn default() -> Self {
-        OnState::Off
-    }
-}
-
 impl std::fmt::Display for OnState {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
-        match self {
-            _ => std::fmt::Debug::fmt(self, fmt),
-        }
+        std::fmt::Debug::fmt(self, fmt)
     }
 }
 
