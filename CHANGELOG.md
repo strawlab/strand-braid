@@ -4,9 +4,9 @@
 
 * Support for saving video .mp4 files in Strand Camera, `braid-process-video`,
   `strand-convert`, and other utilities. Video is encoded with the H.264 codec
-  and metadata, including precise timestamps, are stored in the h264 stream.
-  Uncompressed 8bit and high dynamic range images can be saved using
-  [less-avc](https://crates.io/crates/less-avc). With [appropriate NVENC
+  and metadata, including precise timestamps, are stored in the h264 stream. To
+  do compression, the [openh264 encoder](https://github.com/cisco/openh264) is
+  always available. With [appropriate NVENC
   hardware](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new),
   hardware-accelerated encoding is also supported.
 * Added support from Allied Vision Technologies cameras using the Vimba driver.
