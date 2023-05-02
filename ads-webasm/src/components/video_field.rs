@@ -304,9 +304,9 @@ impl VideoField {
                     if p.len() > 1 {
                         ctx.begin_path();
 
-                        ctx.move_to(p[0].0 as f64, p[0].1 as f64);
+                        ctx.move_to(p[0].0, p[0].1);
                         for pp in &p[1..] {
-                            ctx.line_to(pp.0 as f64, pp.1 as f64);
+                            ctx.line_to(pp.0, pp.1);
                         }
 
                         ctx.close_path();
