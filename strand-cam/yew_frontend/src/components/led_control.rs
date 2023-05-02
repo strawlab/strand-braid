@@ -2,7 +2,7 @@ use ads_webasm::components::{EnumToggle, RangedValue};
 use led_box_comms::{ChannelState, OnState};
 use yew::prelude::*;
 
-const LAST_DETECTED_VALUE_LABEL: &'static str = "Last detected value: ";
+const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
 pub struct ChangeLedState {
     pub channel_num: u8,
@@ -70,7 +70,7 @@ impl Component for LedControl {
                 <h3>{"LED "}{format!("{}", ctx.props().channel.num)}</h3>
                 <EnumToggle<OnState>
                     value={ctx.props().channel.on_state}
-                    onsignal={ctx.link().callback(|variant| Msg::Clicked(variant))}
+                    onsignal={ctx.link().callback(Msg::Clicked)}
                 />
                 <h3>{"Intensity"}</h3>
                 <RangedValue

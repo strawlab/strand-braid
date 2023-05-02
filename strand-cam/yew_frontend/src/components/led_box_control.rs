@@ -28,7 +28,7 @@ impl Component for LedBoxControl {
         match msg {
             Msg::LedStateChange(command) => {
                 if let Some(ref callback) = ctx.props().onsignal {
-                    let mut next_state = ctx.props().device_state.clone();
+                    let mut next_state = ctx.props().device_state;
                     {
                         let chan_ref: &mut ChannelState = match command.channel_num {
                             1 => &mut next_state.ch1,
@@ -61,16 +61,16 @@ impl Component for LedBoxControl {
                 <div>
                     <div class="leds-controllers">
                         <LedControl
-                            channel={ctx.props().device_state.ch1.clone()}
-                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
+                            channel={ctx.props().device_state.ch1}
+                            onsignal={ctx.link().callback(Msg::LedStateChange)}
                         />
                         <LedControl
-                            channel={ctx.props().device_state.ch2.clone()}
-                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
+                            channel={ctx.props().device_state.ch2}
+                            onsignal={ctx.link().callback(Msg::LedStateChange)}
                         />
                         <LedControl
-                            channel={ctx.props().device_state.ch3.clone()}
-                            onsignal={ctx.link().callback(|x| Msg::LedStateChange(x))}
+                            channel={ctx.props().device_state.ch3}
+                            onsignal={ctx.link().callback(Msg::LedStateChange)}
                         />
                     </div>
                 </div>

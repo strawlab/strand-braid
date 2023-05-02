@@ -451,9 +451,7 @@ impl Component for Model {
             Msg::ToggleMp4Codec(name) => {
                 if let Some(ref shared) = self.server_state {
                     let available_codecs = shared.available_codecs();
-                    let opt_idx = available_codecs
-                        .iter()
-                        .position(|c| &format!("{c}") == &name);
+                    let opt_idx = available_codecs.iter().position(|c| format!("{c}") == name);
                     if let Some(idx) = opt_idx {
                         let v = available_codecs[idx].clone();
                         self.send_cam_message(CamArg::SetMp4Codec(v), ctx);
@@ -610,8 +608,8 @@ impl Model {
             if let Some(ref device_state) = shared.led_box_device_state {
                 return html! {
                     <LedBoxControl
-                        device_state={device_state.clone()}
-                        onsignal={ctx.link().callback(|x| Msg::LedBoxControlEvent(x))}
+                        device_state={*device_state}
+                        onsignal={ctx.link().callback(Msg::LedBoxControlEvent)}
                     />
                 };
             }
@@ -741,7 +739,7 @@ impl Model {
                     <VecToggle<String>
                         values={shared.cuda_devices.clone()}
                         selected={selected_cuda}
-                        onsignal={ctx.link().callback(|name| Msg::ToggleCudaDevice(name))}
+                        onsignal={ctx.link().callback(Msg::ToggleCudaDevice)}
                     />
                 </div>}
             } else {
@@ -1070,7 +1068,7 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             if shared.has_checkercal_compiled {
                 let (ncs, disabled) = {
-                    let ref cdata = shared.checkerboard_data;
+                    let cdata = &shared.checkerboard_data;
                     let ncs = format!("{}", cdata.num_checkerboards_collected);
                     (ncs, cdata.num_checkerboards_collected == 0)
                 };
@@ -1115,13 +1113,13 @@ impl Model {
                             <label>{"width"}
                                 <TypedInput<u32>
                                     storage={self.checkerboard_width.clone()}
-                                    on_send_valid={ctx.link().callback(|v| Msg::SetCheckerboardWidth(v))}
+                                    on_send_valid={ctx.link().callback(Msg::SetCheckerboardWidth)}
                                     />
                             </label>
                             <label>{"height"}
                                 <TypedInput<u32>
                                     storage={self.checkerboard_height.clone()}
-                                    on_send_valid={ctx.link().callback(|v| Msg::SetCheckerboardHeight(v))}
+                                    on_send_valid={ctx.link().callback(Msg::SetCheckerboardHeight)}
                                     />
                             </label>
 
@@ -1148,9 +1146,9 @@ impl Model {
                 };
             }
         }
-        return html! {
+        html! {
             <div></div>
-        };
+        }
     }
 
     fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
@@ -1400,7 +1398,7 @@ impl HasAvail for ServerState {
 }
 
 fn match_avail(avail: &[CodecSelection], selected: &CodecSelection) -> Option<CodecSelection> {
-    if avail.contains(&selected) {
+    if avail.contains(selected) {
         Some(selected.clone())
     } else {
         None
