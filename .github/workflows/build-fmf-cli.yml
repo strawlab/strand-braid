@@ -21,7 +21,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: fmf-ubuntu
           path: ${{ github.workspace }}/target/release/fmf
@@ -39,7 +39,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: fmf-windows
           path: ${{ github.workspace }}/target/release/fmf.exe
@@ -57,7 +57,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: fmf-mac
           path: ${{ github.workspace }}/target/release/fmf

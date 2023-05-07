@@ -20,7 +20,7 @@ jobs:
       - name: Build braid-process-video app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-ubuntu
           path: ${{ github.workspace }}/target/release/braid-process-video
@@ -45,7 +45,7 @@ jobs:
       - name: Build braid-process-video app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-windows
           path: ${{ github.workspace }}/target/release/braid-process-video.exe
@@ -64,7 +64,7 @@ jobs:
         run: |
           export PATH="$PATH:$HOME/.cargo/bin"
           cargo build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-mac
           path: ${{ github.workspace }}/target/release/braid-process-video
