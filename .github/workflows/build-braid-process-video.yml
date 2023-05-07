@@ -13,7 +13,7 @@ jobs:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: download and extract libvpx
         run: |
           curl -sSfL -O  https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
@@ -56,7 +56,7 @@ jobs:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update
