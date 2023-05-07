@@ -16,9 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
+        run: |
+          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace
@@ -35,9 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
+        run: |
+          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace
@@ -54,9 +52,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
+        run: |
+          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo +nightly build --release --features backtrace

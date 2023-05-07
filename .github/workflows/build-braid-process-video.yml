@@ -15,12 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
-          cargo +stable build --release
+          cargo build --release
       - uses: actions/upload-artifact@v2
         with:
           name: braid-process-video-ubuntu
@@ -41,9 +40,8 @@ jobs:
           dir $HOME\unzipped
           dir $HOME\unzipped\lib\x64
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
           cargo build --release
@@ -60,9 +58,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
           export PATH="$PATH:$HOME/.cargo/bin"
