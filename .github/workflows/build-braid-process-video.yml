@@ -13,26 +13,25 @@ jobs:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
-          cargo +stable build --release
-      - uses: actions/upload-artifact@v2
+          cargo build --release
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-ubuntu
           path: ${{ github.workspace }}/target/release/braid-process-video
 
-  braid-process-video-app-windows-2019:
-    runs-on: windows-2019
+  braid-process-video-app-windows:
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: download and extract libvpx
         run: |
           curl -sSfL -O  https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
@@ -41,33 +40,31 @@ jobs:
           dir $HOME\unzipped
           dir $HOME\unzipped\lib\x64
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-windows
           path: ${{ github.workspace }}/target/release/braid-process-video.exe
 
-  braid-process-video-app-macos-10-15:
-    runs-on: macos-10.15
+  braid-process-video-app-macos:
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: braid-process-video
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
       - name: Build braid-process-video app
         run: |
           export PATH="$PATH:$HOME/.cargo/bin"
           cargo build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: braid-process-video-mac
           path: ${{ github.workspace }}/target/release/braid-process-video
