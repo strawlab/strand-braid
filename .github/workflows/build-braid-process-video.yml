@@ -25,8 +25,8 @@ jobs:
           name: braid-process-video-ubuntu
           path: ${{ github.workspace }}/target/release/braid-process-video
 
-  braid-process-video-app-windows-2019:
-    runs-on: windows-2019
+  braid-process-video-app-windows:
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: braid-process-video
@@ -50,8 +50,8 @@ jobs:
           name: braid-process-video-windows
           path: ${{ github.workspace }}/target/release/braid-process-video.exe
 
-  braid-process-video-app-macos-10-15:
-    runs-on: macos-10.15
+  braid-process-video-app-macos:
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: braid-process-video

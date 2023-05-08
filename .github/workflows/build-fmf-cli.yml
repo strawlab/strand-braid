@@ -26,8 +26,8 @@ jobs:
           name: fmf-ubuntu
           path: ${{ github.workspace }}/target/release/fmf
 
-  fmf-cli-app-windows-2019:
-    runs-on: windows-2019
+  fmf-cli-app-windows:
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: fmf/fmf-cli
@@ -44,8 +44,8 @@ jobs:
           name: fmf-windows
           path: ${{ github.workspace }}/target/release/fmf.exe
 
-  fmf-cli-app-macos-10-15:
-    runs-on: macos-10.15
+  fmf-cli-app-macos:
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: fmf/fmf-cli
