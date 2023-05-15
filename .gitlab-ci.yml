@@ -943,8 +943,8 @@ braid-webapps:
     - cargo update
     # ... and install latest (and therefore matching) wasm-pack
     - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    # ... and latest wasm-bindgen-cli
-    - cargo install -f wasm-bindgen-cli
+    # ... and wasm-bindgen-cli
+    - cargo install wasm-bindgen-cli --version 0.2.84 --force
     - cargo install grass
     - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
