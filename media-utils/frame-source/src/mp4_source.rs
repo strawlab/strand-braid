@@ -372,24 +372,6 @@ impl<R: Read + Seek> Mp4H264Source<R> {
             }
         }
 
-        let pts = match (&precision_time, self.frame0_precision_time) {
-            (Some(frame_ts), Some(frame0_time)) => {
-                let pts = *frame_ts - frame0_time;
-
-                pts.to_std().map_err(|_| {
-                    anyhow::anyhow!("could not convert chrono Duration to std Duration")
-                })?
-            }
-            _ => {
-                anyhow::bail!("not yet implemented: reading timestamps from MP4 data");
-                // fn raw2dur(raw: u64, rate: u32) -> std::time::Duration {
-                //     std::time::Duration::from_secs_f64(raw as f64 / rate as f64)
-                // }
-                // // This seems to give wrong timestamps. Perhaps a problem with
-                // // the MP4 reader we are using?
-                // raw2dur(sample.start_time, self.mp4_rate)
-            }
-        };
         let buf_len = avcc_data.len();
         let idx = usize::try_from(sample_id).unwrap() - 1;
         let image =
