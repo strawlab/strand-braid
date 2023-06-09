@@ -336,13 +336,26 @@ fn abs_diff(a: Duration, b: Duration) -> Duration {
     }
 }
 
-trait DisplayMsecDuration {
-    fn msec(&self) -> String;
+trait DisplayTimestamp {
+    fn to_display(&self) -> String;
 }
 
-impl DisplayMsecDuration for Duration {
-    fn msec(&self) -> String {
-        format!("{:.1}ms", self.as_secs_f64() * 1000.0)
+impl DisplayTimestamp for frame_source::Timestamp {
+    fn to_display(&self) -> String {
+        match self {
+            frame_source::Timestamp::Duration(dur) => {
+                format!("{:9.1}ms", dur.as_secs_f64() * 1000.0)
+            }
+            frame_source::Timestamp::Fraction(frac) => {
+                format!("{:2.1}%", frac * 100.0)
+            }
+        }
+    }
+}
+
+impl DisplayTimestamp for std::time::Duration {
+    fn to_display(&self) -> String {
+        format!("{:9.1}ms", self.as_secs_f64() * 1000.0)
     }
 }
 
@@ -365,11 +378,11 @@ fn is_needed_now(
         let result = diff < *desired_precision;
         log::debug!(
             "is_needed_now(next_dest_pts: {}, next_src_pts: {}, prev_dest_pts: {}, {}) -> next_src_pts: {} -> diff: {} -> result: {result}",
-            next_dest_pts.msec(),next_src_pts.msec(),prev_dest_pts.msec(),desired_precision.msec(),next_src_pts.msec(),diff.msec(),
+            next_dest_pts.to_display(),next_src_pts.to_display(),prev_dest_pts.to_display(),desired_precision.to_display(),next_src_pts.to_display(),diff.to_display(),
         );
 
         if next_dest_pts > (prev_dest_pts + (*desired_interval * 100)) {
-            anyhow::bail!("gap in source data of more than 100 frames (next_src_pts: {}, prev_dest_pts: {}, desired_interval: {})", next_src_pts.msec(), prev_dest_pts.msec(), desired_interval.msec());
+            anyhow::bail!("gap in source data of more than 100 frames (next_src_pts: {}, prev_dest_pts: {}, desired_interval: {})", next_src_pts.to_display(), prev_dest_pts.to_display(), desired_interval.to_display());
         }
 
         Ok(result)
@@ -538,7 +551,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             let timestamps: Vec<Duration> = src
                 .iter()
                 .take(N_FRAMES_TO_COMPUTE_FPS)
-                .map(|frame_data| frame_data.map(|x| x.timestamp()))
+                .map(|frame_data| frame_data.map(|x| x.timestamp().unwrap_duration()))
                 .collect::<Result<Vec<Duration>>>()?;
             if timestamps.len() <= 1 {
                 // at most only a single frame, so interval does not matter.
@@ -562,8 +575,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                         for (fno, (delta, ts)) in deltas.iter().zip(timestamps).enumerate() {
                             log::info!(
                                 "Frame {fno} for time: {} (interval to next: {}).",
-                                ts.msec(),
-                                Duration::from_secs_f64(delta.into_inner()).msec(),
+                                ts.to_display(),
+                                Duration::from_secs_f64(delta.into_inner()).to_display(),
                             );
                         }
                     }
@@ -576,7 +589,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     let avg_delta = Duration::from_secs_f64(sum_delta / deltas.len() as f64);
                     log::debug!(
                         "Average interval over first frames: {} ({} fps).",
-                        avg_delta.msec(),
+                        avg_delta.to_display(),
                         1.0 / avg_delta.as_secs_f64()
                     );
                     avg_delta
@@ -686,7 +699,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         } =>
             log::info!(
         "size: {width}x{height}, start time: {frame0_time}, desired_interval: {} ({:.1} fps), num frames: {}",
-        desired_interval.msec(),
+        desired_interval.to_display(),
         1.0 / desired_interval.as_secs_f64(), n_src_frames_expected,
     ),
         TimingInfo::Ignore =>
@@ -707,7 +720,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         .as_ref()
         .map_err(|e| anyhow::anyhow!("Error peeking at first frame: {e}"))?;
 
-    if image0.timestamp().as_secs_f64() != 0.0 {
+    if image0.timestamp().unwrap_duration().as_secs_f64() != 0.0 {
         anyhow::bail!("Failed expectation that timestamp of first frame is 0");
     }
     // let black_frame =
@@ -759,7 +772,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             log::warn!(
                 "As requested, ignoring timing data. However, MP4 requires a \
             sample duration for each frame. This is set {arbitrarily}to {}.",
-                duration.msec()
+                duration.to_display()
             );
             duration
         };
@@ -831,66 +844,69 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         let next_src_pts = peek_source_data.timestamp();
         // Check if next available source image is what we need or if it is too far in the future.
-        let (save_frame, save_elapsed) =
-            if is_needed_now(next_dest_pts, next_src_pts, prev_dest_pts, &timing_info)
-                .with_context(|| {
-                    format!(
-                        "while reading source frame {} of {}",
-                        peek_source_data.idx(),
-                        n_src_frames_expected,
-                    )
-                })?
-            {
-                if cli.show_timestamps {
-                    log::info!(
-                        "Output frame {out_fno} for time: {} (source frame: {}, source time: {}).",
-                        next_dest_pts.msec(),
-                        peek_source_data.idx(),
-                        next_src_pts.msec()
-                    );
-                }
-
-                // Use this source frame. (We know we can unwrap because we peeked.)
-                let this_data = stack_iter.next().unwrap()?;
-                src_count += 1;
-                bytes_read += this_data.num_bytes();
-                if !no_progress {
-                    pb.inc(1);
-                }
-
-                log::debug!(
-                    "Output frame {out_fno} from source frame {} at {}",
-                    src_count,
-                    this_data.timestamp().msec(),
-                );
-
-                prev_dest_pts = this_data.timestamp();
-                let frame_elapsed = this_data.timestamp();
-                prev_frame = this_data.into_image();
-                (&prev_frame, frame_elapsed)
-            } else {
-                if cli.show_timestamps {
-                    log::warn!(
-                    "Output frame {out_fno} missing for time: {}. (Next source idx: {}, time: {})",
-                    next_dest_pts.msec(),
+        let (save_frame, save_elapsed) = if is_needed_now(
+            next_dest_pts,
+            next_src_pts.unwrap_duration(),
+            prev_dest_pts.unwrap_duration(),
+            &timing_info,
+        )
+        .with_context(|| {
+            format!(
+                "while reading source frame {} of {}",
+                peek_source_data.idx(),
+                n_src_frames_expected,
+            )
+        })? {
+            if cli.show_timestamps {
+                log::info!(
+                    "Output frame {out_fno} for time: {} (source frame: {}, source time: {}).",
+                    next_dest_pts.to_display(),
                     peek_source_data.idx(),
-                    peek_source_data.timestamp().msec(),
+                    next_src_pts.to_display()
                 );
-                }
+            }
 
-                log::debug!("Output frame {out_fno} missing from source");
-                n_missing_frames += 1;
+            // Use this source frame. (We know we can unwrap because we peeked.)
+            let this_data = stack_iter.next().unwrap()?;
+            src_count += 1;
+            bytes_read += this_data.num_bytes();
+            if !no_progress {
+                pb.inc(1);
+            }
 
-                // frame is missing in input data
-                (&prev_frame, next_dest_pts)
-                // Currently disabled:
-                // match cli.fill {
-                //     // FillMethod::Zebra => (zebra_frame.clone(), out_elapsed),
-                //     // FillMethod::White => (white_frame.clone(), out_elapsed),
-                //     // FillMethod::Black => (black_frame.clone(), out_elapsed),
-                //     FillMethod::Repeat => (prev_frame.clone(), out_elapsed),
-                // }
-            };
+            log::debug!(
+                "Output frame {out_fno} from source frame {} at {}",
+                src_count,
+                this_data.timestamp().to_display(),
+            );
+
+            prev_dest_pts = this_data.timestamp();
+            let frame_elapsed = this_data.timestamp();
+            prev_frame = this_data.into_image();
+            (&prev_frame, frame_elapsed.unwrap_duration())
+        } else {
+            if cli.show_timestamps {
+                log::warn!(
+                    "Output frame {out_fno} missing for time: {}. (Next source idx: {}, time: {})",
+                    next_dest_pts.to_display(),
+                    peek_source_data.idx(),
+                    peek_source_data.timestamp().to_display(),
+                );
+            }
+
+            log::debug!("Output frame {out_fno} missing from source");
+            n_missing_frames += 1;
+
+            // frame is missing in input data
+            (&prev_frame, next_dest_pts)
+            // Currently disabled:
+            // match cli.fill {
+            //     // FillMethod::Zebra => (zebra_frame.clone(), out_elapsed),
+            //     // FillMethod::White => (white_frame.clone(), out_elapsed),
+            //     // FillMethod::Black => (black_frame.clone(), out_elapsed),
+            //     FillMethod::Repeat => (prev_frame.clone(), out_elapsed),
+            // }
+        };
 
         let frame_timestamp_tz = frame0_time + chrono::Duration::from_std(save_elapsed)?;
         let frame_timestamp_utc = frame_timestamp_tz.with_timezone(&chrono::Utc);
@@ -969,12 +985,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     {
         let out_bytes = std::fs::metadata(&output_fname)?.len();
         let out_bytes_per_second = out_bytes as f64 / next_dest_pts.as_secs_f64();
-        let fps = out_fno as f64 / prev_dest_pts.as_secs_f64();
+        let fps = out_fno as f64 / prev_dest_pts.unwrap_duration().as_secs_f64();
 
         log::info!(
             "Saved movie statistics: {out_fno} frames, codec: H264, encoder: {encoder}, size: {}, duration: {}, fps: {:.1}, byterate: {}, filename: {}",
             HumanBytes(out_bytes),
-            HumanDuration(prev_dest_pts),
+            HumanDuration(prev_dest_pts.unwrap_duration()),
             fps,
             HumanBytes(out_bytes_per_second as u64),
             output_fname.display(),

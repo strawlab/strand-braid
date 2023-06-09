@@ -8,8 +8,11 @@ use basic_frame::DynamicFrame;
 pub mod pv_tiff_stack;
 use pv_tiff_stack::TiffImage;
 pub mod fmf_source;
+pub mod h264_source;
+mod h264_split;
 pub mod mp4_source;
 pub mod strand_cam_mkv_source;
+pub use h264_split::h264_annexb_split;
 
 /// A source of FrameData
 ///
@@ -30,6 +33,10 @@ pub trait FrameDataSource {
         None
     }
     /// Get the timestamp of the first frame.
+    ///
+    /// Note that (in case they can differ), this is the time
+    /// of the first frame rather than the creation time
+    /// in the metadata.
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>>;
     /// Set source to skip the first N frames.
     ///
@@ -46,11 +53,8 @@ pub trait FrameDataSource {
 /// A single frame of data, including `image` and `timestamp` fields.
 #[derive(PartialEq, Debug)]
 pub struct FrameData {
-    /// The timestamp, measured as the duration elapsed since the track onset
-    /// until the exposure started.
-    ///
     /// This is often called "PTS" (presentation time stamp).
-    timestamp: std::time::Duration,
+    timestamp: Timestamp,
     image: ImageData,
     buf_len: usize,
     /// The number of the frame in the source
@@ -59,12 +63,32 @@ pub struct FrameData {
     idx: usize,
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Timestamp {
+    /// The timestamp, measured as the duration elapsed since the track onset
+    /// until the exposure started.
+    Duration(std::time::Duration),
+    /// In cases where no time is available, the fraction done.
+    Fraction(f32),
+}
+
+impl Timestamp {
+    pub fn unwrap_duration(&self) -> std::time::Duration {
+        match self {
+            Timestamp::Duration(d) => d.clone(),
+            Timestamp::Fraction(_) => {
+                panic!("expected duration");
+            }
+        }
+    }
+}
+
 impl FrameData {
     /// Get the timestamp, measured as the duration elapsed since the track onset
     /// until the exposure started.
     ///
     /// This is often called "PTS" (presentation time stamp).
-    pub fn timestamp(&self) -> std::time::Duration {
+    pub fn timestamp(&self) -> Timestamp {
         self.timestamp
     }
     /// Get the image data
@@ -127,11 +151,27 @@ impl std::fmt::Debug for ImageData {
 
 #[derive(Clone, PartialEq)]
 pub enum H264EncodingVariant {
+    /// single large buffer with Annex B headers
     AnnexB(Vec<u8>),
+    /// single large buffer with AVCC headers
     Avcc(Vec<u8>),
+    /// multiple buffers with just NAL unit data
+    RawEbsp(Vec<Vec<u8>>),
 }
 
-#[derive(Clone, PartialEq)]
+impl std::fmt::Debug for H264EncodingVariant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::AnnexB(buf) => write!(f, "H264EncodingVariant::AnnexB({} bytes)", buf.len()),
+            Self::Avcc(buf) => write!(f, "H264EncodingVariant::Avcc({} bytes)", buf.len()),
+            Self::RawEbsp(bufs) => {
+                write!(f, "H264EncodingVariant::RawEbsp({} buffers)", bufs.len())
+            }
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
 pub struct EncodedH264 {
     pub data: H264EncodingVariant,
     pub has_precision_timestamp: bool,
@@ -157,6 +197,10 @@ pub fn from_path<P: AsRef<std::path::Path>>(
                 Some("mp4") => {
                     let mp4_video = mp4_source::from_path(&input, do_decode_h264)?;
                     return Ok(Box::new(mp4_video));
+                }
+                Some("h264") => {
+                    let h264_video = h264_source::from_annexb_path(&input, do_decode_h264)?;
+                    return Ok(Box::new(h264_video));
                 }
                 _ => {}
             }

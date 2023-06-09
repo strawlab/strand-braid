@@ -1,5 +1,18 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
+//! # mp4-writer
+//!
+//! MP4 data (or in .h264 files) can be inspected with:
+//!     ffprobe -select_streams v -show_packets -show_data <filename.ext>
+
+// Regarding timestamps
+//
+// This code should ensure that an MP4 file with H264 video data should ideally
+// have the creation time in the start metadata
+// (`ci2_remote_control::H264Metadata`) equal to the precision time stamp of the
+// initial frame. (Although, to specify the timezone, the creation time may be
+// in a timezone other than UTC.)
+
 #![cfg_attr(
     feature = "backtrace",
     feature(error_generic_member_access, provide_any)
@@ -15,6 +28,7 @@ use convert_image::convert_into;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
+use frame_source::h264_annexb_split;
 use machine_vision_formats::{
     pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
 };
@@ -25,8 +39,6 @@ use thiserror::Error;
 // The number of time units that pass in one second.
 const MOVIE_TIMESCALE: u32 = 1_000_000;
 const TRACK_ID: u32 = 1;
-
-const ANNEX_B_START: &[u8] = &[0x00, 0x00, 0x00, 0x01];
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -213,22 +225,20 @@ where
         let is_keyframe = parse_h264_is_idr_frame(data)?;
 
         let pts = timestamp - frame0_time;
-        let output_time_stamp = dur2raw(&pts.to_std().unwrap());
+        let mp4_sample_start_time = dur2raw(&pts.to_std().unwrap());
         let sample = match &data {
             frame_source::H264EncodingVariant::AnnexB(buf) => {
-                let nals = my_split(&buf[..], ANNEX_B_START)
-                    .map(|x| x.to_vec())
-                    .collect();
+                let nals = h264_annexb_split(&buf[..]).collect();
 
                 EbspNals {
                     pts,
-                    output_time_stamp,
+                    mp4_sample_start_time,
                     is_keyframe,
                     nals,
                 }
             }
-            frame_source::H264EncodingVariant::Avcc(buf) => {
-                let nal_iter = iter_avcc_bufs(buf);
+            frame_source::H264EncodingVariant::Avcc(bufs) => {
+                let nal_iter = iter_avcc_bufs(bufs);
                 let mut nals = Vec::new();
                 for nal_ebsp_bytes in nal_iter {
                     let nal_ebsp_bytes = nal_ebsp_bytes?;
@@ -236,11 +246,17 @@ where
                 }
                 EbspNals {
                     pts,
-                    output_time_stamp,
+                    mp4_sample_start_time,
                     is_keyframe,
                     nals,
                 }
             }
+            frame_source::H264EncodingVariant::RawEbsp(nals) => EbspNals {
+                pts,
+                mp4_sample_start_time,
+                is_keyframe,
+                nals: nals.clone(),
+            },
         };
 
         let mut state = match inner {
@@ -647,13 +663,11 @@ where
 }
 
 fn nv_outbuf_to_sample(outbuf: dynlink_nvidia_encode::api::LockedOutputBuffer) -> EbspNals {
-    let nals = my_split(outbuf.mem(), ANNEX_B_START)
-        .map(|x| x.to_vec())
-        .collect();
+    let nals = h264_annexb_split(outbuf.mem()).collect();
 
     EbspNals {
         pts: chrono::Duration::from_std(*outbuf.pts()).unwrap(),
-        output_time_stamp: outbuf.output_time_stamp(),
+        mp4_sample_start_time: outbuf.output_time_stamp(),
         is_keyframe: outbuf.is_keyframe(),
         nals,
     }
@@ -710,11 +724,11 @@ where
             let is_keyframe = true;
 
             let pts = timestamp - encoder.first_timestamp;
-            let output_time_stamp = dur2raw(&pts.to_std().unwrap());
+            let mp4_sample_start_time = dur2raw(&pts.to_std().unwrap());
 
             let sample = EbspNals {
                 pts,
-                output_time_stamp,
+                mp4_sample_start_time,
                 is_keyframe,
                 nals,
             };
@@ -745,16 +759,14 @@ where
             // todo: preallocate and keep buffer available by using write_vec
             let annex_b_data = encoded.to_vec();
 
-            let nals = my_split(&annex_b_data, ANNEX_B_START)
-                .map(|x| x.to_vec())
-                .collect();
+            let nals = h264_annexb_split(&annex_b_data).collect();
 
             let pts = timestamp - encoder.first_timestamp;
-            let output_time_stamp = dur2raw(&pts.to_std().unwrap());
+            let mp4_sample_start_time = dur2raw(&pts.to_std().unwrap());
 
             let sample = EbspNals {
                 pts,
-                output_time_stamp,
+                mp4_sample_start_time,
                 is_keyframe,
                 nals,
             };
@@ -1091,7 +1103,21 @@ impl H264Parser {
             use less_avc::{nal_unit::*, sei::UserDataUnregistered};
 
             if let Some(h264_metadata) = &self.h264_metadata {
-                let msg = serde_json::to_vec(h264_metadata).unwrap();
+                // Update the `creation_time` field of the metadata with the
+                // timestamp of the first frame.
+                let h264_metadata_updated = if let Some(ts) = precision_timestamp {
+                    // Keep the timezone from the existing metadata.
+                    let tz = h264_metadata.creation_time.offset();
+                    let creation_time = ts.with_timezone(tz);
+                    H264Metadata {
+                        creation_time,
+                        ..h264_metadata.clone()
+                    }
+                } else {
+                    h264_metadata.clone()
+                };
+
+                let msg = serde_json::to_vec(&h264_metadata_updated).unwrap();
 
                 let payload = UserDataUnregistered::new(H264_METADATA_UUID, msg);
 
@@ -1105,6 +1131,7 @@ impl H264Parser {
                 )
                 .to_annex_b_data();
 
+                const ANNEX_B_START: &[u8] = &[0x00, 0x00, 0x00, 0x01];
                 debug_assert_eq!(&annex_b_data[..4], ANNEX_B_START);
 
                 // Don't use the start code from Annex B but do use the raw EBSP
@@ -1158,7 +1185,7 @@ impl H264Parser {
         if self
             .last_sample
             .replace(ParsedH264Frame {
-                output_time_stamp: nals.output_time_stamp,
+                mp4_sample_start_time: nals.mp4_sample_start_time,
                 duration: self.sample_duration,
                 is_keyframe: nals.is_keyframe,
                 avcc_buf: all_avcc_nal_units,
@@ -1174,12 +1201,11 @@ impl H264Parser {
     }
 }
 
-// TODO: fix this terrible name
 fn parsed_to_mp4_sample(orig: ParsedH264Frame) -> mp4::Mp4Sample {
     let bytes = orig.avcc_buf.into();
 
     mp4::Mp4Sample {
-        start_time: orig.output_time_stamp,
+        start_time: orig.mp4_sample_start_time,
         duration: orig.duration,
         rendering_offset: 0,
         is_sync: orig.is_keyframe,
@@ -1194,7 +1220,7 @@ fn parsed_to_mp4_sample(orig: ParsedH264Frame) -> mp4::Mp4Sample {
 struct EbspNals {
     pts: chrono::Duration,
     /// in units of `movie_timescale`
-    output_time_stamp: u64,
+    mp4_sample_start_time: u64,
     is_keyframe: bool,
     nals: Vec<Vec<u8>>,
 }
@@ -1209,7 +1235,7 @@ impl EbspNals {
 #[derive(Clone)]
 struct ParsedH264Frame {
     /// in units of `movie_timescale`
-    output_time_stamp: u64,
+    mp4_sample_start_time: u64,
     is_keyframe: bool,
     /// in units of `movie_timescale`
     duration: u32,
@@ -1222,37 +1248,6 @@ fn buf_to_avcc(nal: &[u8]) -> Vec<u8> {
     result[0..4].copy_from_slice(&sz.to_be_bytes());
     result[4..].copy_from_slice(nal);
     result
-}
-
-// TODO: benchmark speed of parsing and speedup if needed. Use memchr if needed.
-fn my_split<'a, 'b>(large_buf: &'a [u8], sep: &'b [u8]) -> impl Iterator<Item = &'a [u8]> {
-    let mut starts: Vec<usize> = Vec::new();
-    if large_buf.len() < sep.len() {
-        return Vec::new().into_iter();
-    }
-    for i in 0..large_buf.len() - sep.len() {
-        if &large_buf[i..i + sep.len()] == sep {
-            starts.push(i);
-        }
-    }
-    // dbg!(&starts);
-    let mut result: Vec<&'a [u8]> = Vec::with_capacity(starts.len());
-    for window in starts.windows(2) {
-        // dbg!(window);
-        let window_start = window[0];
-        let window_end = window[1];
-        result.push(&large_buf[window_start + sep.len()..window_end]);
-    }
-    if !starts.is_empty() {
-        let window_start = starts[starts.len() - 1];
-        // dbg!(window_start);
-        // dbg!(window_start+sep.len());
-        // dbg!(large_buf.len());
-        if window_start + sep.len() <= large_buf.len() {
-            result.push(&large_buf[window_start + sep.len()..])
-        }
-    }
-    result.into_iter()
 }
 
 #[cfg(feature = "openh264")]
@@ -1364,22 +1359,6 @@ impl openh264::formats::YUVSource for YUVData {
     }
 }
 
-#[test]
-fn test_split() {
-    let results: Vec<&[u8]> = my_split(
-        &[0, 0, 0, 1, 9, 10, 10, 0, 0, 0, 1, 3, 20, 0, 0, 0, 1, 99, 99],
-        &[0, 0, 0, 1],
-    )
-    .collect();
-    assert_eq!(results.len(), 3);
-    assert_eq!(results[0], &[9, 10, 10]);
-    assert_eq!(results[1], &[3, 20]);
-    assert_eq!(results[2], &[99, 99]);
-
-    let results: Vec<&[u8]> = my_split(&[], &[0, 0, 0, 1]).collect();
-    assert_eq!(results.len(), 0);
-}
-
 fn dur2raw(dur: &std::time::Duration) -> u64 {
     (dur.as_secs_f64() * MOVIE_TIMESCALE as f64).round() as u64
 }
@@ -1481,6 +1460,13 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
                 }
             });
             reader.push(&buf[..]);
+        }
+        frame_source::H264EncodingVariant::RawEbsp(nals) => {
+            for nal_ebsp_bytes in nals.iter() {
+                let nal = RefNal::new(nal_ebsp_bytes, &[], true);
+                let nal_unit_type = nal.header().unwrap().nal_unit_type();
+                calls.push(nal_unit_type);
+            }
         }
     }
     let mut is_keyframe = None;

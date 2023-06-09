@@ -311,7 +311,7 @@ fn path_to_tiff(
     let buf_len = buf.len();
     let mut metadata = extract_tiff_metadata(&buf)?;
     metadata.timestamp -= frame0_timestamp_offset;
-    let timestamp = metadata.timestamp;
+    let timestamp = Timestamp::Duration(metadata.timestamp);
     Ok(FrameData {
         image: ImageData::Tiff(read_tiff_image(&buf, metadata)?),
         timestamp,

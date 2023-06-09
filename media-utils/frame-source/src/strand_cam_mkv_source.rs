@@ -267,7 +267,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         };
 
         Ok(FrameData {
-            timestamp: pts,
+            timestamp: Timestamp::Duration(pts),
             image,
             buf_len: bd.size,
             idx,

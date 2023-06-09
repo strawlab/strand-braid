@@ -1,17 +1,22 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use std::time::Duration;
-
 use anyhow::Result;
 use clap::Parser;
 
-trait DisplayMsecDuration {
-    fn msec(&self) -> String;
+trait DisplayTimestamp {
+    fn to_display(&self) -> String;
 }
 
-impl DisplayMsecDuration for Duration {
-    fn msec(&self) -> String {
-        format!("{:9.1}ms", self.as_secs_f64() * 1000.0)
+impl DisplayTimestamp for frame_source::Timestamp {
+    fn to_display(&self) -> String {
+        match self {
+            frame_source::Timestamp::Duration(dur) => {
+                format!("{:9.1}ms", dur.as_secs_f64() * 1000.0)
+            }
+            frame_source::Timestamp::Fraction(frac) => {
+                format!("{:2.1}%", frac * 100.0)
+            }
+        }
     }
 }
 
@@ -42,7 +47,7 @@ fn main() -> Result<()> {
 
     for frame in src.iter() {
         let frame = frame?;
-        println!("    {:5}: {}", frame.idx(), frame.timestamp().msec());
+        println!("    {:5}: {}", frame.idx(), frame.timestamp().to_display());
     }
 
     Ok(())

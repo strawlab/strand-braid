@@ -1,4 +1,4 @@
-use crate::{FrameData, FrameDataSource, ImageData};
+use crate::{FrameData, FrameDataSource, ImageData, Timestamp};
 use anyhow::{Context, Result};
 use fmf::reader::FMFReader;
 use std::path::Path;
@@ -38,7 +38,7 @@ impl Iterator for FmfSourceIter {
                 let buf_len = pos_end - pos_start;
                 let frame_time_utc = frame.extra().host_timestamp();
                 let timestamp = frame_time_utc - self.frame0_time_utc;
-                let timestamp = timestamp.to_std()?;
+                let timestamp = Timestamp::Duration(timestamp.to_std()?);
                 let idx = self.idx;
                 self.idx += 1;
                 Ok(FrameData {

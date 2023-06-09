@@ -221,6 +221,11 @@ test_crates_rust_1_68:
     - cargo test --release --features do_not_use_ipp
     - cd ..
 
+    # Test media-utils/frame-source
+    - cd media-utils/frame-source
+    - cargo test
+    - cd ../..
+
 test_crates_rust_nightly:
   image: rust:1.68
   script:
