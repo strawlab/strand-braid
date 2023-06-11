@@ -20,6 +20,12 @@ impl DisplayTimestamp for frame_source::Timestamp {
     }
 }
 
+impl DisplayTimestamp for std::time::Duration {
+    fn to_display(&self) -> String {
+        frame_source::Timestamp::Duration(*self).to_display()
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct Cli {
@@ -45,9 +51,37 @@ fn main() -> Result<()> {
         src.height(),
     );
 
+    let mut prev_timestamp = None;
+
+    let mut count = 0;
     for frame in src.iter() {
         let frame = frame?;
-        println!("    {:5}: {}", frame.idx(), frame.timestamp().to_display());
+        let delta = if let Some(prev_timestamp) = prev_timestamp {
+            let delta = frame.timestamp().unwrap_duration() - prev_timestamp;
+            format!("    (delta: {})", delta.to_display())
+        } else {
+            String::new()
+        };
+        println!(
+            "    {:5}: {:10}{}",
+            frame.idx(),
+            frame.timestamp().to_display(),
+            delta,
+        );
+        prev_timestamp = Some(frame.timestamp().unwrap_duration());
+        count += 1;
+    }
+
+    if let Some(prev_timestamp) = prev_timestamp {
+        if count > 0 {
+            let fps = count as f64 / prev_timestamp.as_secs_f64();
+            println!(
+                "  {} frames in {}: {:.2} frames per second",
+                count,
+                prev_timestamp.to_display(),
+                fps
+            );
+        }
     }
 
     Ok(())
