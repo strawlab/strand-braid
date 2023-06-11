@@ -40,7 +40,7 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
 
     let mut sample_id = 1; // mp4 uses 1 based indexing
     while let Some(sample) = mp4_reader.read_sample(track_id, sample_id)? {
-        if sample.bytes.len() > 0 {
+        if !sample.bytes.is_empty() {
             // dbg!((sample_id, mp4_pts, sample.bytes.len()));
             let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
             let n_nal_units = sample_nal_units.len();

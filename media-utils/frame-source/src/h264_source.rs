@@ -86,7 +86,7 @@ impl FrameDataSource for H264Source {
         self.h264_metadata.as_ref().and_then(|x| x.gamma)
     }
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
-        self.frame0_precision_time.clone()
+        self.frame0_precision_time
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 {
@@ -135,7 +135,7 @@ impl H264Source {
 
         // iterate through all NAL units.
         for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
-            let nal = RefNal::new(&nal_unit, &[], true);
+            let nal = RefNal::new(nal_unit, &[], true);
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
             match nal_unit_type {
                 UnitType::SEI => {
@@ -154,7 +154,7 @@ impl H264Source {
                                     );
                                 }
 
-                                tz_offset = Some(md.creation_time.offset().clone());
+                                tz_offset = Some(*md.creation_time.offset());
                                 h264_metadata = Some(md);
                             }
                             b"MISPmicrosectime" => {
@@ -185,7 +185,7 @@ impl H264Source {
                 }
                 UnitType::SliceLayerWithoutPartitioningIdr
                 | UnitType::SliceLayerWithoutPartitioningNonIdr => {
-                    frame_to_nalu_index.push((nalu_index, last_precision_time.clone()));
+                    frame_to_nalu_index.push((nalu_index, last_precision_time));
                     last_precision_time = None;
                     next_frame_num += 1;
                 }
@@ -252,7 +252,7 @@ impl<'a> Iterator for RawH264Iter<'a> {
         match res {
             None => {
                 // end of frame data
-                return None;
+                None
             }
             Some((frame_nalu_index, precise_timestamp)) => {
                 // create slice of all NAL units up to frame data
@@ -270,12 +270,10 @@ impl<'a> Iterator for RawH264Iter<'a> {
                             .to_std()
                             .unwrap(),
                     )
+                } else if let Some(mp4_pts) = mp4_pts {
+                    Timestamp::Duration(mp4_pts)
                 } else {
-                    if let Some(mp4_pts) = mp4_pts {
-                        Timestamp::Duration(mp4_pts)
-                    } else {
-                        Timestamp::Fraction(fraction_done)
-                    }
+                    Timestamp::Fraction(fraction_done)
                 };
 
                 if let Some(decoder) = &mut self.openh264_decoder_state {
@@ -292,7 +290,7 @@ impl<'a> Iterator for RawH264Iter<'a> {
                             decoded_yuv.write_rgb8(&mut image_data);
 
                             let host_timestamp = match precise_timestamp {
-                                Some(ts) => ts.clone(),
+                                Some(ts) => *ts,
                                 None => {
                                     if let (Some(mp4_pts), Some(md)) =
                                         (mp4_pts, &self.parent.h264_metadata)

@@ -75,7 +75,7 @@ pub enum Timestamp {
 impl Timestamp {
     pub fn unwrap_duration(&self) -> std::time::Duration {
         match self {
-            Timestamp::Duration(d) => d.clone(),
+            Timestamp::Duration(d) => *d,
             Timestamp::Fraction(_) => {
                 panic!("expected duration");
             }
