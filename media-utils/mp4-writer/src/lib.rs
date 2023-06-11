@@ -1058,6 +1058,8 @@ where
 struct H264Parser {
     sps: Option<Vec<u8>>,
     pps: Option<Vec<u8>>,
+    previous_stamp: Option<u64>,
+    /// stores MP4 sample until written
     last_sample: Option<ParsedH264Frame>,
     /// in units of `movie_timescale`
     sample_duration: u32,
@@ -1073,6 +1075,7 @@ impl H264Parser {
         Self {
             sps: None,
             pps: None,
+            previous_stamp: None,
             last_sample: None,
             sample_duration,
             first_frame_done: false,
@@ -1197,7 +1200,21 @@ impl H264Parser {
     }
 
     fn avcc_sample(&mut self) -> Option<mp4::Mp4Sample> {
-        self.last_sample.take().map(parsed_to_mp4_sample)
+        let mut sample = self.last_sample.take().map(parsed_to_mp4_sample);
+        if let Some(ref mut s) = sample {
+            if let Some(prev) = self.previous_stamp {
+                // FIXME: This will be off by one frame because it calculates duration
+                // of this frame as delta between previous frame and this frame. (It
+                // should be delta between this frame and next frame.)
+                let dur = s.start_time - prev;
+                s.duration = dur.try_into().unwrap();
+            }
+            self.previous_stamp = Some(s.start_time);
+        }
+        // Note: as far as I can tell, as of version 0.13.0, the mp4 crate does not
+        // use `start_time` for writing the sample. (So we have gone to the trouble
+        // of ensuring it has a good PTS value but it is ignored.)
+        sample
     }
 }
 
