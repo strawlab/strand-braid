@@ -14,8 +14,6 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
 ) -> Result<H264Source> {
     let mut mp4_reader = mp4::Mp4Reader::read_header(rdr, size)?;
 
-    let _mp4_rate = mp4_reader.timescale();
-
     let mut video_track = None;
     for (track_id, track) in mp4_reader.tracks().iter() {
         // ignore all tracks except H264
