@@ -51,13 +51,15 @@ fn main() -> Result<()> {
         src.height(),
     );
 
-    let mut prev_timestamp = None;
+    let mut prev_timestamp: Option<frame_source::Timestamp> = None;
 
     let mut count = 0;
     for frame in src.iter() {
         let frame = frame?;
-        let delta = if let Some(prev_timestamp) = prev_timestamp {
-            let delta = frame.timestamp().unwrap_duration() - prev_timestamp;
+        let delta = if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
+            (prev_timestamp, frame.timestamp())
+        {
+            let delta = t - prev_timestamp.unwrap_duration();
             format!("    (delta: {})", delta.to_display())
         } else {
             String::new()
@@ -68,11 +70,11 @@ fn main() -> Result<()> {
             frame.timestamp().to_display(),
             delta,
         );
-        prev_timestamp = Some(frame.timestamp().unwrap_duration());
+        prev_timestamp = Some(frame.timestamp());
         count += 1;
     }
 
-    if let Some(prev_timestamp) = prev_timestamp {
+    if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp {
         if count > 0 {
             let fps = count as f64 / prev_timestamp.as_secs_f64();
             println!(
