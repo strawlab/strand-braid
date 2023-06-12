@@ -344,7 +344,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                     let mut total_distance: f64 = 0.0;
                     // Loop through all individual trajectories and calculate the
                     // distance per trajectory.
-                    for (_obj_id, mut traj_data) in trajectories.iter_mut() {
+                    for (_obj_id, traj_data) in trajectories.iter_mut() {
                         let mut previous: Option<&[f32; 3]> = None;
                         for current in traj_data.position.iter() {
                             if let Some(previous) = previous {

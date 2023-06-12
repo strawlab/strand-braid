@@ -85,7 +85,6 @@ fn main() -> Result<(), anyhow::Error> {
 
         let cfg = Mp4RecordingConfig {
             codec,
-            sample_duration: std::time::Duration::from_millis(50),
             max_framerate: Default::default(),
             h264_metadata: None,
         };

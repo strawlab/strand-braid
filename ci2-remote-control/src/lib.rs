@@ -8,8 +8,7 @@ extern crate rust_cam_bui_types;
 use enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum RecordingFrameRate {
     Fps1,
     Fps2,
@@ -66,8 +65,6 @@ impl RecordingFrameRate {
         })
     }
 }
-
-
 
 // use Debug to impl Display
 impl std::fmt::Display for RecordingFrameRate {
@@ -189,11 +186,6 @@ impl Default for NvidiaH264Options {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Mp4RecordingConfig {
     pub codec: Mp4Codec,
-    /// The duration of each frame (reciprocal of framerate)
-    ///
-    /// This value is informational for readers of the recorded `.mp4` to help
-    /// with playback.
-    pub sample_duration: std::time::Duration,
     /// Limits the recording to a maximum frame rate.
     pub max_framerate: RecordingFrameRate,
     pub h264_metadata: Option<H264Metadata>,
@@ -250,8 +242,7 @@ pub enum CsvSaveConfig {
 
 // April tags
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum TagFamily {
     #[default]
     Family36h11,
@@ -263,8 +254,6 @@ pub enum TagFamily {
     FamilyCustom48h12,
     FamilyStandard52h13,
 }
-
-
 
 impl EnumIter for TagFamily {
     fn variants() -> &'static [Self] {

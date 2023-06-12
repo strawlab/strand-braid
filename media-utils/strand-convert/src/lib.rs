@@ -756,27 +756,6 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             serde_json::to_string(&serde_json::to_value(&h264_metadata)?)?
         );
 
-        let sample_duration = if let TimingInfo::Desired {
-            desired_interval,
-            desired_precision: _,
-        } = &timing_info
-        {
-            *desired_interval
-        } else {
-            let (arbitrarily, frame_interval_msec) = if let Some(msec) = cli.frame_interval_msec {
-                ("as requested ", msec)
-            } else {
-                ("arbitrarily ", 20.0)
-            };
-            let duration = std::time::Duration::from_secs_f64(frame_interval_msec / 1000.0);
-            log::warn!(
-                "As requested, ignoring timing data. However, MP4 requires a \
-            sample duration for each frame. This is set {arbitrarily}to {}.",
-                duration.to_display()
-            );
-            duration
-        };
-
         let h264_metadata = match encoder {
             Encoder::NoneCopyExistingH264 => {
                 if h264_already_has_metadata {
@@ -790,7 +769,6 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         let mp4_cfg = ci2_remote_control::Mp4RecordingConfig {
             codec,
-            sample_duration,
             max_framerate: Default::default(),
             h264_metadata,
         };

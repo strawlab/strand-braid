@@ -10,12 +10,10 @@ fn test_h264_precision_timestamps() -> anyhow::Result<()> {
         DateTime::from_utc(NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(), Utc);
 
     let dt_msec = 5;
-    let sample_duration = Duration::milliseconds(dt_msec);
 
     let cfg = Mp4RecordingConfig {
         codec: ci2_remote_control::Mp4Codec::H264LessAvc,
         max_framerate: Default::default(),
-        sample_duration: sample_duration.to_std().unwrap(),
         h264_metadata: None,
     };
 

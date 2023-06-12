@@ -192,16 +192,7 @@ where
         config: Mp4RecordingConfig,
         nv_enc: Option<nvenc::NvEnc<'lib>>,
     ) -> Result<Self> {
-        let sample_duration = dur2raw(&config.sample_duration);
-        let sample_duration = if sample_duration > (u32::MAX as u64) {
-            return Err(Error::TimestampTooLarge {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            });
-        } else {
-            sample_duration.try_into().unwrap()
-        };
-        let h264_parser = H264Parser::new(sample_duration, config.h264_metadata.clone());
+        let h264_parser = H264Parser::new(config.h264_metadata.clone());
         Ok(Self {
             inner: Some(WriteState::Configured(Box::new((fd, config, h264_parser)))),
             nv_enc,
@@ -1061,23 +1052,18 @@ struct H264Parser {
     previous_stamp: Option<u64>,
     /// stores MP4 sample until written
     last_sample: Option<ParsedH264Frame>,
-    /// in units of `movie_timescale`
-    sample_duration: u32,
     first_frame_done: bool,
     h264_metadata: Option<H264Metadata>,
 }
 
 impl H264Parser {
     /// Create a new [H264Parser].
-    ///
-    /// `sample_duration` given in units of `movie_timescale`.
-    fn new(sample_duration: u32, h264_metadata: Option<H264Metadata>) -> Self {
+    fn new(h264_metadata: Option<H264Metadata>) -> Self {
         Self {
             sps: None,
             pps: None,
             previous_stamp: None,
             last_sample: None,
-            sample_duration,
             first_frame_done: false,
             h264_metadata,
         }
@@ -1189,7 +1175,7 @@ impl H264Parser {
             .last_sample
             .replace(ParsedH264Frame {
                 mp4_sample_start_time: nals.mp4_sample_start_time,
-                duration: self.sample_duration,
+                duration: 0, // This usually gets replaced in `Self::avcc_sample()`.
                 is_keyframe: nals.is_keyframe,
                 avcc_buf: all_avcc_nal_units,
             })

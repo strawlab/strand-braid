@@ -2714,7 +2714,6 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
         }),
         h264_metadata: None,
         max_framerate: RecordingFrameRate::Fps30,
-        sample_duration: std::time::Duration::from_millis(5),
     };
     let mut nv_cfg_test = cfg.clone();
 
@@ -4893,14 +4892,6 @@ struct FinalMp4RecordingConfig {
 
 impl FinalMp4RecordingConfig {
     fn new(shared: &StoreType, creation_time: chrono::DateTime<chrono::Local>) -> Self {
-        let max_framerate = shared.mp4_max_framerate.clone();
-        let sample_duration = match max_framerate {
-            RecordingFrameRate::Unlimited => {
-                std::time::Duration::from_secs_f32(1.0 / shared.measured_fps)
-            }
-            fr => fr.interval(),
-        };
-
         let cuda_device = shared
             .cuda_devices
             .iter()
@@ -4934,7 +4925,6 @@ impl FinalMp4RecordingConfig {
         h264_metadata.camera_name = Some(shared.camera_name.clone());
         h264_metadata.gamma = shared.camera_gamma;
         let final_cfg = Mp4RecordingConfig {
-            sample_duration,
             codec,
             max_framerate: shared.mp4_max_framerate.clone(),
             h264_metadata: Some(h264_metadata),

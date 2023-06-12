@@ -595,7 +595,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
     // Build iterator to iterate over output frames. This is equivalent to
     // iterating over synchronized input frames.
-    let (frame_duration, moment_iter): (_, Box<dyn Iterator<Item = _>>) = if braidz_only {
+    let moment_iter: Box<dyn Iterator<Item = _>> = if braidz_only {
         let braid_archive = braid_archive.unwrap();
         let boxed = Box::new(braid_archive);
         let statik: &'static mut _ = Box::leak(boxed);
@@ -609,8 +609,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .collect();
 
         let braid_archive = braidz_iter::BraidArchiveNoVideoData::new(statik, camns)?;
-        let frame_duration = braid_archive.frame_duration();
-        (frame_duration, Box::new(braid_archive))
+        Box::new(braid_archive)
     } else {
         let mut frame_readers: Vec<_> = sources
             .iter_mut()
@@ -669,38 +668,35 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             sync_threshold.num_microseconds().unwrap()
         );
 
-        (
-            frame_duration.to_std()?,
-            if let Some(archive) = braid_archive {
-                // In this path, we use the .braidz file as the source of
-                // synchronization.
+        if let Some(archive) = braid_archive {
+            // In this path, we use the .braidz file as the source of
+            // synchronization.
 
-                let ros_camera_names_ref: Vec<&str> =
-                    ros_camera_names.iter().map(|x| x.as_str()).collect();
+            let ros_camera_names_ref: Vec<&str> =
+                ros_camera_names.iter().map(|x| x.as_str()).collect();
 
-                Box::new(braidz_iter::BraidArchiveSyncVideoData::new(
-                    archive,
-                    &data2d,
-                    &ros_camera_names_ref,
-                    frame_readers,
-                    sync_threshold,
-                )?)
-            } else if let Some(approx_start_time) = approx_start_time {
-                // In this path, we use the timestamps in the saved videos as the source
-                // of synchronization.
-                synchronize_readers_from(approx_start_time.into(), &mut frame_readers);
+            Box::new(braidz_iter::BraidArchiveSyncVideoData::new(
+                archive,
+                &data2d,
+                &ros_camera_names_ref,
+                frame_readers,
+                sync_threshold,
+            )?)
+        } else if let Some(approx_start_time) = approx_start_time {
+            // In this path, we use the timestamps in the saved videos as the source
+            // of synchronization.
+            synchronize_readers_from(approx_start_time.into(), &mut frame_readers);
 
-                Box::new(synced_iter::SyncedIter::new(
-                    frame_readers,
-                    sync_threshold,
-                    frame_duration,
-                )?)
-            } else {
-                anyhow::bail!(
+            Box::new(synced_iter::SyncedIter::new(
+                frame_readers,
+                sync_threshold,
+                frame_duration,
+            )?)
+        } else {
+            anyhow::bail!(
                 "Neither braidz archive nor input videos could be used as source of frame data."
             );
-            },
-        )
+        }
     };
 
     let all_expected_cameras = ros_camera_names
@@ -717,16 +713,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 std::fs::create_dir_all(dest_dir)?;
             }
 
-            let sample_duration = frame_duration;
-
             match output {
                 OutputConfig::Video(v) => Ok(OutputStorage::Video(Box::new(
-                    output_video::VideoStorage::new(
-                        &v,
-                        &output_filename,
-                        &sources,
-                        sample_duration,
-                    )?,
+                    output_video::VideoStorage::new(&v, &output_filename, &sources)?,
                 ))),
                 OutputConfig::DebugTxt(_) => Ok(OutputStorage::Debug(DebugStorage {
                     path: output_filename.clone(),

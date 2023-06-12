@@ -6,7 +6,7 @@ use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
-fn default_mp4_config(sample_duration: std::time::Duration) -> Mp4RecordingConfig {
+fn default_mp4_config() -> Mp4RecordingConfig {
     use ci2_remote_control::OpenH264Preset;
     let preset = OpenH264Preset::AllFrames;
     let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
@@ -14,7 +14,6 @@ fn default_mp4_config(sample_duration: std::time::Duration) -> Mp4RecordingConfi
         preset,
     });
     Mp4RecordingConfig {
-        sample_duration,
         codec,
         max_framerate: Default::default(),
         h264_metadata: None,
@@ -41,7 +40,6 @@ impl<'lib> VideoStorage<'lib> {
         v: &crate::config::VideoOutputConfig,
         output_filename: &std::path::Path,
         sources: &[crate::CameraSource],
-        sample_duration: std::time::Duration,
     ) -> Result<Self> {
         // compute output width and height
         let cum_width: usize = sources.iter().map(|s| s.per_cam_render.width).sum();
@@ -61,7 +59,7 @@ impl<'lib> VideoStorage<'lib> {
         }
         let fd = std::fs::File::create(output_filename)?;
 
-        let mp4_cfg = default_mp4_config(sample_duration);
+        let mp4_cfg = default_mp4_config();
 
         let mp4_writer = mp4_writer::Mp4Writer::new(fd, mp4_cfg, None)?;
         let composite_margin_pixels = v

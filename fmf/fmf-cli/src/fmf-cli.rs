@@ -554,16 +554,11 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
         })
         .collect();
     dbg!(&dt_first);
-    // sum of deltas
-    let sum_dt: f64 = dt_first.iter().sum();
-    // average of deltas
-    let sample_duration = std::time::Duration::from_secs_f64(sum_dt / dt_first.len() as f64);
 
     let cfg = Mp4RecordingConfig {
         codec,
         max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
         h264_metadata: None,
-        sample_duration,
     };
 
     debug!("opening file {}", output_fname.unwrap().display());

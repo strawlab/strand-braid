@@ -19,9 +19,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
     let env_var_name = "MP4_WRITER_SAVE_TEST";
     // Potentially do not delete temporary directory
     let save_output = match std::env::var_os(env_var_name) {
-        Some(v) => {
-            &v != "0"
-        }
+        Some(v) => &v != "0",
         None => false,
     };
 
@@ -99,7 +97,6 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
 
         let cfg = Mp4RecordingConfig {
             codec,
-            sample_duration: std::time::Duration::from_millis(50),
             max_framerate: Default::default(),
             h264_metadata: None,
         };
