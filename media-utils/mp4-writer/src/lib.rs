@@ -1175,7 +1175,6 @@ impl H264Parser {
             .last_sample
             .replace(ParsedH264Frame {
                 mp4_sample_start_time: nals.mp4_sample_start_time,
-                duration: 0, // This usually gets replaced in `Self::avcc_sample()`.
                 is_keyframe: nals.is_keyframe,
                 avcc_buf: all_avcc_nal_units,
             })
@@ -1209,7 +1208,7 @@ fn parsed_to_mp4_sample(orig: ParsedH264Frame) -> mp4::Mp4Sample {
 
     mp4::Mp4Sample {
         start_time: orig.mp4_sample_start_time,
-        duration: orig.duration,
+        duration: 0,
         rendering_offset: 0,
         is_sync: orig.is_keyframe,
         bytes,
@@ -1240,8 +1239,6 @@ struct ParsedH264Frame {
     /// in units of `movie_timescale`
     mp4_sample_start_time: u64,
     is_keyframe: bool,
-    /// in units of `movie_timescale`
-    duration: u32,
     avcc_buf: Vec<u8>,
 }
 
