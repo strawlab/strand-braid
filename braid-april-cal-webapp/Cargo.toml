@@ -5,6 +5,9 @@ edition = "2021"
 rust-version="1.60"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 yew = {version="0.20.0", features=["csr"]}
 yew-tincture = "0.1"

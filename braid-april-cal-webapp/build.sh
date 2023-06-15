@@ -1,12 +1,12 @@
 #!/bin/bash
 set -o errexit
 
-# Note, this is the wrong way to do things.
-# See https://github.com/rustwasm/wasm-bindgen/pull/1994#issuecomment-608966482
-cargo build --target wasm32-unknown-unknown --release --bin main
-wasm-bindgen --target web --no-typescript --out-dir pkg --out-name main ../target/wasm32-unknown-unknown/release/main.wasm
+# Install wasm-pack from here https://rustwasm.github.io/wasm-pack/installer/
 
-cp static/index.html pkg/
+# This will build the source and place results into a new `pkg` dir
+wasm-pack build --target web
+
+cp static/index.html pkg/index.html
 grass -I ../ads-webasm/scss/ static/braid-april-cal-webapp.scss pkg/style.css
 
 echo Build OK. Now run with:

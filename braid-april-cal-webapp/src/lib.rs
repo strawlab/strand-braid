@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use dlt::CorrespondingPoint;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{prelude::*, JsCast};
 
 use nalgebra::geometry::{Point2, Point3};
 
@@ -580,4 +580,10 @@ fn mean_forward(cam: &mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) ->
         accum += cam_dist;
     }
     accum / pts.len() as f64
+}
+
+#[wasm_bindgen(start)]
+pub fn run_app() {
+    wasm_logger::init(wasm_logger::Config::default());
+    yew::Renderer::<Model>::new().render();
 }
