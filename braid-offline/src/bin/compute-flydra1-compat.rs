@@ -95,7 +95,6 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
     for row in kalman_estimates_reader
         .into_deserialize()
         .early_eof_ok()
-        .into_iter()
     {
         let row: KalmanEstimatesRow = row?;
 

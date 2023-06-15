@@ -118,7 +118,7 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
         rows_entry.push(inrow);
     }
 
-    by_cam.into_iter().map(|(_k, v)| v).collect()
+    by_cam.into_values().collect()
 }
 
 // TODO fix DRY with incremental_parser
@@ -173,21 +173,11 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct KalmanizeOptions {
     pub start_frame: Option<u64>,
     pub stop_frame: Option<u64>,
     pub model_server_addr: Option<String>,
-}
-
-impl Default for KalmanizeOptions {
-    fn default() -> Self {
-        Self {
-            start_frame: None,
-            stop_frame: None,
-            model_server_addr: None,
-        }
-    }
 }
 
 /// Perform offline tracking on the data
@@ -202,6 +192,7 @@ impl Default for KalmanizeOptions {
 /// Note that a temporary directly ending with `.braid` is initially created and
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
+#[allow(clippy::too_many_arguments)]
 pub async fn kalmanize<Q, R>(
     mut data_src: braidz_parser::incremental_parser::IncrementalParser<
         R,
@@ -306,7 +297,7 @@ where
 
         if let Some(idx) = found_image_paths
             .iter()
-            .position(|x| &format!("{}", x.display()) == fname)
+            .position(|x| format!("{}", x.display()) == *fname)
         {
             found_image_paths.remove(idx);
         }
@@ -314,7 +305,7 @@ where
         let mut new_image_fname: PathBuf = output_dirname.to_path_buf();
         new_image_fname.push(IMAGES_DIRNAME);
         std::fs::create_dir_all(&new_image_fname)?; // Create dir if needed.
-        new_image_fname.push(&cam_name);
+        new_image_fname.push(cam_name);
         new_image_fname.set_extension("png");
 
         let reader = old_image_fname.open()?;
@@ -492,8 +483,8 @@ where
                     .clone();
                 let trigger_timestamp = cam_rows[0].timestamp.clone();
                 let cam_received_timestamp = cam_rows[0].cam_received_timestamp.clone();
-                let device_timestamp = cam_rows[0].device_timestamp.clone();
-                let block_id = cam_rows[0].block_id.clone();
+                let device_timestamp = cam_rows[0].device_timestamp;
+                let block_id = cam_rows[0].block_id;
                 let points = cam_rows
                     .iter()
                     .enumerate()

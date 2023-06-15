@@ -43,15 +43,15 @@ async fn main() -> anyhow::Result<()> {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
-            let buf = std::fs::read_to_string(&fname)
+            let buf = std::fs::read_to_string(fname)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
-            tracking_params.try_into()?
+            tracking_params
         }
         None => {
             let parsed = data_src.basic_info();
             match parsed.tracking_params.clone() {
-                Some(tp) => tp.try_into().unwrap(),
+                Some(tp) => tp,
                 None => {
                     let num_cams = data_src.basic_info().cam_info.camid2camn.len();
                     match num_cams {
