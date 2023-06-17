@@ -91,7 +91,8 @@ impl Component for VideoField {
             Msg::MouseMove(mminfo) => {
                 let client_x = mminfo.client_x() as f64;
                 let client_y = mminfo.client_y() as f64;
-                let document = gloo_utils::document();
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
                 let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
                 let canvas: web_sys::HtmlCanvasElement = canvas
                     .dyn_into::<web_sys::HtmlCanvasElement>()
@@ -244,7 +245,8 @@ impl VideoField {
     }
 
     fn draw_frame_canvas(&self, in_msg: &ImData2) {
-        let document = gloo_utils::document();
+        let window = web_sys::window().unwrap();
+        let document = window.document().unwrap();
         let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
         let canvas: web_sys::HtmlCanvasElement = canvas
             .dyn_into::<web_sys::HtmlCanvasElement>()

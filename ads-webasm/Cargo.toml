@@ -11,7 +11,6 @@ yew = { version = "0.20.0", features = ["csr"] }
 js-sys = "0.3"
 gloo = "0.8.0"
 gloo-file = "0.2"
-gloo-utils = "0.1"
 wasm-bindgen = { version = "0.2.58" }
 http = "0.2"
 serde = "1.0"
@@ -41,12 +40,14 @@ rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 version = "0.3"
 features = [
     "CanvasRenderingContext2d",
+    "Document",
     "DomRect",
     "DomTokenList",
     "Element",
     "EventSource",
     "HtmlCanvasElement",
     "HtmlImageElement",
+    "Window",
 ]
 
 [features]

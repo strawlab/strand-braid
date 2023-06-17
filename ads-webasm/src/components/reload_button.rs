@@ -23,7 +23,7 @@ impl Component for ReloadButton {
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clicked => {
-                let window = gloo_utils::window();
+                let window = web_sys::window().unwrap();
                 window.location().reload().unwrap();
             }
         }
