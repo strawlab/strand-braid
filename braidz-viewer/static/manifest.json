@@ -17,10 +17,12 @@
     "start_url": "https://braidz.strawlab.org/",
     "file_handlers": [
         {
-          "action": "/",
-          "accept": {
-            "application/zip": [".braidz"]
-          }
+            "action": "/",
+            "accept": {
+                "application/zip": [
+                    ".braidz"
+                ]
+            }
         }
     ],
     "display": "standalone"
