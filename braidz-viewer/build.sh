@@ -4,10 +4,10 @@ set -o errexit
 DEPLOY_DIR=deploy
 
 # Install wasm-pack from here https://rustwasm.github.io/wasm-pack/installer/
-wasm-pack build --target web
+RUSTFLAGS=--cfg=web_sys_unstable_apis wasm-pack build --target web --features pwa-file-loading
 mkdir -p $DEPLOY_DIR
 rm -rf $DEPLOY_DIR/*
-cp pkg/* $DEPLOY_DIR/
+cp -pr pkg/* $DEPLOY_DIR/
 cp static/* $DEPLOY_DIR/
 grass -I ../ads-webasm/scss/ scss/braidz-viewer.scss > $DEPLOY_DIR/style.css
 

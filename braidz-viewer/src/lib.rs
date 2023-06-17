@@ -581,8 +581,58 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
 
 // -----------------------------------------------------------------------------
 
+#[cfg(feature = "pwa-file-loading")]
+#[wasm_bindgen(module = "/js/launch_queue_support.js")]
+extern "C" {
+    fn launch_queue_set_consumer(f4: &Closure<dyn FnMut(JsValue)>);
+}
+
 #[wasm_bindgen(start)]
 pub fn run_app() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-    yew::Renderer::<Model>::new().render();
+    #[allow(unused_variables)]
+    let app_handle = yew::Renderer::<Model>::new().render();
+
+    #[cfg(feature = "pwa-file-loading")]
+    {
+        // Create file handler for progressive web app (PWA) when user clicks on a
+        // file in the operating system.
+        let boxed = Box::new(app_handle);
+        let statik: &'static mut _ = Box::leak(boxed);
+        let statik2 = statik.clone();
+
+        let on_launch_params = Closure::new(move |launch_params: JsValue| {
+            let files = js_sys::Reflect::get(&launch_params, &JsValue::from_str("files")).unwrap();
+
+            let iterator = js_sys::try_iter(&files)
+                .unwrap()
+                .ok_or("need to pass iterable JS values")
+                .unwrap();
+
+            for res_file_js_value in iterator {
+                let file_js_value = res_file_js_value.unwrap();
+
+                let file_future = wasm_bindgen_futures::JsFuture::from(
+                    file_js_value
+                        .dyn_into::<web_sys::FileSystemFileHandle>()
+                        .unwrap()
+                        .get_file(),
+                );
+
+                let statik3 = statik2.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let file = file_future
+                        .await
+                        .unwrap()
+                        .dyn_into::<web_sys::File>()
+                        .unwrap();
+                    statik3.send_message(Msg::FileChanged(file.into()));
+                })
+            }
+        });
+
+        launch_queue_set_consumer(&on_launch_params);
+
+        on_launch_params.forget();
+    }
 }
