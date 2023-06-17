@@ -3,7 +3,7 @@ name = "braidz-viewer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.60"
 
 [lib]
 crate-type = ["cdylib"]
@@ -15,23 +15,32 @@ wasm-logger = "0.2.0"
 
 gloo = "0.8.0"
 gloo-file = "0.2"
-yew = {version="0.20.0", features=["csr"]}
+yew = { version = "0.20.0", features = ["csr"] }
 
 wasm-bindgen = "^0.2.45"
 js-sys = "0.3.28"
-plotters = {version="0.3.4", default-features=false, features=["bitmap_encoder", "bitmap_gif", "svg_backend", "image", "deprecated_items", "all_series", "all_elements", "full_palette"]}
+plotters = { version = "0.3.4", default-features = false, features = [
+    "bitmap_encoder",
+    "bitmap_gif",
+    "svg_backend",
+    "image",
+    "deprecated_items",
+    "all_series",
+    "all_elements",
+    "full_palette",
+] }
 plotters-canvas = "0.3"
 serde = { version = "^1.0.85", features = ['derive'] }
 futures = "0.3"
 
-mvg = {path="../mvg", features=["serde-serialize"]}
-zip-or-dir = {path="../zip-or-dir"}
-braidz-types = {path="../braidz-types"}
-braidz-parser = {path="../braidz-parser"}
+mvg = { path = "../mvg", features = ["serde-serialize"] }
+zip-or-dir = { path = "../zip-or-dir" }
+braidz-types = { path = "../braidz-types" }
+braidz-parser = { path = "../braidz-parser" }
 
 [dependencies.web-sys]
-version="0.3.28"
-features=[
+version = "0.3.28"
+features = [
     "Blob",
     "DateTimeValue",
     "Event",
