@@ -954,7 +954,7 @@ braid-webapps:
     - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
 
-    - wasm-pack --version
+    # - wasm-pack --version # disabled, see https://github.com/rustwasm/wasm-pack/issues/1301
     - wasm-bindgen --version
 
     - cd braidz-viewer
