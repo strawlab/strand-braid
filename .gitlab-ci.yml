@@ -330,7 +330,7 @@ build-freemovr-calibration-webapp:
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install wasm-bindgen-cli --version 0.2.84 --force
+    - cargo install wasm-bindgen-cli --version 0.2.87 --force
     - cargo install grass
 
     - wasm-bindgen --version
@@ -949,7 +949,7 @@ braid-webapps:
     # ... and install latest (and therefore matching) wasm-pack
     - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     # ... and wasm-bindgen-cli
-    - cargo install wasm-bindgen-cli --version 0.2.84 --force
+    - cargo install wasm-bindgen-cli --version 0.2.87 --force
     - cargo install grass
     - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
