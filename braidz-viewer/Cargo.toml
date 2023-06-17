@@ -39,7 +39,7 @@ braidz-types = { path = "../braidz-types" }
 braidz-parser = { path = "../braidz-parser" }
 
 [dependencies.web-sys]
-version = "0.3.28"
+version = "0.3.64"
 features = [
     "Blob",
     "DateTimeValue",
