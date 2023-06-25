@@ -688,7 +688,7 @@ mod tests {
                 .list_paths::<PathBuf>(Some(PathBuf::from(not_exist_dir)))
                 .unwrap_err()
             {
-                Error::NotDirectory => {}
+                Error::NotDirectory(_) => {}
                 _ => {
                     panic!("returned wrong error. Should return NotDirectory");
                 }
