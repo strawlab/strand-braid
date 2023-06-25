@@ -537,25 +537,34 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
     };
 
     let total_distance = if let Some(ref k) = &summary.kalman_estimates_summary {
-        format!("{}", k.total_distance)
+        format!("{:.3}", k.total_distance)
     } else {
         "(No 3D data)".to_string()
     };
 
     let (bx, by, bz) = if let Some(ref k) = &summary.kalman_estimates_summary {
         (
-            format!("{} {}", k.x_limits[0], k.x_limits[1]),
-            format!("{} {}", k.y_limits[0], k.y_limits[1]),
-            format!("{} {}", k.z_limits[0], k.z_limits[1]),
+            format!("{:.3} - {:.3}", k.x_limits[0], k.x_limits[1]),
+            format!("{:.3} - {:.3}", k.y_limits[0], k.y_limits[1]),
+            format!("{:.3} - {:.3}", k.z_limits[0], k.z_limits[1]),
         )
     } else {
         let n = "(No 3D data)".to_string();
         (n.clone(), n.clone(), n)
     };
 
-    let frame_range_str = match &summary.data2d_summary {
-        Some(x) => format!("{} - {}", x.frame_limits[0], x.frame_limits[1]),
-        &None => "no frames".to_string(),
+    let (frame_range_str, duration_str) = match &summary.data2d_summary {
+        Some(x) => (format!("{} - {}", x.frame_limits[0], x.frame_limits[1]), {
+            let duration = x.time_limits[1]
+                .signed_duration_since(x.time_limits[0])
+                .to_std()
+                .unwrap();
+            let seconds = duration.as_secs_f64() % 60.0;
+            let minutes = (duration.as_secs() / 60) % 60;
+            let hours = (duration.as_secs() / 60) / 60;
+            format!("{hours:0>2}:{minutes:0>2}:{seconds:0>2.3}")
+        }),
+        &None => ("no frames".to_string(), "".to_string()),
     };
 
     html! {
@@ -566,6 +575,7 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
                 <tr><td>{"Schema version:"}</td><td>{format!("{}", md.schema)}</td></tr>
                 <tr><td>{"Git revision:"}</td><td>{&md.git_revision}</td></tr>
                 <tr><td>{"Original recording time:"}</td><td>{orig_rec_time}</td></tr>
+                <tr><td>{"Duration:"}</td><td>{duration_str}</td></tr>
                 <tr><td>{"Frame range:"}</td><td>{frame_range_str}</td></tr>
                 <tr><td>{"Number of cameras:"}</td><td>{num_cameras}</td></tr>
                 <tr><td>{"Camera calibration:"}</td><td>{cal}</td></tr>
