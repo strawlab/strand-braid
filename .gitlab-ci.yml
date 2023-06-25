@@ -115,6 +115,11 @@ test_crates_rust_1_68:
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
 
+    # Test zip-or-dir
+    - cd zip-or-dir
+    - cargo test
+    - cd ..
+
     # Test fastfreeimage
     - cd fastfreeimage
     - cargo test
