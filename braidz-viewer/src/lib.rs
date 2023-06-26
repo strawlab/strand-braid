@@ -69,6 +69,7 @@ struct Model {
     readers: HashMap<String, FileReader>,
     braidz_file: MaybeValidBraidzFile,
     did_error: bool,
+    html_page_title: Option<String>,
 }
 
 pub enum Msg {
@@ -89,6 +90,7 @@ impl Component for Model {
             braidz_file: MaybeValidBraidzFile::default(),
             readers: HashMap::default(),
             did_error: false,
+            html_page_title: None,
         }
     }
 
@@ -110,14 +112,35 @@ impl Component for Model {
                 self.readers.remove(&filename);
                 let file = match braidz_parser::braidz_parse(cur) {
                     Ok(archive) => {
+                        let title = format!("{filename} - BRAIDZ Viewer");
+
                         let v = ValidBraidzFile {
                             filename,
                             filesize,
                             archive,
                         };
+
+                        web_sys::window()
+                            .unwrap()
+                            .document()
+                            .unwrap()
+                            .set_title(&title);
+                        self.html_page_title = Some(title);
+
                         MaybeValidBraidzFile::Valid(v)
                     }
-                    Err(e) => MaybeValidBraidzFile::ParseFail(e),
+                    Err(e) => {
+                        let title = format!("BRAIDZ Viewer");
+
+                        web_sys::window()
+                            .unwrap()
+                            .document()
+                            .unwrap()
+                            .set_title(&title);
+                        self.html_page_title = Some(title);
+
+                        MaybeValidBraidzFile::ParseFail(e)
+                    }
                 };
 
                 self.braidz_file = file;
