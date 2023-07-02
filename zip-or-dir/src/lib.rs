@@ -323,7 +323,7 @@ pub struct FileReader<'a> {
 
 enum FileReaderInner<'a> {
     File(BufReader<File>),
-    ZipFile(BufReader<zip::read::ZipFile<'a>>),
+    ZipFile(Box<BufReader<zip::read::ZipFile<'a>>>),
 }
 
 impl<'a> FileReader<'a> {
@@ -341,7 +341,10 @@ impl<'a> FileReader<'a> {
     }
     fn from_zip(zipfile: zip::read::ZipFile<'a>) -> Result<FileReader<'a>> {
         let size = zipfile.size();
-        Self::from_inner(FileReaderInner::ZipFile(BufReader::new(zipfile)), size)
+        Self::from_inner(
+            FileReaderInner::ZipFile(Box::new(BufReader::new(zipfile))),
+            size,
+        )
     }
 
     pub fn size(&self) -> u64 {
@@ -583,6 +586,10 @@ fn copy_dir<R: Read + Seek>(
     Ok(())
 }
 
+fn not_dir_error<P: AsRef<Path>>(relname: P) -> Error {
+    Error::NotDirectory(format!("{}", relname.as_ref().display()))
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
@@ -749,8 +756,4 @@ mod tests {
 
         Ok(())
     }
-}
-
-fn not_dir_error<P: AsRef<Path>>(relname: P) -> Error {
-    Error::NotDirectory(format!("{}", relname.as_ref().display()))
 }
