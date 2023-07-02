@@ -461,7 +461,10 @@ where
         let n_csv_frames = if no_progress {
             None
         } else {
-            log::info!("Parsing CSV file to determine frame count.");
+            log::info!(
+                "Parsing {} file to determine frame count.",
+                flydra_types::DATA2D_DISTORTED_CSV_FNAME
+            );
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
