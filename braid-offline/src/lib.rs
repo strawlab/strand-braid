@@ -101,10 +101,7 @@ fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
 }
 
 fn safe_u64(val: i64) -> u64 {
-    if val < 0 {
-        panic!("value out of range");
-    }
-    val as u64
+    val.try_into().unwrap()
 }
 
 fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> {
@@ -484,11 +481,21 @@ where
             let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
             let mut count = 0;
             for data_frame_rows in data_row_frame_iter {
-                let _data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
+                let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
                     data_frame_rows?;
+                if let Some(start_frame) = opt3.start_frame {
+                    if safe_u64(data_frame_rows.group_key) < start_frame {
+                        continue;
+                    }
+                }
+                if let Some(stop_frame) = opt3.stop_frame {
+                    if safe_u64(data_frame_rows.group_key) > stop_frame {
+                        break;
+                    }
+                }
                 count += 1;
             }
-            log::info!("CSV file has {count} frames.");
+            log::info!("Will process {count} frames.");
             Some(count)
         };
 
@@ -522,11 +529,6 @@ where
         };
 
         for data_frame_rows in data_row_frame_iter {
-            if let Some(pb) = &pb {
-                // Increment the counter.
-                pb.inc(1);
-            }
-
             // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
             let data_frame_rows = data_frame_rows?;
 
@@ -544,6 +546,11 @@ where
                 if synced_frame.0 > *stop {
                     break;
                 }
+            }
+
+            if let Some(pb) = &pb {
+                // Increment the counter.
+                pb.inc(1);
             }
 
             for cam_rows in split_by_cam(rows).iter() {
