@@ -8,7 +8,6 @@ use std::{
     path::PathBuf,
 };
 
-use braidz_types::BraidMetadata;
 use flydra_mvg::FlydraMultiCameraSystem;
 use serde::{Deserialize, Serialize};
 
@@ -111,7 +110,7 @@ where
         }
     };
 
-    let (num_points_converted, metadata) = convert_flytrax_csv_to_braid_csv_dir(
+    let num_points_converted = convert_flytrax_csv_to_braid_csv_dir(
         cfg,
         recon,
         images,
@@ -132,8 +131,6 @@ where
 
     let save_performance_histograms = false;
 
-    let metadata_builder = flydra2::BraidMetadataBuilder::Existing(metadata);
-
     braid_offline::kalmanize(
         data_src,
         output_braidz,
@@ -142,7 +139,7 @@ where
         braid_offline::KalmanizeOptions::default(),
         tokio::runtime::Handle::current(),
         save_performance_histograms,
-        metadata_builder,
+        &env!("CARGO_PKG_NAME"),
         no_progress,
     )
     .await?;
@@ -174,7 +171,7 @@ fn convert_flytrax_csv_to_braid_csv_dir<R>(
     pseudo_cal_params: Option<&PseudoCalParams>,
     braid_csv_temp_dir: &tempfile::TempDir,
     row_filters: &[RowFilter],
-) -> Result<(usize, BraidMetadata)>
+) -> Result<usize>
 where
     R: BufRead,
 {
@@ -228,7 +225,7 @@ where
     // -------------------------------------------------
     // save braid_metadata.yml
 
-    let metadata = {
+    {
         let braid_metadata_path = braid_csv_temp_dir
             .as_ref()
             .to_path_buf()
@@ -241,12 +238,11 @@ where
             save_empty_data2d: false, // We do filtering below, but is this correct?
             saving_program_name: env!("CARGO_PKG_NAME").to_string(),
         };
-        let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
+        let metadata_buf = serde_yaml::to_string(&metadata)?;
 
         let mut fd = std::fs::File::create(&braid_metadata_path)?;
-        fd.write_all(metadata_buf.as_bytes()).unwrap();
-        metadata
-    };
+        fd.write_all(metadata_buf.as_bytes())?;
+    }
 
     // -------------------------------------------------
     // save data2d_distorted.csv
@@ -295,7 +291,7 @@ where
             count += 1;
         }
     }
-    Ok((count, metadata))
+    Ok(count)
 }
 
 #[inline]

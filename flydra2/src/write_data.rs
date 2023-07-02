@@ -58,7 +58,7 @@ impl BraidMetadataBuilder {
 
 #[derive(Clone, Debug)]
 pub struct MetadataParts {
-    pub saving_program_name: String,
+    saving_program_name: String,
 }
 
 impl WritingState {

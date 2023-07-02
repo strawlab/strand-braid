@@ -221,7 +221,7 @@ pub async fn kalmanize<Q, R>(
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
-    metadata_builder: flydra2::BraidMetadataBuilder,
+    saving_program_name: &str,
     no_progress: bool,
 ) -> Result<(), Error>
 where
@@ -243,7 +243,10 @@ where
     info!("tracking:");
     info!("  {} -> {}", data_src.display(), output_dirname.display());
 
+    let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
+
     let src_info = data_src.basic_info();
+    let local = src_info.metadata.original_recording_time.clone();
 
     let recon = if let Some(ci) = &src_info.calibration_info {
         let cams = ci.cameras.clone();
@@ -425,7 +428,7 @@ where
         let braidz_write_tx = coord_processor.get_braidz_write_tx();
         let save_cfg = flydra2::StartSavingCsvConfig {
             out_dir: output_dirname.to_path_buf(),
-            local: None,
+            local,
             git_rev: env!("GIT_HASH").to_string(),
             fps: Some(fps as f32),
             per_cam_data,

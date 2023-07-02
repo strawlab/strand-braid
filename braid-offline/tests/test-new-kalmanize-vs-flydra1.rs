@@ -347,7 +347,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
         braid_offline::KalmanizeOptions::default(),
         rt_handle,
         save_performance_histograms,
-        flydra2::BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
+        &format!("{}:{}", file!(), line!()),
         true,
     )
     .await?;

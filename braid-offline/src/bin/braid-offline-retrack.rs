@@ -103,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
         opts,
         rt_handle,
         save_performance_histograms,
-        flydra2::BraidMetadataBuilder::saving_program_name("braid offline-retrack"),
+        "braid-offline-retrack",
         opt.no_progress,
     )
     .await?;
