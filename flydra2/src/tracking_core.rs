@@ -1,4 +1,4 @@
-use log::{log_enabled, trace, Level::Trace};
+use log::trace;
 use std::{collections::BTreeMap, sync::Arc};
 
 use nalgebra::core::dimension::{U2, U6};
@@ -21,19 +21,19 @@ use flydra_types::{
     TrackingParams, Triggerbox,
 };
 
+use crate::bundled_data::{MiniArenaPointPerCam, PerMiniArenaAllCamsOneFrameUndistorted};
 use crate::{
-    bundled_data::{BundledAllCamsOneFrameUndistorted, OneCamOneFrameUndistorted, Undistorted},
+    mini_arenas::MiniArenaIndex,
     model_server::{SendKalmanEstimatesRow, SendType},
     new_object_test_2d::NewObjectTestFlat3D,
     new_object_test_3d::NewObjectTestFull3D,
     to_world_point, CameraObservationModel, ConnectedCamerasManager, DataAssocRow,
-    FrameDataAndPoints, HypothesisTestResult, KalmanEstimateRecord, MyFloat, SaveToDiskMsg,
-    TimeDataPassthrough,
+    HypothesisTestResult, KalmanEstimateRecord, MyFloat, SaveToDiskMsg, TimeDataPassthrough,
 };
 
 // -----------------------------------------------------------------------------
 
-pub(crate) struct UnusedData(pub(crate) BundledAllCamsOneFrameUndistorted);
+pub(crate) struct UnusedDataPerArena(PerMiniArenaAllCamsOneFrameUndistorted);
 
 // LivingModel -----------------------------------------------------------------
 
@@ -206,25 +206,23 @@ impl LivingModel<ModelFrameStarted> {
 
     fn compute_observation_likelihoods(
         self,
-        all_cam_data: &BundledAllCamsOneFrameUndistorted,
+        arena_bundle: &PerMiniArenaAllCamsOneFrameUndistorted,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
         ekf_observation_covariance_pixels: f64,
     ) -> LivingModel<ModelFrameWithObservationLikes> {
         // for each camera with data:
         //  - compute likelihood of each real observation given expected observation
 
-        let obs_models_and_likelihoods: Vec<ObservationModel> = all_cam_data
-            .inner
+        let obs_models_and_likelihoods: Vec<ObservationModel> = arena_bundle
+            .per_cam
             .iter()
-            .map(|cam_data| {
+            .map(|(cam_name, my_points)| {
                 // outer loop: cameras
 
-                if cam_data.undistorted.is_empty() {
+                if my_points.is_empty() {
                     ObservationModel::NoObservations
                 } else {
-                    let cam = recon
-                        .cam_by_name(cam_data.frame_data.cam_name.as_str())
-                        .unwrap();
+                    let cam = recon.cam_by_name(cam_name.as_str()).unwrap();
                     let (observation_model, eo) =
                         self.compute_expected_observation(cam, ekf_observation_covariance_pixels);
 
@@ -232,15 +230,15 @@ impl LivingModel<ModelFrameStarted> {
                         trace!(
                             "object {} {} expects ({},{})",
                             self.lmi.obj_id,
-                            cam_data.frame_data.cam_name,
+                            cam_name,
                             expected_observation.mean()[0],
                             expected_observation.mean()[1]
                         );
 
-                        cam_data
-                            .undistorted
+                        my_points
                             .iter()
-                            .map(|pt: &Undistorted| {
+                            .map(|mappc: &MiniArenaPointPerCam| {
+                                let pt = &mappc.undistorted;
                                 // inner loop: points
 
                                 // Because we keep all points in order (and do not drop
@@ -259,10 +257,10 @@ impl LivingModel<ModelFrameStarted> {
                             })
                             .collect()
                     } else {
-                        vec![0.0; cam_data.undistorted.len()]
+                        vec![0.0; my_points.len()]
                     };
-                    trace!("incoming points: {:?}", cam_data.undistorted);
-                    trace!("likelihoods: {:?}", likes);
+                    // trace!("incoming points: {:?}", my_points);
+                    // trace!("likelihoods: {:?}", likes);
                     ObservationModel::ObservationModelAndLikelihoods(
                         ObservationModelAndLikelihoods {
                             observation_model,
@@ -489,7 +487,7 @@ pub(crate) struct CollectionFrameStarted {
 }
 pub(crate) struct CollectionFrameWithObservationLikes {
     models_with_obs_likes: Vec<LivingModel<ModelFrameWithObservationLikes>>,
-    bundle: BundledAllCamsOneFrameUndistorted,
+    // bundle: BundledAllCamsOneFrameUndistorted,
 }
 pub(crate) struct CollectionFramePosteriors {
     models_with_posteriors: Vec<LivingModel<ModelFramePosteriors>>,
@@ -500,12 +498,14 @@ impl CollectionState for CollectionFrameStarted {}
 impl CollectionState for CollectionFrameWithObservationLikes {}
 impl CollectionState for CollectionFramePosteriors {}
 
-pub(crate) trait HypothesisTest: Send {
+pub(crate) trait HypothesisTest: Send + dyn_clone::DynClone {
     fn hypothesis_test(
         &self,
         good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult>;
 }
+
+dyn_clone::clone_trait_object!(HypothesisTest);
 
 pub(crate) fn initialize_model_collection(
     params: Arc<TrackingParams>,
@@ -513,22 +513,25 @@ pub(crate) fn initialize_model_collection(
     fps: f32,
     cam_manager: ConnectedCamerasManager,
     save_data_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
+    mini_arena_idx: MiniArenaIndex,
 ) -> ModelCollection<CollectionFrameDone> {
     let motion_noise_scale = params.motion_noise_scale;
     let dt = 1.0 / fps as f64;
 
     let (new_obj, motion_model) = if params.hypothesis_test_params.is_some() {
+        // full 3d tracking
         let new_obj = NewObjectTestFull3D::new(recon.clone(), params.clone());
         let motion_model_generator = ConstantVelocity3DModel::new(motion_noise_scale);
         (
-            Box::new(new_obj) as Box<dyn HypothesisTest>,
+            Box::new(new_obj) as Box<dyn HypothesisTest + Send + Sync>,
             motion_model_generator.calc_for_dt(dt),
         )
     } else {
+        // "flat 3d" (2d) tracking
         let new_obj = NewObjectTestFlat3D::new(recon.clone(), params.clone());
         let motion_model_generator = FlatZZero3DModel::new(motion_noise_scale);
         (
-            Box::new(new_obj) as Box<dyn HypothesisTest>,
+            Box::new(new_obj) as Box<dyn HypothesisTest + Send + Sync>,
             motion_model_generator.calc_for_dt(dt),
         )
     };
@@ -536,29 +539,31 @@ pub(crate) fn initialize_model_collection(
     ModelCollection {
         state: CollectionFrameDone { models: vec![] },
         mcinner: MCInner {
+            mini_arena_idx,
             params,
             recon,
             new_obj,
             motion_model,
             cam_manager,
-            next_obj_id: 0,
             save_data_tx,
         },
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct ModelCollection<S: CollectionState> {
     state: S,
     pub(crate) mcinner: MCInner,
 }
 
+#[derive(Clone)]
 pub(crate) struct MCInner {
+    pub(crate) mini_arena_idx: MiniArenaIndex,
     params: Arc<TrackingParams>,
     pub(crate) recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
-    new_obj: Box<dyn HypothesisTest>,
+    new_obj: Box<dyn HypothesisTest + Send + Sync>,
     motion_model: MotionModel3DFixedDt<MyFloat>,
     cam_manager: ConnectedCamerasManager,
-    next_obj_id: u32,
     save_data_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
 }
 
@@ -591,11 +596,13 @@ impl ModelCollection<CollectionFrameDone> {
 impl ModelCollection<CollectionFrameStarted> {
     pub(crate) fn compute_observation_likes(
         self,
-        bundle: BundledAllCamsOneFrameUndistorted,
+        tdpt: &TimeDataPassthrough,
+        arena_bundle: &PerMiniArenaAllCamsOneFrameUndistorted,
     ) -> ModelCollection<CollectionFrameWithObservationLikes> {
         trace!(
-            "---- computing observation likelihoods from frame {} -----",
-            bundle.tdpt.frame.0
+            "---- arena {} computing observation likelihoods from frame {} -----",
+            self.mcinner.mini_arena_idx.idx(),
+            tdpt.frame.0
         );
 
         let (mcinner, state) = (self.mcinner, self.state);
@@ -604,7 +611,7 @@ impl ModelCollection<CollectionFrameStarted> {
             .into_iter()
             .map(|x| {
                 x.compute_observation_likelihoods(
-                    &bundle,
+                    arena_bundle,
                     &mcinner.recon,
                     mcinner.params.ekf_observation_covariance_pixels,
                 )
@@ -613,7 +620,6 @@ impl ModelCollection<CollectionFrameStarted> {
         ModelCollection {
             state: CollectionFrameWithObservationLikes {
                 models_with_obs_likes,
-                bundle,
             },
             mcinner,
         }
@@ -623,11 +629,14 @@ impl ModelCollection<CollectionFrameStarted> {
 impl ModelCollection<CollectionFrameWithObservationLikes> {
     pub(crate) fn solve_data_association_and_update(
         self,
-    ) -> (ModelCollection<CollectionFramePosteriors>, UnusedData) {
-        let zero = nalgebra::convert(0.0);
-
+        tdpt: &TimeDataPassthrough,
+        arena_bundle: PerMiniArenaAllCamsOneFrameUndistorted,
+    ) -> (
+        ModelCollection<CollectionFramePosteriors>,
+        UnusedDataPerArena,
+    ) {
         // We have likelihoods for all objects on all cameras for each point.
-        //
+
         // Do something like the hungarian algorithm.
 
         if self.state.models_with_obs_likes.is_empty() {
@@ -638,20 +647,14 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
             let mcinner = self.mcinner;
             (
                 ModelCollection { state, mcinner },
-                UnusedData(self.state.bundle),
+                UnusedDataPerArena(arena_bundle),
             )
         } else {
-            let bundle: &BundledAllCamsOneFrameUndistorted = &self.state.bundle;
-
             // loop camera-by-camera to get MxN matrix of live model and num observations.
             // currently, we can loop by model and then (obs_num x cam_num)
 
             // we will fill this cam-by-cam
-            let mut unused_bundle = BundledAllCamsOneFrameUndistorted {
-                tdpt: bundle.tdpt.clone(),
-                inner: vec![],
-                orig_distorted: vec![],
-            };
+            let mut unused_bundle_per_cam = BTreeMap::new();
 
             // Initialize updated models in which no observation
             // was used and thus the posteriors are just the priors.
@@ -665,7 +668,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                         state: ModelFramePosteriors {
                             posterior: StampedEstimate {
                                 estimate: model.state.prior.clone(), // just the prior initially
-                                tdpt: bundle.tdpt.clone(),
+                                tdpt: tdpt.clone(),
                             },
                             data_assoc_this_timestamp: vec![], // no observations yet
                         },
@@ -676,36 +679,27 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 })
                 .collect();
 
+            let zero = nalgebra::convert(0.0);
+
             // outer loop here iterates over the per-camera data, So we compute
             // the "wantedness" matrix for each camera one at a time, considering
             // the models and set of observations for this camera.
-            for (cam_idx, per_cam) in bundle
-                .inner
-                .iter()
-                .zip(bundle.orig_distorted.iter())
-                .enumerate()
-            {
-                let (frame_cam_points, fdp): (&OneCamOneFrameUndistorted, &FrameDataAndPoints) =
-                    per_cam;
+            for (cam_idx, (cam_name, arena_data)) in arena_bundle.per_cam.into_iter().enumerate() {
+                //     let (frame_cam_points, fdp): (&OneCamOneFrameUndistorted, &FrameDataAndPoints) =
+                //         per_cam;
 
-                if frame_cam_points.undistorted.is_empty() {
+                if arena_data.is_empty() {
                     continue;
                 }
 
-                let cam_num = self
-                    .mcinner
-                    .cam_manager
-                    .cam_num(&frame_cam_points.frame_data.cam_name)
-                    .unwrap();
+                let cam_num = self.mcinner.cam_manager.cam_num(&cam_name).unwrap();
 
                 trace!(
                     "camera {} ({}): {} points",
-                    frame_cam_points.frame_data.cam_name,
+                    cam_name,
                     cam_num,
-                    frame_cam_points.undistorted.len()
+                    arena_data.len()
                 );
-
-                debug_assert!(frame_cam_points.frame_data.cam_name == fdp.frame_data.cam_name);
 
                 // Get pre-computed likelihoods for each model for this camera.
                 // There are N elements in the outer vector, one for each model
@@ -721,7 +715,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                                 oml.likelihoods.clone()
                             }
                             ObservationModel::NoObservations => {
-                                nalgebra::RowDVector::zeros(frame_cam_points.undistorted.len())
+                                nalgebra::RowDVector::zeros(arena_data.len())
                             }
                         },
                     )
@@ -737,7 +731,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                     );
 
                 debug_assert!(self.state.models_with_obs_likes.len() == wantedness.nrows());
-                debug_assert!(frame_cam_points.undistorted.len() == wantedness.ncols());
+                debug_assert!(arena_data.len() == wantedness.ncols());
 
                 trace!(
                     "wantedness (N x M where N is num live models and M is num points)\n{}",
@@ -769,7 +763,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                                 wantedness[(tmp_i, best_idx)] = zero;
                             }
 
-                            let undist_pt = &frame_cam_points.undistorted[best_idx];
+                            let this_pt = &arena_data[best_idx];
+                            let undist_pt = &this_pt.undistorted;
                             trace!(
                                 "object {} is accepting undistorted point {:?}",
                                 next_model.lmi.obj_id,
@@ -795,14 +790,14 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             let form = adskalman::CovarianceUpdateMethod::JosephForm;
                             let posterior = obs_model
                                 .update(&estimate.estimate, &observation_undistorted, form)
-                                .map_err(|e| {
-                                    format!(
-                                        "While computing posterior for frame {}, camera {}: {}.",
-                                        frame_cam_points.frame_data.synced_frame,
-                                        frame_cam_points.frame_data.cam_name,
-                                        e
-                                    )
-                                })
+                                // .map_err(|e| {
+                                //     format!(
+                                //         "While computing posterior for frame {}, camera {}: {}.",
+                                //         frame_cam_points.frame_data.synced_frame,
+                                //         frame_cam_points.frame_data.cam_name,
+                                //         e
+                                //     )
+                                // })
                                 .unwrap();
 
                             trace!("previous estimate {:?}", estimate.estimate.state());
@@ -822,12 +817,12 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                                 reproj_dist,
                             };
 
-                            trace!(
-                                "object {} at frame {} using: {:?}",
-                                next_model.lmi.obj_id,
-                                bundle.frame().0,
-                                assoc
-                            );
+                            // trace!(
+                            //     "object {} at frame {} using: {:?}",
+                            //     next_model.lmi.obj_id,
+                            //     bundle.frame().0,
+                            //     assoc
+                            // );
 
                             next_model.state.data_assoc_this_timestamp.push(assoc);
                         }
@@ -835,23 +830,12 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 }
 
                 // we will fill this point-by-point
-                let mut undist = OneCamOneFrameUndistorted {
-                    frame_data: fdp.frame_data.clone(),
-                    undistorted: vec![],
-                };
-                let mut orig = FrameDataAndPoints {
-                    frame_data: fdp.frame_data.clone(),
-                    points: vec![],
-                };
+                let mut unused = vec![];
 
                 for col_idx in unused_col_idxs.into_iter() {
-                    let undist_pt = frame_cam_points.undistorted[col_idx].clone();
-                    let orig_dist = fdp.points[col_idx].clone();
-                    undist.undistorted.push(undist_pt.clone());
-                    orig.points.push(orig_dist.clone());
+                    unused.push(arena_data[col_idx].clone());
                 }
-                unused_bundle.inner.push(undist);
-                unused_bundle.orig_distorted.push(orig);
+                unused_bundle_per_cam.insert(cam_name, unused);
             }
 
             let state = CollectionFramePosteriors {
@@ -861,7 +845,9 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
             let mcinner = self.mcinner;
             (
                 ModelCollection { state, mcinner },
-                UnusedData(unused_bundle),
+                UnusedDataPerArena(PerMiniArenaAllCamsOneFrameUndistorted {
+                    per_cam: unused_bundle_per_cam,
+                }),
             )
         }
     }
@@ -902,17 +888,16 @@ fn to_bayesian_estimate(
 }
 
 impl ModelCollection<CollectionFramePosteriors> {
-    fn next_obj_id(&mut self) -> u32 {
-        let next = self.mcinner.next_obj_id;
-        self.mcinner.next_obj_id += 1;
-        next
-    }
-
-    pub(crate) async fn births_and_deaths(
+    pub(crate) async fn births_and_deaths<F>(
         mut self,
-        unused: UnusedData,
+        tdpt: &TimeDataPassthrough,
+        unused: UnusedDataPerArena,
+        next_obj_id_func: F,
         model_servers: &[tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>],
-    ) -> ModelCollection<CollectionFrameDone> {
+    ) -> ModelCollection<CollectionFrameDone>
+    where
+        F: Fn() -> u32,
+    {
         // Check deaths before births so we do not check if we kill a
         // just-created model.
         let orig_models = std::mem::replace(
@@ -927,13 +912,13 @@ impl ModelCollection<CollectionFramePosteriors> {
 
         for model in orig_models.into_iter() {
             let covar_size = model.state.covariance_size();
-            trace!(
-                "frame: {}, obj_id: {}, covar_size: {}, max_variance: {}",
-                unused.0.frame().0,
-                model.lmi.obj_id,
-                covar_size,
-                max_variance
-            );
+            // trace!(
+            //     "frame: {}, obj_id: {}, covar_size: {}, max_variance: {}",
+            //     unused.0.frame().0,
+            //     model.lmi.obj_id,
+            //     covar_size,
+            //     max_variance
+            // );
             if covar_size <= max_variance {
                 to_live.push(model);
             } else {
@@ -945,12 +930,12 @@ impl ModelCollection<CollectionFramePosteriors> {
         // Handle births
 
         {
-            if log_enabled!(Trace) {
-                trace!("before filtering");
-                let mut f = Vec::<u8>::new();
-                unused.0.pretty_format(&mut f, 0).unwrap();
-                trace!("{}", std::str::from_utf8(&f).unwrap());
-            }
+            // if log_enabled!(Trace) {
+            //     trace!("before filtering");
+            //     let mut f = Vec::<u8>::new();
+            //     unused.0.pretty_format(&mut f, 0).unwrap();
+            //     trace!("{}", std::str::from_utf8(&f).unwrap());
+            // }
 
             let good_points = {
                 // Use `minimum_pixel_abs_zscore` from hypothesis_test_params if
@@ -963,22 +948,23 @@ impl ModelCollection<CollectionFramePosteriors> {
                     .map(|p| p.minimum_pixel_abs_zscore)
                     .unwrap_or(0.0);
 
-                let fdp_vec: &Vec<FrameDataAndPoints> = &unused.0.orig_distorted;
+                // let fdp_vec: &Vec<FrameDataAndPoints> = &unused.0.orig_distorted;
 
                 // get single (best) point per camera
-                filter_points_and_take_first(fdp_vec, minimum_pixel_abs_zscore)
+                // filter_points_and_take_first(fdp_vec, minimum_pixel_abs_zscore)
+                filter_points_and_take_first(&unused, minimum_pixel_abs_zscore)
             };
 
-            if log_enabled!(Trace) {
-                trace!("after filtering");
-                let mut f = Vec::<u8>::new();
-                unused.0.pretty_format(&mut f, 0).unwrap();
-                trace!(
-                    "{} points considered for hypothesis test: {:?}",
-                    good_points.len(),
-                    good_points
-                );
-            }
+            // if log_enabled!(Trace) {
+            //     trace!("after filtering");
+            //     let mut f = Vec::<u8>::new();
+            //     unused.0.pretty_format(&mut f, 0).unwrap();
+            //     trace!(
+            //         "{} points considered for hypothesis test: {:?}",
+            //         good_points.len(),
+            //         good_points
+            //     );
+            // }
 
             if let Some(new_obj) = self.mcinner.new_obj.hypothesis_test(&good_points) {
                 let HypothesisTestResult {
@@ -1003,20 +989,26 @@ impl ModelCollection<CollectionFramePosteriors> {
 
                 let estimate = to_bayesian_estimate(coords, &self.mcinner.params);
 
-                let obj_id = self.next_obj_id();
-                trace!(
-                    "birth of object {} at frame {} (using: {:?})",
-                    obj_id,
-                    unused.0.tdpt.frame.0,
-                    data_assoc_this_timestamp
-                );
+                let obj_id = next_obj_id_func();
+                // trace!(
+                //     "birth of object {} at frame {} (using: {:?})",
+                //     obj_id,
+                //     unused.0.tdpt.frame.0,
+                //     data_assoc_this_timestamp
+                // );
+
+                // let mini_arena_idx = self
+                //     .mcinner
+                //     .params
+                //     .mini_arena_config
+                //     .get_arena_index(&coords);
 
                 let model = LivingModel {
                     gestation_age: Some(1),
                     state: ModelFramePosteriors {
                         posterior: StampedEstimate {
                             estimate,
-                            tdpt: unused.0.tdpt.clone(),
+                            tdpt: tdpt.clone(),
                         },
                         data_assoc_this_timestamp,
                     },
@@ -1024,7 +1016,7 @@ impl ModelCollection<CollectionFramePosteriors> {
                     last_observation_offset: 0,
                     lmi: LMInner {
                         obj_id,
-                        _start_frame: unused.0.tdpt.frame,
+                        _start_frame: tdpt.frame,
                     },
                 };
 
@@ -1071,29 +1063,31 @@ impl ModelCollection<CollectionFramePosteriors> {
 }
 
 fn filter_points_and_take_first(
-    fdp_vec: &[FrameDataAndPoints],
+    // fdp_vec: &[FrameDataAndPoints],
+    fdp_vec: &UnusedDataPerArena,
     minimum_pixel_abs_zscore: f64,
 ) -> BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>> {
     fdp_vec
+        .0
+        .per_cam
         .iter()
-        .filter_map(|fdp| {
-            fdp.points
-                .iter()
+        .filter_map(|(cam_name, fdp)| {
+            fdp.iter()
                 .filter_map(|pt| {
                     // filter here
-                    trace!(
-                        "pt: {:?}, pixel_zscore.abs(): {}",
-                        pt.pt,
-                        pixel_abszscore(&pt.pt)
-                    );
-                    if pixel_abszscore(&pt.pt) < minimum_pixel_abs_zscore {
+                    // trace!(
+                    //     "pt: {:?}, pixel_zscore.abs(): {}",
+                    //     pt.pt,
+                    //     pixel_abszscore(&pt.pt)
+                    // );
+                    if pixel_abszscore(&pt.numbered_raw_udp_point.pt) < minimum_pixel_abs_zscore {
                         None
                     } else {
-                        Some(convert_pt(&pt.pt))
+                        Some(convert_pt(&pt.numbered_raw_udp_point.pt))
                     }
                 })
                 .next()
-                .map(|pt| (fdp.frame_data.cam_name.clone(), pt))
+                .map(|pt| (cam_name.clone(), pt))
         })
         .collect()
 }

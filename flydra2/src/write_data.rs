@@ -41,6 +41,26 @@ fn _test_writing_state_is_send() {
     implements::<WritingState>();
 }
 
+#[derive(Clone, Debug)]
+pub enum BraidMetadataBuilder {
+    GenerateNew(MetadataParts),
+    Existing(BraidMetadata),
+}
+
+impl BraidMetadataBuilder {
+    /// Constructor to help with backwards compatibility
+    pub fn saving_program_name<S: Into<String>>(saving_program_name: S) -> BraidMetadataBuilder {
+        BraidMetadataBuilder::GenerateNew(MetadataParts {
+            saving_program_name: saving_program_name.into(),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MetadataParts {
+    pub saving_program_name: String,
+}
+
 impl WritingState {
     fn new(
         cfg: StartSavingCsvConfig,
@@ -48,7 +68,7 @@ impl WritingState {
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         tracking_params: Arc<TrackingParams>,
         save_empty_data2d: bool,
-        saving_program_name: String,
+        metadata_builder: BraidMetadataBuilder,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
         let local = cfg.local;
@@ -83,12 +103,17 @@ impl WritingState {
         {
             let braid_metadata_path = output_dirname.join(flydra_types::BRAID_METADATA_YML_FNAME);
 
-            let metadata = BraidMetadata {
-                schema: BRAID_SCHEMA, // BraidMetadataSchemaTag
-                git_revision: git_revision.clone(),
-                original_recording_time: local,
-                save_empty_data2d,
-                saving_program_name,
+            let metadata = match metadata_builder {
+                BraidMetadataBuilder::GenerateNew(parts) => {
+                    BraidMetadata {
+                        schema: BRAID_SCHEMA, // BraidMetadataSchemaTag
+                        git_revision: git_revision.clone(),
+                        original_recording_time: local,
+                        save_empty_data2d,
+                        saving_program_name: parts.saving_program_name,
+                    }
+                }
+                BraidMetadataBuilder::Existing(metadata) => metadata,
             };
             let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
@@ -500,7 +525,7 @@ pub(crate) async fn writer_task_main(
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<TrackingParams>,
     save_empty_data2d: bool,
-    saving_program_name: String,
+    metadata_builder: BraidMetadataBuilder,
     ignore_latency: bool,
 ) -> Result<()> {
     use crate::SaveToDiskMsg::*;
@@ -626,7 +651,7 @@ pub(crate) async fn writer_task_main(
                             &recon,
                             tracking_params.clone(),
                             save_empty_data2d,
-                            saving_program_name.to_string(),
+                            metadata_builder.clone(),
                         )?);
                     }
                     StopSavingCsv => {
@@ -718,7 +743,7 @@ mod test {
                 &None,
                 tracking_params,
                 save_empty_data2d,
-                format!("{}:{}", file!(), line!()),
+                BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
             )
             .unwrap();
 
@@ -802,7 +827,7 @@ mod test {
                 &None,
                 tracking_params,
                 save_empty_data2d,
-                format!("{}:{}", file!(), line!()),
+                BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
             )?;
 
             // Check that original directory exists.

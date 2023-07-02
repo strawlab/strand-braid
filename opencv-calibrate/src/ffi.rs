@@ -1,4 +1,4 @@
-use std::os::raw::{c_int, c_double, c_char, c_uchar, c_void};
+use std::os::raw::{c_char, c_double, c_int, c_uchar, c_void};
 
 #[repr(C)]
 pub(crate) struct cv_return_value_double {
@@ -34,9 +34,9 @@ extern "C" {
         distortion_coeffs: *mut c_double,
         rotation_matrices: *mut c_double,
         translation_vectors: *mut c_double,
-        ) -> cv_return_value_double;
+    ) -> cv_return_value_double;
 
-    pub(crate) fn find_chessboard_corners_inner (
+    pub(crate) fn find_chessboard_corners_inner(
         frame_data_rgb: *const c_uchar,
         frame_width: c_int,
         frame_height: c_int,
@@ -48,5 +48,19 @@ extern "C" {
     pub(crate) fn vec_point2f_new() -> *mut c_void;
     pub(crate) fn vec_point2f_delete(result: *mut c_void);
     pub(crate) fn vec_point2f_slice(result: *mut c_void) -> cv_return_value_slice;
+
+    pub(crate) fn solve_pnp(
+        n_points: c_int,
+        object_points: *const c_double,
+        image_points: *const c_double,
+        camera_matrix: *const c_double,
+        distortion_coeffs: *const c_double,
+        rvec: *mut c_double,
+        tvec: *mut c_double,
+        pose_method: c_int,
+    ) -> cv_return_value_bool;
+
+    pub(crate) fn ippe() -> c_int;
+    pub(crate) fn epnp() -> c_int;
 
 }

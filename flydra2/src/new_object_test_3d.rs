@@ -15,6 +15,7 @@ const HTEST_MAX_N_CAMS: u8 = 3;
 type CamComboKey = RosCamName;
 type CamComboList = Vec<Vec<RosCamName>>;
 
+#[derive(Clone)]
 pub(crate) struct NewObjectTestFull3D {
     cam_combinations_by_size: BTreeMap<u8, CamComboList>,
     recon: flydra_mvg::FlydraMultiCameraSystem<MyFloat>,

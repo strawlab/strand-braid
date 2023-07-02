@@ -3,8 +3,6 @@
     feature(error_generic_member_access, provide_any)
 )]
 
-use log::{debug, info, warn};
-
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -12,20 +10,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use flydra_types::CamInfoRow;
+use indicatif::{ProgressBar, ProgressStyle};
+use log::{debug, info, warn};
 
 use braidz_parser::open_maybe_gzipped;
-
 use flydra2::{
     CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData, FrameDataAndPoints,
     NumberedRawUdpPoint, StreamItem,
 };
-use groupby::{AscendingGroupIter, BufferedSortIter};
-
 use flydra_types::{
-    PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
+    CamInfoRow, PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
     FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
+use groupby::{AscendingGroupIter, BufferedSortIter};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -173,6 +170,29 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
     }
 }
 
+// AscendingGroupIter<i64, BufferedSortIter<i64, DeserializeRecordsIntoIter<Box<dyn Read>, Data2dDistortedRow>, Data2dDistortedRow, Error>, Data2dDistortedRow, Error>
+
+// fn my_open_file<'a, R: Read + Seek>(
+//     mut data_fname: zip_or_dir::PathLike<'a, R>,
+// ) -> Result<impl Iterator<Item = Vec<Data2dDistortedRow>>, Error> {
+
+//     let display_fname = format!("{}", data_fname.display());
+
+//     let data_file = open_maybe_gzipped(data_fname)?;
+//     let rdr = csv::Reader::from_reader(data_file);
+//     // let file_reader = rdr.get_ref();
+//     // let file_size = file_reader.size();
+//     let data_iter = rdr.into_deserialize();
+
+//     let bufsize = 10000;
+//     let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+//         .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+//     // let rdr = sorted_data_iter.inner().reader();
+
+//     let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+//     Ok(data_row_frame_iter)
+// }
+
 #[derive(Debug, Clone, Default)]
 pub struct KalmanizeOptions {
     pub start_frame: Option<u64>,
@@ -204,7 +224,8 @@ pub async fn kalmanize<Q, R>(
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
-    saving_program_name: &str,
+    metadata_builder: flydra2::BraidMetadataBuilder,
+    no_progress: bool,
 ) -> Result<(), Error>
 where
     Q: AsRef<Path>,
@@ -269,7 +290,7 @@ where
         rt_handle.clone(),
         cam_manager.clone(),
         Some(recon.clone()),
-        saving_program_name,
+        metadata_builder.clone(),
         valve,
     )?;
 
@@ -435,27 +456,73 @@ where
         // TODO: Consolidate this code with the `braidz-parser` crate. Right now
         // there is substantial duplication.
 
-        // open the data2d CSV file
-        let mut data_fname = data_src.path_starter();
-        data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        // OK, this is stupid - we parse the entire CSV file simply to determine
+        // how many rows it has for our progress bar.
+        let n_csv_rows = if no_progress {
+            None
+        } else {
+            log::info!("Parsing CSV file to determine row count.");
+            // open the data2d CSV file
+            let mut data_fname = data_src.path_starter();
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-        log::trace!("loading data from {}", data_fname.display());
+            log::trace!("loading data from {}", data_fname.display());
 
-        let display_fname = format!("{}", data_fname.display());
-        let data_file = open_maybe_gzipped(data_fname)?;
-        let rdr = csv::Reader::from_reader(data_file);
-        let data_iter = rdr.into_deserialize();
+            let display_fname = format!("{}", data_fname.display());
 
-        let bufsize = 10000;
-        let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
-            .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
-        // let rdr = sorted_data_iter.inner().reader();
+            let data_file = open_maybe_gzipped(data_fname)?;
+            let rdr = csv::Reader::from_reader(data_file);
+            let data_iter = rdr.into_deserialize();
 
-        let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
-        // let rdr = data_row_frame_iter.inner().inner().reader();
+            let bufsize = 10000;
+            let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+                .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+
+            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+            let mut count = 0;
+            for data_frame_rows in data_row_frame_iter {
+                let _data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
+                    data_frame_rows?;
+                count += 1;
+            }
+            log::info!("CSV file has {count} rows.");
+            Some(count)
+        };
+
+        let data_row_frame_iter = {
+            // open the data2d CSV file
+            let mut data_fname = data_src.path_starter();
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+
+            log::trace!("loading data from {}", data_fname.display());
+
+            let display_fname = format!("{}", data_fname.display());
+
+            let data_file = open_maybe_gzipped(data_fname)?;
+            let rdr = csv::Reader::from_reader(data_file);
+            let data_iter = rdr.into_deserialize();
+
+            let bufsize = 10000;
+            let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+                .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+            data_row_frame_iter
+        };
+
+        let pb = if let Some(n_csv_rows) = n_csv_rows {
+            // Custom progress bar with space at right end to prevent obscuring last
+            // digit with cursor.
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            Some(ProgressBar::new(n_csv_rows.try_into().unwrap()).with_style(style))
+        } else {
+            None
+        };
 
         for data_frame_rows in data_row_frame_iter {
-            // let pos = rdr.position();
+            if let Some(pb) = &pb {
+                // Increment the counter.
+                pb.inc(1);
+            }
 
             // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
             let data_frame_rows = data_frame_rows?;

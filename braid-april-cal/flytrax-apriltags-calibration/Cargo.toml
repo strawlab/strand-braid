@@ -1,0 +1,36 @@
+[package]
+name = "flytrax-apriltags-calibration"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+apriltag-sys = "0.3"
+base64 = "0.6"
+clap = { version = "4.3.4", features = ["derive"] }
+image = { version = "0.24.2", default-features = false, features = [
+    "png",
+    "jpeg",
+] }
+machine-vision-formats = "0.1"
+nalgebra = "0.30"
+resvg = "0.19"
+serde_yaml = "0.9.21"
+tagger = "4.0"
+tiny-skia = "0.6.1"
+usvg = { version = "0.19.0", default-features = false }
+
+ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
+ads-apriltag = { path = "../../apriltag" }
+braid-april-cal = { path = ".." }
+convert-image = { path = "../../convert-image" }
+flydra-types = { path = "../../flydra-types" }
+flytrax-io = { path = "../../strand-cam/flytrax-io" }
+mvg = { path = "../../mvg" }
+opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
+
+[dev-dependencies]
+download-verify = { path = "../../download-verify" }
+
+[features]
+backtrace = ["braid-april-cal/backtrace", "anyhow/backtrace"]

@@ -4,8 +4,13 @@ use machine_vision_formats::pixel_format::Mono8;
 
 /// Associates array pointer destroy function to a Zarray.
 pub trait ArrayDealloc {
-    // Call `apriltag_x_destroy()` for the correct array type.
-    fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray);
+    /// Call `apriltag_x_destroy()` for the correct array type.
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because it take a pointer and destroys it. The caller
+    /// must ensure it is a valid pointer.
+    unsafe fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray);
 }
 
 /// An array of a single type.
@@ -18,7 +23,7 @@ pub struct Zarray<T: ArrayDealloc> {
 impl<T: ArrayDealloc> Zarray<T> {
     unsafe fn from_raw(inner: *mut apriltag_sys::zarray_t) -> Zarray<T> {
         assert!(!inner.is_null());
-        assert!((*inner).el_sz == std::mem::size_of::<T>().try_into().unwrap());
+        assert!((*inner).el_sz == std::mem::size_of::<T>());
 
         Self {
             inner,
@@ -34,6 +39,10 @@ impl<T: ArrayDealloc> Zarray<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a slice viewing the array.
     pub fn as_slice(&self) -> &[T] {
         unsafe {
@@ -47,7 +56,7 @@ impl<T: ArrayDealloc> Drop for Zarray<T> {
     fn drop(&mut self) {
         if !self.inner.is_null() {
             // This calls `apriltag_x_destroy()` for the correct array type.
-            T::array_dealloc(self.inner);
+            unsafe { T::array_dealloc(self.inner) };
             self.inner = std::ptr::null::<apriltag_sys::zarray_t>() as *mut _;
         }
     }
@@ -97,9 +106,9 @@ impl ImageU8Owned {
     }
 }
 
-impl Into<Vec<u8>> for ImageU8Owned {
-    fn into(self) -> Vec<u8> {
-        self.data
+impl From<ImageU8Owned> for Vec<u8> {
+    fn from(val: ImageU8Owned) -> Self {
+        val.data
     }
 }
 
@@ -189,6 +198,12 @@ pub struct Detector {
 
 unsafe impl Send for Detector {}
 
+impl Default for Detector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Detector {
     /// Constructor
     pub fn new() -> Self {
@@ -228,7 +243,7 @@ impl Detector {
     /// Detect points in an image
     pub fn detect(&self, im: &apriltag_sys::image_u8) -> Zarray<Detection> {
         let detections: *mut apriltag_sys::zarray_t = unsafe {
-            let ptr = &*im as *const apriltag_sys::image_u8;
+            let ptr = im as *const apriltag_sys::image_u8;
             apriltag_sys::apriltag_detector_detect(self.td, ptr as *mut _)
         };
         unsafe { Zarray::from_raw(detections) }
@@ -421,8 +436,8 @@ impl std::fmt::Debug for Detection {
 }
 
 impl ArrayDealloc for Detection {
-    fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray) {
-        unsafe { apriltag_sys::apriltag_detections_destroy(zarray_ptr) };
+    unsafe fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray) {
+        apriltag_sys::apriltag_detections_destroy(zarray_ptr);
     }
 }
 

@@ -40,6 +40,10 @@ where
         Ok(result)
     }
 
+    pub fn get_ref(&self) -> &I {
+        &self.single_iter
+    }
+
     pub fn into_inner(self) -> I {
         self.single_iter
     }
@@ -146,6 +150,10 @@ where
             peek,
             key_type: std::marker::PhantomData,
         }
+    }
+
+    pub fn get_ref(&self) -> &I {
+        &self.single_iter
     }
 
     pub fn into_inner(self) -> I {

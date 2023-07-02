@@ -535,7 +535,7 @@ pub async fn pre_run(
         tokio::runtime::Handle::current(),
         cam_manager.clone(),
         recon.clone(),
-        saving_program_name,
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
         valve.clone(),
     )?;
     let braidz_write_tx = coord_processor.get_braidz_write_tx();

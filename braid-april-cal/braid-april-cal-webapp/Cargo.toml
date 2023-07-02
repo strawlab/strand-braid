@@ -1,0 +1,34 @@
+[package]
+name = "braid-april-cal-webapp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.60"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+yew = { version = "0.20.0", features = ["csr"] }
+yew-tincture = "0.1"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+    "CssStyleDeclaration",
+    "HtmlAnchorElement",
+    "Url",
+] }
+log = "0.4"
+wasm-logger = "0.2.0"
+chrono = { version = "0.4.23", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
+
+ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
+braid-april-cal = { path = "..", default-features = false }
+
+[features]
+backtrace = ["braid-april-cal/backtrace"]

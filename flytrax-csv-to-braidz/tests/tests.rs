@@ -1,25 +1,20 @@
+use test_log::test;
+
 use flytrax_csv_to_braidz::{parse_configs_and_run, RowFilter};
 
 const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
+const CALIBRATION_PARAMS_FILENAME: &str = "cal1.toml";
 const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
 
-#[tokio::test]
+#[test(tokio::test)]
 async fn test_run_end_to_end() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(
-        tempfile::Builder::new()
-            .prefix("strand-convert")
-            .tempdir()
-            .unwrap(),
-    );
+    let flydra_csv_temp_dir = Some(tempfile::Builder::new().tempdir().unwrap());
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
-    let output_dir = tempfile::Builder::new()
-        .prefix("strand-convert-output")
-        .tempdir()
-        .unwrap();
+    let output_dir = tempfile::Builder::new().tempdir().unwrap();
     // The output .braidz filename:
     let output_braidz = output_dir.as_ref().join("out.braidz");
 
@@ -29,11 +24,14 @@ async fn test_run_end_to_end() {
     parse_configs_and_run(
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
+        None,
         &output_braidz,
+        CALIBRATION_PARAMS_FILENAME,
         CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
         &row_filters,
-        &format!("{}:{}", file!(), line!()),
+        true,
+        None,
     )
     .await
     .unwrap();
@@ -50,23 +48,15 @@ async fn test_run_end_to_end() {
     output_dir.close().unwrap();
 }
 
-#[tokio::test]
+#[test(tokio::test)]
 async fn test_z_values_zero() {
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(
-        tempfile::Builder::new()
-            .prefix("strand-convert")
-            .tempdir()
-            .unwrap(),
-    );
+    let flydra_csv_temp_dir = Some(tempfile::Builder::new().tempdir().unwrap());
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
-    let output_dir = tempfile::Builder::new()
-        .prefix("strand-convert-output")
-        .tempdir()
-        .unwrap();
+    let output_dir = tempfile::Builder::new().tempdir().unwrap();
     // The output .braidz filename:
     let output_braidz = output_dir.as_ref().join("out.braidz");
 
@@ -74,11 +64,14 @@ async fn test_z_values_zero() {
     parse_configs_and_run(
         point_detection_csv_reader,
         flydra_csv_temp_dir.as_ref(),
+        None,
         &output_braidz,
+        CALIBRATION_PARAMS_FILENAME,
         CALIBRATION_PARAMS_TOML,
         None,
         &row_filters,
-        &format!("{}:{}", file!(), line!()),
+        true,
+        None,
     )
     .await
     .unwrap();

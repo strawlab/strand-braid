@@ -491,6 +491,7 @@ pub struct TextlogRow {
 /// covariance will have an identical effect to a single addtion for twice the
 /// time interval.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TrackingParams {
     /// This is used to scale the state noise covariance matrix **Q** as
     /// described at the struct-level (Kalman filter parameter).
@@ -522,6 +523,191 @@ pub struct TrackingParams {
     /// visible.
     #[serde(default = "default_num_observations_to_visibility")]
     pub num_observations_to_visibility: u8,
+    /// Parameters defining mini arena configuration.
+    ///
+    /// This is MiniArenaConfig::NoMiniArena if no mini arena is in use.
+    #[serde(skip_serializing_if = "MiniArenaConfig::is_none", default)]
+    pub mini_arena_config: MiniArenaConfig,
+}
+
+pub struct MiniArenaLocator {
+    /// The index number of the mini arena. None if the point is not in a mini arena.
+    my_idx: Option<u8>,
+}
+
+impl MiniArenaLocator {
+    pub fn from_mini_arena_idx(val: u8) -> Self {
+        Self { my_idx: Some(val) }
+    }
+
+    pub fn new_none() -> Self {
+        Self { my_idx: None }
+    }
+
+    /// Return the index number of the mini arena. None if the point is not in a
+    /// mini arena.
+    pub fn idx(&self) -> Option<u8> {
+        self.my_idx
+    }
+}
+
+/// Configuration defining potential mini arenas.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(tag = "type")]
+pub enum MiniArenaConfig {
+    /// No mini arena is in use.
+    #[default]
+    NoMiniArena,
+    /// A 2D grid arranged along the X and Y axes.
+    XYGrid(XYGridConfig),
+}
+
+impl MiniArenaConfig {
+    pub fn is_none(&self) -> bool {
+        self == &Self::NoMiniArena
+    }
+
+    pub fn get_arena_index(&self, coords: &nalgebra::Point3<MyFloat>) -> MiniArenaLocator {
+        match self {
+            Self::NoMiniArena => MiniArenaLocator::from_mini_arena_idx(0),
+            Self::XYGrid(xy_grid_config) => xy_grid_config.get_arena_index(coords),
+        }
+    }
+
+    pub fn iter_locators(&self) -> impl Iterator<Item = MiniArenaLocator> {
+        let res = match self {
+            Self::NoMiniArena => vec![MiniArenaLocator::from_mini_arena_idx(0)],
+            Self::XYGrid(xy_grid_config) => {
+                let sz = xy_grid_config.x_centers.0.len() * xy_grid_config.y_centers.0.len();
+                (0..sz)
+                    .map(|idx| MiniArenaLocator::from_mini_arena_idx(idx.try_into().unwrap()))
+                    .collect()
+            }
+        };
+        res.into_iter()
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::NoMiniArena => 1,
+            Self::XYGrid(xy_grid_config) => {
+                xy_grid_config.x_centers.0.len() * xy_grid_config.y_centers.0.len()
+            }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct Sorted(Vec<f64>);
+
+impl Sorted {
+    fn new(vals: &[f64]) -> Self {
+        assert!(!vals.is_empty());
+        let mut vals: Vec<NotNan<f64>> = vals.iter().map(|v| NotNan::new(*v).unwrap()).collect();
+        vals.sort();
+        let vals = vals.iter().map(|v| v.into_inner()).collect();
+        Sorted(vals)
+    }
+    fn dist_and_argmin(&self, x: f64) -> (f64, usize) {
+        let mut best_dist = std::f64::INFINITY;
+        let mut prev_dist = std::f64::INFINITY;
+        let mut best_idx = 0;
+        for (i, selfi) in self.0.iter().enumerate() {
+            let dist = (selfi - x).abs();
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = i;
+            }
+            if dist > prev_dist {
+                // short circuit end of loop
+                break;
+            }
+            prev_dist = dist
+        }
+        (best_dist, best_idx)
+    }
+}
+
+#[test]
+fn test_sorted() {
+    let x = Sorted::new(&[1.0, 2.0, 1.0]);
+
+    assert_eq!(x.0, vec![1.0, 1.0, 2.0]);
+    assert_eq!(x.dist_and_argmin(1.1).1, 0);
+
+    let x = Sorted::new(&[1.0, 2.0, 1.0, 3.0, 4.0]);
+    assert_eq!(x.dist_and_argmin(2.1).1, 2);
+
+    assert_eq!(x.dist_and_argmin(1.9).1, 2);
+}
+
+/// Parameters defining a 2D grid of mini arenas arranged along X and Y axes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct XYGridConfig {
+    x_centers: Sorted,
+    y_centers: Sorted,
+    radius: f64,
+}
+
+impl XYGridConfig {
+    pub fn new(x: &[f64], y: &[f64], radius: f64) -> Self {
+        Self {
+            x_centers: Sorted::new(x),
+            y_centers: Sorted::new(y),
+            radius,
+        }
+    }
+
+    pub fn iter_centers(&self) -> impl Iterator<Item = (f64, f64)> {
+        XYGridIter {
+            col_centers: self.x_centers.0.clone(),
+            row_centers: self.y_centers.0.clone(),
+            next_idx: 0,
+        }
+    }
+
+    pub fn get_arena_index(&self, coords: &nalgebra::Point3<MyFloat>) -> MiniArenaLocator {
+        if coords.z != 0.0 {
+            return MiniArenaLocator::new_none();
+        }
+        let obj_x = coords.x;
+        let obj_y = coords.y;
+
+        let (dist_x, idx_x) = self.x_centers.dist_and_argmin(obj_x);
+        let (dist_y, idx_y) = self.y_centers.dist_and_argmin(obj_y);
+
+        let dist = (dist_x * dist_x + dist_y * dist_y).sqrt();
+        if dist <= self.radius {
+            let idx = (idx_y * self.x_centers.0.len() + idx_x).try_into().unwrap();
+            MiniArenaLocator::from_mini_arena_idx(idx)
+        } else {
+            MiniArenaLocator::new_none()
+        }
+    }
+}
+
+struct XYGridIter {
+    row_centers: Vec<f64>,
+    col_centers: Vec<f64>,
+    next_idx: usize,
+}
+
+impl Iterator for XYGridIter {
+    type Item = (f64, f64);
+    fn next(&mut self) -> Option<Self::Item> {
+        let (row_idx, col_idx) = num_integer::div_rem(self.next_idx, self.col_centers.len());
+        if row_idx >= self.row_centers.len() {
+            None
+        } else {
+            let result = (self.col_centers[col_idx], self.row_centers[row_idx]);
+            self.next_idx += 1;
+            Some(result)
+        }
+    }
 }
 
 fn default_num_observations_to_visibility() -> u8 {
@@ -542,19 +728,21 @@ pub fn default_tracking_params_full_3d() -> TrackingParams {
         max_position_std_meters: 0.01212,
         hypothesis_test_params: Some(make_hypothesis_test_full3d_default()),
         num_observations_to_visibility: default_num_observations_to_visibility(),
+        mini_arena_config: MiniArenaConfig::NoMiniArena,
     }
 }
 
 pub fn default_tracking_params_flat_3d() -> TrackingParams {
     TrackingParams {
-        motion_noise_scale: 10.0,
+        motion_noise_scale: 0.0005,
         initial_position_std_meters: 0.001,
-        initial_vel_std_meters_per_sec: 1.0,
-        accept_observation_min_likelihood: 1e-8,
-        ekf_observation_covariance_pixels: 10.0,
-        max_position_std_meters: 0.2,
+        initial_vel_std_meters_per_sec: 0.02,
+        accept_observation_min_likelihood: 0.00001,
+        ekf_observation_covariance_pixels: 1.0,
+        max_position_std_meters: 0.003,
         hypothesis_test_params: None,
-        num_observations_to_visibility: default_num_observations_to_visibility(),
+        num_observations_to_visibility: 10,
+        mini_arena_config: MiniArenaConfig::NoMiniArena,
     }
 }
 

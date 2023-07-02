@@ -4,7 +4,7 @@ cargo build --target wasm32-unknown-unknown --release --bin main || goto :error
 wasm-bindgen --target web --no-typescript --out-dir pkg --out-name main ../target/wasm32-unknown-unknown/release/main.wasm || goto :error
 
 copy static\index.html pkg\ || goto :error
-grass -I ../ads-webasm/scss/ static/braid-april-cal-webapp.scss pkg/style.css
+grass -I ../../ads-webasm/scss/ static/braid-april-cal-webapp.scss pkg/style.css
 
 REM Build OK. Now run with:
 REM     microserver --port 8000 --no-spa pkg

@@ -8,7 +8,7 @@ use adskalman::TransitionModelLinearNoControl;
 /// constant velocity 3D motion model for fixed dt
 ///
 /// The state vector is [x y z xvel yvel zvel]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MotionModel3DFixedDt<R: RealField + Copy>
 where
     DefaultAllocator: Allocator<R, U6, U6>,

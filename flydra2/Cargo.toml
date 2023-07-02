@@ -21,56 +21,66 @@ parking_lot = "0.12"
 futures = "0.3"
 pin-project = "1.0.11"
 csv = "1.1"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-serde = {version="^1.0", features=["derive"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
+serde = { version = "^1.0", features = ["derive"] }
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
 toml = "0.5"
-nalgebra = {version="0.30", features=["serde-serialize"]}
+dyn-clone = "1.0.11"
+nalgebra = { version = "0.30", features = ["serde-serialize"] }
 ncollide3d = "0.33"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
 http = "0.2"
 tower-service = "0.3.0"
-hyper = {version="0.14", features=["tcp","server","http1","stream"]}
-tokio = {version="1.0.1", default-features=false, features=["macros","rt","rt-multi-thread","sync","time"]}
-tokio-stream = {version="0.1.8"}
+hyper = { version = "0.14", features = ["tcp", "server", "http1", "stream"] }
+tokio = { version = "1.0.1", default-features = false, features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
+tokio-stream = { version = "0.1.8" }
 stream-cancel = "0.8"
 includedir = { version = "0.5", optional = true }
 phf = { version = "0.7.23", optional = true }
 env_logger = "0.8"
 libflate = "0.1"
-zip = { version = "0.6.3", default-features = false, features=["time"] }
+zip = { version = "0.6.3", default-features = false, features = ["time"] }
 walkdir = "2.2"
+machine-vision-formats = "0.1"
 
-braidz-types = {path="../braidz-types"}
-datetime-conversion = {path="../datetime-conversion"}
-mvg = {path="../mvg"}
-flydra-mvg = {path="../flydra-mvg"}
-http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
-flydra-types = {path="../flydra-types"}
+braidz-types = { path = "../braidz-types" }
+datetime-conversion = { path = "../datetime-conversion" }
+mvg = { path = "../mvg" }
+flydra-mvg = { path = "../flydra-mvg" }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+flydra-types = { path = "../flydra-types" }
 adskalman = "0.13"
-tracking = {path="../tracking"}
-groupby = {path="../groupby"}
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
+tracking = { path = "../tracking" }
+groupby = { path = "../groupby" }
+pretty-print-nalgebra = { git = "https://github.com/strawlab/pretty-print-nalgebra", rev = "98d62bfeb40022c86bb01808512946db1c9950fb" }
 nalgebra-mvn = "0.12"
 iana-time-zone = "0.1"
-withkey = {path="../withkey"}
-strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
+withkey = { path = "../withkey" }
+simple-frame = { path = "../simple-frame" }
+convert-image = { path = "../convert-image" }
+strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
 
 [dev-dependencies]
 tempfile = "3.4.0"
 approx = "0.5"
-download-verify = {path="../download-verify"}
+download-verify = { path = "../download-verify" }
 anyhow = "1"
 
 [features]
 default = ["bundle_files"]
-
-# must pick one of the following two:
-full-3d = []
-flat-3d = []
 
 # must pick one of the following two:
 bundle_files = ["walkdir", "includedir_codegen", "includedir", "phf"]

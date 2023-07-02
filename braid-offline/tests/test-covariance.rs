@@ -45,7 +45,8 @@ async fn test_covariance() {
         opts,
         rt_handle,
         save_performance_histograms,
-        &format!("{}:{}", file!(), line!()),
+        flydra2::BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
+        true,
     )
     .await
     .unwrap();

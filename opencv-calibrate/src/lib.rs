@@ -6,6 +6,7 @@ use std::os::raw::{c_int, c_void};
 pub enum Error {
     CvError,
     GenericError,
+    NoExtrinsicsFound,
 }
 
 impl std::error::Error for Error {}
@@ -119,15 +120,15 @@ pub fn calibrate_camera(
     let r1: Result<f64, Error> = unsafe {
         ffi::calibrate_camera(
             num_images as i32,
-            (&object_points).as_ptr(),
-            (&image_points).as_ptr(),
-            (&point_counts).as_ptr(),
+            object_points.as_ptr(),
+            image_points.as_ptr(),
+            point_counts.as_ptr(),
             width,
             height,
             camera_matrix.as_mut_ptr(),
             distortion_coeffs.as_mut_ptr(),
-            (&mut rotation_matrices[0]).as_mut_ptr(),
-            (&mut translation_vectors[0]).as_mut_ptr(),
+            rotation_matrices[0].as_mut_ptr(),
+            translation_vectors[0].as_mut_ptr(),
         )
     }
     .into();
@@ -259,10 +260,79 @@ pub fn find_chessboard_corners(
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Extrinsics {
+    pub rvec: [f64; 3],
+    pub tvec: [f64; 3],
+}
+
+pub enum PoseMethod {
+    /// Infinitesimal Plane-Based Pose Estimation
+    ///
+    /// Object points must be coplanar.
+    Ippe,
+    /// Efficient Perspective-n-Point Camera Pose Estimation
+    Epnp,
+}
+
+impl PoseMethod {
+    fn to_c(&self) -> c_int {
+        match self {
+            Self::Ippe => unsafe { ffi::ippe() },
+            Self::Epnp => unsafe { ffi::epnp() },
+        }
+    }
+}
+
+/// Finds an object pose from 3D-2D point correspondences.
+pub fn solve_pnp(
+    all_pts: &[CorrespondingPoint],
+    camera_matrix: &[f64; 9],
+    distortion_coeffs: &[f64; 5],
+    method: PoseMethod,
+) -> Result<Extrinsics, Error> {
+    let n_points = all_pts.len();
+
+    let mut object_points = Vec::with_capacity(n_points * 3);
+    let mut image_points = Vec::with_capacity(n_points * 2);
+
+    for pt in all_pts.iter() {
+        object_points.push(pt.object_point.0);
+        object_points.push(pt.object_point.1);
+        object_points.push(pt.object_point.2);
+        image_points.push(pt.image_point.0);
+        image_points.push(pt.image_point.1);
+    }
+
+    let mut extrinsics = Extrinsics {
+        rvec: [0.0f64; 3],
+        tvec: [0.0f64; 3],
+    };
+
+    let r1: Result<bool, Error> = unsafe {
+        ffi::solve_pnp(
+            n_points.try_into().unwrap(),
+            object_points.as_ptr(),
+            image_points.as_ptr(),
+            camera_matrix.as_ptr(),
+            distortion_coeffs.as_ptr(),
+            extrinsics.rvec.as_mut_ptr(),
+            extrinsics.tvec.as_mut_ptr(),
+            method.to_c(),
+        )
+    }
+    .into();
+
+    if !(r1?) {
+        return Err(Error::NoExtrinsicsFound);
+    }
+    Ok(extrinsics)
+}
+
 #[test]
 #[should_panic]
 fn test_linking() {
     let rgb: &[u8] = b"12345678901234567890";
     println!("It is expected to see 'OpenCV Error: ...' below here");
-    find_chessboard_corners(&rgb, 4, 5, 1, 1).unwrap().unwrap();
+    find_chessboard_corners(rgb, 4, 5, 1, 1).unwrap().unwrap();
 }

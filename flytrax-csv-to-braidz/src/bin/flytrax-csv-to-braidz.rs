@@ -5,48 +5,97 @@ extern crate lazy_static;
 
 use anyhow::Context;
 
+use flydra_types::{MiniArenaConfig, XYGridConfig};
 use flytrax_csv_to_braidz::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
-use structopt::StructOpt;
+use clap::Parser;
 
 lazy_static! {
     static ref VAL_HELP: String = {
-        let example = PseudoCalParams {
+        let example_simple_cal = PseudoCalParams {
             physical_diameter_meters: 0.1,
             center_x: 640,
             center_y: 480,
             radius: 480,
         };
-        let cal_buf = toml::to_string(&example).unwrap();
+        let simple_cal_toml_buf = toml::to_string(&example_simple_cal).unwrap();
 
-        let tracking_example = flydra_types::default_tracking_params_flat_3d();
-        let tracking_buf_buf = toml::to_string(&tracking_example).unwrap();
+        let mut tracking_example = flydra_types::default_tracking_params_flat_3d();
+        tracking_example.mini_arena_config =
+            MiniArenaConfig::XYGrid(XYGridConfig::new(&[0.1, 0.2, 0.3], &[0.1, 0.2, 0.3], 0.05));
+        let tracking_example_buf = toml::to_string(&tracking_example).unwrap();
 
-        format!("EXAMPLE .TOML FILES:\n\n# Example calibration .toml file:\n```\n{cal_buf}```\n\n# Example tracking parameter .toml file:\n```\n{tracking_buf_buf}```")
+        let program_name = env!("CARGO_PKG_NAME");
+        format!(
+            "This program will read a flytrax CSV file saved by strand-cam and, using \
+            Kalman filtering and data association, track objects there.\n\n\
+            \
+            FURTHER INFORMATION:\n\n\
+            # Information regarding Braid calibrations\n\n\
+            The following documentation describes camera calibrations in Braid, including the XML \
+            file format used here (in the `{program_name}` program):\n
+        https://strawlab.github.io/strand-braid/braid_calibration.html\n\n\
+            Such calibrations can be generated with this tool:\n
+        https://strawlab.org/braid-april-cal-webapp/\n\n\
+            EXAMPLE INPUT FILES:\n\n# Calibration\n\n\
+            Either a simple calibration .toml file or Braid calibration .xml file is expected.\n\n\
+            ## Example simple calibration .toml file:\n\n\
+        ```\n{simple_cal_toml_buf}```\n\n## Calibration .xml file:\n\n\
+        See above for links to the documentation regarding Braid XML calibration files.\n\n\
+        # Example tracking parameter .toml file:\n\n\
+        ```\n{tracking_example_buf}```\n\n"
+        )
     };
 }
 
-/// This program will read a CSV file saved by strand-cam and, using Kalman
-/// filtering and data association, track the any objects.
-#[derive(Debug, StructOpt)]
-#[structopt(after_help = VAL_HELP.as_str())]
-struct Opt {
+#[derive(Parser, Debug)]
+#[command(author, version, about, after_help = VAL_HELP.as_str())]
+struct Cli {
     /// Input CSV file with 2D detections
-    #[structopt(long = "csv", short = "c", parse(from_os_str))]
-    point_detection_csv: std::path::PathBuf,
+    #[arg(long = "csv", short = 'c')]
+    flytrax_csv: std::path::PathBuf,
     /// Output file, must end with '.braidz'
-    #[structopt(long = "output", short = "o", parse(from_os_str))]
+    #[arg(long = "output", short = 'o')]
     output_braidz: Option<std::path::PathBuf>,
     /// Tracking parameters TOML file. (Includes `motion_noise_scale`, amongst others.)
-    #[structopt(long = "tracking-params", short = "t", parse(from_os_str))]
+    #[arg(long = "tracking-params", short = 't')]
     tracking_params: Option<std::path::PathBuf>,
-    /// Calibration parameters TOML file. (Includes `center_x`, amongst others.)
-    #[structopt(long = "cal", short = "p", parse(from_os_str))]
+    /// Calibration parameters file.
+    ///
+    /// Can either be:
+    ///
+    /// - TOML file containing a "Simple Calibration" of type `PseudoCalParams`
+    ///   which has fields `physical_diameter_meters`, `center_x`, `center_y`
+    ///   and `radius`.
+    ///
+    /// - XML file containing a full Braid XML calibration. See below for
+    ///   further information.
+    ///
+    /// - YAML file containing a camera intrinsic parameters. In this case, an
+    ///   april tag 3D coordinates file must be given to allow solving for camera
+    ///   extrinsic parameters.
+    #[arg(long = "cal", short = 'p')]
     calibration_params: std::path::PathBuf,
 
+    /// An april tag 3D coordinates CSV file to allow solving for camera
+    /// extrinsic parameters.
+    #[arg(long)]
+    apriltags_3d_fiducial_coords: Option<std::path::PathBuf>,
+
     /// Include all data from outside the calibration region in tracking
-    #[structopt(long = "include-all", short = "a")]
+    ///
+    /// By default, if the calibration parameters are given as a simple
+    /// calibration TOML file, the tracking excludes points outside the
+    /// calibration region. If this option is given, no exclusion is performed.
+    ///
+    /// If the calibration parameters are given as a XML file, all points are
+    /// always included for tracking.
+    #[arg(long = "include-all", short = 'a')]
     track_all_points_outside_calibration_region: bool,
+
+    /// Hide the progress bar
+    #[arg(long)]
+    no_progress: bool,
 }
 
 #[tokio::main]
@@ -60,26 +109,33 @@ async fn main() -> anyhow::Result<()> {
 
 async fn open_files_and_run() -> anyhow::Result<()> {
     env_logger::init();
-    let opt = Opt::from_args();
+    let cli = Cli::parse();
+
+    let cal_file_name = cli
+        .calibration_params
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap();
 
     let calibration_params_buf = {
         info!(
             "reading calibration parameters from file {}",
-            opt.calibration_params.display()
+            cli.calibration_params.display()
         );
         // read the calibration parameters
-        std::fs::read_to_string(&opt.calibration_params)
+        std::fs::read_to_string(&cli.calibration_params)
             .map_err(anyhow::Error::from)
             .context(format!(
-                "loading calibration parameters {}",
-                opt.calibration_params.display()
+                "reading calibration parameters file {}",
+                cli.calibration_params.display()
             ))?
     };
 
-    let tracking_params_buf = match opt.tracking_params {
+    let tracking_params_buf = match cli.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
-            // read the traking parameters
+            // read the tracking parameters
             let buf = std::fs::read_to_string(fname)
                 .map_err(anyhow::Error::from)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
@@ -95,38 +151,68 @@ async fn open_files_and_run() -> anyhow::Result<()> {
     info!("strand-cam csv conversion to temporary flydra format:");
     info!(
         "  {} -> {}",
-        opt.point_detection_csv.display(),
+        cli.flytrax_csv.display(),
         flydra_csv_temp_dir.as_ref().display()
     );
 
-    let output_braidz = match opt.output_braidz {
+    let output_braidz = match cli.output_braidz {
         Some(op) => op,
-        None => opt.point_detection_csv.with_extension("braidz"), // replace '.csv' -> '.braidz'
+        None => cli.flytrax_csv.with_extension("braidz"), // replace '.csv' -> '.braidz'
     };
 
-    let data_file = std::fs::File::open(&opt.point_detection_csv)
+    let data_file = std::fs::File::open(&cli.flytrax_csv)
         .map_err(anyhow::Error::from)
         .context(format!(
             "Could not open point detection csv file: {}",
-            opt.point_detection_csv.display()
+            cli.flytrax_csv.display()
         ))?;
 
     let point_detection_csv_reader = std::io::BufReader::new(data_file);
 
+    let mut flytrax_image = None;
+    let mut flytrax_jpeg_fname = cli.flytrax_csv.clone();
+    flytrax_jpeg_fname.set_extension("jpg");
+    if flytrax_jpeg_fname.exists() {
+        let jpeg_buf = std::fs::read(&flytrax_jpeg_fname)
+            .with_context(|| format!("reading {}", flytrax_jpeg_fname.display()))?;
+        flytrax_image = Some(
+            image::load_from_memory_with_format(&jpeg_buf, image::ImageFormat::Jpeg)
+                .with_context(|| format!("parsing {}", flytrax_jpeg_fname.display()))?,
+        );
+    } else {
+        log::warn!(
+            "File {} did not exist - cannot preserve flytrax image.",
+            flytrax_jpeg_fname.display()
+        );
+    }
+
     let mut filters = Vec::new();
 
-    if !opt.track_all_points_outside_calibration_region {
+    if !cli.track_all_points_outside_calibration_region {
         filters.push(RowFilter::InPseudoCalRegion);
     }
+
+    let eargs = cli
+        .apriltags_3d_fiducial_coords
+        .map(
+            |apriltags_3d_fiducial_coords| flytrax_csv_to_braidz::ExtrinsicsArgs {
+                apriltags_3d_fiducial_coords,
+                flytrax_csv: cli.flytrax_csv,
+                image_filename: flytrax_jpeg_fname,
+            },
+        );
 
     parse_configs_and_run(
         point_detection_csv_reader,
         Some(&flydra_csv_temp_dir),
+        flytrax_image,
         &output_braidz,
+        cal_file_name,
         &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,
-        "flytrax-csv-to-braidz",
+        cli.no_progress,
+        eargs,
     )
     .await?;
 

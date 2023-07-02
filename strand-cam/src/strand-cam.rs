@@ -1042,7 +1042,9 @@ async fn frame_process_task(
                                     tokio::runtime::Handle::current(),
                                     cam_manager,
                                     Some(recon),
-                                    "strand-cam",
+                                    flydra2::BraidMetadataBuilder::saving_program_name(
+                                        "strand-cam",
+                                    ),
                                     valve.clone(),
                                 )
                                 .expect("create CoordProcessor");
