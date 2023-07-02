@@ -12,7 +12,7 @@ pub(crate) fn ray_to_flat_3d(ray: &Ray<f64>) -> Option<Point3<f64>> {
     let solid = false; // will intersect either side of plane
 
     use ncollide3d::query::RayCast;
-    let opt_surface_pt_toi: Option<MyFloat> = z0.toi_with_ray(&eye, &ray, std::f64::MAX, solid);
+    let opt_surface_pt_toi: Option<MyFloat> = z0.toi_with_ray(&eye, ray, std::f64::MAX, solid);
 
     opt_surface_pt_toi.map(|toi| {
         let mut surface_pt = ray.origin + ray.dir * toi;

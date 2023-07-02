@@ -1005,7 +1005,7 @@ impl CoordProcessor {
 
             let undistorted = if let Some(recon) = &self.recon {
                 bundle.undistort_and_split_to_mini_arenas(
-                    &recon,
+                    recon,
                     &self.mini_arena_images,
                     &self.tracking_params.mini_arena_config,
                 )
@@ -1035,7 +1035,7 @@ impl CoordProcessor {
                 let model_collections = model_collections
                     .into_iter()
                     .zip(undistorted.per_mini_arena.iter())
-                    .map(|(mc, arena_bundle)| mc.compute_observation_likes(&tdpt, arena_bundle))
+                    .map(|(mc, arena_bundle)| mc.compute_observation_likes(tdpt, arena_bundle))
                     .collect::<Vec<_>>();
 
                 // Across all arenas, perform data association
@@ -1043,7 +1043,7 @@ impl CoordProcessor {
                     .into_iter()
                     .zip(undistorted.per_mini_arena.into_iter())
                     .map(|(mc, arena_bundle)| {
-                        mc.solve_data_association_and_update(&tdpt, arena_bundle)
+                        mc.solve_data_association_and_update(tdpt, arena_bundle)
                     })
                     .collect::<Vec<_>>();
 
@@ -1056,7 +1056,7 @@ impl CoordProcessor {
                 for (mc, unused) in model_collections_and_unused_observations.into_iter() {
                     let mc = mc
                         .births_and_deaths(
-                            &tdpt,
+                            tdpt,
                             unused,
                             || self.next_obj_id_func(),
                             &self.model_servers,

@@ -37,17 +37,9 @@ pub(crate) struct MiniArenaPointPerCam {
 //     points: Vec<MiniArenaPointPerCam>,
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct PerMiniArenaAllCamsOneFrameUndistorted {
     pub(crate) per_cam: BTreeMap<RosCamName, Vec<MiniArenaPointPerCam>>,
-}
-
-impl Default for PerMiniArenaAllCamsOneFrameUndistorted {
-    fn default() -> Self {
-        Self {
-            per_cam: BTreeMap::new(),
-        }
-    }
 }
 
 // impl PerMiniArenaAllCamsOneFrameUndistorted {
@@ -251,7 +243,7 @@ fn undistort_points_and_assign_arena(
     distorted_points: FrameDataAndPoints,
     recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
     mini_arena_images: &BTreeMap<String, MiniArenaImage>,
-    per_mini_arena: &mut Vec<PerMiniArenaAllCamsOneFrameUndistorted>,
+    per_mini_arena: &mut [PerMiniArenaAllCamsOneFrameUndistorted],
 ) {
     let cam_name = distorted_points.frame_data.cam_name.clone();
     let opt_cam = recon.cam_by_name(cam_name.as_str());
