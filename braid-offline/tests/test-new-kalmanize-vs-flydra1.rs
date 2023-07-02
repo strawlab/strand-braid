@@ -254,7 +254,7 @@ where
     Ok(())
 }
 
-fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
+fn convert_flydra1_mainbrain_h5_to_braidz_dir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -316,7 +316,7 @@ where
 
 #[cfg(test)]
 async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
-    convert_flydra1_mainbrain_h5_to_csvdir(src, &untracked_dir).context(format!(
+    convert_flydra1_mainbrain_h5_to_braidz_dir(src, &untracked_dir).context(format!(
         "reading {} and saving to {}",
         src,
         untracked_dir.display()

@@ -1,7 +1,9 @@
-"""Convert a flydra mainbrain HDF5 file to a directory of CSV files.
+"""Convert a flydra mainbrain HDF5 file to a .braid directory of CSV files.
 
 This does the inverse of `convert_braidz_to_flydra_h5.py`. However,
 it does not convert all data, just the subset sufficient to re-track.
+
+The .braid directory can be converted to a .braidz file by zipping it.
 """
 import sys
 import os
