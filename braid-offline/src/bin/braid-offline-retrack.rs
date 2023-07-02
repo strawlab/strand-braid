@@ -24,6 +24,10 @@ struct Opt {
     /// Tracking parameters TOML file.
     #[structopt(long = "tracking-params", parse(from_os_str))]
     tracking_params: Option<std::path::PathBuf>,
+
+    /// Disable display of progress indicator
+    #[structopt(long)]
+    no_progress: bool,
 }
 
 #[tokio::main]
@@ -100,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
         rt_handle,
         save_performance_histograms,
         flydra2::BraidMetadataBuilder::saving_program_name("braid offline-retrack"),
-        true,
+        opt.no_progress,
     )
     .await?;
     Ok(())
