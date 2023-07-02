@@ -1,11 +1,11 @@
 // Compute ML_estimates and ML_estimates_2d_idxs tables
+use clap::Parser;
 use csv_eof::EarlyEofOk;
 use itertools::Itertools;
 use log::{error, info, trace};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
-use structopt::StructOpt;
 
 use flydra2::{DataAssocRow, Result};
 use groupby::AscendingGroupIter;
@@ -92,10 +92,7 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
 
     let mut kest_per_obj_id = HashMap::new();
 
-    for row in kalman_estimates_reader
-        .into_deserialize()
-        .early_eof_ok()
-    {
+    for row in kalman_estimates_reader.into_deserialize().early_eof_ok() {
         let row: KalmanEstimatesRow = row?;
 
         // Check if frame number is plausible. This large number is 2**63 and
@@ -326,18 +323,17 @@ fn add_ml_estimates_tables(dirname: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "compute-flydra1-compat")]
-struct Opt {
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+struct Cli {
     /// Input and output directory
-    #[structopt(parse(from_os_str))]
     dirname: std::path::PathBuf,
 }
 
 fn main() -> Result<()> {
     env_tracing_logger::init();
 
-    let opt = Opt::from_args();
+    let opt = Cli::parse();
 
     // Here we operate on a plain directory (rather than a
     // `zip_or_dir::ZipDirArchive`).

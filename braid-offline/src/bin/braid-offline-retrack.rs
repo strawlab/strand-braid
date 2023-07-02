@@ -1,32 +1,32 @@
 use anyhow::Context;
 
+use clap::Parser;
 use log::info;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "braid-offline-retrack")]
-struct Opt {
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+struct Cli {
     /// Input .braidz file
-    #[structopt(short = "d", parse(from_os_str))]
+    #[arg(short = 'd', long)]
     data_src: std::path::PathBuf,
     /// Output file (must end with .braidz)
-    #[structopt(short = "o", parse(from_os_str))]
+    #[arg(short = 'o', long)]
     output: std::path::PathBuf,
     /// Set frames per second
-    #[structopt(long = "fps")]
+    #[arg(long)]
     fps: Option<f64>,
     /// Set start frame to start tracking
-    #[structopt(long = "start-frame")]
+    #[arg(long)]
     start_frame: Option<u64>,
     /// Set stop frame to stop tracking
-    #[structopt(long = "stop-frame")]
+    #[arg(long)]
     stop_frame: Option<u64>,
     /// Tracking parameters TOML file.
-    #[structopt(long = "tracking-params", parse(from_os_str))]
+    #[arg(long)]
     tracking_params: Option<std::path::PathBuf>,
 
     /// Disable display of progress indicator
-    #[structopt(long)]
+    #[arg(long)]
     no_progress: bool,
 }
 
@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     env_tracing_logger::init();
-    let opt = Opt::from_args();
+    let opt = Cli::parse();
 
     let data_src =
         braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
