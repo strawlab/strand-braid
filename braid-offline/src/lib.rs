@@ -458,10 +458,10 @@ where
 
         // OK, this is stupid - we parse the entire CSV file simply to determine
         // how many rows it has for our progress bar.
-        let n_csv_rows = if no_progress {
+        let n_csv_frames = if no_progress {
             None
         } else {
-            log::info!("Parsing CSV file to determine row count.");
+            log::info!("Parsing CSV file to determine frame count.");
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
@@ -485,7 +485,7 @@ where
                     data_frame_rows?;
                 count += 1;
             }
-            log::info!("CSV file has {count} rows.");
+            log::info!("CSV file has {count} frames.");
             Some(count)
         };
 
@@ -509,11 +509,11 @@ where
             data_row_frame_iter
         };
 
-        let pb = if let Some(n_csv_rows) = n_csv_rows {
+        let pb = if let Some(n_csv_frames) = n_csv_frames {
             // Custom progress bar with space at right end to prevent obscuring last
             // digit with cursor.
             let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
-            Some(ProgressBar::new(n_csv_rows.try_into().unwrap()).with_style(style))
+            Some(ProgressBar::new(n_csv_frames.try_into().unwrap()).with_style(style))
         } else {
             None
         };
