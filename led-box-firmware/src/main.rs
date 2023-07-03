@@ -27,22 +27,21 @@ use defmt_rtt as _; // global logger
 use panic_probe as _;
 
 use stm32f3xx_hal;
-use stm32f3xx_hal as stm32_hal;
 
 use embedded_hal::PwmPin;
 
 use embedded_hal::digital::v2::OutputPin;
 
-use stm32_hal::flash::FlashExt;
-use stm32_hal::gpio::GpioExt;
-use stm32_hal::gpio::{self, AF7};
+use stm32f3xx_hal::flash::FlashExt;
+use stm32f3xx_hal::gpio::GpioExt;
+use stm32f3xx_hal::gpio::{self, AF7};
 use stm32f3xx_hal::prelude::*;
 
 use embedded_time::rate::Hertz;
-use stm32_hal::gpio::{Output, PushPull};
-use stm32_hal::pac::USART2;
-use stm32_hal::pwm::tim3;
-use stm32_hal::serial::{Event, Rx, Serial, Tx};
+use stm32f3xx_hal::gpio::{Output, PushPull};
+use stm32f3xx_hal::pac::USART2;
+use stm32f3xx_hal::pwm::tim3;
+use stm32f3xx_hal::serial::{Event, Rx, Serial, Tx};
 
 use defmt::{error, info, trace};
 
@@ -50,8 +49,8 @@ use rtic::Mutex;
 
 use mini_rxtx::Decoded;
 
-use crate::stm32_hal::gpio::gpioa::PA5;
 use led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
+use stm32f3xx_hal::gpio::gpioa::PA5;
 
 pub type UserLED = PA5<Output<PushPull>>;
 
@@ -73,10 +72,22 @@ mod app {
             128,
         >,
         green_led: UserLED,
-        pwm3_ch1: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch1, stm32_hal::pwm::WithPins>,
-        pwm3_ch2: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch2, stm32_hal::pwm::WithPins>,
-        pwm3_ch3: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch3, stm32_hal::pwm::WithPins>,
-        pwm3_ch4: stm32_hal::pwm::PwmChannel<stm32_hal::pwm::Tim3Ch4, stm32_hal::pwm::WithPins>,
+        pwm3_ch1: stm32f3xx_hal::pwm::PwmChannel<
+            stm32f3xx_hal::pwm::Tim3Ch1,
+            stm32f3xx_hal::pwm::WithPins,
+        >,
+        pwm3_ch2: stm32f3xx_hal::pwm::PwmChannel<
+            stm32f3xx_hal::pwm::Tim3Ch2,
+            stm32f3xx_hal::pwm::WithPins,
+        >,
+        pwm3_ch3: stm32f3xx_hal::pwm::PwmChannel<
+            stm32f3xx_hal::pwm::Tim3Ch3,
+            stm32f3xx_hal::pwm::WithPins,
+        >,
+        pwm3_ch4: stm32f3xx_hal::pwm::PwmChannel<
+            stm32f3xx_hal::pwm::Tim3Ch4,
+            stm32f3xx_hal::pwm::WithPins,
+        >,
     }
 
     #[local]
@@ -171,8 +182,8 @@ mod app {
         green_led.set_low().unwrap();
 
         {
-            use stm32_hal::gpio::gpiob::PB4;
-            use stm32_hal::gpio::{Output, PushPull};
+            use stm32f3xx_hal::gpio::gpiob::PB4;
+            use stm32f3xx_hal::gpio::{Output, PushPull};
 
             let mut extra_ir_led: PB4<Output<PushPull>> = gpiob
                 .pb4
