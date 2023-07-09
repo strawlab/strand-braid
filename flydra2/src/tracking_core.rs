@@ -1,5 +1,5 @@
-use log::trace;
 use std::{collections::BTreeMap, sync::Arc};
+use tracing::trace;
 
 use nalgebra::core::dimension::{U2, U6};
 use nalgebra::{Matrix6, OMatrix, OVector, Point3, RealField, Vector6};

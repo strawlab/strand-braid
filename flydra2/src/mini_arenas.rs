@@ -99,7 +99,7 @@ pub(crate) fn build_mini_arena_images(
                             .unwrap();
                     let fname = format!("mini_arenas_{}.png", cam.name());
                     std::fs::write(&fname, png_buf)?;
-                    log::info!("saved mini arena image assignment image to {fname}");
+                    tracing::info!("saved mini arena image assignment image to {fname}");
                 }
 
                 mini_arena_images.insert(

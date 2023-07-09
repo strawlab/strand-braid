@@ -1,6 +1,6 @@
 use chrono::Local;
-use log::info;
 use std::{sync::Arc, time::Instant};
+use tracing::info;
 
 use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};

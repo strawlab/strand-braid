@@ -1,5 +1,5 @@
 use crate::*;
-use log::info;
+use tracing::info;
 
 use std::{io::Write, sync::Arc};
 
@@ -540,7 +540,7 @@ pub(crate) async fn writer_task_main(
     let mut last_flushed = Instant::now();
     use futures::stream::StreamExt;
 
-    log::debug!("Starting braidz writer task. {}:{}", file!(), line!());
+    tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
     loop {
         match tokio::time::timeout(flush_interval, braidz_write_rx.next()).await {
@@ -598,7 +598,7 @@ pub(crate) async fn writer_task_main(
                                                     now_system,
                                                 ) {
                                                     Ok(()) => {}
-                                                    Err(_) => log::error!(
+                                                    Err(_) => tracing::error!(
                                                         "latency value {} out of expected range",
                                                         latency_usec
                                                     ),
@@ -624,7 +624,7 @@ pub(crate) async fn writer_task_main(
                                             now_system,
                                         ) {
                                             Ok(()) => {}
-                                            Err(_) => log::error!(
+                                            Err(_) => tracing::error!(
                                                 "mean reprojection 100x distance value {} out of expected range",
                                                 mean_reproj_dist_100x
                                             ),
@@ -701,7 +701,7 @@ pub(crate) async fn writer_task_main(
             last_flushed = Instant::now();
         }
     }
-    log::info!("Done with braidz writer task.");
+    tracing::info!("Done with braidz writer task.");
     Ok(())
 }
 

@@ -3,7 +3,8 @@
     feature(error_generic_member_access, provide_any)
 )]
 
-use log::{debug, error, info, trace};
+use tracing::{debug, error, info, trace};
+use tracing_futures::Instrument;
 
 use mini_arenas::MiniArenaImage;
 use serde::{Deserialize, Serialize};
@@ -990,10 +991,12 @@ impl CoordProcessor {
         // stream, it has bundled the camera-by-camera data into all-cam data.
         // Note that this can drop data that is out-of-order, which is why we
         // must save the incoming data before here.
-        let bundled = bundle_frames(stream1, ccm.clone());
+        let bundled =
+            bundle_frames(stream1, ccm.clone()).instrument(tracing::info_span!("bundle_frames"));
 
         // Ensure that there are no skipped frames.
-        let mut contiguous_stream = make_contiguous(bundled);
+        let mut contiguous_stream =
+            make_contiguous(bundled).instrument(tracing::info_span!("contiguous"));
 
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.

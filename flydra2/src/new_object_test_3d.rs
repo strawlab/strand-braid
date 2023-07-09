@@ -1,5 +1,5 @@
-use log::error;
 use std::{collections::BTreeMap, sync::Arc};
+use tracing::error;
 
 use flydra_types::{RosCamName, TrackingParams};
 
