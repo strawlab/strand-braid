@@ -885,7 +885,6 @@ impl CoordProcessor {
                     recon.clone(),
                     fps,
                     self.cam_manager.clone(),
-                    self.braidz_write_tx.clone(),
                     mini_arena_idx,
                 )
             })
@@ -1056,15 +1055,21 @@ impl CoordProcessor {
                 // create new and delete old objects
                 let mut model_collections = Vec::new();
                 for (mc, unused) in model_collections_and_unused_observations.into_iter() {
-                    let mc = mc
-                        .births_and_deaths(
-                            tdpt,
-                            unused,
-                            || self.next_obj_id_func(),
-                            &self.model_servers,
-                        )
-                        .await;
+                    let (mc, send_msgs, save_msgs) = mc.births_and_deaths(
+                        tdpt,
+                        unused,
+                        || self.next_obj_id_func(),
+                        // &self.model_servers,
+                    );
                     model_collections.push(mc);
+                    for msg in save_msgs.into_iter() {
+                        self.braidz_write_tx.send(msg).await.unwrap();
+                    }
+                    for ms in self.model_servers.iter() {
+                        for msg in send_msgs.iter() {
+                            ms.send(msg.clone()).await.unwrap();
+                        }
+                    }
                 }
 
                 self.model_collections = Some(model_collections);
