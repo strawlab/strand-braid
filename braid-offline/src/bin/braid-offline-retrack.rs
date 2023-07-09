@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
         std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,error");
     }
 
-    env_tracing_logger::init();
+    let _tracing_guard = env_tracing_logger::init();
     let opt = Cli::parse();
 
     let data_src =

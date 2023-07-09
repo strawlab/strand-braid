@@ -517,6 +517,7 @@ impl Drop for WritingState {
     }
 }
 
+#[tracing::instrument]
 pub(crate) async fn writer_task_main(
     mut braidz_write_rx: stream_cancel::Valved<
         tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,

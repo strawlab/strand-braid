@@ -811,6 +811,7 @@ pub struct CoordProcessor {
 }
 
 impl CoordProcessor {
+    #[tracing::instrument]
     pub fn new(
         cfg: CoordProcessorConfig,
         handle: tokio::runtime::Handle,
@@ -911,13 +912,14 @@ impl CoordProcessor {
     /// Upon completion, returns a [tokio::task::JoinHandle] from a spawned
     /// writing task. To ensure data is completely saved, this should be driven
     /// to completion before ending the process.
+    #[tracing::instrument]
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
     ) -> tokio::task::JoinHandle<Result<()>>
     where
-        S: 'static + Send + futures::stream::Stream<Item = StreamItem> + Unpin,
+        S: 'static + Send + futures::stream::Stream<Item = StreamItem> + std::fmt::Debug + Unpin,
     {
         let mut prev_frame = SyncFno(0);
         use futures::stream::StreamExt;

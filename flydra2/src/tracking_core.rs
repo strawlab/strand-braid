@@ -579,6 +579,7 @@ pub(crate) struct MCInner {
 }
 
 impl ModelCollection<CollectionFrameDone> {
+    #[tracing::instrument]
     pub(crate) fn predict_motion(self) -> ModelCollection<CollectionFrameStarted> {
         let mcinner = self.mcinner;
         let models = self
@@ -605,6 +606,7 @@ impl ModelCollection<CollectionFrameDone> {
 }
 
 impl ModelCollection<CollectionFrameStarted> {
+    #[tracing::instrument]
     pub(crate) fn compute_observation_likes(
         self,
         tdpt: &TimeDataPassthrough,
@@ -638,6 +640,7 @@ impl ModelCollection<CollectionFrameStarted> {
 }
 
 impl ModelCollection<CollectionFrameWithObservationLikes> {
+    #[tracing::instrument]
     pub(crate) fn solve_data_association_and_update(
         self,
         tdpt: &TimeDataPassthrough,
@@ -912,6 +915,11 @@ impl ModelCollection<CollectionFramePosteriors> {
     where
         F: Fn() -> u32,
     {
+        // Instead of a `#[tracing::instrument]` attribute on this method, which
+        // we cannot do because F does not implement Debug, here we enter a
+        // span.
+        let _span = tracing::span!(tracing::Level::INFO, "births_and_deaths").entered();
+
         let mut result_messages = Vec::new();
 
         // Check deaths before births so we do not check if we kill a

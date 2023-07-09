@@ -192,6 +192,7 @@ impl BundledAllCamsOneFrameDistorted {
         &self.cameras
     }
 
+    #[tracing::instrument]
     pub(crate) fn undistort_and_split_to_mini_arenas(
         self,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
