@@ -775,6 +775,7 @@ impl CoordProcessorControl {
     }
 }
 
+#[derive(Debug)]
 pub struct CoordProcessorConfig {
     pub tracking_params: TrackingParams,
     pub save_empty_data2d: bool,
@@ -787,6 +788,7 @@ pub struct CoordProcessorConfig {
 // are kept and thus that the sender will drop when needed. The alternative (or
 // addition) is to have a message which will close the writer's files, as is
 // done with `SaveToDiskMsg::StopSavingCsv`.
+#[derive(Debug)]
 pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference

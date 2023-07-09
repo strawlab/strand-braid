@@ -33,6 +33,7 @@ use crate::{
 
 // -----------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub(crate) struct UnusedDataPerArena(PerMiniArenaAllCamsOneFrameUndistorted);
 
 // LivingModel -----------------------------------------------------------------
@@ -466,29 +467,41 @@ impl LivingModel<ModelFramePosteriors> {
         // current posterior is appended to list of posteriors.
         let mut posteriors = self.posteriors;
         posteriors.push(self.state.posterior);
-        LivingModel {
-            gestation_age: new_gestation_age,
-            state: ModelFrameDone {},
-            posteriors,
-            last_observation_offset: self.last_observation_offset,
-            lmi: self.lmi,
-        }
+        (
+            LivingModel {
+                gestation_age: new_gestation_age,
+                state: ModelFrameDone {},
+                posteriors,
+                last_observation_offset: self.last_observation_offset,
+                lmi: self.lmi,
+            },
+            result_messages,
+            result_save_msgs,
+        )
     }
 }
 
 // ModelCollection -------------------------------------------------------------
 
-pub(crate) trait CollectionState {}
+pub(crate) trait CollectionState: std::fmt::Debug {}
+
+#[derive(Debug)]
 pub(crate) struct CollectionFrameDone {
     models: Vec<LivingModel<ModelFrameDone>>,
 }
+
+#[derive(Debug)]
 pub(crate) struct CollectionFrameStarted {
     models: Vec<LivingModel<ModelFrameStarted>>,
 }
+
+#[derive(Debug)]
 pub(crate) struct CollectionFrameWithObservationLikes {
     models_with_obs_likes: Vec<LivingModel<ModelFrameWithObservationLikes>>,
     // bundle: BundledAllCamsOneFrameUndistorted,
 }
+
+#[derive(Debug)]
 pub(crate) struct CollectionFramePosteriors {
     models_with_posteriors: Vec<LivingModel<ModelFramePosteriors>>,
 }
@@ -497,6 +510,15 @@ impl CollectionState for CollectionFrameDone {}
 impl CollectionState for CollectionFrameStarted {}
 impl CollectionState for CollectionFrameWithObservationLikes {}
 impl CollectionState for CollectionFramePosteriors {}
+
+impl<S> std::fmt::Debug for ModelCollection<S>
+where
+    S: CollectionState + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_struct("ModelCollection").finish()
+    }
+}
 
 pub(crate) trait HypothesisTest: Send + dyn_clone::DynClone {
     fn hypothesis_test(

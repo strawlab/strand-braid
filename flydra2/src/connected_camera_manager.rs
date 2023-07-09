@@ -573,6 +573,14 @@ impl ConnectedCamerasManager {
     }
 }
 
+impl std::fmt::Debug for ConnectedCamerasManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("ConnectedCamerasManager")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
 #[test]
 fn test_camera_list() {
     let c1 = CameraList::new(&[1, 2, 3, 4]);

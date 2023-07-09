@@ -26,6 +26,7 @@ impl MiniArenaIndex {
 const NO_MINI_ARENA_MARKER: u8 = 255;
 
 /// Image of a mini arena for a calibrated camera.
+#[derive(Debug)]
 pub(crate) struct MiniArenaImage {
     width: usize,
     data: Vec<u8>,
