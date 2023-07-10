@@ -32,13 +32,11 @@ struct Cli {
 }
 
 fn main() -> anyhow::Result<()> {
-
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,error");
     }
 
     let _tracing_guard = env_tracing_logger::init();
-
     let future = async { my_main().await };
     let instrumented = future.instrument(tracing::info_span!("braid-offline-retrack"));
 

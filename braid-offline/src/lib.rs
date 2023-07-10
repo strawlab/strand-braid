@@ -115,7 +115,6 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_values().collect()
 }
 
-// TODO fix DRY with incremental_parser
 fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
@@ -341,6 +340,7 @@ where
         );
     }
 
+    let data_src_name = format!("{}", data_src.display());
     // open the data2d CSV file
     let mut data_fname = data_src.path_starter();
     data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
@@ -348,6 +348,12 @@ where
     let fps = match expected_fps {
         Some(fps) => fps,
         None => {
+            warn!(
+                "File \"{}\" does not have FPS saved directly. Will \
+            parse from data.",
+                data_src_name
+            );
+
             // TODO: replace with implementation in braidz-parser.
             let data_file = open_maybe_gzipped(data_fname)?;
 

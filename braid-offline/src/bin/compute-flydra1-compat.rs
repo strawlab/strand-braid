@@ -2,10 +2,10 @@
 use clap::Parser;
 use csv_eof::EarlyEofOk;
 use itertools::Itertools;
-use tracing::{error, info, trace};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
+use tracing::{error, info, trace};
 
 use flydra2::{DataAssocRow, Result};
 use groupby::AscendingGroupIter;
