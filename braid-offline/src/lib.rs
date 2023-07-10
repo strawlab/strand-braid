@@ -11,7 +11,7 @@ use std::{
 };
 
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 
 use braidz_parser::open_maybe_gzipped;
 use flydra2::{
@@ -126,7 +126,7 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
             last_row = match row {
                 Ok(row) => Some(row),
                 Err(e) => {
-                    log::error!("error reading 2d data when calculating fps: {} {:?}", e, e);
+                    tracing::error!("error reading 2d data when calculating fps: {} {:?}", e, e);
                     continue;
                 }
             };
@@ -334,7 +334,7 @@ where
     }
 
     for unused in found_image_paths.iter() {
-        log::warn!(
+        tracing::warn!(
             "Unexpected file {}/{} found",
             IMAGES_DIRNAME,
             unused.display()
@@ -461,7 +461,7 @@ where
         let n_csv_frames = if no_progress {
             None
         } else {
-            log::info!(
+            tracing::info!(
                 "Parsing {} file to determine frame count.",
                 flydra_types::DATA2D_DISTORTED_CSV_FNAME
             );
@@ -469,7 +469,7 @@ where
             let mut data_fname = data_src.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-            log::trace!("loading data from {}", data_fname.display());
+            tracing::trace!("loading data from {}", data_fname.display());
 
             let display_fname = format!("{}", data_fname.display());
 
@@ -498,7 +498,7 @@ where
                 }
                 count += 1;
             }
-            log::info!("Will process {count} frames.");
+            tracing::info!("Will process {count} frames.");
             Some(count)
         };
 
@@ -507,7 +507,7 @@ where
             let mut data_fname = data_src.path_starter();
             data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-            log::trace!("loading data from {}", data_fname.display());
+            tracing::trace!("loading data from {}", data_fname.display());
 
             let display_fname = format!("{}", data_fname.display());
 
@@ -587,7 +587,7 @@ where
                 match frame_data_tx.send(StreamItem::Packet(fdp)).await {
                     Ok(()) => {}
                     Err(e) => {
-                        log::error!("send error {} at {}:{}", e, file!(), line!())
+                        tracing::error!("send error {} at {}:{}", e, file!(), line!())
                     }
                 }
             }
@@ -596,7 +596,7 @@ where
         match frame_data_tx.send(StreamItem::EOF).await {
             Ok(()) => {}
             Err(e) => {
-                log::error!("send error {} at {}:{}", e, file!(), line!())
+                tracing::error!("send error {} at {}:{}", e, file!(), line!())
             }
         }
 

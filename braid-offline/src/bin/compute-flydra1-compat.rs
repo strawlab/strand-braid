@@ -2,7 +2,7 @@
 use clap::Parser;
 use csv_eof::EarlyEofOk;
 use itertools::Itertools;
-use log::{error, info, trace};
+use tracing::{error, info, trace};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};

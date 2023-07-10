@@ -1,7 +1,8 @@
 use anyhow::Context;
 
 use clap::Parser;
-use log::info;
+use tracing::info;
+use tracing_futures::Instrument;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -30,13 +31,26 @@ struct Cli {
     no_progress: bool,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,error");
     }
 
     let _tracing_guard = env_tracing_logger::init();
+
+    let future = async { my_main().await };
+    let instrumented = future.instrument(tracing::info_span!("braid-offline-retrack"));
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(instrumented)
+}
+
+async fn my_main() -> anyhow::Result<()> {
     let opt = Cli::parse();
 
     let data_src =
