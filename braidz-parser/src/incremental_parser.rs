@@ -45,6 +45,7 @@ impl ParseState for FullyParsed {}
 /// Initially, minimal reading from the archive is performed. As further
 /// operations on the archive proceed, the state of the parser gradually
 /// accumulates more information.
+// TODO: change this to an enum which changes its variant as it reads more.
 pub struct IncrementalParser<R: Read + Seek, S: ParseState> {
     pub(crate) archive: zip_or_dir::ZipDirArchive<R>,
     /// The state of parsing. Storage for stage-specific data.
