@@ -530,21 +530,29 @@ pub(crate) async fn writer_task_main(
     ignore_latency: bool,
 ) -> Result<()> {
     use crate::SaveToDiskMsg::*;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     let mut writing_state: Option<WritingState> = None;
 
     const FLUSH_INTERVAL: u64 = 1;
     let flush_interval = Duration::from_secs(FLUSH_INTERVAL);
 
-    let mut last_flushed = Instant::now();
+    let mut flush_tick = tokio::time::interval(flush_interval);
+
     use futures::stream::StreamExt;
 
     tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
     loop {
-        match tokio::time::timeout(flush_interval, braidz_write_rx.next()).await {
-            Ok(Some(msg)) => {
+        tokio::select! {
+            opt_msg = braidz_write_rx.next() => {
+                if opt_msg.is_none() {
+                    // sender disconnected. we can quit too.
+                    // We rely on `writing_state.drop()` to flush and close
+                    // everything.
+                    break;
+                }
+                let msg = opt_msg.unwrap();
                 match msg {
                     KalmanEstimate(ke) => {
                         let KalmanEstimateRecord {
@@ -678,27 +686,14 @@ pub(crate) async fn writer_task_main(
                         // simply drop data if no file opened
                     }
                 };
-            }
-            Ok(None) => {
-                // sender disconnected. we can quit too.
-                // We rely on `writing_state.drop()` to flush and close
-                // everything.
-                break;
-            }
-            Err(_elapsed) => {
-                // We waited for a message but none came. This is normal if
-                // nothing is happening but lets us flush the writers below.
-            }
-        };
 
-        // after processing message, check if we should flush data.
-        if last_flushed.elapsed() > flush_interval {
-            // flush all writers
-            if let Some(ref mut ws) = writing_state {
-                ws.flush_all()?;
             }
-
-            last_flushed = Instant::now();
+            _ = flush_tick.tick() => {
+                // flush all writers
+                if let Some(ref mut ws) = writing_state {
+                    ws.flush_all()?;
+                }
+            }
         }
     }
     tracing::info!("Done with braidz writer task.");
