@@ -117,12 +117,18 @@ impl FrameDataSource for H264Source {
     }
 }
 
+pub(crate) struct FromMp4Track {
+    pub(crate) sequence_parameter_set: Vec<u8>,
+    pub(crate) picture_parameter_set: Vec<u8>,
+}
+
 impl H264Source {
     /// `nal_units` are EBSP without Annex B or AVCC headers.
     pub(crate) fn from_nal_units(
         nal_units: Vec<Vec<u8>>,
         do_decode_h264: bool,
         mp4_pts: Option<Vec<std::time::Duration>>,
+        data_from_mp4_track: Option<FromMp4Track>,
     ) -> Result<Self> {
         let mut tz_offset = None;
         let mut h264_metadata = None;
@@ -132,6 +138,36 @@ impl H264Source {
         let mut frame_to_nalu_index = Vec::new();
         let mut last_precision_time = None;
         let mut next_frame_num = 0;
+
+        // Use data from container if present
+        if let Some(dfc) = data_from_mp4_track {
+            {
+                // SPS
+                let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
+                if sps_nal.header().unwrap().nal_unit_type() != UnitType::SeqParameterSet {
+                    anyhow::bail!("expected SPS NAL");
+                }
+
+                let isps =
+                    h264_reader::nal::sps::SeqParameterSet::from_bits(sps_nal.rbsp_bits()).unwrap();
+                parsing_ctx.put_seq_param_set(isps);
+            }
+
+            {
+                // PPS
+                let pps_nal = RefNal::new(&dfc.picture_parameter_set, &[], true);
+                if pps_nal.header().unwrap().nal_unit_type() != UnitType::PicParameterSet {
+                    anyhow::bail!("expected PPS NAL");
+                }
+
+                let ipps = h264_reader::nal::pps::PicParameterSet::from_bits(
+                    &parsing_ctx,
+                    pps_nal.rbsp_bits(),
+                )
+                .unwrap();
+                parsing_ctx.put_pic_param_set(ipps);
+            }
+        }
 
         // iterate through all NAL units.
         for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
@@ -230,7 +266,7 @@ impl H264Source {
         };
 
         let nal_units: Vec<_> = h264_annexb_split(&raw_h264_buf).collect();
-        Self::from_nal_units(nal_units, do_decode_h264, None)
+        Self::from_nal_units(nal_units, do_decode_h264, None, None)
     }
 }
 

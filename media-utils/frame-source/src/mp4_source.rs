@@ -25,8 +25,8 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
         }
     }
 
-    let track_id = if let Some((track_id, _track)) = video_track {
-        track_id
+    let (track_id, track) = if let Some(vt) = video_track {
+        vt
     } else {
         anyhow::bail!("No H264 video track found in MP4 file.");
     };
@@ -37,6 +37,10 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
     let mut mp4_pts = Vec::new();
 
     let mut sample_id = 1; // mp4 uses 1 based indexing
+    let data_from_mp4_track = crate::h264_source::FromMp4Track {
+        sequence_parameter_set: track.sequence_parameter_set()?.to_vec(),
+        picture_parameter_set: track.picture_parameter_set()?.to_vec(),
+    };
     while let Some(sample) = mp4_reader.read_sample(track_id, sample_id)? {
         if !sample.bytes.is_empty() {
             // dbg!((sample_id, mp4_pts, sample.bytes.len()));
@@ -51,7 +55,12 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
         sample_id += 1;
     }
 
-    let h264_source = H264Source::from_nal_units(nal_units, do_decode_h264, Some(mp4_pts))?;
+    let h264_source = H264Source::from_nal_units(
+        nal_units,
+        do_decode_h264,
+        Some(mp4_pts),
+        Some(data_from_mp4_track),
+    )?;
     Ok(h264_source)
 }
 
