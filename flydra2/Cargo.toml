@@ -58,6 +58,7 @@ tracing-futures = { version = "0.2.5", features = ["tokio", "futures-03"] }
 
 braidz-types = { path = "../braidz-types" }
 datetime-conversion = { path = "../datetime-conversion" }
+env-tracing-logger = { path = "../env-tracing-logger" }
 mvg = { path = "../mvg" }
 flydra-mvg = { path = "../flydra-mvg" }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }

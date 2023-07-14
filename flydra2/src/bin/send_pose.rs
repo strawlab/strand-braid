@@ -6,6 +6,8 @@ use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
 
 fn main() -> Result<()> {
+    let _tracing_guard = env_tracing_logger::init();
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
@@ -15,8 +17,6 @@ fn main() -> Result<()> {
 }
 
 async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
-    env_logger::init();
-
     let addr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
     info!("send_pose server at {}", addr);
     let info = flydra_types::StaticMainbrainInfo {
