@@ -12,6 +12,7 @@ pub struct ArchiveOpened {}
 
 /// The archive has basic information parsed.
 // The Result<> types store an error indicating why the field was not loaded.
+#[derive(Debug)]
 pub struct BasicInfoParsed {
     pub metadata: BraidMetadata,
     pub expected_fps: f64,
@@ -23,6 +24,7 @@ pub struct BasicInfoParsed {
 }
 
 /// The archive been completely parsed.
+#[derive(Debug)]
 pub struct FullyParsed {
     pub metadata: BraidMetadata,
     pub expected_fps: f64,
@@ -50,6 +52,14 @@ pub struct IncrementalParser<R: Read + Seek, S: ParseState> {
     pub(crate) archive: zip_or_dir::ZipDirArchive<R>,
     /// The state of parsing. Storage for stage-specific data.
     pub(crate) state: S,
+}
+
+impl<R: Read + Seek, S: ParseState> std::fmt::Debug for IncrementalParser<R, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("IncrementalParser")
+            .field("archive", &self.archive)
+            .finish_non_exhaustive()
+    }
 }
 
 impl IncrementalParser<BufReader<std::fs::File>, ArchiveOpened> {

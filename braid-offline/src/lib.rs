@@ -115,7 +115,8 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_values().collect()
 }
 
-fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
+#[tracing::instrument]
+fn calc_fps_from_data<R: Read + std::fmt::Debug>(data_file: R) -> flydra2::Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
     let row0: Option<std::result::Result<Data2dDistortedRow, _>> = data_iter.next();
@@ -208,6 +209,7 @@ pub struct KalmanizeOptions {
 /// Note that a temporary directly ending with `.braid` is initially created and
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
+#[tracing::instrument]
 #[allow(clippy::too_many_arguments)]
 pub async fn kalmanize<Q, R>(
     mut data_src: braidz_parser::incremental_parser::IncrementalParser<
@@ -224,8 +226,8 @@ pub async fn kalmanize<Q, R>(
     no_progress: bool,
 ) -> Result<(), Error>
 where
-    Q: AsRef<Path>,
-    R: 'static + Read + Seek + Send,
+    Q: AsRef<Path> + std::fmt::Debug,
+    R: 'static + Read + Seek + Send + std::fmt::Debug,
 {
     let output_braidz = output_braidz.as_ref();
     let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {

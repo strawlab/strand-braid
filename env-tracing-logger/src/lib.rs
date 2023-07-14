@@ -16,8 +16,8 @@ pub fn init() -> impl Drop {
     //     .with(flame_layer);
 
     let subscriber = tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::from_default_env())
+        // .with(tracing_subscriber::fmt::layer())
+        // .with(tracing_subscriber::EnvFilter::from_default_env())
         .with(flame_layer);
     // .init();
 

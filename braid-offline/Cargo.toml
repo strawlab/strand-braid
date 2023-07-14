@@ -16,7 +16,11 @@ serde = {version="^1.0", features=["derive"]}
 toml = "0.5"
 itertools = "0.10.3"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
+tokio = { version = "1.0.1", default-features = false, features = [
+    "rt-multi-thread",
+    "macros",
+    "tracing",
+] }
 tokio-stream = "0.1.8"
 futures = "0.3"
 stream-cancel = "0.8"

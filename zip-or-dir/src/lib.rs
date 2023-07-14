@@ -111,7 +111,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-#[derive(Debug)]
 /// Read-access to either a single zip file or an directory.
 ///
 /// This provides a uniform API for accessing files in a directory in a
@@ -122,6 +121,14 @@ pub struct ZipDirArchive<R: Read + Seek> {
     path: PathBuf,
     /// the zip archive, if this is a zip file.
     zip_archive: Option<zip::ZipArchive<R>>,
+}
+
+impl<R: Read + Seek> std::fmt::Debug for ZipDirArchive<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ZipDirArchive<BufReader<File>> {
@@ -315,6 +322,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
 }
 
 /// Provides a single concrete type for a normal file or a zipped file.
+#[derive(Debug)]
 pub struct FileReader<'a> {
     inner: FileReaderInner<'a>,
     size: u64,
@@ -324,6 +332,15 @@ pub struct FileReader<'a> {
 enum FileReaderInner<'a> {
     File(BufReader<File>),
     ZipFile(Box<BufReader<zip::read::ZipFile<'a>>>),
+}
+
+impl<'a> std::fmt::Debug for FileReaderInner<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileReaderInner::File(_) => write!(f, "FileReaderInner::File"),
+            FileReaderInner::ZipFile(_) => write!(f, "FileReaderInner::ZipFile"),
+        }
+    }
 }
 
 impl<'a> FileReader<'a> {

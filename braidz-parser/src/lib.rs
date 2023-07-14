@@ -144,6 +144,7 @@ pub struct BraidzArchive<R: Read + Seek> {
     pub image_sizes: Option<BTreeMap<String, (usize, usize)>>,
 }
 
+#[derive(Debug)]
 pub struct HistogramLog {
     histogram: hdrhistogram::Histogram<u64>,
 }
@@ -183,6 +184,16 @@ pub struct D2DInfo {
     pub num_rows: u64,
 }
 
+impl std::fmt::Debug for D2DInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("frame_lim", &self.frame_lim)
+            .field("time_limits", &self.time_limits)
+            .field("num_rows", &self.num_rows)
+            .finish()
+    }
+}
+
 /// Column store for 2D detections for a single camera.
 ///
 /// Note that these are not filled when there is no detection.
@@ -218,6 +229,17 @@ pub struct KalmanEstimatesInfo {
     pub tracking_parameters: TrackingParams,
     /// The sum of all distances in all trajectories.
     pub total_distance: f64,
+}
+
+impl std::fmt::Debug for KalmanEstimatesInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("xlim", &self.xlim)
+            .field("ylim", &self.ylim)
+            .field("zlim", &self.zlim)
+            .field("num_rows", &self.num_rows)
+            .finish()
+    }
 }
 
 pub struct TrajectoryData {
@@ -529,6 +551,7 @@ pub fn open_maybe_gzipped<'a, R: Read + Seek>(
     }
 }
 
+#[derive(Debug)]
 pub enum MaybeGzippedReader<'a> {
     Raw(zip_or_dir::FileReader<'a>),
     Gzipped(libflate::gzip::Decoder<zip_or_dir::FileReader<'a>>),

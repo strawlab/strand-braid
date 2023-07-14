@@ -576,8 +576,7 @@ impl ConnectedCamerasManager {
 impl std::fmt::Debug for ConnectedCamerasManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         f.debug_struct("ConnectedCamerasManager")
-            .field("inner", &self.inner)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

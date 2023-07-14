@@ -36,19 +36,34 @@ fn main() -> anyhow::Result<()> {
         std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,error");
     }
 
+    // console_subscriber::init();
     let _tracing_guard = env_tracing_logger::init();
-    let future = async { my_main().await };
+    let future = async { braid_offline_retrack().await };
     let instrumented = future.instrument(tracing::info_span!("braid-offline-retrack"));
 
-    let rt = tokio::runtime::Builder::new_current_thread()
+    // Multi-threaded runtime
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()
-        .unwrap();
+        .worker_threads(2)
+        .thread_name("braid-offline-retrack")
+        // .thread_stack_size(3 * 1024 * 1024)
+        .build()?;
+    // let rt = tokio::runtime::Runtime::new()?;
 
+    // // Single-threaded runtime
+    // let rt = tokio::runtime::Builder::new_current_thread()
+    //     .enable_all()
+    //     .build()
+    //     .unwrap();
+
+    // spawn the root task
     rt.block_on(instrumented)
 }
 
-async fn my_main() -> anyhow::Result<()> {
+/// This is our "real" main top-level function but we have some decoration we
+/// need to do in [main], so we name this differently.
+#[tracing::instrument]
+async fn braid_offline_retrack() -> anyhow::Result<()> {
     let opt = Cli::parse();
 
     let data_src =
