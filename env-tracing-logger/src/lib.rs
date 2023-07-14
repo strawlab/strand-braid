@@ -7,6 +7,12 @@ use tracing_subscriber::prelude::*;
 // }
 
 pub fn init() -> impl Drop {
+    init_result()
+        .map_err(|e| e.1)
+        .expect("Could not set global default")
+}
+
+fn init_result() -> Result<impl Drop, (impl Drop, tracing::subscriber::SetGlobalDefaultError)> {
     // let fmt_layer = tracing_subscriber::fmt::Layer::default();
 
     let (flame_layer, _guard) = tracing_flame::FlameLayer::with_file("./tracing.folded").unwrap();
@@ -25,6 +31,8 @@ pub fn init() -> impl Drop {
 
     // let _guard = Guard {};
 
-    tracing::subscriber::set_global_default(subscriber).expect("Could not set global default");
-    _guard
+    match tracing::subscriber::set_global_default(subscriber) {
+        Ok(_) => Ok(_guard),
+        Err(e) => Err((_guard, e)),
+    }
 }

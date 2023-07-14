@@ -380,7 +380,11 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
-    let _ = env_logger::builder().is_test(true).try_init();
+    // let _ = env_logger::builder().is_test(true).try_init();
+    // let _tracing_guard: Box<dyn Drop> = match env_tracing_logger::init_result() {
+    //     Ok(g) => Box::new(g),
+    //     Err((g, _err)) => Box::new(g),
+    // };
 
     let src = "../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28.h5";
 
@@ -400,7 +404,11 @@ async fn test_braid_vs_old_flydra_with_water() -> anyhow::Result<()> {
     const FNAME: &str = "20160527_163937.mainbrain-short.h5";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets";
     const SHA256SUM: &str = "7a63749cea63853ad1b9b2f6c32c087459a7be52aaef8730b0a41f00c5807d1b";
-    let _ = env_logger::builder().is_test(true).try_init();
+    // let _ = env_logger::builder().is_test(true).try_init();
+    // let _tracing_guard: Box<dyn Drop> = match env_tracing_logger::init_result() {
+    //     Ok(g) => Box::new(g),
+    //     Err((g, _err)) => Box::new(g),
+    // };
 
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
