@@ -68,7 +68,12 @@ async fn braid_offline_retrack() -> anyhow::Result<()> {
 
     let data_src =
         braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())?;
-    let data_src = data_src.parse_basics()?;
+    let data_src = data_src.parse_basics().with_context(|| {
+        format!(
+            "when parsing braidz file {}",
+            opt.data_src.as_path().display()
+        )
+    })?;
 
     let tracking_params: flydra_types::TrackingParams = match opt.tracking_params {
         Some(ref fname) => {
