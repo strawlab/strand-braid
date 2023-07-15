@@ -137,12 +137,13 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
                     let textlog_rdr = csv::Reader::from_reader(rdr);
-                    for row in textlog_rdr.into_deserialize().early_eof_ok() {
+                    for (rownum, row) in textlog_rdr.into_deserialize().early_eof_ok().enumerate() {
                         let row: TextlogRow = row?;
 
                         log::debug!(
-                            "Line in {}: {}",
+                            "Line in {} (row {}): {}",
                             flydra_types::TEXTLOG_CSV_FNAME,
+                            rownum,
                             row.message
                         );
 
@@ -205,7 +206,9 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                             }
                             Err(_e) => {
                                 // Cannot parse as JSON, but this is not a fatal problem.
-                                log::warn!("cannot parse message in textlog as JSON");
+                                log::warn!(
+                                    "cannot parse message in textlog (row {rownum}) as JSON"
+                                );
                             }
                         }
                     }
