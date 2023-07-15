@@ -1467,6 +1467,7 @@ async fn frame_process_task(
                                         mu10,
                                         center_x: store_cache_ref.im_ops_state.center_x,
                                         center_y: store_cache_ref.im_ops_state.center_y,
+                                        cam_name: cam_name.as_str().to_string(),
                                     });
                                     all_points.push(video_streaming::Point {
                                         x,
@@ -2579,6 +2580,8 @@ pub struct MomentCentroid {
     pub mu10: f32,
     pub center_x: u32,
     pub center_y: u32,
+    #[serde(default)]
+    pub cam_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
