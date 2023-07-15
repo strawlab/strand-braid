@@ -35,6 +35,14 @@ with tables.open_file(fname) as h5:
     csv_fname = os.path.join(outdir, "data2d_distorted.csv")
     df.to_csv(csv_fname, index=False, float_format="%r")
 
+    # textlog ------
+    textlog = h5.root.textlog[:]
+    df = pandas.DataFrame(textlog)
+    df["cam_id"] = df["cam_id"].str.decode("ascii")
+    df["message"] = df["message"].str.decode("ascii")
+    csv_fname = os.path.join(outdir, "textlog.csv")
+    df.to_csv(csv_fname, index=False, float_format="%r")
+
     # cam info ------
     cam_info = h5.root.cam_info[:]
     df = pandas.DataFrame(cam_info)
