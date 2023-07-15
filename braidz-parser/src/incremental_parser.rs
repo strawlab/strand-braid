@@ -121,12 +121,16 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             }
         };
 
-        // should match: "unknown fps, (flydra_version 2.0.0, git_revision 0581c8fa8da4e683921480085fad21bf3b77600e, time_tzname0 CEST)"
+        // should match:
+        //  - "unknown fps, (flydra_version 2.0.0, git_revision 0581c8fa8da4e683921480085fad21bf3b77600e, time_tzname0 CEST)"
+        //  - "100.0 fps, (top 10000, hypothesis_test_max_error 20.0)"
+        //  - "100.0 fps, (flydra_version 0.6.7, time_tzname0 CET)"
 
-        let re = regex::Regex::new(
-            r"(\w+) fps, \(flydra_version (.+)\S, git_revision (\w+), time_tzname0 (.+)\)",
-        )
-        .unwrap();
+        let re_fps = regex::Regex::new(r"(\w+) fps, \((.+)\S\)").unwrap();
+
+        let re_inner =
+            regex::Regex::new(r"flydra_version (.+)\S, git_revision (\w+), time_tzname0 (.+)")
+                .unwrap();
 
         // Parse fps and tracking parameters from textlog.
         let mut expected_fps = std::f64::NAN;
@@ -151,11 +155,13 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         let line1_start = "MainBrain running at ";
 
                         if let Some(line1_data) = row.message.strip_prefix(line1_start) {
-                            let caps = re.captures(line1_data).unwrap();
+                            let caps = re_fps.captures(line1_data).unwrap();
                             let fps_str = caps.get(1).unwrap().as_str();
-                            let _flydra_version = caps.get(2).unwrap().as_str();
-                            let git_revision = caps.get(3).unwrap().as_str().to_string();
-                            let _time_tzname0 = caps.get(4).unwrap().as_str();
+                            let inner_str = caps.get(2).unwrap().as_str();
+                            let git_revision = match re_inner.captures(inner_str) {
+                                Some(caps2) => caps2.get(2).unwrap().as_str().to_string(),
+                                None => "unknown".to_string(),
+                            };
 
                             if fps_str != "unknown" {
                                 expected_fps = fps_str.parse()?;
