@@ -63,8 +63,6 @@ mod tracking_core;
 
 mod mini_arenas;
 
-mod zip_dir;
-
 mod model_server;
 pub use crate::model_server::{new_model_server, ModelServer, SendKalmanEstimatesRow, SendType};
 

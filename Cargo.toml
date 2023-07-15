@@ -10,6 +10,7 @@ members = [
     "braid",
     "braid/braid-run",
     "braid/braid-run/braid_frontend",
+    "braid/braidz-writer",
     "braid-april-cal",
     "braid-april-cal/braid-april-cal-webapp",
     "braid-april-cal/flytrax-apriltags-calibration",
