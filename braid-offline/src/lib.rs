@@ -493,6 +493,8 @@ where
 
             let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
             let mut count = 0;
+            let mut min_frame = std::u64::MAX;
+            let mut max_frame = 0;
             for data_frame_rows in data_row_frame_iter {
                 let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
                     data_frame_rows?;
@@ -501,14 +503,21 @@ where
                         continue;
                     }
                 }
+                let this_frame = safe_u64(data_frame_rows.group_key);
                 if let Some(stop_frame) = opt3.stop_frame {
-                    if safe_u64(data_frame_rows.group_key) > stop_frame {
+                    if this_frame > stop_frame {
                         break;
                     }
                 }
+                if this_frame < min_frame {
+                    min_frame = this_frame;
+                }
+                if this_frame > max_frame {
+                    max_frame = this_frame;
+                }
                 count += 1;
             }
-            tracing::info!("Will process {count} frames.");
+            tracing::info!("Will process {count} frames (Range: {min_frame} - {max_frame}).");
             Some(count)
         };
 
