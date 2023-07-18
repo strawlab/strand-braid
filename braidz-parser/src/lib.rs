@@ -102,6 +102,8 @@ pub enum Error {
     },
     #[error("Compressed and uncompressed data copies exist simultaneously")]
     DualData,
+    #[error("textlog data could not be parsed")]
+    UnknownTextlogData,
     #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
     #[error("Missing tracking parameters")]

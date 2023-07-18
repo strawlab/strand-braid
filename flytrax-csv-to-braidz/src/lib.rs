@@ -12,7 +12,7 @@ use flydra_mvg::FlydraMultiCameraSystem;
 use serde::{Deserialize, Serialize};
 
 use flydra2::Data2dDistortedRow;
-use flydra_types::{CamInfoRow, MyFloat, TrackingParams};
+use flydra_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 
@@ -176,6 +176,7 @@ where
     R: BufRead,
 {
     let ts0 = to_ts0(&cfg)?;
+    let git_revision = env!("GIT_HASH").to_string(); // or take from csv cfg?
 
     assert_eq!(recon.len(), 1);
 
@@ -233,7 +234,7 @@ where
 
         let metadata = braidz_types::BraidMetadata {
             schema: flydra_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
-            git_revision: env!("GIT_HASH").to_string(),
+            git_revision,
             original_recording_time: Some(cfg.created_at),
             save_empty_data2d: false, // We do filtering below, but is this correct?
             saving_program_name: env!("CARGO_PKG_NAME").to_string(),
@@ -258,14 +259,16 @@ where
     let mut row_state = RowState::new();
 
     let mut count: usize = 0;
+    let mut ts0_f0 = (0.0, -1);
+    let mut ts1_f1 = (0.0, -1);
     for result in rdr.deserialize() {
         let record: Fview2CsvRecord = result?;
+        let this_time = get_timestamp(&record, &ts0);
 
         let mut keep_row = true;
         for filter_row in row_filters.iter() {
             match filter_row {
                 RowFilter::InTimeInterval(start, stop) => {
-                    let this_time = get_timestamp(&record, &ts0);
                     if !(start.as_f64() <= this_time.as_f64()
                         && this_time.as_f64() <= stop.as_f64())
                     {
@@ -286,11 +289,44 @@ where
         }
 
         if keep_row {
+            if ts0_f0.1 == -1 {
+                ts0_f0 = (this_time.as_f64(), record.frame);
+            }
+            ts1_f1 = (this_time.as_f64(), record.frame);
             let save = convert_row(record, &ts0, &mut row_state);
             writer.serialize(save)?;
             count += 1;
         }
     }
+
+    // -------------------------------------------------
+    // save textlog.csv
+
+    {
+        let n_frames = ts1_f1.1 - ts0_f0.1 + 1;
+        let dur = ts1_f1.0 - ts0_f0.0;
+        let fps = n_frames as f64 / dur;
+        let timestamp = datetime_conversion::datetime_to_f64(&cfg.created_at);
+        let textlog_path = braid_csv_temp_dir
+            .as_ref()
+            .to_path_buf()
+            .join(flydra_types::TEXTLOG_CSV_FNAME);
+
+        let message = format!("MainBrain running at {} fps, ()", fps);
+
+        let record = TextlogRow {
+            mainbrain_timestamp: timestamp,
+            cam_id: "mainbrain".to_string(),
+            host_timestamp: timestamp,
+            message,
+        };
+
+        let fd: std::fs::File = std::fs::File::create(&textlog_path)?;
+        let mut textlog_wtr =
+            csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>);
+        textlog_wtr.serialize(record)?;
+    }
+
     Ok(count)
 }
 

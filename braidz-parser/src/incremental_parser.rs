@@ -125,8 +125,9 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         //  - "unknown fps, (flydra_version 2.0.0, git_revision 0581c8fa8da4e683921480085fad21bf3b77600e, time_tzname0 CEST)"
         //  - "100.0 fps, (top 10000, hypothesis_test_max_error 20.0)"
         //  - "100.0 fps, (flydra_version 0.6.7, time_tzname0 CET)"
+        //  - "20.1 fps, ()"
 
-        let re_fps = regex::Regex::new(r"(\w+) fps, \((.+)\S\)").unwrap();
+        let re_fps = regex::Regex::new(r"^(\S+) fps, \((.*)\)$").unwrap();
 
         let re_inner =
             regex::Regex::new(r"flydra_version (.+)\S, git_revision (\w+), time_tzname0 (.+)")
@@ -155,7 +156,10 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         let line1_start = "MainBrain running at ";
 
                         if let Some(line1_data) = row.message.strip_prefix(line1_start) {
-                            let caps = re_fps.captures(line1_data).unwrap();
+                            let caps = match re_fps.captures(line1_data) {
+                                Some(caps) => caps,
+                                None => return Err(Error::UnknownTextlogData),
+                            };
                             let fps_str = caps.get(1).unwrap().as_str();
                             let inner_str = caps.get(2).unwrap().as_str();
                             let git_revision = match re_inner.captures(inner_str) {
