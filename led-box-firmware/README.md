@@ -12,7 +12,7 @@ To convert the ELF executable to a .bin file which can be copied onto the
 nucleo, install the following:
 
     cargo install cargo-binutils
-	  rustup component add llvm-tools-preview
+    rustup component add llvm-tools-preview
 
 To build the ELF executable and convert it to a .bin file, do this:
 
