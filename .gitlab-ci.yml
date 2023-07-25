@@ -83,21 +83,21 @@ test_flydra2:
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - ls -l _submodules
-    # These packages are listed in the requirements.txt files for flydra_core and flydra_analysis.
-    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-scipy python3-tables python3-six python3-nose python3-cairo python3-pandas python3-h5py python3-traitsui python3-pillow python3-aggdraw python3-imageio python-is-python3
-    - pip install cgkit1
+    # Install python and pip, but let pip install everything from there.
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python-is-python3 libcairo2-dev
+
+    - pip3 install --upgrade pip
 
     # # Install flydra from pip
     # - pip install flydra_core
     # - pip install flydra_analysis
 
     # # Install flydra from git submodule
-    - pip install -r _submodules/flydra/flydra_core/requirements.txt -r _submodules/flydra/flydra_analysis/requirements.txt
     - cd _submodules/flydra/flydra_core/
-    - pip install -e .
+    - python -m pip install -e .
     - cd ../../..
     - cd _submodules/flydra/flydra_analysis/
-    - pip install -e .
+    - python -m pip install -e .
     - cd ../../..
 
     - export RUSTFLAGS="-D warnings"
