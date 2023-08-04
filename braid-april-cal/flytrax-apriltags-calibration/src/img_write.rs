@@ -134,6 +134,6 @@ pub(crate) fn doit<P: AsRef<std::path::Path>>(
     png_fname.set_extension("png");
     let png_buf = convert_image::frame_to_image(&rasterized, convert_image::ImageOptions::Png)?;
     std::fs::write(&png_fname, png_buf)?;
-    println!("Saved image for debugging to: {}", png_fname.display());
+    log::info!("Saved image for debugging to: {}", png_fname.display());
     Ok(())
 }

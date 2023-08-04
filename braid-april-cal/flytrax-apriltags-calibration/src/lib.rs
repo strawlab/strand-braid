@@ -43,8 +43,8 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
 
-    println!(
-        "In image file {}, got {} detection(s):",
+    log::info!(
+        "In image file {}, got {} detection(s).",
         fname.as_ref().display(),
         detections.len()
     );
@@ -53,9 +53,9 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
         .as_slice()
         .iter()
         .map(|det| {
-            {
-                println!("  {{id: {}, center: {:?}}}", det.id(), det.center(),);
-            }
+            // {
+            //     println!("  {{id: {}, center: {:?}}}", det.id(), det.center(),);
+            // }
 
             let c = det.center();
             AprilTagCoords2D {
@@ -128,18 +128,18 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
         }
     };
 
-    println!(
-        "In fiducial coordinates file {}, got {} fiducial marker(s):",
+    log::info!(
+        "In fiducial coordinates file {}, got {} fiducial marker(s).",
         cli.apriltags_3d_fiducial_coords.display(),
         fiducial_3d_coords.len()
     );
 
-    for f3c in fiducial_3d_coords.iter() {
-        println!(
-            "  {{id: {}: x: {}, y: {}, z: {}}}",
-            f3c.id, f3c.x, f3c.y, f3c.z
-        );
-    }
+    // for f3c in fiducial_3d_coords.iter() {
+    //     println!(
+    //         "  {{id: {}: x: {}, y: {}, z: {}}}",
+    //         f3c.id, f3c.x, f3c.y, f3c.z
+    //     );
+    // }
 
     let flytrax_header = {
         let point_detection_csv_reader = std::fs::File::open(&cli.flytrax_csv)
@@ -217,9 +217,10 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
     let cal_result = braid_april_cal::do_calibrate_system(&src_data)?;
 
-    println!(
+    log::info!(
         "Calibration result for {}: {:.2} pixel mean reprojection distance",
-        camera_name, cal_result.mean_reproj_dist[&camera_name]
+        camera_name,
+        cal_result.mean_reproj_dist[&camera_name]
     );
 
     let reproj = {
@@ -260,36 +261,51 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
     })
 }
 
-pub fn save_cal_result<P: AsRef<Path>>(
+pub fn save_cal_result_to_xml<P: AsRef<Path>>(
     output_xml: P,
-    res: SingleCamCalResults,
+    res: &SingleCamCalResults,
 ) -> anyhow::Result<()> {
     let SingleCamCalResults {
         cal_result,
+        reproj: _,
+        jpeg_buf: _,
+        named_intrinsics: _,
+    } = res;
+    let xml_buf = cal_result.to_flydra_xml()?;
+    std::fs::write(output_xml.as_ref().clone(), xml_buf)?;
+    log::info!("Saved output XML to: {}", output_xml.as_ref().display());
+
+    Ok(())
+}
+
+pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
+    out_svg_fname: P,
+    res: &SingleCamCalResults,
+) -> anyhow::Result<()> {
+    let SingleCamCalResults {
+        cal_result: _,
         reproj,
         jpeg_buf,
         named_intrinsics,
     } = res;
-    let xml_buf = cal_result.to_flydra_xml()?;
-    std::fs::write(output_xml.as_ref().clone(), xml_buf)?;
-    println!("Saved output XML to: {}", output_xml.as_ref().display());
+    let jpeg_buf = jpeg_buf.clone();
+    let reproj = reproj.clone();
 
-    // ------
-    {
-        let pcr = img_write::PerCamRender {
-            width: named_intrinsics.width,
-            height: named_intrinsics.height,
-        };
-        let pcrf = img_write::PerCamRenderFrame {
-            p: &pcr,
-            jpeg_buf,
-            reproj,
-        };
+    let pcr = img_write::PerCamRender {
+        width: named_intrinsics.width,
+        height: named_intrinsics.height,
+    };
+    let pcrf = img_write::PerCamRenderFrame {
+        p: &pcr,
+        jpeg_buf,
+        reproj,
+    };
 
-        let mut out_svg_fname = PathBuf::from(output_xml.as_ref());
-        out_svg_fname.set_extension("svg");
-        img_write::doit(&out_svg_fname, &pcrf)?;
-        println!("Saved image for debugging to: {}", out_svg_fname.display());
-    }
+    img_write::doit(&out_svg_fname, &pcrf)?;
+    log::info!(
+        "Saved image for debugging to: {}",
+        out_svg_fname.as_ref().display()
+    );
+
     Ok(())
 }

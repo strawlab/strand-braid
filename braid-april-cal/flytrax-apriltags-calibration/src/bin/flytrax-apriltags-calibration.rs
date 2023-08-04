@@ -60,9 +60,16 @@ impl Cli {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let cli = Cli::parse();
     let (args, output_xml) = cli.into_args()?;
     let cal = flytrax_apriltags_calibration::compute_extrinsics(&args)?;
-    flytrax_apriltags_calibration::save_cal_result(output_xml, cal)?;
+
+    flytrax_apriltags_calibration::save_cal_result_to_xml(&output_xml, &cal)?;
+
+    let mut out_svg_fname = output_xml.clone();
+    out_svg_fname.set_extension("svg");
+    flytrax_apriltags_calibration::save_cal_svg_and_png_images(out_svg_fname, &cal)?;
+
     Ok(())
 }

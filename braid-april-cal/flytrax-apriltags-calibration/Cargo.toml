@@ -19,6 +19,7 @@ serde_yaml = "0.9.21"
 tagger = "4.0"
 tiny-skia = "0.6.1"
 usvg = { version = "0.19.0", default-features = false }
+log = "0.4.19"
 
 ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
 ads-apriltag = { path = "../../apriltag" }
@@ -28,6 +29,7 @@ flydra-types = { path = "../../flydra-types" }
 flytrax-io = { path = "../../strand-cam/flytrax-io" }
 mvg = { path = "../../mvg" }
 opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
+env_logger = "0.10.0"
 
 [dev-dependencies]
 download-verify = { path = "../../download-verify" }

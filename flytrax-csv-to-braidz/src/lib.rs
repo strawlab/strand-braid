@@ -69,6 +69,17 @@ where
         };
         let single_cam_result = flytrax_apriltags_calibration::compute_extrinsics(&args)?;
 
+        if let Some(dest_dir) = output_braidz.parent() {
+            std::fs::create_dir_all(dest_dir)?;
+        }
+
+        let mut out_svg_fname = std::path::PathBuf::from(output_braidz);
+        out_svg_fname.set_extension("braidz.svg");
+        flytrax_apriltags_calibration::save_cal_svg_and_png_images(
+            out_svg_fname,
+            &single_cam_result,
+        )?;
+
         let system = single_cam_result.cal_result().cam_system.clone();
 
         for camera_name in system.cams_by_name().keys() {
