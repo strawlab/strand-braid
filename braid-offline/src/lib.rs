@@ -219,7 +219,7 @@ pub async fn kalmanize<Q, R>(
         braidz_parser::incremental_parser::BasicInfoParsed,
     >,
     output_braidz: Q,
-    expected_fps: Option<f64>,
+    forced_fps: Option<f64>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
@@ -248,15 +248,46 @@ where
 
     let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
 
-    let src_info = data_src.basic_info();
-    let local = src_info.metadata.original_recording_time.clone();
+    let (local, metadata_fps, recon) = {
+        let src_info = data_src.basic_info();
+        let local = src_info.metadata.original_recording_time.clone();
 
-    let recon = if let Some(ci) = &src_info.calibration_info {
-        let cams = ci.cameras.clone();
-        let water = ci.water;
-        flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
+        let recon = if let Some(ci) = &src_info.calibration_info {
+            let cams = ci.cameras.clone();
+            let water = ci.water;
+            flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
+        } else {
+            return Err(Error::NoCalibrationFound);
+        };
+
+        (local, src_info.expected_fps, recon)
+    };
+
+    let fps = if let Some(fps) = forced_fps {
+        fps
     } else {
-        return Err(Error::NoCalibrationFound);
+        if !metadata_fps.is_nan() {
+            metadata_fps
+        } else {
+            // FPS could not be determined from metadata. Read the data to determine it.
+            let data_src_name = format!("{}", data_src.display());
+            let data_fname = data_src
+                .path_starter()
+                .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+
+            warn!(
+                "File \"{}\" does not have FPS saved directly. Will \
+                    parse from data.",
+                data_src_name
+            );
+
+            // TODO: replace with implementation in braidz-parser.
+            let data_file = open_maybe_gzipped(data_fname)?;
+
+            // TODO: first choice parse "MainBrain running at {}" string (as in
+            // braidz-parser). Second choice, do this.
+            calc_fps_from_data(data_file)?
+        }
     };
 
     let all_expected_cameras = recon
@@ -343,29 +374,6 @@ where
             unused.display()
         );
     }
-
-    let data_src_name = format!("{}", data_src.display());
-    // open the data2d CSV file
-    let mut data_fname = data_src.path_starter();
-    data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
-
-    let fps = match expected_fps {
-        Some(fps) => fps,
-        None => {
-            warn!(
-                "File \"{}\" does not have FPS saved directly. Will \
-            parse from data.",
-                data_src_name
-            );
-
-            // TODO: replace with implementation in braidz-parser.
-            let data_file = open_maybe_gzipped(data_fname)?;
-
-            // TODO: first choice parse "MainBrain running at {}" string (as in
-            // braidz-parser). Second choice, do this.
-            calc_fps_from_data(data_file)?
-        }
-    };
 
     let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
 
