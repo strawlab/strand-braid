@@ -13,6 +13,7 @@ use std::{
 use anyhow::Context;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
+use ordered_float::NotNan;
 use tracing::{debug, info, warn};
 
 use braidz_parser::open_maybe_gzipped;
@@ -219,7 +220,7 @@ pub async fn kalmanize<Q, R>(
         braidz_parser::incremental_parser::BasicInfoParsed,
     >,
     output_braidz: Q,
-    forced_fps: Option<f64>,
+    forced_fps: Option<NotNan<f64>>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
@@ -264,7 +265,7 @@ where
     };
 
     let fps = if let Some(fps) = forced_fps {
-        fps
+        fps.into_inner()
     } else {
         if !metadata_fps.is_nan() {
             metadata_fps
@@ -794,7 +795,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
     kalmanize(
         data_src,
         output_braidz,
-        opt.fps,
+        opt.fps.map(|v| NotNan::new(v).unwrap()),
         tracking_params,
         opts,
         rt_handle,
