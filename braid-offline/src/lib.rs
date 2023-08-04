@@ -232,6 +232,7 @@ where
     Q: AsRef<Path> + std::fmt::Debug,
     R: 'static + Read + Seek + Send + std::fmt::Debug,
 {
+    let mini_arena_debug_image_dir = output_braidz.as_ref().parent().map(PathBuf::from);
     let output_braidz = output_braidz.as_ref();
     let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
         let mut output_dirname: PathBuf = output_braidz.to_path_buf();
@@ -321,6 +322,7 @@ where
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir,
         },
         rt_handle.clone(),
         cam_manager.clone(),

@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use nalgebra::Point2;
 
@@ -53,6 +56,7 @@ impl MiniArenaImage {
 pub(crate) fn build_mini_arena_images(
     recon: Option<&flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     mini_arena_config: &MiniArenaConfig,
+    image_output_dir: Option<&Path>,
 ) -> Result<BTreeMap<String, MiniArenaImage>> {
     let mut mini_arena_images = BTreeMap::new();
     let recon = match recon {
@@ -84,7 +88,9 @@ pub(crate) fn build_mini_arena_images(
                     }
                 }
 
-                {
+                if let Some(dest_dir) = image_output_dir {
+                    std::fs::create_dir_all(dest_dir)?;
+
                     // save debug image of mini arenas.
                     use machine_vision_formats::pixel_format::Mono8;
                     let frame = simple_frame::SimpleFrame::<Mono8>::new(
@@ -97,9 +103,15 @@ pub(crate) fn build_mini_arena_images(
                     let png_buf =
                         convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png)
                             .unwrap();
-                    let fname = format!("mini_arenas_{}.png", cam.name());
-                    std::fs::write(&fname, png_buf)?;
-                    tracing::info!("saved mini arena image assignment image to {fname}");
+
+                    let dest_path =
+                        PathBuf::from(dest_dir).join(format!("mini_arenas_{}.png", cam.name()));
+
+                    std::fs::write(&dest_path, png_buf)?;
+                    tracing::info!(
+                        "saved mini arena image assignment image to {}",
+                        dest_path.display()
+                    );
                 }
 
                 mini_arena_images.insert(

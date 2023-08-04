@@ -531,6 +531,7 @@ pub async fn pre_run(
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir: None,
         },
         tokio::runtime::Handle::current(),
         cam_manager.clone(),

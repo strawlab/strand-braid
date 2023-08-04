@@ -779,6 +779,7 @@ pub struct CoordProcessorConfig {
     pub tracking_params: TrackingParams,
     pub save_empty_data2d: bool,
     pub ignore_latency: bool,
+    pub mini_arena_debug_image_dir: Option<std::path::PathBuf>,
 }
 
 // TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
@@ -823,6 +824,7 @@ impl CoordProcessor {
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir,
         } = cfg;
 
         trace!("CoordProcessor using {:?}", recon);
@@ -834,6 +836,9 @@ impl CoordProcessor {
         let mini_arena_images = mini_arenas::build_mini_arena_images(
             recon.as_ref(),
             &tracking_params.mini_arena_config,
+            mini_arena_debug_image_dir
+                .as_ref()
+                .map(std::path::PathBuf::as_path),
         )?;
 
         let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);
