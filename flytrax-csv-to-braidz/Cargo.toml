@@ -7,7 +7,6 @@ rust-version = "1.59"
 
 [dependencies]
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
-env_logger = "0.8"
 clap = {version="4.0.10", features=["derive"]}
 parking_lot = "0.11"
 csv = "1.1"
@@ -34,6 +33,7 @@ image = { version = "0.24.2", default-features = false, features = ["jpeg", "png
 opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
 
 datetime-conversion = {path="../datetime-conversion"}
+env-tracing-logger = {path="../env-tracing-logger"}
 mvg = {path="../mvg", features = ["serde-serialize"] }
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
@@ -55,6 +55,7 @@ flytrax-apriltags-calibration = {path="../braid-april-cal/flytrax-apriltags-cali
 flytrax-io = {path="../strand-cam/flytrax-io"}
 
 [dev-dependencies]
+env_logger = "0.10.0"
 test-log = "0.2.12"
 
 [features]

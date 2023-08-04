@@ -108,7 +108,8 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn open_files_and_run() -> anyhow::Result<()> {
-    env_logger::init();
+    let _tracing_guard = env_tracing_logger::init();
+
     let cli = Cli::parse();
 
     let cal_file_name = cli
