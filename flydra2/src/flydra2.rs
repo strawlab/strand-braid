@@ -962,7 +962,7 @@ impl CoordProcessor {
 
         info!("Starting model collection and frame bundler.");
 
-        // Restart the model collection.
+        // Start the model collection.
 
         if let Some(ref recon) = self.recon {
             let fps = expected_framerate.expect("expected_framerate must be set");
@@ -988,7 +988,7 @@ impl CoordProcessor {
             }
         }
 
-        // Restart the frame bundler.
+        // Start the frame bundler.
 
         // This function takes a stream and returns a stream. In the returned
         // stream, it has bundled the camera-by-camera data into all-cam data.
