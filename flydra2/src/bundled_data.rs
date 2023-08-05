@@ -4,7 +4,7 @@ use flydra_types::{MiniArenaConfig, RosCamName};
 use nalgebra::Point2;
 
 use crate::connected_camera_manager::CameraList;
-use crate::mini_arenas::MiniArenaImage;
+use crate::mini_arenas::{MiniArenaImage, MiniArenaLocator};
 use crate::NumberedRawUdpPoint;
 use crate::{
     contiguous_stream::Numbered, FrameDataAndPoints, MyFloat, SyncFno, TimeDataPassthrough,
@@ -262,7 +262,7 @@ fn undistort_points_and_assign_arena(
                 mini_arena_image.get_mini_arena(xidx, yidx)
             } else {
                 // We are not using mini arenas
-                None
+                MiniArenaLocator::OneArena
             };
 
             let distorted = mvg::DistortedPixel {
@@ -276,13 +276,11 @@ fn undistort_points_and_assign_arena(
                 y: undist.coords.y,
             };
 
-            let index = if let Some(mini_arena_idx) = mini_arena_idx {
-                mini_arena_idx.idx()
-            } else {
-                // We are not using mini arenas but we still want to keep the
-                // point. In this case we have a single "mini arena", which
-                // actually encompasses the entire image, at index 0.
-                0
+            let index = match mini_arena_idx {
+                MiniArenaLocator::OneArena => 0,
+                MiniArenaLocator::Index(mini_arena_idx) => mini_arena_idx.idx(),
+                MiniArenaLocator::NotInMiniArena => continue, // drop point from further consideration
+                MiniArenaLocator::OutOfBounds => panic!("input location out of bounds"),
             };
 
             let pt = MiniArenaPointPerCam {

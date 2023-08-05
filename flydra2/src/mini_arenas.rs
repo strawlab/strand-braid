@@ -28,6 +28,17 @@ impl MiniArenaIndex {
 
 const NO_MINI_ARENA_MARKER: u8 = 255;
 
+pub(crate) enum MiniArenaLocator {
+    /// Location is not possible.
+    OutOfBounds,
+    /// Not in mini arena.
+    NotInMiniArena,
+    /// In mini arena with index.
+    Index(MiniArenaIndex),
+    /// No mini arenas are in use.
+    OneArena,
+}
+
 /// Image of a mini arena for a calibrated camera.
 pub(crate) struct MiniArenaImage {
     width: usize,
@@ -46,18 +57,13 @@ impl std::fmt::Debug for MiniArenaImage {
 
 impl MiniArenaImage {
     /// Get mini arena locator.
-    ///
-    /// Returns None if (x,y) location out of bounds or does not refer to a mini
-    /// arena.
-    pub(crate) fn get_mini_arena(&self, x: usize, y: usize) -> Option<MiniArenaIndex> {
+    pub(crate) fn get_mini_arena(&self, x: usize, y: usize) -> MiniArenaLocator {
         let idx = y * self.width + x;
-        self.data.get(idx).and_then(|val| {
-            if *val == NO_MINI_ARENA_MARKER {
-                None
-            } else {
-                Some(MiniArenaIndex(*val))
-            }
-        })
+        match self.data.get(idx).map(|x| *x) {
+            None => MiniArenaLocator::OutOfBounds,
+            Some(NO_MINI_ARENA_MARKER) => MiniArenaLocator::NotInMiniArena,
+            Some(idx) => MiniArenaLocator::Index(MiniArenaIndex::new(idx)),
+        }
     }
 }
 
