@@ -1069,15 +1069,16 @@ impl CoordProcessor {
                 // ---------------------------------
 
                 // create new and delete old objects
-                let mut model_collections = Vec::new();
-                for (mc, unused) in model_collections_and_unused_observations.into_iter() {
-                    let (mc, send_msgs, save_msgs) = mc.births_and_deaths(
-                        tdpt,
-                        unused,
-                        || self.next_obj_id_func(),
-                        // &self.model_servers,
-                    );
-                    model_collections.push(mc);
+                let (model_collections, combined) = model_collections_and_unused_observations
+                    .into_iter()
+                    .map(|(mc, unused)| {
+                        let (mc, send_msgs, save_msgs) =
+                            mc.births_and_deaths(tdpt, unused, || self.next_obj_id_func());
+                        (mc, (send_msgs, save_msgs))
+                    })
+                    .unzip::<_, _, Vec<_>, Vec<_>>();
+
+                for (send_msgs, save_msgs) in combined.into_iter() {
                     for msg in save_msgs.into_iter() {
                         self.braidz_write_tx.send(msg).await.unwrap();
                     }
