@@ -938,7 +938,7 @@ impl ModelCollection<CollectionFramePosteriors> {
         );
 
         let mut to_kill = Vec::with_capacity(orig_models.len());
-        let mut to_live = Vec::with_capacity(orig_models.len());
+        let mut to_live = Vec::with_capacity(orig_models.len() + 1);
 
         let max_variance = self.mcinner.params.max_position_std_meters.powi(2) as f64; // square so that it is in variance units
 
