@@ -1012,6 +1012,7 @@ impl CoordProcessor {
             );
             prev_frame = bundle.frame();
 
+            // Undistort incoming points and assign to mini arenas.
             let undistorted = if let Some(recon) = &self.recon {
                 bundle.undistort_and_split_to_mini_arenas(
                     recon,
