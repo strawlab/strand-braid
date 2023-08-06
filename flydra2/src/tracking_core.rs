@@ -672,26 +672,41 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
 
             // Initialize updated models in which no observation
             // was used and thus the posteriors are just the priors.
-            let mut models_with_posteriors: Vec<_> = self
+            let (mut models_with_posteriors, old_states) = self
                 .state
                 .models_with_obs_likes
-                .iter()
-                .map(|model| {
-                    LivingModel {
-                        gestation_age: model.gestation_age,
+                .into_iter()
+                .map(|old_model| {
+                    // Destructure old model into constituent parts.
+                    let LivingModel {
+                        gestation_age,
+                        state,
+                        posteriors,
+                        last_observation_offset,
+                        lmi,
+                    } = old_model;
+
+                    // Create new model with new state (type
+                    // `ModelFramePosteriors`), moving in the relevant parts
+                    // from the old model.
+                    let new_model = LivingModel {
+                        gestation_age,
                         state: ModelFramePosteriors {
                             posterior: StampedEstimate {
-                                estimate: model.state.prior.clone(), // just the prior initially
+                                estimate: state.prior.clone(), // just the prior initially
                                 tdpt: tdpt.clone(),
                             },
                             data_assoc_this_timestamp: vec![], // no observations yet
                         },
-                        posteriors: model.posteriors.clone(),
-                        last_observation_offset: model.last_observation_offset,
-                        lmi: model.lmi.clone(),
-                    }
+                        posteriors,
+                        last_observation_offset,
+                        lmi,
+                    };
+
+                    // Return the new model and the old state
+                    (new_model, state)
                 })
-                .collect();
+                .unzip::<_, _, Vec<_>, Vec<_>>();
 
             let zero = nalgebra::convert(0.0);
 
@@ -719,23 +734,17 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 // There are N elements in the outer vector, one for each model
                 // and M elements in each inner container, corresponding to the M
                 // detected points for this camera on this frame.
-                let wantedness: Vec<_> = self
-                    .state
-                    .models_with_obs_likes
+                let wantedness = old_states
                     .iter()
-                    .map(
-                        |model| match &model.state.obs_models_and_likelihoods[cam_idx] {
-                            ObservationModel::ObservationModelAndLikelihoods(oml) => {
-                                oml.likelihoods.clone()
-                            }
-                            ObservationModel::NoObservations => {
-                                nalgebra::RowDVector::zeros(arena_data.len())
-                            }
-                        },
-                    )
-                    .collect();
-
-                debug_assert!(wantedness.len() == self.state.models_with_obs_likes.len());
+                    .map(|model| match &model.obs_models_and_likelihoods[cam_idx] {
+                        ObservationModel::ObservationModelAndLikelihoods(oml) => {
+                            oml.likelihoods.clone()
+                        }
+                        ObservationModel::NoObservations => {
+                            nalgebra::RowDVector::zeros(arena_data.len())
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
                 // debug!("wantedness1 {:?}", wantedness);
 
@@ -744,7 +753,6 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                         wantedness.as_slice(),
                     );
 
-                debug_assert!(self.state.models_with_obs_likes.len() == wantedness.nrows());
                 debug_assert!(arena_data.len() == wantedness.ncols());
 
                 trace!(
@@ -788,8 +796,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                             let observation_undistorted =
                                 OVector::<_, U2>::new(undist_pt.x, undist_pt.y);
 
-                            let model = &self.state.models_with_obs_likes[row_idx];
-                            let obs_model = match &model.state.obs_models_and_likelihoods[cam_idx] {
+                            let model = &old_states[row_idx];
+                            let obs_model = match &model.obs_models_and_likelihoods[cam_idx] {
                                 ObservationModel::ObservationModelAndLikelihoods(oml) => {
                                     &oml.observation_model
                                 }
