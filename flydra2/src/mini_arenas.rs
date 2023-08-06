@@ -4,10 +4,11 @@ use std::{
 };
 
 use nalgebra::Point2;
+use serde::{Deserialize, Serialize};
 
 use flydra_types::MiniArenaConfig;
 
-use crate::{MyFloat, Result};
+use crate::{bundled_data::BundledAllCamsOneFrameUndistorted, MyFloat, Result};
 
 /// Into a mini arena.
 ///
@@ -140,4 +141,76 @@ pub(crate) fn build_mini_arena_images(
         }
     }
     Ok(mini_arena_images)
+}
+
+// ------ debug to CSV stuff ---------------
+
+/// Debugging structure to save to CSV files
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct MiniArenaPointPerCamFlat {
+    frame: u64,
+    cam_name: String,
+    mini_arena_idx: usize,
+    undistorted_x: f64,
+    undistorted_y: f64,
+    distorted_idx: u8,
+    distorted_x: f64,
+    distorted_y: f64,
+}
+
+impl MiniArenaPointPerCamFlat {
+    fn new(
+        frame: u64,
+        cam_name: String,
+        mini_arena_idx: usize,
+        orig: &crate::bundled_data::MiniArenaPointPerCam,
+    ) -> Self {
+        Self {
+            frame,
+            cam_name,
+            mini_arena_idx,
+            undistorted_x: orig.undistorted.x,
+            undistorted_y: orig.undistorted.y,
+            distorted_idx: orig.numbered_raw_udp_point.idx,
+            distorted_x: orig.numbered_raw_udp_point.pt.x0_abs,
+            distorted_y: orig.numbered_raw_udp_point.pt.y0_abs,
+        }
+    }
+}
+
+pub(crate) struct MiniArenaAssignmentDebug {
+    wtr: csv::Writer<std::io::BufWriter<std::fs::File>>,
+}
+
+impl MiniArenaAssignmentDebug {
+    pub(crate) fn new<P: AsRef<Path>>(path: P) -> crate::Result<Self> {
+        let fd = std::fs::File::create(path)?;
+        let bufwriter = std::io::BufWriter::new(fd);
+        let wtr = csv::Writer::from_writer(bufwriter);
+        Ok(Self { wtr })
+    }
+
+    pub(crate) fn write_frame(
+        &mut self,
+        undistorted: &BundledAllCamsOneFrameUndistorted,
+    ) -> crate::Result<()> {
+        let frame = undistorted.tdpt.frame.0;
+
+        for (mini_arena_idx, mini_arena) in undistorted.per_mini_arena.iter().enumerate() {
+            for (mini_arena_cam, mini_arena_data) in mini_arena.per_cam.iter() {
+                for orig in mini_arena_data.iter() {
+                    let row = MiniArenaPointPerCamFlat::new(
+                        frame,
+                        mini_arena_cam.as_str().to_string(),
+                        mini_arena_idx,
+                        orig,
+                    );
+
+                    self.wtr.serialize(row)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }

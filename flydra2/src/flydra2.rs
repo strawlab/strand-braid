@@ -1001,6 +1001,9 @@ impl CoordProcessor {
         let mut contiguous_stream =
             make_contiguous(bundled).instrument(tracing::info_span!("contiguous"));
 
+        let mut mini_arena_assignment_debug = std::env::var_os("DEBUG_MINI_ARENAS")
+            .map(|fname| mini_arenas::MiniArenaAssignmentDebug::new(&fname).unwrap());
+
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
         while let Some(bundle) = contiguous_stream.next().await {
@@ -1022,6 +1025,10 @@ impl CoordProcessor {
             } else {
                 continue;
             };
+
+            if let Some(dbg) = mini_arena_assignment_debug.as_mut() {
+                dbg.write_frame(&undistorted).unwrap();
+            }
 
             if let Some(mcs) = &self.model_collections {
                 debug_assert_eq!(undistorted.per_mini_arena.len(), mcs.len());
