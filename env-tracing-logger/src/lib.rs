@@ -1,6 +1,6 @@
 use tracing::subscriber::SetGlobalDefaultError;
 use tracing_subscriber::{
-    fmt::{self, time, format},
+    fmt::{self, format, time},
     prelude::*,
     EnvFilter,
 };
@@ -18,8 +18,8 @@ pub fn init() -> impl Drop {
 }
 
 fn init_result() -> Result<impl Drop, (impl Drop, tracing::subscriber::SetGlobalDefaultError)> {
-    let fmt = format().with_timer(time::Uptime::default());
-    let fmt_layer = fmt::layer().event_format(fmt).with_target(false);
+    let evt_fmt = format().with_timer(time::Uptime::default());
+    let fmt_layer = fmt::layer().event_format(evt_fmt).with_target(false);
 
     tracing_subscriber::registry()
         .with(fmt_layer)
