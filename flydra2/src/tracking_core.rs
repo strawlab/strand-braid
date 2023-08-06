@@ -932,10 +932,7 @@ impl ModelCollection<CollectionFramePosteriors> {
 
         // Check deaths before births so we do not check if we kill a
         // just-created model.
-        let orig_models = std::mem::replace(
-            &mut self.state.models_with_posteriors,
-            Vec::with_capacity(0),
-        );
+        let orig_models = std::mem::replace(&mut self.state.models_with_posteriors, vec![]);
 
         let mut to_kill = Vec::with_capacity(orig_models.len());
         let mut to_live = Vec::with_capacity(orig_models.len() + 1);
