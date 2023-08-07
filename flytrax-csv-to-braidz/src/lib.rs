@@ -8,6 +8,7 @@ use std::{
     path::PathBuf,
 };
 
+use braid_offline::KalmanizeOptions;
 use flydra_mvg::FlydraMultiCameraSystem;
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +36,7 @@ async fn kalmanize_2d<R>(
     row_filters: &[RowFilter],
     no_progress: bool,
     eargs: Option<ExtrinsicsArgs>,
+    opt2: KalmanizeOptions,
 ) -> Result<()>
 where
     R: BufRead,
@@ -147,7 +149,7 @@ where
         output_braidz,
         None,
         tracking_params,
-        braid_offline::KalmanizeOptions::default(),
+        opt2,
         tokio::runtime::Handle::current(),
         save_performance_histograms,
         &env!("CARGO_PKG_NAME"),
@@ -495,6 +497,7 @@ pub async fn parse_configs_and_run<R>(
     row_filters: &[RowFilter],
     no_progress: bool,
     eargs: Option<ExtrinsicsArgs>,
+    opt2: KalmanizeOptions,
 ) -> Result<()>
 where
     R: BufRead,
@@ -519,6 +522,7 @@ where
         row_filters,
         no_progress,
         eargs,
+        opt2,
     )
     .await
 }

@@ -82,6 +82,13 @@ struct Cli {
     #[arg(long)]
     apriltags_3d_fiducial_coords: Option<std::path::PathBuf>,
 
+    /// Set start frame to start tracking
+    #[arg(long)]
+    pub start_frame: Option<u64>,
+    /// Set stop frame to stop tracking
+    #[arg(long)]
+    pub stop_frame: Option<u64>,
+
     /// Include all data from outside the calibration region in tracking
     ///
     /// By default, if the calibration parameters are given as a simple
@@ -203,6 +210,12 @@ async fn open_files_and_run() -> anyhow::Result<()> {
             },
         );
 
+    let opt2 = braid_offline::KalmanizeOptions {
+        start_frame: cli.start_frame,
+        stop_frame: cli.stop_frame,
+        ..Default::default()
+    };
+
     parse_configs_and_run(
         point_detection_csv_reader,
         Some(&flydra_csv_temp_dir),
@@ -214,6 +227,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         &filters,
         cli.no_progress,
         eargs,
+        opt2,
     )
     .await?;
 

@@ -32,6 +32,7 @@ async fn test_run_end_to_end() {
         &row_filters,
         true,
         None,
+        braid_offline::KalmanizeOptions::default(),
     )
     .await
     .unwrap();
@@ -72,6 +73,7 @@ async fn test_z_values_zero() {
         &row_filters,
         true,
         None,
+        braid_offline::KalmanizeOptions::default(),
     )
     .await
     .unwrap();
