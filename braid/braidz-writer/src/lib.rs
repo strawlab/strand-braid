@@ -61,7 +61,7 @@ pub fn dir_to_braidz<P1: AsRef<Path>, P2: AsRef<Path>>(
         .large_file(true)
         .unix_permissions(0o755);
 
-    zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, &mut zipw, options).expect("zip_dir");
+    zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, &mut zipw, options)?;
     zipw.finish()?;
     Ok(())
 }
