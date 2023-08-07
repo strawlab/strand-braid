@@ -261,7 +261,7 @@ impl Component for Model {
                     <p>
                     </p>
                     <div class={"file-upload-div"}>
-                        <label class={classes!("btn","custum-file-uplad")}>{"Select a BRAIDZ file."}
+                        <label class={classes!("btn","custom-file-upload")}>{"Select a BRAIDZ file."}
                             <input
                                 type="file"
                                 class={"custom-file-upload-input"}
