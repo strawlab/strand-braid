@@ -47,13 +47,6 @@ pub enum Error {
     },
     #[error("TryRecvError")]
     TryRecvError,
-    #[error("RecvTimeoutError: {source}")]
-    RecvTimeoutError {
-        #[from]
-        source: std::sync::mpsc::RecvTimeoutError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
     #[error("ParseIntError: {source}")]
     ParseIntError {
         #[from]
