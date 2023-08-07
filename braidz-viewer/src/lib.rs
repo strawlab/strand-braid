@@ -70,6 +70,7 @@ struct Model {
     braidz_file: MaybeValidBraidzFile,
     did_error: bool,
     html_page_title: Option<String>,
+    why_busy: WhyBusy,
 }
 
 pub enum Msg {
@@ -78,6 +79,12 @@ pub enum Msg {
     Loaded(String, Vec<u8>),
     FileDropped(DragEvent),
     FileDraggedOver(DragEvent),
+}
+
+enum WhyBusy {
+    NotBusy,
+    LoadingFile(String),
+    DrawingPlots,
 }
 
 impl Component for Model {
@@ -91,6 +98,7 @@ impl Component for Model {
             readers: HashMap::default(),
             did_error: false,
             html_page_title: None,
+            why_busy: WhyBusy::NotBusy,
         }
     }
 
@@ -99,8 +107,10 @@ impl Component for Model {
             Msg::RenderAll => {
                 update_2d_canvas(self);
                 update_canvas(self);
+                self.why_busy = WhyBusy::NotBusy;
             }
             Msg::Loaded(filename, rbuf) => {
+                self.why_busy = WhyBusy::DrawingPlots;
                 let filesize = rbuf.len() as u64;
 
                 let cur = zip_or_dir::ZipDirArchive::from_zip(
@@ -157,6 +167,7 @@ impl Component for Model {
             }
             Msg::FileChanged(file) => {
                 let filename = file.name();
+                self.why_busy = WhyBusy::LoadingFile(filename.clone());
                 let link = ctx.link().clone();
                 let filename2 = filename.clone();
                 let reader = gloo_file::callbacks::read_as_bytes(&file, move |res| {
@@ -228,24 +239,23 @@ impl Component for Model {
             empty()
         };
 
-        // let spinner_div_class = if self.tasks.len() > 0 {
-        //     "compute-modal"
-        // } else {
-        //     "display-none"
-        // };
-        let spinner_div_class = "display-none";
+        let (spinner_div_class, spinner_msg) = match &self.why_busy {
+            WhyBusy::NotBusy => ("display-none", "".to_string()),
+            WhyBusy::LoadingFile(filename) => {
+                ("compute-modal", format!("Loading file: \"{}\"", filename))
+            }
+            WhyBusy::DrawingPlots => ("compute-modal", format!("Drawing plots")),
+        };
 
         html! {
             <div id="page-container">
                 <div class={spinner_div_class}>
                     <div class="compute-modal-inner">
                         <p>
-                            {"Loading file."}
+                            {spinner_msg}
                         </p>
                         <div class="lds-ellipsis">
-
                             <div></div><div></div><div></div><div></div>
-
                         </div>
                     </div>
                 </div>
