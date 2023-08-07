@@ -245,8 +245,11 @@ where
         });
     };
 
-    info!("tracking:");
-    info!("  {} -> {}", data_src.display(), output_dirname.display());
+    info!(
+        "tracking: {} -> {}",
+        data_src.display(),
+        output_dirname.display()
+    );
 
     let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
 
