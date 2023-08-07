@@ -33,6 +33,7 @@ struct WritingState {
 
     reconstruction_latency_usec: Option<HistogramWritingState>,
     reproj_dist_pixels: Option<HistogramWritingState>,
+    last_flush: std::time::Instant,
 }
 
 fn _test_writing_state_is_send() {
@@ -337,6 +338,7 @@ impl WritingState {
             file_start_time,
             reconstruction_latency_usec,
             reproj_dist_pixels,
+            last_flush: std::time::Instant::now(),
         })
     }
 
@@ -359,6 +361,7 @@ impl WritingState {
         self.textlog_wtr.flush()?;
         self.trigger_clock_info_wtr.flush()?;
         self.experiment_info_wtr.flush()?;
+        self.last_flush = std::time::Instant::now();
         Ok(())
     }
 }
@@ -473,10 +476,8 @@ impl Drop for WritingState {
 }
 
 #[tracing::instrument]
-pub(crate) async fn writer_task_main(
-    mut braidz_write_rx: stream_cancel::Valved<
-        tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,
-    >,
+pub(crate) fn writer_task_main(
+    mut braidz_write_rx: tokio::sync::mpsc::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<TrackingParams>,
@@ -492,22 +493,13 @@ pub(crate) async fn writer_task_main(
     const FLUSH_INTERVAL: u64 = 1;
     let flush_interval = Duration::from_secs(FLUSH_INTERVAL);
 
-    let mut flush_tick = tokio::time::interval(flush_interval);
-
-    use futures::stream::StreamExt;
-
     tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
     loop {
-        tokio::select! {
-            opt_msg = braidz_write_rx.next() => {
-                if opt_msg.is_none() {
-                    // sender disconnected. we can quit too.
-                    // We rely on `writing_state.drop()` to flush and close
-                    // everything.
-                    break;
-                }
-                let msg = opt_msg.unwrap();
+        // TODO: improve flushing. Specifically, if we block for a long time
+        // without receiving a message here, we will not flush to disk.
+        match braidz_write_rx.blocking_recv() {
+            Some(msg) => {
                 match msg {
                     KalmanEstimate(ke) => {
                         let KalmanEstimateRecord {
@@ -640,14 +632,16 @@ pub(crate) async fn writer_task_main(
                         }
                         // simply drop data if no file opened
                     }
-                };
-
-            }
-            _ = flush_tick.tick() => {
-                // flush all writers
-                if let Some(ref mut ws) = writing_state {
-                    ws.flush_all()?;
                 }
+            }
+            None => {
+                break;
+            }
+        }
+
+        if let Some(ref mut ws) = writing_state {
+            if ws.last_flush.elapsed() > flush_interval {
+                ws.flush_all()?;
             }
         }
     }

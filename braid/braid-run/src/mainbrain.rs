@@ -1253,7 +1253,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     // Allow writer task time to finish writing.
     writer_jh
-        .await
+        .join()
         .expect("join writer task 1")
         .expect("join writer task 2");
 

@@ -664,7 +664,7 @@ where
     let (writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
     writer_jh
-        .await
+        .join()
         .expect("finish writer task 1")
         .expect("finish writer task 2");
     r2.expect("finish reader task");

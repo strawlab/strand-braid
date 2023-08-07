@@ -793,7 +793,7 @@ pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
     pub braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
-    pub writer_join_handle: tokio::task::JoinHandle<Result<()>>,
+    pub writer_join_handle: std::thread::JoinHandle<Result<()>>,
     model_servers: Vec<tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>>,
     tracking_params: Arc<TrackingParams>,
     /// Images of the "mini arenas" in use.
@@ -847,19 +847,19 @@ impl CoordProcessor {
 
         let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
 
-        let braidz_write_rx = tokio_stream::wrappers::ReceiverStream::new(braidz_write_rx);
-        let braidz_write_rx = valve.wrap(braidz_write_rx);
-
-        let writer_future = writer_task_main(
-            braidz_write_rx,
-            cam_manager2,
-            recon2,
-            tracking_params2,
-            save_empty_data2d,
-            metadata_builder,
-            ignore_latency,
-        );
-        let writer_join_handle = handle.spawn(writer_future);
+        let writer_join_handle = std::thread::Builder::new()
+            .name("writer_task_main".to_string())
+            .spawn(move || {
+                writer_task_main(
+                    braidz_write_rx,
+                    cam_manager2,
+                    recon2,
+                    tracking_params2,
+                    save_empty_data2d,
+                    metadata_builder,
+                    ignore_latency,
+                )
+            })?;
 
         Ok(Self {
             cam_manager,
@@ -921,7 +921,7 @@ impl CoordProcessor {
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
-    ) -> tokio::task::JoinHandle<Result<()>>
+    ) -> std::thread::JoinHandle<Result<()>>
     where
         S: 'static + Send + futures::stream::Stream<Item = StreamItem> + std::fmt::Debug + Unpin,
     {
