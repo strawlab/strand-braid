@@ -34,15 +34,9 @@ opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
 
 datetime-conversion = {path="../datetime-conversion"}
 env-tracing-logger = {path="../env-tracing-logger"}
-mvg = {path="../mvg", features = ["serde-serialize"] }
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 flydra-types = {path="../flydra-types"}
-tracking = {path="../tracking"}
-groupby = {path="../groupby"}
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
-withkey = {path="../withkey"}
-crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal"}
 flydra2 = {path="../flydra2", default-features = false, features=["bundle_files"]}
@@ -50,7 +44,6 @@ braidz-types = {path="../braidz-types"}
 braidz-parser = {path="../braidz-parser"}
 zip-or-dir = {path="../zip-or-dir"}
 braid-offline = {path="../braid-offline", default-features = false}
-channellib = {path="../channellib"}
 flytrax-apriltags-calibration = {path="../braid-april-cal/flytrax-apriltags-calibration"}
 flytrax-io = {path="../strand-cam/flytrax-io"}
 
@@ -59,4 +52,4 @@ env_logger = "0.10.0"
 test-log = "0.2.12"
 
 [features]
-backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]
+backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]
