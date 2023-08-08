@@ -56,7 +56,7 @@ test_crates:
 
     # flytrax-csv-to-braidz, which requires opencv
     - cd flytrax-csv-to-braidz
-    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release
     - cd ..
 
     # Test freemovr-calibration, which requires opencv
