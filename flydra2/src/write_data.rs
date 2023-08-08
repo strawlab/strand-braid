@@ -1,5 +1,5 @@
 use crate::*;
-use log::info;
+use tracing::info;
 
 use std::{io::Write, sync::Arc};
 
@@ -33,12 +33,33 @@ struct WritingState {
 
     reconstruction_latency_usec: Option<HistogramWritingState>,
     reproj_dist_pixels: Option<HistogramWritingState>,
+    last_flush: std::time::Instant,
 }
 
 fn _test_writing_state_is_send() {
     // Compile-time test to ensure WritingState implements Send trait.
     fn implements<T: Send>() {}
     implements::<WritingState>();
+}
+
+#[derive(Clone, Debug)]
+pub enum BraidMetadataBuilder {
+    GenerateNew(MetadataParts),
+    Existing(BraidMetadata),
+}
+
+impl BraidMetadataBuilder {
+    /// Constructor to help with backwards compatibility
+    pub fn saving_program_name<S: Into<String>>(saving_program_name: S) -> BraidMetadataBuilder {
+        BraidMetadataBuilder::GenerateNew(MetadataParts {
+            saving_program_name: saving_program_name.into(),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MetadataParts {
+    saving_program_name: String,
 }
 
 impl WritingState {
@@ -48,7 +69,7 @@ impl WritingState {
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         tracking_params: Arc<TrackingParams>,
         save_empty_data2d: bool,
-        saving_program_name: String,
+        metadata_builder: BraidMetadataBuilder,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
         let local = cfg.local;
@@ -83,12 +104,17 @@ impl WritingState {
         {
             let braid_metadata_path = output_dirname.join(flydra_types::BRAID_METADATA_YML_FNAME);
 
-            let metadata = BraidMetadata {
-                schema: BRAID_SCHEMA, // BraidMetadataSchemaTag
-                git_revision: git_revision.clone(),
-                original_recording_time: local,
-                save_empty_data2d,
-                saving_program_name,
+            let metadata = match metadata_builder {
+                BraidMetadataBuilder::GenerateNew(parts) => {
+                    BraidMetadata {
+                        schema: BRAID_SCHEMA, // BraidMetadataSchemaTag
+                        git_revision: git_revision.clone(),
+                        original_recording_time: local,
+                        save_empty_data2d,
+                        saving_program_name: parts.saving_program_name,
+                    }
+                }
+                BraidMetadataBuilder::Existing(metadata) => metadata,
             };
             let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
@@ -312,6 +338,7 @@ impl WritingState {
             file_start_time,
             reconstruction_latency_usec,
             reproj_dist_pixels,
+            last_flush: std::time::Instant::now(),
         })
     }
 
@@ -334,6 +361,7 @@ impl WritingState {
         self.textlog_wtr.flush()?;
         self.trigger_clock_info_wtr.flush()?;
         self.experiment_info_wtr.flush()?;
+        self.last_flush = std::time::Instant::now();
         Ok(())
     }
 }
@@ -428,52 +456,7 @@ impl Drop for WritingState {
             };
 
             info!("creating zip file {}", output_zipfile.display());
-            // zip the output_dirname directory
-            {
-                let mut file = std::fs::File::create(&output_zipfile).unwrap();
-
-                let header = "BRAIDZ file. This is a standard ZIP file with a \
-                    specific schema. You can view the contents of this \
-                    file at https://braidz.strawlab.org/\n";
-                file.write_all(header.as_bytes()).unwrap();
-
-                let walkdir = walkdir::WalkDir::new(&output_dirname);
-
-                // Reorder the results to save the README_MD_FNAME file first
-                // so that the first bytes of the file have it. This is why we
-                // special-case the file here.
-                let mut readme_entry: Option<walkdir::DirEntry> = None;
-
-                let mut files = Vec::new();
-                for entry in walkdir.into_iter().filter_map(|e| e.ok()) {
-                    if entry.file_name() == flydra_types::README_MD_FNAME {
-                        readme_entry = Some(entry);
-                    } else {
-                        files.push(entry);
-                    }
-                }
-                if let Some(entry) = readme_entry {
-                    files.insert(0, entry);
-                }
-
-                let mut zipw = zip::ZipWriter::new(file);
-                // Since most of our files are already compressed as .gz files,
-                // we do not bother attempting to compress again. This would
-                // cost significant computation but wouldn't save much space.
-                // (The compressed files should all end with .gz so we could
-                // theoretically compress the uncompressed files by a simple
-                // file name filter. However, the README.md file should ideally
-                // remain uncompressed and as the first file so that inspecting
-                // the braidz file will show this.)
-                let options = zip::write::FileOptions::default()
-                    .compression_method(zip::CompressionMethod::Stored)
-                    .large_file(true)
-                    .unix_permissions(0o755);
-
-                zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, &mut zipw, options)
-                    .expect("zip_dir");
-                zipw.finish().unwrap();
-            }
+            braidz_writer::dir_to_braidz(&output_dirname, output_zipfile).unwrap();
 
             // Release the file so we no longer have exclusive access to the
             // directory. (Until we remove the directory, we have a small race
@@ -492,33 +475,31 @@ impl Drop for WritingState {
     }
 }
 
-pub(crate) async fn writer_task_main(
-    mut braidz_write_rx: stream_cancel::Valved<
-        tokio_stream::wrappers::ReceiverStream<SaveToDiskMsg>,
-    >,
+#[tracing::instrument]
+pub(crate) fn writer_task_main(
+    mut braidz_write_rx: tokio::sync::mpsc::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     tracking_params: Arc<TrackingParams>,
     save_empty_data2d: bool,
-    saving_program_name: String,
+    metadata_builder: BraidMetadataBuilder,
     ignore_latency: bool,
 ) -> Result<()> {
     use crate::SaveToDiskMsg::*;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     let mut writing_state: Option<WritingState> = None;
 
     const FLUSH_INTERVAL: u64 = 1;
     let flush_interval = Duration::from_secs(FLUSH_INTERVAL);
 
-    let mut last_flushed = Instant::now();
-    use futures::stream::StreamExt;
-
-    log::debug!("Starting braidz writer task. {}:{}", file!(), line!());
+    tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
     loop {
-        match tokio::time::timeout(flush_interval, braidz_write_rx.next()).await {
-            Ok(Some(msg)) => {
+        // TODO: improve flushing. Specifically, if we block for a long time
+        // without receiving a message here, we will not flush to disk.
+        match braidz_write_rx.blocking_recv() {
+            Some(msg) => {
                 match msg {
                     KalmanEstimate(ke) => {
                         let KalmanEstimateRecord {
@@ -572,7 +553,7 @@ pub(crate) async fn writer_task_main(
                                                     now_system,
                                                 ) {
                                                     Ok(()) => {}
-                                                    Err(_) => log::error!(
+                                                    Err(_) => tracing::error!(
                                                         "latency value {} out of expected range",
                                                         latency_usec
                                                     ),
@@ -598,7 +579,7 @@ pub(crate) async fn writer_task_main(
                                             now_system,
                                         ) {
                                             Ok(()) => {}
-                                            Err(_) => log::error!(
+                                            Err(_) => tracing::error!(
                                                 "mean reprojection 100x distance value {} out of expected range",
                                                 mean_reproj_dist_100x
                                             ),
@@ -626,7 +607,7 @@ pub(crate) async fn writer_task_main(
                             &recon,
                             tracking_params.clone(),
                             save_empty_data2d,
-                            saving_program_name.to_string(),
+                            metadata_builder.clone(),
                         )?);
                     }
                     StopSavingCsv => {
@@ -651,31 +632,20 @@ pub(crate) async fn writer_task_main(
                         }
                         // simply drop data if no file opened
                     }
-                };
+                }
             }
-            Ok(None) => {
-                // sender disconnected. we can quit too.
-                // We rely on `writing_state.drop()` to flush and close
-                // everything.
+            None => {
                 break;
             }
-            Err(_elapsed) => {
-                // We waited for a message but none came. This is normal if
-                // nothing is happening but lets us flush the writers below.
-            }
-        };
+        }
 
-        // after processing message, check if we should flush data.
-        if last_flushed.elapsed() > flush_interval {
-            // flush all writers
-            if let Some(ref mut ws) = writing_state {
+        if let Some(ref mut ws) = writing_state {
+            if ws.last_flush.elapsed() > flush_interval {
                 ws.flush_all()?;
             }
-
-            last_flushed = Instant::now();
         }
     }
-    log::info!("Done with braidz writer task.");
+    tracing::info!("Done with braidz writer task.");
     Ok(())
 }
 
@@ -718,7 +688,7 @@ mod test {
                 &None,
                 tracking_params,
                 save_empty_data2d,
-                format!("{}:{}", file!(), line!()),
+                BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
             )
             .unwrap();
 
@@ -802,7 +772,7 @@ mod test {
                 &None,
                 tracking_params,
                 save_empty_data2d,
-                format!("{}:{}", file!(), line!()),
+                BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
             )?;
 
             // Check that original directory exists.

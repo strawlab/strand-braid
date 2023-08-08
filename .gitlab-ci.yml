@@ -16,7 +16,7 @@ test_crates:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -41,6 +41,22 @@ test_crates:
 
     - cd gst-plugin-nvargustime
     - cargo test --release
+    - cd ..
+
+    # Test braid-april-cal, which requires opencv
+    - cd braid-april-cal
+    # run test in release mode, otherwise slow
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features solve-pnp
+    - cd ..
+
+    # Test braid-april-cal, which requires opencv
+    - cd braid-april-cal/flytrax-apriltags-calibration
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release
+    - cd ../..
+
+    # flytrax-csv-to-braidz, which requires opencv
+    - cd flytrax-csv-to-braidz
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo test
     - cd ..
 
     # Test freemovr-calibration, which requires opencv
@@ -142,9 +158,9 @@ test_crates_rust_1_68:
     - cd ..
 
     # Test braid-april-cal-webapp
-    - cd braid-april-cal-webapp
+    - cd braid-april-cal/braid-april-cal-webapp
     - cargo test
-    - cd ..
+    - cd ../..
 
     # Test datetime-conversion
     - cd datetime-conversion
@@ -153,11 +169,6 @@ test_crates_rust_1_68:
 
     # Test simple-obj-parse
     - cd simple-obj-parse
-    - cargo test
-    - cd ..
-
-    # flytrax-csv-to-braidz
-    - cd flytrax-csv-to-braidz
     - cargo test
     - cd ..
 
@@ -389,7 +400,7 @@ build-api-docs:
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     # build docs for braid-run
@@ -469,7 +480,7 @@ strand-cam-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -508,7 +519,7 @@ strand-cam-pylon-ubuntu2204:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-22.04-pylon.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -547,7 +558,7 @@ strand-cam-vimba-ubuntu2004:
 
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-ubuntu-20.04-vimba.sh
     - export VIMBAC_LIBDIR="/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
@@ -587,7 +598,7 @@ strand-cam-vimba-ubuntu2204:
 
   script:
     - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - _packaging/setup-ubuntu-22.04-vimba.sh
     - export VIMBAC_LIBDIR="/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
@@ -623,7 +634,7 @@ py-strandcam-pylon-linux:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -652,47 +663,23 @@ py-strandcam-pylon-linux:
       IPP_SYS=2019
       python setup.py install
 
-flytrax-csv-to-braidz-ubuntu2004:
-  image: ubuntu:focal
+flytrax-csv-to-braidz-binary:
+  # Use manylinux project to build binary compatible with old glibc
+  image: quay.io/pypa/manylinux_2_28_x86_64
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
+    - _packaging/setup-opencv-4.5.5-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    # Build without glibc dependency so it runs on cluster with ancient glibc.
-    - rustup target install x86_64-unknown-linux-musl
-
     - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
-    - cargo build --release --target x86_64-unknown-linux-musl
+    - OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig cargo build --release
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-
-flytrax-csv-to-braidz-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    # Build without glibc dependency so it runs on cluster with ancient glibc.
-    - rustup target install x86_64-unknown-linux-musl
-
-    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
-    - cargo build --release --target x86_64-unknown-linux-musl
-
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/x86_64-unknown-linux-musl/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
+    - ldd $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz
+    - cp $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
@@ -703,7 +690,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -741,7 +728,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-ubuntu-22.04-opencv-4.5.5-static.sh
+    - _packaging/setup-opencv-4.5.5-static.sh
     - _packaging/setup-ubuntu-22.04-pylon.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -977,9 +964,9 @@ braid-webapps:
     - ./build.sh
     - cd ..
 
-    - cd braid-april-cal-webapp
+    - cd braid-april-cal/braid-april-cal-webapp
     - ./build.sh
-    - cd ..
+    - cd ../..
 
 braid-ubuntu2004:
   image: ubuntu:focal
@@ -1124,7 +1111,7 @@ strand-braid-ubuntu-2004:
     - fmf-cli-ubuntu2004
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
-    - flytrax-csv-to-braidz-ubuntu2004
+    - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-ubuntu2004
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
@@ -1172,7 +1159,7 @@ strand-braid-ubuntu-2204:
     - fmf-cli-ubuntu2204
     - strand-cam-vimba-ubuntu2204
     - strand-cam-pylon-ubuntu2204
-    - flytrax-csv-to-braidz-ubuntu2204
+    - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-ubuntu2204
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2204" in the

@@ -8,8 +8,7 @@ rust-version = "1.59"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = { version = "0.4.5", features = ["release_max_level_debug"] }
-structopt = "0.3"
+clap = { version = "4.3.4", features = ["derive"] }
 thiserror = "1.0.33"
 anyhow = "1.0"
 csv = "1.1"
@@ -17,11 +16,19 @@ serde = {version="^1.0", features=["derive"]}
 toml = "0.5"
 itertools = "0.10.3"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-tokio = {version="1.0.1", default-features=false, features=["rt-multi-thread","macros"]}
+tokio = { version = "1.0.1", default-features = false, features = [
+    "rt-multi-thread",
+    "macros",
+    "tracing",
+] }
 tokio-stream = "0.1.8"
 futures = "0.3"
 stream-cancel = "0.8"
 libflate = "1.2.0"
+indicatif = "0.17.1"
+tracing = "0.1.37"
+tracing-futures = { version = "0.2.5", features = ["tokio", "futures-01", "std-future"] }
+ordered-float = "1"
 
 env-tracing-logger = {path="../env-tracing-logger"}
 csv-eof = {path="../csv-eof"}
@@ -34,12 +41,14 @@ braidz-parser = {path="../braidz-parser"}
 flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
 
 [dev-dependencies]
-download-verify = {path="../download-verify"}
 tempfile = "3.4.0"
 zip = { version = "0.6.2", default-features = false, features=["time"] }
 approx = "0.5"
-env_logger = "0.9.0"
 fs_extra = "1.1"
+serde_yaml = "0.9"
+
+download-verify = {path="../download-verify"}
+braidz-types = {path="../braidz-types"}
 
 [features]
-backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace"]
+backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace", "braidz-parser/backtrace" ]

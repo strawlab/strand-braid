@@ -1,5 +1,6 @@
 use ads_webasm::components::{parse_csv, MaybeCsvData};
-use braid_april_cal_webapp::*;
+use braid_april_cal::*;
+use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo};
 
 fn gen_cal() -> CalibrationResult {
     let fiducial_3d_coords_buf = include_bytes!("apriltags_coordinates.csv");
@@ -24,7 +25,7 @@ fn gen_cal() -> CalibrationResult {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
                     let raw_buf: &[u8] = csv_data.raw_buf();
-                    let cfg = get_cfg(raw_buf).unwrap();
+                    let cfg = get_apriltag_cfg(raw_buf).unwrap();
                     (cfg.camera_name.clone(), (cfg, datavec))
                 }
                 _ => panic!("failed parsing"),
@@ -35,6 +36,7 @@ fn gen_cal() -> CalibrationResult {
     let src_data = CalData {
         fiducial_3d_coords,
         per_camera_2d,
+        known_good_intrinsics: None,
     };
 
     let cal_result = do_calibrate_system(&src_data).unwrap();
@@ -70,7 +72,7 @@ fn test_calibration_xml() {
 
     for (cam_name, points) in cal_result.points.iter() {
         let cam = loaded.system().cam_by_name(cam_name).unwrap();
-        let actual = compute_mean_reproj_dist(&cam, &points);
+        let actual = compute_mean_reproj_dist(cam, points);
         let expected = cal_result.mean_reproj_dist.get(cam_name).unwrap();
         assert!(
             (actual - expected).abs() < 1e-10,
@@ -84,7 +86,10 @@ fn test_calibration_pymvg() {
     let cal_result = gen_cal();
 
     let mut pymvg_json_buf = Vec::new();
-    cal_result.cam_system.to_pymvg_writer(&mut pymvg_json_buf).unwrap();
+    cal_result
+        .cam_system
+        .to_pymvg_writer(&mut pymvg_json_buf)
+        .unwrap();
 
     use mvg::MultiCameraSystem;
     let loaded: MultiCameraSystem<f64> =
@@ -92,11 +97,75 @@ fn test_calibration_pymvg() {
 
     for (cam_name, points) in cal_result.points.iter() {
         let cam = loaded.cam_by_name(cam_name).unwrap();
-        let actual = compute_mean_reproj_dist(&cam, &points);
+        let actual = compute_mean_reproj_dist(cam, points);
         let expected = cal_result.mean_reproj_dist.get(cam_name).unwrap();
         assert!(
             (actual - expected).abs() < 1e-10,
             "Reprojection error different after saving and loading calibration."
         );
     }
+}
+
+#[test]
+fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
+    let fiducial_3d_coords_buf = include_bytes!("data-single-cam/apriltags_coordinates.csv");
+    let fiducial_3d_coords = parse_csv::<Fiducial3DCoords>(
+        "data-single-cam/apriltags_coordinates.csv".into(),
+        fiducial_3d_coords_buf,
+    );
+    let fiducial_3d_coords = match fiducial_3d_coords {
+        MaybeCsvData::Valid(data) => data.rows().to_vec(),
+        _ => panic!("failed parsing"),
+    };
+
+    let cams_bufs = vec![include_bytes!("data-single-cam/all.csv").to_vec()];
+
+    let mut cam_name = None;
+    let per_camera_2d = cams_bufs
+        .into_iter()
+        .map(|buf| {
+            let detections = parse_csv::<DetectionSerializer>("camera-detections.csv".into(), &buf);
+            match detections {
+                MaybeCsvData::Valid(csv_data) => {
+                    let datavec = csv_data.rows().to_vec();
+                    let raw_buf: &[u8] = csv_data.raw_buf();
+                    let cfg = get_apriltag_cfg(raw_buf).unwrap();
+                    assert!(cam_name.is_none()); // this is a single camera test
+                    cam_name = Some(cfg.camera_name.clone());
+                    (cfg.camera_name.clone(), (cfg, datavec))
+                }
+                _ => panic!("failed parsing"),
+            }
+        })
+        .collect();
+
+    let cam_name = cam_name.unwrap();
+
+    let mut all_intrinsics = std::collections::BTreeMap::new();
+    let intrinsics_yaml =
+        include_str!("data-single-cam/Basler_22149788.20230613_155639.yaml").as_bytes();
+    let intrinsics: RosCameraInfo<f64> = serde_yaml::from_reader(intrinsics_yaml)?;
+
+    let mut named_intrinsics: NamedIntrinsicParameters<f64> =
+        intrinsics.try_into().unwrap();
+    // Would like to use name in .yaml file, but this has been converted to "ROS form".
+    named_intrinsics.name = cam_name.clone();
+
+    all_intrinsics.insert(cam_name.clone(), named_intrinsics);
+
+    let src_data = CalData {
+        fiducial_3d_coords,
+        per_camera_2d,
+        known_good_intrinsics: Some(all_intrinsics),
+    };
+
+    let cal_result = do_calibrate_system(&src_data)?;
+
+    dbg!(&cal_result.mean_reproj_dist);
+    assert_eq!(cal_result.mean_reproj_dist.keys().len(), 1);
+
+    let mean_reproj_dist = cal_result.mean_reproj_dist[&cam_name];
+    assert!(mean_reproj_dist < 10.0);
+
+    Ok(())
 }

@@ -1,8 +1,8 @@
-use log::{debug, error, info};
 use parking_lot::{Mutex, RwLock};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
 use flydra_types::{
@@ -312,7 +312,7 @@ impl ConnectedCamerasManager {
                 pre_existing
             } else {
                 if self.recon.is_some() {
-                    log::warn!(
+                    tracing::warn!(
                         "Camera {} connected, but this is not in existing calibration.",
                         ros_cam_name.as_str()
                     );
@@ -570,6 +570,13 @@ impl ConnectedCamerasManager {
 
     pub fn is_empty(&self) -> bool {
         self.inner.read().ccis.is_empty()
+    }
+}
+
+impl std::fmt::Debug for ConnectedCamerasManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("ConnectedCamerasManager")
+            .finish_non_exhaustive()
     }
 }
 

@@ -531,11 +531,12 @@ pub async fn pre_run(
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir: None,
         },
         tokio::runtime::Handle::current(),
         cam_manager.clone(),
         recon.clone(),
-        saving_program_name,
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
         valve.clone(),
     )?;
     let braidz_write_tx = coord_processor.get_braidz_write_tx();
@@ -781,6 +782,46 @@ impl RawPacketLogger {
             fd.serialize(row)?;
         }
         Ok(())
+    }
+}
+
+struct ValvedDebug<T, X>
+where
+    T: futures::stream::Stream<Item = X>,
+{
+    inner: T,
+}
+
+impl<T, X> ValvedDebug<T, X>
+where
+    T: futures::stream::Stream<Item = X>,
+{
+    fn new(inner: T) -> Self {
+        Self { inner }
+    }
+}
+
+impl<T, X> std::fmt::Debug for ValvedDebug<T, X>
+where
+    T: futures::stream::Stream<Item = X>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("ValvedDebug").finish_non_exhaustive()
+    }
+}
+
+impl<T, X> futures::stream::Stream for ValvedDebug<T, X>
+where
+    T: futures::stream::Stream<Item = X>,
+{
+    type Item = X;
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::option::Option<Self::Item>> {
+        // safe since we never move nor leak &mut
+        let inner = unsafe { self.map_unchecked_mut(|s| &mut s.inner) };
+        inner.poll_next(cx)
     }
 }
 
@@ -1196,8 +1237,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     info!("expected_framerate: {:?}", expected_framerate);
 
     coord_processor.add_listener(data_tx);
-    let consume_future =
-        coord_processor.consume_stream(valve.wrap(flydra2_stream), expected_framerate);
+    let consume_future = coord_processor.consume_stream(
+        ValvedDebug::new(valve.wrap(flydra2_stream)),
+        expected_framerate,
+    );
 
     // We "block" (in an async way) here for the entire runtime of the program.
     let writer_jh = consume_future.await;
@@ -1210,7 +1253,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     // Allow writer task time to finish writing.
     writer_jh
-        .await
+        .join()
         .expect("join writer task 1")
         .expect("join writer task 2");
 

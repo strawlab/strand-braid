@@ -1,138 +1,13 @@
-#![recursion_limit = "2048"]
-
 use std::collections::BTreeMap;
 
-use dlt::CorrespondingPoint;
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::*, JsCast};
-
-use nalgebra::geometry::{Point2, Point3};
 
 use yew::prelude::*;
 use yew_tincture::components::Button;
 
 use ads_webasm::components::{CsvData, CsvDataField, MaybeCsvData};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MyError {
-    pub msg: String,
-}
-
-impl From<std::io::Error> for MyError {
-    fn from(orig: std::io::Error) -> MyError {
-        MyError {
-            msg: format!("std::io::Error: {}", orig),
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for MyError {
-    fn from(orig: serde_yaml::Error) -> MyError {
-        MyError {
-            msg: format!("serde_yaml::Error: {}", orig),
-        }
-    }
-}
-
-impl From<serde_json::Error> for MyError {
-    fn from(orig: serde_json::Error) -> MyError {
-        MyError {
-            msg: format!("serde_json::Error: {}", orig),
-        }
-    }
-}
-
-impl From<mvg::MvgError> for MyError {
-    fn from(orig: mvg::MvgError) -> MyError {
-        MyError {
-            msg: format!("mvg::MvgError: {}", orig),
-        }
-    }
-}
-
-impl std::fmt::Display for MyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.msg)
-    }
-}
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(deny_unknown_fields)]
-pub struct Fiducial3DCoords {
-    id: u32,
-    x: f64,
-    y: f64,
-    z: f64,
-}
-
-// The center pixel of the detection is (h02,h12)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct DetectionSerializer {
-    id: i32,
-    h02: f64,
-    h12: f64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AprilConfig {
-    pub created_at: chrono::DateTime<chrono::Local>,
-    pub camera_name: String,
-    pub camera_width_pixels: usize,
-    pub camera_height_pixels: usize,
-}
-
-pub fn get_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError> {
-    use std::io::BufRead;
-    let buf_reader = std::io::BufReader::new(rdr);
-
-    enum ReaderState {
-        JustStarted,
-        InYaml(Vec<String>),
-    }
-
-    let mut state = ReaderState::JustStarted;
-    for line in buf_reader.lines() {
-        let line = line?;
-        match state {
-            ReaderState::JustStarted => {
-                if !line.starts_with("# ") {
-                    return Err(MyError {
-                        msg: "File did not start with comment '# '".into(),
-                    });
-                }
-                if line == "# -- start of yaml config --" {
-                    state = ReaderState::InYaml(Vec::new());
-                }
-            }
-            ReaderState::InYaml(ref mut yaml_lines) => {
-                if line.starts_with("# ") {
-                    if line == "# -- end of yaml config --" {
-                        break;
-                    } else {
-                        let cleaned: &str = &line[2..];
-                        yaml_lines.push(cleaned.to_string());
-                    }
-                } else {
-                    return Err(MyError {
-                        msg: "YAML section started but never finished".into(),
-                    });
-                }
-            }
-        }
-    }
-    if let ReaderState::InYaml(yaml_lines) = state {
-        let mut yaml_buf: Vec<u8> = Vec::new();
-        for line in yaml_lines {
-            yaml_buf.extend(line.as_bytes());
-            yaml_buf.push(b'\n');
-        }
-        let cfg: AprilConfig = serde_yaml::from_reader(yaml_buf.as_slice())?;
-        Ok(cfg)
-    } else {
-        Err(MyError {
-            msg: "YAML section started but never finished".into(),
-        })
-    }
-}
+use braid_april_cal::*;
 
 pub struct Model {
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
@@ -169,7 +44,7 @@ impl Component for Model {
             Msg::DetectionSerializerData(csv_file) => match csv_file {
                 MaybeCsvData::Valid(csv_data) => {
                     let raw_buf: &[u8] = csv_data.raw_buf();
-                    match get_cfg(raw_buf) {
+                    match get_apriltag_cfg(raw_buf) {
                         Ok(cfg) => {
                             self.per_camera_2d
                                 .insert(cfg.camera_name.clone(), (cfg, csv_data));
@@ -299,11 +174,7 @@ impl Component for Model {
 
 impl Model {
     fn can_compute_xml_calibration(&self) -> bool {
-        let has_3d = if let MaybeCsvData::Valid(_) = &self.fiducial_3d_coords {
-            true
-        } else {
-            false
-        };
+        let has_3d = matches!(&self.fiducial_3d_coords, MaybeCsvData::Valid(_));
         !self.per_camera_2d.is_empty() && has_3d
     }
     fn view_calibration_quality(&self) -> Html {
@@ -389,6 +260,7 @@ impl Model {
         Ok(CalData {
             fiducial_3d_coords,
             per_camera_2d,
+            known_good_intrinsics: None,
         })
     }
 }
@@ -424,162 +296,6 @@ fn download_file(orig_buf: &[u8], filename: &str) {
 
     body.remove_child(&anchor).unwrap();
     web_sys::Url::revoke_object_url(&data_url).unwrap();
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CalData {
-    pub fiducial_3d_coords: Vec<Fiducial3DCoords>,
-    pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<DetectionSerializer>)>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CalibrationResult {
-    pub cam_system: mvg::MultiCameraSystem<f64>,
-    pub mean_reproj_dist: BTreeMap<String, f64>,
-    pub points: BTreeMap<String, Vec<CorrespondingPoint<f64>>>,
-}
-
-impl CalibrationResult {
-    pub fn to_flydra_xml(&self) -> Result<Vec<u8>, MyError> {
-        let flydra_cal =
-            flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(self.cam_system.clone(), None);
-
-        let mut xml_buf: Vec<u8> = Vec::new();
-        flydra_cal
-            .to_flydra_xml(&mut xml_buf)
-            .expect("to_flydra_xml");
-        Ok(xml_buf)
-    }
-
-    pub fn to_pymvg_json(&self) -> Result<Vec<u8>, MyError> {
-        let sys = self.cam_system.to_pymvg().unwrap();
-        Ok(serde_json::to_vec_pretty(&sys)?)
-    }
-}
-
-pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyError> {
-    let mut object_points = BTreeMap::new();
-    for row in src_data.fiducial_3d_coords.iter() {
-        if object_points
-            .insert(row.id, [row.x, row.y, row.z])
-            .is_some()
-        {
-            return Err(MyError {
-                msg: format!("multiple entries for ID {} in 3D data file", row.id),
-            });
-        }
-    }
-
-    let mut mean_reproj_dist = BTreeMap::new();
-    let mut cams = BTreeMap::new();
-    let mut cam_points = BTreeMap::new();
-
-    for (cam_name, all_cam_data) in src_data.per_camera_2d.iter() {
-        let (cfg, cam_data) = all_cam_data;
-        assert_eq!(&cfg.camera_name, cam_name);
-
-        // Iterate through all rows of detection data to collect all detections
-        // per marker.
-        let mut uv_per_id = BTreeMap::new();
-        for row in cam_data {
-            uv_per_id
-                .entry(row.id as u32)
-                .or_insert_with(Vec::new)
-                .push((row.h02, row.h12)); // The (x,y) pixel coord of detection.
-        }
-
-        let mut points = Vec::new();
-        for (id, uv) in uv_per_id.iter() {
-            // calculate mean (u,v) position
-            let (sumu, sumv) = uv.iter().fold((0.0, 0.0), |accum, elem| {
-                (accum.0 + elem.0, accum.1 + elem.1)
-            });
-            let u = sumu / uv.len() as f64;
-            let v = sumv / uv.len() as f64;
-
-            if let Some(from_csv) = object_points.get(id) {
-                let object_point = *from_csv;
-                let pt = dlt::CorrespondingPoint {
-                    object_point,
-                    image_point: [u, v],
-                };
-                points.push(pt);
-            }
-        }
-
-        // Compute calibration here
-        let epsilon = 1e-10;
-        let dlt_pmat =
-            dlt::dlt_corresponding(&points, epsilon).map_err(|msg| MyError { msg: msg.into() })?;
-
-        let cam1 =
-            mvg::Camera::from_pmat(cfg.camera_width_pixels, cfg.camera_height_pixels, &dlt_pmat)?;
-        let cam2 = cam1.flip().expect("flip camera");
-
-        // take whichever camera points towards objects
-        let cam = if mean_forward(&cam1, &points) > mean_forward(&cam2, &points) {
-            cam1
-        } else {
-            cam2
-        };
-
-        if points.is_empty() {
-            return Err(MyError{msg:format!("Camera {}: could not compute reprojection distance. Are there marker detections also in 3D data?", cam_name)});
-        }
-
-        let mean_dist = compute_mean_reproj_dist(&cam, &points);
-
-        cams.insert(cam_name.clone(), cam);
-        mean_reproj_dist.insert(cam_name.clone(), mean_dist);
-        cam_points.insert(cam_name.clone(), points);
-    }
-
-    let cam_system = mvg::MultiCameraSystem::new(cams);
-
-    Ok(CalibrationResult {
-        cam_system,
-        mean_reproj_dist,
-        points: cam_points,
-    })
-}
-
-/// Compute reprojection distance.
-pub fn compute_mean_reproj_dist(cam: &mvg::Camera<f64>, points: &[CorrespondingPoint<f64>]) -> f64 {
-    assert!(!points.is_empty());
-
-    // Compute reprojection distance.
-    let dists: Vec<f64> = points
-        .iter()
-        .map(|pt| {
-            let world_pt = mvg::PointWorldFrame {
-                coords: Point3::from_slice(&pt.object_point),
-            };
-            let image_point = Point2::from_slice(&pt.image_point);
-            let projected_pixel = cam.project_3d_to_distorted_pixel(&world_pt);
-            nalgebra::distance(&projected_pixel.coords, &image_point)
-        })
-        .collect();
-
-    let sum_dist = dists.iter().fold(0.0, |accum, el| accum + el);
-    let mean_dist = sum_dist / dists.len() as f64;
-    mean_dist
-}
-
-fn mean_forward(cam: &mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {
-    use mvg::PointWorldFrame;
-    let mut accum = 0.0;
-    for pt in pts {
-        let o = pt.object_point;
-        let world_pt = PointWorldFrame {
-            coords: Point3::from_slice(&o),
-        };
-
-        let wc2b: cam_geom::Points<_, _, nalgebra::U1, _> = (&world_pt).into();
-        let cam_pt = cam.extrinsics().world_to_camera(&wc2b);
-        let cam_dist = cam_pt.data[(0, 2)];
-        accum += cam_dist;
-    }
-    accum / pts.len() as f64
 }
 
 #[wasm_bindgen(start)]

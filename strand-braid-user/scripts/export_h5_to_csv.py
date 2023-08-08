@@ -1,7 +1,9 @@
-"""Convert a flydra mainbrain HDF5 file to a directory of CSV files.
+"""Convert a flydra mainbrain HDF5 file to a .braid directory of CSV files.
 
 This does the inverse of `convert_braidz_to_flydra_h5.py`. However,
 it does not convert all data, just the subset sufficient to re-track.
+
+The .braid directory can be converted to a .braidz file by zipping it.
 """
 import sys
 import os
@@ -31,6 +33,14 @@ with tables.open_file(fname) as h5:
     d2d = h5.root.data2d_distorted[:]
     df = pandas.DataFrame(d2d)
     csv_fname = os.path.join(outdir, "data2d_distorted.csv")
+    df.to_csv(csv_fname, index=False, float_format="%r")
+
+    # textlog ------
+    textlog = h5.root.textlog[:]
+    df = pandas.DataFrame(textlog)
+    df["cam_id"] = df["cam_id"].str.decode("ascii")
+    df["message"] = df["message"].str.decode("ascii")
+    csv_fname = os.path.join(outdir, "textlog.csv")
     df.to_csv(csv_fname, index=False, float_format="%r")
 
     # cam info ------

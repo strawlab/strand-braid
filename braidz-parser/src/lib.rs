@@ -30,6 +30,11 @@ pub mod incremental_parser;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("Did not find metadata in YAML file or textlog")]
+    MissingMetadata {
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
     #[error("{source}")]
     Mvg {
         #[from]
@@ -97,6 +102,8 @@ pub enum Error {
     },
     #[error("Compressed and uncompressed data copies exist simultaneously")]
     DualData,
+    #[error("textlog data could not be parsed")]
+    UnknownTextlogData,
     #[error("Multiple tracking parameters")]
     MultipleTrackingParameters,
     #[error("Missing tracking parameters")]
@@ -139,6 +146,7 @@ pub struct BraidzArchive<R: Read + Seek> {
     pub image_sizes: Option<BTreeMap<String, (usize, usize)>>,
 }
 
+#[derive(Debug)]
 pub struct HistogramLog {
     histogram: hdrhistogram::Histogram<u64>,
 }
@@ -178,6 +186,16 @@ pub struct D2DInfo {
     pub num_rows: u64,
 }
 
+impl std::fmt::Debug for D2DInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("frame_lim", &self.frame_lim)
+            .field("time_limits", &self.time_limits)
+            .field("num_rows", &self.num_rows)
+            .finish()
+    }
+}
+
 /// Column store for 2D detections for a single camera.
 ///
 /// Note that these are not filled when there is no detection.
@@ -213,6 +231,17 @@ pub struct KalmanEstimatesInfo {
     pub tracking_parameters: TrackingParams,
     /// The sum of all distances in all trajectories.
     pub total_distance: f64,
+}
+
+impl std::fmt::Debug for KalmanEstimatesInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("xlim", &self.xlim)
+            .field("ylim", &self.ylim)
+            .field("zlim", &self.zlim)
+            .field("num_rows", &self.num_rows)
+            .finish()
+    }
 }
 
 pub struct TrajectoryData {
@@ -498,7 +527,7 @@ fn test_append_to_path() {
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
 pub fn open_maybe_gzipped<'a, R: Read + Seek>(
     mut path_like: zip_or_dir::PathLike<'a, R>,
-) -> Result<Box<dyn Read + 'a>, Error> {
+) -> Result<MaybeGzippedReader, Error> {
     let compressed_relname = append_to_path(path_like.path(), ".gz");
 
     if path_like.exists() {
@@ -513,11 +542,44 @@ pub fn open_maybe_gzipped<'a, R: Read + Seek>(
             }
             path_like.replace(uncompressed_relname);
         }
-        Ok(Box::new(path_like.open()?))
+        Ok(MaybeGzippedReader::Raw(path_like.open()?))
     } else {
         // Use the compressed variant.
         path_like.replace(compressed_relname);
         let gz_fd = path_like.open()?;
-        Ok(Box::new(libflate::gzip::Decoder::new(gz_fd)?))
+        Ok(MaybeGzippedReader::Gzipped(libflate::gzip::Decoder::new(
+            gz_fd,
+        )?))
+    }
+}
+
+#[derive(Debug)]
+pub enum MaybeGzippedReader<'a> {
+    Raw(zip_or_dir::FileReader<'a>),
+    Gzipped(libflate::gzip::Decoder<zip_or_dir::FileReader<'a>>),
+}
+
+impl<'a> MaybeGzippedReader<'a> {
+    pub fn size(&self) -> u64 {
+        match self {
+            Self::Raw(f) => f.size(),
+            Self::Gzipped(gz) => gz.as_inner_ref().size(),
+        }
+    }
+
+    pub fn position(&self) -> u64 {
+        match self {
+            Self::Raw(f) => f.position(),
+            Self::Gzipped(gz) => gz.as_inner_ref().position(),
+        }
+    }
+}
+
+impl<'a> Read for MaybeGzippedReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
+        match self {
+            Self::Raw(f) => f.read(buf),
+            Self::Gzipped(gz) => gz.read(buf),
+        }
     }
 }

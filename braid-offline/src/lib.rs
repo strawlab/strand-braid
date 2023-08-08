@@ -3,8 +3,6 @@
     feature(error_generic_member_access, provide_any)
 )]
 
-use log::{debug, info, warn};
-
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -12,20 +10,22 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use flydra_types::CamInfoRow;
+use anyhow::Context;
+use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
+use ordered_float::NotNan;
+use tracing::{debug, info, warn};
 
 use braidz_parser::open_maybe_gzipped;
-
 use flydra2::{
     CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData, FrameDataAndPoints,
     NumberedRawUdpPoint, StreamItem,
 };
-use groupby::{AscendingGroupIter, BufferedSortIter};
-
 use flydra_types::{
-    PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
+    CamInfoRow, PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
     FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
+use groupby::{AscendingGroupIter, BufferedSortIter};
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -104,10 +104,7 @@ fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
 }
 
 fn safe_u64(val: i64) -> u64 {
-    if val < 0 {
-        panic!("value out of range");
-    }
-    val as u64
+    val.try_into().unwrap()
 }
 
 fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> {
@@ -121,8 +118,8 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_values().collect()
 }
 
-// TODO fix DRY with incremental_parser
-fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
+#[tracing::instrument]
+fn calc_fps_from_data<R: Read + std::fmt::Debug>(data_file: R) -> flydra2::Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
     let row0: Option<std::result::Result<Data2dDistortedRow, _>> = data_iter.next();
@@ -132,7 +129,7 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
             last_row = match row {
                 Ok(row) => Some(row),
                 Err(e) => {
-                    log::error!("error reading 2d data when calculating fps: {} {:?}", e, e);
+                    tracing::error!("error reading 2d data when calculating fps: {} {:?}", e, e);
                     continue;
                 }
             };
@@ -173,6 +170,29 @@ fn calc_fps_from_data<R: Read>(data_file: R) -> flydra2::Result<f64> {
     }
 }
 
+// AscendingGroupIter<i64, BufferedSortIter<i64, DeserializeRecordsIntoIter<Box<dyn Read>, Data2dDistortedRow>, Data2dDistortedRow, Error>, Data2dDistortedRow, Error>
+
+// fn my_open_file<'a, R: Read + Seek>(
+//     mut data_fname: zip_or_dir::PathLike<'a, R>,
+// ) -> Result<impl Iterator<Item = Vec<Data2dDistortedRow>>, Error> {
+
+//     let display_fname = format!("{}", data_fname.display());
+
+//     let data_file = open_maybe_gzipped(data_fname)?;
+//     let rdr = csv::Reader::from_reader(data_file);
+//     // let file_reader = rdr.get_ref();
+//     // let file_size = file_reader.size();
+//     let data_iter = rdr.into_deserialize();
+
+//     let bufsize = 10000;
+//     let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+//         .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+//     // let rdr = sorted_data_iter.inner().reader();
+
+//     let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+//     Ok(data_row_frame_iter)
+// }
+
 #[derive(Debug, Clone, Default)]
 pub struct KalmanizeOptions {
     pub start_frame: Option<u64>,
@@ -192,6 +212,7 @@ pub struct KalmanizeOptions {
 /// Note that a temporary directly ending with `.braid` is initially created and
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
+#[tracing::instrument]
 #[allow(clippy::too_many_arguments)]
 pub async fn kalmanize<Q, R>(
     mut data_src: braidz_parser::incremental_parser::IncrementalParser<
@@ -199,17 +220,19 @@ pub async fn kalmanize<Q, R>(
         braidz_parser::incremental_parser::BasicInfoParsed,
     >,
     output_braidz: Q,
-    expected_fps: Option<f64>,
+    forced_fps: Option<NotNan<f64>>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
     rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
     saving_program_name: &str,
+    no_progress: bool,
 ) -> Result<(), Error>
 where
-    Q: AsRef<Path>,
-    R: 'static + Read + Seek + Send,
+    Q: AsRef<Path> + std::fmt::Debug,
+    R: 'static + Read + Seek + Send + std::fmt::Debug,
 {
+    let mini_arena_debug_image_dir = output_braidz.as_ref().parent().map(PathBuf::from);
     let output_braidz = output_braidz.as_ref();
     let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
         let mut output_dirname: PathBuf = output_braidz.to_path_buf();
@@ -222,17 +245,54 @@ where
         });
     };
 
-    info!("tracking:");
-    info!("  {} -> {}", data_src.display(), output_dirname.display());
+    info!(
+        "tracking: {} -> {}",
+        data_src.display(),
+        output_dirname.display()
+    );
 
-    let src_info = data_src.basic_info();
+    let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
 
-    let recon = if let Some(ci) = &src_info.calibration_info {
-        let cams = ci.cameras.clone();
-        let water = ci.water;
-        flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
+    let (local, metadata_fps, recon) = {
+        let src_info = data_src.basic_info();
+        let local = src_info.metadata.original_recording_time.clone();
+
+        let recon = if let Some(ci) = &src_info.calibration_info {
+            let cams = ci.cameras.clone();
+            let water = ci.water;
+            flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
+        } else {
+            return Err(Error::NoCalibrationFound);
+        };
+
+        (local, src_info.expected_fps, recon)
+    };
+
+    let fps = if let Some(fps) = forced_fps {
+        fps.into_inner()
     } else {
-        return Err(Error::NoCalibrationFound);
+        if !metadata_fps.is_nan() {
+            metadata_fps
+        } else {
+            // FPS could not be determined from metadata. Read the data to determine it.
+            let data_src_name = format!("{}", data_src.display());
+            let data_fname = data_src
+                .path_starter()
+                .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+
+            warn!(
+                "File \"{}\" does not have FPS saved directly. Will \
+                    parse from data.",
+                data_src_name
+            );
+
+            // TODO: replace with implementation in braidz-parser.
+            let data_file = open_maybe_gzipped(data_fname)?;
+
+            // TODO: first choice parse "MainBrain running at {}" string (as in
+            // braidz-parser). Second choice, do this.
+            calc_fps_from_data(data_file)?
+        }
     };
 
     let all_expected_cameras = recon
@@ -265,11 +325,12 @@ where
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir,
         },
         rt_handle.clone(),
         cam_manager.clone(),
         Some(recon.clone()),
-        saving_program_name,
+        metadata_builder.clone(),
         valve,
     )?;
 
@@ -313,28 +374,12 @@ where
     }
 
     for unused in found_image_paths.iter() {
-        log::warn!(
+        tracing::warn!(
             "Unexpected file {}/{} found",
             IMAGES_DIRNAME,
             unused.display()
         );
     }
-
-    // open the data2d CSV file
-    let mut data_fname = data_src.path_starter();
-    data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
-
-    let fps = match expected_fps {
-        Some(fps) => fps,
-        None => {
-            // TODO: replace with implementation in braidz-parser.
-            let data_file = open_maybe_gzipped(data_fname)?;
-
-            // TODO: first choice parse "MainBrain running at {}" string (as in
-            // braidz-parser). Second choice, do this.
-            calc_fps_from_data(data_file)?
-        }
-    };
 
     let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
 
@@ -407,7 +452,7 @@ where
         let braidz_write_tx = coord_processor.get_braidz_write_tx();
         let save_cfg = flydra2::StartSavingCsvConfig {
             out_dir: output_dirname.to_path_buf(),
-            local: None,
+            local,
             git_rev: env!("GIT_HASH").to_string(),
             fps: Some(fps as f32),
             per_cam_data,
@@ -435,28 +480,91 @@ where
         // TODO: Consolidate this code with the `braidz-parser` crate. Right now
         // there is substantial duplication.
 
-        // open the data2d CSV file
-        let mut data_fname = data_src.path_starter();
-        data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        // OK, this is stupid - we parse the entire CSV file simply to determine
+        // how many rows it has for our progress bar.
+        let n_csv_frames = if no_progress {
+            None
+        } else {
+            tracing::info!(
+                "Parsing {} file to determine frame count.",
+                flydra_types::DATA2D_DISTORTED_CSV_FNAME
+            );
+            // open the data2d CSV file
+            let mut data_fname = data_src.path_starter();
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-        log::trace!("loading data from {}", data_fname.display());
+            tracing::trace!("loading data from {}", data_fname.display());
 
-        let display_fname = format!("{}", data_fname.display());
-        let data_file = open_maybe_gzipped(data_fname)?;
-        let rdr = csv::Reader::from_reader(data_file);
-        let data_iter = rdr.into_deserialize();
+            let display_fname = format!("{}", data_fname.display());
 
-        let bufsize = 10000;
-        let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
-            .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
-        // let rdr = sorted_data_iter.inner().reader();
+            let data_file = open_maybe_gzipped(data_fname)?;
+            let rdr = csv::Reader::from_reader(data_file);
+            let data_iter = rdr.into_deserialize();
 
-        let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
-        // let rdr = data_row_frame_iter.inner().inner().reader();
+            let bufsize = 10000;
+            let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+                .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+
+            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+            let mut count = 0;
+            let mut min_frame = std::u64::MAX;
+            let mut max_frame = 0;
+            for data_frame_rows in data_row_frame_iter {
+                let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
+                    data_frame_rows?;
+                if let Some(start_frame) = opt3.start_frame {
+                    if safe_u64(data_frame_rows.group_key) < start_frame {
+                        continue;
+                    }
+                }
+                let this_frame = safe_u64(data_frame_rows.group_key);
+                if let Some(stop_frame) = opt3.stop_frame {
+                    if this_frame > stop_frame {
+                        break;
+                    }
+                }
+                if this_frame < min_frame {
+                    min_frame = this_frame;
+                }
+                if this_frame > max_frame {
+                    max_frame = this_frame;
+                }
+                count += 1;
+            }
+            tracing::info!("Will process {count} frames (Range: {min_frame} - {max_frame}).");
+            Some(count)
+        };
+
+        let data_row_frame_iter = {
+            // open the data2d CSV file
+            let mut data_fname = data_src.path_starter();
+            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+
+            tracing::trace!("loading data from {}", data_fname.display());
+
+            let display_fname = format!("{}", data_fname.display());
+
+            let data_file = open_maybe_gzipped(data_fname)?;
+            let rdr = csv::Reader::from_reader(data_file);
+            let data_iter = rdr.into_deserialize();
+
+            let bufsize = 10000;
+            let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
+                .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
+            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
+            data_row_frame_iter
+        };
+
+        let pb = if let Some(n_csv_frames) = n_csv_frames {
+            // Custom progress bar with space at right end to prevent obscuring last
+            // digit with cursor.
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            Some(ProgressBar::new(n_csv_frames.try_into().unwrap()).with_style(style))
+        } else {
+            None
+        };
 
         for data_frame_rows in data_row_frame_iter {
-            // let pos = rdr.position();
-
             // we are now in a loop where all rows come from the same frame, but not necessarily the same camera
             let data_frame_rows = data_frame_rows?;
 
@@ -474,6 +582,11 @@ where
                 if synced_frame.0 > *stop {
                     break;
                 }
+            }
+
+            if let Some(pb) = &pb {
+                // Increment the counter.
+                pb.inc(1);
             }
 
             for cam_rows in split_by_cam(rows).iter() {
@@ -507,7 +620,7 @@ where
                 match frame_data_tx.send(StreamItem::Packet(fdp)).await {
                     Ok(()) => {}
                     Err(e) => {
-                        log::error!("send error {} at {}:{}", e, file!(), line!())
+                        tracing::error!("send error {} at {}:{}", e, file!(), line!())
                     }
                 }
             }
@@ -516,7 +629,7 @@ where
         match frame_data_tx.send(StreamItem::EOF).await {
             Ok(()) => {}
             Err(e) => {
-                log::error!("send error {} at {}:{}", e, file!(), line!())
+                tracing::error!("send error {} at {}:{}", e, file!(), line!())
             }
         }
 
@@ -554,7 +667,7 @@ where
     let (writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
     writer_jh
-        .await
+        .join()
         .expect("finish writer task 1")
         .expect("finish writer task 2");
     r2.expect("finish reader task");
@@ -611,4 +724,117 @@ pub fn pick_csvgz_or_csv(csv_path: &Path) -> flydra2::Result<Box<dyn Read>> {
         let decoder = libflate::gzip::Decoder::new(gz_fd)?;
         Ok(Box::new(decoder))
     }
+}
+
+/// This is our "real" main top-level function but we have some decoration we
+/// need to do in [main], so we name this differently.
+#[tracing::instrument]
+pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
+    let data_src =
+        braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())
+            .with_context(|| {
+                format!(
+                    "while opening file \"{}\"",
+                    opt.data_src.as_path().display()
+                )
+            })?;
+    let data_src = data_src.parse_basics().with_context(|| {
+        format!(
+            "when parsing braidz file \"{}\"",
+            opt.data_src.as_path().display()
+        )
+    })?;
+
+    let tracking_params: flydra_types::TrackingParams = match opt.tracking_params {
+        Some(ref fname) => {
+            info!("reading tracking parameters from file {}", fname.display());
+            // read the traking parameters
+            let buf = std::fs::read_to_string(fname)
+                .context(format!("loading tracking parameters {}", fname.display()))?;
+            let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
+            tracking_params
+        }
+        None => {
+            let parsed = data_src.basic_info();
+            match parsed.tracking_params.clone() {
+                Some(tp) => tp,
+                None => {
+                    let num_cams = data_src.basic_info().cam_info.camid2camn.len();
+                    match num_cams {
+                        0 => {
+                            anyhow::bail!(
+                                "No tracking parameters specified, none found in \
+                            data_src, and no default is reasonable because zero cameras present."
+                            )
+                        }
+                        1 => flydra_types::default_tracking_params_flat_3d(),
+                        _ => flydra_types::default_tracking_params_full_3d(),
+                    }
+                }
+            }
+        }
+    };
+    let opts = KalmanizeOptions {
+        start_frame: opt.start_frame,
+        stop_frame: opt.stop_frame,
+        ..Default::default()
+    };
+
+    // The user specifies an output .braidz file. But we will save initially to
+    // a .braid directory. We here ensure the user's name had ".braidz"
+    // extension and then calculate the name of the new output directory.
+    let output_braidz = opt.output;
+
+    // Raise an error if outputs exist.
+    if output_braidz.exists() {
+        return Err(anyhow::format_err!(
+            "Path {} exists. Will not overwrite.",
+            output_braidz.display()
+        ));
+    }
+
+    let rt_handle = tokio::runtime::Handle::current();
+
+    let save_performance_histograms = true;
+
+    kalmanize(
+        data_src,
+        output_braidz,
+        opt.fps.map(|v| NotNan::new(v).unwrap()),
+        tracking_params,
+        opts,
+        rt_handle,
+        save_performance_histograms,
+        "braid-offline-retrack",
+        opt.no_progress,
+    )
+    .await?;
+    Ok(())
+}
+
+#[derive(Parser, Debug, Default)]
+#[command(author, version, about)]
+pub struct Cli {
+    /// Input .braidz file
+    #[arg(short = 'd', long)]
+    pub data_src: std::path::PathBuf,
+    /// Output file (must end with .braidz)
+    #[arg(short = 'o', long)]
+    pub output: std::path::PathBuf,
+    /// Set frames per second
+    #[arg(long)]
+    pub fps: Option<f64>,
+    /// Set start frame to start tracking
+    #[arg(long)]
+    pub start_frame: Option<u64>,
+    /// Set stop frame to stop tracking
+    #[arg(long)]
+    pub stop_frame: Option<u64>,
+    /// Tracking parameters TOML file.
+    #[arg(long)]
+    pub tracking_params: Option<std::path::PathBuf>,
+
+    /// Disable display of progress indicator
+    #[arg(long)]
+    pub no_progress: bool,
 }

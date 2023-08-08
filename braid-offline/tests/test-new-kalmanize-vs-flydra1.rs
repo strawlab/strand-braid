@@ -1,5 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::Context;
 
@@ -226,7 +229,32 @@ where
     Ok(())
 }
 
-fn convert_flydra1_mainbrain_h5_to_csvdir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
+// The python script doesn't save this but we want it, so add it here.
+fn add_metadata_to_csvdir<P>(dest_dir: P) -> Result<(), anyhow::Error>
+where
+    P: AsRef<Path>,
+{
+    let braid_metadata_path = dest_dir
+        .as_ref()
+        .to_path_buf()
+        .join(flydra_types::BRAID_METADATA_YML_FNAME);
+
+    let metadata = braidz_types::BraidMetadata {
+        schema: flydra_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
+        git_revision: env!("GIT_HASH").to_string(),
+        original_recording_time: None,
+        save_empty_data2d: false, // We do filtering below, but is this correct?
+        saving_program_name: env!("CARGO_PKG_NAME").to_string(),
+    };
+    let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
+
+    let mut fd = std::fs::File::create(&braid_metadata_path)?;
+    fd.write_all(metadata_buf.as_bytes()).unwrap();
+
+    Ok(())
+}
+
+fn convert_flydra1_mainbrain_h5_to_braidz_dir<P, Q>(src: P, dest: Q) -> Result<(), anyhow::Error>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -252,6 +280,7 @@ where
 
     let script = "../strand-braid-user/scripts/export_h5_to_csv.py";
     let arg = format!("python {} {}", script, src.as_ref().display());
+    // python script puts results in out_loc
     let output = run_command(&arg);
 
     if out_loc.exists() {
@@ -270,7 +299,7 @@ where
         );
 
         assert!(out_loc.is_dir());
-        move_path(&out_loc, dest)?;
+        move_path(&out_loc, &dest)?;
     }
 
     if !output.status.success() {
@@ -279,20 +308,21 @@ where
         return Err(anyhow::anyhow!("python script failed"));
     }
 
+    // Add metadata file
+    add_metadata_to_csvdir(&dest)?;
+
     Ok(())
 }
 
 #[cfg(test)]
-async fn run_test(src: &str, untracked_dir: PathBuf) {
-    convert_flydra1_mainbrain_h5_to_csvdir(src, &untracked_dir)
-        .context(format!(
-            "reading {} and saving to {}",
-            src,
-            untracked_dir.display()
-        ))
-        .unwrap();
+async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
+    convert_flydra1_mainbrain_h5_to_braidz_dir(src, &untracked_dir).context(format!(
+        "reading {} and saving to {}",
+        src,
+        untracked_dir.display()
+    ))?;
 
-    let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
+    let output_root = tempfile::tempdir()?; // will cleanup on drop
     let output_braidz = output_root.path().join("output.braidz");
 
     let expected_fps = None;
@@ -303,7 +333,9 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     let rt_handle = tokio::runtime::Handle::current();
     let data_src = braidz_parser::incremental_parser::IncrementalParser::open_dir(&untracked_dir)
         .unwrap_or_else(|_| panic!("While opening dir {}", untracked_dir.display()));
-    let data_src = data_src.parse_basics().unwrap();
+    let data_src = data_src
+        .parse_basics()
+        .with_context(|| format!("While reading dir: {}", untracked_dir.display()))?;
 
     let save_performance_histograms = true;
 
@@ -316,14 +348,14 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
         rt_handle,
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
+        true,
     )
-    .await
-    .unwrap();
+    .await?;
     println!("done tracking");
 
     // expand .braidz file into /<root>/expanded.braid directory
     let tracked_dir = output_root.path().join("expanded.braid");
-    unzip_into(output_braidz, &tracked_dir).unwrap();
+    unzip_into(output_braidz, &tracked_dir)?;
 
     // tracked_h5 becomes /<root>/expanded.h5
     let mut tracked_h5 = PathBuf::from(&tracked_dir);
@@ -334,42 +366,49 @@ async fn run_test(src: &str, untracked_dir: PathBuf) {
     // large?
 
     sanity_checks_csvdir(&tracked_dir, 71, 7649)
-        .context(format!("sanity checks {}", tracked_dir.display()))
-        .unwrap();
+        .context(format!("sanity checks {}", tracked_dir.display()))?;
 
-    convert_csvdir_to_flydra1_mainbrain_h5(&tracked_dir, &tracked_h5)
-        .context(format!(
-            "reading {} and saving to {}",
-            tracked_dir.display(),
-            tracked_h5.display()
-        ))
-        .unwrap();
+    convert_csvdir_to_flydra1_mainbrain_h5(&tracked_dir, &tracked_h5).context(format!(
+        "reading {} and saving to {}",
+        tracked_dir.display(),
+        tracked_h5.display()
+    ))?;
 
     // All temporary files are cleaned up as output_root is dropped.
+    Ok(())
 }
 
 #[tokio::test]
-async fn do_test() {
-    let _ = env_logger::builder().is_test(true).try_init();
+async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
+    // let _ = env_logger::builder().is_test(true).try_init();
+    // let _tracing_guard: Box<dyn Drop> = match env_tracing_logger::init_result() {
+    //     Ok(g) => Box::new(g),
+    //     Err((g, _err)) => Box::new(g),
+    // };
 
     let src = "../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28.h5";
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+    let untracked_dir = tempfile::tempdir()?.into_path(); // must manually cleanup
 
-    run_test(src, untracked_dir.clone()).await;
+    run_test(src, untracked_dir.clone()).await?;
 
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
-    std::fs::remove_dir_all(untracked_dir).unwrap();
+    std::fs::remove_dir_all(untracked_dir)?;
+    Ok(())
 }
 
 #[tokio::test]
-async fn do_water_test() {
+async fn test_braid_vs_old_flydra_with_water() -> anyhow::Result<()> {
     const FNAME: &str = "20160527_163937.mainbrain-short.h5";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets";
     const SHA256SUM: &str = "7a63749cea63853ad1b9b2f6c32c087459a7be52aaef8730b0a41f00c5807d1b";
-    let _ = env_logger::builder().is_test(true).try_init();
+    // let _ = env_logger::builder().is_test(true).try_init();
+    // let _tracing_guard: Box<dyn Drop> = match env_tracing_logger::init_result() {
+    //     Ok(g) => Box::new(g),
+    //     Err((g, _err)) => Box::new(g),
+    // };
 
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
@@ -380,10 +419,11 @@ async fn do_water_test() {
 
     let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
 
-    run_test(FNAME, untracked_dir.clone()).await;
+    run_test(FNAME, untracked_dir.clone()).await?;
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.
 
     std::fs::remove_dir_all(untracked_dir).unwrap();
+    Ok(())
 }

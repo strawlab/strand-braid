@@ -3,14 +3,16 @@
     feature(error_generic_member_access, provide_any)
 )]
 
-use log::{debug, error, info, trace};
+use tracing::{debug, error, info, trace};
+use tracing_futures::Instrument;
 
+use mini_arenas::MiniArenaImage;
 use serde::{Deserialize, Serialize};
 
 use std::{
     collections::{BTreeMap, BTreeSet},
     f64,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use hdrhistogram::{
@@ -47,6 +49,7 @@ pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager
 
 mod write_data;
 use write_data::writer_task_main;
+pub use write_data::BraidMetadataBuilder;
 
 mod bundled_data;
 mod contiguous_stream;
@@ -55,9 +58,10 @@ mod frame_bundler;
 mod new_object_test_2d;
 mod new_object_test_3d;
 
+mod flat_2d;
 mod tracking_core;
 
-mod zip_dir;
+mod mini_arenas;
 
 mod model_server;
 pub use crate::model_server::{new_model_server, ModelServer, SendKalmanEstimatesRow, SendType};
@@ -770,10 +774,12 @@ impl CoordProcessorControl {
     }
 }
 
+#[derive(Debug)]
 pub struct CoordProcessorConfig {
     pub tracking_params: TrackingParams,
     pub save_empty_data2d: bool,
     pub ignore_latency: bool,
+    pub mini_arena_debug_image_dir: Option<std::path::PathBuf>,
 }
 
 // TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
@@ -782,29 +788,43 @@ pub struct CoordProcessorConfig {
 // are kept and thus that the sender will drop when needed. The alternative (or
 // addition) is to have a message which will close the writer's files, as is
 // done with `SaveToDiskMsg::StopSavingCsv`.
+#[derive(Debug)]
 pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
     pub braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
-    pub writer_join_handle: tokio::task::JoinHandle<Result<()>>,
+    pub writer_join_handle: std::thread::JoinHandle<Result<()>>,
     model_servers: Vec<tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>>,
     tracking_params: Arc<TrackingParams>,
-    mc2: Option<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>>,
+    /// Images of the "mini arenas" in use.
+    ///
+    /// One per camera when we have calibrations to do tracking. Empty
+    /// otherwise.
+    mini_arena_images: std::collections::BTreeMap<String, MiniArenaImage>,
+    /// A vector of model collections, one per "mini arena".
+    ///
+    /// This is behind `Option<>` for reasons I do not remember.
+    model_collections: Option<
+        Vec<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>>,
+    >,
+    next_obj_id: Arc<Mutex<u32>>,
 }
 
 impl CoordProcessor {
+    #[tracing::instrument]
     pub fn new(
         cfg: CoordProcessorConfig,
         handle: tokio::runtime::Handle,
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        saving_program_name: &str,
+        metadata_builder: BraidMetadataBuilder,
         valve: stream_cancel::Valve,
     ) -> Result<Self> {
         let CoordProcessorConfig {
             tracking_params,
             save_empty_data2d,
             ignore_latency,
+            mini_arena_debug_image_dir,
         } = cfg;
 
         trace!("CoordProcessor using {:?}", recon);
@@ -813,26 +833,33 @@ impl CoordProcessor {
 
         info!("using TrackingParams {:?}", tracking_params);
 
+        let mini_arena_images = mini_arenas::build_mini_arena_images(
+            recon.as_ref(),
+            &tracking_params.mini_arena_config,
+            mini_arena_debug_image_dir
+                .as_ref()
+                .map(std::path::PathBuf::as_path),
+        )?;
+
         let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);
         let tracking_params2 = tracking_params.clone();
         let cam_manager2 = cam_manager.clone();
-        let saving_program_name = saving_program_name.to_string();
 
         let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
 
-        let braidz_write_rx = tokio_stream::wrappers::ReceiverStream::new(braidz_write_rx);
-        let braidz_write_rx = valve.wrap(braidz_write_rx);
-
-        let writer_future = writer_task_main(
-            braidz_write_rx,
-            cam_manager2,
-            recon2,
-            tracking_params2,
-            save_empty_data2d,
-            saving_program_name,
-            ignore_latency,
-        );
-        let writer_join_handle = handle.spawn(writer_future);
+        let writer_join_handle = std::thread::Builder::new()
+            .name("writer_task_main".to_string())
+            .spawn(move || {
+                writer_task_main(
+                    braidz_write_rx,
+                    cam_manager2,
+                    recon2,
+                    tracking_params2,
+                    save_empty_data2d,
+                    metadata_builder,
+                    ignore_latency,
+                )
+            })?;
 
         Ok(Self {
             cam_manager,
@@ -841,22 +868,32 @@ impl CoordProcessor {
             writer_join_handle,
             tracking_params,
             model_servers: vec![],
-            mc2: None,
+            model_collections: None,
+            mini_arena_images,
+            next_obj_id: Arc::new(Mutex::new(0)),
         })
     }
 
-    fn new_model_collection(
+    fn new_model_collections(
         &self,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,
         fps: f32,
-    ) -> crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone> {
-        crate::tracking_core::initialize_model_collection(
-            self.tracking_params.clone(),
-            recon.clone(),
-            fps,
-            self.cam_manager.clone(),
-            self.braidz_write_tx.clone(),
-        )
+    ) -> Vec<crate::tracking_core::ModelCollection<crate::tracking_core::CollectionFrameDone>> {
+        self.tracking_params
+            .mini_arena_config
+            .iter_locators()
+            .map(|mini_arena_loc| {
+                let mini_arena_idx =
+                    mini_arenas::MiniArenaIndex::new(mini_arena_loc.idx().unwrap());
+                crate::tracking_core::initialize_model_collection(
+                    self.tracking_params.clone(),
+                    recon.clone(),
+                    fps,
+                    self.cam_manager.clone(),
+                    mini_arena_idx,
+                )
+            })
+            .collect()
     }
 
     pub fn get_braidz_write_tx(&self) -> tokio::sync::mpsc::Sender<SaveToDiskMsg> {
@@ -877,15 +914,16 @@ impl CoordProcessor {
     /// though, and yields many times throughout this execution.
     ///
     /// Upon completion, returns a [tokio::task::JoinHandle] from a spawned
-    /// writing task. To ensure data is completely saved, this should be driver
+    /// writing task. To ensure data is completely saved, this should be driven
     /// to completion before ending the process.
+    #[tracing::instrument]
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
-    ) -> tokio::task::JoinHandle<Result<()>>
+    ) -> std::thread::JoinHandle<Result<()>>
     where
-        S: 'static + Send + futures::stream::Stream<Item = StreamItem> + Unpin,
+        S: 'static + Send + futures::stream::Stream<Item = StreamItem> + std::fmt::Debug + Unpin,
     {
         let mut prev_frame = SyncFno(0);
         use futures::stream::StreamExt;
@@ -924,11 +962,11 @@ impl CoordProcessor {
 
         info!("Starting model collection and frame bundler.");
 
-        // Restart the model collection.
+        // Start the model collection.
 
         if let Some(ref recon) = self.recon {
             let fps = expected_framerate.expect("expected_framerate must be set");
-            self.mc2 = Some(self.new_model_collection(recon, fps));
+            self.model_collections = Some(self.new_model_collections(recon, fps));
             let dummy_time = TimeDataPassthrough {
                 frame: SyncFno(0),
                 timestamp: None,
@@ -950,16 +988,21 @@ impl CoordProcessor {
             }
         }
 
-        // Restart the frame bundler.
+        // Start the frame bundler.
 
         // This function takes a stream and returns a stream. In the returned
         // stream, it has bundled the camera-by-camera data into all-cam data.
         // Note that this can drop data that is out-of-order, which is why we
         // must save the incoming data before here.
-        let bundled = bundle_frames(stream1, ccm.clone());
+        let bundled =
+            bundle_frames(stream1, ccm.clone()).instrument(tracing::info_span!("bundle_frames"));
 
         // Ensure that there are no skipped frames.
-        let mut contiguous_stream = make_contiguous(bundled);
+        let mut contiguous_stream =
+            make_contiguous(bundled).instrument(tracing::info_span!("contiguous"));
+
+        let mut mini_arena_assignment_debug = std::env::var_os("DEBUG_MINI_ARENAS")
+            .map(|fname| mini_arenas::MiniArenaAssignmentDebug::new(&fname).unwrap());
 
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
@@ -972,26 +1015,93 @@ impl CoordProcessor {
             );
             prev_frame = bundle.frame();
 
-            if let Some(model_collection) = self.mc2.take() {
-                // undistort all observations
-                let undistorted = bundle.undistort(&model_collection.mcinner.recon);
-                // calculate priors (update estimates to current frame)
-                let model_collection = model_collection.predict_motion();
-                // calculate likelihood of each observation
-                let model_collection = model_collection.compute_observation_likes(undistorted);
-                // perform data association
-                let (model_collection, unused) =
-                    model_collection.solve_data_association_and_update();
+            // Undistort incoming points and assign to mini arenas.
+            let undistorted = if let Some(recon) = &self.recon {
+                bundle.undistort_and_split_to_mini_arenas(
+                    recon,
+                    &self.mini_arena_images,
+                    &self.tracking_params.mini_arena_config,
+                )
+            } else {
+                continue;
+            };
+
+            if let Some(dbg) = mini_arena_assignment_debug.as_mut() {
+                dbg.write_frame(&undistorted).unwrap();
+            }
+
+            if let Some(mcs) = &self.model_collections {
+                debug_assert_eq!(undistorted.per_mini_arena.len(), mcs.len());
+            }
+
+            // TODO: split processing across arenas into multiple threads.
+            if let Some(model_collections) = self.model_collections.take() {
+                // Across all arenas, predict motion (Kalman prediction step).
+                let model_collections = model_collections
+                    .into_iter()
+                    .map(|mc| mc.predict_motion())
+                    .collect::<Vec<_>>();
+
+                let tdpt = &undistorted.tdpt;
+
+                // ---------------------------------
+                // ---------------------------------
+                // ---------------------------------
+
+                // Across all arenas, compute likelihood of each observation.
+                let model_collections = model_collections
+                    .into_iter()
+                    .zip(undistorted.per_mini_arena.iter())
+                    .map(|(mc, arena_bundle)| mc.compute_observation_likes(tdpt, arena_bundle))
+                    .collect::<Vec<_>>();
+
+                // Across all arenas, perform data association
+                let model_collections_and_unused_observations = model_collections
+                    .into_iter()
+                    .zip(undistorted.per_mini_arena.into_iter())
+                    .map(|(mc, arena_bundle)| {
+                        mc.solve_data_association_and_update(tdpt, arena_bundle)
+                    })
+                    .collect::<Vec<_>>();
+
+                // ---------------------------------
+                // ---------------------------------
+                // ---------------------------------
+
                 // create new and delete old objects
-                let model_collection = model_collection
-                    .births_and_deaths(unused, &self.model_servers)
-                    .await;
-                self.mc2 = Some(model_collection);
+                let (model_collections, combined) = model_collections_and_unused_observations
+                    .into_iter()
+                    .map(|(mc, unused)| {
+                        let (mc, send_msgs, save_msgs) =
+                            mc.births_and_deaths(tdpt, unused, || self.next_obj_id_func());
+                        (mc, (send_msgs, save_msgs))
+                    })
+                    .unzip::<_, _, Vec<_>, Vec<_>>();
+
+                for (send_msgs, save_msgs) in combined.into_iter() {
+                    for msg in save_msgs.into_iter() {
+                        self.braidz_write_tx.send(msg).await.unwrap();
+                    }
+                    for ms in self.model_servers.iter() {
+                        for msg in send_msgs.iter() {
+                            ms.send(msg.clone()).await.unwrap();
+                        }
+                    }
+                }
+
+                self.model_collections = Some(model_collections);
             }
         }
         debug!("consume_stream future done");
 
         self.writer_join_handle
+    }
+
+    fn next_obj_id_func(&self) -> u32 {
+        let mut guard = self.next_obj_id.lock().unwrap();
+        let val: u32 = *guard;
+        *guard += 1;
+        val
     }
 }
 

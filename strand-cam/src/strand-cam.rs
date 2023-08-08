@@ -1038,11 +1038,14 @@ async fn frame_process_task(
                                         tracking_params,
                                         save_empty_data2d,
                                         ignore_latency,
+                                        mini_arena_debug_image_dir: None,
                                     },
                                     tokio::runtime::Handle::current(),
                                     cam_manager,
                                     Some(recon),
-                                    "strand-cam",
+                                    flydra2::BraidMetadataBuilder::saving_program_name(
+                                        "strand-cam",
+                                    ),
                                     valve.clone(),
                                 )
                                 .expect("create CoordProcessor");
@@ -1071,7 +1074,7 @@ async fn frame_process_task(
                                         file!(),
                                         line!()
                                     );
-                                    jh.await.unwrap().unwrap();
+                                    jh.join().unwrap().unwrap();
                                     debug!(
                                         "done waiting on flydratrax coord processor {}:{}",
                                         file!(),

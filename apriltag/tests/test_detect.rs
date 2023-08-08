@@ -7,7 +7,7 @@ fn test_detect_standard_41h12() {
     let tf = apriltag::Family::new_tag_standard_41h12();
     td.add_family(tf);
 
-    let mut raw_td = td.as_mut();
+    let raw_td = td.as_mut();
     // raw_td.debug = 1;
     raw_td.quad_decimate = 2.0;
     raw_td.quad_sigma = 0.0;
@@ -45,7 +45,7 @@ fn test_detect_standard_36h11() {
     let tf = apriltag::Family::new_tag_36h11();
     td.add_family(tf);
 
-    let mut raw_td = td.as_mut();
+    let raw_td = td.as_mut();
     raw_td.quad_decimate = 2.0;
     raw_td.quad_sigma = 0.0;
     raw_td.refine_edges = 1;
@@ -58,5 +58,5 @@ fn test_detect_standard_36h11() {
     let dest = convert_image::convert::<_, Mono8>(&rgb).unwrap();
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
-    assert!(detections.len() == 0);
+    assert!(detections.is_empty());
 }

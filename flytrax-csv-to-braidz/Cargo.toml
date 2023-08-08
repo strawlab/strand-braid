@@ -7,8 +7,7 @@ rust-version = "1.59"
 
 [dependencies]
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
-env_logger = "0.8"
-structopt = "0.3.13"
+clap = {version="4.0.10", features=["derive"]}
 parking_lot = "0.11"
 csv = "1.1"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
@@ -30,17 +29,14 @@ includedir = { version = "0.5", optional = true }
 tempfile = "3.4.0"
 phf = { version = "0.7.23", optional = true }
 anyhow = "1.0"
+image = { version = "0.24.2", default-features = false, features = ["jpeg", "png"] }
+opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
 
 datetime-conversion = {path="../datetime-conversion"}
-mvg = {path="../mvg"}
+env-tracing-logger = {path="../env-tracing-logger"}
 flydra-mvg = {path="../flydra-mvg"}
 http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
 flydra-types = {path="../flydra-types"}
-tracking = {path="../tracking"}
-groupby = {path="../groupby"}
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
-withkey = {path="../withkey"}
-crossbeam-ok = {path="../crossbeam-ok"}
 strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
 strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal"}
 flydra2 = {path="../flydra2", default-features = false, features=["bundle_files"]}
@@ -48,7 +44,12 @@ braidz-types = {path="../braidz-types"}
 braidz-parser = {path="../braidz-parser"}
 zip-or-dir = {path="../zip-or-dir"}
 braid-offline = {path="../braid-offline", default-features = false}
-channellib = {path="../channellib"}
+flytrax-apriltags-calibration = {path="../braid-april-cal/flytrax-apriltags-calibration"}
+flytrax-io = {path="../strand-cam/flytrax-io"}
+
+[dev-dependencies]
+env_logger = "0.10.0"
+test-log = "0.2.12"
 
 [features]
-backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]
+backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]

@@ -1,10 +1,11 @@
 use std::env;
 
 // This function was modified from pkg-config-rs and should have same behavior.
+#[allow(clippy::if_same_then_else, clippy::needless_bool)]
 fn infer_static(name: &str) -> bool {
-    if env::var_os(&format!("{}_STATIC", name)).is_some() {
+    if env::var_os(format!("{}_STATIC", name)).is_some() {
         true
-    } else if env::var_os(&format!("{}_DYNAMIC", name)).is_some() {
+    } else if env::var_os(format!("{}_DYNAMIC", name)).is_some() {
         false
     } else if env::var_os("PKG_CONFIG_ALL_STATIC").is_some() {
         true
@@ -70,6 +71,7 @@ fn main() {
     let mut compiler = cc::Build::new();
     compiler.file("src/opencv-calibrate.cpp");
     compiler.cpp(true);
+    compiler.flag_if_supported("-std=c++11");
     for path in include_paths.iter() {
         compiler.include(path);
     }

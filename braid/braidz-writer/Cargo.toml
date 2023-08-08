@@ -1,0 +1,16 @@
+[package]
+name = "braidz-writer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+walkdir = "2.2"
+libflate = "0.1"
+zip = { version = "0.6.3", default-features = false, features = ["time"] }
+thiserror = "1.0.43"
+
+flydra-types = { path = "../../flydra-types" }
+
+[dev-dependencies]
+tempfile = "3.4.0"
+anyhow = "1"

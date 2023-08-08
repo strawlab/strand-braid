@@ -47,6 +47,7 @@
 //! [N5](https://github.com/saalfeldlab/n5).
 
 use std::{
+    fs::File,
     io::{BufReader, Read, Seek, Write},
     path::{Component, Path, PathBuf},
 };
@@ -110,7 +111,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-#[derive(Debug)]
 /// Read-access to either a single zip file or an directory.
 ///
 /// This provides a uniform API for accessing files in a directory in a
@@ -123,7 +123,15 @@ pub struct ZipDirArchive<R: Read + Seek> {
     zip_archive: Option<zip::ZipArchive<R>>,
 }
 
-impl ZipDirArchive<BufReader<std::fs::File>> {
+impl<R: Read + Seek> std::fmt::Debug for ZipDirArchive<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_struct("KalmanEstimatesInfo")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ZipDirArchive<BufReader<File>> {
     /// Automatically open a path on the filesystem as a ZipDirArchive
     ///
     /// If the path is a directory, it will be opened with
@@ -135,7 +143,7 @@ impl ZipDirArchive<BufReader<std::fs::File>> {
             if path.as_ref().is_dir() {
                 Self::from_dir(path.as_ref().to_path_buf())
             } else {
-                let reader = BufReader::new(std::fs::File::open(&path)?);
+                let reader = BufReader::new(File::open(&path)?);
                 Self::from_zip(
                     reader,
                     path.as_ref().as_os_str().to_str().unwrap().to_string(),
@@ -197,16 +205,17 @@ impl<R: Read + Seek> ZipDirArchive<R> {
             None => self.rel(relname).exists(),
         }
     }
+
     /// Open relative path and return reader.
-    pub fn open<P: AsRef<Path>>(&mut self, relname: P) -> Result<BufReader<Box<dyn Read + '_>>> {
+    pub fn open<P: AsRef<Path>>(&mut self, relname: P) -> Result<FileReader> {
         let dirpath = self.rel(relname.as_ref());
         match &mut self.zip_archive {
             Some(zip_archive) => {
                 let relname_str = relname.as_ref().as_os_str().to_str().unwrap();
                 let zipfile = zip_archive.by_name(relname_str)?;
-                Ok(BufReader::new(Box::new(zipfile)))
+                Ok(FileReader::from_zip(zipfile)?)
             }
-            None => Ok(BufReader::new(Box::new(std::fs::File::open(dirpath)?))),
+            None => Ok(FileReader::open_file(dirpath)?),
         }
     }
 
@@ -312,6 +321,69 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     }
 }
 
+/// Provides a single concrete type for a normal file or a zipped file.
+#[derive(Debug)]
+pub struct FileReader<'a> {
+    inner: FileReaderInner<'a>,
+    size: u64,
+    position: u64,
+}
+
+enum FileReaderInner<'a> {
+    File(BufReader<File>),
+    ZipFile(Box<BufReader<zip::read::ZipFile<'a>>>),
+}
+
+impl<'a> std::fmt::Debug for FileReaderInner<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileReaderInner::File(_) => write!(f, "FileReaderInner::File"),
+            FileReaderInner::ZipFile(_) => write!(f, "FileReaderInner::ZipFile"),
+        }
+    }
+}
+
+impl<'a> FileReader<'a> {
+    fn from_inner(inner: FileReaderInner<'a>, size: u64) -> Result<FileReader<'a>> {
+        Ok(FileReader {
+            inner,
+            size,
+            position: 0,
+        })
+    }
+    fn open_file<P: AsRef<std::path::Path>>(path: P) -> Result<FileReader<'a>> {
+        let f = File::open(path)?;
+        let size = f.metadata()?.len();
+        Self::from_inner(FileReaderInner::File(BufReader::new(f)), size)
+    }
+    fn from_zip(zipfile: zip::read::ZipFile<'a>) -> Result<FileReader<'a>> {
+        let size = zipfile.size();
+        Self::from_inner(
+            FileReaderInner::ZipFile(Box::new(BufReader::new(zipfile))),
+            size,
+        )
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
+    pub fn position(&self) -> u64 {
+        self.position
+    }
+}
+
+impl<'a> Read for FileReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n_bytes = match &mut self.inner {
+            FileReaderInner::File(f) => f.read(buf)?,
+            FileReaderInner::ZipFile(zf) => zf.read(buf)?,
+        };
+        self.position += n_bytes as u64;
+        Ok(n_bytes)
+    }
+}
+
 /// Check for matching prefix and, if present, return the differing suffix.
 ///
 /// All components of the prefix must be matched for `has_match` to be true.
@@ -358,8 +430,8 @@ fn remove_shared_prefix<P1: AsRef<Path>, P2: AsRef<Path>>(
 #[test]
 fn test_implements_send() {
     fn implements_send<F: Send>() {}
-    implements_send::<ZipDirArchive<std::fs::File>>();
-    implements_send::<PathLike<std::fs::File>>();
+    implements_send::<ZipDirArchive<File>>();
+    implements_send::<PathLike<File>>();
 }
 
 /// A representation of a path within the archive.
@@ -402,7 +474,7 @@ impl<'a, R: Read + Seek> PathLike<'a, R> {
     pub fn exists(&mut self) -> bool {
         self.parent.exists(&self.relname)
     }
-    pub fn open(self) -> Result<BufReader<Box<dyn Read + 'a>>> {
+    pub fn open(self) -> Result<FileReader<'a>> {
         self.parent.open(&self.relname)
     }
     pub fn is_file(&mut self) -> bool {
@@ -447,7 +519,7 @@ impl SlashJoin for PathBuf {
 /// it entirely.
 pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Result<()> {
     let mut src_archive = ZipDirArchive::auto_from_path(src.as_ref()).unwrap();
-    let mut zipfile = std::fs::File::create(dest)?;
+    let mut zipfile = File::create(dest)?;
     copy_archive_to_zipfile(&mut src_archive, &mut zipfile)
 }
 
@@ -467,7 +539,7 @@ pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Resul
 /// [ZipDirArchive::from_zip()](struct.ZipDirArchive.html#method.from_zip).
 pub fn copy_archive_to_zipfile<R: Read + Seek>(
     src: &mut ZipDirArchive<R>,
-    dest: &mut std::fs::File,
+    dest: &mut File,
 ) -> Result<()> {
     let mut zip_writer = zip::ZipWriter::new(dest);
     copy_dir(src, None, &mut zip_writer, 0)?;
@@ -480,7 +552,7 @@ pub fn copy_archive_to_zipfile<R: Read + Seek>(
 fn copy_dir<R: Read + Seek>(
     src: &mut ZipDirArchive<R>,
     relname: Option<&Path>,
-    zip_writer: &mut zip::ZipWriter<&mut std::fs::File>,
+    zip_writer: &mut zip::ZipWriter<&mut File>,
     depth: usize,
 ) -> zip::result::ZipResult<()> {
     let parent = match relname {
@@ -531,6 +603,10 @@ fn copy_dir<R: Read + Seek>(
     Ok(())
 }
 
+fn not_dir_error<P: AsRef<Path>>(relname: P) -> Error {
+    Error::NotDirectory(format!("{}", relname.as_ref().display()))
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
@@ -538,7 +614,7 @@ mod tests {
     fn create_files(fnames: &[&str], basepath: &Path) -> std::io::Result<()> {
         for fname in fnames {
             let f = basepath.join(fname);
-            let mut fd = std::fs::File::create(&f).unwrap();
+            let mut fd = File::create(&f).unwrap();
             fd.write_all(fname.as_bytes())?;
         }
         Ok(())
@@ -651,7 +727,7 @@ mod tests {
 
         // // Create zip file at known location
         // let zipfilename = root.with_extension("zip");
-        // let mut zipfile = std::fs::File::create(&zipfilename).unwrap();
+        // let mut zipfile = File::create(&zipfilename).unwrap();
 
         copy_archive_to_zipfile(&mut dirarchive, &mut zipfile).unwrap();
         zipfile.seek(std::io::SeekFrom::Start(0)).unwrap();
@@ -697,8 +773,4 @@ mod tests {
 
         Ok(())
     }
-}
-
-fn not_dir_error<P: AsRef<Path>>(relname: P) -> Error {
-    Error::NotDirectory(format!("{}", relname.as_ref().display()))
 }

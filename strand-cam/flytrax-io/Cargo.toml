@@ -1,0 +1,10 @@
+[package]
+name = "flytrax-io"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+serde_yaml = "0.8" # serde_yaml 0.9 has incompatibility with our files?
+
+strand-cam-csv-config-types = { path = "../../strand-cam-csv-config-types" }

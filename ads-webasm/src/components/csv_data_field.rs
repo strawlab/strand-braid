@@ -56,7 +56,7 @@ where
         .comment(Some(b'#'))
         .from_reader(buf);
     let mut rows = Vec::new();
-    for row in rdr.into_deserialize().into_iter() {
+    for row in rdr.into_deserialize() {
         let row: RowType = match row {
             Ok(r) => r,
             Err(e) => return MaybeCsvData::ParseFail(format!("{}", e)),

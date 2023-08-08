@@ -12,7 +12,9 @@ pub struct ArchiveOpened {}
 
 /// The archive has basic information parsed.
 // The Result<> types store an error indicating why the field was not loaded.
+#[derive(Debug)]
 pub struct BasicInfoParsed {
+    pub metadata: BraidMetadata,
     pub expected_fps: f64,
     pub tracking_params: Option<TrackingParams>,
     pub calibration_info: Option<CalibrationInfo>,
@@ -22,6 +24,7 @@ pub struct BasicInfoParsed {
 }
 
 /// The archive been completely parsed.
+#[derive(Debug)]
 pub struct FullyParsed {
     pub metadata: BraidMetadata,
     pub expected_fps: f64,
@@ -44,10 +47,19 @@ impl ParseState for FullyParsed {}
 /// Initially, minimal reading from the archive is performed. As further
 /// operations on the archive proceed, the state of the parser gradually
 /// accumulates more information.
+// TODO: change this to an enum which changes its variant as it reads more.
 pub struct IncrementalParser<R: Read + Seek, S: ParseState> {
     pub(crate) archive: zip_or_dir::ZipDirArchive<R>,
     /// The state of parsing. Storage for stage-specific data.
     pub(crate) state: S,
+}
+
+impl<R: Read + Seek, S: ParseState> std::fmt::Debug for IncrementalParser<R, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.debug_struct("IncrementalParser")
+            .field("archive", &self.archive)
+            .finish_non_exhaustive()
+    }
 }
 
 impl IncrementalParser<BufReader<std::fs::File>, ArchiveOpened> {
@@ -93,33 +105,88 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
     /// Parse the basic data which can be quickly read from the archive.
     pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
+        let mut metadata: Option<BraidMetadata> = {
+            match self.archive.open(flydra_types::BRAID_METADATA_YML_FNAME) {
+                Ok(rdr) => Some(serde_yaml::from_reader(rdr)?),
+                Err(zip_or_dir::Error::FileNotFound) => None,
+                Err(e) => {
+                    return Err(Error::FileError {
+                        source: Box::new(e),
+                        filename: flydra_types::BRAID_METADATA_YML_FNAME.into(),
+                        what: "opening metadata file",
+                        #[cfg(feature = "backtrace")]
+                        backtrace: Backtrace::capture(),
+                    })
+                }
+            }
+        };
+
+        // should match:
+        //  - "unknown fps, (flydra_version 2.0.0, git_revision 0581c8fa8da4e683921480085fad21bf3b77600e, time_tzname0 CEST)"
+        //  - "100.0 fps, (top 10000, hypothesis_test_max_error 20.0)"
+        //  - "100.0 fps, (flydra_version 0.6.7, time_tzname0 CET)"
+        //  - "20.1 fps, ()"
+
+        let re_fps = regex::Regex::new(r"^(\S+) fps, \((.*)\)$").unwrap();
+
+        let re_inner =
+            regex::Regex::new(r"flydra_version (.+)\S, git_revision (\w+), time_tzname0 (.+)")
+                .unwrap();
+
         // Parse fps and tracking parameters from textlog.
         let mut expected_fps = std::f64::NAN;
-        let tracking_parameters: Option<TrackingParams> = {
+        let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::TEXTLOG_CSV_FNAME);
             let tracking_parameters = match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
                     let textlog_rdr = csv::Reader::from_reader(rdr);
-                    for row in textlog_rdr.into_deserialize().early_eof_ok() {
+                    for (rownum, row) in textlog_rdr.into_deserialize().early_eof_ok().enumerate() {
                         let row: TextlogRow = row?;
 
                         log::debug!(
-                            "Line in {}: {}",
+                            "Line in {} (row {}): {}",
                             flydra_types::TEXTLOG_CSV_FNAME,
+                            rownum,
                             row.message
                         );
 
                         // TODO: fix DRY in `calc_fps_from_data()`.
                         let line1_start = "MainBrain running at ";
 
-                        if row.message.starts_with(line1_start) {
-                            let line = row.message.replace(line1_start, "");
-                            let fps_str = line.split(' ').next().unwrap();
+                        if let Some(line1_data) = row.message.strip_prefix(line1_start) {
+                            let caps = match re_fps.captures(line1_data) {
+                                Some(caps) => caps,
+                                None => return Err(Error::UnknownTextlogData),
+                            };
+                            let fps_str = caps.get(1).unwrap().as_str();
+                            let inner_str = caps.get(2).unwrap().as_str();
+                            let git_revision = match re_inner.captures(inner_str) {
+                                Some(caps2) => caps2.get(2).unwrap().as_str().to_string(),
+                                None => "unknown".to_string(),
+                            };
+
                             if fps_str != "unknown" {
                                 expected_fps = fps_str.parse()?;
                             }
+
+                            if metadata.is_none() {
+                                let timestamp =
+                                    datetime_conversion::f64_to_datetime(row.mainbrain_timestamp);
+
+                                let local: chrono::DateTime<chrono::Local> =
+                                    timestamp.with_timezone(&chrono::Local);
+
+                                metadata = Some(BraidMetadata {
+                                    git_revision,
+                                    original_recording_time: Some(local),
+                                    saving_program_name: "flydra".to_string(),
+                                    schema: flydra_types::BRAID_SCHEMA,
+                                    save_empty_data2d: false,
+                                });
+                            }
+
                             // No more parsing of this line. In particular, it
                             // is not JSON.
                             continue;
@@ -149,15 +216,27 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                             }
                             Err(_e) => {
                                 // Cannot parse as JSON, but this is not a fatal problem.
-                                log::warn!("cannot parse message in textlog as JSON");
+                                log::warn!(
+                                    "cannot parse message in textlog (row {rownum}) as JSON"
+                                );
                             }
                         }
                     }
+
                     tracking_parameters
                 }
                 Err(_e) => None,
             };
             tracking_parameters
+        };
+
+        let metadata = if let Some(metadata) = metadata {
+            metadata
+        } else {
+            return Err(Error::MissingMetadata {
+                #[cfg(feature = "backtrace")]
+                backtrace: Backtrace::capture(),
+            });
         };
 
         let calibration_info = {
@@ -174,7 +253,15 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                     })
                 }
                 Err(zip_or_dir::Error::FileNotFound) => None,
-                Err(e) => return Err(e.into()),
+                Err(e) => {
+                    return Err(Error::FileError {
+                        source: Box::new(e),
+                        filename: flydra_types::CALIBRATION_XML_FNAME.into(),
+                        what: "opening calibration file",
+                        #[cfg(feature = "backtrace")]
+                        backtrace: Backtrace::capture(),
+                    })
+                }
             }
         };
 
@@ -221,8 +308,9 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let state = BasicInfoParsed {
+            metadata,
             expected_fps,
-            tracking_params: tracking_parameters,
+            tracking_params,
             calibration_info,
             reconstruction_latency_hlog,
             reprojection_distance_hlog,
@@ -246,11 +334,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
     /// Parse the remaining aspects of the archive.
     pub fn parse_rest(mut self) -> Result<IncrementalParser<R, FullyParsed>, Error> {
         let basics = self.state;
-
-        let metadata = {
-            let rdr = self.archive.open(flydra_types::BRAID_METADATA_YML_FNAME)?;
-            serde_yaml::from_reader(rdr)?
-        };
 
         let mut num_rows = 0;
         let mut limits: Option<([u64; 2], [FlydraFloatTimestampLocal<HostClock>; 2])> = None;
@@ -432,7 +515,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         Ok(IncrementalParser {
             archive: self.archive,
             state: FullyParsed {
-                metadata,
+                metadata: basics.metadata,
                 expected_fps: basics.expected_fps,
                 calibration_info: basics.calibration_info,
                 cam_info,

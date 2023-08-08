@@ -2,14 +2,14 @@ use serde::{Deserialize, Serialize};
 
 // ---- strand-cam csv yaml configuration header -----
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SaveCfgFview2_0_25 {
     pub name: String,
     pub version: String,
     pub git_hash: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullCfgFview2_0_25 {
     pub app: SaveCfgFview2_0_25,
     pub created_at: chrono::DateTime<chrono::Local>,
@@ -17,7 +17,7 @@ pub struct FullCfgFview2_0_25 {
     pub object_detection_cfg: flydra_feature_detector_types::ImPtDetectCfg,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraCfgFview2_0_26 {
     pub vendor: String,
     pub model: String,
@@ -27,7 +27,7 @@ pub struct CameraCfgFview2_0_26 {
 }
 
 // TODO: also have flydratrax variant which saves flydra tracking params
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullCfgFview2_0_26 {
     pub app: SaveCfgFview2_0_25,
     pub camera: CameraCfgFview2_0_26,
