@@ -50,6 +50,7 @@ flytrax-io = {path="../strand-cam/flytrax-io"}
 [dev-dependencies]
 env_logger = "0.10.0"
 test-log = "0.2.12"
+download-verify = {path="../download-verify"}
 
 [features]
 backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]
