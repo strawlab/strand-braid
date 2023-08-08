@@ -45,6 +45,7 @@ members = [
     "download-verify",
     "enum-iter",
     "env-tracing-logger",
+    "env-tracing-logger/env-tracing-logger-sample",
     "fastimage",
     "fastfreeimage",
     "fly-eye",
