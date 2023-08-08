@@ -126,20 +126,6 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         .to_str()
         .unwrap();
 
-    let calibration_params_buf = {
-        info!(
-            "reading calibration parameters from file {}",
-            cli.calibration_params.display()
-        );
-        // read the calibration parameters
-        std::fs::read_to_string(&cli.calibration_params)
-            .map_err(anyhow::Error::from)
-            .context(format!(
-                "reading calibration parameters file {}",
-                cli.calibration_params.display()
-            ))?
-    };
-
     let tracking_params_buf = match cli.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
@@ -222,7 +208,6 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         flytrax_image,
         &output_braidz,
         cal_file_name,
-        &calibration_params_buf,
         tracking_params_buf.as_ref().map(AsRef::as_ref),
         &filters,
         cli.no_progress,

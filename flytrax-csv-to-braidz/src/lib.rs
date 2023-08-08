@@ -32,7 +32,6 @@ async fn kalmanize_2d<R>(
     output_braidz: &std::path::Path,
     tracking_params: TrackingParams,
     cal_file_name: &str,
-    calibration_params_buf: &str,
     row_filters: &[RowFilter],
     no_progress: bool,
     eargs: Option<ExtrinsicsArgs>,
@@ -44,19 +43,22 @@ where
     let cfg = flytrax_io::read_csv_commented_header(&mut point_detection_csv_reader)?;
 
     let mut pseudo_cal_params = None;
+    log::info!("reading calibration parameters from file {}", cal_file_name);
+    let calibration_params_buf = std::fs::read_to_string(cal_file_name)
+        .with_context(|| format!("reading calibration parameters file \"{}\"", cal_file_name))?;
     let cal_type = if cal_file_name.ends_with(".xml") {
         let full_cal = FlydraMultiCameraSystem::from_flydra_xml(calibration_params_buf.as_bytes())?;
         log::info!("loaded XML calibration with {} cameras", full_cal.len());
         CalibrationType::FullCal(Box::new(full_cal))
     } else if cal_file_name.ends_with(".toml") {
         let pseudo: PseudoCalParams =
-            toml::from_str(calibration_params_buf).map_err(anyhow::Error::from)?;
+            toml::from_str(&calibration_params_buf).map_err(anyhow::Error::from)?;
         pseudo_cal_params = Some(pseudo.clone());
 
         CalibrationType::SimpleCal(pseudo)
     } else if cal_file_name.ends_with(".yaml") {
         let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
-            serde_yaml::from_str(calibration_params_buf)?;
+            serde_yaml::from_str(&calibration_params_buf)?;
         log::info!("loaded YAML intrinsics calibration");
 
         let eargs = eargs.ok_or_else(|| {
@@ -492,7 +494,6 @@ pub async fn parse_configs_and_run<R>(
     flytrax_image: Option<image::DynamicImage>,
     output_braidz: &std::path::Path,
     cal_file_name: &str,
-    calibration_params_buf: &str,
     tracking_params_buf: Option<&str>,
     row_filters: &[RowFilter],
     no_progress: bool,
@@ -518,7 +519,6 @@ where
         output_braidz,
         tracking_params,
         cal_file_name,
-        calibration_params_buf,
         row_filters,
         no_progress,
         eargs,

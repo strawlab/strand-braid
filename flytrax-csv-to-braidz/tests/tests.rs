@@ -5,8 +5,7 @@ use flytrax_csv_to_braidz::{parse_configs_and_run, RowFilter};
 #[test(tokio::test)]
 async fn test_run_end_to_end() {
     const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
-    const CALIBRATION_PARAMS_FILENAME: &str = "cal1.toml";
-    const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
+    const CALIBRATION_PARAMS_FILENAME: &str = "tests/data/cal1.toml";
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
     let flydra_csv_temp_dir = Some(tempfile::Builder::new().tempdir().unwrap());
@@ -26,7 +25,6 @@ async fn test_run_end_to_end() {
         None,
         &output_braidz,
         CALIBRATION_PARAMS_FILENAME,
-        CALIBRATION_PARAMS_TOML,
         tracking_params_buf,
         &row_filters,
         true,
@@ -51,8 +49,7 @@ async fn test_run_end_to_end() {
 #[test(tokio::test)]
 async fn test_z_values_zero() {
     const INPUT_CSV: &str = include_str!("data/flytrax20191122_103500.csv");
-    const CALIBRATION_PARAMS_FILENAME: &str = "cal1.toml";
-    const CALIBRATION_PARAMS_TOML: &str = include_str!("data/cal1.toml");
+    const CALIBRATION_PARAMS_FILENAME: &str = "tests/data/cal1.toml";
 
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
@@ -71,7 +68,6 @@ async fn test_z_values_zero() {
         None,
         &output_braidz,
         CALIBRATION_PARAMS_FILENAME,
-        CALIBRATION_PARAMS_TOML,
         None,
         &row_filters,
         true,
@@ -184,8 +180,6 @@ async fn mini_arenas_with_apriltags() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let calibration_params_buf = std::fs::read_to_string(CHECKERBOARD_CAL_FNAME)?;
-
     let tracking_params_buf = Some(std::fs::read_to_string(TRACKING_PARAMS_FNAME)?);
 
     parse_configs_and_run(
@@ -194,7 +188,6 @@ async fn mini_arenas_with_apriltags() -> anyhow::Result<()> {
         flytrax_image,
         &output_braidz,
         CHECKERBOARD_CAL_FNAME,
-        &calibration_params_buf,
         tracking_params_buf.as_deref(),
         &row_filters,
         true,
