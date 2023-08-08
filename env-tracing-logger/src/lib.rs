@@ -18,8 +18,8 @@ pub fn init() -> impl Drop {
 }
 
 fn init_result() -> Result<impl Drop, (impl Drop, tracing::subscriber::SetGlobalDefaultError)> {
-    let evt_fmt = format().with_timer(time::Uptime::default());
-    let fmt_layer = fmt::layer().event_format(evt_fmt).with_target(false);
+    let evt_fmt = format().with_timer(time::Uptime::default()).compact();
+    let fmt_layer = fmt::layer().event_format(evt_fmt);
 
     tracing_subscriber::registry()
         .with(fmt_layer)
