@@ -8,7 +8,7 @@ use machine_vision_formats::{pixel_format::Mono8, ImageData};
 
 #[test]
 fn test_save_then_read_with_ffmpeg() -> Result<()> {
-    let start = chrono::DateTime::from_utc(
+    let start = chrono::DateTime::from_naive_utc_and_offset(
         chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
         Utc,
     );

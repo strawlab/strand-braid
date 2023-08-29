@@ -8,7 +8,7 @@ less-avc = "0.1.4"
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 machine-vision-formats = "0.1"
-chrono = {version="0.4.23", default-features=false}
+chrono = {version="0.4.27", default-features=false}
 thiserror = "1"
 
 [dev-dependencies]

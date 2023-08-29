@@ -725,7 +725,7 @@ fn main() -> Result<()> {
 fn test_y4m() -> anyhow::Result<()> {
     use machine_vision_formats::pixel_format::{Mono8, RGB8};
 
-    let start = chrono::DateTime::from_utc(
+    let start = chrono::DateTime::from_naive_utc_and_offset(
         chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
         chrono::Utc,
     );

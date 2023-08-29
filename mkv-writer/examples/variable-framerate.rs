@@ -175,7 +175,7 @@ fn main() -> Result<(), anyhow::Error> {
         1.0, 1.0, 1.0, 1.0,
     ];
 
-    let start = DateTime::<Utc>::from_utc(
+    let start = DateTime::<Utc>::from_naive_utc_and_offset(
         chrono::NaiveDateTime::from_timestamp_opt(60, 123_456_789).unwrap(),
         Utc,
     );

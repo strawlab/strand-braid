@@ -4919,7 +4919,7 @@ impl FinalMp4RecordingConfig {
             }
         };
         // See https://github.com/chronotope/chrono/issues/576
-        let fixed = chrono::DateTime::<chrono::FixedOffset>::from_utc(
+        let fixed = chrono::DateTime::<chrono::FixedOffset>::from_naive_utc_and_offset(
             creation_time.naive_utc(),
             *creation_time.offset(),
         );
