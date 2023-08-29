@@ -114,7 +114,7 @@ impl std::fmt::Display for FileErrorInner {
 
 impl std::error::Error for FileErrorInner {
     #[cfg(feature = "backtrace")]
-    fn provide<'a>(&'a self, req: &mut std::any::Demand<'a>) {
+    fn provide<'a>(&'a self, req: &mut std::error::Request<'a>) {
         self.source.provide(req)
     }
 }
@@ -132,7 +132,7 @@ impl std::fmt::Display for WrappedErrorInner {
 
 impl std::error::Error for WrappedErrorInner {
     #[cfg(feature = "backtrace")]
-    fn provide<'a>(&'a self, req: &mut std::any::Demand<'a>) {
+    fn provide<'a>(&'a self, req: &mut std::error::Request<'a>) {
         self.source.provide(req)
     }
 }
