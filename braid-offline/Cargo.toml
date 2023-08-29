@@ -27,7 +27,7 @@ stream-cancel = "0.8"
 libflate = "1.2.0"
 indicatif = "0.17.1"
 tracing = "0.1.37"
-tracing-futures = { version = "0.2.5", features = ["tokio", "futures-01", "std-future"] }
+tracing-futures = { version = "0.2.5" }
 ordered-float = "1"
 
 env-tracing-logger = {path="../env-tracing-logger"}
