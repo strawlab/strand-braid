@@ -4,7 +4,7 @@ use chrono::Utc;
 fn main() -> anyhow::Result<()> {
     let n_frames = 1;
 
-    let start = chrono::DateTime::from_utc(
+    let start = chrono::DateTime::from_naive_utc_and_offset(
         chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
         Utc,
     );

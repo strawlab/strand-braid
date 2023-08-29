@@ -1,6 +1,6 @@
 #![cfg_attr(
     feature = "backtrace",
-    feature(error_generic_member_access, provide_any)
+    feature(error_generic_member_access)
 )]
 
 #[cfg(feature = "backtrace")]

@@ -134,7 +134,7 @@ fn main() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
     // let start = Utc::now();
-    let start = chrono::DateTime::from_utc(
+    let start = chrono::DateTime::from_naive_utc_and_offset(
         chrono::NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
         Utc,
     );
