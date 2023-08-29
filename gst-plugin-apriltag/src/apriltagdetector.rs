@@ -161,7 +161,7 @@ fn make_detector(settings: &Settings) -> apriltag::Detector {
     let mut td = apriltag::Detector::new();
     add_family(&mut td, &settings);
 
-    let mut raw_td = td.as_mut();
+    let raw_td = td.as_mut();
     raw_td.quad_decimate = settings.decimate;
     raw_td.quad_sigma = settings.blur;
     raw_td.refine_edges = if settings.refine_edges { 1 } else { 0 };
