@@ -272,7 +272,7 @@ pub fn save_cal_result_to_xml<P: AsRef<Path>>(
         named_intrinsics: _,
     } = res;
     let xml_buf = cal_result.to_flydra_xml()?;
-    std::fs::write(output_xml.as_ref().clone(), xml_buf)?;
+    std::fs::write(output_xml.as_ref(), xml_buf)?;
     log::info!("Saved output XML to: {}", output_xml.as_ref().display());
 
     Ok(())
