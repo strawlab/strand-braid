@@ -22,5 +22,5 @@ ci2-async = { path = "../../ci2-async" }
 ci2-pyloncxx = { path = "../../ci2-pyloncxx" }
 
 [build-dependencies]
-cbindgen = "0.20"
+cbindgen = "0.25"
 plugin-defs = {path="../../plugin-defs"}
