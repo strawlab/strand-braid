@@ -270,7 +270,7 @@ async fn new_http_api_app(
         config.clone(),
         &auth,
         chan_size,
-        &*EVENTS_PREFIX,
+        &EVENTS_PREFIX,
         Some(Arc::new(Box::new(move |mut resp, req| {
             let path = req.uri().path();
             let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
@@ -296,7 +296,7 @@ async fn new_http_api_app(
                             software_limit_framerate,
                         };
                         let body_str = serde_json::to_string(&msg).unwrap();
-                        const JSON_TYPE: &'static str = "application/json";
+                        const JSON_TYPE: &str = "application/json";
                         resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE)
                             .body(body_str.into())?
                     } else {
@@ -328,7 +328,7 @@ async fn new_http_api_app(
     .await?;
 
     let mainbrain_server_info = {
-        let local_addr = inner.local_addr().clone();
+        let local_addr = *inner.local_addr();
         let token = inner.token();
         BuiServerInfo::new(local_addr, token)
     };
@@ -385,7 +385,7 @@ fn display_qr_url(url: &str) {
     use qrcodegen::{QrCode, QrCodeEcc};
     use std::io::{stdout, Write};
 
-    let qr = QrCode::encode_text(&url, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::encode_text(url, QrCodeEcc::Low).unwrap();
 
     let stdout = stdout();
     let mut stdout_handle = stdout.lock();
@@ -445,7 +445,7 @@ pub async fn pre_run(
 
     let http_api_server_addr: String = mainbrain_config.http_api_server_addr.clone();
     let http_api_server_token: Option<String> = mainbrain_config.http_api_server_token.clone();
-    let model_pose_server_addr: std::net::SocketAddr = mainbrain_config.model_server_addr.clone();
+    let model_pose_server_addr: std::net::SocketAddr = mainbrain_config.model_server_addr;
     let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
 
     info!("saving to directory: {}", output_base_dirname.display());
@@ -482,7 +482,7 @@ pub async fn pre_run(
         info!("using calibration: {}", cal_fname.display());
 
         // read the calibration
-        let cal_file = anyhow::Context::with_context(std::fs::File::open(&cal_fname), || {
+        let cal_file = anyhow::Context::with_context(std::fs::File::open(cal_fname), || {
             format!("loading calibration {}", cal_fname.display())
         })?;
 
@@ -519,7 +519,7 @@ pub async fn pre_run(
     });
 
     if show_tracking_params {
-        let t2: flydra_types::TrackingParams = tracking_params.into();
+        let t2: flydra_types::TrackingParams = tracking_params;
         let buf = toml::to_string(&t2)?;
         println!("{}", buf);
         std::process::exit(0);
@@ -633,12 +633,10 @@ pub async fn pre_run(
         } else {
             bui_backend::highlevel::generate_random_auth(http_api_server_addr, secret.to_vec())?
         }
+    } else if http_api_server_addr.ip().is_loopback() {
+        AccessControl::Insecure(http_api_server_addr)
     } else {
-        if http_api_server_addr.ip().is_loopback() {
-            AccessControl::Insecure(http_api_server_addr)
-        } else {
-            return Err(MainbrainError::JwtError.into());
-        }
+        return Err(MainbrainError::JwtError.into());
     };
 
     let (camdata_addr, camdata_socket) = {
@@ -681,14 +679,12 @@ pub async fn pre_run(
     // `None`.
     let raw_packet_logger = RawPacketLogger::new(
         mainbrain_config
-            .packet_capture_dump_fname
-            .as_ref()
-            .map(|x| x.as_path()),
+            .packet_capture_dump_fname.as_deref(),
     )?;
 
     let is_loopback = my_app.inner.local_addr().ip().is_loopback();
     let mainbrain_server_info =
-        flydra_types::BuiServerInfo::new(my_app.inner.local_addr().clone(), my_app.inner.token());
+        flydra_types::BuiServerInfo::new(*my_app.inner.local_addr(), my_app.inner.token());
     let url = mainbrain_server_info.guess_base_url_with_token();
     println!(
         "Depending on things, you may be able to login with this url: {}",
@@ -750,9 +746,9 @@ impl RawPacketLogger {
     /// If `fname` argument is None, this does very little.
     fn new(fname: Option<&std::path::Path>) -> Result<Self> {
         let fd = fname
-            .map(|x| std::fs::File::create(x))
+            .map(std::fs::File::create)
             .transpose()?
-            .map(|fd| csv::Writer::from_writer(fd));
+            .map(csv::Writer::from_writer);
         Ok(Self { fd })
     }
 
@@ -770,12 +766,12 @@ impl RawPacketLogger {
                 cam_name: packet.cam_name.clone(),
                 timestamp: packet.timestamp.clone(),
                 cam_received_time: packet.cam_received_time.clone(),
-                device_timestamp: packet.device_timestamp.clone(),
-                block_id: packet.block_id.clone(),
-                framenumber: packet.framenumber.clone(),
-                n_frames_skipped: packet.n_frames_skipped.clone(),
-                done_camnode_processing: packet.done_camnode_processing.clone(),
-                preprocess_stamp: packet.preprocess_stamp.clone(),
+                device_timestamp: packet.device_timestamp,
+                block_id: packet.block_id,
+                framenumber: packet.framenumber,
+                n_frames_skipped: packet.n_frames_skipped,
+                done_camnode_processing: packet.done_camnode_processing,
+                preprocess_stamp: packet.preprocess_stamp,
                 cam_num,
                 synced_frame,
             };
@@ -996,7 +992,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 sleep_dur,
             )
             .await?;
-            let query_dt2 = query_dt.clone();
+            let query_dt2 = *query_dt;
             debug!("starting triggerbox task {}:{}", file!(), line!());
             let fut = async move {
                 let result = triggerbox.run_forever(query_dt2).await;
@@ -1230,7 +1226,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     {
         let mut tracker = tracker2.write();
-        tracker.modify(|shared| shared.model_server_addr = Some(ms.local_addr().clone()))
+        tracker.modify(|shared| shared.model_server_addr = Some(*ms.local_addr()))
     }
 
     let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
@@ -1316,7 +1312,7 @@ impl LiveStatsCollector {
             let mut collected = self.collected.write();
             let entry = collected
                 .entry(name.clone())
-                .or_insert_with(|| LiveStatsAccum::new());
+                .or_insert_with(LiveStatsAccum::new);
             entry.update(n_points);
 
             if entry.start.elapsed() > std::time::Duration::from_secs(1) {
@@ -1352,7 +1348,7 @@ async fn toggle_saving_csv_tables(
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
 ) {
     if start_saving {
-        let expected_framerate: Option<f32> = expected_framerate_arc.read().clone();
+        let expected_framerate: Option<f32> = *expected_framerate_arc.read();
         let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
         let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
         let mut my_dir = output_base_dirname.clone();

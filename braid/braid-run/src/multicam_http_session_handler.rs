@@ -72,8 +72,7 @@ impl HttpSessionHandler {
         let opt_session = {
             self.name_to_session
                 .read()
-                .get(cam_name)
-                .map(|session| session.clone())
+                .get(cam_name).cloned()
         };
 
         // Create session if needed.
@@ -129,8 +128,8 @@ impl HttpSessionHandler {
 
         // If we are telling the camera to quit, we don't want to keep its session around
         let mut name_to_session = self.name_to_session.write();
-        name_to_session.remove(&cam_name);
-        self.cam_manager.remove(&cam_name);
+        name_to_session.remove(cam_name);
+        self.cam_manager.remove(cam_name);
         // TODO: we should cancel the stream of incoming frames so that they
         // don't get processed after we have removed this camera
         // information.
