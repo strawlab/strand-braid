@@ -106,6 +106,7 @@ members = [
     "strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
+    "textured-tri-mesh",
     "timestamped-frame",
     "tracking",
     "ufmf",
