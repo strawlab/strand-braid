@@ -4,10 +4,7 @@
 //     cd gen-nvenc-bindings
 //     cargo run > ../src/ffi.rs
 
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 pub mod api;
 mod error;
