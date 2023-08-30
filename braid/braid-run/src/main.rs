@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 use clap::Parser;
 
