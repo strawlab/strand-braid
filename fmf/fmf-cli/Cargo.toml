@@ -13,7 +13,7 @@ doc = false
 
 [dependencies]
 log = "0.4"
-env_logger = "0.8"
+env_logger = "0.10"
 structopt = "0.3"
 chrono = {version="0.4.27", default-features=false, features=["clock", "std", "wasmbind"]}
 anyhow = "1.0"
