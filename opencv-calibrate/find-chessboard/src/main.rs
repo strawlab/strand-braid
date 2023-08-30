@@ -1,20 +1,19 @@
+use clap::Parser;
 use image::GenericImageView;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "find chessboard corners in an input image")]
+#[derive(Debug, Parser)]
+#[command(author, version, about)]
 struct CliArgs {
     /// Pattern width (the number of horizontal corners in the image)
     pattern_width: usize,
     /// Pattern height (the number of vertical corners in the image)
     pattern_height: usize,
     /// Input image
-    #[structopt(parse(from_os_str))]
     image: std::path::PathBuf,
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = CliArgs::from_args();
+    let args = CliArgs::parse();
 
     let img = image::open(&args.image)?;
 

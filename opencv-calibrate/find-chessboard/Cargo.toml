@@ -1,5 +1,6 @@
 [package]
 name = "find-chessboard"
+description = "find chessboard corners in an input image"
 version = "0.1.0"
 license = "BSD-3-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
@@ -10,5 +11,5 @@ rust-version="1.60"
 opencv-calibrate = {path=".."}
 image = "0.24.2"
 serde_yaml = "0.8"
-structopt = "0.3"
+clap = { version = "4.3.4", features = ["derive"] }
 anyhow = "1.0"
