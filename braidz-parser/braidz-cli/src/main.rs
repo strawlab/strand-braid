@@ -1,22 +1,22 @@
 use anyhow::Context;
+use clap::Parser;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 #[structopt(name = "braidz-cli")]
+#[command(author, version)]
 struct Opt {
     /// Input braidz filename
-    #[structopt(parse(from_os_str))]
     input: PathBuf,
 
     /// print all data in the `data2d_distorted` table
-    #[structopt(short, long)]
+    #[arg(short, long)]
     data2d_distorted: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     let attr = std::fs::metadata(&opt.input)
         .with_context(|| format!("Getting file metadata for {}", opt.input.display()))?;
 
