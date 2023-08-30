@@ -128,19 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "afl"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2797f92fb146a37560af914b5d5328f8330d6a39b6eaf00f5b184ac73c0c81e7"
-dependencies = [
- "cc",
- "clap 2.34.0",
- "libc",
- "rustc_version 0.2.3",
- "xdg",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -215,15 +202,6 @@ name = "anes"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
-
-[[package]]
-name = "ansi_term"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-dependencies = [
- "winapi",
-]
 
 [[package]]
 name = "anstream"
@@ -419,17 +397,6 @@ name = "atomic_refcell"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112ef6b3f6cb3cb6fc5b6b494ef7a848492cff1ab0ef4de10b0f7d572861c905"
-
-[[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
-]
 
 [[package]]
 name = "autocfg"
@@ -654,7 +621,7 @@ dependencies = [
  "anyhow",
  "braid-config-data",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "configure",
  "dotenv",
  "env-tracing-logger",
@@ -739,7 +706,7 @@ dependencies = [
  "braidz-parser",
  "braidz-types",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "csv",
  "csv-eof",
  "download-verify",
@@ -780,7 +747,7 @@ dependencies = [
  "channellib",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "csv",
  "datetime-conversion",
@@ -828,7 +795,7 @@ dependencies = [
  "bytes 1.4.0",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "configure",
  "csv",
  "ctrlc",
@@ -873,7 +840,7 @@ dependencies = [
  "braid-triggerbox-comms",
  "byteorder",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "crc",
  "env_logger 0.10.0",
  "log",
@@ -925,7 +892,7 @@ version = "0.12.0-alpha.3"
 dependencies = [
  "anyhow",
  "braidz-parser",
- "clap 4.4.1",
+ "clap",
  "env_logger 0.10.0",
  "serde_yaml 0.8.26",
 ]
@@ -1013,7 +980,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "braidz-writer",
- "clap 4.4.1",
+ "clap",
 ]
 
 [[package]]
@@ -1199,7 +1166,7 @@ version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c24dab4283a142afa2fdca129b80ad2c6284e073930f964c3a1293c225ee39a"
 dependencies = [
- "rustc_version 0.4.0",
+ "rustc_version",
 ]
 
 [[package]]
@@ -1348,7 +1315,7 @@ dependencies = [
  "chrono",
  "ci2",
  "ci2-pyloncxx",
- "clap 4.4.1",
+ "clap",
  "env_logger 0.10.0",
  "log",
 ]
@@ -1485,21 +1452,6 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
-dependencies = [
- "ansi_term",
- "atty",
- "bitflags 1.3.2",
- "strsim 0.8.0",
- "textwrap",
- "unicode-width",
- "vec_map",
-]
-
-[[package]]
-name = "clap"
 version = "4.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c8d502cbaec4595d2e7d5f61e318f05417bd2b66fdc3809498f0d3fdf0bea27"
@@ -1518,7 +1470,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim 0.10.0",
+ "strsim",
 ]
 
 [[package]]
@@ -1807,7 +1759,7 @@ dependencies = [
  "anes",
  "cast 0.3.0",
  "ciborium",
- "clap 4.4.1",
+ "clap",
  "criterion-plot",
  "is-terminal",
  "itertools 0.10.5",
@@ -2038,7 +1990,7 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote 1.0.33",
- "strsim 0.10.0",
+ "strsim",
  "syn 1.0.109",
 ]
 
@@ -2225,7 +2177,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "image",
  "machine-vision-formats",
@@ -2574,7 +2526,7 @@ name = "find-chessboard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.4.1",
+ "clap",
  "image",
  "opencv-calibrate",
  "serde_yaml 0.8.26",
@@ -2635,7 +2587,7 @@ dependencies = [
  "chrono",
  "ci2",
  "ci2-pyloncxx",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "crossbeam-channel",
  "crossbeam-ok",
@@ -2722,17 +2674,6 @@ dependencies = [
  "refraction",
  "serde",
  "serde-xml-rs",
-]
-
-[[package]]
-name = "flydra-mvg-fuzz-target"
-version = "0.1.0"
-dependencies = [
- "afl",
- "anyhow",
- "flydra-mvg",
- "mvg",
- "nalgebra 0.30.1",
 ]
 
 [[package]]
@@ -2840,7 +2781,7 @@ dependencies = [
  "apriltag-sys",
  "base64 0.6.0",
  "braid-april-cal",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "download-verify",
  "env_logger 0.10.0",
@@ -2869,7 +2810,7 @@ dependencies = [
  "braidz-parser",
  "braidz-types",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "configure",
  "csv",
  "datetime-conversion",
@@ -2938,7 +2879,7 @@ dependencies = [
  "basic-frame",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "env_logger 0.10.0",
  "fmf",
@@ -3036,7 +2977,7 @@ dependencies = [
  "basic-frame",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "fmf",
  "glob",
  "h264-reader",
@@ -3092,7 +3033,7 @@ dependencies = [
  "anyhow",
  "cam-geom",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "env_logger 0.10.0",
  "freemovr-calibration",
  "log",
@@ -4000,7 +3941,7 @@ checksum = "db04bc24a18b9ea980628ecf00e6c0264f3c1426dac36c00cb49b6fbad8b0743"
 dependencies = [
  "atomic-polyfill",
  "hash32",
- "rustc_version 0.4.0",
+ "rustc_version",
  "spin 0.9.8",
  "stable_deref_trait",
 ]
@@ -4019,15 +3960,6 @@ name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
-
-[[package]]
-name = "hermit-abi"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "hermit-abi"
@@ -4401,7 +4333,7 @@ version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b"
 dependencies = [
- "hermit-abi 0.3.2",
+ "hermit-abi",
  "rustix",
  "windows-sys 0.48.0",
 ]
@@ -4592,7 +4524,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "bytes 1.4.0",
- "clap 4.4.1",
+ "clap",
  "env-tracing-logger",
  "futures",
  "led-box-comms",
@@ -5035,7 +4967,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "mkv-parser-kit",
  "thiserror",
 ]
@@ -5088,7 +5020,7 @@ dependencies = [
  "bitvec",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "dynlink-cuda",
  "dynlink-nvidia-encode",
@@ -5163,7 +5095,7 @@ dependencies = [
 name = "mvg-util"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.1",
+ "clap",
  "flydra-mvg",
  "mvg",
  "nalgebra 0.30.1",
@@ -5542,7 +5474,7 @@ version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
- "hermit-abi 0.3.2",
+ "hermit-abi",
  "libc",
 ]
 
@@ -6832,20 +6764,11 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc_version"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
-dependencies = [
- "semver 0.9.0",
-]
-
-[[package]]
-name = "rustc_version"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.18",
+ "semver",
 ]
 
 [[package]]
@@ -7062,27 +6985,12 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0293b4b29daaf487284529cc2f5675b8e57c61f70167ba415a463651fd6a918"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "semver-parser"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
@@ -7274,7 +7182,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "frame-source",
  "path-slash",
 ]
@@ -7508,7 +7416,7 @@ dependencies = [
  "ci2-async",
  "ci2-remote-control",
  "ci2-types",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "csv",
  "ctrlc",
@@ -7550,7 +7458,7 @@ dependencies = [
  "preferences",
  "qrcodegen",
  "rust-cam-bui-types",
- "semver 1.0.18",
+ "semver",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -7619,7 +7527,7 @@ dependencies = [
  "anyhow",
  "camcal",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "env_logger 0.10.0",
  "glob",
  "image",
@@ -7695,7 +7603,7 @@ dependencies = [
  "basic-frame",
  "chrono",
  "ci2-remote-control",
- "clap 4.4.1",
+ "clap",
  "convert-image",
  "download-verify",
  "env_logger 0.10.0",
@@ -7743,12 +7651,6 @@ name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
-
-[[package]]
-name = "strsim"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "strsim"
@@ -7934,15 +7836,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8018,7 +7911,7 @@ dependencies = [
  "anyhow",
  "basic-frame",
  "chrono",
- "clap 4.4.1",
+ "clap",
  "frame-source",
  "machine-vision-formats",
  "tiff 0.7.4",
@@ -9312,12 +9205,6 @@ checksum = "463705a63313cd4301184381c5e8042f0a7e9b4bb63653f216311d4ae74690b7"
 dependencies = [
  "nom",
 ]
-
-[[package]]
-name = "xdg"
-version = "2.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
 name = "xml-rs"
