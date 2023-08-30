@@ -55,7 +55,6 @@ members = [
     "flydra-feature-detector/flydra-feature-detector-types",
     "flydra-feature-detector/flydra-pt-detect-cfg",
     "flydra-mvg",
-    "flydra-mvg/flydra-mvg-fuzz-target",
     "flydra-types",
     "flydra2",
     "flytrax-csv-to-braidz",
