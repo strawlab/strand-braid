@@ -3,10 +3,10 @@ extern crate log;
 
 use anyhow::{Context, Result};
 
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "braid", about = "multi-camera realtime 3D tracker")]
+#[derive(Debug, Parser)]
+#[command(author, version, about)]
 struct BraidLauncherCliArgs {
     /// Command to execute (e.g. run, show-config, default-config)
     command: String,
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     // on environment path, collect braid-* executables, show these as possible
     // commands.
 
-    let args = BraidLauncherCliArgs::from_args();
+    let args = BraidLauncherCliArgs::parse();
     debug!("{:?}", args);
 
     let cmd_name = format!("braid-{}", args.command);

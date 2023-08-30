@@ -1,39 +1,33 @@
 use anyhow::{Context as ContextTrait, Result};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig, Validate};
 
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
-struct Cli {
-    #[clap(subcommand)]
-    command: Option<Commands>,
-}
-
-#[derive(Subcommand)]
+#[command(author, version, about, long_about = None)]
 enum Commands {
     /// Process video using a TOML file as configuration.
     ConfigToml {
         /// Input configuration TOML file
-        #[clap(short, long, parse(from_os_str), value_name = "CONFIG_TOML")]
+        #[arg(short, long)]
         config_toml: std::path::PathBuf,
     },
 
     /// Process video using an auto-generated configuration.
     AutoConfig {
         /// Directory with input files
-        #[clap(short, long, parse(from_os_str), value_name = "INPUT_DIR")]
+        #[arg(short, long)]
         input_dir: std::path::PathBuf,
 
         /// Maximum number of frames in output
-        #[clap(short, long)]
+        #[arg(short, long)]
         max_num_frames: Option<usize>,
 
         /// If true, include debug output
-        #[clap(short, long)]
+        #[arg(short, long)]
         debug: bool,
 
-        #[clap(short, long)]
+        #[arg(short, long)]
         time_dilation_factor: Option<f32>,
     },
 
@@ -49,10 +43,10 @@ async fn main() -> Result<()> {
 
     env_logger::init();
 
-    let cli = Cli::parse();
+    let command = Commands::parse();
 
-    let cfg = match &cli.command {
-        Some(Commands::ConfigToml { config_toml }) => {
+    let cfg = match &command {
+        Commands::ConfigToml { config_toml } => {
             // Get directory of configuration file. Works if config_toml is
             // relative or absolute.
             let abs_cfg_path = config_toml.canonicalize()?;
@@ -75,19 +69,15 @@ async fn main() -> Result<()> {
                 )
             })?
         }
-        Some(Commands::AutoConfig {
+        Commands::AutoConfig {
             input_dir,
             max_num_frames,
             debug,
             time_dilation_factor,
-        }) => auto_config(input_dir, *max_num_frames, *debug, *time_dilation_factor)?,
-        Some(Commands::PrintExampleConfigToml) => {
+        } => auto_config(input_dir, *max_num_frames, *debug, *time_dilation_factor)?,
+        Commands::PrintExampleConfigToml => {
             let default_buf = toml::to_string_pretty(&BraidRetrackVideoConfig::default())?;
             println!("{}", default_buf);
-            return Ok(());
-        }
-        None => {
-            log::warn!("Nothing to do: no subcommand given.");
             return Ok(());
         }
     };

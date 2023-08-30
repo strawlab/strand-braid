@@ -13,8 +13,8 @@ doc = false
 [dependencies]
 anyhow = "1"
 log = "0.4"
-env_logger = "0.8"
-structopt="0.3"
+env_logger = "0.10"
+clap = { version = "4.3.4", features = ["derive"] }
 nalgebra = "0.30"
 ncollide2d = "0.33"
 cam-geom = "0.12"

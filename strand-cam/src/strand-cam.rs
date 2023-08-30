@@ -5,10 +5,7 @@
 
 // TODO: UI automatically reconnect to app after app restart.
 
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;

@@ -1,19 +1,19 @@
 use machine_vision_formats as formats;
 
 use basic_frame::BasicExtra;
+use clap::Parser;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
 use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
 
 use formats::{pixel_format::RGB8, ImageData};
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "fly-eye-cli", about = "run fly eye on image file")]
+/// run fly eye on image file
+#[derive(Debug, Parser)]
+#[command(name = "fly-eye-cli", version)]
 struct Opt {
     /// Filename of input image
-    #[structopt(parse(from_os_str), name = "INPUT")]
     input: PathBuf,
 }
 
@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_logger::init();
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     fly_eye_cli(opt.input)
 }

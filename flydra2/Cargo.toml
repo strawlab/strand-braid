@@ -14,7 +14,6 @@ includedir_codegen = { version = "0.5", optional = true }
 
 [dependencies]
 thiserror = "1.0.33"
-structopt = "0.3"
 hdrhistogram = { version = "7.5.2", default-features = false, features = ["serialization"] }
 parking_lot = "0.12"
 futures = "0.3"

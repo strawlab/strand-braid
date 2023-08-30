@@ -11,7 +11,7 @@ image-iter = { path = "../image-iter", default-features = false }
 
 [dev-dependencies]
 simple-frame = {path="../simple-frame"}
-criterion = "0.3"
+criterion = "0.5"
 
 [features]
 # Tests require std but crate itself should be no_std.

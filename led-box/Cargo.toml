@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.56"
 
 [dependencies]
-clap = "3.2.5"
+clap = { version = "4.3.4", features = ["derive"] }
 led-box-comms = {path="../led-box-comms"}
 thiserror = "1.0"
 log = "0.4"

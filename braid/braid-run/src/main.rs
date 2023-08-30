@@ -1,13 +1,11 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
+
+use clap::Parser;
 
 #[macro_use]
 extern crate log;
 
 use anyhow::Result;
-use structopt::StructOpt;
 
 use flydra_types::{MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType};
 
@@ -18,11 +16,10 @@ use flydra_types::BraidCameraConfig;
 mod mainbrain;
 mod multicam_http_session_handler;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "run the multi-camera realtime 3D tracker")]
+#[derive(Debug, Parser)]
+#[command(author, version, about)]
 struct BraidRunCliArgs {
     /// Input directory
-    #[structopt(parse(from_os_str))]
     config_file: std::path::PathBuf,
 }
 
@@ -73,7 +70,7 @@ fn launch_strand_cam(
 fn main() -> Result<()> {
     braid_start("run")?;
 
-    let args = BraidRunCliArgs::from_args();
+    let args = BraidRunCliArgs::parse();
     debug!("{:?}", args);
 
     let cfg = parse_config_file(&args.config_file)?;

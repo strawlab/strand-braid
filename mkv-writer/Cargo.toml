@@ -24,7 +24,7 @@ basic-frame = { path = "../basic-frame" }
 image-iter = { path = "../image-iter" }
 
 [dev-dependencies]
-env_logger = "0.8"
+env_logger = "0.10"
 anyhow = "1"
 ci2-remote-control = { path = "../ci2-remote-control"}
 rusttype = "0.8.1"

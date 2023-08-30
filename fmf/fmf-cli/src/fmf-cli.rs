@@ -5,12 +5,12 @@ use anyhow::Result;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
+use clap::Parser;
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
 use machine_vision_formats::{
     pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, Stride,
 };
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use timestamped_frame::ExtraTimeData;
 
 const Y4M_MAGIC: &str = "YUV4MPEG2";
@@ -74,150 +74,115 @@ macro_rules! write_converted {
     }};
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "fmf", about = "work with .fmf (fly movie format) files")]
+#[derive(Debug, Parser)]
+#[command(name = "fmf", about, version)]
 enum Opt {
     /// export an fmf file
-    #[structopt(name = "export-fmf")]
     ExportFMF {
         /// new pixel_format (default: no change from input fmf)
-        #[structopt(long = "pixel-format", name = "NEW-PIXEL-FORMAT")]
+        #[arg(long)]
         new_pixel_format: Option<PixFmt>,
 
         /// force input data to be interpreted with this pixel_format
-        #[structopt(long = "force-input-pixel-format", name = "FORCED-INPUT-PIXEL-FORMAT")]
+        #[arg(long)]
         forced_input_pixel_format: Option<PixFmt>,
 
         /// Filename of input fmf
-        #[structopt(parse(from_os_str), name = "INPUT-FMF")]
         input: PathBuf,
 
         /// Filename of output .fmf, "-" for stdout
-        #[structopt(long = "output", short = "o", name = "OUTPUT-FMF", parse(from_os_str))]
+        #[arg(short, long)]
         output: Option<PathBuf>,
     },
 
     /// print information about an fmf file
-    #[structopt(name = "info")]
     Info {
         /// Filename of input fmf
-        #[structopt(parse(from_os_str), name = "INPUT-FMF")]
         input: PathBuf,
     },
 
     /// export a sequence of jpeg images
-    #[structopt(name = "export-jpeg")]
     ExportJpeg {
         /// Filename of input fmf
-        #[structopt(parse(from_os_str), name = "INPUT-FMF")]
         input: PathBuf,
 
         /// Quality (1-100 where 1 is the worst and 100 is the best)
-        #[structopt(name = "QUALITY", long = "quality", short = "q", default_value = "99")]
+        #[arg(short, long, default_value = "99")]
         quality: u8,
     },
 
     /// export a sequence of png images
-    #[structopt(name = "export-png")]
     ExportPng {
         /// Filename of input fmf
-        #[structopt(parse(from_os_str), name = "INPUT-FMF")]
         input: PathBuf,
     },
 
     /// export to y4m (YUV4MPEG2) format
-    #[structopt(name = "export-y4m")]
     ExportY4m(ExportY4m),
 
-    // /// export to bgr24 raw
-    // #[structopt(name = "export-bgr24")]
-    // ExportBgr24(ExportBgr24),
     /// export to mp4
-    #[structopt(name = "export-mp4")]
     ExportMp4(ExportMp4),
 
     /// import a sequence of images, converting it to an FMF file
-    #[structopt(name = "import-images")]
     ImportImages {
         /// Input images (glob pattern like "*.png")
-        #[structopt(name = "INPUT-GLOB")]
         input: String,
 
         /// Filename of output fmf
-        #[structopt(parse(from_os_str), long = "output", short = "o", name = "OUTPUT-FMF")]
+        #[arg(short, long)]
         output: PathBuf,
     },
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct ExportY4m {
     /// Filename of input fmf
-    #[structopt(parse(from_os_str), name = "INPUT-FMF")]
     input: PathBuf,
 
     /// Filename of output .y4m, "-" for stdout
-    #[structopt(parse(from_os_str), long = "output", short = "o")]
+    #[arg(short, long)]
     output: Option<PathBuf>,
 
     /// colorspace (e.g. 420paldv, mono)
-    #[structopt(long = "colorspace", short = "c", default_value = "420paldv")]
+    #[arg(short, long, default_value = "420paldv")]
     colorspace: Y4MColorspace,
 
     /// frames per second numerator
-    #[structopt(default_value = "25", long = "fps-numerator")]
+    #[arg(long, default_value = "25")]
     fps_numerator: u32,
 
     /// frames per second denominator
-    #[structopt(default_value = "1", long = "fps-denominator")]
+    #[arg(long, default_value = "1")]
     fps_denominator: u32,
 
     /// aspect ratio numerator
-    #[structopt(default_value = "1", long = "aspect-numerator")]
+    #[arg(long, default_value = "1")]
     aspect_numerator: u32,
 
     /// aspect ratio denominator
-    #[structopt(default_value = "1", long = "aspect-denominator")]
+    #[arg(long, default_value = "1")]
     aspect_denominator: u32,
 }
 
-// #[derive(StructOpt, Debug)]
-// struct ExportBgr24 {
-//     /// Filename of input fmf
-//     #[structopt(parse(from_os_str), name="INPUT-FMF")]
-//     input: PathBuf,
-
-//     /// Filename of output .bgr24, "-" for stdout
-//     #[structopt(parse(from_os_str), long="output", short="o")]
-//     output: Option<PathBuf>,
-
-//     /// autocrop (e.g. none, even, mod16)
-//     #[structopt(long="autocrop", short="a", default_value="mod16")]
-//     autocrop: Autocrop,
-// }
-
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct ExportMp4 {
     /// Filename of input fmf
-    #[structopt(parse(from_os_str), name = "INPUT-FMF")]
     input: PathBuf,
 
     /// Filename of output .mp4, "-" for stdout
-    #[structopt(parse(from_os_str), long = "output", short = "o")]
+    #[arg(short, long)]
     output: Option<PathBuf>,
 
-    // /// autocrop (e.g. none, even, mod16)
-    // #[structopt(long="autocrop", short="a", default_value="mod16")]
-    // autocrop: Autocrop,
     /// video bitrate
-    #[structopt(long = "bitrate", short = "b")]
+    #[arg(short, long)]
     bitrate: Option<u32>,
 
     /// video codec
-    #[structopt(long = "codec", default_value = "vp9", help=VALID_CODECS)]
+    #[arg(long, default_value = "vp9", help=VALID_CODECS)]
     codec: Codec,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Codec {
     NvencH264,
     OpenH264,
@@ -685,7 +650,7 @@ fn main() -> Result<()> {
     }
 
     env_logger::init();
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         Opt::ExportFMF {

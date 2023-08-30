@@ -2,11 +2,12 @@
 name = "mvg-util"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
 
 [dependencies]
 mvg = {path=".."}
 flydra-mvg = {path="../../flydra-mvg"}
-structopt = "0.3"
+clap = { version = "4.3.4", features = ["derive"] }
 nalgebra = "0.30"
 pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
 

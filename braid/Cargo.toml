@@ -1,5 +1,6 @@
 [package]
 name = "braid"
+description = "multi-camera realtime 3D tracker"
 version =  "0.12.0-alpha.3" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition="2018"
@@ -8,7 +9,7 @@ homepage = "https://strawlab.org/braid"
 [dependencies]
 configure = "0.1.1"
 toml = "0.5"
-structopt = "0.3"
+clap = { version = "4.3.4", features = ["derive"] }
 log = { version = "0.4", features = ["release_max_level_debug"] }
 anyhow = "1.0"
 dotenv = "0.15"
