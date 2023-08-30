@@ -30,7 +30,7 @@ tokio-util = {version = "0.7.3", features=["codec","net"]}
 tokio-stream = "0.1.9"
 stream-cancel = "0.8"
 bytes = "1.0"
-clap = "3.2.5"
+clap = "4.3.4"
 qrcodegen = "1.4"
 image = "0.24.2"
 hyper = "0.14"
