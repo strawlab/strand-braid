@@ -3,118 +3,106 @@ extern crate log;
 
 use anyhow::Context;
 
+use clap::Parser;
 use std::io::Write;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
 const EXR_COMMENT: Option<&str> = Some("Created by freemovr-calibration-cli.");
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "freemovr-calibration")]
+#[derive(Debug, Parser)]
+#[command(version)]
 enum Opt {
     #[cfg(feature = "opencv")]
-    #[structopt(name = "with-checkerboards")]
     WithCheckerboards(WithCheckerboards),
 
     /// Convert a pinhole wizard .yaml file into a FreeMoVR calibration .exr file.
-    #[structopt(name = "generate-exr")]
     GenerateExr(GenerateExr),
 
     /// Convert a multi-display .yaml file and linked files into a FreeMoVR calibration .exr file.
-    #[structopt(name = "multi-display-exr")]
     MultiDisplayExr(MultiDisplayExr),
 
     // TODO implement a command that lists licenses (based on `cargo lichking
     // bundle`).
     /// (Advanced) Convert a pinhole wizard .yaml file into a corresponding points .csv file.
-    #[structopt(name = "generate-csv")]
     GenerateCsv(GenerateCsv),
 
     /// (Advanced) Convert a corresponding points .csv file into a FreeMoVR calibration .exr file.
-    #[structopt(name = "csv2exr")]
     Csv2Exr(Csv2Exr),
 
     /// (Advanced debugging) Convert a display serface .obj file into a corresponding points .csv file.
-    #[structopt(name = "debug-obj2csv")]
     DebugObj2Csv(DebugObj2Csv),
 }
 
 #[cfg(feature = "opencv")]
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct WithCheckerboards {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name = "INPUT-YAML")]
     input_yaml: PathBuf,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct GenerateExr {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name = "SINGLE-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long = "epsilon", default_value = "1e-10")]
+    #[arg(long = "epsilon", default_value = "1e-10")]
     epsilon: f64,
 
     /// Draw debug jpeg images
-    #[structopt(long = "--save-debug-images")]
+    #[arg(long)]
     save_debug_images: bool,
 
     /// Show the viewport mask in the debug jpeg images
-    #[structopt(long = "--show-mask")]
+    #[arg(long)]
     show_mask: bool,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct GenerateCsv {
     /// Filename of input yaml file in pinhole wizard schema
-    #[structopt(parse(from_os_str), name = "SINGLE-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long = "epsilon", default_value = "1e-10")]
+    #[arg(long, default_value = "1e-10")]
     epsilon: f64,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct DebugObj2Csv {
     /// Filename of input obj file with display surface model
-    #[structopt(parse(from_os_str), name = "DISPLAY-SURFACE-OBJ")]
     display_surface_obj: PathBuf,
 
     /// World coordinates position of camera
-    #[structopt(long = "cam-x", default_value = "-4.0")]
+    #[arg(long, default_value = "-4.0")]
     cam_x: f64,
 
     /// World coordinates position of camera
-    #[structopt(long = "cam-y", default_value = "4.0")]
+    #[arg(long, default_value = "4.0")]
     cam_y: f64,
 
     /// World coordinates position of camera
-    #[structopt(long = "cam-z", default_value = "1.0")]
+    #[arg(long, default_value = "1.0")]
     cam_z: f64,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Csv2Exr {
     /// Filename of input csv file
-    #[structopt(parse(from_os_str), name = "CORRESPONDING-POINTS-CSV")]
     corresponding_points_csv: PathBuf,
 
     /// Draw debug jpeg images
-    #[structopt(long = "--save-debug-images")]
+    #[arg(long)]
     save_debug_images: bool,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct MultiDisplayExr {
     /// Filename of input yaml file in multi display schema
-    #[structopt(parse(from_os_str), name = "MULTI-DISPLAY-YAML")]
     input_yaml: PathBuf,
 
     /// Numerical precision
-    #[structopt(long = "epsilon", default_value = "1e-10")]
+    #[arg(long, default_value = "1e-10")]
     epsilon: f64,
 }
 
@@ -269,7 +257,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_logger::init();
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         #[cfg(feature = "opencv")]
