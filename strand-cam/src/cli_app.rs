@@ -4,7 +4,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use std::path::PathBuf;
 
-use clap::Arg;
+use clap::{Arg, ArgAction};
 
 use crate::{run_app, StrandCamArgs};
 
@@ -14,9 +14,9 @@ use anyhow::Result;
 
 fn jwt_secret(matches: &clap::ArgMatches) -> Option<Vec<u8>> {
     matches
-        .value_of("JWT_SECRET")
-        .map(|s| s.into())
-        .or_else(|| std::env::var("JWT_SECRET").ok())
+        .get_one::<String>("JWT_SECRET")
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("JWT_SECRET").ok().clone())
         .map(|s| s.into_bytes())
 }
 
@@ -79,8 +79,8 @@ fn no_browser_default() -> bool {
 #[cfg(feature = "posix_sched_fifo")]
 fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32, i32)>> {
     let errstr = "Set --sched-policy if and only if --sched-priority also set.";
-    match matches.value_of("sched_policy") {
-        Some(policy) => match matches.value_of("sched_priority") {
+    match matches.get_one::<String>("sched_policy") {
+        Some(policy) => match matches.get_one::<String>("sched_priority") {
             Some(priority) => {
                 let policy = policy.parse()?;
                 let priority = priority.parse()?;
@@ -88,7 +88,7 @@ fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32
             }
             None => Err(anyhow::anyhow!(errstr)),
         },
-        None => match matches.value_of("sched_priority") {
+        None => match matches.get_one::<String>("sched_priority") {
             Some(_priority) => Err(anyhow::anyhow!(errstr)),
             None => Ok(None),
         },
@@ -101,7 +101,7 @@ fn parse_sched_policy_priority(_matches: &clap::ArgMatches) -> Result<Option<(i3
 }
 
 fn parse_led_box_device(matches: &clap::ArgMatches) -> Option<String> {
-    matches.value_of("led_box_device").map(Into::into)
+    matches.get_one::<String>("led_box_device").map(Into::into)
 }
 
 fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSource> {
@@ -116,92 +116,90 @@ fn parse_args(
 ) -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let cli_args = get_cli_args();
 
-    let arg_default = StrandCamArgs::default();
+    let arg_default_box: Box<StrandCamArgs> = Box::new(Default::default());
+    let arg_default: &'static StrandCamArgs = Box::leak(arg_default_box);
+
+    let app_name_box = Box::new(clap::builder::Str::from(app_name.to_string()));
+    let app_name: &'static clap::builder::Str = Box::leak(app_name_box);
 
     let matches = {
         #[allow(unused_mut)]
-        let mut parser = clap::App::new(app_name)
+        let mut parser = clap::Command::new(app_name)
             .version(env!("CARGO_PKG_VERSION"))
             .arg(
-                Arg::with_name("no_browser")
+                Arg::new("no_browser")
                     .long("no-browser")
                     .conflicts_with("browser")
                     .help("Prevent auto-opening of browser"),
             )
             .arg(
-                Arg::with_name("browser")
+                Arg::new("browser")
                     .long("browser")
                     .conflicts_with("no_browser")
                     .help("Force auto-opening of browser"),
             )
             .arg(
-                Arg::with_name("mkv_filename_template")
+                Arg::new("mkv_filename_template")
+                    .action(ArgAction::Set)
                     .long("mkv_filename_template")
-                    .default_value(&arg_default.mp4_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to.")
-                    .takes_value(true),
+                    .default_value(&*arg_default.mp4_filename_template)
+                    .help("Set the initial filename template of the destination to be saved to."),
             )
             .arg(
-                Arg::with_name("fmf_filename_template")
+                Arg::new("fmf_filename_template")
                     .long("fmf_filename_template")
-                    .default_value(&arg_default.fmf_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to.")
-                    .takes_value(true),
+                    .default_value(&*arg_default.fmf_filename_template)
+                    .help("Set the initial filename template of the destination to be saved to."),
             )
             .arg(
-                Arg::with_name("ufmf_filename_template")
+                Arg::new("ufmf_filename_template")
                     .long("ufmf_filename_template")
-                    .default_value(&arg_default.ufmf_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to.")
-                    .takes_value(true),
+                    .default_value(&*arg_default.ufmf_filename_template)
+                    .help("Set the initial filename template of the destination to be saved to."),
             )
             .arg(
-                Arg::with_name("camera_name")
+                Arg::new("camera_name")
                     .long("camera-name")
-                    .help("The name of the desired camera.")
-                    .takes_value(true),
+                    .help("The name of the desired camera."),
             )
             .arg(
-                Arg::with_name("camera_settings_filename")
+                Arg::new("camera_settings_filename")
                     .long("camera-settings-filename")
-                    .help("Path to file with camera settings which will be loaded.")
-                    .takes_value(true),
+                    .help("Path to file with camera settings which will be loaded."),
             )
             .arg(
-                Arg::with_name("http_server_addr")
+                Arg::new("http_server_addr")
                     .long("http-server-addr")
-                    .help("The port to open the HTTP server.")
-                    .takes_value(true),
+                    .help("The port to open the HTTP server."),
             )
             .arg(
-                Arg::with_name("csv_save_dir")
+                Arg::new("csv_save_dir")
                     .long("csv-save-dir")
                     .help("The directory in which to save CSV data files.")
-                    .default_value("~/DATA")
-                    .takes_value(true),
+                    .default_value("~/DATA"),
             );
 
         // #[cfg(not(feature = "braid-config"))]
         {
             parser = parser
                 .arg(
-                    Arg::with_name("pixel_format")
+                    Arg::new("pixel_format")
                         .long("pixel-format")
                         .help("The desired pixel format. (incompatible with braid).")
-                        .takes_value(true),
+                        ,
                 )
                 .arg(
-                    clap::Arg::with_name("JWT_SECRET")
+                    clap::Arg::new("JWT_SECRET")
                         .long("jwt-secret")
                         .help(
                             "Specifies the JWT secret. Falls back to the JWT_SECRET \
                     environment variable if unspecified. (incompatible with braid).",
                         )
                         .global(true)
-                        .takes_value(true),
+                        ,
                 )
                 .arg(
-                    Arg::with_name("force_camera_sync_mode")
+                    Arg::new("force_camera_sync_mode")
                         .long("force_camera_sync_mode")
                         .help("Force the camera to synchronize to external trigger. (incompatible with braid)."),
                 );
@@ -210,31 +208,27 @@ fn parse_args(
         // #[cfg(feature = "braid-config")]
         {
             parser = parser.arg(
-                Arg::with_name("braid_addr")
+                Arg::new("braid_addr")
                     .long("braid_addr")
-                    .help("Braid HTTP API address (e.g. 'http://host:port/')")
-                    .takes_value(true),
+                    .help("Braid HTTP API address (e.g. 'http://host:port/')"),
             );
         }
 
         #[cfg(feature = "posix_sched_fifo")]
         {
-            parser = parser.arg(Arg::with_name("sched_policy")
+            parser = parser.arg(Arg::new("sched_policy")
                     .long("sched-policy")
-                    .help("The scheduler policy (integer, e.g. SCHED_FIFO is 1). Requires also sched-priority.")
-                    .takes_value(true))
-            .arg(Arg::with_name("sched_priority")
+                    .help("The scheduler policy (integer, e.g. SCHED_FIFO is 1). Requires also sched-priority."))
+            .arg(Arg::new("sched_priority")
                     .long("sched-priority")
-                    .help("The scheduler priority (integer, e.g. 99). Requires also sched-policy.")
-                    .takes_value(true));
+                    .help("The scheduler priority (integer, e.g. 99). Requires also sched-policy."))
         }
 
         {
             parser = parser.arg(
-                Arg::with_name("led_box_device")
+                Arg::new("led_box_device")
                     .long("led-box")
-                    .help("The filename of the LED box device")
-                    .takes_value(true),
+                    .help("The filename of the LED box device"),
             )
         }
 
@@ -242,28 +236,25 @@ fn parse_args(
         {
             parser = parser
                 .arg(
-                    Arg::with_name("camera_xml_calibration")
+                    Arg::new("camera_xml_calibration")
                         .long("camera-xml-calibration")
-                        .help("Filename of flydra .xml camera calibration.")
-                        .takes_value(true),
+                        .help("Filename of flydra .xml camera calibration."),
                 )
                 .arg(
-                    Arg::with_name("camera_pymvg_calibration")
+                    Arg::new("camera_pymvg_calibration")
                         .long("camera-pymvg-calibration")
-                        .help("Filename of pymvg json camera calibration.")
-                        .takes_value(true),
+                        .help("Filename of pymvg json camera calibration."),
                 )
                 .arg(
-                    Arg::with_name("no_save_empty_data2d")
+                    Arg::new("no_save_empty_data2d")
                         .long("no-save-empty-data2d")
                         .help("do not save data2d_distoted also when no detections found"),
                 )
                 .arg(
-                    Arg::with_name("model_server_addr")
+                    Arg::new("model_server_addr")
                         .long("model-server-addr")
                         .help("The address of the model server.")
-                        .default_value(flydra_types::DEFAULT_MODEL_SERVER_ADDR)
-                        .takes_value(true),
+                        .default_value(flydra_types::DEFAULT_MODEL_SERVER_ADDR),
                 );
         }
 
@@ -273,33 +264,33 @@ fn parse_args(
     let secret = jwt_secret(&matches);
 
     let mkv_filename_template = matches
-        .value_of("mkv_filename_template")
+        .get_one::<String>("mkv_filename_template")
         .ok_or_else(|| anyhow::anyhow!("expected mkv_filename_template"))?
         .to_string();
 
     let fmf_filename_template = matches
-        .value_of("fmf_filename_template")
+        .get_one::<String>("fmf_filename_template")
         .ok_or_else(|| anyhow::anyhow!("expected fmf_filename_template"))?
         .to_string();
 
     let ufmf_filename_template = matches
-        .value_of("ufmf_filename_template")
+        .get_one::<String>("ufmf_filename_template")
         .ok_or_else(|| anyhow::anyhow!("expected ufmf_filename_template"))?
         .to_string();
 
-    let camera_name = matches.value_of("camera_name").map(|s| s.to_string());
+    let camera_name: Option<String> = matches.get_one::<String>("camera_name").map(Into::into);
     let camera_settings_filename = matches
-        .value_of("camera_settings_filename")
+        .get_one::<String>("camera_settings_filename")
         .map(PathBuf::from);
 
     #[cfg(feature = "flydratrax")]
     let camera_xml_calibration = matches
-        .value_of("camera_xml_calibration")
+        .get_one::<String>("camera_xml_calibration")
         .map(|s| s.to_string());
 
     #[cfg(feature = "flydratrax")]
     let camera_pymvg_calibration = matches
-        .value_of("camera_pymvg_calibration")
+        .get_one::<String>("camera_pymvg_calibration")
         .map(|s| s.to_string());
 
     #[cfg(feature = "flydratrax")]
@@ -315,7 +306,7 @@ fn parse_args(
     };
 
     let csv_save_dir = matches
-        .value_of("csv_save_dir")
+        .get_one::<String>("csv_save_dir")
         .ok_or_else(|| anyhow::anyhow!("expected csv_save_dir"))?
         .to_string();
 
@@ -323,10 +314,12 @@ fn parse_args(
         .map_err(|e| anyhow::anyhow!("{}", e))?
         .into();
 
-    let http_server_addr: Option<String> = matches.value_of("http_server_addr").map(Into::into);
+    let http_server_addr: Option<String> = matches
+        .get_one::<String>("http_server_addr")
+        .map(Into::into);
 
-    let no_browser = match matches.occurrences_of("no_browser") {
-        0 => match matches.occurrences_of("browser") {
+    let no_browser = match matches.get_count("no_browser") {
+        0 => match matches.get_count("browser") {
             0 => no_browser_default(),
             _ => false,
         },
@@ -334,14 +327,14 @@ fn parse_args(
     };
 
     #[cfg(feature = "flydratrax")]
-    let save_empty_data2d = match matches.occurrences_of("no_save_empty_data2d") {
+    let save_empty_data2d = match matches.get_count("no_save_empty_data2d") {
         0 => true,
         _ => false,
     };
 
     #[cfg(feature = "flydratrax")]
     let model_server_addr = matches
-        .value_of("model_server_addr")
+        .get_one::<String>("model_server_addr")
         .ok_or_else(|| anyhow::anyhow!("expected model_server_addr"))?
         .to_string()
         .parse()
@@ -351,7 +344,7 @@ fn parse_args(
 
     let led_box_device_path = parse_led_box_device(&matches);
 
-    let braid_addr: Option<String> = matches.value_of("braid_addr").map(Into::into);
+    let braid_addr: Option<String> = matches.get_one::<String>("braid_addr").map(Into::into);
 
     let (
         mainbrain_internal_addr,
@@ -374,7 +367,7 @@ fn parse_args(
         ] {
             // Typically these values are not relevant or are set via
             // [flydra_types::RemoteCameraInfoResponse].
-            if matches.value_of(argname).is_some() {
+            if matches.get_one::<String>(argname).is_some() {
                 anyhow::bail!(
                     "'{}' cannot be set from the command line when calling strand-cam from braid.",
                     argname
@@ -403,10 +396,8 @@ fn parse_args(
             let camdata_addr = {
                 let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
                 let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
-                
-                Some(flydra_types::RealtimePointsDestAddr::IpAddr(
-                    addr_info_ip,
-                ))
+
+                Some(flydra_types::RealtimePointsDestAddr::IpAddr(addr_info_ip))
             };
 
             let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
@@ -445,8 +436,8 @@ fn parse_args(
 
         let mainbrain_internal_addr = None;
         let camdata_addr = None;
-        let pixel_format = matches.value_of("pixel_format").map(|s| s.to_string());
-        let force_camera_sync_mode = !matches!(matches.occurrences_of("force_camera_sync_mode"), 0);
+        let pixel_format = matches.get_one::<String>("pixel_format").map(Into::into);
+        let force_camera_sync_mode = !matches!(matches.get_count("force_camera_sync_mode"), 0);
         let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
 
         let tracker_cfg_src = get_tracker_cfg(&matches)?;
