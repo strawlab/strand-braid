@@ -7,8 +7,8 @@ fn test_read_32vert_polygon() {
     // This might fail but it should not panic. See
     // https://github.com/kvark/obj/pull/10
     match simple_obj_parse::obj_parse(buf) {
-        Ok(_) => {},
-        Err(_) => {},
+        Ok(_) => {}
+        Err(_) => {}
     };
 }
 
