@@ -15,10 +15,10 @@ anyhow = "1"
 log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.3.4", features = ["derive"] }
-nalgebra = "0.30"
-ncollide2d = "0.33"
-cam-geom = "0.12"
-opencv-ros-camera = "0.12"
+nalgebra = "0.32"
+ncollide2d = { package = "ncollide2d-updated", version = "0.35.0"}
+cam-geom = "0.14"
+opencv-ros-camera = "0.14"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 
 freemovr-calibration = {path=".."}
