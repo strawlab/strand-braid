@@ -8,10 +8,8 @@ fn main() {
     let header_path = std::path::Path::new(&out_dir).join("plugin-defs.h");
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let mut config = cbindgen::Config {
-        language: cbindgen::Language::C,
-        ..Default::default()
-    };
+    let mut config: cbindgen::Config  = Default::default();
+    config.language = cbindgen::Language::C;
     config.export.include = vec!["ProcessFrameFunc".to_string()];
 
     // save header file
