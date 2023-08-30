@@ -3,16 +3,17 @@ extern crate log;
 
 use anyhow::Result;
 use braid::{braid_start, BraidConfig2};
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "show the default configuration in TOML format")]
+/// show the default configuration in TOML format
+#[derive(Debug, Parser)]
+#[command(author, version)]
 struct BraidDefaultConfigCliArgs {}
 
 fn main() -> Result<()> {
     braid_start("default-config")?;
 
-    let args = BraidDefaultConfigCliArgs::from_args();
+    let args = BraidDefaultConfigCliArgs::parse();
     debug!("{:?}", args);
 
     let cfg = BraidConfig2::default();

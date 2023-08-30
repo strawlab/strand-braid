@@ -3,20 +3,20 @@ extern crate log;
 
 use anyhow::Result;
 use braid::braid_start;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "show the configuration, including defaults and overrides in TOML format")]
+/// show the configuration, including defaults and overrides in TOML format
+#[derive(Debug, Parser)]
+#[command(author, version)]
 struct BraidShowConfigCliArgs {
     /// Input directory
-    #[structopt(parse(from_os_str))]
     config_file: std::path::PathBuf,
 }
 
 fn main() -> Result<()> {
     braid_start("show-config")?;
 
-    let args = BraidShowConfigCliArgs::from_args();
+    let args = BraidShowConfigCliArgs::parse();
     debug!("{:?}", args);
 
     let cfg = braid_config_data::parse_config_file(&args.config_file)?;
