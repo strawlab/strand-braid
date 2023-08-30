@@ -6,28 +6,25 @@ extern crate ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
-use structopt::StructOpt;
+use clap::Parser;
 
 use ci2::{Camera, CameraModule};
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Record {
     /// set the recording duration in number of frames. 0 means infinite.
-    #[structopt(
-        short = "n",
-        long = "num-frames",
-        name = "NUM_FRAMES",
-        default_value = "10"
-    )]
+    ///
+    #[arg(short, long, default_value = "10")]
     num_frames: usize,
 
     /// specify the name of the camera to use
-    #[structopt(short = "c", long = "camera-name", name = "CAMERA_NAME")]
+    #[arg(short, long)]
     camera_name: Option<String>,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "ci2", about = "camera utilities")]
+/// camera utilities
+#[derive(Debug, Parser)]
+#[command(name = "ci2", author, version)]
 enum Command {
     /// record frames
     #[structopt(name = "record")]
@@ -91,7 +88,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_logger::init();
-    let opt = Command::from_args();
+    let opt = Command::parse();
 
     let mymod = backend::new_module()?;
 

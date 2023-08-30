@@ -13,7 +13,7 @@ doc = false
 [dependencies]
 log = "0.4"
 env_logger = "0.10"
-structopt = "0.3"
+clap = { version = "4.3.4", features = ["derive"] }
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 anyhow = "1"
 
