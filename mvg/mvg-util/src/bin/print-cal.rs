@@ -1,18 +1,14 @@
-extern crate structopt;
-extern crate mvg;
-extern crate nalgebra as na;
 #[macro_use]
 extern crate pretty_print_nalgebra;
 
-use structopt::StructOpt;
+use clap::Parser;
 
-type Result<T> = std::result::Result<T,mvg::MvgError>;
+type Result<T> = std::result::Result<T, mvg::MvgError>;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "print-cal")]
+#[derive(Debug, Parser)]
+#[command(name = "print-cal", version)]
 struct Opt {
     /// Input and output directory
-    #[structopt(parse(from_os_str))]
     filename: std::path::PathBuf,
 }
 
@@ -32,7 +28,7 @@ fn print_cal(filename: &std::path::Path) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     print_cal(&opt.filename)?;
     Ok(())
 }
