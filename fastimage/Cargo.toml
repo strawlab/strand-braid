@@ -12,7 +12,7 @@ num-traits = "0.2"
 
 [dev-dependencies]
 itertools = "0.8"
-criterion = "0.2"
+criterion = "0.5"
 approx = "0.5"
 
 [features]
