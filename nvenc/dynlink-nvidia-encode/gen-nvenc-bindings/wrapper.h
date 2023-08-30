@@ -1,4 +1,8 @@
-#include "C:\Users\drand\Downloads\Video_Codec_SDK_11.0.10\Video_Codec_SDK_11.0.10\Interface\nvEncodeAPI.h"
+#ifdef __linux__
+  #include "/home/strawlab/Downloads/Video_Codec_SDK_11.0.10/Interface/nvEncodeAPI.h"
+#elif _WIN32
+  #include "C:\Users\drand\Downloads\Video_Codec_SDK_11.0.10\Video_Codec_SDK_11.0.10\Interface\nvEncodeAPI.h"
+#endif
 
 #define MARK_FIX_753(req_name) const uint32_t Fix753_##req_name = req_name;
 
