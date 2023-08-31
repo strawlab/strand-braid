@@ -8,7 +8,7 @@ edition = "2021"
 mvg = {path=".."}
 flydra-mvg = {path="../../flydra-mvg"}
 clap = { version = "4.3.4", features = ["derive"] }
-nalgebra = "0.30"
+nalgebra = "0.32"
 pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
 
 [features]
