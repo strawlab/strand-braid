@@ -8,13 +8,13 @@ rust-version="1.60"
 [dependencies]
 log = "0.4"
 num-traits = "0.2"
-nalgebra = {version="0.30", features=["serde-serialize"]}
-ncollide3d = "0.33"
+nalgebra = {version="0.32", features=["serde-serialize"]}
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
 alga = "0.9"
 serde = {version="1.0", features=["derive"]}
 serde-xml-rs = "0.5"
-cam-geom = {version = "0.12", features=["serde-serialize"]}
-opencv-ros-camera = {version = "0.12", features=["serde-serialize"]}
+cam-geom = {version = "0.14", features=["serde-serialize"]}
+opencv-ros-camera = {version = "0.14", features=["serde-serialize"]}
 
 mvg = {path="../mvg"}
 refraction = {path="../refraction"}

@@ -13,7 +13,7 @@ image = { version = "0.24.2", default-features = false, features = [
     "jpeg",
 ] }
 machine-vision-formats = "0.1"
-nalgebra = "0.30"
+nalgebra = "0.32"
 resvg = "0.19"
 serde_yaml = "0.9.21"
 tagger = "4.0"
@@ -28,7 +28,7 @@ convert-image = { path = "../../convert-image" }
 flydra-types = { path = "../../flydra-types" }
 flytrax-io = { path = "../../strand-cam/flytrax-io" }
 mvg = { path = "../../mvg" }
-opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
+opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
 env_logger = "0.10.0"
 
 [dev-dependencies]

@@ -749,7 +749,7 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 // debug!("wantedness1 {:?}", wantedness);
 
                 let mut wantedness =
-                    nalgebra::OMatrix::<f64, nalgebra::Dynamic, nalgebra::Dynamic>::from_rows(
+                    nalgebra::OMatrix::<f64, nalgebra::Dyn, nalgebra::Dyn>::from_rows(
                         wantedness.as_slice(),
                     );
 

@@ -25,7 +25,7 @@ uuid = { version = "1.2.2", default-features = false, features = [
     "js",
     "v4",
 ] } # add feature flag required for uuid crate
-ncollide3d = { version = "0.33", optional = true }
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", optional = true }
 csv = { version = "1.1", optional = true }
 
 bui-backend-types = "0.8"

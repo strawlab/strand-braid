@@ -198,7 +198,7 @@ impl<R: RealField + Copy> Camera<R> {
         intrinsics: RosOpenCvIntrinsics<R>,
     ) -> Result<Self> {
         let m = {
-            let p33 = intrinsics.p.fixed_slice::<3, 3>(0, 0);
+            let p33 = intrinsics.p.fixed_view::<3, 3>(0, 0);
             p33 * extrinsics.matrix()
         };
 

@@ -19,7 +19,7 @@ dns-lookup = {version="1", optional=true}
 ordered-float = {version="3.0.0", features=["serde"]}
 static_assertions = "1.1.0"
 bui-backend-types = "0.8"
-nalgebra = {version="0.30", features=["serde-serialize"]}
+nalgebra = {version="0.32", features=["serde-serialize"]}
 num-integer = "0.1"
 
 withkey = {path="../withkey"}

@@ -16,8 +16,8 @@ serde_derive = "1.0.79"
 serde_json = "1.0.29"
 serde_yaml = "^0.8"
 toml = "0.5"
-nalgebra = {version="0.30", features=["serde-serialize"]}
-ncollide3d = "0.33"
+nalgebra = {version="0.32", features=["serde-serialize"]}
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0" }
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
@@ -30,7 +30,7 @@ tempfile = "3.4.0"
 phf = { version = "0.7.23", optional = true }
 anyhow = "1.0"
 image = { version = "0.24.2", default-features = false, features = ["jpeg", "png"] }
-opencv-ros-camera = { version = "0.12.1", features = ["serde-serialize"] }
+opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
 
 datetime-conversion = {path="../datetime-conversion"}
 env-tracing-logger = {path="../env-tracing-logger"}

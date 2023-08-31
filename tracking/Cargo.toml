@@ -6,8 +6,8 @@ edition = "2021"
 rust-version="1.60"
 
 [dependencies]
-adskalman = "0.13"
-nalgebra = "0.30"
+adskalman = "0.15"
+nalgebra = "0.32"
 num-traits = "0.2"
 
 [dev-dependencies]
