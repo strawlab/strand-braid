@@ -1,24 +1,23 @@
 use flydra_mvg::MultiCamera;
 use mvg::DistortedPixel;
-use nalgebra::{Point3, Vector3};
-use ncollide3d::{query::Ray, shape::Plane};
+use nalgebra::{Point3, RealField, Vector3};
 
-use crate::MyFloat;
-
-pub(crate) fn ray_to_flat_3d(ray: &Ray<f64>) -> Option<Point3<f64>> {
-    let z0 = Plane::new(Vector3::z_axis()); // build a plane from its center and normal, plane z==0 here.
-    let eye = nalgebra::Isometry3::identity();
+pub(crate) fn ray_to_flat_3d(ray: &parry3d_f64::query::Ray) -> Option<Point3<f64>> {
+    let z0 = parry3d_f64::shape::HalfSpace::new(Vector3::z_axis()); // build a plane from its center and normal, plane z==0 here.
 
     let solid = false; // will intersect either side of plane
 
-    use ncollide3d::query::RayCast;
-    let opt_surface_pt_toi: Option<MyFloat> = z0.toi_with_ray(&eye, ray, std::f64::MAX, solid);
+    let opt_surface_pt_toi: Option<f64> =
+        parry3d_f64::query::RayCast::cast_local_ray(&z0, &ray, f64::max_value().unwrap(), solid);
+
+    let ray_origin = ray.origin;
+    let ray_dir = ray.dir;
 
     opt_surface_pt_toi.map(|toi| {
-        let mut surface_pt = ray.origin + ray.dir * toi;
+        let mut surface_pt = ray_origin + ray_dir * toi;
         // Due to numerical error, Z is not exactly zero. Here
         // we clamp it to zero.
-        surface_pt.coords[2] = nalgebra::zero();
+        surface_pt.coords[2] = 0.0;
         surface_pt
     })
 }

@@ -30,7 +30,7 @@ serde_yaml = "0.9"
 toml = "0.5"
 dyn-clone = "1.0.11"
 nalgebra = { version = "0.32", features = ["serde-serialize"] }
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
+parry3d-f64 = "0.13.5"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"

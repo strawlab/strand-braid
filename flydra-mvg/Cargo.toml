@@ -9,7 +9,7 @@ rust-version="1.60"
 log = "0.4"
 num-traits = "0.2"
 nalgebra = {version="0.32", features=["serde-serialize"]}
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
+parry3d-f64 = "0.13.5"
 alga = "0.9"
 serde = {version="1.0", features=["derive"]}
 serde-xml-rs = "0.5"

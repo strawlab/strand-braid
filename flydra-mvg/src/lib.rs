@@ -18,8 +18,6 @@ use na::{allocator::Allocator, DefaultAllocator, U1};
 use nalgebra as na;
 
 use cam_geom::ExtrinsicParameters;
-use ncollide::{query::Ray, shape::Plane};
-use ncollide3d as ncollide;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
 use mvg::{
@@ -71,6 +69,66 @@ impl<'a, R: RealField + Copy + Default + serde::Serialize> Iterator for CamNameI
     }
 }
 
+// RealField and f64 inter conversion ----------------------------------------------------
+
+trait Point3ToR<R: RealField> {
+    fn to_r(self) -> Point3<R>;
+}
+
+impl<R: RealField> Point3ToR<R> for Point3<f64> {
+    fn to_r(self) -> Point3<R> {
+        Point3::new(
+            na::convert(self[0]),
+            na::convert(self[1]),
+            na::convert(self[2]),
+        )
+    }
+}
+
+trait Vector3ToR<R: RealField> {
+    fn to_r(self) -> Vector3<R>;
+}
+
+impl<R: RealField> Vector3ToR<R> for Vector3<f64> {
+    fn to_r(self) -> Vector3<R> {
+        Vector3::new(
+            na::convert(self[0]),
+            na::convert(self[1]),
+            na::convert(self[2]),
+        )
+    }
+}
+
+trait Point3ToF64 {
+    fn to_f64(self) -> Point3<f64>;
+}
+
+impl<R: RealField> Point3ToF64 for &Point3<R> {
+    fn to_f64(self) -> Point3<f64> {
+        let x: f64 = self[0].to_subset().unwrap();
+        let y: f64 = self[1].to_subset().unwrap();
+        let z: f64 = self[2].to_subset().unwrap();
+        Point3::new(x, y, z)
+    }
+}
+
+trait Vector3ToF64<T> {
+    fn to_f64(self) -> nalgebra::Vector3<f64>;
+}
+
+impl<T> Vector3ToF64<T> for &nalgebra::Vector3<T>
+where
+    T: RealField,
+{
+    fn to_f64(self) -> nalgebra::Vector3<f64> {
+        nalgebra::Vector3::new(
+            self[0].to_subset().unwrap(),
+            self[1].to_subset().unwrap(),
+            self[2].to_subset().unwrap(),
+        )
+    }
+}
+
 // RayCamera -------------------------------------------------------
 
 /// defines operations with Ray type
@@ -80,42 +138,41 @@ impl<'a, R: RealField + Copy + Default + serde::Serialize> Iterator for CamNameI
 /// direction rather than a point in 3D space, which may be on the other side
 /// of a refractive boundary.
 trait RayCamera<R: RealField + Copy> {
-    fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> ncollide3d::query::Ray<R>;
-    fn project_distorted_pixel_to_ray(&self, pt2d: &DistortedPixel<R>)
-        -> ncollide3d::query::Ray<R>;
-    fn project_ray_to_distorted_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> DistortedPixel<R>;
-    fn project_ray_to_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> UndistortedPixel<R>;
+    fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> parry3d_f64::query::Ray;
+    fn project_distorted_pixel_to_ray(&self, pt2d: &DistortedPixel<R>) -> parry3d_f64::query::Ray;
+    fn project_ray_to_distorted_pixel(&self, ray: &parry3d_f64::query::Ray) -> DistortedPixel<R>;
+    fn project_ray_to_pixel(&self, ray: &parry3d_f64::query::Ray) -> UndistortedPixel<R>;
 }
 
 impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R> {
-    fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> ncollide3d::query::Ray<R> {
+    fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> parry3d_f64::query::Ray {
         let dist = na::convert(1.0);
         let p2 = self.project_pixel_to_3d_with_dist(pt, dist);
         let ray_origin = *self.extrinsics().camcenter();
         let ray_dir = p2.coords - ray_origin;
-        ncollide3d::query::Ray::new(ray_origin, ray_dir)
+        let ray_origin = ray_origin.to_f64();
+        let ray_dir = ray_dir.to_f64();
+        parry3d_f64::query::Ray::new(ray_origin, ray_dir)
     }
 
-    fn project_distorted_pixel_to_ray(
-        &self,
-        pt2d: &DistortedPixel<R>,
-    ) -> ncollide3d::query::Ray<R> {
+    fn project_distorted_pixel_to_ray(&self, pt2d: &DistortedPixel<R>) -> parry3d_f64::query::Ray {
         let undistorted = self.intrinsics().undistort(&pt2d.into());
         self.project_pixel_to_ray(&undistorted.into())
     }
 
-    fn project_ray_to_distorted_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> DistortedPixel<R> {
-        debug_assert!(&ray.origin == self.extrinsics().camcenter());
-        let pt3d = PointWorldFrame {
-            coords: ray.origin + ray.dir,
+    fn project_ray_to_distorted_pixel(&self, ray: &parry3d_f64::query::Ray) -> DistortedPixel<R> {
+        let camcenter = self.extrinsics().camcenter().to_f64();
+        debug_assert!(&ray.origin == &camcenter);
+        let pt3d = PointWorldFrame::<R> {
+            coords: (ray.origin + ray.dir).to_r(),
         };
         self.project_3d_to_distorted_pixel(&pt3d)
     }
 
-    fn project_ray_to_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> UndistortedPixel<R> {
-        debug_assert!(&ray.origin == self.extrinsics().camcenter());
-        let pt3d = PointWorldFrame {
-            coords: ray.origin + ray.dir,
+    fn project_ray_to_pixel(&self, ray: &parry3d_f64::query::Ray) -> UndistortedPixel<R> {
+        debug_assert!(ray.origin == self.extrinsics().camcenter().to_f64());
+        let pt3d = PointWorldFrame::<R> {
+            coords: (ray.origin + ray.dir).to_r(),
         };
         self.project_3d_to_pixel(&pt3d)
     }
@@ -143,24 +200,27 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
     }
 
     #[inline]
-    pub fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> Ray<R> {
+    pub fn project_pixel_to_ray(&self, pt: &UndistortedPixel<R>) -> parry3d_f64::query::Ray {
         self.cam.project_pixel_to_ray(pt)
     }
 
     #[inline]
-    pub fn project_distorted_pixel_to_ray(&self, pt: &DistortedPixel<R>) -> Ray<R> {
+    pub fn project_distorted_pixel_to_ray(
+        &self,
+        pt: &DistortedPixel<R>,
+    ) -> parry3d_f64::query::Ray {
         self.cam.project_distorted_pixel_to_ray(pt)
     }
 
     #[inline]
-    pub fn project_ray_to_pixel(&self, ray: &ncollide3d::query::Ray<R>) -> UndistortedPixel<R> {
+    pub fn project_ray_to_pixel(&self, ray: &parry3d_f64::query::Ray) -> UndistortedPixel<R> {
         self.cam.project_ray_to_pixel(ray)
     }
 
     #[inline]
     pub fn project_ray_to_distorted_pixel(
         &self,
-        ray: &ncollide3d::query::Ray<R>,
+        ray: &parry3d_f64::query::Ray,
     ) -> DistortedPixel<R> {
         self.cam.project_ray_to_distorted_pixel(ray)
     }
@@ -169,7 +229,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
     ///
     /// If the point is under water, the ray is in the direction the camera
     /// sees it (not the straight-line direction).
-    pub fn project_3d_to_ray(&self, pt3d: &PointWorldFrame<R>) -> Ray<R> {
+    pub fn project_3d_to_ray(&self, pt3d: &PointWorldFrame<R>) -> parry3d_f64::query::Ray {
         let camcenter = self.extrinsics().camcenter();
 
         let dir: Vector3<R> = if self.water.is_some() && pt3d.coords[2] < na::convert(0.0) {
@@ -215,7 +275,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
             na::Matrix::norm(&dir) > R::default_epsilon(),
             "pt3d is at camcenter"
         );
-        Ray::new(*camcenter, dir)
+        parry3d_f64::query::Ray::new(camcenter.to_f64(), dir.to_f64())
     }
 
     #[allow(non_snake_case)]
@@ -260,7 +320,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
                                                 // to that 3D point).
 
         // From here, we use normal camera stuff (no need to know about water).
-        let coords = ray.origin + ray.dir;
+        let coords: Point3<R> = (ray.origin + ray.dir).to_r();
         let pt_air =
             cam_geom::Points::<cam_geom::WorldFrame, _, _, _>::new(coords.coords.transpose());
 
@@ -475,8 +535,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         n2: R,
     ) -> Result<PointWorldFrame<R>> {
         use cam_geom::{Ray, WorldFrame};
-        let z0 = Plane::new(Vector3::z_axis());
-        let eye = na::Isometry3::identity();
+        let z0 = parry3d_f64::shape::HalfSpace::new(Vector3::z_axis());
 
         let mut rays: Vec<Ray<WorldFrame, _>> = Vec::with_capacity(points.len());
 
@@ -485,16 +544,23 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
             let air_ray = cam.project_pixel_to_ray(xy);
             let solid = false; // will intersect either side of plane
 
-            use ncollide::query::RayCast;
-            let opt_surface_pt_toi: Option<R> =
-                z0.toi_with_ray(&eye, &air_ray, R::max_value().unwrap(), solid);
+            let opt_surface_pt_toi: Option<f64> = parry3d_f64::query::RayCast::cast_local_ray(
+                &z0,
+                &air_ray,
+                f64::max_value().unwrap(),
+                solid,
+            );
+
+            let air_ray_origin = air_ray.origin.to_r();
+            let air_ray_dir = air_ray.dir.to_r();
 
             if let Some(toi) = opt_surface_pt_toi {
-                let surface_pt = air_ray.origin + air_ray.dir * toi;
+                let toi: R = na::convert(toi);
+                let surface_pt: Point3<R> = air_ray_origin + air_ray_dir * toi;
 
                 // closest point to camera on water surface, assumes water at z==0
-                let camcenter = &air_ray.origin;
-                let camcenter_z0 =
+                let camcenter = &air_ray_origin;
+                let camcenter_z0: Point3<R> =
                     Point3::from(Vector3::new(camcenter[0], camcenter[1], na::convert(0.0)));
 
                 let surface_pt_cam = surface_pt - camcenter_z0;
@@ -512,7 +578,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 let theta_water = sin_theta_water.asin();
                 let horiz_dist_at_depth_1 = theta_water.tan();
                 let horiz_dist_cam_depth_1 = horiz_dist_at_depth_1 + pt_horiz_dist; // total horizontal distance
-                let deep_pt_cam = Vector3::new(
+                let deep_pt_cam: Vector3<R> = Vector3::new(
                     horiz_dist_cam_depth_1 * pt_angle.cos(),
                     horiz_dist_cam_depth_1 * pt_angle.sin(),
                     na::convert(-1.0),
