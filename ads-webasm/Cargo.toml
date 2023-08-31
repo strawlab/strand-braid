@@ -32,6 +32,7 @@ bui-backend-types = "0.8"
 yew-tincture = "0.1"
 
 simple-obj-parse = { path = "../simple-obj-parse", optional = true }
+textured-tri-mesh = { path = "../textured-tri-mesh", optional = true }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 enum-iter = { path = "../enum-iter" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
@@ -51,5 +52,5 @@ features = [
 ]
 
 [features]
-obj = ["simple-obj-parse", "ncollide3d"]
+obj = ["simple-obj-parse", "textured-tri-mesh", "ncollide3d"]
 csv-widget = ["csv"]
