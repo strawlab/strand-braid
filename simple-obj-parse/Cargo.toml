@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.60"
 
 [dependencies]
-nalgebra = "0.30"                                  # ncollide3d 0.33 requires nalgebra 0.30
-ncollide3d = "0.33"
+nalgebra = "0.32"
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
 genmesh = "0.6"
 obj = { version = "0.10", features = ["genmesh"] }
