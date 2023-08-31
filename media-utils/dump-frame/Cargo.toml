@@ -13,7 +13,7 @@ openh264 = "0.4.0"
 tempfile = "3.4.0"
 image = {version="0.24.2", default-features=false, features=["jpeg","png", "tiff", "bmp", "pnm", "gif"]}
 y4m = "0.8.0"
-tiff = "0.7.4"
+tiff = "0.9.0"
 
 simple-frame = { path = "../../simple-frame" }
 convert-image = { path = "../../convert-image" }
