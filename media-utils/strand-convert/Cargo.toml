@@ -18,7 +18,7 @@ path-slash = "0.2.1"
 basic-frame = { path = "../../basic-frame"}
 convert-image = { path = "../../convert-image"}
 frame-source = { path = "../frame-source"}
-tiff-decoder = { path = "../tiff-decoder", features=["clap"]}
+tiff-decoder = { path = "../tiff-decoder"}
 mp4-writer = { path = "../mp4-writer", features=["openh264"]}
 ci2-remote-control = { path = "../../ci2-remote-control" }
 nvenc = {path="../../nvenc"}

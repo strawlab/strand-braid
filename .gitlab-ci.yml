@@ -221,6 +221,12 @@ test_crates_rust_1_72:
     - cargo test
     - cd ..
 
+    # Test media-utils/tiff-decoder
+    - cd media-utils/tiff-decoder
+    - cargo test
+    - cd ../..
+
+
     # Test media-utils/strand-convert
     - cd media-utils/strand-convert
     - cargo test -- --test-threads 1
