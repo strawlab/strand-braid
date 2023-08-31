@@ -949,12 +949,12 @@ pub fn compute_mask_image(
             }
         }
         Shape::Polygon(ref shape) => {
-            let shape = ncollide_geom::mask_from_points(&shape.points);
+            let shape = parry_geom::mask_from_points(&shape.points);
             let m = nalgebra::geometry::Isometry::identity();
             for (row, mask_row) in mask_row_iter.enumerate() {
                 for (col, row_item) in mask_row.iter_mut().enumerate() {
                     let cur_pos = nalgebra::geometry::Point2::new(col as f64, row as f64);
-                    use ncollide2d::query::point_query::PointQuery;
+                    use parry2d_f64::query::PointQuery;
                     if shape.distance_to_point(&m, &cur_pos, true) >= 1.0 {
                         // outside polygon
                         *row_item = mask_value;

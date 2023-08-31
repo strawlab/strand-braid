@@ -19,7 +19,7 @@ serde_yaml = "0.9"
 tokio = {version="1.0.1", default-features=false, features=["rt"]}
 stream-cancel = "0.8"
 nalgebra = "0.32"
-ncollide2d = { package = "ncollide2d-updated", version = "0.35.0"}
+parry2d-f64 = "0.13.5"
 ipp-sys = {version="0.4.4", optional=true}
 
 fastimage = { path = "../fastimage", optional=true }
@@ -42,7 +42,7 @@ crossbeam-ok = {path="../crossbeam-ok"}
 channellib = {path="../channellib"}
 braid-http-session = {path="../braid-http-session"}
 
-ncollide-geom = {path="../ncollide-geom"}
+parry-geom = {path = "../parry-geom"}
 
 [dev-dependencies]
 fmf = { path = "../fmf" }
