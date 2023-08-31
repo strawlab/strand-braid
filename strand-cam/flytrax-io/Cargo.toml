@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-serde_yaml = "0.8" # serde_yaml 0.9 has incompatibility with our files?
+serde_yaml = "0.9"
 
 strand-cam-csv-config-types = { path = "../../strand-cam-csv-config-types" }

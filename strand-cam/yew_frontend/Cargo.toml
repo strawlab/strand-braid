@@ -20,7 +20,7 @@ gloo-utils = "0.1"
 yew = {version="0.20.0", features=["csr"]}
 serde = {version = "1.0", default-features = false}
 serde_json = "1.0"
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 http = "0.2"
 backtrace = "0.3.40" # here only to require this high version number, not used directly
 yew-tincture = "0.1"

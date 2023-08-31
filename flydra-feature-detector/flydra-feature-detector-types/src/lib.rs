@@ -1,6 +1,4 @@
-#[macro_use]
-extern crate serde_derive;
-extern crate http_video_streaming_types;
+use serde::{Serialize, Deserialize};
 
 use http_video_streaming_types::Shape;
 
@@ -23,6 +21,7 @@ pub struct ImPtDetectCfg {
     /// Switch whether to continuously update the background model or not.
     pub do_update_background_model: bool,
     /// What kind of difference from the background model to detect.
+    #[serde(with = "serde_yaml::with::singleton_map")]
     pub polarity: ContrastPolarity,
     /// How much to weight the update of the background model.
     ///
@@ -66,5 +65,6 @@ pub struct ImPtDetectCfg {
     /// whichever is larger. Intensity difference value. Value range is 0-255.
     pub despeckle_threshold: u8,
     /// The shape of the reason over which detected points are checked.
+    #[serde(with = "serde_yaml::with::singleton_map")]
     pub valid_region: Shape,
 }

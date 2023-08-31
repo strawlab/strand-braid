@@ -14,7 +14,7 @@ js-sys = "0.3"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 yew = {version="0.20.0", features=["csr"]}
 serde = {version = "1.0", default-features = false}
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 yew-tincture = "0.1"
 log = "0.4"
 wasm-logger = "0.2.0"
