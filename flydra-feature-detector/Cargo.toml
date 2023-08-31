@@ -18,8 +18,8 @@ serde = {version="1.0",features=["derive"]}
 serde_yaml = "0.8"
 tokio = {version="1.0.1", default-features=false, features=["rt"]}
 stream-cancel = "0.8"
-nalgebra = "0.30"
-ncollide2d = "0.33"
+nalgebra = "0.32"
+ncollide2d = { package = "ncollide2d-updated", version = "0.35.0"}
 ipp-sys = {version="0.4.4", optional=true}
 
 fastimage = { path = "../fastimage", optional=true }
