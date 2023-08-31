@@ -8,7 +8,7 @@ rust-version="1.60"
 [dependencies]
 log = "0.4"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-mp4 = "0.13.0"
+mp4 = "0.14.0"
 
 openh264 = {version="0.4.0", optional=true}
 thiserror = "1.0.33"
