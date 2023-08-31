@@ -2,6 +2,7 @@
 pub enum ErrorKind {
     IoError(std::io::Error),
     ObjHasNoTextureCoords,
+    ObjHasTooManyVertices,
     ObjError(obj::ObjError),
 }
 

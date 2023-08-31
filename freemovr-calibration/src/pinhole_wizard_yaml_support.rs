@@ -1,6 +1,7 @@
 use anyhow::Context;
 
 use crate::{
+    as_ncollide_mesh,
     error::Error,
     types::{
         Display, SimpleDisplay, SimpleUVCorrespondance, UVCorrespondance, VDispInfo,
@@ -234,6 +235,7 @@ pub fn parse_obj_from_reader<R: std::io::Read>(
     let obj = objects.remove(0);
     let (_name, mesh) = obj;
 
+    let mesh = as_ncollide_mesh(&mesh);
     Ok(TriMeshGeom::new(&mesh, fname.map(|x| x.to_string()))?)
 }
 
@@ -647,6 +649,7 @@ mod tests {
 
         for obj in objects {
             let (_name, mesh) = obj;
+            let mesh = as_ncollide_mesh(&mesh);
             let geom = TriMeshGeom::new(&mesh, None).unwrap();
             check_texcoord_worldcoord_roundtrip(&geom, &uvs);
         }
@@ -680,6 +683,7 @@ mod tests {
 
         for obj in objects {
             let (_name, mesh) = obj;
+            let mesh = as_ncollide_mesh(&mesh);
             let geom = TriMeshGeom::new(&mesh, None).unwrap();
             check_texcoord_worldcoord_roundtrip(&geom, &uvs);
         }
@@ -785,6 +789,7 @@ mod tests {
 
         let obj = simple_obj_parse::obj_parse(SQUARE).unwrap().remove(0);
         let (_name, mesh) = obj;
+        let mesh = as_ncollide_mesh(&mesh);
         let geom = TriMeshGeom::new(&mesh, None).unwrap();
 
         let (w, h) = (cam.width() as f64, cam.height() as f64);

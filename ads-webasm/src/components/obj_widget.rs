@@ -30,7 +30,7 @@ impl std::fmt::Display for MaybeValidObjFile {
                 f,
                 "OBJ file \"{}\" with {} vertices.",
                 fd.filename,
-                fd.mesh.vertices().len()
+                fd.mesh.coords.len()
             ),
             NotLoaded => write!(f, "No OBJ file loaded."),
             ParseFail(ref _e) => write!(f, "Failed parsing OBJ file."),
@@ -43,11 +43,11 @@ pub struct ValidObjFile {
     pub filename: String,
     _filesize: usize,
     _meshname: String,
-    mesh: ncollide3d::shape::TriMesh<f64>,
+    mesh: textured_tri_mesh::TriMesh,
 }
 
 impl ValidObjFile {
-    pub fn mesh(&self) -> &ncollide3d::shape::TriMesh<f64> {
+    pub fn mesh(&self) -> &textured_tri_mesh::TriMesh {
         &self.mesh
     }
 }

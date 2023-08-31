@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[macro_use]
 extern crate log;
@@ -79,6 +76,24 @@ impl FloatImage {
 fn to_camcal(board: &Checkerboard) -> camcal::CheckerBoardData {
     let corners: Vec<(f64, f64)> = board.corners.clone();
     camcal::CheckerBoardData::new(board.n_rows, board.n_cols, &corners)
+}
+
+pub fn as_ncollide_mesh(tm: &textured_tri_mesh::TriMesh) -> ncollide3d::shape::TriMesh<f64> {
+    fn usize(x: u32) -> usize {
+        x.try_into().unwrap()
+    }
+    let coords = tm
+        .coords
+        .iter()
+        .map(|x| Point3::new(x[0], x[1], x[2]))
+        .collect();
+    let indices = tm
+        .indices
+        .iter()
+        .map(|x| Point3::new(usize(x[0]), usize(x[1]), usize(x[2])))
+        .collect();
+    let uvs = Some(tm.uvs.iter().map(|x| Point2::new(x[0], x[1])).collect());
+    ncollide3d::shape::TriMesh::new(coords, indices, uvs)
 }
 
 fn parse_multi_display_yaml<R: std::io::Read>(
