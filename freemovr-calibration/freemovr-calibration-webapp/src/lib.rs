@@ -393,7 +393,8 @@ impl Model {
         };
         let geom = match &self.obj_file {
             &MaybeValidObjFile::Valid(ref obj) => {
-                TriMeshGeom::new(obj.mesh(), Some(obj.filename.clone()))?
+                let mesh = freemovr_calibration::as_ncollide_mesh(obj.mesh());
+                TriMeshGeom::new(&mesh, Some(obj.filename.clone()))?
             }
             _ => {
                 return Err(MyError {});
