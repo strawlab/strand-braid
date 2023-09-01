@@ -974,8 +974,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             tx.send(rate_cmd).await?;
             tx.send(Cmd::StartPulses).await?;
 
-            let mut expected_framerate = expected_framerate_arc.write();
-            *expected_framerate = Some(rate_actual as f32);
+            {
+                let mut expected_framerate = expected_framerate_arc.write();
+                *expected_framerate = Some(rate_actual as f32);
+            }
 
             // Emperically, an Arduino Nano requires 7 seconds to wake up.
             let sleep_dur = std::time::Duration::from_secs_f32(7.0);
