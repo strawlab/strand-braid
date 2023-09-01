@@ -162,7 +162,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R
 
     fn project_ray_to_distorted_pixel(&self, ray: &parry3d_f64::query::Ray) -> DistortedPixel<R> {
         let camcenter = self.extrinsics().camcenter().to_f64();
-        debug_assert!(&ray.origin == &camcenter);
+        debug_assert!(ray.origin == camcenter);
         let pt3d = PointWorldFrame::<R> {
             coords: (ray.origin + ray.dir).to_r(),
         };
