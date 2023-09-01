@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[macro_use]
 extern crate log;
@@ -237,7 +234,7 @@ impl TaskState {
                 };
                 let ps = PerSender::new(
                     chunk_sender,
-                    conn_evt.connection_key.clone(),
+                    conn_evt.connection_key,
                     name_selector,
                     self.frame.clone(),
                 );
