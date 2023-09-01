@@ -15,7 +15,8 @@ pub fn mask_from_points(viewport_points: &[(f64, f64)]) -> Mask {
     let delaun = delaunator::triangulate(&points).expect("No triangulation exists.");
     let delta = nalgebra::Isometry2::identity();
 
-    let shapes: Vec<_> = (&(delaun.triangles))
+    let shapes: Vec<_> = delaun
+        .triangles
         .chunks(3)
         .map(|idxs| {
             let a = &points[idxs[0]];
