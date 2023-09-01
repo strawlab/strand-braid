@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -161,7 +158,7 @@ fn launch_runner(
                             stamp.with_timezone(&chrono::Local);
                         let filename = local.format(&format_str_mp4).to_string();
                         let path = std::path::Path::new(&filename);
-                        let f = thread_try!(err_tx, std::fs::File::create(&path));
+                        let f = thread_try!(err_tx, std::fs::File::create(path));
 
                         let nv_enc = match &mp4_recording_config.codec {
                             ci2_remote_control::Mp4Codec::H264NvEnc(_opts) => {
