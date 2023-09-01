@@ -10,7 +10,7 @@ import os
 import errno
 import tables
 import pandas
-import imageio # On Ubuntu 16 with Python 2.x: pip install imageio==2.3 --no-deps
+import imageio
 from collections import defaultdict
 import flydra_analysis.a2.calibration_to_xml as calibration_to_xml
 
