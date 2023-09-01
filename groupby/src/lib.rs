@@ -62,7 +62,7 @@ where
             Some(result_el) => {
                 let el = result_el?;
                 let key = el.key();
-                let rows_entry = &mut self.sorted_buf.entry(key).or_insert_with(VecDeque::new);
+                let rows_entry = &mut self.sorted_buf.entry(key).or_default();
                 rows_entry.push_back(el);
                 Ok(true)
             }
