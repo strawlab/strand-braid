@@ -1,8 +1,5 @@
 //! Provides fast image analysis operations
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 #![cfg_attr(feature = "portsimd", feature(portable_simd))]
 
 use std::marker::PhantomData;
@@ -67,7 +64,7 @@ fn absdiff_u8x32(im1: u8x32, im2: u8x32) -> u8x32 {
 #[test]
 fn test_absdiff_u8x32() {
     use u8x32;
-    let val = |x| u8x32::splat(x);
+    let val = u8x32::splat;
 
     assert_eq!(absdiff_u8x32(val(0), val(0)), val(0));
 
@@ -102,16 +99,16 @@ mod simd_generic {
         S2: FastImage<D = u8, C = Chan1>,
         D: MutableFastImage<D = u8, C = Chan1>,
     {
-        let chunk_iter1 = src1.valid_row_iter(&size)?;
-        let chunk_iter2 = src2.valid_row_iter(&size)?;
-        let outchunk_iter = dest.valid_row_iter_mut(&size)?;
+        let chunk_iter1 = src1.valid_row_iter(size)?;
+        let chunk_iter2 = src2.valid_row_iter(size)?;
+        let outchunk_iter = dest.valid_row_iter_mut(size)?;
 
         #[inline]
         fn scalar_adsdiff(aa: &[u8], bb: &[u8], cc: &mut [u8]) {
             debug_assert_eq!(aa.len(), bb.len());
             debug_assert_eq!(aa.len(), cc.len());
             for ((a, b), c) in aa.iter().zip(bb).zip(cc.iter_mut()) {
-                *c = (*a as i16 - *b as i16).abs() as u8;
+                *c = (*a as i16 - *b as i16).unsigned_abs() as u8;
             }
         }
 
@@ -239,7 +236,7 @@ where
         value: D,
     ) -> Result<Self> {
         let mut result = Self::zeros(width_pixels, height_pixels)?;
-        let size = result.size.clone();
+        let size = result.size;
         for row in result.valid_row_iter_mut(&size)? {
             for el in row {
                 *el = value;
@@ -492,7 +489,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        &self.data
+        self.data
     }
 
     #[inline]
@@ -540,7 +537,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        &self.data
+        self.data
     }
 
     #[inline]
@@ -623,7 +620,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        &self.data
+        self.data
     }
 
     #[inline]
@@ -652,7 +649,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        &self.data
+        self.data
     }
 
     #[inline]
@@ -678,7 +675,7 @@ where
 
     #[inline]
     fn image_slice_mut(&mut self) -> &mut [Self::D] {
-        &mut self.data
+        self.data
     }
 }
 
@@ -740,7 +737,7 @@ fn test_padded_chunks() {
         let avec = vec![1.0, 2.0, 3.0, 4.0, -1.0, 1.1, 2.1, 3.1, 4.1, -1.0];
         let a1: &[f32] = avec.as_slice();
 
-        let mut myiter = ValidChunksExact::new(&a1, 5, 4);
+        let mut myiter = ValidChunksExact::new(a1, 5, 4);
         assert_eq!(myiter.next(), Some(&avec[0..4]));
         assert_eq!(myiter.next(), Some(&avec[5..9]));
         assert_eq!(myiter.next(), None);
@@ -751,7 +748,7 @@ fn test_padded_chunks() {
         let avec = vec![10, 20, 30, 40, 255, 11, 21, 31, 41, 25];
         let a1: &[u8] = avec.as_slice();
 
-        let mut myiter = ValidChunksExact::new(&a1, 5, 4);
+        let mut myiter = ValidChunksExact::new(a1, 5, 4);
         assert_eq!(myiter.next(), Some(&avec[0..4]));
         assert_eq!(myiter.next(), Some(&avec[5..9]));
         assert_eq!(myiter.next(), None);
@@ -888,9 +885,9 @@ where
     }
     // check row-by row
     for (self_row, other_row) in self_
-        .valid_row_iter(&self_.size())
+        .valid_row_iter(self_.size())
         .unwrap()
-        .zip(other.valid_row_iter(&self_.size()).unwrap())
+        .zip(other.valid_row_iter(self_.size()).unwrap())
     {
         if self_row != other_row {
             return false;
@@ -912,7 +909,7 @@ impl machine_vision_formats::ImageData<machine_vision_formats::pixel_format::Mon
         &self,
     ) -> machine_vision_formats::ImageBufferRef<'_, machine_vision_formats::pixel_format::Mono8>
     {
-        machine_vision_formats::ImageBufferRef::new(&self.image_slice()[..])
+        machine_vision_formats::ImageBufferRef::new(self.image_slice())
     }
     fn buffer(
         self,
@@ -1090,8 +1087,8 @@ pub mod ripp {
         DST: MutableFastImage<D = u8, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 *dest_el = *src_el;
@@ -1106,8 +1103,8 @@ pub mod ripp {
         DST: MutableFastImage<D = f32, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 *dest_el = *src_el;
@@ -1122,8 +1119,8 @@ pub mod ripp {
         D: MutableFastImage<D = f32, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 *dest_el = (*src_el).into();
@@ -1143,14 +1140,12 @@ pub mod ripp {
         DST: MutableFastImage<D = u8, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
-                match round_mode {
-                    _ => {
-                        *dest_el = round_mode.f32_to_u8(*src_el);
-                    }
+                {
+                    *dest_el = round_mode.f32_to_u8(*src_el);
                 }
             }
         }
@@ -1169,8 +1164,8 @@ pub mod ripp {
         DST: MutableFastImage<D = u8, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 match cmp_op {
@@ -1193,7 +1188,7 @@ pub mod ripp {
         let mut value = 255;
         let mut loc = Point::new(0, 0);
 
-        for (row, src_row) in src.valid_row_iter(&size)?.enumerate() {
+        for (row, src_row) in src.valid_row_iter(size)?.enumerate() {
             for (col, src_el) in src_row.iter().enumerate() {
                 if *src_el < value {
                     value = *src_el;
@@ -1212,7 +1207,7 @@ pub mod ripp {
         let mut value = 0;
         let mut loc = Point::new(0, 0);
 
-        for (row, src_row) in src.valid_row_iter(&size)?.enumerate() {
+        for (row, src_row) in src.valid_row_iter(size)?.enumerate() {
             for (col, src_el) in src_row.iter().enumerate() {
                 if *src_el > value {
                     value = *src_el;
@@ -1234,7 +1229,7 @@ pub mod ripp {
     where
         SRCDST: MutableFastImage<D = u8, C = Chan1>,
     {
-        for srcdest_row in src_dest.valid_row_iter_mut(&size)? {
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
                 match cmp_op {
                     CompareOp::Less => {
@@ -1271,9 +1266,9 @@ pub mod ripp {
             return Err(Error::NotImplemented);
         }
         for ((im1_row, im2_row), dest_row) in src1
-            .valid_row_iter(&size)?
-            .zip(src2.valid_row_iter(&size)?)
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(src2.valid_row_iter(size)?)
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for ((i1, i2), out) in im1_row.iter().zip(im2_row.iter()).zip(dest_row.iter_mut()) {
                 *out = i2.saturating_sub(*i1);
@@ -1296,9 +1291,9 @@ pub mod ripp {
         D: MutableFastImage<D = f32, C = Chan1>,
     {
         for ((im1_row, im2_row), dest_row) in src1
-            .valid_row_iter(&size)?
-            .zip(src2.valid_row_iter(&size)?)
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(src2.valid_row_iter(size)?)
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for ((i1, i2), out) in im1_row.iter().zip(im2_row.iter()).zip(dest_row.iter_mut()) {
                 *out = *i2 - *i1;
@@ -1313,8 +1308,8 @@ pub mod ripp {
         D: MutableFastImage<D = f32, C = Chan1>,
     {
         for (src_row, dest_row) in src
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 *dest_el = src_el.abs();
@@ -1327,7 +1322,7 @@ pub mod ripp {
     where
         SRCDST: MutableFastImage<D = f32, C = Chan1>,
     {
-        for srcdest_row in src_dest.valid_row_iter_mut(&size)? {
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
                 *srcdest = srcdest.sqrt();
             }
@@ -1339,9 +1334,9 @@ pub mod ripp {
     where
         SD: MutableFastImage<D = f32, C = Chan1>,
     {
-        for srcdest_row in src_dest.valid_row_iter_mut(&size)? {
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
-                *srcdest = k * *srcdest;
+                *srcdest *= k;
             }
         }
         Ok(())
@@ -1363,12 +1358,12 @@ pub mod ripp {
         D: MutableFastImage<D = u8, C = Chan1>,
     {
         for ((im1_row, im2_row), dest_row) in src1
-            .valid_row_iter(&size)?
-            .zip(src2.valid_row_iter(&size)?)
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(src2.valid_row_iter(size)?)
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for ((i1, i2), out) in im1_row.iter().zip(im2_row.iter()).zip(dest_row.iter_mut()) {
-                *out = (*i1 as i16 - *i2 as i16).abs() as u8;
+                *out = (*i1 as i16 - *i2 as i16).unsigned_abs() as u8;
             }
         }
         Ok(())
@@ -1386,8 +1381,8 @@ pub mod ripp {
     {
         let one_minus_alpha = 1.0 - alpha;
         for (src_row, src_dst_row) in src
-            .valid_row_iter(&size)?
-            .zip(src_dst.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(src_dst.valid_row_iter_mut(size)?)
         {
             for (src_el, src_dst_el) in src_row.iter().zip(src_dst_row.iter_mut()) {
                 *src_dst_el = (*src_dst_el * one_minus_alpha) + (*src_el as f32 * alpha);
@@ -1408,8 +1403,8 @@ pub mod ripp {
     {
         let one_minus_alpha = 1.0 - alpha;
         for (src_row, src_dst_row) in src
-            .valid_row_iter(&size)?
-            .zip(src_dst.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(src_dst.valid_row_iter_mut(size)?)
         {
             for (src_el, src_dst_el) in src_row.iter().zip(src_dst_row.iter_mut()) {
                 *src_dst_el = (*src_dst_el * one_minus_alpha) + (*src_el * alpha);
@@ -1422,7 +1417,7 @@ pub mod ripp {
     where
         S: FastImage<D = u8, C = Chan1>,
     {
-        let roi = FastImageRegion::new(Point::new(0, 0), size.clone());
+        let roi = FastImageRegion::new(Point::new(0, 0), *size);
 
         let im_view1 = FastImageView::view_region(src, &roi);
         let im_view: &dyn FastImage<C = Chan1, D = u8> = &im_view1?;
@@ -1435,7 +1430,7 @@ pub mod ripp {
     where
         DST: MutableFastImage<D = u8, C = Chan1>,
     {
-        for dest_row in dest.valid_row_iter_mut(&size)? {
+        for dest_row in dest.valid_row_iter_mut(size)? {
             for dest_el in dest_row.iter_mut() {
                 *dest_el = value;
             }
@@ -1447,7 +1442,7 @@ pub mod ripp {
     where
         DST: MutableFastImage<D = f32, C = Chan1>,
     {
-        for dest_row in dest.valid_row_iter_mut(&size)? {
+        for dest_row in dest.valid_row_iter_mut(size)? {
             for dest_el in dest_row.iter_mut() {
                 *dest_el = value;
             }
@@ -1461,8 +1456,8 @@ pub mod ripp {
         M: FastImage<D = u8, C = Chan1>,
     {
         for (mask_row, dest_row) in mask
-            .valid_row_iter(&size)?
-            .zip(dest.valid_row_iter_mut(&size)?)
+            .valid_row_iter(size)?
+            .zip(dest.valid_row_iter_mut(size)?)
         {
             for (mask_el, dest_el) in mask_row.iter().zip(dest_row.iter_mut()) {
                 if *mask_el != 0 {
@@ -1477,7 +1472,7 @@ pub mod ripp {
     where
         SRCDST: MutableFastImage<D = f32, C = Chan1>,
     {
-        for srcdest_row in src_dest.valid_row_iter_mut(&size)? {
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
                 *srcdest = *srcdest * *srcdest;
             }

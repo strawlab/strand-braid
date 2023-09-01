@@ -47,7 +47,7 @@ fn test_new_u8() -> Result<()> {
     let w = 5;
     let h = 6;
     let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    assert!(im10.pixel_slice(4, 3) == &[10]);
+    assert!(im10.pixel_slice(4, 3) == [10]);
     Ok(())
 }
 
@@ -57,10 +57,10 @@ fn test_my_image_f32() -> Result<()> {
     let h = 7;
     let mut im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0)?;
     println!("im10 {:?}", im10);
-    assert!(im10.pixel_slice(4, 3) == &[10.0]);
+    assert!(im10.pixel_slice(4, 3) == [10.0]);
 
     im10.pixel_slice_mut(6, 5)[0] = 20.0;
-    assert!(im10.pixel_slice(6, 5) == &[20.0]);
+    assert!(im10.pixel_slice(6, 5) == [20.0]);
     Ok(())
 }
 
@@ -83,7 +83,7 @@ fn test_view() -> Result<()> {
 
     // check contents of ROI for FastImageView
     {
-        let im10_view = fastfreeimage::FastImageView::view_region(&mut im10, &roi)?;
+        let im10_view = fastfreeimage::FastImageView::view_region(&im10, &roi)?;
         assert!(im10_view.pixel_slice(0, 0)[0] == 52);
         assert!(im10_view.pixel_slice(0, 1)[0] == 53);
         assert!(im10_view.pixel_slice(0, 2)[0] == 54);
@@ -139,7 +139,7 @@ fn test_end_of_roi() -> Result<()> {
 
     // check contents of ROI for FastImageView
     {
-        let im10_view = fastfreeimage::FastImageView::view_region(&mut im10, &roi)?;
+        let im10_view = fastfreeimage::FastImageView::view_region(&im10, &roi)?;
         assert!(im10_view.pixel_slice(0, 0)[0] == 67);
         assert!(im10_view.pixel_slice(0, 1)[0] == 68);
         assert!(im10_view.pixel_slice(0, 2)[0] == 69);
@@ -353,7 +353,7 @@ fn test_abs_diff_size() -> Result<()> {
 
     let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0)?;
 
-    let size = im_dest.size().clone();
+    let size = *im_dest.size();
 
     ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size)?;
     assert_eq!(im_dest, im1);

@@ -17,7 +17,7 @@ fn absdiff_8u_v2(img1: &[u8], img2: &[u8], output: &mut [u8]) {
     // see V2 of https://stackoverflow.com/a/35779655/1633026
 
     for (i1, i2, out) in multizip((img1.iter(), img2.iter(), output.iter_mut())) {
-        *out = (*i1 as i16 - *i2 as i16).abs() as u8;
+        *out = (*i1 as i16 - *i2 as i16).unsigned_abs() as u8;
     }
 }
 

@@ -292,13 +292,13 @@ where
             let rowdata = &mut rowdata[..width];
 
             let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
-            scalar_clip_low(&mut prefix_data, low);
+            scalar_clip_low(prefix_data, low);
 
             for y in main_row_data.iter_mut() {
                 *y = u8x32::max(*y, low_vec);
             }
 
-            scalar_clip_low(&mut remainder_data, low);
+            scalar_clip_low(remainder_data, low);
         }
     }
 
@@ -378,7 +378,7 @@ where
 
             let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
 
-            scalar_cmp(&mut prefix_data, thresh, a, b, op);
+            scalar_cmp(prefix_data, thresh, a, b, op);
 
             for y in main_row_data.iter_mut() {
                 let indicator = match op {
@@ -391,7 +391,7 @@ where
                 *y = indicator.select(avec, bvec);
             }
 
-            scalar_cmp(&mut remainder_data, thresh, a, b, op);
+            scalar_cmp(remainder_data, thresh, a, b, op);
         }
     }
 
