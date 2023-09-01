@@ -907,13 +907,10 @@ async fn frame_process_task(
         #[cfg(feature = "flydra_feat_detect")]
         {
             if let Some(ref ssa) = shared_store_arc {
-                match ssa.try_read() {
-                    Some(store) => {
-                        let tracker = store.as_ref();
-                        is_doing_object_detection = tracker.is_doing_object_detection;
-                        // make copy. TODO only copy on change.
-                    }
-                    None => {}
+                if let Some(store) = ssa.try_read() {
+                    let tracker = store.as_ref();
+                    is_doing_object_detection = tracker.is_doing_object_detection;
+                    // make copy. TODO only copy on change.
                 }
             }
         }
@@ -1195,7 +1192,7 @@ async fn frame_process_task(
                     let tracker = shared_store_arc.as_ref().unwrap().read();
                     let shared: &StoreType = tracker.as_ref();
 
-                    let mp4_recording_config = FinalMp4RecordingConfig::new(&shared, creation_time);
+                    let mp4_recording_config = FinalMp4RecordingConfig::new(shared, creation_time);
 
                     (shared.format_str_mp4.clone(), mp4_recording_config)
                 };
@@ -4628,14 +4625,11 @@ where
                     // send message to device
                     writer.send(msg).await.unwrap();
                     // copy new device state and store it to our cache
-                    match msg {
-                        ToLedBoxDevice::DeviceState(new_state) => {
-                            let mut tracker = shared_store_arc.write();
-                            tracker.modify(|shared| {
-                                shared.led_box_device_state = Some(new_state);
-                            })
-                        }
-                        _ => {}
+                    if let ToLedBoxDevice::DeviceState(new_state) = msg {
+                        let mut tracker = shared_store_arc.write();
+                        tracker.modify(|shared| {
+                            shared.led_box_device_state = Some(new_state);
+                        })
                     };
                 }
             };

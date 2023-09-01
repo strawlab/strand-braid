@@ -116,7 +116,7 @@ fn parse_args(
 ) -> std::result::Result<StrandCamArgs, anyhow::Error> {
     let cli_args = get_cli_args();
 
-    let arg_default_box: Box<StrandCamArgs> = Box::new(Default::default());
+    let arg_default_box: Box<StrandCamArgs> = Default::default();
     let arg_default: &'static StrandCamArgs = Box::leak(arg_default_box);
 
     let app_name_box = Box::new(clap::builder::Str::from(app_name.to_string()));
