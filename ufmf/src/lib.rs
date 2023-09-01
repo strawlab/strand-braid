@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[macro_use]
 extern crate structure;
@@ -345,7 +342,7 @@ where
             let entry = self
                 .index_keyframes
                 .entry(keyframe_type.to_vec())
-                .or_insert_with(Vec::new);
+                .or_default();
             let timestamp = datetime_conversion::datetime_to_f64(&dtl);
             entry.push(TimestampLoc {
                 timestamp,
