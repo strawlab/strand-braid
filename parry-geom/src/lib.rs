@@ -19,15 +19,12 @@ pub fn mask_from_points(viewport_points: &[(f64, f64)]) -> Mask {
         .triangles
         .chunks(3)
         .map(|idxs| {
-            let a = &points[idxs[0]];
-            let b = &points[idxs[1]];
-            let c = &points[idxs[2]];
-            let a = to_na(a);
-            let b = to_na(b);
-            let c = to_na(c);
-            let tri = ConvexPolygon::from_convex_hull(&[a, b, c])
-                .expect("Convex hull computation failed.");
-            (delta, SharedShape::new(tri))
+            debug_assert_eq!(idxs.len(), 3);
+            let points: Vec<_> = idxs.iter().map(|i| to_na(&points[*i])).collect();
+            (
+                delta,
+                SharedShape::new(ConvexPolygon::from_convex_hull(&points).unwrap()),
+            )
         })
         .collect();
     Compound::new(shapes)
