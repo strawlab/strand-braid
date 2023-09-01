@@ -13,10 +13,7 @@
 // initial frame. (Although, to specify the timezone, the creation time may be
 // in a timezone other than UTC.)
 
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 use std::rc::Rc;
 
@@ -453,7 +450,7 @@ where
 
                                 let vram_buffers: Vec<IOBuffer<_, _>> = input_buffers
                                     .into_iter()
-                                    .zip(output_buffers.into_iter())
+                                    .zip(output_buffers)
                                     .map(|(i, o)| IOBuffer {
                                         in_buf: i,
                                         out_buf: o,
