@@ -108,13 +108,16 @@ test_flydra2:
     # - pip install flydra_core
     # - pip install flydra_analysis
 
-    # # Install flydra from git submodule
+    # Install flydra from git submodule
     - cd _submodules/flydra/flydra_core/
     - python -m pip install -e .
     - cd ../../..
     - cd _submodules/flydra/flydra_analysis/
     - python -m pip install -e .
     - cd ../../..
+
+    # Install required python packages
+    - python -m pip install imageio
 
     - export RUSTFLAGS="-D warnings"
 
@@ -133,6 +136,8 @@ test_flydra2:
     - PATH="../target/release:$PATH" cargo test --release
     # test 2D retracking
     - PATH="../target/release:$PATH" cargo run --no-default-features --features "flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
+    # run retracking script
+    - MPLBACKEND=AGG ./test_data/retrack-demo.sh
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
