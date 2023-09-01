@@ -677,10 +677,8 @@ pub async fn pre_run(
 
     // This creates a debug logger when `packet_capture_dump_fname` is not
     // `None`.
-    let raw_packet_logger = RawPacketLogger::new(
-        mainbrain_config
-            .packet_capture_dump_fname.as_deref(),
-    )?;
+    let raw_packet_logger =
+        RawPacketLogger::new(mainbrain_config.packet_capture_dump_fname.as_deref())?;
 
     let is_loopback = my_app.inner.local_addr().ip().is_loopback();
     let mainbrain_server_info =

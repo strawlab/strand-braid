@@ -69,11 +69,7 @@ impl HttpSessionHandler {
         args: ci2_remote_control::CamArg,
     ) -> Result<(), hyper::Error> {
         // Get session if it already exists.
-        let opt_session = {
-            self.name_to_session
-                .read()
-                .get(cam_name).cloned()
-        };
+        let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
 
         // Create session if needed.
         let session = match opt_session {
