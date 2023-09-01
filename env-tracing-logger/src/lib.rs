@@ -38,12 +38,12 @@ where
             writer.write_str("<unknown time>")?;
         }
 
-        let fmt_level = match meta.level() {
-            &Level::ERROR => "ERROR",
-            &Level::WARN => " WARN",
-            &Level::INFO => " INFO",
-            &Level::DEBUG => "DEBUG",
-            &Level::TRACE => "TRACE",
+        let fmt_level = match *meta.level() {
+            Level::ERROR => "ERROR",
+            Level::WARN => " WARN",
+            Level::INFO => " INFO",
+            Level::DEBUG => "DEBUG",
+            Level::TRACE => "TRACE",
         };
         write!(writer, " {} ", fmt_level)?;
 
