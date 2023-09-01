@@ -379,7 +379,7 @@ def do_images(data_dir, h5file):
 
     for fname in image_files:
         cam_id = os.path.splitext(os.path.split(fname)[1])[0]
-        image = imageio.imread(fname)
+        image = imageio.v2.imread(fname)
         h5file.create_array(img, cam_id, image, "sample image from %s" % cam_id)
         converted.append(fname)
     return converted
