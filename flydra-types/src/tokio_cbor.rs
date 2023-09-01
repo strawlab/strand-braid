@@ -40,7 +40,7 @@ impl Decoder for CborPacketCodec {
             }
         };
 
-        self.buffered_results.extend(new_results.into_iter());
+        self.buffered_results.extend(new_results);
 
         Ok(self.buffered_results.pop_front())
     }
