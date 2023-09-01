@@ -1,8 +1,5 @@
 #![recursion_limit = "128"]
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[macro_use]
 extern crate log;
@@ -919,8 +916,23 @@ pub fn compute_mask_image(
         Shape::Everything => {
             // all pixels valid
         }
-        Shape::MultipleCircles(_) => {
-            todo!();
+        Shape::MultipleCircles(circles) => {
+            let mut masks = vec![];
+            for circle_params in circles.iter() {
+                let this_mask = compute_mask_image(roi_sz, &Shape::Circle(circle_params.clone()))?;
+                masks.push(this_mask);
+            }
+            // slow
+            for row in 0..roi_sz.height().try_into().unwrap() {
+                for col in 0..roi_sz.width().try_into().unwrap() {
+                    let val = masks
+                        .iter()
+                        .map(|mask| mask.pixel_slice(row, col)[0])
+                        .min()
+                        .unwrap();
+                    mask_image.pixel_slice_mut(row, col)[0] = val;
+                }
+            }
         }
         Shape::Circle(ref valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);
@@ -953,4 +965,86 @@ pub fn compute_mask_image(
     }
 
     Ok(mask_image)
+}
+
+#[test]
+fn test_mask_polygon() -> anyhow::Result<()> {
+    let roi_sz = FastImageSize::new(12, 8);
+    let shape = Shape::Polygon(http_video_streaming_types::PolygonParams {
+        points: vec![(1.0, 1.0), (10.0, 1.0), (10.0, 6.0), (1.0, 6.0)],
+    });
+    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let expected = {
+        let mut full = FastImageData::<_, u8>::new(12, 8, 255)?;
+        for row in 1..7 {
+            for col in 1..11 {
+                full.pixel_slice_mut(row, col)[0] = 0;
+            }
+        }
+        full
+    };
+    assert_eq!(mask, expected);
+    Ok(())
+}
+
+#[test]
+fn test_mask_circle() -> anyhow::Result<()> {
+    let roi_sz = FastImageSize::new(13, 9);
+    let shape = Shape::Circle(http_video_streaming_types::CircleParams {
+        center_x: 6,
+        center_y: 4,
+        radius: 5,
+    });
+    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let expected = {
+        let mut full = FastImageData::<_, u8>::new(13, 9, 255)?;
+        for row in [0, 8] {
+            for col in 4..9 {
+                full.pixel_slice_mut(row, col)[0] = 0;
+            }
+        }
+        for row in [1, 7] {
+            for col in 3..10 {
+                full.pixel_slice_mut(row, col)[0] = 0;
+            }
+        }
+        for row in 2..7 {
+            for col in 2..11 {
+                full.pixel_slice_mut(row, col)[0] = 0;
+            }
+        }
+        full
+    };
+    assert_eq!(mask, expected);
+    Ok(())
+}
+
+#[test]
+fn test_mask_multiple_circles() -> anyhow::Result<()> {
+    let roi_sz = FastImageSize::new(8, 3);
+    let circles = vec![
+        http_video_streaming_types::CircleParams {
+            center_x: 2,
+            center_y: 1,
+            radius: 1,
+        },
+        http_video_streaming_types::CircleParams {
+            center_x: 6,
+            center_y: 1,
+            radius: 1,
+        },
+    ];
+    let shape = Shape::MultipleCircles(circles);
+    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let expected = {
+        let mut full = FastImageData::<_, u8>::new(8, 3, 255)?;
+        let row = 1;
+        for col in [2, 6] {
+            full.pixel_slice_mut(row, col)[0] = 0;
+        }
+
+        full
+    };
+    assert_eq!(mask, expected);
+    Ok(())
 }
