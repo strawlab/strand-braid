@@ -438,8 +438,7 @@ pub async fn pre_run(
 ) -> Result<StartupPhase1> {
     let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
     let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
-    let opt_tracking_params: Option<flydra_types::TrackingParams> =
-        Some(mainbrain_config.tracking_params.clone());
+    let tracking_params: flydra_types::TrackingParams = mainbrain_config.tracking_params.clone();
 
     let camdata_addr_unspecified: &str = &mainbrain_config.lowlatency_camdata_udp_addr;
 
@@ -512,11 +511,6 @@ pub async fn pre_run(
         signal_all_cams_synced.clone(),
     );
     let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
-
-    let tracking_params = opt_tracking_params.unwrap_or_else(|| {
-        info!("no tracking parameters file given, using default tracking parameters");
-        flydra_types::default_tracking_params_full_3d()
-    });
 
     if show_tracking_params {
         let t2: flydra_types::TrackingParams = tracking_params;
