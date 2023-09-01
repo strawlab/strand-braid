@@ -8,7 +8,7 @@ pub(crate) fn ray_to_flat_3d(ray: &parry3d_f64::query::Ray) -> Option<Point3<f64
     let solid = false; // will intersect either side of plane
 
     let opt_surface_pt_toi: Option<f64> =
-        parry3d_f64::query::RayCast::cast_local_ray(&z0, &ray, f64::max_value().unwrap(), solid);
+        parry3d_f64::query::RayCast::cast_local_ray(&z0, ray, f64::max_value().unwrap(), solid);
 
     let ray_origin = ray.origin;
     let ray_dir = ray.dir;

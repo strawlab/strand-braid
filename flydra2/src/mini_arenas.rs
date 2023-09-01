@@ -60,10 +60,10 @@ impl MiniArenaImage {
     /// Get mini arena locator.
     pub(crate) fn get_mini_arena(&self, x: usize, y: usize) -> MiniArenaLocator {
         let idx = y * self.width + x;
-        match self.data.get(idx).map(|x| *x) {
+        match self.data.get(idx) {
             None => MiniArenaLocator::OutOfBounds,
-            Some(NO_MINI_ARENA_MARKER) => MiniArenaLocator::NotInMiniArena,
-            Some(idx) => MiniArenaLocator::Index(MiniArenaIndex::new(idx)),
+            Some(&NO_MINI_ARENA_MARKER) => MiniArenaLocator::NotInMiniArena,
+            Some(idx) => MiniArenaLocator::Index(MiniArenaIndex::new(*idx)),
         }
     }
 }

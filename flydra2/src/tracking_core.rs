@@ -99,7 +99,7 @@ impl ModelFramePosteriors {
 
 fn covariance_size<R: RealField + Copy>(mat: &OMatrix<R, U6, U6>) -> R {
     // XXX should probably use trace/N (mean of variances) or determinant (volume of variance)
-    let v1 = vec![mat[(0, 0)], mat[(1, 1)], mat[(2, 2)]];
+    let v1 = [mat[(0, 0)], mat[(1, 1)], mat[(2, 2)]];
     v1.iter()
         .map(|i| i.powi(2))
         .fold(nalgebra::convert(0.0), |acc: R, el| acc + el)
@@ -265,10 +265,7 @@ impl LivingModel<ModelFrameStarted> {
                     ObservationModel::ObservationModelAndLikelihoods(
                         ObservationModelAndLikelihoods {
                             observation_model,
-                            likelihoods: nalgebra::RowDVector::from_iterator(
-                                likes.len(),
-                                likes.into_iter(),
-                            ),
+                            likelihoods: nalgebra::RowDVector::from_iterator(likes.len(), likes),
                         },
                     )
                 }
@@ -932,7 +929,7 @@ impl ModelCollection<CollectionFramePosteriors> {
 
         // Check deaths before births so we do not check if we kill a
         // just-created model.
-        let orig_models = std::mem::replace(&mut self.state.models_with_posteriors, vec![]);
+        let orig_models = std::mem::take(&mut self.state.models_with_posteriors);
 
         let mut to_kill = Vec::with_capacity(orig_models.len());
         let mut to_live = Vec::with_capacity(orig_models.len() + 1);

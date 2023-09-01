@@ -409,7 +409,7 @@ impl Drop for WritingState {
                 save_hlog(
                     &output_dirname,
                     RECONSTRUCT_LATENCY_HLOG_FNAME,
-                    &mut reconstruction_latency_usec.histograms,
+                    &reconstruction_latency_usec.histograms,
                     self.file_start_time,
                 );
             }
@@ -426,7 +426,7 @@ impl Drop for WritingState {
                 save_hlog(
                     &output_dirname,
                     REPROJECTION_DIST_HLOG_FNAME,
-                    &mut reproj_dist_pixels.histograms,
+                    &reproj_dist_pixels.histograms,
                     self.file_start_time,
                 );
             }
@@ -495,81 +495,79 @@ pub(crate) fn writer_task_main(
 
     tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
 
-    loop {
+    while let Some(msg) = braidz_write_rx.blocking_recv() {
         // TODO: improve flushing. Specifically, if we block for a long time
         // without receiving a message here, we will not flush to disk.
-        match braidz_write_rx.blocking_recv() {
-            Some(msg) => {
-                match msg {
-                    KalmanEstimate(ke) => {
-                        let KalmanEstimateRecord {
-                            record,
-                            data_assoc_rows,
-                            mean_reproj_dist_100x,
-                        } = ke;
-                        let trigger_timestamp = record.timestamp.clone();
+        match msg {
+            KalmanEstimate(ke) => {
+                let KalmanEstimateRecord {
+                    record,
+                    data_assoc_rows,
+                    mean_reproj_dist_100x,
+                } = ke;
+                let trigger_timestamp = record.timestamp.clone();
 
-                        // Now actually send the data to the writers.
-                        if let Some(ref mut ws) = writing_state {
-                            if let Some(ref mut kew) = ws.kalman_estimates_wtr {
-                                kew.serialize(record)?;
-                                if let Some(count) = ws.writer_stats.as_mut() {
-                                    count.1 += 1
-                                }
-                            }
-                            if let Some(ref mut daw) = ws.data_assoc_wtr {
-                                for row in data_assoc_rows.iter() {
-                                    daw.serialize(row)?;
-                                }
-                            }
+                // Now actually send the data to the writers.
+                if let Some(ref mut ws) = writing_state {
+                    if let Some(ref mut kew) = ws.kalman_estimates_wtr {
+                        kew.serialize(record)?;
+                        if let Some(count) = ws.writer_stats.as_mut() {
+                            count.1 += 1
+                        }
+                    }
+                    if let Some(ref mut daw) = ws.data_assoc_wtr {
+                        for row in data_assoc_rows.iter() {
+                            daw.serialize(row)?;
+                        }
+                    }
 
-                            if !ignore_latency {
-                                // Log reconstruction latency to histogram.
-                                if let Some(trigger_timestamp) = trigger_timestamp {
-                                    // `trigger_timestamp` is when this frame was acquired.
-                                    // It may be None if it cannot be inferred while the
-                                    // triggerbox clock model is first initializing.
-                                    use chrono::{DateTime, Utc};
-                                    let then: DateTime<Utc> = trigger_timestamp.into();
-                                    let now = Utc::now();
-                                    let elapsed = now.signed_duration_since(then);
-                                    let now_system: std::time::SystemTime = now.into();
+                    if !ignore_latency {
+                        // Log reconstruction latency to histogram.
+                        if let Some(trigger_timestamp) = trigger_timestamp {
+                            // `trigger_timestamp` is when this frame was acquired.
+                            // It may be None if it cannot be inferred while the
+                            // triggerbox clock model is first initializing.
+                            use chrono::{DateTime, Utc};
+                            let then: DateTime<Utc> = trigger_timestamp.into();
+                            let now = Utc::now();
+                            let elapsed = now.signed_duration_since(then);
+                            let now_system: std::time::SystemTime = now.into();
 
-                                    if let Some(latency_usec) = elapsed.num_microseconds() {
-                                        if latency_usec >= 0 {
-                                            if let Some(reconstruction_latency_usec) =
-                                                &mut ws.reconstruction_latency_usec
-                                            {
-                                                // The latency should always be positive, but num_microseconds()
-                                                // can return negative and we don't want to panic if time goes
-                                                // backwards for some reason.
-                                                match histogram_record(
-                                                    latency_usec as u64,
-                                                    &mut reconstruction_latency_usec.current_store,
-                                                    1000 * 1000 * 60,
-                                                    2,
-                                                    ws.file_start_time,
-                                                    &mut reconstruction_latency_usec.histograms,
-                                                    now_system,
-                                                ) {
-                                                    Ok(()) => {}
-                                                    Err(_) => tracing::error!(
-                                                        "latency value {} out of expected range",
-                                                        latency_usec
-                                                    ),
-                                                }
-                                            }
+                            if let Some(latency_usec) = elapsed.num_microseconds() {
+                                if latency_usec >= 0 {
+                                    if let Some(reconstruction_latency_usec) =
+                                        &mut ws.reconstruction_latency_usec
+                                    {
+                                        // The latency should always be positive, but num_microseconds()
+                                        // can return negative and we don't want to panic if time goes
+                                        // backwards for some reason.
+                                        match histogram_record(
+                                            latency_usec as u64,
+                                            &mut reconstruction_latency_usec.current_store,
+                                            1000 * 1000 * 60,
+                                            2,
+                                            ws.file_start_time,
+                                            &mut reconstruction_latency_usec.histograms,
+                                            now_system,
+                                        ) {
+                                            Ok(()) => {}
+                                            Err(_) => tracing::error!(
+                                                "latency value {} out of expected range",
+                                                latency_usec
+                                            ),
                                         }
                                     }
                                 }
                             }
+                        }
+                    }
 
-                            {
-                                if let Some(mean_reproj_dist_100x) = mean_reproj_dist_100x {
-                                    let now_system = std::time::SystemTime::now();
+                    {
+                        if let Some(mean_reproj_dist_100x) = mean_reproj_dist_100x {
+                            let now_system = std::time::SystemTime::now();
 
-                                    if let Some(reproj_dist_pixels) = &mut ws.reproj_dist_pixels {
-                                        match histogram_record(
+                            if let Some(reproj_dist_pixels) = &mut ws.reproj_dist_pixels {
+                                match histogram_record(
                                             mean_reproj_dist_100x,
                                             &mut reproj_dist_pixels.current_store,
                                             1000000,
@@ -584,58 +582,53 @@ pub(crate) fn writer_task_main(
                                                 mean_reproj_dist_100x
                                             ),
                                         }
-                                    }
-                                }
                             }
                         }
-
-                        // simply drop data if no file opened
-                    }
-                    Data2dDistorted(fdp) => {
-                        if let Some(ref mut ws) = writing_state {
-                            let rows = ws.save_data_2d_distorted(fdp)?;
-                            if let Some(count) = ws.writer_stats.as_mut() {
-                                count.0 += rows;
-                            }
-                        }
-                        // simply drop data if no file opened
-                    }
-                    StartSavingCsv(cfg) => {
-                        writing_state = Some(WritingState::new(
-                            cfg,
-                            cam_manager.sample(),
-                            &recon,
-                            tracking_params.clone(),
-                            save_empty_data2d,
-                            metadata_builder.clone(),
-                        )?);
-                    }
-                    StopSavingCsv => {
-                        // This will drop the writers and thus close them.
-                        writing_state = None;
-                    }
-                    SetExperimentUuid(uuid) => {
-                        let entry = ExperimentInfoRow { uuid };
-                        if let Some(ref mut ws) = writing_state {
-                            ws.experiment_info_wtr.serialize(&entry)?;
-                        }
-                    }
-                    Textlog(entry) => {
-                        if let Some(ref mut ws) = writing_state {
-                            ws.textlog_wtr.serialize(&entry)?;
-                        }
-                        // simply drop data if no file opened
-                    }
-                    TriggerClockInfo(entry) => {
-                        if let Some(ref mut ws) = writing_state {
-                            ws.trigger_clock_info_wtr.serialize(&entry)?;
-                        }
-                        // simply drop data if no file opened
                     }
                 }
+
+                // simply drop data if no file opened
             }
-            None => {
-                break;
+            Data2dDistorted(fdp) => {
+                if let Some(ref mut ws) = writing_state {
+                    let rows = ws.save_data_2d_distorted(fdp)?;
+                    if let Some(count) = ws.writer_stats.as_mut() {
+                        count.0 += rows;
+                    }
+                }
+                // simply drop data if no file opened
+            }
+            StartSavingCsv(cfg) => {
+                writing_state = Some(WritingState::new(
+                    cfg,
+                    cam_manager.sample(),
+                    &recon,
+                    tracking_params.clone(),
+                    save_empty_data2d,
+                    metadata_builder.clone(),
+                )?);
+            }
+            StopSavingCsv => {
+                // This will drop the writers and thus close them.
+                writing_state = None;
+            }
+            SetExperimentUuid(uuid) => {
+                let entry = ExperimentInfoRow { uuid };
+                if let Some(ref mut ws) = writing_state {
+                    ws.experiment_info_wtr.serialize(&entry)?;
+                }
+            }
+            Textlog(entry) => {
+                if let Some(ref mut ws) = writing_state {
+                    ws.textlog_wtr.serialize(&entry)?;
+                }
+                // simply drop data if no file opened
+            }
+            TriggerClockInfo(entry) => {
+                if let Some(ref mut ws) = writing_state {
+                    ws.trigger_clock_info_wtr.serialize(&entry)?;
+                }
+                // simply drop data if no file opened
             }
         }
 

@@ -560,7 +560,7 @@ impl OrderingWriter {
     fn serialize(&mut self, row: KalmanEstimatesRow) -> csv::Result<()> {
         let key = row.frame.0;
         {
-            let entry = &mut self.buffer.entry(key).or_insert_with(Vec::new);
+            let entry = &mut self.buffer.entry(key).or_default();
             entry.push(row);
         }
 
@@ -636,7 +636,7 @@ struct HistogramWritingState {
 fn save_hlog(
     output_dirname: &std::path::Path,
     fname: &str,
-    histograms: &mut [IntervalHistogram<u64>],
+    histograms: &[IntervalHistogram<u64>],
     file_start_time: std::time::SystemTime,
 ) {
     // Write the reconstruction latency histograms to disk.
@@ -833,9 +833,7 @@ impl CoordProcessor {
         let mini_arena_images = mini_arenas::build_mini_arena_images(
             recon.as_ref(),
             &tracking_params.mini_arena_config,
-            mini_arena_debug_image_dir
-                .as_ref()
-                .map(std::path::PathBuf::as_path),
+            mini_arena_debug_image_dir.as_deref(),
         )?;
 
         let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);
@@ -999,7 +997,7 @@ impl CoordProcessor {
             make_contiguous(bundled).instrument(tracing::info_span!("contiguous"));
 
         let mut mini_arena_assignment_debug = std::env::var_os("DEBUG_MINI_ARENAS")
-            .map(|fname| mini_arenas::MiniArenaAssignmentDebug::new(&fname).unwrap());
+            .map(|fname| mini_arenas::MiniArenaAssignmentDebug::new(fname).unwrap());
 
         // In this inner loop, we handle each incoming datum. We spend the vast majority
         // of the runtime in this loop.
