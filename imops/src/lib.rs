@@ -10,6 +10,12 @@ use std::simd::{SimdFloat, SimdPartialEq, SimdPartialOrd, SimdUint};
 use image_iter::ImageStride;
 use machine_vision_formats::{pixel_format::Mono8, ImageMutData};
 
+#[cfg(feature = "simd")]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
+
+#[cfg(not(feature = "simd"))]
+pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Power {
     Zero,
@@ -291,7 +297,7 @@ where
             // trim from stride to width
             let rowdata = &mut rowdata[..width];
 
-            let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd_mut();
             scalar_clip_low(prefix_data, low);
 
             for y in main_row_data.iter_mut() {
@@ -376,7 +382,7 @@ where
             // trim from stride to width
             let rowdata = &mut rowdata[..width];
 
-            let (mut prefix_data, main_row_data, mut remainder_data) = rowdata.as_simd_mut();
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd_mut();
 
             scalar_cmp(prefix_data, thresh, a, b, op);
 
@@ -435,7 +441,7 @@ mod tests {
 
         let image_data: Vec<u8> = im.into();
 
-        assert_eq!(image_data[0 * STRIDE + 0], 42);
+        assert_eq!(image_data[0], 42);
         assert_eq!(image_data[(H - 1) * STRIDE + (W - 1)], 42);
         assert_eq!(image_data[4 * STRIDE + 3], 43);
         assert_eq!(image_data[4 * STRIDE + 23], 1);
@@ -508,7 +514,7 @@ mod tests {
 
         let image_data: Vec<u8> = im.into();
 
-        assert_eq!(image_data[0 * STRIDE + 0], 0);
+        assert_eq!(image_data[0], 0);
         assert_eq!(image_data[(H - 1) * STRIDE + (W - 1)], 0);
         assert_eq!(image_data[4 * STRIDE + 3], 255);
         assert_eq!(image_data[4 * STRIDE + 4], 255);
@@ -600,9 +606,3 @@ mod tests {
         assert_eq!(spatial_moment_10(&im), 360.0);
     }
 }
-
-#[cfg(feature = "simd")]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
-
-#[cfg(not(feature = "simd"))]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
