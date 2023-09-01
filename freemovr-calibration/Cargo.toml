@@ -32,7 +32,7 @@ camcal = {path="../camcal", optional=true}
 opencv-calibrate = {path="../opencv-calibrate", optional=true}
 simple-obj-parse = {path="../simple-obj-parse"}
 textured-tri-mesh = {path="../textured-tri-mesh"}
-ncollide-geom = {path="../ncollide-geom"}
+ncollide-geom = {path="ncollide-geom"}
 
 [dev-dependencies]
 approx = "0.5"
