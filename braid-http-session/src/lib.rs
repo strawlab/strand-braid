@@ -82,7 +82,7 @@ impl MainbrainSession {
         let chunks: Vec<hyper::body::Bytes> = chunks?;
         let data: Vec<u8> = chunks.into_iter().fold(vec![], |mut buf, chunk| {
             log::trace!("got chunk: {}", String::from_utf8_lossy(&chunk));
-            buf.extend_from_slice(&*chunk);
+            buf.extend_from_slice(&chunk);
             buf
         });
 
