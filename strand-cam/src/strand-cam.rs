@@ -4562,7 +4562,7 @@ where
 
         if let Some(port) = port {
             // wrap port with codec
-            let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
+            let (mut writer, mut reader) = LedBoxCodec::default().framed(port).split();
 
             // Clear potential initially present bytes from stream...
             let _ = tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await;

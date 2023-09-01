@@ -24,7 +24,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     port.set_exclusive(false)
         .expect("Unable to set serial port exclusive to false");
 
-    let (mut writer, mut reader) = LedBoxCodec::new().framed(port).split();
+    let (mut writer, mut reader) = LedBoxCodec::default().framed(port).split();
 
     let msg = ToDevice::DeviceState(*next_state);
     info!("sending: {:?}", msg);

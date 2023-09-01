@@ -21,8 +21,8 @@ pub struct LedBoxCodec {
     decoder: mini_rxtx::StdDecoder,
 }
 
-impl LedBoxCodec {
-    pub fn new() -> Self {
+impl Default for LedBoxCodec {
+    fn default() -> Self {
         Self {
             send_buf: [0; 128],
             decoder: mini_rxtx::StdDecoder::new(256),
@@ -35,7 +35,7 @@ impl Decoder for LedBoxCodec {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut bytes::BytesMut) -> Result<Option<Self::Item>> {
-        while buf.len() > 0 {
+        while !buf.is_empty() {
             let byte = buf[0];
             buf.advance(1);
             match self.decoder.consume::<Self::Item>(byte) {

@@ -105,7 +105,7 @@ pub async fn handle_box(
     port.set_exclusive(false)
         .expect("Unable to set serial port exclusive to false");
 
-    let (mut serial_writer, mut serial_reader) = LedBoxCodec::new().framed(port).split();
+    let (mut serial_writer, mut serial_reader) = LedBoxCodec::default().framed(port).split();
 
     // Clear potential initially present bytes from stream...
     let _ = tokio::time::timeout(std::time::Duration::from_millis(50), serial_reader.next()).await;
