@@ -173,8 +173,25 @@ macro_rules! itry {
 }
 
 pub enum Chan1 {}
+impl PartialEq for Chan1 {
+    fn eq(&self, _: &Chan1) -> bool {
+        true
+    }
+}
+
 pub enum Chan3 {}
+impl PartialEq for Chan3 {
+    fn eq(&self, _: &Chan3) -> bool {
+        true
+    }
+}
+
 pub enum AChan4 {}
+impl PartialEq for AChan4 {
+    fn eq(&self, _: &AChan4) -> bool {
+        true
+    }
+}
 
 pub trait ChanTrait {
     fn channels() -> u8;
@@ -212,6 +229,22 @@ where
     data: Box<[D]>,
     stride: ipp_ctypes::c_int,
     size: FastImageSize,
+}
+
+impl<C, D> PartialEq for FastImageData<C, D>
+where
+    C: 'static + ChanTrait + PartialEq,
+    D: 'static + Copy + PartialEq,
+{
+    fn eq(&self, rhs: &Self) -> bool {
+        fi_equal(self, rhs)
+    }
+}
+
+fn _test_partial_eq() {
+    // Compile-time test that FastImageData implements PartialEq
+    fn implements_partial_eq<T: PartialEq>() {}
+    implements_partial_eq::<FastImageData<Chan1, u8>>();
 }
 
 impl<C, D> FastImageData<C, D>
@@ -378,6 +411,13 @@ where
     fn size(&self) -> &FastImageSize {
         &self.size
     }
+}
+
+impl<'a, C, D> PrivateFastImage for &'a FastImageData<C, D>
+where
+    C: ChanTrait,
+    D: Copy + PartialEq,
+{
 }
 
 impl<'a, C, D> FastImage for &'a mut FastImageData<C, D>
@@ -779,6 +819,24 @@ pub trait FastImage {
             }
         }
         true
+    }
+}
+
+trait PrivateFastImage: FastImage {
+    /// Iterate over elements in each image row. Returns valid slices.
+    #[inline]
+    fn valid_row_iter(&self, size: &FastImageSize) -> Result<ValidChunksExact<'_, Self::D>> {
+        if size.width() > self.size().width() || size.height() > self.size().height() {
+            return Err(Error::SizeError);
+        }
+        let stride_n_pixels = self.stride() as usize / std::mem::size_of::<Self::D>();
+        let pixel_width = size.width() as usize;
+        let mut slice = self.image_slice();
+        let max_n_pixels = stride_n_pixels * size.height() as usize;
+        if max_n_pixels < slice.len() {
+            slice = &slice[..max_n_pixels];
+        }
+        Ok(ValidChunksExact::new(slice, stride_n_pixels, pixel_width))
     }
 }
 
@@ -1528,5 +1586,87 @@ impl std::fmt::Debug for IppVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let inner: &ipp_sys::IppLibraryVersion = unsafe { &*self.version };
         std::fmt::Debug::fmt(inner, f)
+    }
+}
+
+// ----
+
+/// Check if two FastImages have same size and values.
+fn fi_equal<D, C, SRC1, SRC2>(self_: SRC1, other: SRC2) -> bool
+where
+    D: std::cmp::PartialEq,
+    SRC1: FastImage<D = D, C = C> + PrivateFastImage,
+    SRC2: FastImage<D = D, C = C> + PrivateFastImage,
+{
+    if self_.size() != other.size() {
+        return false;
+    }
+    // check row-by row
+    for (self_row, other_row) in self_
+        .valid_row_iter(&self_.size())
+        .unwrap()
+        .zip(other.valid_row_iter(&self_.size()).unwrap())
+    {
+        if self_row != other_row {
+            return false;
+        }
+    }
+    true
+}
+
+// ------------------------------
+// ValidChunksExact
+// ------------------------------
+
+/// An iterator over strided data in which only some is "valid".
+///
+/// This is modeled after [std::slice::ChunksExact].
+struct ValidChunksExact<'a, T: 'a> {
+    padded_chunk_iter: std::slice::ChunksExact<'a, T>,
+    valid_n_elements: usize,
+}
+
+impl<'a, T> ValidChunksExact<'a, T> {
+    fn new(slice: &'a [T], row_stride_n_elements: usize, valid_n_elements: usize) -> Self {
+        assert!(valid_n_elements <= row_stride_n_elements);
+        let padded_chunk_iter = slice.chunks_exact(row_stride_n_elements);
+        Self {
+            padded_chunk_iter,
+            valid_n_elements,
+        }
+    }
+}
+
+impl<'a, T> Iterator for ValidChunksExact<'a, T> {
+    type Item = &'a [T];
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        self.padded_chunk_iter
+            .next()
+            .map(|padded| &padded[0..self.valid_n_elements])
+    }
+}
+
+#[test]
+fn test_padded_chunks() {
+    {
+        // f32
+        let avec = vec![1.0, 2.0, 3.0, 4.0, -1.0, 1.1, 2.1, 3.1, 4.1, -1.0];
+        let a1: &[f32] = avec.as_slice();
+
+        let mut myiter = ValidChunksExact::new(&a1, 5, 4);
+        assert_eq!(myiter.next(), Some(&avec[0..4]));
+        assert_eq!(myiter.next(), Some(&avec[5..9]));
+        assert_eq!(myiter.next(), None);
+    }
+
+    {
+        // u8
+        let avec = vec![10, 20, 30, 40, 255, 11, 21, 31, 41, 25];
+        let a1: &[u8] = avec.as_slice();
+
+        let mut myiter = ValidChunksExact::new(&a1, 5, 4);
+        assert_eq!(myiter.next(), Some(&avec[0..4]));
+        assert_eq!(myiter.next(), Some(&avec[5..9]));
+        assert_eq!(myiter.next(), None);
     }
 }
