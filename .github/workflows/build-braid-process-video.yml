@@ -7,8 +7,11 @@ on:
     branches: ["**"]
 
 jobs:
-  braid-process-video-app-ubuntu-20-04:
-    runs-on: ubuntu-20.04
+  braid-process-video-app:
+    strategy:
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.runs-on }}
     defaults:
       run:
         working-directory: braid-process-video
@@ -22,49 +25,5 @@ jobs:
           cargo build --release
       - uses: actions/upload-artifact@v3
         with:
-          name: braid-process-video-ubuntu
-          path: ${{ github.workspace }}/target/release/braid-process-video
-
-  braid-process-video-app-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: braid-process-video
-    steps:
-      - uses: actions/checkout@v3
-      - name: download and extract libvpx
-        run: |
-          curl -sSfL -O  https://github.com/ShiftMediaProject/libvpx/releases/download/v1.10.0/libvpx_v1.10.0_msvc16.zip
-          unzip libvpx_v1.10.0_msvc16.zip -d $HOME\unzipped
-          dir
-          dir $HOME\unzipped
-          dir $HOME\unzipped\lib\x64
-      - name: Setup Rust
-        run: |
-          rustup toolchain install stable --profile minimal --no-self-update
-      - name: Build braid-process-video app
-        run: |
-          cargo build --release
-      - uses: actions/upload-artifact@v3
-        with:
-          name: braid-process-video-windows
-          path: ${{ github.workspace }}/target/release/braid-process-video.exe
-
-  braid-process-video-app-macos:
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: braid-process-video
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Rust
-        run: |
-          rustup toolchain install stable --profile minimal --no-self-update
-      - name: Build braid-process-video app
-        run: |
-          export PATH="$PATH:$HOME/.cargo/bin"
-          cargo build --release
-      - uses: actions/upload-artifact@v3
-        with:
-          name: braid-process-video-mac
-          path: ${{ github.workspace }}/target/release/braid-process-video
+          name: braid-process-video-${{ matrix.runs-on }}
+          path: ${{ github.workspace }}/target/release/braid-process-vid*
