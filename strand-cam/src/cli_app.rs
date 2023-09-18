@@ -129,12 +129,14 @@ fn parse_args(
             .arg(
                 Arg::new("no_browser")
                     .long("no-browser")
+                    .action(clap::ArgAction::Count)
                     .conflicts_with("browser")
                     .help("Prevent auto-opening of browser"),
             )
             .arg(
                 Arg::new("browser")
                     .long("browser")
+                    .action(clap::ArgAction::Count)
                     .conflicts_with("no_browser")
                     .help("Force auto-opening of browser"),
             )
@@ -201,6 +203,7 @@ fn parse_args(
                 .arg(
                     Arg::new("force_camera_sync_mode")
                         .long("force_camera_sync_mode")
+                        .action(clap::ArgAction::Count)
                         .help("Force the camera to synchronize to external trigger. (incompatible with braid)."),
                 );
         }
@@ -247,6 +250,7 @@ fn parse_args(
                 )
                 .arg(
                     Arg::new("no_save_empty_data2d")
+                        .action(clap::ArgAction::Count)
                         .long("no-save-empty-data2d")
                         .help("do not save data2d_distoted also when no detections found"),
                 )
