@@ -1,0 +1,52 @@
+name: Build apriltag-track-movie app
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  apriltag-track-movie-ubuntu-20-04:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: apriltag/apriltag-track-movie
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build app
+        run: |
+          cargo build --release
+      - name: Show shared libraries required
+        run: |
+          ldd ${{ github.workspace }}/target/release/apriltag-track-movie
+      - uses: actions/upload-artifact@v3
+        with:
+          name: apriltag-track-movie-${{ runner.os }}
+          path: ${{ github.workspace }}/target/release/apriltag-track-movie
+
+  apriltag-track-movie-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apriltag/apriltag-track-movie
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install pthread
+        uses: lukka/run-vcpkg@v7
+        id: vcpkg
+        with:
+          vcpkgArguments: 'pthread'
+          vcpkgTriplet: 'x64-windows-static'
+          vcpkgDirectory: '${{runner.workspace}}/vcpkg'
+          vcpkgGitCommitId: '57bd7102d9fd880daa1b0958692294c4a125f6d8'
+      - name: Build app
+        env:
+          APRILTAG_SYS_WINDOWS_PTHREAD_INCLUDE_DIR: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\include'
+          APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\lib\pthreadVC3.lib'
+        run: |
+          cargo build --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: apriltag-track-movie-${{ runner.os }}
+          path: ${{ github.workspace }}/target/release/apriltag-track-movie.exe

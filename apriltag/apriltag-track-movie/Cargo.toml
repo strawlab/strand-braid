@@ -1,0 +1,19 @@
+[package]
+name = "apriltag-track-movie"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+machine-vision-formats = "0.1"
+clap = { version = "4.4.3", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
+csv = "1.2.2"
+y4m = "0.8.0"
+
+ads-apriltag = {path = ".."}
+convert-image = { path = "../../convert-image" }
+simple-frame = { path = "../../simple-frame" }
+
+[dev-dependencies]
+download-verify = {path="../../download-verify"}

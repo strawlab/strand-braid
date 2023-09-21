@@ -4,6 +4,7 @@ members = [
     "ads-webasm",
     "ads-webasm-example",
     "apriltag",
+    "apriltag/apriltag-track-movie",
     "basic-frame",
     "bg-movie-writer",
     "bisection-search",

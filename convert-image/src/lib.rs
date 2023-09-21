@@ -1,8 +1,5 @@
 #![recursion_limit = "512"]
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 // TODO: Add support for Reversible Color Transform (RCT) YUV types
 
@@ -775,6 +772,52 @@ fn force_buffer_pixel_format_ref<FMT1, FMT2>(
 ///
 /// For a version which converts into a pre-allocated buffer, use `convert_into`
 /// (which will copy the image even if the format remains unchanged).
+pub fn convert_owned<OWNED, SRC, DEST>(frame: OWNED) -> Result<impl ImageStride<DEST>>
+where
+    OWNED: OwnedImageStride<SRC>,
+    SRC: PixelFormat,
+    DEST: PixelFormat,
+{
+    let src_fmt = machine_vision_formats::pixel_format::pixfmt::<SRC>().unwrap();
+    let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<DEST>().unwrap();
+
+    // If format does not change, move original data without copy.
+    if src_fmt == dest_fmt {
+        let width = frame.width();
+        let height = frame.height();
+        let stride = frame.stride();
+        let image_data: Vec<u8> = frame.into();
+        let dest = SimpleFrame::new(width, height, stride as u32, image_data).unwrap();
+        return Ok(CowImage::Owned::<_, SRC>(dest));
+    }
+
+    // Allocate minimal size buffer for new image.
+    let dest_min_stride = dest_fmt.bits_per_pixel() as usize * frame.width() as usize / 8;
+    let dest_size = frame.height() as usize * dest_min_stride;
+    let image_data = vec![0u8; dest_size];
+    let mut dest = SimpleFrame::new(
+        frame.width(),
+        frame.height(),
+        dest_min_stride as u32,
+        image_data,
+    )
+    .unwrap();
+
+    // Fill the new buffer.
+    convert_into(&frame, &mut dest)?;
+
+    // Return the new buffer as a new image.
+    Ok(CowImage::Owned(dest))
+}
+
+/// Convert input frame with pixel_format `SRC` into pixel_format `DEST`
+///
+/// This is a general purpose function which should be able to convert between
+/// many types as efficiently as possible. In case no data needs to be copied,
+/// no data is copied.
+///
+/// For a version which converts into a pre-allocated buffer, use `convert_into`
+/// (which will copy the image even if the format remains unchanged).
 pub fn convert<SRC, DEST>(frame: &dyn ImageStride<SRC>) -> Result<impl ImageStride<DEST> + '_>
 where
     SRC: PixelFormat,
@@ -1415,6 +1458,95 @@ impl Y4MFrame {
         }
     }
 
+    pub fn convert<DEST>(&self) -> Result<impl ImageStride<DEST>>
+    where
+        DEST: PixelFormat,
+    {
+        let y_data = self.y_plane_data();
+
+        match &self.colorspace {
+            Y4MColorspace::C420paldv => {
+                // // Convert from color data RGB8.
+
+                // // TODO: implement shortcut when DEST is Mono8.
+
+                // // Instead of iterating smartly, just fill to 444.
+                // fn expand_plane(small: &[u8], small_stride: usize) -> Vec<u8> {
+                //     let small_rows = small.len() / small_stride;
+                //     let full_rows = small_rows * 2;
+                //     let full_stride = small_stride * 2;
+                //     let full_len = full_rows * full_stride;
+                //     let mut result = vec![0u8; full_len];
+
+                //     for (small_row_num, small_row) in small.chunks_exact(small_stride).enumerate() {
+                //         let big_row_num = small_row_num * 2;
+
+                //         for (small_col, val) in small_row.iter().enumerate() {
+                //             let big_col = small_col * 2;
+                //             result[big_row_num * full_stride + big_col] = *val;
+                //             result[big_row_num * full_stride + big_col + 1] = *val;
+
+                //             result[(big_row_num + 1) * full_stride + big_col] = *val;
+                //             result[(big_row_num + 1) * full_stride + big_col + 1] = *val;
+                //         }
+                //     }
+
+                //     result
+                // }
+                // let ufull_data = expand_plane(self.u_plane_data(), self.u_stride());
+                // let vfull_data = expand_plane(self.v_plane_data(), self.v_stride());
+
+                // let mut image_data = vec![0u8; vfull_data.len() * 3];
+                // let y_stride = self.y_stride();
+
+                // for (dest_row, (y_row, (u_row, v_row))) in
+                //     image_data.chunks_exact_mut(y_stride * 3).zip(
+                //         y_data.chunks_exact(y_stride).zip(
+                //             ufull_data
+                //                 .chunks_exact(y_stride)
+                //                 .zip(vfull_data.chunks_exact(y_stride)),
+                //         ),
+                //     )
+                // {
+                //     for (col, (y, (u, v))) in
+                //         y_row.iter().zip(u_row.iter().zip(v_row.iter())).enumerate()
+                //     {
+                //         let rgb = YUV444_bt601_toRGB(*y, *u, *v);
+                //         dest_row[col * 3] = rgb.R;
+                //         dest_row[col * 3 + 1] = rgb.G;
+                //         dest_row[col * 3 + 2] = rgb.B;
+                //     }
+                // }
+
+                // let rgb8 = SimpleFrame::<RGB8>::new(
+                //     self.width.try_into().unwrap(),
+                //     self.height.try_into().unwrap(),
+                //     (self.width * 3).try_into().unwrap(),
+                //     image_data,
+                // )
+                // .unwrap();
+
+                // // Then convert to final target output
+                // let out = convert_owned::<_, RGB8, DEST>(rgb8)?;
+                // Ok(out)
+                todo!();
+            }
+            Y4MColorspace::CMono => {
+                let mono8 = SimpleFrame::<Mono8>::new(
+                    self.width.try_into().unwrap(),
+                    self.height.try_into().unwrap(),
+                    self.width.try_into().unwrap(),
+                    y_data.to_vec(),
+                )
+                .unwrap();
+
+                // Then convert to final target output
+                let out = convert_owned::<_, Mono8, DEST>(mono8)?;
+                Ok(out)
+            }
+        }
+    }
+
     pub fn forced_block_size(&self) -> Option<u32> {
         self.forced_block_size
     }
@@ -1434,7 +1566,7 @@ impl Y4MFrame {
     fn uv_size(&self) -> usize {
         self.u_stride() * TryInto::<usize>::try_into(self.alloc_chroma_rows).unwrap()
     }
-    fn mono_new(data: Vec<u8>, width: u32, height: u32) -> Result<Self> {
+    pub fn new_mono8(data: Vec<u8>, width: u32, height: u32) -> Result<Self> {
         let width: i32 = width.try_into().unwrap();
         let height: i32 = height.try_into().unwrap();
         let y_stride = width;
@@ -1735,9 +1867,9 @@ where
                 {
                     dest_row.copy_from_slice(&src_row[..frame.width() as usize]);
                 }
-                Ok(Y4MFrame::mono_new(buf, frame.width(), frame.height())?)
+                Ok(Y4MFrame::new_mono8(buf, frame.width(), frame.height())?)
             } else {
-                Ok(Y4MFrame::mono_new(
+                Ok(Y4MFrame::new_mono8(
                     frame.image_data().to_vec(),
                     frame.width(),
                     frame.height(),
