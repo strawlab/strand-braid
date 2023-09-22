@@ -43,14 +43,11 @@ struct DetectionSerializer {
 }
 
 struct FfmpegFrameIterator {
-    _ffmpeg_child: Child,
     y4m_decoder: y4m::Decoder<ChildStdout>,
-    count: usize,
-    max_num_frames: Option<usize>,
 }
 
 impl FfmpegFrameIterator {
-    fn new<P: AsRef<Path>>(fname: P, max_num_frames: Option<usize>) -> Result<Self> {
+    fn new<P: AsRef<Path>>(fname: P) -> Result<(Self, Child)> {
         #[rustfmt::skip]
         let args = [
             "-nostdin",
@@ -67,24 +64,13 @@ impl FfmpegFrameIterator {
 
         let y4m_decoder = y4m::decode(ffmpeg_out)?;
 
-        Ok(Self {
-            _ffmpeg_child: ffmpeg_child,
-            y4m_decoder,
-            count: 0,
-            max_num_frames,
-        })
+        Ok((Self { y4m_decoder }, ffmpeg_child))
     }
 }
 
 impl Iterator for FfmpegFrameIterator {
     type Item = Result<Y4MFrame>;
     fn next(&mut self) -> std::option::Option<Self::Item> {
-        if let Some(max_num_frames) = &self.max_num_frames {
-            if self.count >= *max_num_frames {
-                return None;
-            }
-        }
-        self.count += 1;
         let w = self.y4m_decoder.get_width().try_into().unwrap();
         let h = self.y4m_decoder.get_height().try_into().unwrap();
         match self.y4m_decoder.read_frame() {
@@ -146,11 +132,20 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     println!("Decoding input: {}", cli.input_video.display());
     println!("Will output to:");
     println!("{}", &csv_output_fname);
-    let frames = FfmpegFrameIterator::new(&cli.input_video, cli.max_num_frames)?;
+    let (mut frames, mut ffmpeg_child) = FfmpegFrameIterator::new(&cli.input_video)?;
+
+    let mut frame_store;
+
+    let frame_iter: &mut dyn Iterator<Item=Result<Y4MFrame, anyhow::Error>> = if let Some(max_num_frames) = cli.max_num_frames {
+        frame_store = Some(frames.take(max_num_frames));
+        frame_store.as_mut().unwrap()
+    } else {
+        &mut frames
+    };
 
     let mut wtr = None;
 
-    for (frame, y4m_frame) in frames.enumerate() {
+    for (frame, y4m_frame) in frame_iter.enumerate() {
         let y4m_frame = y4m_frame?;
         let decoded_mono8 = y4m_frame.convert::<Mono8>()?;
         if false {
@@ -190,5 +185,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             }
         }
     }
+
+    ffmpeg_child.kill()?;
     Ok(())
 }
