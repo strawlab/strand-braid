@@ -37,6 +37,7 @@ pub struct Cli {
 }
 
 fn main() -> Result<()> {
+    env_tracing_logger::init();
     let cli = Cli::parse();
 
     println!("File: {}", cli.input);
