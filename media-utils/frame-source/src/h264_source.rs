@@ -12,6 +12,7 @@ use h264_reader::{
         sei::{HeaderType, SeiMessage, SeiReader},
         Nal, RefNal, UnitType,
     },
+    rbsp::BitReaderError,
     Context as H264ParsingContext,
 };
 
@@ -141,6 +142,7 @@ impl H264Source {
 
         // Use data from container if present
         if let Some(dfc) = data_from_mp4_track {
+            log::debug!("Using SPS and PPS data from mp4 track.");
             {
                 // SPS
                 let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
@@ -170,38 +172,62 @@ impl H264Source {
         }
 
         // iterate through all NAL units.
+        log::debug!("iterating through all NAL units");
         for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
             let nal = RefNal::new(nal_unit, &[], true);
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
+            log::debug!("NALU index {nalu_index}, {nal_unit_type:?}");
             match nal_unit_type {
                 UnitType::SEI => {
                     let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
-                    while let Some(sei_message) = sei_reader.next().unwrap() {
-                        let udu = UserDataUnregistered::read(&sei_message)?;
-                        match udu.uuid {
-                            &H264_METADATA_UUID => {
-                                let md: H264Metadata = serde_json::from_slice(udu.payload)?;
-                                if md.version != H264_METADATA_VERSION {
-                                    anyhow::bail!("unexpected version in h264 metadata");
-                                }
-                                if h264_metadata.is_some() {
-                                    anyhow::bail!(
-                                        "multiple SEI messages, but expected exactly one"
-                                    );
-                                }
+                    loop {
+                        match sei_reader.next() {
+                            Ok(Some(sei_message)) => {
+                                let udu = UserDataUnregistered::read(&sei_message)?;
+                                match udu.uuid {
+                                    &H264_METADATA_UUID => {
+                                        let md: H264Metadata = serde_json::from_slice(udu.payload)?;
+                                        if md.version != H264_METADATA_VERSION {
+                                            anyhow::bail!("unexpected version in h264 metadata");
+                                        }
+                                        if h264_metadata.is_some() {
+                                            anyhow::bail!(
+                                                "multiple SEI messages, but expected exactly one"
+                                            );
+                                        }
 
-                                tz_offset = Some(*md.creation_time.offset());
-                                h264_metadata = Some(md);
-                            }
-                            b"MISPmicrosectime" => {
-                                let precision_time = parse_precision_time(udu.payload)?;
-                                last_precision_time = Some(precision_time);
-                                if next_frame_num == 0 {
-                                    frame0_precision_time = Some(precision_time);
+                                        tz_offset = Some(*md.creation_time.offset());
+                                        h264_metadata = Some(md);
+                                    }
+                                    b"MISPmicrosectime" => {
+                                        let precision_time = parse_precision_time(udu.payload)?;
+                                        last_precision_time = Some(precision_time);
+                                        if next_frame_num == 0 {
+                                            frame0_precision_time = Some(precision_time);
+                                        }
+                                    }
+                                    _uuid => {
+                                        // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                    }
                                 }
                             }
-                            _uuid => {
-                                // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                            Ok(None) => {
+                                break;
+                            }
+                            Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
+                                log::error!(
+                                    "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
+                                );
+                                // We do not process this NAL unit but nor do we
+                                // propagate the error further. FFMPEG also
+                                // skips this error except writing "SEI type 5
+                                // size X truncated at Y" where Y is less than
+                                // X.
+                            }
+                            Err(e) => {
+                                anyhow::bail!(
+                                    "unexpected error reading NAL unit {nalu_index} SEI: {e:?}"
+                                );
                             }
                         }
                     }
