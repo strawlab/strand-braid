@@ -183,31 +183,45 @@ impl H264Source {
                     loop {
                         match sei_reader.next() {
                             Ok(Some(sei_message)) => {
-                                let udu = UserDataUnregistered::read(&sei_message)?;
-                                match udu.uuid {
-                                    &H264_METADATA_UUID => {
-                                        let md: H264Metadata = serde_json::from_slice(udu.payload)?;
-                                        if md.version != H264_METADATA_VERSION {
-                                            anyhow::bail!("unexpected version in h264 metadata");
-                                        }
-                                        if h264_metadata.is_some() {
-                                            anyhow::bail!(
-                                                "multiple SEI messages, but expected exactly one"
-                                            );
-                                        }
+                                match &sei_message.payload_type {
+                                    HeaderType::UserDataUnregistered => {
+                                        let udu = UserDataUnregistered::read(&sei_message)?;
+                                        match udu.uuid {
+                                            &H264_METADATA_UUID => {
+                                                let md: H264Metadata =
+                                                    serde_json::from_slice(udu.payload)?;
+                                                if md.version != H264_METADATA_VERSION {
+                                                    anyhow::bail!(
+                                                        "unexpected version in h264 metadata"
+                                                    );
+                                                }
+                                                if h264_metadata.is_some() {
+                                                    anyhow::bail!(
+                                                        "multiple SEI messages, but expected exactly one"
+                                                    );
+                                                }
 
-                                        tz_offset = Some(*md.creation_time.offset());
-                                        h264_metadata = Some(md);
-                                    }
-                                    b"MISPmicrosectime" => {
-                                        let precision_time = parse_precision_time(udu.payload)?;
-                                        last_precision_time = Some(precision_time);
-                                        if next_frame_num == 0 {
-                                            frame0_precision_time = Some(precision_time);
+                                                tz_offset = Some(*md.creation_time.offset());
+                                                h264_metadata = Some(md);
+                                            }
+                                            b"MISPmicrosectime" => {
+                                                let precision_time =
+                                                    parse_precision_time(udu.payload)
+                                                        .with_context(|| {
+                                                            "Parsing precision time stamp"
+                                                        })?;
+                                                last_precision_time = Some(precision_time);
+                                                if next_frame_num == 0 {
+                                                    frame0_precision_time = Some(precision_time);
+                                                }
+                                            }
+                                            _uuid => {
+                                                // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                            }
                                         }
                                     }
-                                    _uuid => {
-                                        // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                    _ => {
+                                        // handle other SEI types.
                                     }
                                 }
                             }
@@ -446,7 +460,10 @@ pub(crate) struct UserDataUnregistered<'a> {
 impl<'a> UserDataUnregistered<'a> {
     pub fn read(msg: &SeiMessage<'a>) -> Result<UserDataUnregistered<'a>> {
         if msg.payload_type != HeaderType::UserDataUnregistered {
-            anyhow::bail!("expected UserDataUnregistered message");
+            anyhow::bail!(
+                "expected UserDataUnregistered message, found {:?}",
+                msg.payload_type
+            );
         }
         if msg.payload.len() < 16 {
             anyhow::bail!("SEI payload too short to contain UserDataUnregistered message");
@@ -462,9 +479,19 @@ pub(crate) fn parse_precision_time(payload: &[u8]) -> Result<chrono::DateTime<ch
     if payload.len() != 12 {
         anyhow::bail!("unexpected payload length");
     }
-    if payload[0] != 0x0F {
-        anyhow::bail!("unexpected time stamp status byte");
-    }
+
+    // // Time Stamp Status byte from MISB Standard 0603.
+    // // Could parse Locked/Unlocked (bit 7), Normal/Discontinuity (bit 6),
+    // // Forward/Reverse (bit 5).
+
+    // let time_stamp_status = payload[0];
+    // if time_stamp_status & 0x1F != 0x1F {
+    //     anyhow::bail!(
+    //         "unexpected time stamp status byte. Full payload: {{{}}}",
+    //         pretty_hex::simple_hex(&payload),
+    //     );
+    // }
+
     let mut precision_time_stamp_bytes = [0u8; 8];
     for i in &[3, 6, 9] {
         if payload[*i] != 0xFF {
