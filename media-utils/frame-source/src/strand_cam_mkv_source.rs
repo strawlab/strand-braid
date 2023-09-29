@@ -118,6 +118,9 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
             idx: 0,
         })
     }
+    fn timestamp_source(&self) -> &str {
+        "MKV creation time + PTS"
+    }
 }
 
 struct StrandCamMkvSourceIter<'a, R: Read + Seek> {
