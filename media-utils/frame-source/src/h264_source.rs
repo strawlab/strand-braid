@@ -70,6 +70,7 @@ pub struct H264Source {
     height: u32,
     do_decode_h264: bool,
     timestamp_source: &'static str,
+    has_timestamps: bool,
 }
 
 impl FrameDataSource for H264Source {
@@ -119,6 +120,9 @@ impl FrameDataSource for H264Source {
     }
     fn timestamp_source(&self) -> &str {
         self.timestamp_source
+    }
+    fn has_timestamps(&self) -> bool {
+        self.has_timestamps
     }
 }
 
@@ -289,13 +293,13 @@ impl H264Source {
             .as_ref()
             .map(|dt| dt.with_timezone(&timezone));
 
-        let timestamp_source = if frame0_precision_time.is_some() {
-            "MISPmicrosectime"
+        let (timestamp_source, has_timestamps) = if frame0_precision_time.is_some() {
+            ("MISPmicrosectime", true)
         } else {
             if mp4_pts.is_some() {
-                "MP4 PTS"
+                ("MP4 PTS", true)
             } else {
-                "(no timestamps)"
+                ("(no timestamps)", false)
             }
         };
 
@@ -309,6 +313,7 @@ impl H264Source {
             height,
             do_decode_h264,
             timestamp_source,
+            has_timestamps,
         })
     }
 

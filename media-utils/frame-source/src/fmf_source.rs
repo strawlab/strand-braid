@@ -119,6 +119,9 @@ impl FrameDataSource for FmfSource {
     fn timestamp_source(&self) -> &str {
         "FMF frame metadata"
     }
+    fn has_timestamps(&self) -> bool {
+        true
+    }
 }
 
 impl FmfSource {
