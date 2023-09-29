@@ -12,6 +12,7 @@ use h264_reader::{
         sei::{HeaderType, SeiMessage, SeiReader},
         Nal, RefNal, UnitType,
     },
+    rbsp::BitReaderError,
     Context as H264ParsingContext,
 };
 
@@ -68,6 +69,8 @@ pub struct H264Source {
     width: u32,
     height: u32,
     do_decode_h264: bool,
+    timestamp_source: &'static str,
+    has_timestamps: bool,
 }
 
 impl FrameDataSource for H264Source {
@@ -115,6 +118,12 @@ impl FrameDataSource for H264Source {
             openh264_decoder_state,
         })
     }
+    fn timestamp_source(&self) -> &str {
+        self.timestamp_source
+    }
+    fn has_timestamps(&self) -> bool {
+        self.has_timestamps
+    }
 }
 
 pub(crate) struct FromMp4Track {
@@ -141,6 +150,7 @@ impl H264Source {
 
         // Use data from container if present
         if let Some(dfc) = data_from_mp4_track {
+            log::debug!("Using SPS and PPS data from mp4 track.");
             {
                 // SPS
                 let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
@@ -170,38 +180,76 @@ impl H264Source {
         }
 
         // iterate through all NAL units.
+        log::debug!("iterating through all NAL units");
         for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
             let nal = RefNal::new(nal_unit, &[], true);
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
+            log::debug!("NALU index {nalu_index}, {nal_unit_type:?}");
             match nal_unit_type {
                 UnitType::SEI => {
                     let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
-                    while let Some(sei_message) = sei_reader.next().unwrap() {
-                        let udu = UserDataUnregistered::read(&sei_message)?;
-                        match udu.uuid {
-                            &H264_METADATA_UUID => {
-                                let md: H264Metadata = serde_json::from_slice(udu.payload)?;
-                                if md.version != H264_METADATA_VERSION {
-                                    anyhow::bail!("unexpected version in h264 metadata");
-                                }
-                                if h264_metadata.is_some() {
-                                    anyhow::bail!(
-                                        "multiple SEI messages, but expected exactly one"
-                                    );
-                                }
+                    loop {
+                        match sei_reader.next() {
+                            Ok(Some(sei_message)) => {
+                                match &sei_message.payload_type {
+                                    HeaderType::UserDataUnregistered => {
+                                        let udu = UserDataUnregistered::read(&sei_message)?;
+                                        match udu.uuid {
+                                            &H264_METADATA_UUID => {
+                                                let md: H264Metadata =
+                                                    serde_json::from_slice(udu.payload)?;
+                                                if md.version != H264_METADATA_VERSION {
+                                                    anyhow::bail!(
+                                                        "unexpected version in h264 metadata"
+                                                    );
+                                                }
+                                                if h264_metadata.is_some() {
+                                                    anyhow::bail!(
+                                                        "multiple SEI messages, but expected exactly one"
+                                                    );
+                                                }
 
-                                tz_offset = Some(*md.creation_time.offset());
-                                h264_metadata = Some(md);
-                            }
-                            b"MISPmicrosectime" => {
-                                let precision_time = parse_precision_time(udu.payload)?;
-                                last_precision_time = Some(precision_time);
-                                if next_frame_num == 0 {
-                                    frame0_precision_time = Some(precision_time);
+                                                tz_offset = Some(*md.creation_time.offset());
+                                                h264_metadata = Some(md);
+                                            }
+                                            b"MISPmicrosectime" => {
+                                                let precision_time =
+                                                    parse_precision_time(udu.payload)
+                                                        .with_context(|| {
+                                                            "Parsing precision time stamp"
+                                                        })?;
+                                                last_precision_time = Some(precision_time);
+                                                if next_frame_num == 0 {
+                                                    frame0_precision_time = Some(precision_time);
+                                                }
+                                            }
+                                            _uuid => {
+                                                // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        // handle other SEI types.
+                                    }
                                 }
                             }
-                            _uuid => {
-                                // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                            Ok(None) => {
+                                break;
+                            }
+                            Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
+                                log::error!(
+                                    "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
+                                );
+                                // We do not process this NAL unit but nor do we
+                                // propagate the error further. FFMPEG also
+                                // skips this error except writing "SEI type 5
+                                // size X truncated at Y" where Y is less than
+                                // X.
+                            }
+                            Err(e) => {
+                                anyhow::bail!(
+                                    "unexpected error reading NAL unit {nalu_index} SEI: {e:?}"
+                                );
                             }
                         }
                     }
@@ -245,6 +293,16 @@ impl H264Source {
             .as_ref()
             .map(|dt| dt.with_timezone(&timezone));
 
+        let (timestamp_source, has_timestamps) = if frame0_precision_time.is_some() {
+            ("MISPmicrosectime", true)
+        } else {
+            if mp4_pts.is_some() {
+                ("MP4 PTS", true)
+            } else {
+                ("(no timestamps)", false)
+            }
+        };
+
         Ok(Self {
             nal_units,
             mp4_pts,
@@ -254,6 +312,8 @@ impl H264Source {
             width,
             height,
             do_decode_h264,
+            timestamp_source,
+            has_timestamps,
         })
     }
 
@@ -420,7 +480,10 @@ pub(crate) struct UserDataUnregistered<'a> {
 impl<'a> UserDataUnregistered<'a> {
     pub fn read(msg: &SeiMessage<'a>) -> Result<UserDataUnregistered<'a>> {
         if msg.payload_type != HeaderType::UserDataUnregistered {
-            anyhow::bail!("expected UserDataUnregistered message");
+            anyhow::bail!(
+                "expected UserDataUnregistered message, found {:?}",
+                msg.payload_type
+            );
         }
         if msg.payload.len() < 16 {
             anyhow::bail!("SEI payload too short to contain UserDataUnregistered message");
@@ -436,9 +499,19 @@ pub(crate) fn parse_precision_time(payload: &[u8]) -> Result<chrono::DateTime<ch
     if payload.len() != 12 {
         anyhow::bail!("unexpected payload length");
     }
-    if payload[0] != 0x0F {
-        anyhow::bail!("unexpected time stamp status byte");
-    }
+
+    // // Time Stamp Status byte from MISB Standard 0603.
+    // // Could parse Locked/Unlocked (bit 7), Normal/Discontinuity (bit 6),
+    // // Forward/Reverse (bit 5).
+
+    // let time_stamp_status = payload[0];
+    // if time_stamp_status & 0x1F != 0x1F {
+    //     anyhow::bail!(
+    //         "unexpected time stamp status byte. Full payload: {{{}}}",
+    //         pretty_hex::simple_hex(&payload),
+    //     );
+    // }
+
     let mut precision_time_stamp_bytes = [0u8; 8];
     for i in &[3, 6, 9] {
         if payload[*i] != 0xFF {

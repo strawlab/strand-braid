@@ -1368,7 +1368,7 @@ fn timestamp_to_sei_payload(timestamp: chrono::DateTime<chrono::Utc>, payload: &
 
     payload[0..16].copy_from_slice(b"MISPmicrosectime"); // uuid_iso_iec_11578,
 
-    payload[16] = 0x0F; // Time Stamp Status byte from MISB Standard 0604
+    payload[16] = 0x1F; // Time Stamp Status byte from MISB Standard 0603
 
     // The standard has 0xFF present after every two bytes as "Start Code
     // Emulation Prevention". This means that the raw byte sequence is identical

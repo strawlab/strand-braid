@@ -46,6 +46,13 @@ pub trait FrameDataSource {
     ///
     /// Returns Ok<(min, max)> when successful.
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)>;
+    /// Whether timestamps are available.
+    ///
+    /// If no timestamp is available, the frame "timestamp" with contain a
+    /// fraction of completeness.
+    fn has_timestamps(&self) -> bool;
+    /// A string describing the source of the timestamp data
+    fn timestamp_source(&self) -> &str;
     /// Get an iterator over all frames.
     fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_>;
 }

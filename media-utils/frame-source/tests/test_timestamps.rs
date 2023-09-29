@@ -6,8 +6,10 @@ use frame_source::FrameDataSource;
 
 #[test]
 fn test_h264_precision_timestamps() -> anyhow::Result<()> {
-    let start: DateTime<Utc> =
-        DateTime::from_naive_utc_and_offset(NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(), Utc);
+    let start: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
+        NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
+        Utc,
+    );
 
     let dt_msec = 5;
 

@@ -13,6 +13,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     InvalidID,
     InvalidSize,
+    BufSizeError(usize),
     Io(std::io::Error),
     Eof,
 }

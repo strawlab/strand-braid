@@ -10,3 +10,4 @@ chrono = { version = "0.4.23", default-features = false }
 path-slash = "0.2.1"
 
 frame-source = { path = "../frame-source" }
+env-tracing-logger = {path="../../env-tracing-logger"}

@@ -103,6 +103,12 @@ impl FrameDataSource for PvTiffStack {
         }
         Ok((low, high))
     }
+    fn timestamp_source(&self) -> &str {
+        "PVCAM-FMD-TimestampBofPs"
+    }
+    fn has_timestamps(&self) -> bool {
+        true
+    }
 }
 
 impl PvTiffStack {

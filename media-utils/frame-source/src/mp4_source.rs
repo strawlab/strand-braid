@@ -13,7 +13,7 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
     size: u64,
 ) -> Result<H264Source> {
     let mut mp4_reader = mp4::Mp4Reader::read_header(rdr, size)?;
-
+    let timescale = mp4_reader.timescale();
     let mut video_track = None;
     for (track_id, track) in mp4_reader.tracks().iter() {
         // ignore all tracks except H264
@@ -46,7 +46,7 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
             // dbg!((sample_id, mp4_pts, sample.bytes.len()));
             let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
             let n_nal_units = sample_nal_units.len();
-            let this_pts = raw2dur(sample.start_time);
+            let this_pts = raw2dur(sample.start_time, timescale);
             for _ in 0..n_nal_units {
                 mp4_pts.push(this_pts);
             }
@@ -98,21 +98,19 @@ fn avcc_to_nalu_ebsp(buf: &[u8]) -> Result<Vec<&[u8]>> {
     Ok(result)
 }
 
-// The number of time units that pass in one second.
-const MOVIE_TIMESCALE: u32 = 1_000_000;
-
-fn raw2dur(raw: u64) -> std::time::Duration {
-    std::time::Duration::from_secs_f64(raw as f64 / MOVIE_TIMESCALE as f64)
+fn raw2dur(raw: u64, timescale: u32) -> std::time::Duration {
+    std::time::Duration::from_secs_f64(raw as f64 / timescale as f64)
 }
 
 #[test]
 fn test_raw_duration() {
+    const TIMESCALE: u32 = 90_000;
     fn dur2raw(dur: &std::time::Duration) -> u64 {
-        (dur.as_secs_f64() * MOVIE_TIMESCALE as f64).round() as u64
+        (dur.as_secs_f64() * TIMESCALE as f64).round() as u64
     }
 
     fn roundtrip(orig: u64) {
-        let actual = dur2raw(&raw2dur(orig));
+        let actual = dur2raw(&raw2dur(orig, TIMESCALE));
         assert_eq!(orig, actual);
     }
     roundtrip(0);

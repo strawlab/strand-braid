@@ -205,9 +205,17 @@ impl<'a, R: Read + Seek> Deserializer<'a, R> {
                         BoxData::UnsignedInt(val)
                     }
                     b'f' => {
-                        let buf: [u8; 4] = buf.try_into().unwrap();
-                        let val = f32::from_be_bytes(buf);
-                        BoxData::Float(val)
+                        if buf.len() == 4 {
+                            let buf: [u8; 4] = buf.try_into().unwrap();
+                            let val = f32::from_be_bytes(buf);
+                            BoxData::Float(val)
+                        } else if buf.len() == 8 {
+                            let buf: [u8; 8] = buf.try_into().unwrap();
+                            let val = f64::from_be_bytes(buf);
+                            BoxData::Float64(val)
+                        } else {
+                            return Err(Error::BufSizeError(buf.len()));
+                        }
                     }
                     b'd' => {
                         let buf: [u8; 8] = buf.try_into().unwrap();

@@ -13,6 +13,7 @@ pub enum BoxData {
     DateTime(chrono::DateTime<chrono::Utc>),
     UnsignedInt(u32),
     Float(f32),
+    Float64(f64),
     SimpleBlockData(BlockData),
     // uses unicode string for storage as convenience. data are [u8;4] ASCII.
     UncompressedFourCC(String),

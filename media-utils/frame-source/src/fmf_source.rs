@@ -116,6 +116,12 @@ impl FrameDataSource for FmfSource {
     fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_> {
         Box::new(FmfSourceIter::new(self).unwrap())
     }
+    fn timestamp_source(&self) -> &str {
+        "FMF frame metadata"
+    }
+    fn has_timestamps(&self) -> bool {
+        true
+    }
 }
 
 impl FmfSource {
