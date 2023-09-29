@@ -1,0 +1,29 @@
+name: Build show-timestamps app
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  show-timestamps-app:
+    strategy:
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.runs-on }}
+    defaults:
+      run:
+        working-directory: media-utils/show-timestamps
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+      - name: Build show-timestamps app
+        run: |
+          cargo build --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: show-timestamps-${{ matrix.runs-on }}
+          path: ${{ github.workspace }}/target/release/show-timestam*
