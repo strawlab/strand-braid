@@ -119,7 +119,7 @@ program on this data to generate a multiple camera calibration.
 flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
 ```
 
-This will print various pieces of imformation to the console when it runs. First it will print something like this:
+This will print various pieces of information to the console when it runs. First it will print something like this:
 
 ```ignore
 851 points
