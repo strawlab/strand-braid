@@ -442,7 +442,7 @@ fn get_body(data: &(SendType, TimeDataPassthrough)) -> Result<hyper::body::Bytes
 
     // Send updates after each observation for lowest-possible latency.
     let data = ToListener {
-        /// Braid pose API
+        // Braid pose API
         v: 3, // <- Bump when ToListener or SendType definition changes ZP4q
         msg: msg.clone(),
         latency,
