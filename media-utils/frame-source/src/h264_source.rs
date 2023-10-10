@@ -260,12 +260,23 @@ impl H264Source {
                     parsing_ctx.put_seq_param_set(isps);
                 }
                 UnitType::PicParameterSet => {
-                    let ipps = h264_reader::nal::pps::PicParameterSet::from_bits(
+                    match h264_reader::nal::pps::PicParameterSet::from_bits(
                         &parsing_ctx,
                         nal.rbsp_bits(),
-                    )
-                    .unwrap();
-                    parsing_ctx.put_pic_param_set(ipps);
+                    ) {
+                        Ok(ipps) => {
+                            parsing_ctx.put_pic_param_set(ipps);
+                        }
+                        Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
+                            h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
+                        )) => {
+                            // While this is open, ignore the error.
+                            // https://github.com/dholroyd/h264-reader/issues/56
+                        }
+                        Err(e) => {
+                            anyhow::bail!("reading PPS: {e:?}");
+                        }
+                    }
                 }
                 UnitType::SliceLayerWithoutPartitioningIdr
                 | UnitType::SliceLayerWithoutPartitioningNonIdr => {
