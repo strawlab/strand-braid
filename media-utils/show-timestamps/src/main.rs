@@ -69,14 +69,16 @@ fn main() -> Result<()> {
     let mut src = frame_source::from_path(&cli.input, do_decode_h264)?;
     let has_timestamps = src.has_timestamps();
 
+    let start_time_str = src
+        .frame0_time()
+        .map(|x| format!("{x}"))
+        .unwrap_or_else(|| "(unknown)".to_string());
     match cli.output {
         OutputFormat::EveryFrame | OutputFormat::Summary => {
             println!("File: {}", cli.input);
             println!(
                 "  Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                src.frame0_time()
-                    .map(|x| format!("{x}"))
-                    .unwrap_or_else(|| "(unknown)".to_string()),
+                start_time_str,
                 src.width(),
                 src.height(),
                 src.timestamp_source(),
@@ -85,10 +87,8 @@ fn main() -> Result<()> {
         OutputFormat::CSV => {
             println!(
                 "# File:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                src.frame0_time()
-                    .map(|x| format!("{x}"))
-                    .unwrap_or_else(|| "(unknown)".to_string()),
                 cli.input,
+                start_time_str,
                 src.width(),
                 src.height(),
                 src.timestamp_source(),
