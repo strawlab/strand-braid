@@ -14,7 +14,7 @@ the projection of 3D coordinates relative to the camera to an image point in
 pixels. In Braid, the camera model is a pinhole model with warping distortion.
 The intrinsic parameters include focal length, the pixel coordinates of the
 optical axis, and the radial and tangential parameters of a "plumb bob"
-distortion model.
+distortion model (also called the Brown-Conrady distortion model).
 
 ## XML calibration files in Braid
 
