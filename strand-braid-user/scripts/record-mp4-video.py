@@ -88,12 +88,6 @@ def main():
     strand_cam = StrandCamProxy(strand_cam_url=args.strand_cam_url)
     strand_cam.wait_until_first_update()
 
-    print(
-        "Will record with the following configuration: {}".format(
-            strand_cam.get_current_state()["mp4_recording_config"]
-        ),
-    )
-
     strand_cam.send_to_camera({"SetIsRecordingMp4": True})
     print("Recording for 5 seconds...")
     time.sleep(5.0)
