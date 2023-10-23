@@ -20,6 +20,7 @@ members = [
     "braid-offline",
     "braid-process-video",
     "braidz-parser",
+    "braidz-parser/braidz-chunked-iter",
     "braidz-parser/braidz-cli",
     "braidz-types",
     "braidz-viewer",

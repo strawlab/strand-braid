@@ -1,0 +1,19 @@
+[package]
+name = "braidz-chunked-iter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+libflate = "1.2.0"
+csv = "1.1"
+chrono = "0.4.31"
+
+csv-eof = { path = "../../csv-eof" }
+flydra-types = { path = "../../flydra-types" }
+zip-or-dir = { path = "../../zip-or-dir", features = ["with-gz"] }
+
+[dev-dependencies]
+clap = { version = "4", features = ["derive"] }
