@@ -5,10 +5,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 //! An archive of "files", either in a filesystem directory or zip archive.
 //!
@@ -318,6 +315,40 @@ impl<R: Read + Seek> ZipDirArchive<R> {
             }
         }
         Ok(result)
+    }
+
+    /// Open raw file (e.g. `.csv`) or gz version (e.g. `.csv.gz`) of a file.
+    ///
+    /// This prefers to use the gz compressed file if it exists.
+    #[cfg(feature = "with-gz")]
+    pub fn open_raw_or_gz(&mut self, src_fname: &str) -> Result<MaybeGzReader> {
+        let gz_fname = format!("{}.gz", src_fname);
+        let gz_exists = self.path_starter().join(&gz_fname).exists();
+
+        if gz_exists {
+            let gz_fd = self.path_starter().join(gz_fname).open()?;
+            let decoder = libflate::gzip::Decoder::new(gz_fd)?;
+            Ok(MaybeGzReader::Gz(decoder))
+        } else {
+            let fd = self.path_starter().join(src_fname).open()?;
+            Ok(MaybeGzReader::Raw(fd))
+        }
+    }
+}
+
+#[cfg(feature = "with-gz")]
+pub enum MaybeGzReader<'a> {
+    Raw(FileReader<'a>),
+    Gz(libflate::gzip::Decoder<FileReader<'a>>),
+}
+
+#[cfg(feature = "with-gz")]
+impl<'a> Read for MaybeGzReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Raw(fd) => fd.read(buf),
+            Self::Gz(gz_fd) => gz_fd.read(buf),
+        }
     }
 }
 
@@ -769,6 +800,15 @@ mod tests {
                     panic!("returned wrong error. Should return NotDirectory");
                 }
             }
+        }
+
+        #[cfg(feature = "with-gz")]
+        {
+            let mut buf = String::new();
+            archive
+                .open_raw_or_gz("subdir2/8")?
+                .read_to_string(&mut buf)?;
+            assert_eq!(&buf, "8");
         }
 
         Ok(())

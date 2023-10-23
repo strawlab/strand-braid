@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 use std::{
     collections::BTreeMap,
@@ -702,8 +699,7 @@ fn open_buffered<P: AsRef<Path>>(p: &P) -> std::io::Result<std::io::BufReader<Fi
 /// This should not be used in the general case but only for special cases where
 /// a raw directory is being used, such as specifically when modifying a
 /// directory under construction. For the general reading case, prefer
-/// `braidz_parser` crate (or the `zip_or_dir` if it may not be a valid braidz
-/// archive) crate.
+/// [zip_or_dir::ZipDirArchive::open_raw_or_gz].
 pub fn pick_csvgz_or_csv(csv_path: &Path) -> flydra2::Result<Box<dyn Read>> {
     let gz_fname = PathBuf::from(csv_path).with_extension("csv.gz");
 
