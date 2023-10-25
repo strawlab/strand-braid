@@ -1,0 +1,21 @@
+[package]
+name = "pybraidz-chunked-iter"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pybraidz_chunked_iter"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py37"] }
+numpy = "0.20"
+csv = "1.1"
+chrono = "0.4.31"
+
+csv-eof = { path = "../../../csv-eof" }
+flydra-types = { path = "../../../flydra-types" }
+zip-or-dir = { path = "../../../zip-or-dir", features = ["with-gz"] }
+
+braidz-chunked-iter = { path = ".." }

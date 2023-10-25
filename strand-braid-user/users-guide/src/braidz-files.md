@@ -118,3 +118,34 @@ Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
 ---------                     -------
  22434126                     17 files
 ```
+
+### Chunked iteration of `kalman_estimates`
+
+The primary tracking results are in the `kalman_estimates` table. There can
+often be many gigabytes of data here, and thus it is useful to iterate over
+duration-defined chunks in this file. This way, the entire `.braidz` file never
+needs to be decompressed and the all results do not need to fit in your
+computer's memory at once.
+
+This following example uses the `pybraidz_chunked_iter` Python package. It
+iterates over chunks of the file `20201104_174158.braidz`, which can be
+downloaded [here](https://strawlab-cdn.com/assets/20201104_174158.braidz):
+
+```python
+import pybraidz_chunked_iter
+import pandas as pd
+
+# The filename of the braidz file
+braidz_fname = "20201104_174158.braidz"
+
+# Open the braidz file and create chunks of 60 second durations.
+estimates_chunker = pybraidz_chunked_iter.KalmanEstimatesChunker(braidz_fname, 60)
+
+# Iterate over each chunk
+for chunk in estimates_chunker:
+    print("Read chunk with %d rows"%(chunk["n_rows"],))
+
+    # Create a pandas DataFrame with the data from each chunk
+    df = pd.DataFrame(data=chunk["data"])
+    print(df)
+```
