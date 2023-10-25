@@ -1,34 +1,22 @@
 use numpy::PyArray;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
 
-use braidz_chunked_iter::{DurationChunk, ToChunkIter};
+use braidz_chunked_iter::{ChunkSize, DurationChunk, ToChunkIter};
 use csv_eof::EarlyEofOk;
 use zip_or_dir::{MaybeGzReader, ZipDirArchive};
-
-/// Iterate over duration-defined chunks of the `kalman_estimates` table.
-///
-/// Parameters
-/// ----------
-/// path : str
-///     The path of the `.braidz` file (or `.braid` directory) to open.
-/// duration_seconds: float
-///     The duration of each chunk, in seconds.
 
 #[pyclass(unsendable)]
 struct KalmanEstimatesChunker {
     chunker: &'static mut dyn Iterator<Item = DurationChunk>,
 }
 
-#[pymethods]
 impl KalmanEstimatesChunker {
-    #[new]
-    fn new(path: &str, duration_seconds: f64) -> PyResult<Self> {
+    fn new(path: &str, sz: ChunkSize) -> PyResult<Self> {
         let archive = zip_or_dir::ZipDirArchive::auto_from_path(&path).map_err(|e| {
             PyErr::new::<PyValueError, _>(format!("Could not open file {}: '{}'", path, e))
         })?;
         // leak to get static lifetime
         let archive: &'static mut ZipDirArchive<_> = Box::leak(Box::new(archive));
-        let chunk_dur = std::time::Duration::from_secs_f64(duration_seconds);
 
         let mut first_row = None;
         let src_fname = flydra_types::KALMAN_ESTIMATES_CSV_FNAME;
@@ -57,10 +45,9 @@ impl KalmanEstimatesChunker {
             let t1: csv::Reader<MaybeGzReader<'_>> = csv::Reader::from_reader(rdr);
 
             let inner_iter = t1.into_deserialize().early_eof_ok();
-            let my_iter =
-                ToChunkIter::to_chunk_iter(inner_iter, first_row, chunk_dur).map_err(|e| {
-                    PyErr::new::<PyValueError, _>(format!("Could chunk based on duration: '{e}'"))
-                })?;
+            let my_iter = ToChunkIter::to_chunk_iter(inner_iter, first_row, sz).map_err(|e| {
+                PyErr::new::<PyValueError, _>(format!("Could chunk based on duration: '{e}'"))
+            })?;
             let chunker = Box::new(my_iter);
             // leak to get static lifetime
             let chunker = Box::leak(chunker);
@@ -71,7 +58,10 @@ impl KalmanEstimatesChunker {
             )))
         }
     }
+}
 
+#[pymethods]
+impl KalmanEstimatesChunker {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
@@ -158,9 +148,40 @@ impl KalmanEstimatesChunker {
     }
 }
 
+/// Iterate over duration-defined chunks of the `kalman_estimates` table.
+///
+/// Parameters
+/// ----------
+/// path : str
+///     The path of the `.braidz` file (or `.braid` directory) to open.
+/// duration_seconds: float
+///     The duration of each chunk, in seconds.
+#[pyfunction]
+fn chunk_on_duration(path: &str, duration_seconds: f64) -> PyResult<KalmanEstimatesChunker> {
+    let chunk_dur = std::time::Duration::from_secs_f64(duration_seconds);
+    let sz = ChunkSize::TimestampDuration(chunk_dur);
+    KalmanEstimatesChunker::new(path, sz)
+}
+
+/// Iterate over duration-defined chunks of the `kalman_estimates` table.
+///
+/// Parameters
+/// ----------
+/// path : str
+///     The path of the `.braidz` file (or `.braid` directory) to open.
+/// num_frames: int
+///     The number of frames included in each chunk.
+#[pyfunction]
+fn chunk_on_num_frames(path: &str, num_frames: usize) -> PyResult<KalmanEstimatesChunker> {
+    let sz = ChunkSize::FrameNumber(num_frames);
+    KalmanEstimatesChunker::new(path, sz)
+}
+
 /// Chunked iteration over tables in `.braidz` files.
 #[pymodule]
 fn pybraidz_chunked_iter(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<KalmanEstimatesChunker>()?;
+    m.add_function(wrap_pyfunction!(chunk_on_duration, m)?)?;
+    m.add_function(wrap_pyfunction!(chunk_on_num_frames, m)?)?;
     Ok(())
 }

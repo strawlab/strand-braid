@@ -139,7 +139,10 @@ import pandas as pd
 braidz_fname = "20201104_174158.braidz"
 
 # Open the braidz file and create chunks of 60 second durations.
-estimates_chunker = pybraidz_chunked_iter.KalmanEstimatesChunker(braidz_fname, 60)
+estimates_chunker = pybraidz_chunked_iter.chunk_on_timestamp(braidz_fname, 60)
+
+# One could also create chunks with 100 frames of data.
+# estimates_chunker = pybraidz_chunked_iter.chunk_on_num_frames(braidz_fname, 100)
 
 # Iterate over each chunk
 for chunk in estimates_chunker:
