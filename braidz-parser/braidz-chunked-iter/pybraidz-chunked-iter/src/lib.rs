@@ -12,7 +12,7 @@ struct KalmanEstimatesChunker {
 
 impl KalmanEstimatesChunker {
     fn new(path: &str, sz: ChunkSize) -> PyResult<Self> {
-        let archive = zip_or_dir::ZipDirArchive::auto_from_path(&path).map_err(|e| {
+        let archive = zip_or_dir::ZipDirArchive::auto_from_path(path).map_err(|e| {
             PyErr::new::<PyValueError, _>(format!("Could not open file {}: '{}'", path, e))
         })?;
         // leak to get static lifetime
