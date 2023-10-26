@@ -2,8 +2,8 @@
 
 ## Example usage
 
-See example usage in the
-[docs](https://strawlab.github.io/strand-braid/braidz-files.html).
+See example usage in the "Chunked iteration of `kalman_estimates`" section of
+the [docs](https://strawlab.github.io/strand-braid/braidz-files.html).
 
 ## Develop
 
