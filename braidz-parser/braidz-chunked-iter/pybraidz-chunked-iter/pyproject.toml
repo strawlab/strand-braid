@@ -1,16 +1,18 @@
-[build-system]
-requires = ["maturin>=1.3,<2.0"]
-build-backend = "maturin"
-
 [project]
 name = "pybraidz-chunked-iter"
 requires-python = ">=3.7"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-]
 dynamic = ["version"]
+description = "Chunked iteration over tables in .braidz files"
+readme = "README.md"
+requires-python = ">= 3.7"
+authors = [{ name = "Andrew Straw", email = "strawman@astraw.com" }]
+maintainers = [{ name = "Andrew Straw", email = "strawman@astraw.com" }]
+
+urls.homepage = "https://github.com/strawlab/strand-braid/tree/main/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter"
+
+[build-system]
+requires = ["maturin>=1.3,<2.0"]
+build-backend = "maturin"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
