@@ -4,9 +4,9 @@ requires-python = ">=3.7"
 dynamic = ["version"]
 description = "Chunked iteration over tables in .braidz files"
 readme = "README.md"
-requires-python = ">= 3.7"
 authors = [{ name = "Andrew Straw", email = "strawman@astraw.com" }]
 maintainers = [{ name = "Andrew Straw", email = "strawman@astraw.com" }]
+license = "MIT/Apache-2.0"
 
 urls.homepage = "https://github.com/strawlab/strand-braid/tree/main/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter"
 
