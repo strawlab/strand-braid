@@ -2,6 +2,7 @@
 name = "rust-cam-bui-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+license = "MIT/Apache-2.0"
 
 [dependencies]
 serde = "1.0"
