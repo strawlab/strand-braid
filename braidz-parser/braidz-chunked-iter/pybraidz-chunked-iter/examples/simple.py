@@ -1,4 +1,4 @@
-import pybraidz_chunked_iter
+import pybraidz_chunked_iter # install with "pip install pybraidz_chunked_iter"
 import sys
 
 # Get the filename of the braidz file from the command line.

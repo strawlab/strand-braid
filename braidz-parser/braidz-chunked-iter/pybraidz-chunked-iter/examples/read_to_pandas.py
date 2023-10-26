@@ -1,4 +1,4 @@
-import pybraidz_chunked_iter
+import pybraidz_chunked_iter # install with "pip install pybraidz_chunked_iter"
 import pandas as pd
 import sys
 

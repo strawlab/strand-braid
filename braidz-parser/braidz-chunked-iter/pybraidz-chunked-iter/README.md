@@ -1,5 +1,11 @@
 # pybraidz-chunked-iter - Chunked iteration over tables in `.braidz` files.
 
+## Installation
+
+This package is available through PyPI and can be installed with pip:
+
+    pip install pybraidz_chunked_iter
+
 ## Example usage
 
 See example usage in the "Chunked iteration of `kalman_estimates`" section of

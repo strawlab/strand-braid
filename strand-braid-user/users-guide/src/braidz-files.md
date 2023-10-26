@@ -132,7 +132,7 @@ iterates over chunks of the file `20201104_174158.braidz`, which can be
 downloaded [here](https://strawlab-cdn.com/assets/20201104_174158.braidz):
 
 ```python
-import pybraidz_chunked_iter
+import pybraidz_chunked_iter # install with "pip install pybraidz_chunked_iter"
 import pandas as pd
 
 # The filename of the braidz file
