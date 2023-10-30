@@ -9,7 +9,7 @@ mvg = {path=".."}
 flydra-mvg = {path="../../flydra-mvg"}
 clap = { version = "4.3.4", features = ["derive"] }
 nalgebra = "0.32"
-pretty-print-nalgebra = {git="https://github.com/strawlab/pretty-print-nalgebra", rev="98d62bfeb40022c86bb01808512946db1c9950fb"}
+pretty-print-nalgebra = "0.1.0"
 
 [features]
 backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

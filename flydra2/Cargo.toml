@@ -65,7 +65,7 @@ flydra-types = { path = "../flydra-types" }
 adskalman = "0.15"
 tracking = { path = "../tracking" }
 groupby = { path = "../groupby" }
-pretty-print-nalgebra = { git = "https://github.com/strawlab/pretty-print-nalgebra", rev = "98d62bfeb40022c86bb01808512946db1c9950fb" }
+pretty-print-nalgebra = "0.1.0"
 nalgebra-mvn = "0.14"
 iana-time-zone = "0.1"
 withkey = { path = "../withkey" }
