@@ -2809,7 +2809,7 @@ where
     M: ci2::CameraModule<CameraType = C>,
     C: 'static + ci2::Camera + Send,
 {
-    let target_feature_string = target_features::target_features().join(", ");
+    let target_feature_string = target::features().join(", ");
     info!("Compiled with features: {}", target_feature_string);
 
     if !imops::COMPILED_WITH_SIMD_SUPPORT {

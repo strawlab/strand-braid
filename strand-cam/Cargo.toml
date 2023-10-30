@@ -96,7 +96,7 @@ ads-apriltag = {path="../apriltag", optional=true}
 channellib = {path="../channellib", optional=true}
 braid-http-session = {path="../braid-http-session"}
 
-target-features = {git="https://github.com/astraw/target-features", rev="e8dea3f523ed819bd1d92519416cb79e36fd74fe"}
+target = "2.0.0"
 
 [build-dependencies]
 build-util = {path="../build-util"}
