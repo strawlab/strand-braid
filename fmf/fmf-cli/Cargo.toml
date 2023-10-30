@@ -28,7 +28,6 @@ convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 simple-frame = { path = "../../simple-frame" }
 
-webm = {version="1", optional=true}
 mp4-writer = { path = "../../media-utils/mp4-writer", features=["openh264"] }
 ci2-remote-control = { path = "../../ci2-remote-control"}
 
@@ -38,5 +37,4 @@ nvenc = {path="../../nvenc"}
 tempfile = "3.4.0"
 
 [features]
-import-webm = ["webm"]
 backtrace = ["anyhow/backtrace", "mp4-writer/backtrace", "convert-image/backtrace", "fmf/backtrace"]

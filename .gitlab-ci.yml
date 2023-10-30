@@ -919,12 +919,6 @@ fmf-cli-ubuntu2004:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    # test mkv-writer start
-    - cd $CI_PROJECT_DIR/mkv-writer
-    - cargo test --features vpx --release
-    - cargo run --features vpx --example save-animation --release -- vp8
-    # test mkv-writer stop
-
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
@@ -943,11 +937,6 @@ fmf-cli-ubuntu2204:
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
-
-    # test mkv-writer start
-    - cd $CI_PROJECT_DIR/mkv-writer
-    - cargo run --features vpx --example save-animation --release -- vp8
-    # test mkv-writer stop
 
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
     - cargo build --release

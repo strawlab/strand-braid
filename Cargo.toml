@@ -85,7 +85,6 @@ members = [
     "media-utils/show-timestamps",
     "media-utils/strand-convert",
     "media-utils/tiff-decoder",
-    "mkv-writer",
     "mvg",
     "mvg/mvg-util",
     "nvenc",
@@ -130,6 +129,3 @@ debug = true
 
 # [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
-
-[patch.crates-io]
-webm = { git = "https://github.com/strawlab/rust-webm", rev="66d341cb308cab6da323c3b1d65a63e75e579830"}
