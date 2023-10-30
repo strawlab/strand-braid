@@ -12,25 +12,23 @@ formats.
 Here is the output `fmf --help`:
 
 ```
-fmf 0.1.0
 work with .fmf (fly movie format) files
 
-USAGE:
-    fmf <SUBCOMMAND>
+Usage: fmf <COMMAND>
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+Commands:
+  export-fmf     export an fmf file
+  info           print information about an fmf file
+  export-jpeg    export a sequence of jpeg images
+  export-png     export a sequence of png images
+  export-y4m     export to y4m (YUV4MPEG2) format
+  export-mp4     export to mp4
+  import-images  import a sequence of images, converting it to an FMF file
+  help           Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    export-fmf       export an fmf file
-    export-jpeg      export a sequence of jpeg images
-    export-mkv       export to mkv
-    export-png       export a sequence of png images
-    export-y4m       export to y4m (YUV4MPEG2) format
-    help             Prints this message or the help of the given subcommand(s)
-    import-images    import a sequence of images, converting it to an FMF file
-    info             print information about an fmf file
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 ## Installation
