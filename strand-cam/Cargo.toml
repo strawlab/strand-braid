@@ -32,7 +32,7 @@ serde_cbor = "0.11"
 webbrowser = "0.8.3"
 tempfile = "3.4.0"
 clap = { version = "4", features = [ "string" ] }
-preferences = {git="https://github.com/astraw/preferences-rs", rev="2ad97bda741238d0bcf785d8bcd3ca1cc719fc0b"}
+preferences = {version="2.0.0", package = "preferences-serde1"}
 directories = "4.0.1"
 anyhow = "1.0"
 thiserror = "1.0.33"
