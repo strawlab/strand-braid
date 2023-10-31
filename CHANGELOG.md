@@ -53,6 +53,7 @@
 
 ### Fixed
 
+* Browser caching is turned off. This reduces disk usage.
 * When saving MP4 files, the maximum framerate parameter is respected.
 * The `alpha` parameter in the feature detector was inadvertently ignored. This
   has been corrected. Thanks to Antoine Cribellier for noticing this.
