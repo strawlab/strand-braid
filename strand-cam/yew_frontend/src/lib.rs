@@ -1353,6 +1353,7 @@ async fn post_message(msg: &CallbackType) -> Result<(), FetchError> {
     use web_sys::{Request, RequestInit, Response};
     let mut opts = RequestInit::new();
     opts.method("POST");
+    opts.cache(web_sys::RequestCache::NoStore);
     // opts.mode(web_sys::RequestMode::Cors);
     // opts.headers("Content-Type", "application/json;charset=UTF-8")
     // set SameOrigin
