@@ -47,6 +47,12 @@ If `probe-run` returns with `Error: The firmware on the probe is outdated`, you
 can update the STLINKv2 firmware on your Nucleo using a download from
 [st.com](https://www.st.com/en/development-tools/stsw-link007.html).
 
+Run with:
+
+```
+cargo run --release
+```
+
 # License
 
 Portions of this project are derived from the cortex-m-quickstart project, which
