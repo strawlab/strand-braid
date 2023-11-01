@@ -5,17 +5,7 @@
 // * PB4 optional extra IR LED to check tracking latency
 // * PA2, PA3 used for serial comms (303re usart2, nucleo64 CN10-35, CN10-37, uno D1, n.a.)
 // * PA5 user LED on board (303re gpioa5, nucleo64 CN10-11, uno D13)
-// * PA8 used as TIM1_CH1 for camera trigger (303re tim1_ch1, nucleo64 CN9-8, uno D7)
 // * Potential future enhancement: USB PA11, PA12 (CN10-14, CN10-12)
-
-// TODO:
-// NOTE added later than below: See this https://github.com/japaric/stm32f103xx-hal/issues/116
-// We have jitter on the order of 5 usec on the primary camera trigger which we could eliminate
-// if the camera trigger used PWM on timer1. However, I tried for a full day to get the PWM working
-// on timer1 and always failed. Therefore, this code uses the interrupt handler on timer1 to
-// turn on the trigger pulse. (Timer7 is used to turn off the trigger pulse.) It should be
-// noted, however, that I added support for TIM1 to the stm32nucleo_hal crate and perhaps I did something
-// wrong there.
 
 // TODO: check memory layout.
 //   See https://stackoverflow.com/questions/44443619/how-to-write-read-to-flash-on-stm32f4-cortex-m4

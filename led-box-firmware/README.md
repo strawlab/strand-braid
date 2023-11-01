@@ -1,4 +1,4 @@
-Camera trigger firmware for Nucleo-F303RE
+Optogenetics LED control firmware for Nucleo-F303RE
 
 # Building
 
