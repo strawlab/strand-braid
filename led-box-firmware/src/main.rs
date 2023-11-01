@@ -16,22 +16,20 @@
 use defmt_rtt as _; // global logger
 use panic_probe as _;
 
-use stm32f3xx_hal;
-
 use embedded_hal::PwmPin;
 
 use embedded_hal::digital::v2::OutputPin;
 
-use stm32f3xx_hal::flash::FlashExt;
-use stm32f3xx_hal::gpio::GpioExt;
-use stm32f3xx_hal::gpio::{self, AF7};
-use stm32f3xx_hal::prelude::*;
+use stm32f3xx_hal::{
+    flash::FlashExt,
+    gpio::{self, GpioExt, Output, PushPull, AF7},
+    pac::USART2,
+    prelude::*,
+    pwm::tim3,
+    serial::{Event, Rx, Serial, Tx},
+};
 
 use embedded_time::rate::Hertz;
-use stm32f3xx_hal::gpio::{Output, PushPull};
-use stm32f3xx_hal::pac::USART2;
-use stm32f3xx_hal::pwm::tim3;
-use stm32f3xx_hal::serial::{Event, Rx, Serial, Tx};
 
 use defmt::{error, info, trace};
 
