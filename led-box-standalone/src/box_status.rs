@@ -99,12 +99,13 @@ pub async fn handle_box(
         ch4: make_chan(4, OnState::Off),
     };
 
-    info!("connecting to {}", device_name);
+    info!("connecting to {device_name}");
 
     #[allow(unused_mut)]
     let mut port = tokio_serial::new(&device_name, 9600)
         .open_native_async()
         .unwrap();
+    debug!("connected to {device_name}");
 
     #[cfg(unix)]
     port.set_exclusive(false)
@@ -114,6 +115,8 @@ pub async fn handle_box(
 
     // Clear potential initially present bytes from stream...
     let _ = tokio::time::timeout(std::time::Duration::from_millis(50), serial_reader.next()).await;
+
+    debug!("cleared potential residual bytes from stream");
 
     let (to_box_writer, mut to_box_reader) = tokio::sync::mpsc::channel::<ToDevice>(20);
 
