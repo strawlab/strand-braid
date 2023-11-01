@@ -20,7 +20,9 @@ impl LedBoxApp {
         available_ports: Vec<String>,
         box_manager: Arc<Mutex<BoxManager>>,
         cmd_tx: tokio::sync::mpsc::Sender<Cmd>,
+        cc: &eframe::CreationContext<'_>,
     ) -> Self {
+        box_manager.lock().frame = Some(cc.egui_ctx.clone());
         Self {
             available_ports,
             box_manager,

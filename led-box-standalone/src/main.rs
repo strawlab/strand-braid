@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     eframe::run_native(
         "LED box control",
         native_options,
-        Box::new(|_cc| Box::new(app::LedBoxApp::new(available_ports, box_manager, tx))),
+        Box::new(|cc| Box::new(app::LedBoxApp::new(available_ports, box_manager, tx, cc))),
     )
     .map_err(|e| anyhow::anyhow!("running failed with error {e}"))?;
     Ok(())

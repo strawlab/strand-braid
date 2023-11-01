@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eframe::egui;
 use futures::{SinkExt, StreamExt};
 use tokio_serial::SerialPortBuilderExt;
 use tokio_util::codec::Decoder;
@@ -31,11 +32,15 @@ fn _test_box_manager_is_send() {
 
 pub struct BoxManager {
     inner: Option<BoxManagerInner>,
+    pub(crate) frame: Option<egui::Context>,
 }
 
 impl BoxManager {
     pub fn new() -> Self {
-        Self { inner: None }
+        Self {
+            inner: None,
+            frame: None,
+        }
     }
 
     pub fn status(&self) -> BoxStatus {
@@ -151,11 +156,17 @@ pub async fn handle_box(
     let msg = ToDevice::DeviceState(next_state);
     to_box_writer.send(msg).await.unwrap();
 
-    {
-        box_manager.lock().inner = Some(BoxManagerInner {
+    let mut frame = {
+        let mut guard = box_manager.lock();
+        guard.inner = Some(BoxManagerInner {
             to_box_writer,
             state: next_state,
         });
+        guard.frame.clone()
+    };
+
+    if let Some(frame_ref) = frame.as_mut() {
+        frame_ref.request_repaint();
     }
 
     let start_led_box_instant = std::time::Instant::now();
