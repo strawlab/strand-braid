@@ -635,7 +635,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let mut hdr_lum_range = if cli.hdr_autodetect_range {
         let (min, max) = src.estimate_luminance_range()?;
-        log::info!("  estimated luminance range in input: {min}-{max}",);
+        log::info!("  estimated luminance range in input: {min}-{max}");
         Some((min, max))
     } else {
         None
@@ -643,6 +643,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     if let Some(minmax) = cli.hdr_range {
         let MinMax { min, max } = minmax;
+        log::info!("  input range specified: {min}-{max}");
         hdr_lum_range = Some((min, max));
     }
 
