@@ -29,7 +29,8 @@ impl DisplayTimestamp for std::time::Duration {
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
-    /// Input. Either TIFF image directory (`/path/to/tifs/`) or `file.mkv`.
+    /// Input. Either file (e.g. `file.mp4`) or TIFF image directory. The first
+    /// TIFF file in a TIFF image directory is also accepted.
     ///
     /// For a TIFF image directory, images will be ordered alphabetically.
     #[arg(short, long)]
@@ -66,7 +67,22 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-    let mut src = frame_source::from_path(&cli.input, do_decode_h264)?;
+
+    let mut input_path = std::path::PathBuf::from(cli.input);
+    let is_file = std::fs::metadata(&input_path)?.is_file();
+    if is_file {
+        let file_ext = input_path
+            .extension()
+            .map(|x| x.to_str())
+            .flatten()
+            .map(|x| x.to_lowercase());
+        if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
+            // tif file - assume this is image sequence and use directory.
+            input_path.pop();
+        }
+    }
+
+    let mut src = frame_source::from_path(&input_path, do_decode_h264)?;
     let has_timestamps = src.has_timestamps();
 
     let start_time_str = src
@@ -75,7 +91,7 @@ fn main() -> Result<()> {
         .unwrap_or_else(|| "(unknown)".to_string());
     match cli.output {
         OutputFormat::EveryFrame | OutputFormat::Summary => {
-            println!("File: {}", cli.input);
+            println!("Path: {}", input_path.display());
             println!(
                 "  Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
                 start_time_str,
@@ -86,8 +102,8 @@ fn main() -> Result<()> {
         }
         OutputFormat::CSV => {
             println!(
-                "# File:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                cli.input,
+                "# Path:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
+                input_path.display(),
                 start_time_str,
                 src.width(),
                 src.height(),
