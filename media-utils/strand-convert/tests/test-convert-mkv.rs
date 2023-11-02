@@ -100,7 +100,7 @@ fn do_convert<P: AsRef<Path>>(
     ];
     if autoscale_hdr {
         args.push("--hdr-config");
-        args.push("recale-linear-to-8bits");
+        args.push("rescale-linear-to-8bits");
         args.push("--hdr-autodetect-range");
     }
     let cli = clap::Parser::try_parse_from(&args)?;

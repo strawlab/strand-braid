@@ -810,6 +810,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     let mut prev_frame = image0.image().clone();
     let mut peeked_into_error = false;
     let mut prev_dest_pts = image0.timestamp();
+    let mut val_histogram = tiff_decoder::ValHistogram::new();
 
     while let Some(result_peek_source_data) = stack_iter.peek() {
         // If we will get an error, break and handle it.
@@ -897,6 +898,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     out_fno.try_into().unwrap(),
                     &cli.hdr_config,
                     hdr_lum_range,
+                    &mut val_histogram,
                 )?;
                 output_writer.write_dynamic(&frame, frame_timestamp_utc)?;
             }
@@ -945,9 +947,14 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     {
         let elapsed = read_start.elapsed();
         let bytes_per_sec = bytes_read as f64 / elapsed.as_secs_f64();
+        let minmaxstr = if let Some((min, max)) = val_histogram.minmax {
+            format!("Input min: {min}, Input max: {max}")
+        } else {
+            "".to_string()
+        };
 
         log::info!(
-            "Processing statistics: read {} images, {} in {} ({} per second). {n_missing_frames} missing frames.",
+            "Processing statistics: read {} images, {} in {} ({} per second). {n_missing_frames} missing frames. {minmaxstr}",
             src_count,
             HumanBytes(bytes_read as u64),
             HumanDuration(elapsed),
