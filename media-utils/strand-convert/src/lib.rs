@@ -39,7 +39,8 @@ const N_FRAMES_TO_COMPUTE_FPS: usize = 100;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct Cli {
-    /// Input. Either TIFF image directory (`/path/to/tifs/`) or `file.mkv`.
+    /// Input. Either file (e.g. `file.mp4`) or TIFF image directory. The first
+    /// TIFF file in a TIFF image directory is also accepted.
     ///
     /// For a TIFF image directory, images will be ordered alphabetically.
     #[arg(short, long)]
@@ -412,9 +413,19 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let h264_bitrate = None;
 
-    let input_path = PathBuf::from(&cli.input);
-
-    let is_file = std::fs::metadata(&cli.input)?.is_file();
+    let mut input_path = std::path::PathBuf::from(cli.input);
+    let is_file = std::fs::metadata(&input_path)?.is_file();
+    if is_file {
+        let file_ext = input_path
+            .extension()
+            .map(|x| x.to_str())
+            .flatten()
+            .map(|x| x.to_lowercase());
+        if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
+            // tif file - assume this is image sequence and use directory.
+            input_path.pop();
+        }
+    }
 
     // These variables prevent the original data source from being dropped while
     // the iterator over frames maintains only a reference to it.
@@ -428,7 +439,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let writing_app = format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    log::info!("input: {}", cli.input);
+    log::info!("input: {}", input_path.display());
 
     if is_file {
         output_basename = input_path.as_path().with_extension(""); // removes extension but keeps leading directory.
@@ -445,7 +456,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {
             Some("mkv") => {
-                let mkv_video = strand_cam_mkv_source::from_path(&cli.input, do_decode_h264)?;
+                let mkv_video = strand_cam_mkv_source::from_path(&input_path, do_decode_h264)?;
                 let metadata = &mkv_video.parsed.metadata;
                 camera_name = metadata.camera_name.clone();
                 gamma = metadata.gamma;
@@ -459,7 +470,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = encoder;
             }
             Some("mp4") => {
-                let mp4_video = mp4_source::from_path(&cli.input, do_decode_h264)?;
+                let mp4_video = mp4_source::from_path(&input_path, do_decode_h264)?;
                 if let Some(metadata) = &mp4_video.h264_metadata {
                     camera_name = metadata.camera_name.clone();
                     gamma = metadata.gamma;
@@ -470,7 +481,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = Encoder::NoneCopyExistingH264;
             }
             Some("fmf") | Some("fmf.gz") => {
-                let fmf_video = fmf_source::from_path(&cli.input)?;
+                let fmf_video = fmf_source::from_path(&input_path)?;
                 log::debug!("  FMF video");
                 src = Box::new(fmf_video);
                 default_encoder = Encoder::LessAvc;
@@ -478,14 +489,14 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             _ => {
                 anyhow::bail!(
                     "input {} is a file, but not a supported extension.",
-                    cli.input
+                    input_path.display()
                 );
             }
         }
     } else {
         use path_slash::PathBufExt;
 
-        let dirname = PathBuf::from(&cli.input);
+        let dirname = PathBuf::from(&input_path);
 
         // Special case to convert "/_1/Default/*.tif" -> "_1.mp4". This is the
         // default saved by micromanager.
@@ -497,7 +508,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             dirname.clone()
         };
 
-        if !std::fs::metadata(&cli.input)?.is_dir() {
+        if !std::fs::metadata(&input_path)?.is_dir() {
             anyhow::bail!(
                 "Attempting to open \"{}\" as directory with TIFF stack failed \
                 because it is not a directory.",
