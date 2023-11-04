@@ -494,19 +494,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             }
         }
     } else {
-        use path_slash::PathBufExt;
-
         let dirname = PathBuf::from(&input_path);
 
-        // Special case to convert "/_1/Default/*.tif" -> "_1.mp4". This is the
-        // default saved by micromanager.
-        let path_str = dirname.to_slash().unwrap();
-        const ONE_DEFAULT: &str = "/_1/Default";
-        output_basename = if path_str.ends_with(ONE_DEFAULT) {
-            PathBuf::from_slash(path_str.replace(ONE_DEFAULT, "/_1"))
-        } else {
-            dirname.clone()
-        };
+        output_basename = dirname.clone();
 
         if !std::fs::metadata(&input_path)?.is_dir() {
             anyhow::bail!(
