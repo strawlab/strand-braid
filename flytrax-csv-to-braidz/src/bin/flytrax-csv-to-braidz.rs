@@ -121,8 +121,6 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     let cal_file_name = cli
         .calibration_params
-        .file_name()
-        .unwrap()
         .to_str()
         .unwrap();
 
