@@ -258,7 +258,7 @@ where
             .keys()
             .map(Clone::clone)
             .collect();
-        let local = src_info.metadata.original_recording_time.clone();
+        let local = src_info.metadata.original_recording_time;
 
         let recon = if let Some(ci) = &src_info.calibration_info {
             // Check if we need to convert "real" camera names to ROS-compatible
@@ -309,29 +309,27 @@ where
 
     let fps = if let Some(fps) = forced_fps {
         fps.into_inner()
+    } else if !metadata_fps.is_nan() {
+        metadata_fps
     } else {
-        if !metadata_fps.is_nan() {
-            metadata_fps
-        } else {
-            // FPS could not be determined from metadata. Read the data to determine it.
-            let data_src_name = format!("{}", data_src.display());
-            let data_fname = data_src
-                .path_starter()
-                .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        // FPS could not be determined from metadata. Read the data to determine it.
+        let data_src_name = format!("{}", data_src.display());
+        let data_fname = data_src
+            .path_starter()
+            .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
 
-            warn!(
-                "File \"{}\" does not have FPS saved directly. Will \
-                    parse from data.",
-                data_src_name
-            );
+        warn!(
+            "File \"{}\" does not have FPS saved directly. Will \
+                parse from data.",
+            data_src_name
+        );
 
-            // TODO: replace with implementation in braidz-parser.
-            let data_file = open_maybe_gzipped(data_fname)?;
+        // TODO: replace with implementation in braidz-parser.
+        let data_file = open_maybe_gzipped(data_fname)?;
 
-            // TODO: first choice parse "MainBrain running at {}" string (as in
-            // braidz-parser). Second choice, do this.
-            calc_fps_from_data(data_file)?
-        }
+        // TODO: first choice parse "MainBrain running at {}" string (as in
+        // braidz-parser). Second choice, do this.
+        calc_fps_from_data(data_file)?
     };
 
     let all_expected_cameras = recon
@@ -590,8 +588,8 @@ where
             let bufsize = 10000;
             let sorted_data_iter = BufferedSortIter::new(data_iter, bufsize)
                 .map_err(|e| flydra2::file_error("reading rows", display_fname.clone(), e))?;
-            let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
-            data_row_frame_iter
+
+            AscendingGroupIter::new(sorted_data_iter)
         };
 
         let pb = if let Some(n_csv_frames) = n_csv_frames {

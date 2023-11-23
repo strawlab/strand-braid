@@ -248,7 +248,7 @@ where
     };
     let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
-    let mut fd = std::fs::File::create(&braid_metadata_path)?;
+    let mut fd = std::fs::File::create(braid_metadata_path)?;
     fd.write_all(metadata_buf.as_bytes()).unwrap();
 
     Ok(())
