@@ -252,10 +252,52 @@ where
 
     let (local, metadata_fps, recon) = {
         let src_info = data_src.basic_info();
+        let cam_ids: Vec<String> = src_info
+            .cam_info
+            .camid2camn
+            .keys()
+            .map(Clone::clone)
+            .collect();
         let local = src_info.metadata.original_recording_time.clone();
 
         let recon = if let Some(ci) = &src_info.calibration_info {
-            let cams = ci.cameras.clone();
+            // Check if we need to convert "real" camera names to ROS-compatible
+            // names. We are trying to move everywhere to "real" camera names,
+            // but old code (and perhaps current code) converts the real names
+            // to ROS-compatible names. E.g. real name "Basler-1234" ROS name
+            // "Basler_1234".
+            let mut cams = ci.cameras.clone();
+            let mut found = 0;
+            let mut count = 0;
+            for cam_id_in_calibration in cams.cams_by_name().keys() {
+                count += 1;
+                info!("Calibration contains camera: {cam_id_in_calibration}");
+                if !cam_ids.iter().any(|x| x == cam_id_in_calibration) {
+                    let ros_name_calib = RawCamName::new(cam_id_in_calibration.clone()).to_ros();
+                    if cam_ids
+                        .iter()
+                        .any(|x| x.as_str() == ros_name_calib.as_str())
+                    {
+                        found += 1;
+                    }
+                }
+            }
+            if found > 0 && found == count {
+                info!("Converting camera calibration names from original to ROS-compatible names.");
+                let mut new_cams = std::collections::BTreeMap::new();
+                for (orig_name, orig_value) in cams.cams_by_name().iter() {
+                    let ros_name = RawCamName::new(orig_name.clone())
+                        .to_ros()
+                        .as_str()
+                        .to_string();
+                    new_cams.insert(ros_name, orig_value.clone());
+                }
+                cams = if let Some(comment) = cams.comment() {
+                    mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
+                } else {
+                    mvg::MultiCameraSystem::new(new_cams)
+                };
+            }
             let water = ci.water;
             flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
         } else {
