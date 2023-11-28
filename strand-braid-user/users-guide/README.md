@@ -14,7 +14,7 @@ Build the User's Guide website with the command:
 
 You can develop the users guide with the command:
 
-    mdbook serve
+    mdbook serve users-guide --open
 
-This will then run a server which watches for changes, rebuilds the website when
+This will then run a program which watches for changes, rebuilds the website when
 something changes, and hosts it. By default this is at http://localhost:3000/ .
