@@ -4,7 +4,7 @@ set -o errexit
 DEPLOY_DIR=deploy
 
 # Install wasm-pack from here https://rustwasm.github.io/wasm-pack/installer/
-RUSTFLAGS=--cfg=web_sys_unstable_apis wasm-pack build --target web --features pwa-file-loading
+RUSTFLAGS=--cfg=web_sys_unstable_apis wasm-pack build --target web
 mkdir -p $DEPLOY_DIR
 rm -rf $DEPLOY_DIR/*
 cp -pr pkg/* $DEPLOY_DIR/

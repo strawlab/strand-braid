@@ -624,7 +624,6 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
 
 // -----------------------------------------------------------------------------
 
-#[cfg(feature = "pwa-file-loading")]
 #[wasm_bindgen(module = "/js/launch_queue_support.js")]
 extern "C" {
     fn launch_queue_set_consumer(f4: &Closure<dyn FnMut(JsValue)>);
@@ -636,7 +635,6 @@ pub fn run_app() {
     #[allow(unused_variables)]
     let app_handle = yew::Renderer::<Model>::new().render();
 
-    #[cfg(feature = "pwa-file-loading")]
     {
         // Create file handler for progressive web app (PWA) when user clicks on a
         // file in the operating system.

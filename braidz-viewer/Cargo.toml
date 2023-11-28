@@ -37,7 +37,7 @@ mvg = { path = "../mvg", features = ["serde-serialize"] }
 zip-or-dir = { path = "../zip-or-dir" }
 braidz-types = { path = "../braidz-types" }
 braidz-parser = { path = "../braidz-parser" }
-wasm-bindgen-futures = { version = "0.4.37", optional = true }
+wasm-bindgen-futures = { version = "0.4.37" }
 
 [dependencies.web-sys]
 version = "0.3.64"
@@ -48,6 +48,7 @@ features = [
     "File",
     "FileList",
     "FileReader",
+    "FileSystemFileHandle",
     "HtmlInputElement",
     "DataTransfer",
     "DragEvent",
@@ -55,5 +56,3 @@ features = [
 
 [features]
 backtrace = ["mvg/backtrace"]
-
-pwa-file-loading = ["wasm-bindgen-futures", "web-sys/FileSystemFileHandle"]
