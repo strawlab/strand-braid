@@ -329,6 +329,29 @@ Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
 ---------                     -------
  22434126                     17 files
 </code></pre>
+<h3><a class="header" href="#contents-of-a-braidz-file" id="contents-of-a-braidz-file">Contents of a <code>.braidz</code> file</a></h3>
+<p>The most important tables in the <code>.braidz</code> file are <code>kalman_estimates</code>, with the
+3D tracking results, and <code>data2d_distorted</code>, with the 2D camera detections.</p>
+<h4><a class="header" href="#data2d_distorted-table" id="data2d_distorted-table"><code>data2d_distorted</code> table</a></h4>
+<p>The <code>data2d_distorted</code> table contains the raw (2D) camera detections and is
+typically quite large. See the documentation for the row type
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html">Data2dDistortedRow</a>.
+This file is important for carrying synchronization data between cameras. For
+example, when saving videos, the timing data carried by the
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.frame">frame</a>
+and
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.block_id">block_id</a>
+fields is important.</p>
+<h4><a class="header" href="#kalman_estimates-table" id="kalman_estimates-table"><code>kalman_estimates</code> table</a></h4>
+<p>The <code>kalman_estimates</code> tables contains the estimated state (positions and
+velocities) of each tracked object in addition to the estimated covariance. See
+the documentation for the row type
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.KalmanEstimatesRow.html">KalmanEstimatesRow</a>.</p>
+<h4><a class="header" href="#data_association-table" id="data_association-table"><code>data_association</code> table</a></h4>
+<p>The <code>data_association</code> table contains which camera detections contributed to
+estimating the state of which objects in the <code>kalman_estimates</code> table. See the
+documentation for the row type
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.DataAssocRow.html">DataAssocRow</a>.</p>
 <h3><a class="header" href="#chunked-iteration-of-kalman_estimates" id="chunked-iteration-of-kalman_estimates">Chunked iteration of <code>kalman_estimates</code></a></h3>
 <p>The primary tracking results are in the <code>kalman_estimates</code> table. There can
 often be many gigabytes of data here, and thus it is useful to iterate over
