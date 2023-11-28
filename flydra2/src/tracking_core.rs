@@ -17,8 +17,8 @@ use adskalman::ObservationModel as ObservationModelTrait;
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
 use flydra_types::{
-    CamNum, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow, RosCamName, SyncFno,
-    TrackingParams, Triggerbox,
+    CamNum, DataAssocRow, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow,
+    RosCamName, SyncFno, TrackingParams, Triggerbox,
 };
 
 use crate::bundled_data::{MiniArenaPointPerCam, PerMiniArenaAllCamsOneFrameUndistorted};
@@ -27,8 +27,8 @@ use crate::{
     model_server::{SendKalmanEstimatesRow, SendType},
     new_object_test_2d::NewObjectTestFlat3D,
     new_object_test_3d::NewObjectTestFull3D,
-    to_world_point, CameraObservationModel, ConnectedCamerasManager, DataAssocRow,
-    HypothesisTestResult, KalmanEstimateRecord, MyFloat, SaveToDiskMsg, TimeDataPassthrough,
+    to_world_point, CameraObservationModel, ConnectedCamerasManager, HypothesisTestResult,
+    KalmanEstimateRecord, MyFloat, SaveToDiskMsg, TimeDataPassthrough,
 };
 
 // -----------------------------------------------------------------------------

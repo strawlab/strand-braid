@@ -33,13 +33,11 @@ use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 pub use braidz_types::BraidMetadata;
 
 use flydra_types::{
-    CamInfoRow, CamNum, ConnectedCameraSyncState, FlydraFloatTimestampLocal, HostClock,
-    KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TrackingParams, TriggerClockInfoRow,
-    Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
+    CamInfoRow, CamNum, ConnectedCameraSyncState, DataAssocRow, FlydraFloatTimestampLocal,
+    HostClock, KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TrackingParams,
+    TriggerClockInfoRow, Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
 };
 pub use flydra_types::{Data2dDistortedRow, Data2dDistortedRowF32};
-
-use withkey::WithKey;
 
 mod connected_camera_manager;
 pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
@@ -166,20 +164,6 @@ where
         OMatrix::<R, U1, U2>::new(undistored.coords[0], undistored.coords[1]).transpose()
         // This doesn't compile for some reason:
         // OMatrix::<R, U2, U1>::new(undistored.coords[0], undistored.coords[1])
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DataAssocRow {
-    // changes to this struct should update BraidMetadataSchemaTag
-    pub obj_id: u32,
-    pub frame: SyncFno,
-    pub cam_num: CamNum,
-    pub pt_idx: u8,
-}
-impl WithKey<SyncFno> for DataAssocRow {
-    fn key(&self) -> SyncFno {
-        self.frame
     }
 }
 

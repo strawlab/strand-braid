@@ -114,6 +114,20 @@ impl WithKey<SyncFno> for KalmanEstimatesRow {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DataAssocRow {
+    // changes to this struct should update BraidMetadataSchemaTag
+    pub obj_id: u32,
+    pub frame: SyncFno,
+    pub cam_num: CamNum,
+    pub pt_idx: u8,
+}
+impl WithKey<SyncFno> for DataAssocRow {
+    fn key(&self) -> SyncFno {
+        self.frame
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FlydraRawUdpPoint {
     pub x0_abs: f64,

@@ -7,10 +7,10 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Write};
 use tracing::{error, info, trace};
 
-use flydra2::{DataAssocRow, Result};
+use flydra2::Result;
 use groupby::AscendingGroupIter;
 
-use flydra_types::{KalmanEstimatesRow, SyncFno};
+use flydra_types::{DataAssocRow, KalmanEstimatesRow, SyncFno};
 
 use braid_offline::pick_csvgz_or_csv;
 
