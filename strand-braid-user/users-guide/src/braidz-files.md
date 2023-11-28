@@ -119,6 +119,37 @@ Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
  22434126                     17 files
 ```
 
+### Contents of a `.braidz` file
+
+The most important tables in the `.braidz` file are `kalman_estimates`, with the
+3D tracking results, and `data2d_distorted`, with the 2D camera detections.
+
+#### `data2d_distorted` table
+
+The `data2d_distorted` table contains the raw (2D) camera detections and is
+typically quite large. See the documentation for the row type
+[Data2dDistortedRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html).
+This file is important for carrying synchronization data between cameras. For
+example, when saving videos, the timing data carried by the
+[frame](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.frame)
+and
+[block_id](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.block_id)
+fields is important.
+
+#### `kalman_estimates` table
+
+The `kalman_estimates` tables contains the estimated state (positions and
+velocities) of each tracked object in addition to the estimated covariance. See
+the documentation for the row type
+[KalmanEstimatesRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.KalmanEstimatesRow.html).
+
+#### `data_association` table
+
+The `data_association` table contains which camera detections contributed to
+estimating the state of which objects in the `kalman_estimates` table. See the
+documentation for the row type
+[DataAssocRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.DataAssocRow.html).
+
 ### Chunked iteration of `kalman_estimates`
 
 The primary tracking results are in the `kalman_estimates` table. There can
