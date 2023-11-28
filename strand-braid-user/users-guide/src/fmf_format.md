@@ -1,5 +1,9 @@
 # FMF (Fly Movie Format) - simple, uncompressed movie storage format
 
+**New users are recommended to use MP4 files for video rather than FMF files.**
+Strand Camera supports saving to MP4 files, using several different potential
+encoders.
+
 The primary design goals of FMF files are:
 
  - Single pass, low CPU overhead writing of lossless movies for realtime streaming applications
