@@ -1030,27 +1030,46 @@ impl Default for TriggerType {
 pub struct Data2dDistortedRow {
     // changes to this should update BraidMetadataSchemaTag
     // should be kept in sync with Data2dDistortedRowF32
+    /// The number of the camera.
     pub camn: CamNum,
+    /// The synchronized frame number.
+    ///
+    /// This is very likely to be different than [Self::block_id], the camera's
+    /// internal frame number, because Braid synchronizes the frames so that,
+    /// e.g. "frame 10" occurred at the same instant across all cameras.
     pub frame: i64,
     /// This is the trigger timestamp (if available).
     #[serde(with = "crate::timestamp_opt_f64")]
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
-    /// timestamp from the camera
+    /// Timestamp from the camera.
     pub device_timestamp: Option<std::num::NonZeroU64>,
-    /// frame number from the camera
+    /// Frame number from the camera.
+    ///
+    /// Note that this is not the synchronized frame number, which is [Self::frame].
     pub block_id: Option<std::num::NonZeroU64>,
+    /// The X (horizontal) coordinate of the detection, in camera pixels.
     #[serde(deserialize_with = "invalid_nan")]
     pub x: f64,
+    /// The Y (vertical) coordinate of the detection, in camera pixels.
     #[serde(deserialize_with = "invalid_nan")]
     pub y: f64,
+    /// The area of the detection, in camera pixels^2.
     #[serde(deserialize_with = "invalid_nan")]
     pub area: f64,
+    /// The slope of the detection.
+    ///
+    /// The orientation, modulo 𝜋, of the detection, is `atan(slope)`.
     #[serde(deserialize_with = "invalid_nan")]
     pub slope: f64,
+    /// The eccentricity of the detection.
     #[serde(deserialize_with = "invalid_nan")]
     pub eccentricity: f64,
+    /// The index of this particular detection within a given frame.
+    ///
+    /// Multiple detections can occur within a single frame, and each succesive
+    /// detection will have a higher index.
     pub frame_pt_idx: u8,
     pub cur_val: u8,
     #[serde(deserialize_with = "invalid_nan")]
@@ -1065,7 +1084,13 @@ pub struct Data2dDistortedRow {
 #[derive(Debug, Serialize)]
 pub struct Data2dDistortedRowF32 {
     // changes to this should update BraidMetadataSchemaTag
+    /// The number of the camera.
     pub camn: CamNum,
+    /// The synchronized frame number.
+    ///
+    /// This is very likely to be different than [Self::block_id], the camera's
+    /// internal frame number, because Braid synchronizes the frames so that,
+    /// e.g. "frame 10" occurred at the same instant across all cameras.
     pub frame: i64,
     /// This is the trigger timestamp (if available).
     #[serde(with = "crate::timestamp_opt_f64")]
@@ -1074,13 +1099,26 @@ pub struct Data2dDistortedRowF32 {
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// timestamp from the camera
     pub device_timestamp: Option<std::num::NonZeroU64>,
-    /// frame number from the camera
+    /// Frame number from the camera.
+    ///
+    /// Note that this is not the synchronized frame number, which is [Self::frame].
     pub block_id: Option<std::num::NonZeroU64>,
+    /// The X (horizontal) coordinate of the detection, in camera pixels.
     pub x: f32,
+    /// The Y (vertial) coordinate of the detection, in camera pixels.
     pub y: f32,
+    /// The area of the detection, in camera pixels^2.
     pub area: f32,
+    /// The slope of the detection.
+    ///
+    /// The orientation, modulo 𝜋, of the detection, is `atan(slope)`.
     pub slope: f32,
+    /// The eccentricity of the detection.
     pub eccentricity: f32,
+    /// The index of this particular detection within a given frame.
+    ///
+    /// Multiple detections can occur within a single frame, and each succesive
+    /// detection will have a higher index.
     pub frame_pt_idx: u8,
     pub cur_val: u8,
     pub mean_val: f32,
