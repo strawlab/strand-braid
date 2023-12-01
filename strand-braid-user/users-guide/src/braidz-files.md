@@ -22,7 +22,7 @@ The Jupyter Notebook `braidz-contents.ipynb` can be used to view the Kalman esti
 ## Plotting
 
 The following plots were made with the file
-[20201112_133722.braidz](http://strawlab-cdn.com/assets/20201112_133722.braidz).
+[20201112_133722.braidz](https://strawlab-cdn.com/assets/20201112_133722.braidz).
 The scripts can be accessed at
 [github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
 A Jupyter Notebook to create all of these plots can be found in `braid-plotting.ipynb` in the same folder.
