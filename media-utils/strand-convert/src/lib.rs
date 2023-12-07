@@ -382,8 +382,17 @@ fn is_needed_now(
             next_dest_pts.to_display(),next_src_pts.to_display(),prev_dest_pts.to_display(),desired_precision.to_display(),next_src_pts.to_display(),diff.to_display(),
         );
 
-        if next_dest_pts > (prev_dest_pts + (*desired_interval * 100)) {
-            anyhow::bail!("gap in source data of more than 100 frames (next_src_pts: {}, prev_dest_pts: {}, desired_interval: {})", next_src_pts.to_display(), prev_dest_pts.to_display(), desired_interval.to_display());
+        let last_expected = prev_dest_pts + (*desired_interval * 100);
+        if next_dest_pts > last_expected {
+            anyhow::bail!(
+                "gap in source data of more than 100 frames (next_src_pts: {}, \
+                next_dest_pts: {}, prev_dest_pts: {}, desired_interval: {}, last_expected: {})",
+                next_dest_pts.to_display(),
+                next_src_pts.to_display(),
+                prev_dest_pts.to_display(),
+                desired_interval.to_display(),
+                last_expected.to_display()
+            );
         }
 
         Ok(result)
@@ -584,7 +593,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     let min_delta = deltas.iter().min().unwrap().into_inner();
                     let max_delta = deltas.iter().max().unwrap().into_inner();
                     if max_delta / min_delta > 1.05 {
-                        anyhow::bail!("Cannot estimate frame interval reliably. Frame interval varies by more than 5%. Specify with `frame_interval_msec`.")
+                        anyhow::bail!("Cannot estimate frame interval reliably. Frame interval varies by more than 5%. \
+                        Specify with `frame_interval_msec` or set `ignore_timing`.")
                     }
                     let sum_delta = deltas.iter().sum::<NotNan<f64>>().into_inner();
                     let avg_delta = Duration::from_secs_f64(sum_delta / deltas.len() as f64);
