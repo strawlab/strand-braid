@@ -49,7 +49,12 @@ above water (i.e. perform fish tracking), please additionally cite this:
   AD✎. Virtual Reality for Freely Moving Animals. *Nature Methods 14*, 995–1002
   (2017) [doi:10.1038/nmeth.4399](https://dx.doi.org/10.1038/nmeth.4399)
 
-## Building
+## Installing
+
+Please see the [Installation section of our User
+Guide](https://strawlab.github.io/strand-braid/installation.html).
+
+## Building for Development
 
 ### Prerequisites
 

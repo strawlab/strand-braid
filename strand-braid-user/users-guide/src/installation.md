@@ -2,6 +2,9 @@
 
 ## Software installation
 
+Download releases from [our releases
+page](https://github.com/strawlab/strand-braid/releases)
+
 ## Hardware installation
 
 ### Cameras
