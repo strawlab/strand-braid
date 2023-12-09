@@ -231,7 +231,7 @@ impl CallbackHandler for MyCallbackHandler {
     }
 }
 
-async fn new_http_api_app(
+async fn launch_braid_http_backend(
     shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     auth: AccessControl,
     cam_manager: flydra2::ConnectedCamerasManager,
@@ -648,7 +648,7 @@ pub async fn pre_run(
         (camdata_socket.local_addr()?.to_string(), camdata_socket)
     };
 
-    let my_app = new_http_api_app(
+    let my_app = launch_braid_http_backend(
         shutdown_rx,
         auth,
         cam_manager.clone(),
