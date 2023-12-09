@@ -385,7 +385,7 @@ fn parse_args(
             );
         }
 
-        let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, remote_info) = {
+        let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, config_from_braid) = {
             log::info!("Will connect to braid at \"{}\"", braid_addr);
             let mainbrain_internal_addr = flydra_types::MainbrainBuiLocation(
                 flydra_types::BuiServerInfo::parse_url_with_token(&braid_addr)?,
@@ -401,31 +401,34 @@ fn parse_args(
 
             let camera_name = flydra_types::RawCamName::new(camera_name.to_string());
 
-            let remote_info = handle.block_on(mainbrain_session.get_remote_info(&camera_name))?;
+            let config_from_braid: flydra_types::RemoteCameraInfoResponse =
+                handle.block_on(mainbrain_session.get_remote_info(&camera_name))?;
 
             let camdata_addr = {
-                let camdata_addr = remote_info.camdata_addr.parse::<std::net::SocketAddr>()?;
+                let camdata_addr = config_from_braid
+                    .camdata_addr
+                    .parse::<std::net::SocketAddr>()?;
                 let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
 
                 Some(flydra_types::RealtimePointsDestAddr::IpAddr(addr_info_ip))
             };
 
             let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
-                remote_info.config.point_detection_config.clone(),
+                config_from_braid.config.point_detection_config.clone(),
             );
 
             (
                 Some(mainbrain_internal_addr),
                 camdata_addr,
                 tracker_cfg_src,
-                remote_info,
+                config_from_braid,
             )
         };
 
-        let pixel_format = remote_info.config.pixel_format;
-        let force_camera_sync_mode = remote_info.force_camera_sync_mode;
-        let software_limit_framerate = remote_info.software_limit_framerate;
-        let acquisition_duration_allowed_imprecision_msec = remote_info
+        let pixel_format = config_from_braid.config.pixel_format;
+        let force_camera_sync_mode = config_from_braid.force_camera_sync_mode;
+        let software_limit_framerate = config_from_braid.software_limit_framerate;
+        let acquisition_duration_allowed_imprecision_msec = config_from_braid
             .config
             .acquisition_duration_allowed_imprecision_msec;
 
