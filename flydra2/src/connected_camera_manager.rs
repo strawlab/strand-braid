@@ -350,7 +350,7 @@ impl ConnectedCamerasManager {
         mut send_new_frame_offset: F,
     ) -> Option<SyncFno>
     where
-        F: FnMut(&RosCamName, u64),
+        F: FnMut(u64),
     {
         assert!(packet.framenumber >= 0);
 
@@ -466,7 +466,7 @@ impl ConnectedCamerasManager {
             self.notify_cam_changed_listeners();
 
             // Do notifications associated with synchronization.
-            send_new_frame_offset(&ros_cam_name, frame0);
+            send_new_frame_offset(frame0);
             info!(
                 "cam {} synchronized with frame offset: {}",
                 ros_cam_name.as_str(),

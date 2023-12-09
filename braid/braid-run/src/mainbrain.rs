@@ -1101,9 +1101,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
         // We run this closure for each incoming packet.
 
-        // TODO: evaluate if we can reduce or eliminate cloning of http
-        // session handler below. That seems not necessary.
-
         // Let's be sure about the type of our input.
         let r: std::result::Result<
             (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
@@ -1132,24 +1129,31 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             }
         };
 
+        // Create closure which is called only if there is a new frame offset
+        // (which occurs upon synchronization).
+        let send_new_frame_offset = |frame| {
+            let http_session_handler = http_session_handler2.clone();
+            let cam_name = ros_cam_name.clone();
+            let fut_no_err = async move {
+                match http_session_handler
+                    .send_frame_offset(&cam_name, frame)
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Error sending frame offset: {}", e);
+                    }
+                };
+            };
+            rt_handle.spawn(fut_no_err);
+        };
+
         let synced_frame = cam_manager2.got_new_frame_live(
             &packet,
             &sync_pulse_pause_started_arc,
             sync_time_min,
             std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
-            |name, frame| {
-                let name2 = name.clone();
-                let http_session_handler3 = http_session_handler2.clone();
-                let fut_no_err = async move {
-                    match http_session_handler3.send_frame_offset(&name2, frame).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("Error sending frame offset: {}", e);
-                        }
-                    };
-                };
-                rt_handle.spawn(fut_no_err);
-            },
+            send_new_frame_offset,
         );
 
         let cam_num = cam_manager.cam_num(&ros_cam_name);
