@@ -88,7 +88,7 @@ impl WritingState {
         let readme_fd = {
             let readme_path = output_dirname.join(flydra_types::README_MD_FNAME);
 
-            let mut fd = std::fs::File::create(&readme_path)?;
+            let mut fd = std::fs::File::create(readme_path)?;
 
             // Start and end it with some newlines so the text is more
             // readable.
@@ -118,7 +118,7 @@ impl WritingState {
             };
             let metadata_buf = serde_yaml::to_string(&metadata).unwrap();
 
-            let mut fd = std::fs::File::create(&braid_metadata_path)?;
+            let mut fd = std::fs::File::create(braid_metadata_path)?;
             fd.write_all(metadata_buf.as_bytes()).unwrap();
         }
 
