@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !frontend_pkg_dir.join("braid_frontend.js").exists() {
         return Err(format!(
             "The frontend is required but not built. Hint: go to {} and \
-            run `wasm-pack build --target web`.",
+            run `build.sh` (or on Windows, `build.bat`).",
             frontend_dir.display()
         )
         .into());
