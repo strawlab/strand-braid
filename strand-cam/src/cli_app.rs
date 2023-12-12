@@ -365,18 +365,24 @@ fn parse_args(
         for argname in &[
             "pixel_format",
             "JWT_SECRET",
-            "force_camera_sync_mode",
             "camera_settings_filename",
             "http_server_addr",
         ] {
             // Typically these values are not relevant or are set via
             // [flydra_types::RemoteCameraInfoResponse].
-            if matches.get_one::<String>(argname).is_some() {
+            if matches.contains_id(argname) {
                 anyhow::bail!(
-                    "'{}' cannot be set from the command line when calling strand-cam from braid.",
-                    argname
+                    "'{argname}' cannot be set from the command line when calling \
+                    strand-cam from braid.",
                 );
             }
+        }
+
+        if matches.get_count("force_camera_sync_mode") != 0 {
+            anyhow::bail!(
+                "'force_camera_sync_mode' cannot be set from the command line when calling \
+                strand-cam from braid.",
+            );
         }
 
         let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, remote_info) = {
