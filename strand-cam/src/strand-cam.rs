@@ -100,8 +100,6 @@ use std::sync::Arc;
 /// default strand-cam HTTP port when not running in Braid.
 const DEFAULT_HTTP_ADDR: &str = "127.0.0.1:3440";
 
-pub const DEBUG_ADDR_DEFAULT: &str = "127.0.0.1:8877";
-
 pub const APP_INFO: AppInfo = AppInfo {
     name: "strand-cam",
     author: "AndrewStraw",
