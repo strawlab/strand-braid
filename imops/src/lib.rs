@@ -2,7 +2,10 @@
 #![cfg_attr(feature = "simd", feature(portable_simd))]
 
 #[cfg(feature = "simd")]
-use std::simd::{SimdFloat, SimdPartialEq, SimdPartialOrd, SimdUint};
+use std::simd::{
+    cmp::{SimdPartialEq, SimdPartialOrd},
+    num::{SimdFloat, SimdUint},
+};
 
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.

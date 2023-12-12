@@ -8,7 +8,7 @@ pub use std::os::raw as ipp_ctypes;
 /// SIMD vector width, in bytes. Also used for alignment.
 const VECWIDTH: usize = 32;
 #[cfg(feature = "portsimd")]
-use std::simd::{u8x32, SimdPartialOrd};
+use std::simd::{cmp::SimdPartialOrd, u8x32};
 
 #[cfg(feature = "portsimd")]
 pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;

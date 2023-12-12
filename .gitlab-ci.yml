@@ -275,16 +275,16 @@ test_crates_rust_nightly:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2023-08-28
+    - rustup update --no-self-update nightly-2023-12-10
 
     # Test imops with nightly features
     - cd imops
-    - cargo +nightly-2023-08-28 test --no-default-features --features std,simd
+    - cargo +nightly-2023-12-10 test --no-default-features --features std,simd
     - cd ..
 
     # Test fastfreeimage
     - cd fastfreeimage
-    - cargo +nightly-2023-08-28 test --features portsimd
+    - cargo +nightly-2023-12-10 test --features portsimd
     - cd ..
 
 test_flydra_feature_detector:
