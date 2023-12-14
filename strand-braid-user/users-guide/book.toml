@@ -14,4 +14,4 @@ create-missing = false
 [output.html]
 # This is used for the 404 page
 site-url = "https://strawlab.github.io/strand-braid/"
-git-repository-url = "https://github.com/strawlab/strand-braid"
+git-repository-url = "https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide"
