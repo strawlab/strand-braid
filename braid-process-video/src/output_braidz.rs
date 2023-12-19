@@ -124,8 +124,8 @@ impl BraidStorage {
             save_performance_histograms: false,
         };
 
-        let braidz_write_tx = coord_processor.get_braidz_write_tx();
-        braidz_write_tx
+        coord_processor
+            .braidz_write_tx
             .send(flydra2::SaveToDiskMsg::StartSavingCsv(save_cfg))
             .await
             .unwrap();

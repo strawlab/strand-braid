@@ -290,10 +290,9 @@ impl ConnectedCamerasManager {
         http_camserver_info: &CamHttpServerInfo,
         ros_cam_name: &RosCamName,
     ) {
-        info!("register_new_camera got {}", ros_cam_name.as_str());
         let orig_cam_name = orig_cam_name.clone();
         let ros_cam_name = ros_cam_name.clone();
-        {
+        let cam_num = {
             // This scope is for the write lock on self.inner. Keep it minimal.
             let mut inner = self.inner.write();
 
@@ -326,15 +325,23 @@ impl ConnectedCamerasManager {
             inner.ccis.insert(
                 ros_cam_name.clone(),
                 ConnectedCameraInfo {
-                    cam_num,
-                    orig_cam_name,
-                    ros_cam_name,
+                    cam_num: cam_num.clone(),
+                    orig_cam_name: orig_cam_name.clone(),
+                    ros_cam_name: ros_cam_name.clone(),
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
                 },
             );
-        }
+            cam_num
+        };
+        info!(
+            "register_new_camera got original camera name \"{}\", \
+            ROS camera name \"{}\", assigned camera number {}",
+            orig_cam_name.as_str(),
+            ros_cam_name.as_str(),
+            cam_num
+        );
         self.notify_cam_changed_listeners();
     }
 

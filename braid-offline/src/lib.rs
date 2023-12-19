@@ -486,7 +486,6 @@ where
     }
 
     {
-        let braidz_write_tx = coord_processor.get_braidz_write_tx();
         let save_cfg = flydra2::StartSavingCsvConfig {
             out_dir: output_dirname.to_path_buf(),
             local,
@@ -497,13 +496,10 @@ where
             save_performance_histograms,
         };
 
-        braidz_write_tx
+        coord_processor.braidz_write_tx
             .send(flydra2::SaveToDiskMsg::StartSavingCsv(save_cfg))
             .await
             .unwrap();
-        // It is important to drop the `braidz_write_tx` because it contains a
-        // Sender to the writing task and if this is not dropped, the writing
-        // task never completes.
     }
 
     let opt3 = opt2.clone();

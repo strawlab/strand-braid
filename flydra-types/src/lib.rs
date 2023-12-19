@@ -826,6 +826,10 @@ pub struct PerCam<T> {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FlydraRawUdpPacket {
+    /// The name of the camera
+    ///
+    /// Traditionally this was the ROS camera name (e.g. with '-' converted to
+    /// '_'), but we should transition to allowing any valid UTF-8 string.
     pub cam_name: String,
     /// frame timestamp of trigger pulse start (or None if cannot be determined)
     #[serde(with = "crate::timestamp_opt_f64")]

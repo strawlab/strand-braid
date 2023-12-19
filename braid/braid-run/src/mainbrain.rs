@@ -56,6 +56,22 @@ enum MainbrainError {
     },
 }
 
+/// When dropped, send a message. This is used to shutdown the HTTP listener.
+struct DropSend(Option<tokio::sync::oneshot::Sender<()>>);
+
+impl Drop for DropSend {
+    fn drop(&mut self) {
+        if let Some(shutdown_tx) = self.0.take() {
+            match shutdown_tx.send(()) {
+                Ok(()) => {}
+                Err(_) => {
+                    error!("DropSend::drop failed");
+                }
+            }
+        }
+    }
+}
+
 /// The structure that holds our app data
 struct HttpApiApp {
     inner: BuiAppInner<HttpApiShared, HttpApiCallback>,
@@ -63,7 +79,8 @@ struct HttpApiApp {
     triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+    /// Sender which fires to shutdown the HTTP server upon drop.
+    _shutdown_tx: DropSend,
 }
 
 #[derive(Clone)]
@@ -71,14 +88,14 @@ struct MyCallbackHandler {
     cam_manager: flydra2::ConnectedCamerasManager,
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+    braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
     output_base_dirname: std::path::PathBuf,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
     http_session_handler: HttpSessionHandler,
 }
 
 impl MyCallbackHandler {
-    fn start_saving_mkvs_all_cams(&self, start_saving: bool) {
+    fn start_saving_mp4s_all_cams(&self, start_saving: bool) {
         let mut tracker = self.shared_data.write();
         tracker.modify(|store| {
             if start_saving {
@@ -134,7 +151,7 @@ impl CallbackHandler for MyCallbackHandler {
                 UpdateCurrentImage(image_info) => {
                     // new image from camera
                     debug!(
-                        "got new image for camera {:?}",
+                        "got new image for camera {}",
                         image_info.ros_cam_name.as_str()
                     );
                     let mut current_cam_data = self.per_cam_data_arc.write();
@@ -163,7 +180,7 @@ impl CallbackHandler for MyCallbackHandler {
                         value,
                         self.expected_framerate_arc.clone(),
                         self.output_base_dirname.clone(),
-                        self.braidz_write_tx.clone(),
+                        self.braidz_write_tx_weak.clone(),
                         self.per_cam_data_arc.clone(),
                         self.shared_data.clone(),
                     )
@@ -176,13 +193,17 @@ impl CallbackHandler for MyCallbackHandler {
                         .toggle_saving_mkv_files_all(start_saving)
                         .await?;
 
-                    self.start_saving_mkvs_all_cams(start_saving);
+                    self.start_saving_mp4s_all_cams(start_saving);
                 }
                 SetExperimentUuid(value) => {
                     debug!("got SetExperimentUuid({})", value);
-                    flydra2::CoordProcessorControl::new(self.braidz_write_tx.clone())
-                        .set_experiment_uuid(value)
-                        .await;
+                    if let Some(braidz_write_tx) = self.braidz_write_tx_weak.upgrade() {
+                        // `braidz_write_tx` will be dropped after this scope.
+                        braidz_write_tx
+                            .send(flydra2::SaveToDiskMsg::SetExperimentUuid(value))
+                            .await
+                            .unwrap();
+                    }
                 }
                 SetPostTriggerBufferSize(val) => {
                     debug!("got SetPostTriggerBufferSize({val})");
@@ -211,7 +232,7 @@ impl CallbackHandler for MyCallbackHandler {
                             .initiate_post_trigger_mkv_all()
                             .await?;
 
-                        self.start_saving_mkvs_all_cams(true);
+                        self.start_saving_mp4s_all_cams(true);
                     } else {
                         debug!("Already saving, not initiating again.");
                     }
@@ -232,7 +253,6 @@ impl CallbackHandler for MyCallbackHandler {
 }
 
 async fn launch_braid_http_backend(
-    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     auth: AccessControl,
     cam_manager: flydra2::ConnectedCamerasManager,
     shared: HttpApiShared,
@@ -244,7 +264,7 @@ async fn launch_braid_http_backend(
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
-    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+    braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
@@ -262,7 +282,7 @@ async fn launch_braid_http_backend(
         expected_framerate_arc: expected_framerate_arc.clone(),
         output_base_dirname: output_base_dirname.clone(),
         per_cam_data_arc: per_cam_data_arc.clone(),
-        braidz_write_tx: braidz_write_tx.clone(),
+        braidz_write_tx_weak,
         http_session_handler,
     });
 
@@ -271,8 +291,12 @@ async fn launch_braid_http_backend(
         &auth,
         chan_size,
         &EVENTS_PREFIX,
-        Some(Arc::new(Box::new(move |mut resp, req| {
+        Some(Arc::new(Box::new(move |resp, req| {
+            debug!("got HTTP request {}", req.uri());
             let path = req.uri().path();
+            const JSON_TYPE: &str = "application/json";
+            let mut resp = resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE);
+            const EMPTY_JSON_BUF: &str = "{}";
             let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
                 let query = req.uri().query();
                 let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
@@ -296,25 +320,30 @@ async fn launch_braid_http_backend(
                             software_limit_framerate,
                         };
                         let body_str = serde_json::to_string(&msg).unwrap();
-                        const JSON_TYPE: &str = "application/json";
-                        resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE)
-                            .body(body_str.into())?
+                        resp.body(body_str.into())?
                     } else {
+                        error!(
+                            "HTTP request for configuration not found for camera \"{camera_name}\""
+                        );
                         resp = resp.status(hyper::StatusCode::NOT_FOUND);
-                        resp.body(hyper::Body::empty())?
+                        resp.body(EMPTY_JSON_BUF.into())?
                     }
                 } else {
-                    resp = resp.status(hyper::StatusCode::NOT_FOUND);
-                    resp.body(hyper::Body::empty())?
+                    error!("HTTP request for configuration but no camera specified");
+                    resp = resp.status(hyper::StatusCode::BAD_REQUEST);
+                    resp.body(EMPTY_JSON_BUF.into())?
                 }
             } else {
-                resp = resp.status(hyper::StatusCode::NOT_FOUND);
-                resp.body(hyper::Body::empty())?
+                error!("HTTP request unknown");
+                resp = resp.status(hyper::StatusCode::BAD_REQUEST);
+                resp.body(EMPTY_JSON_BUF.into())?
             };
             Ok(resp)
         }))),
         callback_handler,
     );
+
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     let (_, inner) = create_bui_app_inner(
         tokio::runtime::Handle::current(),
@@ -345,7 +374,7 @@ async fn launch_braid_http_backend(
         triggerbox_cmd,
         sync_pulse_pause_started_arc,
         expected_framerate_arc,
-        braidz_write_tx,
+        _shutdown_tx: DropSend(Some(shutdown_tx)),
     })
 }
 
@@ -452,7 +481,6 @@ pub async fn pre_run(
     // Create `stream_cancel::Valve` for shutting everything down. Note this is
     // `Clone`, so we can (and should) shut down everything with it.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let (model_server_shutdown_tx, model_server_shutdown_rx) =
         tokio::sync::oneshot::channel::<()>();
     let (shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
@@ -533,7 +561,6 @@ pub async fn pre_run(
         flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
         valve.clone(),
     )?;
-    let braidz_write_tx = coord_processor.get_braidz_write_tx();
 
     // Here is what we do on quit:
     // 1) Stop saving data, convert .braid dir to .braidz, close files.
@@ -541,12 +568,14 @@ pub async fn pre_run(
     // 3) Only then close all our network ports and streams nicely.
     let mut quit_trigger_container = Some(quit_trigger);
     let mut http_session_handler2 = http_session_handler.clone();
-    let braidz_write_tx2 = braidz_write_tx.clone();
+    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
     handle.spawn(async move {
         while let Some(()) = shtdwn_q_rx.recv().await {
             debug!("got shutdown command {}:{}", file!(), line!());
 
-            {
+            if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                // `braidz_write_tx` will be dropped after this scope.
+
                 // Stop saving Braid data.
 
                 // Do not need to wait for completion because we are going to
@@ -555,8 +584,8 @@ pub async fn pre_run(
                 // will finish writing without an explicit wait. (Of course,
                 // this fails during an actual abort).
 
-                flydra2::CoordProcessorControl::new(braidz_write_tx2.clone())
-                    .stop_saving_data()
+                braidz_write_tx
+                    .send(flydra2::SaveToDiskMsg::StopSavingCsv)
                     .await
                     .unwrap_or(()); // ignore error on shutdown
             }
@@ -570,7 +599,6 @@ pub async fn pre_run(
                 break; // no point to listen for more
             }
         }
-        shutdown_tx.send(()).expect("sending quit to hyper");
         model_server_shutdown_tx
             .send(())
             .expect("sending quit to model server");
@@ -648,8 +676,22 @@ pub async fn pre_run(
         (camdata_socket.local_addr()?.to_string(), camdata_socket)
     };
 
+    if !output_base_dirname.exists() {
+        info!(
+            "creating output data directory at \"{}\"",
+            output_base_dirname.display()
+        );
+        std::fs::create_dir_all(&output_base_dirname)?;
+    }
+
+    debug!(
+        "output .braidz data directory will be \"{}\"",
+        std::fs::canonicalize(&output_base_dirname)?.display()
+    );
+
+    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
+
     let my_app = launch_braid_http_backend(
-        shutdown_rx,
         auth,
         cam_manager.clone(),
         shared,
@@ -661,7 +703,7 @@ pub async fn pre_run(
         sync_pulse_pause_started_arc,
         expected_framerate_arc,
         output_base_dirname.clone(),
-        braidz_write_tx.clone(),
+        braidz_write_tx_weak,
         per_cam_data_arc.clone(),
         force_camera_sync_mode,
         software_limit_framerate,
@@ -846,8 +888,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let expected_framerate_arc = my_app.expected_framerate_arc.clone();
     let sync_pulse_pause_started_arc = my_app.sync_pulse_pause_started_arc.clone();
 
-    let braidz_write_tx = my_app.braidz_write_tx.clone();
-
     {
         let sender = SendConnectedCamToBuiBackend {
             shared_store: my_app.inner.shared_arc().clone(),
@@ -868,7 +908,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let mut triggerbox_data_rx = valve.wrap(triggerbox_data_rx);
 
     {
-        let braidz_write_tx = braidz_write_tx.clone();
+        let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
         let signal_triggerbox_connected = signal_triggerbox_connected.clone();
 
         let mut has_triggerbox_connected = false;
@@ -890,9 +930,14 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                     tcnt: msg.tcnt,
                     stop_timestamp: msg.stop_timestamp.into(),
                 };
-                flydra2::CoordProcessorControl::new(braidz_write_tx.clone())
-                    .append_trigger_clock_info_message(msg2)
-                    .await;
+
+                if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                    // `braidz_write_tx` will be dropped after this scope.
+                    braidz_write_tx
+                        .send(flydra2::SaveToDiskMsg::TriggerClockInfo(msg2))
+                        .await
+                        .unwrap();
+                }
             }
             debug!("triggerbox listener future done {}:{}", file!(), line!());
         };
@@ -1165,7 +1210,18 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         let cam_num = match cam_num {
             Some(cam_num) => cam_num,
             None => {
-                debug!("Unknown camera name '{}'.", ros_cam_name.as_str());
+                let known_ros_cam_names = cam_manager.all_ros_cam_names();
+                let cam_names = known_ros_cam_names
+                    .iter()
+                    .map(|x| format!("\"{}\"", x.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                debug!(
+                    "Unknown camera name \"{}\" ({} expected cameras: [{}]).",
+                    ros_cam_name.as_str(),
+                    cam_names.len(),
+                    cam_names
+                );
                 // Cannot compute cam_num, drop this data.
                 return futures::future::ready(None);
             }
@@ -1239,21 +1295,17 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     // We "block" (in an async way) here for the entire runtime of the program.
     let writer_jh = consume_future.await;
 
-    debug!("Runtime ending. Aborting any remaining tasks.");
-
     // If these tasks are still running, cancel them.
+    debug!("Runtime ending. Aborting any remaining tasks.");
     sync_start_jh.abort();
     sync_done_jh.abort();
 
     // Allow writer task time to finish writing.
+    debug!("Runtime ending. Joining coord_processor.consume_stream future.");
     writer_jh
         .join()
         .expect("join writer task 1")
         .expect("join writer task 2");
-
-    // TODO: reenable this to stop nicely.
-    // // hmm do we need this? We could just end without idling.
-    // runtime.shutdown_on_idle();
 
     debug!("done {}:{}", file!(), line!());
 
@@ -1341,7 +1393,7 @@ async fn toggle_saving_csv_tables(
     start_saving: bool,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
-    braidz_write_tx: tokio::sync::mpsc::Sender<flydra2::SaveToDiskMsg>,
+    braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
 ) {
@@ -1365,9 +1417,17 @@ async fn toggle_saving_csv_tables(
             print_stats: false,
             save_performance_histograms: true,
         };
-        flydra2::CoordProcessorControl::new(braidz_write_tx.clone())
-            .start_saving_data(cfg)
-            .await;
+
+        if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+            // `braidz_write_tx` will be dropped after this scope.
+            braidz_write_tx
+                .send(flydra2::SaveToDiskMsg::StartSavingCsv(cfg))
+                .await
+                .unwrap();
+            info!("saving data to \"{}\"", my_dir.display());
+        } else {
+            error!("data writing thread lost. Not saving data as requested");
+        }
 
         {
             let mut tracker = shared_data.write();
@@ -1375,13 +1435,17 @@ async fn toggle_saving_csv_tables(
                 store.csv_tables_dirname = Some(RecordingPath::new(my_dir.display().to_string()));
             });
         }
-
-        info!("saving data to {}", my_dir.display());
     } else {
-        flydra2::CoordProcessorControl::new(braidz_write_tx)
-            .stop_saving_data()
-            .await
-            .unwrap_or(()); // ignore error on shutdown
+        if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+            // `braidz_write_tx` will be dropped after this scope.
+            braidz_write_tx
+                .send(flydra2::SaveToDiskMsg::StopSavingCsv)
+                .await
+                .unwrap_or(()); // ignore error on shutdown
+            info!("stopping saving");
+        } else {
+            error!("data writing thread lost. Could not stop saving data as requested");
+        }
 
         {
             let mut tracker = shared_data.write();
@@ -1389,8 +1453,6 @@ async fn toggle_saving_csv_tables(
                 store.csv_tables_dirname = None;
             });
         }
-
-        info!("stopping saving");
     }
 }
 

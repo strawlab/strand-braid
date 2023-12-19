@@ -706,61 +706,36 @@ pub struct StartSavingCsvConfig {
     pub save_performance_histograms: bool,
 }
 
-/// A struct which implements `std::marker::Send` to control coord processing.
-///
-/// Do not prefer to keep this. Rather, clone the inner `braidz_write_tx`.
-pub struct CoordProcessorControl {
-    braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
-}
-
-impl CoordProcessorControl {
-    #[inline]
-    pub fn new(braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>) -> Self {
-        Self { braidz_write_tx }
-    }
-
-    pub async fn start_saving_data(&self, cfg: StartSavingCsvConfig) {
-        self.braidz_write_tx
-            .send(SaveToDiskMsg::StartSavingCsv(cfg))
-            .await
-            .unwrap();
-    }
-
-    pub async fn stop_saving_data(&self) -> Result<()> {
-        self.braidz_write_tx
-            .send(SaveToDiskMsg::StopSavingCsv)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn append_textlog_message(&self, msg: TextlogRow) {
-        self.braidz_write_tx
-            .send(SaveToDiskMsg::Textlog(msg))
-            .await
-            .unwrap();
-    }
-
-    pub async fn append_trigger_clock_info_message(&self, msg: TriggerClockInfoRow) {
-        self.braidz_write_tx
-            .send(SaveToDiskMsg::TriggerClockInfo(msg))
-            .await
-            .unwrap();
-    }
-
-    pub async fn set_experiment_uuid(&self, uuid: String) {
-        self.braidz_write_tx
-            .send(SaveToDiskMsg::SetExperimentUuid(uuid))
-            .await
-            .unwrap();
-    }
-}
-
 #[derive(Debug)]
 pub struct CoordProcessorConfig {
     pub tracking_params: TrackingParams,
     pub save_empty_data2d: bool,
     pub ignore_latency: bool,
     pub mini_arena_debug_image_dir: Option<std::path::PathBuf>,
+}
+
+/// A [tokio::sync::mpsc::Sender] which cannot be cloned.
+///
+/// This prevents accidentally keeping the receiver open because there can only
+/// be the one sender.
+///
+/// (Note that this is not a hard guarantee. A could could be made by upgrading
+/// a `WeakSender` to a full-fledged `Sender`. Potentially new Downgraded and
+/// Upgraded types could be invented which would eliminate this possibility.)
+#[derive(Debug)]
+pub struct SingletonSender<T>(tokio::sync::mpsc::Sender<T>);
+
+impl<T> SingletonSender<T> {
+    pub async fn send(
+        &self,
+        msg: T,
+    ) -> std::result::Result<(), tokio::sync::mpsc::error::SendError<T>> {
+        self.0.send(msg).await
+    }
+
+    pub fn downgrade(&self) -> tokio::sync::mpsc::WeakSender<T> {
+        self.0.downgrade()
+    }
 }
 
 // TODO note: currently, clones of `braidz_write_tx` keep the writing task alive
@@ -773,7 +748,8 @@ pub struct CoordProcessorConfig {
 pub struct CoordProcessor {
     pub cam_manager: ConnectedCamerasManager,
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
-    pub braidz_write_tx: tokio::sync::mpsc::Sender<SaveToDiskMsg>,
+    /// Channel to send messages to the writing thread.
+    pub braidz_write_tx: SingletonSender<SaveToDiskMsg>,
     pub writer_join_handle: std::thread::JoinHandle<Result<()>>,
     model_servers: Vec<tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>>,
     tracking_params: Arc<TrackingParams>,
@@ -843,7 +819,7 @@ impl CoordProcessor {
         Ok(Self {
             cam_manager,
             recon,
-            braidz_write_tx,
+            braidz_write_tx: SingletonSender(braidz_write_tx),
             writer_join_handle,
             tracking_params,
             model_servers: vec![],
@@ -873,10 +849,6 @@ impl CoordProcessor {
                 )
             })
             .collect()
-    }
-
-    pub fn get_braidz_write_tx(&self) -> tokio::sync::mpsc::Sender<SaveToDiskMsg> {
-        self.braidz_write_tx.clone()
     }
 
     pub fn add_listener(

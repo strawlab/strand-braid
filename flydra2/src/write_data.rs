@@ -609,7 +609,8 @@ pub(crate) fn writer_task_main(
                 )?);
             }
             StopSavingCsv => {
-                // This will drop the writers and thus close them.
+                // This will drop `writing_state`, and thus the writers, and
+                // thus close them.
                 writing_state = None;
             }
             SetExperimentUuid(uuid) => {

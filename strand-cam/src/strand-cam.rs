@@ -112,7 +112,7 @@ pub const APP_INFO: AppInfo = AppInfo {
 compile_error!("do not enable 'flydra-feature-detector' except with 'flydra_feat_detect' feature");
 
 #[cfg(feature = "flydratrax")]
-use flydra2::{CoordProcessor, CoordProcessorConfig, CoordProcessorControl, MyFloat, StreamItem};
+use flydra2::{CoordProcessor, CoordProcessorConfig, MyFloat, SaveToDiskMsg, StreamItem};
 
 #[cfg(feature = "imtrack-absdiff")]
 pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
@@ -748,7 +748,7 @@ async fn frame_process_task(
     #[cfg(feature = "flydratrax")]
     let mut maybe_flydra2_stream = None;
     #[cfg(feature = "flydratrax")]
-    let mut maybe_flydra2_write_control = None;
+    let mut opt_braidz_write_tx_weak = None;
 
     #[cfg_attr(not(feature = "flydra_feat_detect"), allow(dead_code))]
     struct CsvSavingState {
@@ -1042,9 +1042,10 @@ async fn frame_process_task(
                                 )
                                 .expect("create CoordProcessor");
 
-                                let braidz_write_tx = coord_processor.get_braidz_write_tx();
-                                maybe_flydra2_write_control =
-                                    Some(CoordProcessorControl::new(braidz_write_tx));
+                                let braidz_write_tx_weak =
+                                    coord_processor.braidz_write_tx.downgrade();
+
+                                opt_braidz_write_tx_weak = Some(braidz_write_tx_weak);
 
                                 let (model_server_data_tx, _model_server) =
                                     flydratrax_model_server2;
@@ -1095,16 +1096,18 @@ async fn frame_process_task(
             if !is_doing_object_detection | !kalman_tracking_enabled {
                 // drop all flydra2 stuff if we are not tracking
                 maybe_flydra2_stream = None;
-                if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut() {
-                    match write_controller.stop_saving_data().await {
-                        Ok(()) => {}
-                        Err(_) => {
-                            log::info!("Channel to data writing task closed. Ending.");
-                            break;
+                if let Some(braidz_write_tx_weak) = opt_braidz_write_tx_weak.take() {
+                    if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                        // `braidz_write_tx` will be dropped after this scope.
+                        match braidz_write_tx.send(SaveToDiskMsg::StopSavingCsv).await {
+                            Ok(()) => {}
+                            Err(_) => {
+                                log::info!("Channel to data writing task closed. Ending.");
+                                break;
+                            }
                         }
                     }
                 }
-                maybe_flydra2_write_control = None;
             }
         }
 
@@ -2025,8 +2028,8 @@ async fn frame_process_task(
 
                         #[cfg(feature = "flydratrax")]
                         {
-                            if let Some(ref mut write_controller) =
-                                maybe_flydra2_write_control.as_mut()
+                            if let Some(ref mut braidz_write_tx_weak) =
+                                opt_braidz_write_tx_weak.as_mut()
                             {
                                 let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
                                 let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
@@ -2048,7 +2051,13 @@ async fn frame_process_task(
                                     print_stats: false,
                                     save_performance_histograms: true,
                                 };
-                                write_controller.start_saving_data(cfg).await;
+                                if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                                    // `braidz_write_tx` will be dropped after this scope.
+                                    braidz_write_tx
+                                        .send(SaveToDiskMsg::StartSavingCsv(cfg))
+                                        .await
+                                        .unwrap();
+                                }
                             }
                         }
                     }
@@ -2063,13 +2072,17 @@ async fn frame_process_task(
                     csv_save_state = SavingState::NotSaving;
                     #[cfg(feature = "flydratrax")]
                     {
-                        if let Some(ref mut write_controller) = maybe_flydra2_write_control.as_mut()
+                        if let Some(ref mut braidz_write_tx_weak) =
+                            opt_braidz_write_tx_weak.as_mut()
                         {
-                            match write_controller.stop_saving_data().await {
-                                Ok(()) => {}
-                                Err(_) => {
-                                    log::info!("Channel to data writing task closed. Ending.");
-                                    break;
+                            if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                                // `braidz_write_tx` will be dropped after this scope.
+                                match braidz_write_tx.send(SaveToDiskMsg::StopSavingCsv).await {
+                                    Ok(()) => {}
+                                    Err(_) => {
+                                        log::info!("Channel to data writing task closed. Ending.");
+                                        break;
+                                    }
                                 }
                             }
                         }
