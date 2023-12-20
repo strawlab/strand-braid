@@ -1,8 +1,10 @@
+use http_body_util::BodyExt;
+
 use bui_backend_session::future_session;
 use bui_backend_types::AccessToken;
 
 #[tokio::main]
-async fn main() -> Result<(),hyper::Error> {
+async fn main() -> Result<(), bui_backend_session::Error> {
     env_logger::init();
 
     // this contacts the demo included with bui-backend
@@ -13,7 +15,9 @@ async fn main() -> Result<(),hyper::Error> {
 
     // now make callback
     let bytes = r#"{"SetIsRecordingFmf":true}"#;
-    let body = hyper::Body::from(bytes);
+    let body = http_body_util::Full::new(bytes::Bytes::from(bytes))
+        .map_err(|_: std::convert::Infallible| unreachable!())
+        .boxed();
 
     let mut sess2 = future_session(base, AccessToken::NoToken).await?;
     let resp = sess2.post("callback", body).await;

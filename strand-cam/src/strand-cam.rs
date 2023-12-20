@@ -33,6 +33,8 @@ use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
 
 use hyper_tls::HttpsConnector;
+use hyper_util::{client::legacy::Client, rt::TokioExecutor};
+
 #[allow(unused_imports)]
 use preferences::{AppInfo, Preferences};
 
@@ -185,6 +187,12 @@ pub enum StrandCamError {
     TrySendError,
     #[error("BUI backend error: {0}")]
     BuiBackendError(#[from] bui_backend::Error),
+    #[error("BUI backend session error: {0}")]
+    BuiBackendSessionError(#[from] bui_backend_session::Error),
+    #[error("Braid HTTP session error: {0}")]
+    BraidHttpSessionError(#[from] braid_http_session::Error),
+    #[error("hyper_util client legacy error: {0}")]
+    HyperUtilClientLegacyError(#[from] hyper_util::client::legacy::Error),
     #[error("ci2 error: {0}")]
     Ci2Error(
         #[from]
@@ -2440,11 +2448,23 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
     }
 }
 
+type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
+
+fn body_from_buf(body_buf: &[u8]) -> MyBody {
+    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
+    use http_body_util::BodyExt;
+    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+}
+
 async fn check_version(
-    client: hyper::Client<HttpsConnector<hyper::client::HttpConnector>>,
+    client: Client<
+        HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>,
+        MyBody,
+        // http_body_util::Empty<bytes::Bytes>,
+    >,
     known_version: Arc<RwLock<semver::Version>>,
     app_name: &'static str,
-) -> hyper::Result<()> {
+) -> Result<()> {
     let url = format!("https://version-check.strawlab.org/{app_name}");
     let url = url.parse::<hyper::Uri>().unwrap();
     let agent = format!("{}/{}", app_name, *known_version.read());
@@ -2452,7 +2472,7 @@ async fn check_version(
     let req = hyper::Request::builder()
         .uri(&url)
         .header(hyper::header::USER_AGENT, agent.as_str())
-        .body(hyper::body::Body::empty())
+        .body(body_from_buf(b""))
         .unwrap();
 
     #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -2472,30 +2492,13 @@ async fn check_version(
 
     let known_version3 = known_version2.clone();
 
-    // TODO: this is some ancient hyper and there must be easier ways to get
-    // body into Vec<u8>.
+    let body = res.into_body();
+    let chunks: std::result::Result<http_body_util::Collected<bytes::Bytes>, _> = {
+        use http_body_util::BodyExt;
+        body.collect().await
+    };
+    let data = chunks?.to_bytes();
 
-    let (_parts, body) = res.into_parts();
-
-    // convert stream of Result<Chunk> into future of Vec<Result<Chunk>>
-    let data_fut = body.fold(vec![], |mut buf, result_chunk| async {
-        buf.push(result_chunk);
-        buf
-    });
-
-    // now in this future handle the payload
-    let vec_res_chunk: Vec<hyper::Result<hyper::body::Bytes>> = data_fut.await;
-
-    // move error to outer type
-    let res_vec_chunk: hyper::Result<Vec<hyper::body::Bytes>> = vec_res_chunk.into_iter().collect();
-
-    let chunks = res_vec_chunk?;
-
-    let data: Vec<u8> = chunks.into_iter().fold(vec![], |mut buf, chunk| {
-        // trace!("got chunk: {}", String::from_utf8_lossy(&chunk));
-        buf.extend_from_slice(&chunk);
-        buf
-    });
     let version: VersionResponse = match serde_json::from_slice(&data) {
         Ok(version) => version,
         Err(e) => {
@@ -3619,7 +3622,7 @@ where
         let stream_future = async move {
             while incoming1.next().await.is_some() {
                 let https = HttpsConnector::new();
-                let client = hyper::Client::builder().build::<_, hyper::Body>(https);
+                let client = Client::builder(TokioExecutor::new()).build::<_, MyBody>(https);
 
                 let r = check_version(client, known_version2.clone(), app_name).await;
                 match r {

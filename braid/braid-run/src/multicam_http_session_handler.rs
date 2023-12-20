@@ -18,6 +18,16 @@ enum MaybeSession {
     Errored,
 }
 
+use crate::mainbrain::{MainbrainError, MainbrainResult};
+
+type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
+
+fn body_from_buf(body_buf: &[u8]) -> MyBody {
+    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
+    use http_body_util::BodyExt;
+    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+}
+
 impl HttpSessionHandler {
     pub fn new(cam_manager: flydra2::ConnectedCamerasManager) -> Self {
         Self {
@@ -25,7 +35,7 @@ impl HttpSessionHandler {
             name_to_session: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
-    async fn open_session(&self, cam_name: &RosCamName) -> Result<MaybeSession, hyper::Error> {
+    async fn open_session(&self, cam_name: &RosCamName) -> Result<MaybeSession, MainbrainError> {
         // Create a new session if it doesn't exist.
         let (base_url, token) = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
@@ -58,7 +68,7 @@ impl HttpSessionHandler {
             }
             Err(e) => {
                 error!("could not create session to {}: {}", base_url, e);
-                Err(e)
+                Err(e.into())
             }
         }
     }
@@ -67,7 +77,7 @@ impl HttpSessionHandler {
         &self,
         cam_name: &RosCamName,
         args: ci2_remote_control::CamArg,
-    ) -> Result<(), hyper::Error> {
+    ) -> Result<(), MainbrainError> {
         // Get session if it already exists.
         let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
 
@@ -80,9 +90,8 @@ impl HttpSessionHandler {
         // Post to session
         match session {
             MaybeSession::Alive(mut session) => {
-                let body = hyper::body::Body::from(
-                    serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap(),
-                );
+                let body =
+                    body_from_buf(&serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap());
 
                 let result = session.post("callback", body).await;
                 match result {
@@ -106,7 +115,7 @@ impl HttpSessionHandler {
         &self,
         cam_name: &RosCamName,
         frame_offset: u64,
-    ) -> Result<(), hyper::Error> {
+    ) -> Result<(), MainbrainError> {
         info!(
             "for cam {}, sending frame offset {}",
             cam_name.as_str(),
@@ -116,7 +125,7 @@ impl HttpSessionHandler {
         self.post(cam_name, args).await
     }
 
-    async fn send_quit(&mut self, cam_name: &RosCamName) -> Result<(), hyper::Error> {
+    async fn send_quit(&mut self, cam_name: &RosCamName) -> Result<(), MainbrainError> {
         info!("for cam {}, sending quit", cam_name.as_str());
         let args = ci2_remote_control::CamArg::DoQuit;
 
@@ -137,7 +146,7 @@ impl HttpSessionHandler {
                     "Ignoring error while sending quit command to {}: {}",
                     cam_name, e
                 );
-                Err(e)
+                Err(e.into())
             }
         }
     }
@@ -172,10 +181,7 @@ impl HttpSessionHandler {
             .await;
     }
 
-    pub async fn toggle_saving_mkv_files_all(
-        &self,
-        start_saving: bool,
-    ) -> Result<(), hyper::Error> {
+    pub async fn toggle_saving_mkv_files_all(&self, start_saving: bool) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
             self.toggle_saving_mkv_files(cam_name, start_saving).await?;
@@ -187,7 +193,7 @@ impl HttpSessionHandler {
         &self,
         cam_name: &RosCamName,
         start_saving: bool,
-    ) -> Result<(), hyper::Error> {
+    ) -> MainbrainResult<()> {
         debug!(
             "for cam {}, sending save mkv file {:?}",
             cam_name.as_str(),
@@ -203,7 +209,7 @@ impl HttpSessionHandler {
     pub async fn send_clock_model_to_all(
         &self,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
-    ) -> Result<(), hyper::Error> {
+    ) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
             self.send_clock_model(cam_name, clock_model.clone()).await?;
@@ -215,7 +221,7 @@ impl HttpSessionHandler {
         &self,
         cam_name: &RosCamName,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
-    ) -> Result<(), hyper::Error> {
+    ) -> MainbrainResult<()> {
         debug!(
             "for cam {}, sending clock model {:?}",
             cam_name.as_str(),
@@ -227,7 +233,7 @@ impl HttpSessionHandler {
         self.post(&cam_name, args).await
     }
 
-    pub async fn set_post_trigger_buffer_all(&self, num_frames: usize) -> Result<(), hyper::Error> {
+    pub async fn set_post_trigger_buffer_all(&self, num_frames: usize) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
             self.set_post_trigger_buffer(cam_name, num_frames).await?;
@@ -239,7 +245,7 @@ impl HttpSessionHandler {
         &self,
         cam_name: &RosCamName,
         num_frames: usize,
-    ) -> Result<(), hyper::Error> {
+    ) -> MainbrainResult<()> {
         debug!(
             "for cam {}, sending set post trigger buffer {}",
             cam_name.as_str(),
@@ -252,7 +258,7 @@ impl HttpSessionHandler {
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mkv_all(&self) -> Result<(), hyper::Error> {
+    pub async fn initiate_post_trigger_mkv_all(&self) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
             self.initiate_post_trigger_mkv(cam_name).await?;
@@ -260,10 +266,7 @@ impl HttpSessionHandler {
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mkv(
-        &self,
-        cam_name: &RosCamName,
-    ) -> Result<(), hyper::Error> {
+    pub async fn initiate_post_trigger_mkv(&self, cam_name: &RosCamName) -> MainbrainResult<()> {
         debug!(
             "for cam {}, initiating post trigger recording",
             cam_name.as_str(),

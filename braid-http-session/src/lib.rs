@@ -9,6 +9,8 @@ pub enum Error {
     JsonError(#[from] serde_json::Error),
     #[error("{0}")]
     HyperError(#[from] hyper::Error),
+    #[error("{0}")]
+    BuiBackendSession(#[from] bui_backend_session::Error),
     #[error("HTTP error {0} when calling {1}")]
     HttpError(hyper::StatusCode, String),
 }
@@ -16,12 +18,20 @@ pub enum Error {
 /// Create a `MainbrainSession` which has already made a request
 pub async fn mainbrain_future_session(
     dest: flydra_types::MainbrainBuiLocation,
-) -> Result<MainbrainSession, hyper::Error> {
+) -> Result<MainbrainSession, bui_backend_session::Error> {
     let base_url = dest.0.base_url();
     let token = dest.0.token();
     debug!("requesting session with mainbrain at {}", base_url);
     let inner = future_session(&base_url, token.clone()).await?;
     Ok(MainbrainSession { inner })
+}
+
+type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
+
+fn body_from_buf(body_buf: &[u8]) -> MyBody {
+    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
+    use http_body_util::BodyExt;
+    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
 }
 
 /// This allows communicating with the Mainbrain over HTTP RPC.
@@ -34,8 +44,8 @@ pub struct MainbrainSession {
 }
 
 impl MainbrainSession {
-    async fn do_post(&mut self, bytes: Vec<u8>) -> Result<(), hyper::Error> {
-        let body = hyper::Body::from(bytes);
+    async fn do_post(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
+        let body = body_from_buf(&bytes);
 
         let resp = self.inner.post("callback", body).await?;
 
@@ -75,16 +85,11 @@ impl MainbrainSession {
 
         // fold all chunks into one Vec<u8>
         let body = resp.into_body();
-        use futures::stream::StreamExt;
-        let chunks: Vec<Result<hyper::body::Bytes, hyper::Error>> = body.collect().await;
-        let chunks: Result<Vec<hyper::body::Bytes>, hyper::Error> =
-            Result::from_iter(chunks.into_iter());
-        let chunks: Vec<hyper::body::Bytes> = chunks?;
-        let data: Vec<u8> = chunks.into_iter().fold(vec![], |mut buf, chunk| {
-            log::trace!("got chunk: {}", String::from_utf8_lossy(&chunk));
-            buf.extend_from_slice(&chunk);
-            buf
-        });
+        let chunks: Result<http_body_util::Collected<bytes::Bytes>, hyper::Error> = {
+            use http_body_util::BodyExt;
+            body.collect().await
+        };
+        let data = chunks?.to_bytes();
 
         // parse data
         Ok(serde_json::from_slice::<
@@ -95,17 +100,17 @@ impl MainbrainSession {
     pub async fn register_flydra_camnode(
         &mut self,
         msg: &flydra_types::RegisterNewCamera,
-    ) -> Result<(), hyper::Error> {
+    ) -> Result<(), Error> {
         debug!("register_flydra_camnode with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::NewCamera(msg.clone());
-        self.send_message(msg).await
+        Ok(self.send_message(msg).await?)
     }
 
     pub async fn update_image(
         &mut self,
         ros_cam_name: flydra_types::RosCamName,
         current_image_png: flydra_types::PngImageData,
-    ) -> Result<(), hyper::Error> {
+    ) -> Result<(), Error> {
         let msg = flydra_types::PerCam {
             ros_cam_name,
             inner: flydra_types::UpdateImage { current_image_png },
@@ -113,14 +118,11 @@ impl MainbrainSession {
 
         debug!("update_image with message {:?}", msg);
         let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(msg);
-        self.send_message(msg).await
+        Ok(self.send_message(msg).await?)
     }
 
-    pub async fn send_message(
-        &mut self,
-        msg: flydra_types::HttpApiCallback,
-    ) -> Result<(), hyper::Error> {
+    pub async fn send_message(&mut self, msg: flydra_types::HttpApiCallback) -> Result<(), Error> {
         let bytes = serde_json::to_vec(&msg).unwrap();
-        self.do_post(bytes).await
+        Ok(self.do_post(bytes).await?)
     }
 }

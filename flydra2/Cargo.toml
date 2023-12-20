@@ -34,9 +34,8 @@ parry3d-f64 = "0.13.5"
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
-http = "0.2"
-tower-service = "0.3.0"
-hyper = { version = "0.14", features = ["tcp", "server", "http1", "stream"] }
+http = "1.0"
+hyper = { version = "1.1", features = ["server", "http1"] }
 tokio = { version = "1.0.1", default-features = false, features = [
     "macros",
     "rt",
@@ -53,6 +52,14 @@ zip = { version = "0.6.3", default-features = false, features = ["time"] }
 machine-vision-formats = "0.1"
 tracing = "0.1.37"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
+hyper-util = { version = "0.1.1", features = ["tokio", "server", "server-auto"] }
+http-body-util = "0.1.0"
+bytes = "1.5.0"
+http-body = "1.0.0"
+adskalman = "0.15"
+pretty-print-nalgebra = "0.1.0"
+nalgebra-mvn = "0.14"
+iana-time-zone = "0.1"
 
 braidz-types = { path = "../braidz-types" }
 braidz-writer = { path = "../braid/braidz-writer" }
@@ -62,12 +69,8 @@ mvg = { path = "../mvg" }
 flydra-mvg = { path = "../flydra-mvg" }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 flydra-types = { path = "../flydra-types" }
-adskalman = "0.15"
 tracking = { path = "../tracking" }
 groupby = { path = "../groupby" }
-pretty-print-nalgebra = "0.1.0"
-nalgebra-mvn = "0.14"
-iana-time-zone = "0.1"
 withkey = { path = "../withkey" }
 simple-frame = { path = "../simple-frame" }
 convert-image = { path = "../convert-image" }

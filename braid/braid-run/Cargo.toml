@@ -34,16 +34,18 @@ bytes = "1.0"
 clap = { version = "4.3.4", features = ["derive"] }
 qrcodegen = "1.4"
 image = "0.24.2"
-hyper = "0.14"
+hyper = "1.1"
 lazy_static = "1.4"
 ctrlc = { version = "3.1.3", features = ["termination"] }
 csv = "1.1"
+http-body-util = "0.1.0"
+http = "1.0.0"
 
 includedir = { version = "0.6", optional = true }
 phf = { version = "0.8", optional = true }
 async-change-tracker = "0.3"
 bui-backend-types = "0.8"
-bui-backend = {version="0.14", default-features = false}
+bui-backend = {version="0.15", default-features = false}
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}

@@ -7,11 +7,10 @@ rust-version="1.60"
 
 [dependencies]
 thiserror = "1.0.33"
-bui-backend = {version="0.14", default-features = false}
+bui-backend = {version="0.15", default-features = false}
 bui-backend-types = "0.8"
 chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 base64 = "0.6"
-hyper = "0.14"
 tokio = {version="1", features=["sync","time","macros"]}
 tokio-stream = "0.1.8"
 parking_lot = "0.12"

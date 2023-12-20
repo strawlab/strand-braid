@@ -1,19 +1,18 @@
 use tracing::{debug, error, info};
 
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 use futures::sink::SinkExt;
 use serde::{Deserialize, Serialize};
 
 use futures::stream::StreamExt;
+use http_body_util::BodyExt;
 use hyper::header::ACCEPT;
 use hyper::{Method, Response, StatusCode};
 
 use crate::{Result, TimeDataPassthrough};
 
 use flydra_types::{FlydraFloatTimestampLocal, StaticMainbrainInfo, SyncFno, Triggerbox};
-
-type MyError = std::io::Error; // anything that implements std::error::Error and Send
 
 #[cfg(any(feature = "bundle_files", feature = "serve_files"))]
 include!(concat!(env!("OUT_DIR"), "/public.rs")); // Despite slash, this does work on Windows.
@@ -98,29 +97,20 @@ impl ModelService {
     }
 }
 
-type ServiceResult = Pin<
-    Box<
-        dyn futures::future::Future<
-                Output = std::result::Result<http::Response<hyper::Body>, hyper::Error>,
-            > + Send,
-    >,
->;
+type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, hyper::Error>;
 
-impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
-    type Response = http::Response<hyper::Body>;
+fn body_from_buf(body_buf: &[u8]) -> MyBody {
+    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
+    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+}
+
+impl hyper::service::Service<hyper::Request<hyper::body::Incoming>> for ModelService {
+    type Response = hyper::Response<MyBody>;
     type Error = hyper::Error;
+    type Future =
+        Pin<Box<dyn Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
 
-    // should Self::Future also implement Unpin??
-    type Future = ServiceResult;
-
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: http::Request<hyper::Body>) -> Self::Future {
+    fn call(&self, req: http::Request<hyper::body::Incoming>) -> Self::Future {
         let resp = Response::builder();
         debug!("got request {:?}", req);
         let resp_final = match (req.method(), req.uri().path()) {
@@ -130,7 +120,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                 if path == "/info" {
                     let buf = serde_json::to_string_pretty(&self.info).unwrap();
                     let len = buf.len();
-                    let body = hyper::Body::from(buf);
+                    let body = body_from_buf(buf.as_bytes());
                     resp.header(hyper::header::CONTENT_LENGTH, format!("{}", len).as_bytes())
                         .header(
                             hyper::header::CONTENT_TYPE,
@@ -160,7 +150,8 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                             .valve
                             .wrap(tokio_stream::wrappers::ReceiverStream::new(rx_event_stream));
 
-                        let rx_event_stream = rx_event_stream.map(Ok::<_, MyError>);
+                        let rx_event_stream = rx_event_stream
+                            .map(|data: bytes::Bytes| Ok::<_, _>(http_body::Frame::data(data)));
 
                         {
                             let conn_info = NewEventStreamConnection {
@@ -177,12 +168,16 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
 
                             self.rt_handle.spawn(fut);
                         }
+
+                        let body1 = http_body_util::StreamBody::new(rx_event_stream);
+                        let body2 = http_body_util::BodyExt::boxed(body1);
+
                         resp.header(
                             hyper::header::CONTENT_TYPE,
                             hyper::header::HeaderValue::from_str("text/event-stream")
                                 .expect("from_str"),
                         )
-                        .body(hyper::Body::wrap_stream(rx_event_stream))
+                        .body(body2)
                         .expect("response") // todo map err
                     } else {
                         let msg = r#"<!doctype html>
@@ -200,7 +195,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
 </html>"#
                             .to_string();
                         resp.status(StatusCode::BAD_REQUEST)
-                            .body(msg.into())
+                            .body(body_from_buf(msg.as_bytes()))
                             .expect("response") // todo map err
                     }
                 } else {
@@ -208,7 +203,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                     match self.get_file_content(path) {
                         Some(buf) => {
                             let len = buf.len();
-                            let body = hyper::Body::from(buf);
+                            let body = body_from_buf(&buf);
                             resp.header(
                                 hyper::header::CONTENT_LENGTH,
                                 format!("{}", len).as_bytes(),
@@ -218,7 +213,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
                         }
                         None => {
                             resp.status(StatusCode::NOT_FOUND)
-                                .body(hyper::Body::empty())
+                                .body(body_from_buf(b""))
                                 .expect("response") // todo map err
                         }
                     }
@@ -226,7 +221,7 @@ impl tower_service::Service<http::Request<hyper::Body>> for ModelService {
             }
             _ => {
                 resp.status(StatusCode::NOT_FOUND)
-                    .body(hyper::Body::empty())
+                    .body(body_from_buf(b""))
                     .expect("response") // todo map err
             }
         };
@@ -314,7 +309,7 @@ pub struct ModelServer {
 pub async fn new_model_server(
     data_rx: tokio::sync::mpsc::Receiver<(SendType, TimeDataPassthrough)>,
     valve: stream_cancel::Valve,
-    shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    mut _shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     addr: &std::net::SocketAddr,
     info: StaticMainbrainInfo,
     rt_handle: tokio::runtime::Handle,
@@ -331,17 +326,49 @@ pub async fn new_model_server(
         );
 
         let service2 = service.clone();
-        let new_service = hyper::service::make_service_fn(move |_socket| {
-            futures::future::ok::<_, MyError>(service2.clone())
+
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+
+        let local_addr = listener.local_addr()?;
+        let handle2 = rt_handle.clone();
+
+        rt_handle.spawn(async move {
+            loop {
+                let (socket, _remote_addr) = listener.accept().await.unwrap();
+                let model_service = service2.clone();
+
+                // Spawn a task to handle the connection. That way we can multiple connections
+                // concurrently.
+                handle2.spawn(async move {
+                    // Hyper has its own `AsyncRead` and `AsyncWrite` traits and doesn't use tokio.
+                    // `TokioIo` converts between them.
+                    let socket = hyper_util::rt::TokioIo::new(socket);
+                    let model_server = model_service.clone();
+
+                    let hyper_service = hyper::service::service_fn(
+                        move |request: hyper::Request<hyper::body::Incoming>| {
+                            // Do we need to call `poll_ready`????
+                            use hyper::service::Service;
+                            model_server.call(request)
+                        },
+                    );
+
+                    // `server::conn::auto::Builder` supports both http1 and http2.
+                    //
+                    // `TokioExecutor` tells hyper to use `tokio::spawn` to spawn tasks.
+                    if let Err(err) = hyper_util::server::conn::auto::Builder::new(
+                        hyper_util::rt::TokioExecutor::new(),
+                    )
+                    // `serve_connection_with_upgrades` is required for websockets. If you don't need
+                    // that you can use `serve_connection` instead.
+                    .serve_connection_with_upgrades(socket, hyper_service)
+                    .await
+                    {
+                        eprintln!("failed to serve connection: {err:#}");
+                    }
+                });
+            }
         });
-
-        let server = {
-            // this will fail unless there is a reactor already
-            let bound = async { hyper::Server::try_bind(addr) }.await?;
-            bound.serve(new_service)
-        };
-
-        let local_addr = server.local_addr();
 
         info!(
             "ModelServer at http://{}:{}/",
@@ -404,23 +431,6 @@ pub async fn new_model_server(
             Ok::<_, crate::Error>(())
         };
         rt_handle.spawn(main_task);
-
-        use futures::future::FutureExt;
-        let log_and_swallow_err = |r| match r {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{} ({}:{})", e, file!(), line!());
-            }
-        };
-
-        if let Some(shutdown_rx) = shutdown_rx {
-            let graceful = server.with_graceful_shutdown(async move {
-                shutdown_rx.await.ok();
-            });
-            rt_handle.spawn(Box::pin(graceful.map(log_and_swallow_err)));
-        } else {
-            rt_handle.spawn(Box::pin(server.map(log_and_swallow_err)));
-        };
         Ok(result)
     }
 }

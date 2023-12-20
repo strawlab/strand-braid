@@ -4,9 +4,29 @@ extern crate log;
 use bui_backend_types::AccessToken;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use thiserror::Error;
 
 const SET_COOKIE: &str = "set-cookie";
 const COOKIE: &str = "cookie";
+
+pub type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, Error>;
+
+fn body_from_buf(body_buf: &[u8]) -> MyBody {
+    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
+    use http_body_util::BodyExt;
+    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+}
+
+/// Possible errors
+#[derive(Error, Debug)]
+pub enum Error {
+    /// A wrapped error from the hyper crate
+    #[error("hyper error `{0}`")]
+    Hyper(#[from] hyper::Error),
+    /// A wrapped error from the hyper-util crate
+    #[error("hyper-util error `{0}`")]
+    HyperUtil(#[from] hyper_util::client::legacy::Error),
+}
 
 /// A session for a single server.
 ///
@@ -20,10 +40,7 @@ pub struct InsecureSession {
 }
 
 /// Create an `InsecureSession` which has already made a request
-pub async fn future_session(
-    base_uri: &str,
-    token: AccessToken,
-) -> Result<InsecureSession, hyper::Error> {
+pub async fn future_session(base_uri: &str, token: AccessToken) -> Result<InsecureSession, Error> {
     let mut base = InsecureSession::new(base_uri);
     base.get_with_token("", token).await?;
     Ok(base)
@@ -72,31 +89,33 @@ impl InsecureSession {
         &mut self,
         rel: &str,
         token: Option<AccessToken>,
-    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         let uri = self.get_rel_uri(rel, token);
 
-        let body = hyper::Body::empty();
-        let mut req = hyper::Request::new(body);
+        let mut req = hyper::Request::new(body_from_buf(b""));
         *req.method_mut() = hyper::Method::GET;
         *req.uri_mut() = uri;
         self.make_request(req).await
     }
-    pub async fn get(&mut self, rel: &str) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    pub async fn get(
+        &mut self,
+        rel: &str,
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         self.inner_get(rel, None).await
     }
     async fn get_with_token(
         &mut self,
         rel: &str,
         token: AccessToken,
-    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         self.inner_get(rel, Some(token)).await
     }
 
     pub async fn post(
         &mut self,
         rel: &str,
-        body: hyper::Body,
-    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+        body: MyBody,
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         let uri = self.get_rel_uri(rel, None);
 
         let mut req = hyper::Request::new(body);
@@ -107,9 +126,11 @@ impl InsecureSession {
 
     async fn make_request(
         &mut self,
-        mut req: hyper::Request<hyper::Body>,
-    ) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
-        let client = hyper::Client::new();
+        mut req: hyper::Request<MyBody>,
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
+        let client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .build_http();
 
         debug!("building request");
         {
@@ -134,8 +155,8 @@ impl InsecureSession {
 
 fn handle_response(
     jar2: Arc<RwLock<cookie::CookieJar>>,
-    mut response: hyper::Response<hyper::Body>,
-) -> Result<hyper::Response<hyper::Body>, hyper::Error> {
+    mut response: hyper::Response<hyper::body::Incoming>,
+) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
     debug!("starting to handle cookies in response {:?}", response);
 
     use hyper::header::Entry::*;
