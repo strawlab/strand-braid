@@ -496,7 +496,8 @@ where
             save_performance_histograms,
         };
 
-        coord_processor.braidz_write_tx
+        coord_processor
+            .braidz_write_tx
             .send(flydra2::SaveToDiskMsg::StartSavingCsv(save_cfg))
             .await
             .unwrap();
