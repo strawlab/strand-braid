@@ -3311,10 +3311,6 @@ where
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    #[cfg(feature = "flydratrax")]
-    let (model_server_shutdown_tx, model_server_shutdown_rx) =
-        tokio::sync::oneshot::channel::<()>();
-
     let http_server_addr = if let Some(http_server_addr) = args.http_server_addr.as_ref() {
         // In braid, this will be `127.0.0.1:0` to get a free port.
         http_server_addr.clone()
@@ -3386,8 +3382,6 @@ where
         let handle2 = rt_handle.clone();
         #[cfg(feature = "flydratrax")]
         let (model_server_data_tx, model_server, flydratrax_calibration_source) = {
-            let model_server_shutdown_rx = Some(model_server_shutdown_rx);
-
             info!("send_pose server at {}", model_server_addr);
             let info = flydra_types::StaticMainbrainInfo {
                 name: env!("CARGO_PKG_NAME").into(),
@@ -3400,7 +3394,6 @@ where
             let model_server = flydra2::new_model_server(
                 data_rx,
                 valve.clone(),
-                model_server_shutdown_rx,
                 &model_server_addr,
                 info,
                 handle2.clone(),
@@ -4440,11 +4433,6 @@ where
             quit_trigger.cancel();
             debug!("*** sending shutdown to hyper **** {}:{}", file!(), line!());
             shutdown_tx.send(()).expect("sending shutdown to hyper");
-
-            #[cfg(feature = "flydratrax")]
-            model_server_shutdown_tx
-                .send(())
-                .expect("sending shutdown to model server");
 
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {

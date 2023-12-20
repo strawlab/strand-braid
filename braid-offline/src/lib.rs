@@ -686,7 +686,7 @@ where
                 version: env!("CARGO_PKG_VERSION").into(),
             };
             coord_processor.add_listener(data_tx);
-            Some(flydra2::new_model_server(data_rx, valve, None, &addr, info, rt_handle).await?)
+            Some(flydra2::new_model_server(data_rx, valve, &addr, info, rt_handle).await?)
         }
         None => None,
     };

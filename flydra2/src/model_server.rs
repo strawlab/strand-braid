@@ -309,7 +309,6 @@ pub struct ModelServer {
 pub async fn new_model_server(
     data_rx: tokio::sync::mpsc::Receiver<(SendType, TimeDataPassthrough)>,
     valve: stream_cancel::Valve,
-    mut _shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     addr: &std::net::SocketAddr,
     info: StaticMainbrainInfo,
     rt_handle: tokio::runtime::Handle,

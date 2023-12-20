@@ -28,7 +28,7 @@ async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
-    new_model_server(data_rx, valve, None, &addr, info, rt_handle).await?;
+    new_model_server(data_rx, valve, &addr, info, rt_handle).await?;
 
     let starti = Instant::now();
 

@@ -467,7 +467,6 @@ pub struct StartupPhase1 {
     triggerbox_rx: Option<tokio::sync::mpsc::Receiver<braid_triggerbox::Cmd>>,
     model_pose_server_addr: std::net::SocketAddr,
     coord_processor: CoordProcessor,
-    model_server_shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     signal_all_cams_present: Arc<AtomicBool>,
     signal_all_cams_synced: Arc<AtomicBool>,
     raw_packet_logger: RawPacketLogger,
@@ -502,8 +501,6 @@ pub async fn pre_run(
     // Create `stream_cancel::Valve` for shutting everything down. Note this is
     // `Clone`, so we can (and should) shut down everything with it.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
-    let (model_server_shutdown_tx, model_server_shutdown_rx) =
-        tokio::sync::oneshot::channel::<()>();
     let (shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
 
     ctrlc::set_handler(move || {
@@ -620,9 +617,6 @@ pub async fn pre_run(
                 break; // no point to listen for more
             }
         }
-        model_server_shutdown_tx
-            .send(())
-            .expect("sending quit to model server");
         debug!("shutdown handler finished {}:{}", file!(), line!());
     });
 
@@ -762,7 +756,6 @@ pub async fn pre_run(
         model_pose_server_addr,
         coord_processor,
         valve,
-        model_server_shutdown_rx,
         signal_all_cams_present,
         signal_all_cams_synced,
         raw_packet_logger,
@@ -892,7 +885,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let model_pose_server_addr = phase1.model_pose_server_addr;
     let mut coord_processor = phase1.coord_processor;
     let valve = phase1.valve;
-    let model_server_shutdown_rx = phase1.model_server_shutdown_rx;
     let signal_all_cams_present = phase1.signal_all_cams_present;
     let signal_all_cams_synced = phase1.signal_all_cams_synced;
     let mut raw_packet_logger = phase1.raw_packet_logger;
@@ -1292,7 +1284,6 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let ms = flydra2::new_model_server(
         data_rx,
         valve.clone(),
-        Some(model_server_shutdown_rx),
         &model_pose_server_addr,
         info,
         rt_handle2,
