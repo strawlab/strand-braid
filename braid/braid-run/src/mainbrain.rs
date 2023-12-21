@@ -199,7 +199,7 @@ impl CallbackHandler for MyCallbackHandler {
                     debug!("got DoRecordMp4Files({start_saving})");
 
                     self.http_session_handler
-                        .toggle_saving_mkv_files_all(start_saving)
+                        .toggle_saving_mp4_files_all(start_saving)
                         .await?;
 
                     self.start_saving_mp4s_all_cams(start_saving);
@@ -238,7 +238,7 @@ impl CallbackHandler for MyCallbackHandler {
 
                     if !is_saving {
                         self.http_session_handler
-                            .initiate_post_trigger_mkv_all()
+                            .initiate_post_trigger_mp4_all()
                             .await?;
 
                         self.start_saving_mp4s_all_cams(true);

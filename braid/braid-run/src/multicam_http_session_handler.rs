@@ -181,21 +181,21 @@ impl HttpSessionHandler {
             .await;
     }
 
-    pub async fn toggle_saving_mkv_files_all(&self, start_saving: bool) -> MainbrainResult<()> {
+    pub async fn toggle_saving_mp4_files_all(&self, start_saving: bool) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
-            self.toggle_saving_mkv_files(cam_name, start_saving).await?;
+            self.toggle_saving_mp4_files(cam_name, start_saving).await?;
         }
         Ok(())
     }
 
-    pub async fn toggle_saving_mkv_files(
+    pub async fn toggle_saving_mp4_files(
         &self,
         cam_name: &RosCamName,
         start_saving: bool,
     ) -> MainbrainResult<()> {
         debug!(
-            "for cam {}, sending save mkv file {:?}",
+            "for cam {}, sending save mp4 file {:?}",
             cam_name.as_str(),
             start_saving
         );
@@ -258,15 +258,15 @@ impl HttpSessionHandler {
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mkv_all(&self) -> MainbrainResult<()> {
+    pub async fn initiate_post_trigger_mp4_all(&self) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_ros_cam_names();
         for cam_name in cam_names.iter() {
-            self.initiate_post_trigger_mkv(cam_name).await?;
+            self.initiate_post_trigger_mp4(cam_name).await?;
         }
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mkv(&self, cam_name: &RosCamName) -> MainbrainResult<()> {
+    pub async fn initiate_post_trigger_mp4(&self, cam_name: &RosCamName) -> MainbrainResult<()> {
         debug!(
             "for cam {}, initiating post trigger recording",
             cam_name.as_str(),
