@@ -303,64 +303,65 @@ async fn launch_braid_http_backend(
         http_session_handler,
     });
 
+    let raw_req_handler: bui_backend::lowlevel::RawReqHandler = Arc::new(Box::new(
+        move |resp: http::response::Builder, req: http::Request<hyper::body::Incoming>| {
+            debug!("got HTTP request {}", req.uri());
+            let path = req.uri().path();
+            const JSON_TYPE: &str = "application/json";
+            let mut resp = resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE);
+            const EMPTY_JSON_BUF: &[u8] = b"{}";
+            let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
+                let query = req.uri().query();
+                let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
+                let mut camera_name: Option<String> = None;
+                for (key, value) in query_pairs {
+                    use std::ops::Deref;
+                    if key.deref() == "camera" {
+                        camera_name = Some(value.to_string());
+                    }
+                }
+                if let Some(camera_name) = camera_name {
+                    if configs.contains_key(&camera_name) {
+                        let config = configs.get(&camera_name).unwrap().clone();
+                        let camdata_addr = camdata_addr.clone();
+                        let software_limit_framerate = software_limit_framerate.clone();
+
+                        let msg = flydra_types::RemoteCameraInfoResponse {
+                            camdata_addr,
+                            config,
+                            force_camera_sync_mode,
+                            software_limit_framerate,
+                        };
+                        let body_buf = serde_json::to_vec(&msg).unwrap();
+                        resp.body(body_from_buf(&body_buf))?
+                    } else {
+                        error!(
+                            "HTTP request for configuration not found for camera \"{camera_name}\""
+                        );
+                        resp = resp.status(hyper::StatusCode::NOT_FOUND);
+                        resp.body(body_from_buf(EMPTY_JSON_BUF))?
+                    }
+                } else {
+                    error!("HTTP request for configuration but no camera specified");
+                    resp = resp.status(hyper::StatusCode::BAD_REQUEST);
+                    resp.body(body_from_buf(EMPTY_JSON_BUF))?
+                }
+            } else {
+                error!("HTTP request unknown");
+                resp = resp.status(hyper::StatusCode::BAD_REQUEST);
+                resp.body(body_from_buf(EMPTY_JSON_BUF))?
+            };
+            let resp: http::Response<http_body_util::combinators::BoxBody<_, hyper::Error>> = resp; // type annotation
+            Ok(resp)
+        },
+    ));
+
     let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
         config.clone(),
         &auth,
         chan_size,
         &EVENTS_PREFIX,
-        Some(Arc::new(Box::new(
-            move |resp: http::response::Builder, req: http::Request<hyper::body::Incoming>| {
-                debug!("got HTTP request {}", req.uri());
-                let path = req.uri().path();
-                const JSON_TYPE: &str = "application/json";
-                let mut resp = resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE);
-                const EMPTY_JSON_BUF: &[u8] = b"{}";
-                let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
-                    let query = req.uri().query();
-                    let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
-                    let mut camera_name: Option<String> = None;
-                    for (key, value) in query_pairs {
-                        use std::ops::Deref;
-                        if key.deref() == "camera" {
-                            camera_name = Some(value.to_string());
-                        }
-                    }
-                    if let Some(camera_name) = camera_name {
-                        if configs.contains_key(&camera_name) {
-                            let config = configs.get(&camera_name).unwrap().clone();
-                            let camdata_addr = camdata_addr.clone();
-                            let software_limit_framerate = software_limit_framerate.clone();
-
-                            let msg = flydra_types::RemoteCameraInfoResponse {
-                                camdata_addr,
-                                config,
-                                force_camera_sync_mode,
-                                software_limit_framerate,
-                            };
-                            let body_buf = serde_json::to_vec(&msg).unwrap();
-                            resp.body(body_from_buf(&body_buf))?
-                        } else {
-                            error!(
-                                "HTTP request for configuration not found for camera \"{camera_name}\""
-                            );
-                            resp = resp.status(hyper::StatusCode::NOT_FOUND);
-                            resp.body(body_from_buf(EMPTY_JSON_BUF))?
-                        }
-                    } else {
-                        error!("HTTP request for configuration but no camera specified");
-                        resp = resp.status(hyper::StatusCode::BAD_REQUEST);
-                        resp.body(body_from_buf(EMPTY_JSON_BUF))?
-                    }
-                } else {
-                    error!("HTTP request unknown");
-                    resp = resp.status(hyper::StatusCode::BAD_REQUEST);
-                    resp.body(body_from_buf(EMPTY_JSON_BUF))?
-                };
-                let resp: http::Response<http_body_util::combinators::BoxBody<_, hyper::Error>> =
-                    resp; // type annotation
-                Ok(resp)
-            },
-        ))),
+        Some(raw_req_handler),
         callback_handler,
     );
 
