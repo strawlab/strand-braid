@@ -42,6 +42,8 @@ include!(concat!(env!("OUT_DIR"), "/mainbrain_frontend.rs")); // Despite slash, 
 use anyhow::Result;
 
 const SYNCHRONIZE_DURATION_SEC: u8 = 3;
+const JSON_TYPE: &str = "application/json";
+const EMPTY_JSON_BUF: &[u8] = b"{}";
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MainbrainError {
@@ -307,10 +309,8 @@ async fn launch_braid_http_backend(
         move |resp: http::response::Builder, req: http::Request<hyper::body::Incoming>| {
             debug!("got HTTP request {}", req.uri());
             let path = req.uri().path();
-            const JSON_TYPE: &str = "application/json";
             let mut resp = resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE);
-            const EMPTY_JSON_BUF: &[u8] = b"{}";
-            let resp = if &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
+            let resp = if &path[..1] == "/" && &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
                 let query = req.uri().query();
                 let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
                 let mut camera_name: Option<String> = None;
