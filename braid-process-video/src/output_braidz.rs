@@ -85,7 +85,7 @@ impl BraidStorage {
         );
 
         for ros_cam_name in all_expected_cameras.iter() {
-            let no_server = flydra_types::CamHttpServerInfo::NoServer;
+            let no_server = flydra_types::StrandCamHttpServerInfo::NoServer;
             let orig_cam_name = RawCamName::new(ros_cam_name.to_string()); // this is a lie...
             cam_manager.register_new_camera(&orig_cam_name, &no_server, ros_cam_name);
         }

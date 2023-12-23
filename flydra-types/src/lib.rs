@@ -279,7 +279,7 @@ pub struct RegisterNewCamera {
     /// The name of the camera used in ROS (e.g. with '-' converted to '_').
     pub ros_cam_name: RosCamName,
     /// Location of the camera control HTTP server.
-    pub http_camserver_info: Option<CamHttpServerInfo>,
+    pub http_camserver_info: Option<StrandCamHttpServerInfo>,
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
     /// The current image.
@@ -370,15 +370,15 @@ pub struct RecentStats {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum CamHttpServerInfo {
+pub enum StrandCamHttpServerInfo {
     /// No server is present (e.g. prerecorded data).
     NoServer,
     /// A server is available.
-    Server(BuiServerInfo),
+    Server(StrandCamBuiServerInfo),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct BuiServerInfo {
+pub struct StrandCamBuiServerInfo {
     /// The address of the camera control HTTP server.
     addr: std::net::SocketAddr,
     /// The token for initial connection to the camera control HTTP server.
@@ -386,7 +386,7 @@ pub struct BuiServerInfo {
     resolved_addr: String,
 }
 
-impl BuiServerInfo {
+impl StrandCamBuiServerInfo {
     #[cfg(feature = "with-dns")]
     pub fn new(addr: std::net::SocketAddr, token: AccessToken) -> Self {
         let resolved_addr = if addr.ip().is_unspecified() {
@@ -459,10 +459,10 @@ fn test_bui_server_info() {
             .unwrap()
             .next()
             .unwrap();
-        let bsi1 = BuiServerInfo::new(addr1, AccessToken::PreSharedToken("token1".into()));
+        let bsi1 = StrandCamBuiServerInfo::new(addr1, AccessToken::PreSharedToken("token1".into()));
 
         let url1 = bsi1.guess_base_url_with_token();
-        let test1 = BuiServerInfo::parse_url_with_token(&url1).unwrap();
+        let test1 = StrandCamBuiServerInfo::parse_url_with_token(&url1).unwrap();
         let url2 = test1.guess_base_url_with_token();
         assert_eq!(url1, url2);
     }
@@ -787,7 +787,7 @@ pub fn make_hypothesis_test_full3d_default() -> HypothesisTestParams {
 pub struct CamInfo {
     pub name: RosCamName,
     pub state: ConnectedCameraSyncState,
-    pub http_camserver_info: CamHttpServerInfo,
+    pub http_camserver_info: StrandCamHttpServerInfo,
     pub recent_stats: RecentStats,
 }
 
@@ -932,7 +932,7 @@ impl RealtimePointsDestAddr {
 }
 
 #[derive(Debug, Clone)]
-pub struct MainbrainBuiLocation(pub BuiServerInfo);
+pub struct MainbrainBuiLocation(pub StrandCamBuiServerInfo);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {

@@ -22,8 +22,8 @@ use bui_backend::{
 
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
-    BuiServerInfo, CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback,
-    HttpApiShared, PerCamSaveData, RosCamName, SyncFno, TriggerType, Triggerbox,
+    CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback, HttpApiShared,
+    PerCamSaveData, RosCamName, StrandCamBuiServerInfo, SyncFno, TriggerType, Triggerbox,
 };
 
 use futures::StreamExt;
@@ -381,7 +381,7 @@ async fn launch_braid_http_backend(
     let mainbrain_server_info = {
         let local_addr = *inner.local_addr();
         let token = inner.token();
-        BuiServerInfo::new(local_addr, token)
+        StrandCamBuiServerInfo::new(local_addr, token)
     };
 
     debug!(
@@ -459,7 +459,7 @@ fn display_qr_url(url: &str) {
 pub struct StartupPhase1 {
     pub camdata_socket: UdpSocket,
     my_app: HttpApiApp,
-    pub mainbrain_server_info: BuiServerInfo,
+    pub mainbrain_server_info: StrandCamBuiServerInfo,
     cam_manager: flydra2::ConnectedCamerasManager,
     http_session_handler: HttpSessionHandler,
     handle: tokio::runtime::Handle,
@@ -734,7 +734,7 @@ pub async fn pre_run(
 
     let is_loopback = my_app.inner.local_addr().ip().is_loopback();
     let mainbrain_server_info =
-        flydra_types::BuiServerInfo::new(*my_app.inner.local_addr(), my_app.inner.token());
+        flydra_types::StrandCamBuiServerInfo::new(*my_app.inner.local_addr(), my_app.inner.token());
     let url = mainbrain_server_info.guess_base_url_with_token();
     println!(
         "Depending on things, you may be able to login with this url: {}",

@@ -2,7 +2,7 @@ use parking_lot::RwLock;
 use std::{collections::BTreeMap, sync::Arc};
 
 use bui_backend_session::{self, InsecureSession};
-use flydra_types::{CamHttpServerInfo, RosCamName};
+use flydra_types::{RosCamName, StrandCamHttpServerInfo};
 use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.
@@ -40,10 +40,10 @@ impl HttpSessionHandler {
         let (base_url, token) = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
                 match cam_addr {
-                    CamHttpServerInfo::NoServer => {
+                    StrandCamHttpServerInfo::NoServer => {
                         panic!("cannot connect to camera with no server");
                     }
-                    CamHttpServerInfo::Server(details) => {
+                    StrandCamHttpServerInfo::Server(details) => {
                         (details.base_url(), details.token().clone())
                     }
                 }

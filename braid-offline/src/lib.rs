@@ -478,7 +478,7 @@ where
 
         let orig_cam_name = RawCamName::new(row.cam_id.to_string());
         let ros_cam_name = RosCamName::new(row.cam_id.to_string());
-        let no_server = flydra_types::CamHttpServerInfo::NoServer;
+        let no_server = flydra_types::StrandCamHttpServerInfo::NoServer;
 
         orig_camn_to_cam_name.insert(row.camn, ros_cam_name.clone());
 

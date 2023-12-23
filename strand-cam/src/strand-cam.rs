@@ -64,8 +64,8 @@ use ci2_remote_control::{
     CamArg, CodecSelection, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options, RecordingFrameRate,
 };
 use flydra_types::{
-    BuiServerInfo, CamHttpServerInfo, MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr,
-    RosCamName, StartSoftwareFrameRateLimit,
+    MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
+    StartSoftwareFrameRateLimit, StrandCamBuiServerInfo, StrandCamHttpServerInfo,
 };
 
 use flydra_feature_detector_types::ImPtDetectCfg;
@@ -704,7 +704,7 @@ async fn frame_process_task(
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     mut quit_rx: tokio::sync::oneshot::Receiver<()>,
     is_starting_tx: tokio::sync::oneshot::Sender<()>,
-    #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerInfo,
+    #[cfg(feature = "flydratrax")] http_camserver_info: StrandCamBuiServerInfo,
     process_frame_priority: Option<(i32, i32)>,
     mainbrain_info: Option<MainbrainInfo>,
     camdata_addr: Option<RealtimePointsDestAddr>,
@@ -1020,7 +1020,7 @@ async fn frame_process_task(
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
                                 let http_camserver =
-                                    CamHttpServerInfo::Server(http_camserver_info.clone());
+                                    StrandCamHttpServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
                                 let flydratrax_model_server2 = flydratrax_model_server.clone();
                                 let valve2 = valve.clone();
@@ -2814,7 +2814,7 @@ pub async fn setup_app<M, C>(
     args: StrandCamArgs,
     app_name: &'static str,
 ) -> anyhow::Result<(
-    BuiServerInfo,
+    StrandCamBuiServerInfo,
     tokio::sync::mpsc::Sender<CamArg>,
     impl futures::Future<Output = Result<()>>,
     StrandCamApp,
@@ -3340,7 +3340,7 @@ where
         let local_addr = *my_app.inner().local_addr();
         let is_loopback = local_addr.ip().is_loopback();
         let token = my_app.inner().token();
-        (is_loopback, BuiServerInfo::new(local_addr, token))
+        (is_loopback, StrandCamBuiServerInfo::new(local_addr, token))
     };
 
     let url = http_camserver_info.guess_base_url_with_token();
@@ -3410,7 +3410,7 @@ where
         let new_cam_data = flydra_types::RegisterNewCamera {
             orig_cam_name: cam_name.clone(),
             ros_cam_name: ros_cam_name.clone(),
-            http_camserver_info: Some(CamHttpServerInfo::Server(http_camserver_info.clone())),
+            http_camserver_info: Some(StrandCamHttpServerInfo::Server(http_camserver_info.clone())),
             cam_settings_data: Some(flydra_types::UpdateCamSettings {
                 current_cam_settings_buf: settings_on_start,
                 current_cam_settings_extension: settings_file_ext,

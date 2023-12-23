@@ -6,8 +6,8 @@ use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
 use flydra_types::{
-    CamHttpServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, RawCamName, RecentStats,
-    RosCamName, SyncFno,
+    CamInfo, CamNum, ConnectedCameraSyncState, RawCamName, RecentStats, RosCamName,
+    StrandCamHttpServerInfo, SyncFno,
 };
 
 pub(crate) trait HasCameraList {
@@ -42,7 +42,7 @@ pub struct ConnectedCameraInfo {
     orig_cam_name: RawCamName,
     ros_cam_name: RosCamName,
     sync_state: ConnectedCameraSyncState,
-    http_camserver_info: CamHttpServerInfo,
+    http_camserver_info: StrandCamHttpServerInfo,
     frames_during_sync: u64,
 }
 
@@ -215,7 +215,7 @@ impl ConnectedCamerasManager {
     /// will be added.
     pub fn new_single_cam(
         orig_cam_name: &RawCamName,
-        http_camserver_info: &CamHttpServerInfo,
+        http_camserver_info: &StrandCamHttpServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     ) -> Self {
         let ros_cam_name = orig_cam_name.to_ros();
@@ -287,7 +287,7 @@ impl ConnectedCamerasManager {
     pub fn register_new_camera(
         &mut self,
         orig_cam_name: &RawCamName,
-        http_camserver_info: &CamHttpServerInfo,
+        http_camserver_info: &StrandCamHttpServerInfo,
         ros_cam_name: &RosCamName,
     ) {
         let orig_cam_name = orig_cam_name.clone();
@@ -546,7 +546,10 @@ impl ConnectedCamerasManager {
             .collect()
     }
 
-    pub fn http_camserver_info(&self, ros_cam_name: &RosCamName) -> Option<CamHttpServerInfo> {
+    pub fn http_camserver_info(
+        &self,
+        ros_cam_name: &RosCamName,
+    ) -> Option<StrandCamHttpServerInfo> {
         self.inner
             .read()
             .ccis

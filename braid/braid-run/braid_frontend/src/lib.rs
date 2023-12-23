@@ -11,7 +11,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Event, EventSource, MessageEvent};
 
-use flydra_types::{CamHttpServerInfo, CamInfo, HttpApiCallback, HttpApiShared};
+use flydra_types::{CamInfo, HttpApiCallback, HttpApiShared, StrandCamHttpServerInfo};
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
 use yew::prelude::*;
@@ -383,8 +383,8 @@ fn view_cam_list(cams: &Vec<CamInfo>) -> Html {
         .iter()
         .map(|cci| {
             let cam_url = match cci.http_camserver_info {
-                CamHttpServerInfo::NoServer => "http://127.0.0.1/notexist".to_string(),
-                CamHttpServerInfo::Server(ref details) => details.guess_base_url_with_token(),
+                StrandCamHttpServerInfo::NoServer => "http://127.0.0.1/notexist".to_string(),
+                StrandCamHttpServerInfo::Server(ref details) => details.guess_base_url_with_token(),
             };
             let state = format!("{:?}", cci.state);
             let stats = format!("{:?}", cci.recent_stats);

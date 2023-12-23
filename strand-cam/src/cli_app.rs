@@ -388,7 +388,7 @@ fn parse_args(
         let (mainbrain_internal_addr, camdata_addr, tracker_cfg_src, config_from_braid) = {
             log::info!("Will connect to braid at \"{}\"", braid_addr);
             let mainbrain_internal_addr = flydra_types::MainbrainBuiLocation(
-                flydra_types::BuiServerInfo::parse_url_with_token(&braid_addr)?,
+                flydra_types::StrandCamBuiServerInfo::parse_url_with_token(&braid_addr)?,
             );
 
             let mut mainbrain_session = handle.block_on(
