@@ -73,19 +73,26 @@ impl HttpSessionHandler {
         }
     }
 
+    async fn get_or_open_session(
+        &self,
+        cam_name: &RosCamName,
+    ) -> Result<MaybeSession, MainbrainError> {
+        // Get session if it already exists.
+        let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
+
+        // Create session if needed.
+        match opt_session {
+            Some(session) => Ok(session),
+            None => self.open_session(cam_name).await,
+        }
+    }
+
     async fn post(
         &self,
         cam_name: &RosCamName,
         args: ci2_remote_control::CamArg,
     ) -> Result<(), MainbrainError> {
-        // Get session if it already exists.
-        let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
-
-        // Create session if needed.
-        let session = match opt_session {
-            Some(session) => session,
-            None => self.open_session(cam_name).await?,
-        };
+        let session = self.get_or_open_session(cam_name).await?;
 
         // Post to session
         match session {
