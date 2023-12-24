@@ -30,14 +30,20 @@ use futures::StreamExt;
 use rust_cam_bui_types::ClockModel;
 use rust_cam_bui_types::RecordingPath;
 
-pub use crate::multicam_http_session_handler::HttpSessionHandler;
+pub use crate::multicam_http_session_handler::StrandCamHttpSessionHandler;
 
 lazy_static::lazy_static! {
     static ref EVENTS_PREFIX: String = format!("/{}", flydra_types::BRAID_EVENTS_URL_PATH);
 }
 
-// Include the files to be served and define `fn get_default_config()`.
-include!(concat!(env!("OUT_DIR"), "/mainbrain_frontend.rs")); // Despite slash, this works on Windows.
+pub(crate) mod from_bui_backend {
+    // Include the files to be served and define `fn get_default_config()` and `Config`.
+    include!(concat!(env!("OUT_DIR"), "/mainbrain_frontend.rs")); // Despite slash, this works on Windows.
+
+    pub(crate) fn get_bui_backend_config() -> Config {
+        get_default_config()
+    }
+}
 
 use anyhow::Result;
 
@@ -102,7 +108,7 @@ struct MyCallbackHandler {
     braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
     output_base_dirname: std::path::PathBuf,
     shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
-    http_session_handler: HttpSessionHandler,
+    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
 }
 
 impl MyCallbackHandler {
@@ -200,7 +206,7 @@ impl CallbackHandler for MyCallbackHandler {
                 DoRecordMp4Files(start_saving) => {
                     debug!("got DoRecordMp4Files({start_saving})");
 
-                    self.http_session_handler
+                    self.strand_cam_http_session_handler
                         .toggle_saving_mp4_files_all(start_saving)
                         .await?;
 
@@ -219,7 +225,7 @@ impl CallbackHandler for MyCallbackHandler {
                 SetPostTriggerBufferSize(val) => {
                     debug!("got SetPostTriggerBufferSize({val})");
 
-                    self.http_session_handler
+                    self.strand_cam_http_session_handler
                         .set_post_trigger_buffer_all(val)
                         .await?;
 
@@ -239,7 +245,7 @@ impl CallbackHandler for MyCallbackHandler {
                     };
 
                     if !is_saving {
-                        self.http_session_handler
+                        self.strand_cam_http_session_handler
                             .initiate_post_trigger_mp4_all()
                             .await?;
 
@@ -275,9 +281,9 @@ async fn launch_braid_http_backend(
     auth: AccessControl,
     cam_manager: flydra2::ConnectedCamerasManager,
     shared: HttpApiShared,
-    config: Config,
+    bui_backend_config: bui_backend::lowlevel::Config,
     camdata_addr: String,
-    configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
+    camera_configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
     triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
@@ -287,7 +293,7 @@ async fn launch_braid_http_backend(
     per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
-    http_session_handler: HttpSessionHandler,
+    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
 ) -> Result<HttpApiApp> {
     // Create our shared state.
     let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
@@ -302,7 +308,7 @@ async fn launch_braid_http_backend(
         output_base_dirname: output_base_dirname.clone(),
         per_cam_data_arc: per_cam_data_arc.clone(),
         braidz_write_tx_weak,
-        http_session_handler,
+        strand_cam_http_session_handler: strand_cam_http_session_handler.clone(),
     });
 
     let raw_req_handler: bui_backend::lowlevel::RawReqHandler = Arc::new(Box::new(
@@ -313,16 +319,16 @@ async fn launch_braid_http_backend(
             let resp = if &path[..1] == "/" && &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
                 let query = req.uri().query();
                 let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
-                let mut camera_name: Option<String> = None;
+                let mut orig_camera_name: Option<String> = None;
                 for (key, value) in query_pairs {
                     use std::ops::Deref;
                     if key.deref() == "camera" {
-                        camera_name = Some(value.to_string());
+                        orig_camera_name = Some(value.to_string());
                     }
                 }
-                if let Some(camera_name) = camera_name {
-                    if configs.contains_key(&camera_name) {
-                        let config = configs.get(&camera_name).unwrap().clone();
+                if let Some(camera_name) = orig_camera_name {
+                    if camera_configs.contains_key(&camera_name) {
+                        let config = camera_configs.get(&camera_name).unwrap().clone();
                         let camdata_addr = camdata_addr.clone();
                         let software_limit_framerate = software_limit_framerate.clone();
 
@@ -335,9 +341,7 @@ async fn launch_braid_http_backend(
                         let body_buf = serde_json::to_vec(&msg).unwrap();
                         resp.body(body_from_buf(&body_buf))?
                     } else {
-                        error!(
-                            "HTTP request for configuration not found for camera \"{camera_name}\""
-                        );
+                        error!("HTTP camera not found: \"{camera_name}\"");
                         resp = resp.status(hyper::StatusCode::NOT_FOUND);
                         resp.body(body_from_buf(EMPTY_JSON_BUF))?
                     }
@@ -357,7 +361,7 @@ async fn launch_braid_http_backend(
     ));
 
     let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
-        config.clone(),
+        bui_backend_config.clone(),
         &auth,
         chan_size,
         &EVENTS_PREFIX,
@@ -461,7 +465,7 @@ pub struct StartupPhase1 {
     my_app: HttpApiApp,
     pub mainbrain_server_info: StrandCamBuiServerInfo,
     cam_manager: flydra2::ConnectedCamerasManager,
-    http_session_handler: HttpSessionHandler,
+    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
     handle: tokio::runtime::Handle,
     valve: stream_cancel::Valve,
     trigger_cfg: TriggerType,
@@ -477,7 +481,7 @@ pub async fn pre_run(
     handle: &tokio::runtime::Handle,
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
+    camera_configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
     mainbrain_config: &braid_config_data::MainbrainConfig,
     jwt_secret: Option<Vec<u8>>,
@@ -557,7 +561,7 @@ pub async fn pre_run(
         signal_all_cams_present.clone(),
         signal_all_cams_synced.clone(),
     );
-    let http_session_handler = HttpSessionHandler::new(cam_manager.clone());
+    let strand_cam_http_session_handler = StrandCamHttpSessionHandler::new(cam_manager.clone());
 
     if show_tracking_params {
         let t2: flydra_types::TrackingParams = tracking_params;
@@ -586,7 +590,7 @@ pub async fn pre_run(
     // 2) Fire a DoQuit message to all cameras and wait for them to quit.
     // 3) Only then close all our network ports and streams nicely.
     let mut quit_trigger_container = Some(quit_trigger);
-    let mut http_session_handler2 = http_session_handler.clone();
+    let mut strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
     let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
     handle.spawn(async move {
         while let Some(()) = shtdwn_q_rx.recv().await {
@@ -609,7 +613,7 @@ pub async fn pre_run(
                     .unwrap_or(()); // ignore error on shutdown
             }
 
-            http_session_handler2.send_quit_all().await;
+            strand_cam_http_session_handler2.send_quit_all().await;
 
             // When we get here, we have successfully sent DoQuit to all cams.
             // We can now quit everything in the mainbrain.
@@ -621,10 +625,8 @@ pub async fn pre_run(
         debug!("shutdown handler finished {}:{}", file!(), line!());
     });
 
-    // This `get_default_config()` function is created by bui_backend_codegen
-    // and is pulled in here by the `include!` macro above.
-    let mut config = get_default_config();
-    config.cookie_name = "braid-bui-token".to_string();
+    let mut bui_backend_config = from_bui_backend::get_bui_backend_config();
+    bui_backend_config.cookie_name = "braid-bui-token".to_string();
 
     let time_model_arc = Arc::new(RwLock::new(None));
 
@@ -711,9 +713,9 @@ pub async fn pre_run(
         auth,
         cam_manager.clone(),
         shared,
-        config,
+        bui_backend_config,
         camdata_addr,
-        configs,
+        camera_configs,
         time_model_arc,
         triggerbox_cmd,
         sync_pulse_pause_started_arc,
@@ -723,7 +725,7 @@ pub async fn pre_run(
         per_cam_data_arc.clone(),
         force_camera_sync_mode,
         software_limit_framerate,
-        http_session_handler.clone(),
+        strand_cam_http_session_handler.clone(),
     )
     .await?;
 
@@ -750,7 +752,7 @@ pub async fn pre_run(
         my_app,
         mainbrain_server_info,
         cam_manager,
-        http_session_handler,
+        strand_cam_http_session_handler,
         handle: handle.clone(),
         trigger_cfg,
         triggerbox_rx,
@@ -876,7 +878,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     let mainbrain_server_info = phase1.mainbrain_server_info;
     let mut cam_manager = phase1.cam_manager;
-    let http_session_handler = phase1.http_session_handler;
+    let strand_cam_http_session_handler = phase1.strand_cam_http_session_handler;
     let handle = phase1.handle;
     let rt_handle = handle.clone();
     let rt_handle2 = rt_handle.clone();
@@ -962,7 +964,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     let on_new_clock_model = {
         let time_model_arc = time_model_arc.clone();
-        let http_session_handler = http_session_handler.clone();
+        let strand_cam_http_session_handler = strand_cam_http_session_handler.clone();
         let tracker = tracker.clone();
         Box::new(move |tm1: Option<braid_triggerbox::ClockModel>| {
             let tm = tm1.map(|x| rust_cam_bui_types::ClockModel {
@@ -980,9 +982,11 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 let mut tracker_guard = tracker.write();
                 tracker_guard.modify(|shared| shared.clock_model_copy = cm.clone());
             }
-            let http_session_handler3 = http_session_handler.clone();
+            let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
             handle.spawn(async move {
-                let r = http_session_handler3.send_clock_model_to_all(cm).await;
+                let r = strand_cam_http_session_handler2
+                    .send_clock_model_to_all(cm)
+                    .await;
                 match r {
                     Ok(_http_response) => {}
                     Err(e) => {
@@ -1150,7 +1154,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         }
     });
 
-    let http_session_handler2 = http_session_handler.clone();
+    let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
     let cam_manager2 = cam_manager.clone();
     let live_stats_collector2 = live_stats_collector.clone();
 
@@ -1191,10 +1195,10 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         // Create closure which is called only if there is a new frame offset
         // (which occurs upon synchronization).
         let send_new_frame_offset = |frame| {
-            let http_session_handler = http_session_handler2.clone();
+            let strand_cam_http_session_handler = strand_cam_http_session_handler2.clone();
             let cam_name = ros_cam_name.clone();
             let fut_no_err = async move {
-                match http_session_handler
+                match strand_cam_http_session_handler
                     .send_frame_offset(&cam_name, frame)
                     .await
                 {

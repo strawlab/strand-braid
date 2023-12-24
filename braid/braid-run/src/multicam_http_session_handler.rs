@@ -7,7 +7,7 @@ use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.
 #[derive(Clone)]
-pub struct HttpSessionHandler {
+pub struct StrandCamHttpSessionHandler {
     cam_manager: flydra2::ConnectedCamerasManager,
     name_to_session: Arc<RwLock<BTreeMap<RosCamName, MaybeSession>>>,
 }
@@ -28,7 +28,7 @@ fn body_from_buf(body_buf: &[u8]) -> MyBody {
     MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
 }
 
-impl HttpSessionHandler {
+impl StrandCamHttpSessionHandler {
     pub fn new(cam_manager: flydra2::ConnectedCamerasManager) -> Self {
         Self {
             cam_manager,
@@ -103,11 +103,15 @@ impl HttpSessionHandler {
                 let result = session.post("callback", body).await;
                 match result {
                     Ok(response) => {
-                        debug!("HttpSessionHandler::post() got response {:?}", response);
+                        debug!(
+                            "StrandCamHttpSessionHandler::post() got response {:?}",
+                            response
+                        );
                     }
                     Err(err) => {
-                        // session.increase_error_count();
-                        error!("For {cam_name}: HttpSessionHandler::post() got error {err:?}");
+                        error!(
+                            "For {cam_name}: StrandCamHttpSessionHandler::post() got error {err:?}"
+                        );
                         let mut name_to_session = self.name_to_session.write();
                         name_to_session.insert(cam_name.clone(), MaybeSession::Errored);
                     }

@@ -89,7 +89,7 @@ fn main() -> Result<()> {
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
-    let pixel_formats = cfg
+    let camera_configs = cfg
         .cameras
         .iter()
         .map(|cfg| (cfg.name.clone(), cfg.clone()))
@@ -117,7 +117,7 @@ fn main() -> Result<()> {
         show_tracking_params,
         // Raising the mainbrain thread priority is currently disabled.
         // cfg.mainbrain.sched_policy_priority,
-        pixel_formats,
+        camera_configs,
         trig_cfg,
         &cfg.mainbrain,
         cfg.mainbrain
