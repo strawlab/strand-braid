@@ -53,7 +53,7 @@ const EMPTY_JSON_BUF: &[u8] = b"{}";
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MainbrainError {
-    #[error("The --jwt-secret argument must be passed or the JWT_SECRET environment variable must be set.")]
+    #[error("The `jwt_secret` configuration variable must be set.")]
     JwtError,
     #[error("{source}")]
     HyperError {
