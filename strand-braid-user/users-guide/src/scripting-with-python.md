@@ -5,10 +5,15 @@ can also be controlled from a Python script. The general technique is to use a
 Python library to connect to a running Strand Cam (or Braid) program exactly
 like a web browser does it.
 
-## Demo: changing tracking settings from a Python script
+## Demo: recording a video using Strand Camera from a Python script
 
 TODO: describe how to use and modify the [`record-mp4-video.py`
 demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/record-mp4-video.py).
+
+## Demo: recording multiple videos using Braid from a Python script
+
+TODO: describe how to use and modify the [`record-mp4-video-braid-all-cams.py`
+demo](strand-braid-user/scripts/record-mp4-video-braid-all-cams.py).
 
 ## Advanced: automating manual actions
 
