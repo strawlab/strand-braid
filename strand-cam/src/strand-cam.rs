@@ -4903,11 +4903,10 @@ impl FinalMp4RecordingConfig {
                 cuda_device,
             }),
             CodecSelection::H264OpenH264 => {
-                use ci2_remote_control::{BitrateSelection::*, OpenH264Preset};
-                let preset = match &shared.mp4_bitrate {
-                    BitrateUnlimited => OpenH264Preset::AllFrames,
-                    br => OpenH264Preset::SkipFramesBitrate(bitrate_to_u32(br)),
-                };
+                let preset = ci2_remote_control::OpenH264Preset::AllFrames;
+                if shared.mp4_bitrate != ci2_remote_control::BitrateSelection::BitrateUnlimited {
+                    warn!("ignoring mp4 bitrate with OpenH264 codec");
+                }
                 Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
                     debug: false,
                     preset,
