@@ -34,7 +34,7 @@ pub use braidz_types::BraidMetadata;
 
 use flydra_types::{
     CamInfoRow, CamNum, ConnectedCameraSyncState, DataAssocRow, FlydraFloatTimestampLocal,
-    HostClock, KalmanEstimatesRow, RosCamName, SyncFno, TextlogRow, TrackingParams,
+    HostClock, KalmanEstimatesRow, RawCamName, SyncFno, TextlogRow, TrackingParams,
     TriggerClockInfoRow, Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
 };
 pub use flydra_types::{Data2dDistortedRow, Data2dDistortedRowF32};
@@ -59,7 +59,7 @@ mod tracking_core;
 mod mini_arenas;
 
 mod model_server;
-pub use crate::model_server::{new_model_server, ModelServer, SendKalmanEstimatesRow, SendType};
+pub use crate::model_server::{new_model_server, SendKalmanEstimatesRow, SendType};
 
 use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
@@ -307,7 +307,9 @@ fn to_world_point<R: RealField + Copy>(vec6: &OVector<R, U6>) -> PointWorldFrame
 #[derive(Clone, Debug, PartialEq)]
 pub struct FrameData {
     /// camera name as kept by mvg::MultiCamSystem
-    pub cam_name: RosCamName,
+    ///
+    /// This can be any UTF-8 string.
+    pub cam_name: RawCamName,
     /// camera identification number
     pub cam_num: CamNum,
     /// framenumber after synchronization
@@ -327,7 +329,7 @@ pub struct FrameData {
 impl FrameData {
     #[inline]
     pub fn new(
-        cam_name: RosCamName,
+        cam_name: RawCamName,
         cam_num: CamNum,
         synced_frame: SyncFno,
         trigger_timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
@@ -701,7 +703,7 @@ pub struct StartSavingCsvConfig {
     pub local: Option<chrono::DateTime<chrono::Local>>,
     pub git_rev: String,
     pub fps: Option<f32>,
-    pub per_cam_data: BTreeMap<RosCamName, flydra_types::PerCamSaveData>,
+    pub per_cam_data: BTreeMap<RawCamName, flydra_types::PerCamSaveData>,
     pub print_stats: bool,
     pub save_performance_histograms: bool,
 }
@@ -768,14 +770,12 @@ pub struct CoordProcessor {
 }
 
 impl CoordProcessor {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(
         cfg: CoordProcessorConfig,
-        handle: tokio::runtime::Handle,
         cam_manager: ConnectedCamerasManager,
         recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
         metadata_builder: BraidMetadataBuilder,
-        valve: stream_cancel::Valve,
     ) -> Result<Self> {
         let CoordProcessorConfig {
             tracking_params,
@@ -867,14 +867,14 @@ impl CoordProcessor {
     /// Upon completion, returns a [tokio::task::JoinHandle] from a spawned
     /// writing task. To ensure data is completely saved, this should be driven
     /// to completion before ending the process.
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
     ) -> std::thread::JoinHandle<Result<()>>
     where
-        S: 'static + Send + futures::stream::Stream<Item = StreamItem> + std::fmt::Debug + Unpin,
+        S: 'static + Send + futures::stream::Stream<Item = StreamItem>,
     {
         let mut prev_frame = SyncFno(0);
         use futures::stream::StreamExt;
@@ -1058,7 +1058,7 @@ impl CoordProcessor {
 
 #[derive(Debug, Clone)]
 pub(crate) struct CamAndDist {
-    pub(crate) ros_cam_name: RosCamName,
+    pub(crate) raw_cam_name: RawCamName,
     /// The reprojection distance of the undistorted pixels.
     pub(crate) reproj_dist: MyFloat,
 }

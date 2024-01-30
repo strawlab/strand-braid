@@ -12,7 +12,6 @@ js-sys = "0.3"
 gloo = "0.8.0"
 gloo-file = "0.2"
 wasm-bindgen = { version = "0.2.58" }
-http = "0.2"
 serde = "1.0"
 serde_yaml = "0.9"
 serde_derive = "1.0"
@@ -27,7 +26,6 @@ uuid = { version = "1.2.2", default-features = false, features = [
 ] } # add feature flag required for uuid crate
 csv = { version = "1.1", optional = true }
 
-bui-backend-types = "0.8"
 yew-tincture = "0.1"
 
 simple-obj-parse = { path = "../simple-obj-parse", optional = true }
@@ -35,6 +33,7 @@ textured-tri-mesh = { path = "../textured-tri-mesh", optional = true }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 enum-iter = { path = "../enum-iter" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+bui-backend-session-types = { path = "../bui-backend-session/types" }
 
 [dependencies.web-sys]
 version = "0.3"

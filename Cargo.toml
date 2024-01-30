@@ -27,6 +27,7 @@ members = [
     "braidz-viewer",
     "bui-backend-session",
     "bui-backend-session/demo",
+    "bui-backend-session/types",
     "build-util",
     "camcal",
     "led-box",
@@ -49,6 +50,7 @@ members = [
     "enum-iter",
     "env-tracing-logger",
     "env-tracing-logger/env-tracing-logger-sample",
+    "event-stream-types",
     "fastimage",
     "fastfreeimage",
     "fly-eye",
@@ -120,9 +122,7 @@ members = [
     "zip-or-dir/dir2zip",
 ]
 
-exclude = [
-    "led-box-firmware",
-]
+exclude = ["led-box-firmware"]
 
 [profile.release]
 debug = true

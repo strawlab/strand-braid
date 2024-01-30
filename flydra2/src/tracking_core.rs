@@ -18,7 +18,7 @@ use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
 use flydra_types::{
     CamNum, DataAssocRow, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow,
-    RosCamName, SyncFno, TrackingParams, Triggerbox,
+    RawCamName, SyncFno, TrackingParams, Triggerbox,
 };
 
 use crate::bundled_data::{MiniArenaPointPerCam, PerMiniArenaAllCamsOneFrameUndistorted};
@@ -229,9 +229,9 @@ impl LivingModel<ModelFrameStarted> {
 
                     let likes: Vec<f64> = if let Some(expected_observation) = eo {
                         trace!(
-                            "object {} {} expects ({},{})",
+                            "object {} \"{}\" expects ({},{})",
                             self.lmi.obj_id,
-                            cam_name,
+                            cam_name.as_str(),
                             expected_observation.mean()[0],
                             expected_observation.mean()[1]
                         );
@@ -512,7 +512,7 @@ where
 pub(crate) trait HypothesisTest: Send + dyn_clone::DynClone {
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult>;
 }
 
@@ -576,7 +576,7 @@ pub(crate) struct MCInner {
 }
 
 impl ModelCollection<CollectionFrameDone> {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn predict_motion(self) -> ModelCollection<CollectionFrameStarted> {
         let mcinner = self.mcinner;
         let models = self
@@ -603,7 +603,7 @@ impl ModelCollection<CollectionFrameDone> {
 }
 
 impl ModelCollection<CollectionFrameStarted> {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn compute_observation_likes(
         self,
         tdpt: &TimeDataPassthrough,
@@ -637,7 +637,7 @@ impl ModelCollection<CollectionFrameStarted> {
 }
 
 impl ModelCollection<CollectionFrameWithObservationLikes> {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn solve_data_association_and_update(
         self,
         tdpt: &TimeDataPassthrough,
@@ -721,8 +721,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                 let cam_num = self.mcinner.cam_manager.cam_num(&cam_name).unwrap();
 
                 trace!(
-                    "camera {} ({}): {} points",
-                    cam_name,
+                    "camera \"{}\" ({}): {} points",
+                    cam_name.as_str(),
                     cam_num,
                     arena_data.len()
                 );
@@ -907,6 +907,7 @@ fn to_bayesian_estimate(
 }
 
 impl ModelCollection<CollectionFramePosteriors> {
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn births_and_deaths<F>(
         mut self,
         tdpt: &TimeDataPassthrough,
@@ -920,11 +921,6 @@ impl ModelCollection<CollectionFramePosteriors> {
     where
         F: Fn() -> u32,
     {
-        // Instead of a `#[tracing::instrument]` attribute on this method, which
-        // we cannot do because F does not implement Debug, here we enter a
-        // span.
-        let _span = tracing::span!(tracing::Level::INFO, "births_and_deaths").entered();
-
         let mut result_messages = Vec::new();
 
         // Check deaths before births so we do not check if we kill a
@@ -1004,7 +1000,7 @@ impl ModelCollection<CollectionFramePosteriors> {
                     .iter()
                     .map(|ci| {
                         let pt_idx = 0;
-                        let cam_num = self.mcinner.cam_manager.cam_num(&ci.ros_cam_name).unwrap();
+                        let cam_num = self.mcinner.cam_manager.cam_num(&ci.raw_cam_name).unwrap();
                         DataAssocInfo {
                             pt_idx,
                             cam_num,
@@ -1090,7 +1086,7 @@ fn filter_points_and_take_first(
     // fdp_vec: &[FrameDataAndPoints],
     fdp_vec: &UnusedDataPerArena,
     minimum_pixel_abs_zscore: f64,
-) -> BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>> {
+) -> BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>> {
     fdp_vec
         .0
         .per_cam

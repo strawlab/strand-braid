@@ -1,54 +1,68 @@
 use parking_lot::RwLock;
+use preferences_serde1::Preferences;
 use std::{collections::BTreeMap, sync::Arc};
+use tracing::{debug, error, info, warn};
 
-use bui_backend_session::{self, InsecureSession};
-use flydra_types::{RosCamName, StrandCamHttpServerInfo};
+use bui_backend_session::{self, HttpSession};
+use flydra_types::{BuiServerInfo, RawCamName};
 use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.
 #[derive(Clone)]
-pub struct StrandCamHttpSessionHandler {
+pub(crate) struct StrandCamHttpSessionHandler {
     cam_manager: flydra2::ConnectedCamerasManager,
-    name_to_session: Arc<RwLock<BTreeMap<RosCamName, MaybeSession>>>,
+    pub(crate) name_to_session: Arc<RwLock<BTreeMap<RawCamName, MaybeSession>>>,
+    jar: Arc<RwLock<cookie_store::CookieStore>>,
 }
 
 #[derive(Clone)]
-enum MaybeSession {
-    Alive(InsecureSession),
+pub(crate) enum MaybeSession {
+    Alive(HttpSession),
     Errored,
 }
 
-use crate::mainbrain::{MainbrainError, MainbrainResult};
-
-type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
-
-fn body_from_buf(body_buf: &[u8]) -> MyBody {
-    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
-    use http_body_util::BodyExt;
-    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+trait MyErrorTrait<T> {
+    fn boxerr(self) -> std::result::Result<T, BoxedStdError>;
 }
 
+impl<T> MyErrorTrait<T> for std::result::Result<T, MainbrainError> {
+    fn boxerr(self) -> std::result::Result<T, BoxedStdError> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(Box::new(e)),
+        }
+    }
+}
+
+use crate::mainbrain::{BoxedStdError, MainbrainError, MainbrainResult};
+
 impl StrandCamHttpSessionHandler {
-    pub fn new(cam_manager: flydra2::ConnectedCamerasManager) -> Self {
+    pub(crate) fn new(
+        cam_manager: flydra2::ConnectedCamerasManager,
+        jar: Arc<RwLock<cookie_store::CookieStore>>,
+    ) -> Self {
         Self {
             cam_manager,
             name_to_session: Arc::new(RwLock::new(BTreeMap::new())),
+            jar,
         }
     }
-    async fn open_session(&self, cam_name: &RosCamName) -> Result<MaybeSession, MainbrainError> {
+    async fn open_session(&self, cam_name: &RawCamName) -> Result<MaybeSession, MainbrainError> {
         // Create a new session if it doesn't exist.
         let (base_url, token) = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
                 match cam_addr {
-                    StrandCamHttpServerInfo::NoServer => {
+                    BuiServerInfo::NoServer => {
                         panic!("cannot connect to camera with no server");
                     }
-                    StrandCamHttpServerInfo::Server(details) => {
-                        (details.base_url(), details.token().clone())
-                    }
+                    BuiServerInfo::Server(details) => (details.base_url(), details.token().clone()),
                 }
             } else {
-                panic!("attempting post to unknown camera")
+                return Err(MainbrainError::UnknownCamera {
+                    cam_name: cam_name.clone(),
+                    #[cfg(feature = "backtrace")]
+                    backtrace: std::backtrace::Backtrace::capture(),
+                });
             }
         };
 
@@ -58,24 +72,38 @@ impl StrandCamHttpSessionHandler {
             base_url
         );
 
-        let result = bui_backend_session::future_session(&base_url, token).await;
-        match result {
+        let result = bui_backend_session::future_session(&base_url, token, self.jar.clone()).await;
+        let session = match result {
             Ok(session) => {
                 let mut name_to_session = self.name_to_session.write();
                 let session = MaybeSession::Alive(session);
                 name_to_session.insert(cam_name.clone(), session.clone());
-                Ok(session)
+                session
             }
             Err(e) => {
                 error!("could not create session to {}: {}", base_url, e);
-                Err(e.into())
+                return Err(e.into());
             }
+        };
+        {
+            // We have the cookie from braid now, so store it to disk.
+            let jar = self.jar.read();
+            Preferences::save(
+                &*jar,
+                &crate::mainbrain::APP_INFO,
+                crate::mainbrain::STRAND_CAM_COOKIE_KEY,
+            )?;
+            tracing::debug!(
+                "saved cookie store {}",
+                crate::mainbrain::STRAND_CAM_COOKIE_KEY
+            );
         }
+        Ok(session)
     }
 
-    async fn get_or_open_session(
+    pub(crate) async fn get_or_open_session(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
     ) -> Result<MaybeSession, MainbrainError> {
         // Get session if it already exists.
         let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
@@ -89,7 +117,7 @@ impl StrandCamHttpSessionHandler {
 
     async fn post(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
         args: ci2_remote_control::CamArg,
     ) -> Result<(), MainbrainError> {
         let session = self.get_or_open_session(cam_name).await?;
@@ -97,8 +125,9 @@ impl StrandCamHttpSessionHandler {
         // Post to session
         match session {
             MaybeSession::Alive(mut session) => {
-                let body =
-                    body_from_buf(&serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap());
+                let body = axum::body::Body::new(http_body_util::Full::new(bytes::Bytes::from(
+                    serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap(),
+                )));
 
                 let result = session.post("callback", body).await;
                 match result {
@@ -110,21 +139,26 @@ impl StrandCamHttpSessionHandler {
                     }
                     Err(err) => {
                         error!(
-                            "For {cam_name}: StrandCamHttpSessionHandler::post() got error {err:?}"
+                            "For \"{}\": StrandCamHttpSessionHandler::post() got error {err:?}",
+                            cam_name.as_str(),
                         );
                         let mut name_to_session = self.name_to_session.write();
                         name_to_session.insert(cam_name.clone(), MaybeSession::Errored);
+                        // return Err(MainbrainError::blarg);
                     }
                 }
             }
-            MaybeSession::Errored => {}
+            MaybeSession::Errored => {
+                // TODO: should an error be raised here?
+                // return Err(MainbrainError::blarg);
+            }
         };
         Ok(())
     }
 
-    pub async fn send_frame_offset(
+    pub(crate) async fn send_frame_offset(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
         frame_offset: u64,
     ) -> Result<(), MainbrainError> {
         info!(
@@ -136,7 +170,7 @@ impl StrandCamHttpSessionHandler {
         self.post(cam_name, args).await
     }
 
-    async fn send_quit(&mut self, cam_name: &RosCamName) -> Result<(), MainbrainError> {
+    async fn send_quit(&mut self, cam_name: &RawCamName) -> Result<(), MainbrainError> {
         info!("for cam {}, sending quit", cam_name.as_str());
         let args = ci2_remote_control::CamArg::DoQuit;
 
@@ -154,19 +188,20 @@ impl StrandCamHttpSessionHandler {
             Ok(_) => Ok(()),
             Err(e) => {
                 warn!(
-                    "Ignoring error while sending quit command to {}: {}",
-                    cam_name, e
+                    "Ignoring error while sending quit command to \"{}\": {}",
+                    cam_name.as_str(),
+                    e
                 );
-                Err(e.into())
+                Err(e)
             }
         }
     }
 
-    pub async fn send_quit_all(&mut self) {
+    pub(crate) async fn send_quit_all(&mut self) {
         use futures::{stream, StreamExt};
         // Based on https://stackoverflow.com/a/51047786
         const CONCURRENT_REQUESTS: usize = 5;
-        let results = stream::iter(self.cam_manager.all_ros_cam_names())
+        let results = stream::iter(self.cam_manager.all_raw_cam_names())
             .map(|cam_name| {
                 let mut session = self.clone();
                 let cam_name = cam_name.clone();
@@ -184,25 +219,29 @@ impl StrandCamHttpSessionHandler {
                 match r {
                     Ok(()) => {}
                     Err((cam_name, e)) => warn!(
-                        "Ignoring error When sending quit command to camera {}: {}",
-                        cam_name, e
+                        "Ignoring error When sending quit command to camera \"{}\": {}",
+                        cam_name.as_str(),
+                        e
                     ),
                 }
             })
             .await;
     }
 
-    pub async fn toggle_saving_mp4_files_all(&self, start_saving: bool) -> MainbrainResult<()> {
-        let cam_names = self.cam_manager.all_ros_cam_names();
+    pub(crate) async fn toggle_saving_mp4_files_all(
+        &self,
+        start_saving: bool,
+    ) -> MainbrainResult<()> {
+        let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
             self.toggle_saving_mp4_files(cam_name, start_saving).await?;
         }
         Ok(())
     }
 
-    pub async fn toggle_saving_mp4_files(
+    pub(crate) async fn toggle_saving_mp4_files(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
         start_saving: bool,
     ) -> MainbrainResult<()> {
         debug!(
@@ -217,20 +256,20 @@ impl StrandCamHttpSessionHandler {
         Ok(())
     }
 
-    pub async fn send_clock_model_to_all(
+    pub(crate) async fn send_clock_model_to_all(
         &self,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
     ) -> MainbrainResult<()> {
-        let cam_names = self.cam_manager.all_ros_cam_names();
+        let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
             self.send_clock_model(cam_name, clock_model.clone()).await?;
         }
         Ok(())
     }
 
-    pub async fn send_clock_model(
+    pub(crate) async fn send_clock_model(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
     ) -> MainbrainResult<()> {
         debug!(
@@ -244,17 +283,20 @@ impl StrandCamHttpSessionHandler {
         self.post(&cam_name, args).await
     }
 
-    pub async fn set_post_trigger_buffer_all(&self, num_frames: usize) -> MainbrainResult<()> {
-        let cam_names = self.cam_manager.all_ros_cam_names();
+    pub(crate) async fn set_post_trigger_buffer_all(
+        &self,
+        num_frames: usize,
+    ) -> MainbrainResult<()> {
+        let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
             self.set_post_trigger_buffer(cam_name, num_frames).await?;
         }
         Ok(())
     }
 
-    pub async fn set_post_trigger_buffer(
+    pub(crate) async fn set_post_trigger_buffer(
         &self,
-        cam_name: &RosCamName,
+        cam_name: &RawCamName,
         num_frames: usize,
     ) -> MainbrainResult<()> {
         debug!(
@@ -269,15 +311,18 @@ impl StrandCamHttpSessionHandler {
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mp4_all(&self) -> MainbrainResult<()> {
-        let cam_names = self.cam_manager.all_ros_cam_names();
+    pub(crate) async fn initiate_post_trigger_mp4_all(&self) -> MainbrainResult<()> {
+        let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
             self.initiate_post_trigger_mp4(cam_name).await?;
         }
         Ok(())
     }
 
-    pub async fn initiate_post_trigger_mp4(&self, cam_name: &RosCamName) -> MainbrainResult<()> {
+    pub(crate) async fn initiate_post_trigger_mp4(
+        &self,
+        cam_name: &RawCamName,
+    ) -> MainbrainResult<()> {
         debug!(
             "for cam {}, initiating post trigger recording",
             cam_name.as_str(),

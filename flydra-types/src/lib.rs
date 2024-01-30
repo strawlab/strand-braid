@@ -12,10 +12,11 @@ extern crate static_assertions;
 
 use ordered_float::NotNan;
 use rust_cam_bui_types::{ClockModel, RecordingPath};
+use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use bui_backend_types::AccessToken;
+use bui_backend_session_types::AccessToken;
 use withkey::WithKey;
 
 pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
@@ -71,18 +72,23 @@ pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixel
 // this approach is common with a scale factor of 10.
 // --------------------------------------------------------------------
 
+// Changes to this struct should update BraidMetadataSchemaTag.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CamInfoRow {
-    // changes to this should update BraidMetadataSchemaTag
+    /// The index of the camera. This changes from invocation to invocation of Braid.
     pub camn: CamNum,
+    /// The name of the camera. This is stable across invocations of Braid.
+    ///
+    /// Any valid UTF-8 string is possible. (Previously, this was the "ROS name"
+    /// of the camera in which, e.g. '-' was replaced with '_'. This is no
+    /// longer the case.)
     pub cam_id: String,
-    // pub hostname: String,
 }
 
+// Changes to this struct should update BraidMetadataSchemaTag.
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KalmanEstimatesRow {
-    // changes to this struct should update BraidMetadataSchemaTag
     pub obj_id: u32,
     pub frame: SyncFno,
     /// The timestamp when the trigger pulse fired.
@@ -147,44 +153,40 @@ impl RawCamName {
     pub fn new(s: String) -> Self {
         RawCamName(s)
     }
-    pub fn to_ros(&self) -> RosCamName {
-        let ros_name: String = self.0.replace('-', "_");
-        let ros_name: String = ros_name.replace(' ', "_");
-        RosCamName::new(ros_name)
-    }
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// Name that works as a ROS node name (i.e. no '-' or ' ' chars).
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
-pub struct RosCamName(String);
-
-impl RosCamName {
-    pub fn new(s: String) -> Self {
-        RosCamName(s)
-    }
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for RosCamName {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+impl std::fmt::Display for RawCamName {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-pub const REMOTE_CAMERA_INFO_PATH: &str = "remote_camera_info/";
+pub mod braid_http {
+    // URL paths on Braid HTTP server.
+    pub const REMOTE_CAMERA_INFO_PATH: &str = "remote-camera-info";
+    pub const CAM_PROXY_PATH: &str = "cam-proxy";
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+    /// Encode camera name, potentially with slashes or spaces, to be a single
+    /// URL path component.
+    ///
+    /// Use percent-encoding, which `axum::extract::Path` automatically decodes.
+    pub fn encode_cam_name(cam_name: &crate::RawCamName) -> String {
+        percent_encoding::utf8_percent_encode(&cam_name.0, percent_encoding::NON_ALPHANUMERIC)
+            .to_string()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub enum StartSoftwareFrameRateLimit {
     /// Set the frame_rate limit at a given frame rate.
     Enable(f64),
     /// Disable the frame_rate limit.
     Disabled,
     /// Do not change the frame rate limit.
+    #[default]
     NoChange,
 }
 
@@ -206,6 +208,9 @@ fn return_false() -> bool {
 #[serde(deny_unknown_fields)]
 pub struct BraidCameraConfig {
     /// The name of the camera (e.g. "Basler-22005677")
+    ///
+    /// (This is the original UTF-8 camera name, not the ROS-encoded camera name
+    /// in which certain characters are not allowed.)
     pub name: String,
     /// Filename of vendor-specific camera settings file.
     pub camera_settings_filename: Option<std::path::PathBuf>,
@@ -217,10 +222,12 @@ pub struct BraidCameraConfig {
     /// Whether to raise the priority of the grab thread.
     #[serde(default = "return_false")]
     pub raise_grab_thread_priority: bool,
-    /// Which backend to use. Currently supported: "pylon"
+    /// Which camera backend to use.
     #[serde(default)]
     pub start_backend: StartCameraBackend,
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    /// The SocketAddr on which the strand camera BUI server should run.
+    pub http_server_addr: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -261,6 +268,7 @@ impl BraidCameraConfig {
             start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
                 DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
+            http_server_addr: None,
         }
     }
 }
@@ -275,11 +283,9 @@ pub struct PerCamSaveData {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RegisterNewCamera {
     /// The name of the camera as returned by the camera
-    pub orig_cam_name: RawCamName,
-    /// The name of the camera used in ROS (e.g. with '-' converted to '_').
-    pub ros_cam_name: RosCamName,
+    pub raw_cam_name: RawCamName,
     /// Location of the camera control HTTP server.
-    pub http_camserver_info: Option<StrandCamHttpServerInfo>,
+    pub http_camserver_info: Option<BuiServerInfo>,
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
     /// The current image.
@@ -347,7 +353,7 @@ impl ConnectedCameraSyncState {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct HttpApiShared {
+pub struct BraidHttpApiSharedState {
     pub fake_sync: bool,
     pub clock_model_copy: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
@@ -357,7 +363,7 @@ pub struct HttpApiShared {
     pub post_trigger_buffer_size: usize,
     pub calibration_filename: Option<String>,
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
-    pub model_server_addr: Option<std::net::SocketAddr>,
+    pub model_server_addr: Option<SocketAddr>,
     pub flydra_app_name: String,
     pub all_expected_cameras_are_synced: bool,
 }
@@ -369,47 +375,74 @@ pub struct RecentStats {
     pub points_detected: usize,
 }
 
+/// Generic HTTP API server information
+///
+/// This is used for both the Strand Camera BUI and the Braid BUI.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum StrandCamHttpServerInfo {
+pub enum BuiServerInfo {
     /// No server is present (e.g. prerecorded data).
     NoServer,
     /// A server is available.
-    Server(StrandCamBuiServerInfo),
+    Server(BuiServerAddrInfo),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct StrandCamBuiServerInfo {
-    /// The address of the camera control HTTP server.
-    addr: std::net::SocketAddr,
-    /// The token for initial connection to the camera control HTTP server.
-    token: AccessToken,
-    resolved_addr: String,
+pub struct RemotelyVisibleAddr(SocketAddr);
+
+impl AsRef<SocketAddr> for RemotelyVisibleAddr {
+    fn as_ref(&self) -> &SocketAddr {
+        &self.0
+    }
 }
 
-impl StrandCamBuiServerInfo {
-    #[cfg(feature = "with-dns")]
-    pub fn new(addr: std::net::SocketAddr, token: AccessToken) -> Self {
-        let resolved_addr = if addr.ip().is_unspecified() {
-            format!("{}:{}", dns_lookup::get_hostname().unwrap(), addr.port())
-        } else {
-            format!("{}", addr)
-        };
-        Self {
-            addr,
-            token,
-            resolved_addr,
-        }
+/// HTTP API server access information
+///
+/// This contains the address and access token.
+///
+/// This is used for both the Strand Camera BUI and the Braid BUI.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct BuiServerAddrInfo {
+    /// The address of the HTTP server.
+    addr: RemotelyVisibleAddr,
+    /// The token for initial connection to the HTTP server.
+    token: AccessToken,
+}
+
+impl BuiServerAddrInfo {
+    pub fn new(addr: RemotelyVisibleAddr, token: AccessToken) -> Self {
+        Self { addr, token }
     }
 
-    #[cfg(feature = "with-dns")]
+    pub fn addr(&self) -> &SocketAddr {
+        &self.addr.0
+    }
+
+    pub fn token(&self) -> &AccessToken {
+        &self.token
+    }
+
+    pub fn build_url(&self) -> http::Uri {
+        let query = match &self.token {
+            AccessToken::NoToken => "".to_string(),
+            AccessToken::PreSharedToken(tok) => format!("token={tok}"),
+        };
+        http::uri::Builder::new()
+            .scheme("http")
+            .authority(format!("{}:{}", self.addr().ip(), self.addr().port()))
+            .path_and_query(format!("/?{query}"))
+            .build()
+            .unwrap()
+    }
+
     pub fn parse_url_with_token(url: &str) -> Result<Self, FlydraTypesError> {
+        // TODO: replace this ugly implementation...
         let stripped = url
             .strip_prefix("http://")
             .ok_or(FlydraTypesError::UrlParseError)?;
         let first_slash = stripped.find('/');
         let (addr_str, token) = if let Some(slash_idx) = first_slash {
             let path = &stripped[slash_idx..];
-            if path.len() == 1 {
+            if path == "/" || path == "/?" {
                 (&stripped[..slash_idx], AccessToken::NoToken)
             } else {
                 let token_str = path[1..]
@@ -426,45 +459,110 @@ impl StrandCamBuiServerInfo {
         let addr = std::net::ToSocketAddrs::to_socket_addrs(addr_str)?
             .next()
             .ok_or(FlydraTypesError::UrlParseError)?;
-        Ok(Self::new(addr, token))
-    }
-
-    pub fn guess_base_url_with_token(&self) -> String {
-        match self.token {
-            AccessToken::NoToken => format!("http://{}/", self.resolved_addr),
-            AccessToken::PreSharedToken(ref tok) => {
-                format!("http://{}/?token={}", self.resolved_addr, tok)
-            }
+        if addr.ip().is_unspecified() {
+            // An unspecified IP (e.g. 0.0.0.0) is not a valid remotely visible
+            // address.
+            return Err(FlydraTypesError::UrlParseError);
         }
+        Ok(Self::new(RemotelyVisibleAddr(addr), token))
     }
 
     pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr)
-    }
-
-    pub fn token(&self) -> &AccessToken {
-        &self.token
+        format!("http://{}", self.addr.0)
     }
 }
 
-#[cfg(feature = "with-dns")]
-#[test]
-fn test_bui_server_info() {
-    for addr_str in &[
-        "127.0.0.1:1234",
-        // Ideally, we would also test unspecified addresses here.
-        // "0.0.0.0:222"
-    ] {
-        let addr1 = std::net::ToSocketAddrs::to_socket_addrs(addr_str)
-            .unwrap()
-            .next()
-            .unwrap();
-        let bsi1 = StrandCamBuiServerInfo::new(addr1, AccessToken::PreSharedToken("token1".into()));
+pub fn is_loopback(url: &http::Uri) -> bool {
+    let authority = match url.authority() {
+        None => return false,
+        Some(authority) => authority,
+    };
+    match authority.host() {
+        "127.0.0.1" | "[::1]" => true,
+        // should we include "localhost"? only if it actually resolves?
+        _ => false,
+    }
+}
 
-        let url1 = bsi1.guess_base_url_with_token();
-        let test1 = StrandCamBuiServerInfo::parse_url_with_token(&url1).unwrap();
-        let url2 = test1.guess_base_url_with_token();
-        assert_eq!(url1, url2);
+// -----
+
+/// Convert potentially unspecific IP address to remotely-visible IP address.
+#[cfg(feature = "build-urls")]
+pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<RemotelyVisibleAddr> {
+    if local_addr.ip().is_loopback() {
+        // If we are localhost, we return localhost...
+        return Ok(RemotelyVisibleAddr(local_addr.clone()));
+    }
+
+    let all_addrs = expand_unspecified_addr(local_addr)?;
+    let non_loopback_addrs: Vec<_> = all_addrs
+        .into_iter()
+        .filter(|addr| !addr.ip().is_loopback())
+        .collect();
+
+    // Take first non-loopback address if available.
+    Ok(RemotelyVisibleAddr(
+        non_loopback_addrs.first().map(Clone::clone).unwrap(),
+    ))
+}
+
+#[cfg(feature = "start-listener")]
+pub async fn start_listener(
+    address_string: &str,
+) -> anyhow::Result<(tokio::net::TcpListener, BuiServerAddrInfo)> {
+    let socket_addr = std::net::ToSocketAddrs::to_socket_addrs(&address_string)?
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("no address found for HTTP server"))?;
+
+    let listener = tokio::net::TcpListener::bind(socket_addr).await?;
+    let listener_local_addr = listener.local_addr()?;
+    let remote_addr = get_best_remote_addr(&listener_local_addr)?;
+    let token_config = if !listener_local_addr.ip().is_loopback() {
+        Some(axum_token_auth::TokenConfig::new_token("token"))
+    } else {
+        None
+    };
+    let token = match token_config {
+        None => bui_backend_session_types::AccessToken::NoToken,
+        Some(cfg) => bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
+    };
+    let http_camserver_info = BuiServerAddrInfo::new(remote_addr, token);
+
+    Ok((listener, http_camserver_info))
+}
+
+// -----
+
+#[cfg(feature = "build-urls")]
+fn expand_unspecified_ip(ip: IpAddr) -> std::io::Result<Vec<IpAddr>> {
+    if ip.is_unspecified() {
+        // Get all interfaces if IP is unspecified.
+        Ok(if_addrs::get_if_addrs()?
+            .iter()
+            .filter_map(|x| {
+                let this_ip = x.addr.ip();
+                // Take only IP addresses from correct family.
+                if ip.is_ipv4() == this_ip.is_ipv4() {
+                    Some(this_ip)
+                } else {
+                    None
+                }
+            })
+            .collect())
+    } else {
+        Ok(vec![ip])
+    }
+}
+
+#[cfg(feature = "build-urls")]
+fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SocketAddr>> {
+    if addr.ip().is_unspecified() {
+        Ok(expand_unspecified_ip(addr.ip())?
+            .into_iter()
+            .map(|ip| SocketAddr::new(ip, addr.port()))
+            .collect())
+    } else {
+        Ok(vec![*addr])
     }
 }
 
@@ -785,16 +883,19 @@ pub fn make_hypothesis_test_full3d_default() -> HypothesisTestParams {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CamInfo {
-    pub name: RosCamName,
+    pub name: RawCamName,
     pub state: ConnectedCameraSyncState,
-    pub http_camserver_info: StrandCamHttpServerInfo,
+    pub strand_cam_http_server_info: BuiServerInfo,
     pub recent_stats: RecentStats,
 }
 
-/// Messages to the mainbrain
+/// Messages to Braid
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum HttpApiCallback {
+pub enum BraidHttpApiCallback {
     /// Called from strand-cam to register a camera
+    ///
+    /// Note this is different than the `cam_info_handler` which only queries
+    /// for the appropriate camera configuration.
     NewCamera(RegisterNewCamera),
     /// Called from strand-cam to update the current image
     UpdateCurrentImage(PerCam<UpdateImage>),
@@ -819,8 +920,7 @@ pub enum HttpApiCallback {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PerCam<T> {
-    /// The name of the camera used in ROS (e.g. with '-' converted to '_').
-    pub ros_cam_name: RosCamName,
+    pub raw_cam_name: RawCamName,
     pub inner: T,
 }
 
@@ -829,7 +929,7 @@ pub struct FlydraRawUdpPacket {
     /// The name of the camera
     ///
     /// Traditionally this was the ROS camera name (e.g. with '-' converted to
-    /// '_'), but we should transition to allowing any valid UTF-8 string.
+    /// '_'), but have transitioned to allowing any valid UTF-8 string.
     pub cam_name: String,
     /// frame timestamp of trigger pulse start (or None if cannot be determined)
     #[serde(with = "crate::timestamp_opt_f64")]
@@ -891,24 +991,24 @@ pub enum FlydraTypesError {
     UrlParseError,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct AddrInfoUnixDomainSocket {
     pub filename: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct AddrInfoIP {
-    inner: std::net::SocketAddr,
+    inner: SocketAddr,
 }
 
 impl AddrInfoIP {
-    pub fn from_socket_addr(src: &std::net::SocketAddr) -> Self {
+    pub fn from_socket_addr(src: &SocketAddr) -> Self {
         Self { inner: *src }
     }
-    pub fn to_socket_addr(&self) -> std::net::SocketAddr {
+    pub fn to_socket_addr(&self) -> SocketAddr {
         self.inner
     }
-    pub fn ip(&self) -> std::net::IpAddr {
+    pub fn ip(&self) -> IpAddr {
         self.inner.ip()
     }
     pub fn port(&self) -> u16 {
@@ -916,23 +1016,23 @@ impl AddrInfoIP {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RealtimePointsDestAddr {
     UnixDomainSocket(AddrInfoUnixDomainSocket),
     IpAddr(AddrInfoIP),
 }
 
 impl RealtimePointsDestAddr {
-    pub fn into_string(self) -> String {
+    pub fn into_string(&self) -> String {
         match self {
             RealtimePointsDestAddr::UnixDomainSocket(uds) => format!("file://{}", uds.filename),
-            RealtimePointsDestAddr::IpAddr(ip) => format!("http://{}:{}", ip.ip(), ip.port()),
+            RealtimePointsDestAddr::IpAddr(ip) => format!("udp://{}:{}", ip.ip(), ip.port()),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MainbrainBuiLocation(pub StrandCamBuiServerInfo);
+pub struct MainbrainBuiLocation(pub BuiServerAddrInfo);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {
@@ -944,12 +1044,6 @@ pub struct TriggerClockInfoRow {
     pub tcnt: u8,
     #[serde(with = "crate::timestamp_f64")]
     pub stop_timestamp: FlydraFloatTimestampLocal<HostClock>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct StaticMainbrainInfo {
-    pub name: String,
-    pub version: String,
 }
 
 bitflags! {

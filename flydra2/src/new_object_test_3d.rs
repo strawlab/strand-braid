@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 use tracing::error;
 
-use flydra_types::{RosCamName, TrackingParams};
+use flydra_types::{RawCamName, TrackingParams};
 
 use mvg::PointWorldFrameWithSumReprojError;
 
@@ -12,8 +12,8 @@ use crate::{
 
 const HTEST_MAX_N_CAMS: u8 = 3;
 
-type CamComboKey = RosCamName;
-type CamComboList = Vec<Vec<RosCamName>>;
+type CamComboKey = RawCamName;
+type CamComboList = Vec<Vec<RawCamName>>;
 
 #[derive(Clone)]
 pub(crate) struct NewObjectTestFull3D {
@@ -33,7 +33,7 @@ impl NewObjectTestFull3D {
             {
                 let mut useful_cams = BTreeMap::new();
                 for raw_cam_name in recon.cam_names() {
-                    let name = RosCamName::new(raw_cam_name.to_string());
+                    let name = RawCamName::new(raw_cam_name.to_string());
                     let k: CamComboKey = name;
                     useful_cams.insert(k, ());
                 }
@@ -76,7 +76,7 @@ impl HypothesisTest for NewObjectTestFull3D {
     /// framenumber and timestamp.
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         // TODO: convert this to use undistorted points and then remove
         // orig_distorted, also from the structure it is in.
@@ -188,7 +188,7 @@ impl HypothesisTest for NewObjectTestFull3D {
                 .iter()
                 .zip(bssf.reproj_dists.iter())
                 .map(|(ros_cam_name, reproj_dist)| CamAndDist {
-                    ros_cam_name: ros_cam_name.clone(),
+                    raw_cam_name: ros_cam_name.clone(),
                     reproj_dist: *reproj_dist,
                 })
                 .collect();

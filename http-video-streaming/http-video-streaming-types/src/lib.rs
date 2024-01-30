@@ -5,6 +5,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use bui_backend_session_types::ConnectionKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -29,8 +30,7 @@ pub struct ToClient {
     pub annotations: Vec<DrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
-    pub ck: bui_backend_types::ConnectionKey,
-    pub name: Option<String>,
+    pub ck: ConnectionKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -68,17 +68,16 @@ pub enum Shape {
     // Rectangle(RectangleParams),
     // Mask(MaskImage),
     Polygon(PolygonParams),
-    /// mulitple individual circles
+    /// multiple individual circles
     MultipleCircles(Vec<CircleParams>),
 }
 
 // from client to server
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FirehoseCallbackInner {
-    pub ck: bui_backend_types::ConnectionKey,
+    pub ck: ConnectionKey,
     pub fno: usize,
     pub ts_rfc3339: String,
-    pub name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

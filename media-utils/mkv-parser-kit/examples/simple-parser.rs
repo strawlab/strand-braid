@@ -91,7 +91,7 @@ fn accumulate(element: &EbmlElement, depth: u8, accum: &mut Accum, tag_path: &[T
         &[Tag::Segment, Tag::Cluster, Tag::Timestamp] => {
             assert!(accum.segment_cluster_timestamp.is_none());
             // convert to u64 because these numbers can get big.
-            let n_timesteps: u64 = get_uint(element).try_into().unwrap();
+            let n_timesteps: u64 = get_uint(element).into();
             let timestep_nanos: u64 = accum.timestep_nanos.unwrap().try_into().unwrap();
             let pts_total_nanos = n_timesteps * timestep_nanos;
 

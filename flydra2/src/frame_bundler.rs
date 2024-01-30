@@ -149,9 +149,9 @@ fn test_frame_bundler() {
 
     use crate::{FlydraFloatTimestampLocal, FrameData, SyncFno};
 
-    let cam_name_1 = crate::RosCamName::new("cam1".into());
+    let cam_name_1 = crate::RawCamName::new("cam1".into());
     let cam_num_1 = crate::CamNum(1);
-    let cam_name_2 = crate::RosCamName::new("cam2".into());
+    let cam_name_2 = crate::RawCamName::new("cam2".into());
     let cam_num_2 = crate::CamNum(2);
     let trigger_timestamp = None;
 

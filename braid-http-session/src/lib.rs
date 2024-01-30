@@ -1,5 +1,7 @@
-use ::bui_backend_session::{future_session, InsecureSession};
-use log::{debug, error};
+use ::bui_backend_session::{future_session, HttpSession};
+use parking_lot::RwLock;
+use std::sync::Arc;
+use tracing::{debug, error};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,64 +18,56 @@ pub enum Error {
 }
 
 /// Create a `MainbrainSession` which has already made a request
+#[tracing::instrument(level = "info")]
 pub async fn mainbrain_future_session(
     dest: flydra_types::MainbrainBuiLocation,
+    jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<MainbrainSession, bui_backend_session::Error> {
     let base_url = dest.0.base_url();
     let token = dest.0.token();
     debug!("requesting session with mainbrain at {}", base_url);
-    let inner = future_session(&base_url, token.clone()).await?;
+    let inner = future_session(&base_url, token.clone(), jar).await?;
     Ok(MainbrainSession { inner })
 }
 
-type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
-
-fn body_from_buf(body_buf: &[u8]) -> MyBody {
-    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
-    use http_body_util::BodyExt;
-    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+fn body_from_buf(body_buf: &[u8]) -> axum::body::Body {
+    axum::body::Body::new(http_body_util::Full::new(bytes::Bytes::from(
+        body_buf.to_vec(),
+    )))
 }
 
 /// This allows communicating with the Mainbrain over HTTP RPC.
 ///
 /// This replaced the old ROS layer for camera -> mainbrain command and control
 /// communication from flydra.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MainbrainSession {
-    inner: InsecureSession,
+    inner: HttpSession,
 }
 
 impl MainbrainSession {
+    #[tracing::instrument(skip_all)]
     async fn do_post(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
         let body = body_from_buf(&bytes);
 
-        let resp = self.inner.post("callback", body).await?;
-
-        debug!("called do_post and got response: {:?}", resp);
-        if !resp.status().is_success() {
-            error!(
-                "error: POST response was not a success {}:{}",
-                file!(),
-                line!()
-            );
-            // TODO: return Err(_)?
-        };
+        debug!("calling mainbrain callback handler");
+        let _resp = self.inner.post("callback", body).await?;
         Ok(())
     }
 
     pub async fn get_remote_info(
         &mut self,
-        orig_cam_name: &flydra_types::RawCamName,
+        raw_cam_name: &flydra_types::RawCamName,
     ) -> Result<flydra_types::RemoteCameraInfoResponse, Error> {
         let path = format!(
-            "{}?camera={}",
-            flydra_types::REMOTE_CAMERA_INFO_PATH,
-            orig_cam_name.as_str()
+            "{}/{}",
+            flydra_types::braid_http::REMOTE_CAMERA_INFO_PATH,
+            flydra_types::braid_http::encode_cam_name(raw_cam_name)
         );
 
         debug!(
             "Getting remote camera info for camera \"{}\".",
-            orig_cam_name.as_str()
+            raw_cam_name.as_str()
         );
 
         let resp = self.inner.get(&path).await?;
@@ -97,32 +91,12 @@ impl MainbrainSession {
         >(&data)?)
     }
 
-    pub async fn register_flydra_camnode(
+    #[tracing::instrument(skip_all)]
+    pub async fn post_callback_message(
         &mut self,
-        msg: &flydra_types::RegisterNewCamera,
+        msg: flydra_types::BraidHttpApiCallback,
     ) -> Result<(), Error> {
-        debug!("register_flydra_camnode with message {:?}", msg);
-        let msg = flydra_types::HttpApiCallback::NewCamera(msg.clone());
-        Ok(self.send_message(msg).await?)
-    }
-
-    pub async fn update_image(
-        &mut self,
-        ros_cam_name: flydra_types::RosCamName,
-        current_image_png: flydra_types::PngImageData,
-    ) -> Result<(), Error> {
-        let msg = flydra_types::PerCam {
-            ros_cam_name,
-            inner: flydra_types::UpdateImage { current_image_png },
-        };
-
-        debug!("update_image with message {:?}", msg);
-        let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(msg);
-        Ok(self.send_message(msg).await?)
-    }
-
-    pub async fn send_message(&mut self, msg: flydra_types::HttpApiCallback) -> Result<(), Error> {
         let bytes = serde_json::to_vec(&msg).unwrap();
-        Ok(self.do_post(bytes).await?)
+        self.do_post(bytes).await
     }
 }

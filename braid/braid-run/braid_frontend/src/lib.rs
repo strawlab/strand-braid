@@ -11,7 +11,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Event, EventSource, MessageEvent};
 
-use flydra_types::{CamInfo, HttpApiCallback, HttpApiShared, StrandCamHttpServerInfo};
+use flydra_types::{BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo};
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
 use yew::prelude::*;
@@ -41,7 +41,7 @@ impl std::fmt::Display for MyError {
 // Model
 
 struct Model {
-    shared: Option<HttpApiShared>,
+    shared: Option<BraidHttpApiSharedState>,
     es: EventSource,
     fail_msg: String,
     html_page_title: Option<String>,
@@ -54,7 +54,7 @@ struct Model {
 // -----------------------------------------------------------------------------
 
 enum Msg {
-    NewServerState(HttpApiShared),
+    NewServerState(BraidHttpApiSharedState),
     FailedDecode(serde_json::Error),
     DoRecordCsvTables(bool),
     DoRecordMp4Files(bool),
@@ -165,7 +165,7 @@ impl Component for Model {
             }
             Msg::DoRecordCsvTables(val) => {
                 ctx.link().send_future(async move {
-                    match post_callback(&HttpApiCallback::DoRecordCsvTables(val)).await {
+                    match post_callback(&BraidHttpApiCallback::DoRecordCsvTables(val)).await {
                         Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
                         Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
                     }
@@ -175,13 +175,14 @@ impl Component for Model {
                 return false; // Don't update DOM, do that when backend notifies us of new state.
             }
             Msg::DoRecordMp4Files(val) => {
-                return self.send_to_all_cams(&ctx, HttpApiCallback::DoRecordMp4Files(val));
+                return self.send_to_all_cams(&ctx, BraidHttpApiCallback::DoRecordMp4Files(val));
             }
             Msg::SetPostTriggerBufferSize(val) => {
-                return self.send_to_all_cams(&ctx, HttpApiCallback::SetPostTriggerBufferSize(val));
+                return self
+                    .send_to_all_cams(&ctx, BraidHttpApiCallback::SetPostTriggerBufferSize(val));
             }
             Msg::PostTriggerMp4Recording => {
-                return self.send_to_all_cams(&ctx, HttpApiCallback::PostTriggerMp4Recording);
+                return self.send_to_all_cams(&ctx, BraidHttpApiCallback::PostTriggerMp4Recording);
             }
         }
         true
@@ -215,7 +216,7 @@ impl Component for Model {
 // View
 
 impl Model {
-    fn send_to_all_cams(&mut self, ctx: &Context<Self>, msg: HttpApiCallback) -> bool {
+    fn send_to_all_cams(&mut self, ctx: &Context<Self>, msg: BraidHttpApiCallback) -> bool {
         ctx.link().send_future(async move {
             match post_callback(&msg).await {
                 Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
@@ -382,9 +383,15 @@ fn view_cam_list(cams: &Vec<CamInfo>) -> Html {
     let all_rendered: Vec<Html> = cams
         .iter()
         .map(|cci| {
-            let cam_url = match cci.http_camserver_info {
-                StrandCamHttpServerInfo::NoServer => "http://127.0.0.1/notexist".to_string(),
-                StrandCamHttpServerInfo::Server(ref details) => details.guess_base_url_with_token(),
+            let cam_url = match cci.strand_cam_http_server_info {
+                BuiServerInfo::NoServer => "/does-not-exist".to_string(),
+                BuiServerInfo::Server(_) => {
+                    format!(
+                        "/{}/{}/",
+                        flydra_types::braid_http::CAM_PROXY_PATH,
+                        flydra_types::braid_http::encode_cam_name(&cci.name)
+                    )
+                }
             };
             let state = format!("{:?}", cci.state);
             let stats = format!("{:?}", cci.recent_stats);
@@ -442,16 +449,18 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
 
 // -----------------------------------------------------------------------------
 
-async fn post_callback(msg: &HttpApiCallback) -> Result<(), FetchError> {
+async fn post_callback(msg: &BraidHttpApiCallback) -> Result<(), FetchError> {
     use web_sys::{Request, RequestInit, Response};
     let mut opts = RequestInit::new();
     opts.method("POST");
     opts.cache(web_sys::RequestCache::NoStore);
-    // opts.mode(web_sys::RequestMode::Cors);
-    // opts.headers("Content-Type", "application/json;charset=UTF-8")
-    // set SameOrigin
     let buf = serde_json::to_string(&msg).unwrap_throw();
     opts.body(Some(&JsValue::from_str(&buf)));
+    let headers = web_sys::Headers::new().unwrap_throw();
+    headers
+        .append("Content-Type", "application/json")
+        .unwrap_throw();
+    opts.headers(&headers);
 
     let url = "callback";
     let request = Request::new_with_str_and_init(url, &opts)?;

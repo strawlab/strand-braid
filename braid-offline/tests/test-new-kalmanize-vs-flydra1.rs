@@ -330,7 +330,6 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
     let tracking_params = flydra_types::default_tracking_params_full_3d();
     println!("tracking with default 3D tracking parameters");
 
-    let rt_handle = tokio::runtime::Handle::current();
     let data_src = braidz_parser::incremental_parser::IncrementalParser::open_dir(&untracked_dir)
         .unwrap_or_else(|_| panic!("While opening dir {}", untracked_dir.display()));
     let data_src = data_src
@@ -345,7 +344,6 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
         expected_fps,
         tracking_params,
         braid_offline::KalmanizeOptions::default(),
-        rt_handle,
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
         true,

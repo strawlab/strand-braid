@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;
-use bui_backend_types;
+use bui_backend_session_types;
 use gloo::timers::callback::Timeout;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -29,8 +29,7 @@ pub struct ImData2 {
     pub draw_shapes: Vec<CanvasDrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
-    pub ck: bui_backend_types::ConnectionKey,
-    pub name: Option<String>,
+    pub ck: bui_backend_session_types::ConnectionKey,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -134,7 +133,6 @@ impl Component for VideoField {
                 let fci = FirehoseCallbackInner {
                     ck: im_data.ck,
                     fno: im_data.fno as usize,
-                    name: im_data.name.clone(),
                     ts_rfc3339: im_data.ts_rfc3339,
                 };
 
@@ -181,7 +179,6 @@ impl Component for VideoField {
                 ck: in_msg.ck,
                 fno: in_msg.fno,
                 found_points: in_msg.found_points.clone(),
-                name: in_msg.name.clone(),
                 ts_rfc3339: in_msg.ts_rfc3339,
                 draw_shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
             };

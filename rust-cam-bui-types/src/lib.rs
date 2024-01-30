@@ -5,10 +5,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate chrono;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct RecordingPath {

@@ -11,19 +11,12 @@ pub fn git_hash(orig_version: &str) -> Result<(), Box<(dyn std::error::Error)>> 
     Ok(())
 }
 
-pub fn bui_backend_generate_code<P>(
-    files_dir: P,
-    generated_path: &str,
-) -> Result<(), Box<(dyn std::error::Error)>>
-where
-    P: AsRef<std::path::Path>,
-{
-    match bui_backend_codegen::codegen(&files_dir, generated_path) {
-        Ok(()) => Ok(()),
-        Err(e) => Err(format!(
-            "Error in the process of generating '{generated_path}' when attempting to read {} : {e}",
-            files_dir.as_ref().display()
-        )
-        .into()),
-    }
-}
+// pub fn bui_backend_generate_code<P>(
+//     _files_dir: P,
+//     _generated_path: &str,
+// ) -> Result<(), Box<(dyn std::error::Error)>>
+// where
+//     P: AsRef<std::path::Path>,
+// {
+//     todo!();
+// }

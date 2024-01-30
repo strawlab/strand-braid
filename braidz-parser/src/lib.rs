@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -445,8 +442,7 @@ fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
         match interval {
             LogEntry::Interval(ilh) => {
                 let serialized_histogram =
-                    base64::decode_config(ilh.encoded_histogram(), base64::STANDARD)
-                        .map_err(|_| ())?;
+                    base64::decode(ilh.encoded_histogram()).map_err(|_| ())?;
                 let decoded_hist: Histogram<u64> = deserializer
                     .deserialize(&mut std::io::Cursor::new(&serialized_histogram))
                     .map_err(|_| ())?;

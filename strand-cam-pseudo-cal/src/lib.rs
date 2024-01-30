@@ -61,7 +61,7 @@ impl PseudoCameraCalibrationData {
         let cam_name = self.cam_name.clone();
         let cam = self.to_cam()?;
         let mut cams_by_name = std::collections::BTreeMap::new();
-        cams_by_name.insert(cam_name.to_ros().as_str().to_string(), cam);
+        cams_by_name.insert(cam_name.as_str().to_string(), cam);
 
         let data = serde_json::json!({
             "pseudo_camera_calibration": 1,

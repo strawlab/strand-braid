@@ -1,18 +1,16 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
-use clap::Parser;
-
-#[macro_use]
-extern crate log;
-
 use anyhow::Result;
-
-use flydra_types::{MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType};
+use clap::Parser;
+use tracing::debug;
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
-use flydra_types::BraidCameraConfig;
+use flydra_types::{
+    BraidCameraConfig, MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType,
+};
 
+mod callback_handling;
 mod mainbrain;
 mod multicam_http_session_handler;
 
@@ -23,17 +21,29 @@ struct BraidRunCliArgs {
     config_file: std::path::PathBuf,
 }
 
+fn compute_strand_cam_args(
+    camera: &BraidCameraConfig,
+    mainbrain_internal_addr: &MainbrainBuiLocation,
+) -> Result<Vec<String>> {
+    let url = mainbrain_internal_addr.0.build_url();
+    let url_string = format!("{url}");
+    Ok(vec![
+        "--camera-name".into(),
+        camera.name.clone(),
+        "--braid-url".into(),
+        url_string,
+    ])
+}
+
 fn launch_strand_cam(
-    camera: BraidCameraConfig,
-    mainbrain_internal_addr: MainbrainBuiLocation,
+    camera: &BraidCameraConfig,
+    mainbrain_internal_addr: &MainbrainBuiLocation,
 ) -> Result<()> {
     use anyhow::Context;
 
     // On initial startup strand cam queries for
     // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
     // provide much info.
-
-    let base_url = mainbrain_internal_addr.0.base_url();
 
     let braid_run_exe = std::env::current_exe().unwrap();
     let exe_dir = braid_run_exe
@@ -51,7 +61,8 @@ fn launch_strand_cam(
     debug!("strand cam executable name: \"{}\"", exe.display());
 
     let mut exec = std::process::Command::new(&exe);
-    exec.args(["--camera-name", &camera.name, "--braid_addr", &base_url]);
+    let args = compute_strand_cam_args(camera, mainbrain_internal_addr)?;
+    exec.args(&args);
     debug!("exec: {:?}", exec);
     let mut obj = exec.spawn().context(format!(
         "Starting Strand Cam executable \"{}\"",
@@ -67,7 +78,8 @@ fn launch_strand_cam(
     Ok(())
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     braid_start("run")?;
 
     let args = BraidRunCliArgs::parse();
@@ -76,23 +88,13 @@ fn main() -> Result<()> {
     let cfg = parse_config_file(&args.config_file)?;
     debug!("{:?}", cfg);
 
-    let n_local_cameras = cfg
-        .cameras
-        .iter()
-        .filter(|c| c.start_backend != StartCameraBackend::Remote)
-        .count();
-
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(4 + 4 * n_local_cameras)
-        .thread_name("braid-runtime")
-        .thread_stack_size(3 * 1024 * 1024)
-        .build()?;
-
     let camera_configs = cfg
         .cameras
         .iter()
-        .map(|cfg| (cfg.name.clone(), cfg.clone()))
+        .map(|cfg| {
+            let raw_cam_name = RawCamName::new(cfg.name.to_string());
+            (raw_cam_name, cfg.clone())
+        })
         .collect();
 
     let trig_cfg = cfg.trigger;
@@ -106,42 +108,31 @@ fn main() -> Result<()> {
     };
     let show_tracking_params = false;
 
-    let handle = runtime.handle().clone();
+    // let handle = runtime.handle().clone();
     let all_expected_cameras = cfg
         .cameras
         .iter()
-        .map(|x| RawCamName::new(x.name.clone()).to_ros())
+        .map(|x| RawCamName::new(x.name.clone()))
         .collect();
-    let phase1 = runtime.block_on(mainbrain::pre_run(
-        &handle,
-        show_tracking_params,
-        // Raising the mainbrain thread priority is currently disabled.
-        // cfg.mainbrain.sched_policy_priority,
-        camera_configs,
-        trig_cfg,
-        &cfg.mainbrain,
-        cfg.mainbrain
-            .jwt_secret
-            .as_ref()
-            .map(|x| x.as_bytes().to_vec()),
-        all_expected_cameras,
-        force_camera_sync_mode,
-        software_limit_framerate.clone(),
-        "braid",
-    ))?;
 
-    let mainbrain_server_info = MainbrainBuiLocation(phase1.mainbrain_server_info.clone());
+    let address_string: String = cfg.mainbrain.http_api_server_addr.clone();
+    let (listener, mainbrain_server_info) = flydra_types::start_listener(&address_string).await?;
+    let mainbrain_internal_addr = MainbrainBuiLocation(mainbrain_server_info.clone());
 
     let cfg_cameras = cfg.cameras;
-
-    let _enter_guard = runtime.enter();
     let _strand_cams = cfg_cameras
         .into_iter()
         .filter_map(|camera| {
             if camera.start_backend != StartCameraBackend::Remote {
-                Some(launch_strand_cam(camera, mainbrain_server_info.clone()))
+                Some(launch_strand_cam(&camera, &mainbrain_internal_addr))
             } else {
-                log::info!("Not starting remote camera \"{}\"", camera.name);
+                tracing::info!(
+                    "Not starting remote camera \"{}\". Use args: {}",
+                    camera.name,
+                    compute_strand_cam_args(&camera, &mainbrain_internal_addr)
+                        .unwrap()
+                        .join(" ")
+                );
                 None
             }
         })
@@ -149,10 +140,25 @@ fn main() -> Result<()> {
 
     debug!("done launching cameras");
 
-    // This runs the whole thing and blocks.
-    runtime.block_on(mainbrain::run(phase1))?;
+    let secret_base64 = cfg.mainbrain.secret_base64.as_ref().map(Clone::clone);
 
-    // Now wait for everything to end..
+    // This runs the whole thing and "blocks". Now wait for everything to end.
+    mainbrain::do_run_forever(
+        show_tracking_params,
+        // Raising the mainbrain thread priority is currently disabled.
+        // cfg.mainbrain.sched_policy_priority,
+        camera_configs,
+        trig_cfg,
+        cfg.mainbrain,
+        secret_base64,
+        all_expected_cameras,
+        force_camera_sync_mode,
+        software_limit_framerate.clone(),
+        "braid",
+        listener,
+        mainbrain_server_info,
+    )
+    .await?;
 
     debug!("done {}:{}", file!(), line!());
 

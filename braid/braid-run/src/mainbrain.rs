@@ -1,60 +1,64 @@
-use std::collections::BTreeMap;
-use std::net::SocketAddr;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    collections::BTreeMap,
+    net::SocketAddr,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
-
-use std::{error::Error as StdError, future::Future, pin::Pin};
-
-use parking_lot::RwLock;
-
-use tokio::net::UdpSocket;
-use tokio_util::udp::UdpFramed;
 
 use async_change_tracker::ChangeTracker;
-use bui_backend_types::CallbackDataAndSession;
-
-use bui_backend::{
-    highlevel::{create_bui_app_inner, BuiAppInner},
-    AccessControl, CallbackHandler,
+use axum::{
+    extract::{Path, State},
+    routing::get,
 };
+use futures::StreamExt;
+use http::{HeaderValue, StatusCode};
+use parking_lot::RwLock;
+use preferences_serde1::{AppInfo, Preferences};
+use serde::Serialize;
+use tokio::net::UdpSocket;
+use tower_http::trace::TraceLayer;
+use tracing::{debug, error, info};
 
+use bui_backend_session_types::AccessToken;
+use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
-    CamInfo, CborPacketCodec, FlydraFloatTimestampLocal, HttpApiCallback, HttpApiShared,
-    PerCamSaveData, RosCamName, StrandCamBuiServerInfo, SyncFno, TriggerType, Triggerbox,
+    braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
+    BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec,
+    FlydraFloatTimestampLocal, HostClock, PerCamSaveData, RawCamName, SyncFno, TriggerType,
+    Triggerbox, BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME,
 };
-
-use futures::StreamExt;
-use rust_cam_bui_types::ClockModel;
-use rust_cam_bui_types::RecordingPath;
-
-pub use crate::multicam_http_session_handler::StrandCamHttpSessionHandler;
-
-lazy_static::lazy_static! {
-    static ref EVENTS_PREFIX: String = format!("/{}", flydra_types::BRAID_EVENTS_URL_PATH);
-}
-
-pub(crate) mod from_bui_backend {
-    // Include the files to be served and define `fn get_default_config()` and `Config`.
-    include!(concat!(env!("OUT_DIR"), "/mainbrain_frontend.rs")); // Despite slash, this works on Windows.
-
-    pub(crate) fn get_bui_backend_config() -> Config {
-        get_default_config()
-    }
-}
+use rust_cam_bui_types::{ClockModel, RecordingPath};
 
 use anyhow::Result;
 
+use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
+
+pub(crate) type BoxedStdError = Box<dyn std::error::Error + Send>;
+
+#[cfg(feature = "bundle_files")]
+static ASSETS_DIR: include_dir::Dir<'static> =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/pkg");
+
+lazy_static::lazy_static! {
+    static ref EVENTS_PREFIX: String = format!("/{}", BRAID_EVENTS_URL_PATH);
+}
+
+pub(crate) const APP_INFO: AppInfo = AppInfo {
+    name: "braid",
+    author: "AndrewStraw",
+};
+const COOKIE_SECRET_KEY: &str = "cookie-secret-base64";
+pub(crate) const STRAND_CAM_COOKIE_KEY: &str = "strand-cam-cookie";
+
 const SYNCHRONIZE_DURATION_SEC: u8 = 3;
-const JSON_TYPE: &str = "application/json";
-const EMPTY_JSON_BUF: &[u8] = b"{}";
+type SharedStore = Arc<RwLock<ChangeTracker<BraidHttpApiSharedState>>>;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum MainbrainError {
-    #[error("The `jwt_secret` configuration variable must be set.")]
-    JwtError,
     #[error("{source}")]
     HyperError {
         #[from]
@@ -69,339 +73,309 @@ pub(crate) enum MainbrainError {
         #[cfg(feature = "backtrace")]
         backtrace: std::backtrace::Backtrace,
     },
+    #[error("{source}")]
+    PreferencesError {
+        #[from]
+        source: preferences_serde1::PreferencesError,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
+    #[error("unknown camera \"{cam_name}\"")]
+    UnknownCamera {
+        cam_name: RawCamName,
+        #[cfg(feature = "backtrace")]
+        backtrace: std::backtrace::Backtrace,
+    },
 }
 
 pub(crate) type MainbrainResult<T> = std::result::Result<T, MainbrainError>;
 
-/// When dropped, send a message. This is used to shutdown the HTTP listener.
-struct DropSend(Option<tokio::sync::oneshot::Sender<()>>);
+/// The structure that holds our app data
+#[derive(Clone)]
+pub(crate) struct BraidAppState {
+    pub(crate) shared_store: SharedStore,
+    public_camdata_addr: String,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    event_broadcaster: EventBroadcaster<usize>,
+    pub(crate) per_cam_data_arc: Arc<RwLock<BTreeMap<RawCamName, PerCamSaveData>>>,
+    pub(crate) expected_framerate_arc: Arc<RwLock<Option<f32>>>,
+    camera_configs: BTreeMap<RawCamName, flydra_types::BraidCameraConfig>,
+    next_connection_id: Arc<RwLock<usize>>,
+    pub(crate) strand_cam_http_session_handler: StrandCamHttpSessionHandler,
+    pub(crate) cam_manager: flydra2::ConnectedCamerasManager,
+    pub(crate) output_base_dirname: PathBuf,
+    pub(crate) braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
+}
 
-impl Drop for DropSend {
-    fn drop(&mut self) {
-        if let Some(shutdown_tx) = self.0.take() {
-            match shutdown_tx.send(()) {
-                Ok(()) => {}
-                Err(_) => {
-                    error!("DropSend::drop failed");
-                }
+async fn events_handler(
+    State(app_state): State<BraidAppState>,
+    _session_key: axum_token_auth::SessionKey,
+    _: AcceptsEventStream,
+) -> impl axum::response::IntoResponse {
+    let key = {
+        let mut next_connection_id = app_state.next_connection_id.write();
+        let key = *next_connection_id;
+        *next_connection_id += 1;
+        key
+    };
+    let (tx, body) = app_state.event_broadcaster.new_connection(key);
+
+    // Send an initial copy of our state.
+    {
+        let current_state = app_state.shared_store.read().as_ref().clone();
+        let frame_string = to_event_frame(&current_state);
+        match tx
+            .send(Ok(http_body::Frame::data(frame_string.into())))
+            .await
+        {
+            Ok(()) => {}
+            Err(_) => {
+                // The receiver was dropped because the connection closed. Should probably do more here.
+                tracing::debug!("initial send error");
             }
+        }
+    }
+
+    body
+}
+
+async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
+    match err.downcast::<axum_token_auth::ValidationErrors>() {
+        Ok(err) => {
+            tracing::error!(
+                "Validation error(s): {:?}",
+                err.errors().collect::<Vec<_>>()
+            );
+            (StatusCode::UNAUTHORIZED, "Request is not authorized")
+        }
+        Err(orig_err) => {
+            tracing::error!("Unhandled internal error: {orig_err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
         }
     }
 }
 
-/// The structure that holds our app data
-struct HttpApiApp {
-    inner: BuiAppInner<HttpApiShared, HttpApiCallback>,
-    time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
-    sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
-    expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    /// Sender which fires to shutdown the HTTP server upon drop.
-    _shutdown_tx: DropSend,
-}
+/// Query the mainbrain configuration to get data required for camera settings.
+///
+/// Note that this does not change the state of the mainbrain to register
+/// anything about the camera but only queries for its configuration.
+/// Registration of a new camera is done by
+/// [flydra_types::BraidHttpApiCallback::NewCamera].
+async fn remote_camera_info_handler(
+    State(app_state): State<BraidAppState>,
+    _session_key: axum_token_auth::SessionKey,
+    Path(raw_cam_name): Path<String>,
+) -> impl axum::response::IntoResponse {
+    let cam_cfg = app_state
+        .camera_configs
+        .get(&RawCamName::new(raw_cam_name.clone()));
 
-#[derive(Clone)]
-struct MyCallbackHandler {
-    cam_manager: flydra2::ConnectedCamerasManager,
-    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
-    expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
-    output_base_dirname: std::path::PathBuf,
-    shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
-    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
-}
+    if let Some(config) = cam_cfg {
+        let software_limit_framerate = app_state.software_limit_framerate.clone();
 
-impl MyCallbackHandler {
-    fn start_saving_mp4s_all_cams(&self, start_saving: bool) {
-        let mut tracker = self.shared_data.write();
-        tracker.modify(|store| {
-            if start_saving {
-                store.fake_mp4_recording_path = Some(RecordingPath::new("".to_string()));
-            } else {
-                store.fake_mp4_recording_path = None;
-            }
-        });
-    }
-}
-
-impl CallbackHandler for MyCallbackHandler {
-    type Data = HttpApiCallback;
-
-    /// HTTP request to "/callback" has been made with payload which as been
-    /// deserialized into `Self::Data` and session data stored in
-    /// [CallbackDataAndSession].
-    fn call<'a>(
-        &'a self,
-        data_sess: CallbackDataAndSession<Self::Data>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn StdError + Send>>> + Send + 'a>> {
-        let payload = data_sess.payload;
-
-        let fut = async {
-            use HttpApiCallback::*;
-            match payload {
-                NewCamera(cam_info) => {
-                    debug!("got NewCamera {:?}", cam_info);
-                    let http_camserver_info = cam_info.http_camserver_info.unwrap();
-                    let cam_settings_data = cam_info.cam_settings_data.unwrap();
-                    let mut cam_manager3 = self.cam_manager.clone();
-                    cam_manager3.register_new_camera(
-                        &cam_info.orig_cam_name,
-                        &http_camserver_info,
-                        &cam_info.ros_cam_name,
-                    );
-
-                    let mut current_cam_data = self.per_cam_data_arc.write();
-                    if current_cam_data
-                        .insert(
-                            cam_info.ros_cam_name.clone(),
-                            PerCamSaveData {
-                                cam_settings_data: Some(cam_settings_data),
-                                feature_detect_settings: None,
-                                current_image_png: cam_info.current_image_png,
-                            },
-                        )
-                        .is_some()
-                    {
-                        panic!("camera {} already known", cam_info.ros_cam_name.as_str());
-                    }
-                }
-                UpdateCurrentImage(image_info) => {
-                    // new image from camera
-                    debug!(
-                        "got new image for camera {}",
-                        image_info.ros_cam_name.as_str()
-                    );
-                    let mut current_cam_data = self.per_cam_data_arc.write();
-                    current_cam_data
-                        .get_mut(&image_info.ros_cam_name)
-                        .unwrap()
-                        .current_image_png = image_info.inner.current_image_png;
-                }
-                UpdateCamSettings(cam_settings) => {
-                    let mut current_cam_data = self.per_cam_data_arc.write();
-                    current_cam_data
-                        .get_mut(&cam_settings.ros_cam_name)
-                        .unwrap()
-                        .cam_settings_data = Some(cam_settings.inner);
-                }
-                UpdateFeatureDetectSettings(feature_detect_settings) => {
-                    let mut current_cam_data = self.per_cam_data_arc.write();
-                    current_cam_data
-                        .get_mut(&feature_detect_settings.ros_cam_name)
-                        .unwrap()
-                        .feature_detect_settings = Some(feature_detect_settings.inner);
-                }
-                DoRecordCsvTables(value) => {
-                    debug!("got DoRecordCsvTables({})", value);
-                    toggle_saving_csv_tables(
-                        value,
-                        self.expected_framerate_arc.clone(),
-                        self.output_base_dirname.clone(),
-                        self.braidz_write_tx_weak.clone(),
-                        self.per_cam_data_arc.clone(),
-                        self.shared_data.clone(),
-                    )
-                    .await;
-                }
-                DoRecordMp4Files(start_saving) => {
-                    debug!("got DoRecordMp4Files({start_saving})");
-
-                    self.strand_cam_http_session_handler
-                        .toggle_saving_mp4_files_all(start_saving)
-                        .await?;
-
-                    self.start_saving_mp4s_all_cams(start_saving);
-                }
-                SetExperimentUuid(value) => {
-                    debug!("got SetExperimentUuid({})", value);
-                    if let Some(braidz_write_tx) = self.braidz_write_tx_weak.upgrade() {
-                        // `braidz_write_tx` will be dropped after this scope.
-                        braidz_write_tx
-                            .send(flydra2::SaveToDiskMsg::SetExperimentUuid(value))
-                            .await
-                            .unwrap();
-                    }
-                }
-                SetPostTriggerBufferSize(val) => {
-                    debug!("got SetPostTriggerBufferSize({val})");
-
-                    self.strand_cam_http_session_handler
-                        .set_post_trigger_buffer_all(val)
-                        .await?;
-
-                    {
-                        let mut tracker = self.shared_data.write();
-                        tracker.modify(|store| {
-                            store.post_trigger_buffer_size = val;
-                        });
-                    }
-                }
-                PostTriggerMp4Recording => {
-                    debug!("got PostTriggerMp4Recording");
-
-                    let is_saving = {
-                        let tracker = self.shared_data.read();
-                        (*tracker).as_ref().fake_mp4_recording_path.is_some()
-                    };
-
-                    if !is_saving {
-                        self.strand_cam_http_session_handler
-                            .initiate_post_trigger_mp4_all()
-                            .await?;
-
-                        self.start_saving_mp4s_all_cams(true);
-                    } else {
-                        debug!("Already saving, not initiating again.");
-                    }
-                }
-            }
-            Ok::<_, MainbrainError>(())
+        let msg = flydra_types::RemoteCameraInfoResponse {
+            camdata_addr: app_state.public_camdata_addr,
+            config: config.clone(),
+            force_camera_sync_mode: app_state.force_camera_sync_mode,
+            software_limit_framerate,
         };
-        Box::pin(async {
-            match fut.await {
-                Ok(()) => Ok(()),
-                Err(e) => {
-                    let e: Box<dyn StdError + Send> = Box::new(e);
-                    Err(e)
-                }
-            }
-        })
+        Ok(axum::Json(msg))
+    } else {
+        error!("HTTP camera not found: \"{raw_cam_name:?}\"");
+        Err((
+            StatusCode::NOT_FOUND,
+            format!("Camera \"{raw_cam_name}\" not found."),
+        ))
     }
 }
 
-pub(crate) type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, hyper::Error>;
+async fn cam_proxy_handler_inner(
+    app_state: BraidAppState,
+    _session_key: axum_token_auth::SessionKey,
+    raw_cam_name: String,
+    cam_path: String,
+    req: axum::extract::Request,
+) -> impl axum::response::IntoResponse {
+    tracing::debug!("raw_cam_name: {raw_cam_name}, cam_path: \"{cam_path}\", req: {req:?}");
+    let accepts: Vec<HeaderValue> = req
+        .headers()
+        .get_all(http::header::ACCEPT)
+        .iter()
+        .map(Clone::clone)
+        .collect();
+    let cam_name = RawCamName::new(raw_cam_name);
 
-pub(crate) fn body_from_buf(body_buf: &[u8]) -> MyBody {
-    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
-    use http_body_util::BodyExt;
-    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
+    let session = app_state
+        .strand_cam_http_session_handler
+        .get_or_open_session(&cam_name)
+        .await
+        .map_err(|e| match e {
+            MainbrainError::UnknownCamera { cam_name, .. } => {
+                let err_msg = format!("Unknown camera \"{cam_name}\"");
+                tracing::error!(err_msg);
+                (StatusCode::NOT_FOUND, err_msg)
+            }
+            _ => {
+                let err_msg = format!("Internal server error: {e} {e:?}");
+                tracing::error!(err_msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, err_msg)
+            }
+        })?;
+
+    match session {
+        MaybeSession::Alive(mut session) => {
+            tracing::debug!("Will request path \"{cam_path}\". Got session {session:?}.");
+            session
+                .req_accepts(&cam_path, &accepts, req.method().clone(), req.into_body())
+                .await
+                .map_err(|e| {
+                    let err_msg = format!("Failed request to Strand Cam: {e} {e:?}");
+                    tracing::error!(err_msg);
+                    (StatusCode::INTERNAL_SERVER_ERROR, err_msg)
+                })
+        }
+        MaybeSession::Errored => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!(
+                "Braid lost connection to camera name \"{}\".",
+                cam_name.as_str()
+            ),
+        )),
+    }
+}
+
+async fn cam_proxy_handler_root(
+    State(app_state): State<BraidAppState>,
+    session_key: axum_token_auth::SessionKey,
+    Path(raw_cam_name): Path<String>,
+    req: axum::extract::Request,
+) -> impl axum::response::IntoResponse {
+    cam_proxy_handler_inner(app_state, session_key, raw_cam_name, "".into(), req).await
+}
+
+async fn cam_proxy_handler(
+    State(app_state): State<BraidAppState>,
+    session_key: axum_token_auth::SessionKey,
+    Path((raw_cam_name, cam_path)): Path<(String, String)>,
+    req: axum::extract::Request,
+) -> impl axum::response::IntoResponse {
+    cam_proxy_handler_inner(app_state, session_key, raw_cam_name, cam_path, req).await
 }
 
 async fn launch_braid_http_backend(
-    auth: AccessControl,
-    cam_manager: flydra2::ConnectedCamerasManager,
-    shared: HttpApiShared,
-    bui_backend_config: bui_backend::lowlevel::Config,
-    camdata_addr: String,
-    camera_configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
-    time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
-    triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
-    sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
-    expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    output_base_dirname: std::path::PathBuf,
-    braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
-    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
-    force_camera_sync_mode: bool,
-    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
-    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
-) -> Result<HttpApiApp> {
-    // Create our shared state.
-    let shared_store = Arc::new(RwLock::new(ChangeTracker::new(shared)));
-
-    // Create `inner`, which takes care of the browser communication details for us.
-    let chan_size = 10;
-
-    let callback_handler = Box::new(MyCallbackHandler {
-        shared_data: shared_store.clone(),
-        cam_manager: cam_manager.clone(),
-        expected_framerate_arc: expected_framerate_arc.clone(),
-        output_base_dirname: output_base_dirname.clone(),
-        per_cam_data_arc: per_cam_data_arc.clone(),
-        braidz_write_tx_weak,
-        strand_cam_http_session_handler: strand_cam_http_session_handler.clone(),
-    });
-
-    let raw_req_handler: bui_backend::lowlevel::RawReqHandler = Arc::new(Box::new(
-        move |resp: http::response::Builder, req: http::Request<hyper::body::Incoming>| {
-            debug!("got HTTP request {}", req.uri());
-            let path = req.uri().path();
-            let mut resp = resp.header(hyper::header::CONTENT_TYPE, JSON_TYPE);
-            let resp = if &path[..1] == "/" && &path[1..] == flydra_types::REMOTE_CAMERA_INFO_PATH {
-                let query = req.uri().query();
-                let query_pairs = url::form_urlencoded::parse(query.unwrap_or("").as_bytes());
-                let mut orig_camera_name: Option<String> = None;
-                for (key, value) in query_pairs {
-                    use std::ops::Deref;
-                    if key.deref() == "camera" {
-                        orig_camera_name = Some(value.to_string());
-                    }
-                }
-                if let Some(camera_name) = orig_camera_name {
-                    if camera_configs.contains_key(&camera_name) {
-                        let config = camera_configs.get(&camera_name).unwrap().clone();
-                        let camdata_addr = camdata_addr.clone();
-                        let software_limit_framerate = software_limit_framerate.clone();
-
-                        let msg = flydra_types::RemoteCameraInfoResponse {
-                            camdata_addr,
-                            config,
-                            force_camera_sync_mode,
-                            software_limit_framerate,
-                        };
-                        let body_buf = serde_json::to_vec(&msg).unwrap();
-                        resp.body(body_from_buf(&body_buf))?
-                    } else {
-                        error!("HTTP camera not found: \"{camera_name}\"");
-                        resp = resp.status(hyper::StatusCode::NOT_FOUND);
-                        resp.body(body_from_buf(EMPTY_JSON_BUF))?
-                    }
-                } else {
-                    error!("HTTP request for configuration but no camera specified");
-                    resp = resp.status(hyper::StatusCode::BAD_REQUEST);
-                    resp.body(body_from_buf(EMPTY_JSON_BUF))?
-                }
-            } else {
-                error!("HTTP request unknown");
-                resp = resp.status(hyper::StatusCode::BAD_REQUEST);
-                resp.body(body_from_buf(EMPTY_JSON_BUF))?
-            };
-            let resp: http::Response<http_body_util::combinators::BoxBody<_, hyper::Error>> = resp; // type annotation
-            Ok(resp)
-        },
-    ));
-
-    let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
-        bui_backend_config.clone(),
-        &auth,
-        chan_size,
-        &EVENTS_PREFIX,
-        Some(raw_req_handler),
-        callback_handler,
-    );
-
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
-    let (_, inner) = create_bui_app_inner(
-        tokio::runtime::Handle::current(),
-        Some(shutdown_rx),
-        &auth,
-        shared_store,
-        Some(flydra_types::BRAID_EVENT_NAME.to_string()),
-        rx_conn,
-        bui_server,
-    )
-    .await?;
-
-    let mainbrain_server_info = {
-        let local_addr = *inner.local_addr();
-        let token = inner.token();
-        StrandCamBuiServerInfo::new(local_addr, token)
+    secret_base64: Option<String>,
+    listener: tokio::net::TcpListener,
+    mainbrain_server_info: BuiServerAddrInfo,
+    app_state: BraidAppState,
+) -> Result<impl futures::Future<Output = Result<()>>> {
+    let persistent_secret_base64 = if let Some(secret) = secret_base64 {
+        secret
+    } else {
+        match String::load(&APP_INFO, COOKIE_SECRET_KEY) {
+            Ok(secret_base64) => secret_base64,
+            Err(_) => {
+                tracing::debug!("No secret loaded from preferences file, generating new.");
+                let persistent_secret = cookie::Key::generate();
+                let persistent_secret_base64 = base64::encode(persistent_secret.master());
+                persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
+                persistent_secret_base64
+            }
+        }
     };
 
-    debug!(
-        "initialized HttpApiApp listening at {}",
-        mainbrain_server_info.guess_base_url_with_token()
+    let persistent_secret = base64::decode(persistent_secret_base64)?;
+    let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
+
+    // Setup our auth layer.
+    let token_config = match mainbrain_server_info.token() {
+        AccessToken::PreSharedToken(value) => Some(axum_token_auth::TokenConfig {
+            name: "token".to_string(),
+            value: value.clone(),
+        }),
+        AccessToken::NoToken => None,
+    };
+
+    let cfg = axum_token_auth::AuthConfig {
+        token_config,
+        persistent_secret,
+        cookie_name: "braid-bui-session",
+        cookie_expires: Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)), // 400 days
+    };
+
+    #[cfg(feature = "bundle_files")]
+    let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
+
+    #[cfg(feature = "serve_files")]
+    let serve_dir = tower_http::services::fs::ServeDir::new(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("braid_frontend")
+            .join("pkg"),
     );
 
-    // Return our app.
-    Ok(HttpApiApp {
-        inner,
-        time_model_arc,
-        triggerbox_cmd,
-        sync_pulse_pause_started_arc,
-        expected_framerate_arc,
-        _shutdown_tx: DropSend(Some(shutdown_tx)),
-    })
+    let auth_layer = cfg.into_layer();
+
+    assert_eq!(BRAID_EVENTS_URL_PATH, "braid-events");
+    assert_eq!(REMOTE_CAMERA_INFO_PATH, "remote-camera-info");
+    assert_eq!(CAM_PROXY_PATH, "cam-proxy");
+
+    // Create axum router.
+    let router = axum::Router::new()
+        .route("/braid-events", get(events_handler))
+        .route(
+            "/remote-camera-info/:encoded_cam_name",
+            get(remote_camera_info_handler),
+        )
+        // .route("/cam-proxy/:encoded_cam_name", get(slash_redirect_handler))
+        .route(
+            "/cam-proxy/:encoded_cam_name/",
+            axum::routing::method_routing::any(cam_proxy_handler_root),
+        )
+        .route(
+            "/cam-proxy/:encoded_cam_name/*path",
+            axum::routing::method_routing::any(cam_proxy_handler),
+        )
+        .route(
+            "/callback",
+            axum::routing::post(crate::callback_handling::callback_handler)
+                .layer(axum::extract::DefaultBodyLimit::max(100_000_000)),
+        )
+        .nest_service("/", serve_dir)
+        .layer(
+            tower::ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                // Auth layer will produce an error if the request cannot be
+                // authorized so we must handle that.
+                .layer(axum::error_handling::HandleErrorLayer::new(
+                    handle_auth_error,
+                ))
+                .layer(auth_layer),
+        )
+        .with_state(app_state);
+
+    // create future for our app
+    let http_serve_future = {
+        use futures::TryFutureExt;
+        use std::future::IntoFuture;
+        axum::serve(listener, router)
+            .into_future()
+            .map_err(anyhow::Error::from)
+    };
+
+    // Display where we are listening.
+    info!(
+        "Braid HTTP server listening at {}",
+        mainbrain_server_info.addr()
+    );
+
+    let url = mainbrain_server_info.build_url();
+    info!("Predicted URL: {url}");
+    if !flydra_types::is_loopback(&url) {
+        println!("QR code for {url}");
+        display_qr_url(&format!("{url}"));
+    }
+
+    Ok(http_serve_future)
 }
 
 fn compute_trigger_timestamp(
@@ -416,17 +390,8 @@ fn compute_trigger_timestamp(
     }
 }
 
-/// Convert the address we are listening on to a string.
-///
-/// We can strings over the network, but not binary representations of
-/// socket addresses.
-fn addr_to_buf(local_addr: &std::net::SocketAddr) -> Result<String> {
-    let addr_ip = flydra_types::AddrInfoIP::from_socket_addr(local_addr);
-    Ok(serde_json::to_string(&addr_ip)?)
-}
-
 struct SendConnectedCamToBuiBackend {
-    shared_store: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
+    shared_store: SharedStore,
 }
 
 impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
@@ -459,314 +424,6 @@ fn display_qr_url(url: &str) {
     }
     writeln!(stdout_handle).expect("write failed");
 }
-
-pub struct StartupPhase1 {
-    pub camdata_socket: UdpSocket,
-    my_app: HttpApiApp,
-    pub mainbrain_server_info: StrandCamBuiServerInfo,
-    cam_manager: flydra2::ConnectedCamerasManager,
-    strand_cam_http_session_handler: StrandCamHttpSessionHandler,
-    handle: tokio::runtime::Handle,
-    valve: stream_cancel::Valve,
-    trigger_cfg: TriggerType,
-    triggerbox_rx: Option<tokio::sync::mpsc::Receiver<braid_triggerbox::Cmd>>,
-    model_pose_server_addr: std::net::SocketAddr,
-    coord_processor: CoordProcessor,
-    signal_all_cams_present: Arc<AtomicBool>,
-    signal_all_cams_synced: Arc<AtomicBool>,
-    raw_packet_logger: RawPacketLogger,
-}
-
-pub async fn pre_run(
-    handle: &tokio::runtime::Handle,
-    show_tracking_params: bool,
-    // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    camera_configs: BTreeMap<String, flydra_types::BraidCameraConfig>,
-    trigger_cfg: TriggerType,
-    mainbrain_config: &braid_config_data::MainbrainConfig,
-    jwt_secret: Option<Vec<u8>>,
-    all_expected_cameras: std::collections::BTreeSet<RosCamName>,
-    force_camera_sync_mode: bool,
-    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
-    saving_program_name: &str,
-) -> Result<StartupPhase1> {
-    let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
-    let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
-    let tracking_params: flydra_types::TrackingParams = mainbrain_config.tracking_params.clone();
-
-    let camdata_addr_unspecified: &str = &mainbrain_config.lowlatency_camdata_udp_addr;
-
-    let http_api_server_addr: String = mainbrain_config.http_api_server_addr.clone();
-    let http_api_server_token: Option<String> = mainbrain_config.http_api_server_token.clone();
-    let model_pose_server_addr: std::net::SocketAddr = mainbrain_config.model_server_addr;
-    let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
-
-    info!("saving to directory: {}", output_base_dirname.display());
-
-    // Create `stream_cancel::Valve` for shutting everything down. Note this is
-    // `Clone`, so we can (and should) shut down everything with it.
-    let (quit_trigger, valve) = stream_cancel::Valve::new();
-    let (shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
-
-    ctrlc::set_handler(move || {
-        // This closure can get called multiple times, but quit_trigger
-        // and shutdown_tx cannot be copied or cloned and thus can only
-        // but fired once. So in this signal handler we fire a message
-        // on a queue and then on the receive side only deal with the first
-        // send.
-        info!("got Ctrl-C, shutting down");
-
-        let shtdwn_q_tx2 = shtdwn_q_tx.clone();
-
-        // Send quit message.
-        match futures::executor::block_on(shtdwn_q_tx2.send(())) {
-            Ok(()) => {}
-            Err(e) => {
-                error!("failed sending quit command: {}", e);
-            }
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    let recon = if let Some(ref cal_fname) = cal_fname {
-        info!("using calibration: {}", cal_fname.display());
-
-        // read the calibration
-        let cal_file = anyhow::Context::with_context(std::fs::File::open(cal_fname), || {
-            format!("loading calibration {}", cal_fname.display())
-        })?;
-
-        if cal_fname.extension() == Some(std::ffi::OsStr::new("json"))
-            || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
-        {
-            // Assume any .json or .pymvg file is a pymvg file.
-            let system = mvg::MultiCameraSystem::<MyFloat>::from_pymvg_json(cal_file)?;
-            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_system(
-                system, None,
-            ))
-        } else {
-            // Otherwise, assume it is a flydra xml file.
-            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?)
-        }
-    } else {
-        None
-    };
-
-    let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-
-    let cam_manager = flydra2::ConnectedCamerasManager::new(
-        &recon,
-        all_expected_cameras,
-        signal_all_cams_present.clone(),
-        signal_all_cams_synced.clone(),
-    );
-    let strand_cam_http_session_handler = StrandCamHttpSessionHandler::new(cam_manager.clone());
-
-    if show_tracking_params {
-        let t2: flydra_types::TrackingParams = tracking_params;
-        let buf = toml::to_string(&t2)?;
-        println!("{}", buf);
-        std::process::exit(0);
-    }
-
-    let ignore_latency = false;
-    let coord_processor = CoordProcessor::new(
-        CoordProcessorConfig {
-            tracking_params,
-            save_empty_data2d,
-            ignore_latency,
-            mini_arena_debug_image_dir: None,
-        },
-        tokio::runtime::Handle::current(),
-        cam_manager.clone(),
-        recon.clone(),
-        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
-        valve.clone(),
-    )?;
-
-    // Here is what we do on quit:
-    // 1) Stop saving data, convert .braid dir to .braidz, close files.
-    // 2) Fire a DoQuit message to all cameras and wait for them to quit.
-    // 3) Only then close all our network ports and streams nicely.
-    let mut quit_trigger_container = Some(quit_trigger);
-    let mut strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
-    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
-    handle.spawn(async move {
-        while let Some(()) = shtdwn_q_rx.recv().await {
-            debug!("got shutdown command {}:{}", file!(), line!());
-
-            if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
-                // `braidz_write_tx` will be dropped after this scope.
-
-                // Stop saving Braid data.
-
-                // Do not need to wait for completion because we are going to
-                // exit nicely by manually ending all threads and letting all
-                // drop handlers run (without aborting) and thus the program
-                // will finish writing without an explicit wait. (Of course,
-                // this fails during an actual abort).
-
-                braidz_write_tx
-                    .send(flydra2::SaveToDiskMsg::StopSavingCsv)
-                    .await
-                    .unwrap_or(()); // ignore error on shutdown
-            }
-
-            strand_cam_http_session_handler2.send_quit_all().await;
-
-            // When we get here, we have successfully sent DoQuit to all cams.
-            // We can now quit everything in the mainbrain.
-            if let Some(quit_trigger) = quit_trigger_container.take() {
-                quit_trigger.cancel();
-                break; // no point to listen for more
-            }
-        }
-        debug!("shutdown handler finished {}:{}", file!(), line!());
-    });
-
-    let mut bui_backend_config = from_bui_backend::get_bui_backend_config();
-    bui_backend_config.cookie_name = "braid-bui-token".to_string();
-
-    let time_model_arc = Arc::new(RwLock::new(None));
-
-    let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
-        TriggerType::TriggerboxV1(_) => {
-            let (tx, rx) = tokio::sync::mpsc::channel(20);
-            (Some(tx), Some(rx), false)
-        }
-        TriggerType::FakeSync(_) => (None, None, true),
-    };
-
-    let sync_pulse_pause_started: Option<std::time::Instant> = None;
-    let sync_pulse_pause_started_arc = Arc::new(RwLock::new(sync_pulse_pause_started));
-
-    let flydra_app_name = "Braid".to_string();
-
-    let shared = HttpApiShared {
-        fake_sync,
-        csv_tables_dirname: None,
-        fake_mp4_recording_path: None,
-        post_trigger_buffer_size: 0,
-        clock_model_copy: None,
-        calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
-        connected_cameras: Vec::new(),
-        model_server_addr: None,
-        flydra_app_name,
-        all_expected_cameras_are_synced: false,
-    };
-
-    let expected_framerate_arc = Arc::new(RwLock::new(None));
-
-    let per_cam_data_arc = Arc::new(RwLock::new(Default::default()));
-
-    use std::net::ToSocketAddrs;
-    let http_api_server_addr = http_api_server_addr.to_socket_addrs()?.next().unwrap();
-
-    let auth = if let Some(ref secret) = jwt_secret {
-        if let Some(token) = http_api_server_token {
-            bui_backend::highlevel::generate_auth_with_token(
-                http_api_server_addr,
-                secret.to_vec(),
-                token,
-            )?
-        } else {
-            bui_backend::highlevel::generate_random_auth(http_api_server_addr, secret.to_vec())?
-        }
-    } else if http_api_server_addr.ip().is_loopback() {
-        AccessControl::Insecure(http_api_server_addr)
-    } else {
-        return Err(MainbrainError::JwtError.into());
-    };
-
-    let (camdata_addr, camdata_socket) = {
-        // The port of the low latency UDP incoming data socket may be specified
-        // as 0 in which case the OS will decide which port will actually be
-        // bound. So here we create the socket and get its port.
-        let camdata_addr_unspecified = camdata_addr_unspecified.parse::<SocketAddr>().unwrap();
-        let camdata_addr_unspecified_buf = addr_to_buf(&camdata_addr_unspecified)?;
-        debug!(
-            "flydra mainbrain camera listener at: {}",
-            camdata_addr_unspecified_buf
-        );
-        let camdata_socket = UdpSocket::bind(&camdata_addr_unspecified).await?;
-
-        (camdata_socket.local_addr()?.to_string(), camdata_socket)
-    };
-
-    if !output_base_dirname.exists() {
-        info!(
-            "creating output data directory at \"{}\"",
-            output_base_dirname.display()
-        );
-        std::fs::create_dir_all(&output_base_dirname)?;
-    }
-
-    debug!(
-        "output .braidz data directory will be \"{}\"",
-        std::fs::canonicalize(&output_base_dirname)?.display()
-    );
-
-    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
-
-    let my_app = launch_braid_http_backend(
-        auth,
-        cam_manager.clone(),
-        shared,
-        bui_backend_config,
-        camdata_addr,
-        camera_configs,
-        time_model_arc,
-        triggerbox_cmd,
-        sync_pulse_pause_started_arc,
-        expected_framerate_arc,
-        output_base_dirname.clone(),
-        braidz_write_tx_weak,
-        per_cam_data_arc.clone(),
-        force_camera_sync_mode,
-        software_limit_framerate,
-        strand_cam_http_session_handler.clone(),
-    )
-    .await?;
-
-    // This creates a debug logger when `packet_capture_dump_fname` is not
-    // `None`.
-    let raw_packet_logger =
-        RawPacketLogger::new(mainbrain_config.packet_capture_dump_fname.as_deref())?;
-
-    let is_loopback = my_app.inner.local_addr().ip().is_loopback();
-    let mainbrain_server_info =
-        flydra_types::StrandCamBuiServerInfo::new(*my_app.inner.local_addr(), my_app.inner.token());
-    let url = mainbrain_server_info.guess_base_url_with_token();
-    println!(
-        "Depending on things, you may be able to login with this url: {}",
-        url
-    );
-    if !is_loopback {
-        println!("This same URL as a QR code:");
-        display_qr_url(&url);
-    }
-
-    Ok(StartupPhase1 {
-        camdata_socket,
-        my_app,
-        mainbrain_server_info,
-        cam_manager,
-        strand_cam_http_session_handler,
-        handle: handle.clone(),
-        trigger_cfg,
-        triggerbox_rx,
-        model_pose_server_addr,
-        coord_processor,
-        valve,
-        signal_all_cams_present,
-        signal_all_cams_synced,
-        raw_packet_logger,
-    })
-}
-
-use flydra_types::HostClock;
-use serde::Serialize;
 
 /// Format for debugging raw packet data direct from Strand Cam.
 #[derive(Serialize)]
@@ -832,90 +489,260 @@ impl RawPacketLogger {
     }
 }
 
-struct ValvedDebug<T, X>
-where
-    T: futures::stream::Stream<Item = X>,
-{
-    inner: T,
-}
+pub(crate) async fn do_run_forever(
+    show_tracking_params: bool,
+    // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
+    camera_configs: BTreeMap<RawCamName, flydra_types::BraidCameraConfig>,
+    trigger_cfg: TriggerType,
+    mainbrain_config: braid_config_data::MainbrainConfig,
+    secret_base64: Option<String>,
+    all_expected_cameras: std::collections::BTreeSet<RawCamName>,
+    force_camera_sync_mode: bool,
+    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    saving_program_name: &str,
+    listener: tokio::net::TcpListener,
+    mainbrain_server_info: BuiServerAddrInfo,
+) -> Result<()> {
+    let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
+    let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
+    let tracking_params: flydra_types::TrackingParams = mainbrain_config.tracking_params.clone();
 
-impl<T, X> ValvedDebug<T, X>
-where
-    T: futures::stream::Stream<Item = X>,
-{
-    fn new(inner: T) -> Self {
-        Self { inner }
-    }
-}
+    let lowlatency_camdata_udp_addr = &mainbrain_config.lowlatency_camdata_udp_addr;
 
-impl<T, X> std::fmt::Debug for ValvedDebug<T, X>
-where
-    T: futures::stream::Stream<Item = X>,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        f.debug_struct("ValvedDebug").finish_non_exhaustive()
-    }
-}
+    let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
 
-impl<T, X> futures::stream::Stream for ValvedDebug<T, X>
-where
-    T: futures::stream::Stream<Item = X>,
-{
-    type Item = X;
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::option::Option<Self::Item>> {
-        // safe since we never move nor leak &mut
-        let inner = unsafe { self.map_unchecked_mut(|s| &mut s.inner) };
-        inner.poll_next(cx)
-    }
-}
+    info!("saving to directory: {}", output_base_dirname.display());
 
-pub async fn run(phase1: StartupPhase1) -> Result<()> {
-    let camdata_socket = phase1.camdata_socket;
-    let my_app = phase1.my_app;
+    // Create `stream_cancel::Valve` for shutting everything down. Note this is
+    // `Clone`, so we can (and should) shut down everything with it.
+    let (quit_trigger, valve) = stream_cancel::Valve::new();
+    let (_shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
 
-    let mainbrain_server_info = phase1.mainbrain_server_info;
-    let mut cam_manager = phase1.cam_manager;
-    let strand_cam_http_session_handler = phase1.strand_cam_http_session_handler;
-    let handle = phase1.handle;
-    let rt_handle = handle.clone();
-    let rt_handle2 = rt_handle.clone();
-    let rt_handle3 = rt_handle2.clone();
-    let trigger_cfg = phase1.trigger_cfg;
-    let triggerbox_rx = phase1.triggerbox_rx;
-    let model_pose_server_addr = phase1.model_pose_server_addr;
-    let mut coord_processor = phase1.coord_processor;
-    let valve = phase1.valve;
-    let signal_all_cams_present = phase1.signal_all_cams_present;
-    let signal_all_cams_synced = phase1.signal_all_cams_synced;
-    let mut raw_packet_logger = phase1.raw_packet_logger;
+    let recon = if let Some(ref cal_fname) = cal_fname {
+        info!("using calibration: {}", cal_fname.display());
 
-    let signal_triggerbox_connected = Arc::new(AtomicBool::new(false));
-    let triggerbox_cmd = my_app.triggerbox_cmd.clone();
+        // read the calibration
+        let cal_file = anyhow::Context::with_context(std::fs::File::open(cal_fname), || {
+            format!("loading calibration {}", cal_fname.display())
+        })?;
 
-    info!(
-        "http api server at {}",
-        mainbrain_server_info.guess_base_url_with_token()
+        if cal_fname.extension() == Some(std::ffi::OsStr::new("json"))
+            || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
+        {
+            // Assume any .json or .pymvg file is a pymvg file.
+            let system = mvg::MultiCameraSystem::<MyFloat>::from_pymvg_json(cal_file)?;
+            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_system(
+                system, None,
+            ))
+        } else {
+            // Otherwise, assume it is a flydra xml file.
+            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?)
+        }
+    } else {
+        None
+    };
+
+    let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let mut cam_manager = flydra2::ConnectedCamerasManager::new(
+        &recon,
+        all_expected_cameras,
+        signal_all_cams_present.clone(),
+        signal_all_cams_synced.clone(),
     );
 
-    let time_model_arc = my_app.time_model_arc.clone();
-    let expected_framerate_arc = my_app.expected_framerate_arc.clone();
-    let sync_pulse_pause_started_arc = my_app.sync_pulse_pause_started_arc.clone();
+    let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, STRAND_CAM_COOKIE_KEY) {
+        Ok(jar) => {
+            tracing::debug!("loaded cookie store {STRAND_CAM_COOKIE_KEY}");
+            jar
+        }
+        Err(e) => {
+            tracing::debug!("cookie store {STRAND_CAM_COOKIE_KEY} not loaded: {e} {e:?}");
+            cookie_store::CookieStore::new(None)
+        }
+    };
+    let jar = Arc::new(parking_lot::RwLock::new(jar.clone()));
+    let strand_cam_http_session_handler =
+        StrandCamHttpSessionHandler::new(cam_manager.clone(), jar);
+
+    if show_tracking_params {
+        let t2: flydra_types::TrackingParams = tracking_params;
+        let buf = toml::to_string(&t2)?;
+        println!("{}", buf);
+        std::process::exit(0);
+    }
+
+    let ignore_latency = false;
+    let mut coord_processor = CoordProcessor::new(
+        CoordProcessorConfig {
+            tracking_params,
+            save_empty_data2d,
+            ignore_latency,
+            mini_arena_debug_image_dir: None,
+        },
+        cam_manager.clone(),
+        recon.clone(),
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
+    )?;
+
+    // Here is what we do on quit:
+    // 1) Stop saving data, convert .braid dir to .braidz, close files.
+    // 2) Fire a DoQuit message to all cameras and wait for them to quit.
+    // 3) Only then close all our network ports and streams nicely.
+    let mut quit_trigger_container = Some(quit_trigger);
+    let mut strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
+    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
+    tokio::spawn(async move {
+        while let Some(()) = shtdwn_q_rx.recv().await {
+            debug!("got shutdown command {}:{}", file!(), line!());
+
+            if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                // `braidz_write_tx` will be dropped after this scope.
+
+                // Stop saving Braid data.
+
+                // Do not need to wait for completion because we are going to
+                // exit nicely by manually ending all threads and letting all
+                // drop handlers run (without aborting) and thus the program
+                // will finish writing without an explicit wait. (Of course,
+                // this fails during an actual abort).
+
+                braidz_write_tx
+                    .send(flydra2::SaveToDiskMsg::StopSavingCsv)
+                    .await
+                    .unwrap_or(()); // ignore error on shutdown
+            }
+
+            strand_cam_http_session_handler2.send_quit_all().await;
+
+            // When we get here, we have successfully sent DoQuit to all cams.
+            // We can now quit everything in the mainbrain.
+            if let Some(quit_trigger) = quit_trigger_container.take() {
+                quit_trigger.cancel();
+                break; // no point to listen for more
+            }
+        }
+        debug!("shutdown handler finished {}:{}", file!(), line!());
+    });
+
+    let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
+        TriggerType::TriggerboxV1(_) => {
+            let (tx, rx) = tokio::sync::mpsc::channel(20);
+            (Some(tx), Some(rx), false)
+        }
+        TriggerType::FakeSync(_) => (None, None, true),
+    };
+
+    let sync_pulse_pause_started: Option<std::time::Instant> = None;
+    let sync_pulse_pause_started_arc = Arc::new(RwLock::new(sync_pulse_pause_started));
+
+    let flydra_app_name = "Braid".to_string();
+
+    let shared = BraidHttpApiSharedState {
+        fake_sync,
+        csv_tables_dirname: None,
+        fake_mp4_recording_path: None,
+        post_trigger_buffer_size: 0,
+        clock_model_copy: None,
+        calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
+        connected_cameras: Vec::new(),
+        model_server_addr: None,
+        flydra_app_name,
+        all_expected_cameras_are_synced: false,
+    };
+    let shared_store = ChangeTracker::new(shared);
+    let mut shared_store_changes_rx = shared_store.get_changes(1);
+    let shared_store = Arc::new(RwLock::new(shared_store));
+
+    let expected_framerate_arc = Arc::new(RwLock::new(None));
+
+    let per_cam_data_arc = Arc::new(RwLock::new(Default::default()));
+
+    let (public_camdata_addr, camdata_socket) = {
+        // The port of the low latency UDP incoming data socket may be specified
+        // as 0 in which case the OS will decide which port will actually be
+        // bound. So here we create the socket and get its port.
+        let camdata_addr_unspecified_port =
+            if let Some(lowlatency_camdata_udp_addr) = lowlatency_camdata_udp_addr {
+                lowlatency_camdata_udp_addr.parse::<SocketAddr>().unwrap()
+            } else {
+                // No low latency UDP address specified. Default to the same IP
+                // as the mainbrain HTTP server (which may be unspecified) and
+                // let the OS assign a free port by setting the port as
+                // unspecified.
+                let mainbrain_tcp_addr = listener.local_addr()?;
+                let mut camdata_addr_unspecified_port = mainbrain_tcp_addr;
+                camdata_addr_unspecified_port.set_port(0);
+                camdata_addr_unspecified_port
+            };
+        let camdata_socket = UdpSocket::bind(&camdata_addr_unspecified_port).await?;
+        let camdata_addr = camdata_socket.local_addr()?;
+        let remotely_visible = flydra_types::get_best_remote_addr(&camdata_addr)?;
+        let public_camdata_addr = remotely_visible.as_ref().to_string();
+        debug!(
+            "flydra mainbrain camera UDP listener socket: internal: {camdata_addr}, public: {public_camdata_addr}"
+        );
+
+        (public_camdata_addr, camdata_socket)
+    };
+
+    if !output_base_dirname.exists() {
+        info!(
+            "creating output data directory at \"{}\"",
+            output_base_dirname.display()
+        );
+        std::fs::create_dir_all(&output_base_dirname)?;
+    }
+
+    debug!(
+        "output .braidz data directory will be \"{}\"",
+        std::fs::canonicalize(&output_base_dirname)?.display()
+    );
+
+    let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
+
+    let time_model_arc = Arc::new(RwLock::new(None));
+
+    // Create our app state.
+    let app_state = BraidAppState {
+        shared_store: shared_store.clone(),
+        public_camdata_addr,
+        force_camera_sync_mode,
+        software_limit_framerate,
+        event_broadcaster: Default::default(),
+        per_cam_data_arc: per_cam_data_arc.clone(),
+        camera_configs,
+        next_connection_id: Arc::new(RwLock::new(0)),
+        expected_framerate_arc: expected_framerate_arc.clone(),
+        braidz_write_tx_weak,
+        cam_manager: cam_manager.clone(),
+        output_base_dirname,
+        strand_cam_http_session_handler: strand_cam_http_session_handler.clone(),
+    };
+
+    // This future will send state updates to all connected event listeners.
+    let event_broadcaster = app_state.event_broadcaster.clone();
+    let send_updates_future = async move {
+        while let Some((_prev_state, next_state)) = shared_store_changes_rx.next().await {
+            let frame_string = to_event_frame(&next_state);
+            event_broadcaster.broadcast_frame(frame_string).await;
+        }
+    };
+
+    let http_serve_future =
+        launch_braid_http_backend(secret_base64, listener, mainbrain_server_info, app_state)
+            .await?;
+
+    let signal_triggerbox_connected = Arc::new(AtomicBool::new(false));
 
     {
         let sender = SendConnectedCamToBuiBackend {
-            shared_store: my_app.inner.shared_arc().clone(),
+            shared_store: shared_store.clone(),
         };
         let old_callback = cam_manager.set_cam_changed_callback(Box::new(sender));
         assert!(old_callback.is_none());
     }
-
-    let info = flydra_types::StaticMainbrainInfo {
-        name: env!("CARGO_PKG_NAME").into(),
-        version: env!("CARGO_PKG_VERSION").into(),
-    };
 
     let (triggerbox_data_tx, triggerbox_data_rx) =
         tokio::sync::mpsc::channel::<braid_triggerbox::TriggerClockInfoRow>(20);
@@ -960,7 +787,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
         tokio::spawn(triggerbox_future);
     }
 
-    let tracker = my_app.inner.shared_arc().clone();
+    let tracker = shared_store.clone();
 
     let on_new_clock_model = {
         let time_model_arc = time_model_arc.clone();
@@ -983,7 +810,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
                 tracker_guard.modify(|shared| shared.clock_model_copy = cm.clone());
             }
             let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
-            handle.spawn(async move {
+            tokio::spawn(async move {
                 let r = strand_cam_http_session_handler2
                     .send_clock_model_to_all(cm)
                     .await;
@@ -1006,7 +833,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
             use braid_triggerbox::{make_trig_fps_cmd, Cmd};
 
-            let tx = my_app.triggerbox_cmd.clone().unwrap();
+            let tx = triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
 
             let (rate_cmd, rate_actual) = make_trig_fps_cmd(*fps as f64);
@@ -1087,27 +914,17 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let live_stats_collector = LiveStatsCollector::new(tracker.clone());
     let tracker2 = tracker.clone();
 
-    let raw_cam_data_stream: Box<
-        dyn futures::stream::Stream<
-                Item = std::result::Result<
-                    (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
-                    std::io::Error,
-                >,
-            > + Send
-            + Unpin,
-    > = {
-        let codec = CborPacketCodec::default();
-        let stream = UdpFramed::new(camdata_socket, codec);
-
-        Box::new(stream)
-    };
+    // decode UDP frames
+    let raw_cam_data_stream =
+        tokio_util::udp::UdpFramed::new(camdata_socket, CborPacketCodec::default());
 
     // Initiate camera synchronization on startup
     let sync_pulse_pause_started_arc2 = sync_pulse_pause_started_arc.clone();
     let time_model_arc2 = time_model_arc.clone();
     let cam_manager2 = cam_manager.clone();
     let valve2 = valve.clone();
-    let sync_start_jh = rt_handle3.spawn(async move {
+    let triggerbox_cmd2 = triggerbox_cmd.clone();
+    let _sync_start_jh = tokio::spawn(async move {
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
             std::time::Duration::from_secs(1),
         ));
@@ -1120,7 +937,7 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
             if have_triggerbox && have_all_cameras {
                 info!("have triggerbox and all cameras. Synchronizing cameras.");
                 synchronize_cameras(
-                    triggerbox_cmd.as_ref().map(Clone::clone),
+                    triggerbox_cmd2,
                     sync_pulse_pause_started_arc2.clone(),
                     cam_manager2.clone(),
                     time_model_arc2.clone(),
@@ -1134,9 +951,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
     // Signal cameras are synchronized
 
-    let shared_store = my_app.inner.shared_arc().clone();
     let valve2 = valve.clone();
-    let sync_done_jh = rt_handle3.spawn(async move {
+    let _sync_done_jh = tokio::spawn(async move {
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
             std::time::Duration::from_secs(1),
         ));
@@ -1158,171 +974,186 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
     let cam_manager2 = cam_manager.clone();
     let live_stats_collector2 = live_stats_collector.clone();
 
-    let flydra2_stream = futures::stream::StreamExt::filter_map(raw_cam_data_stream, move |r| {
-        // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-        // Start of closure for on each incoming packet.
+    let packet_filter = move |r| {
+        let live_stats_collector2 = live_stats_collector2.clone();
+        let trigger_cfg = trigger_cfg.clone();
+        let strand_cam_http_session_handler2 = strand_cam_http_session_handler2.clone();
+        let cam_manager2 = cam_manager2.clone();
+        let sync_pulse_pause_started_arc = sync_pulse_pause_started_arc.clone();
+        let cam_manager = cam_manager.clone();
+        // This creates a debug logger when `packet_capture_dump_fname` is not
+        // `None`.
+        let mut raw_packet_logger =
+            RawPacketLogger::new(mainbrain_config.packet_capture_dump_fname.as_deref()).unwrap();
+        let time_model_arc = time_model_arc.clone();
+        async move {
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Start of closure for on each incoming packet.
 
-        // We run this closure for each incoming packet.
+            // We run this closure for each incoming packet.
 
-        // Let's be sure about the type of our input.
-        let r: std::result::Result<
-            (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
-            std::io::Error,
-        > = r;
+            // Let's be sure about the type of our input.
+            let r: std::result::Result<
+                (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
+                std::io::Error,
+            > = r;
 
-        let (packet, _addr) = match r {
-            Ok(r) => r,
-            Err(e) => {
-                error!("{}", e);
-                return futures::future::ready(Some(StreamItem::EOF));
-            }
-        };
-
-        let ros_cam_name = RosCamName::new(packet.cam_name.clone());
-        live_stats_collector2.register_new_frame_data(&ros_cam_name, packet.points.len());
-
-        let sync_time_min = match &trigger_cfg {
-            TriggerType::TriggerboxV1(_) => {
-                // Using trigger box
-                std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64)
-            }
-            TriggerType::FakeSync(_) => {
-                // Using fake trigger
-                std::time::Duration::from_secs(0)
-            }
-        };
-
-        // Create closure which is called only if there is a new frame offset
-        // (which occurs upon synchronization).
-        let send_new_frame_offset = |frame| {
-            let strand_cam_http_session_handler = strand_cam_http_session_handler2.clone();
-            let cam_name = ros_cam_name.clone();
-            let fut_no_err = async move {
-                match strand_cam_http_session_handler
-                    .send_frame_offset(&cam_name, frame)
-                    .await
-                {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error sending frame offset: {}", e);
-                    }
-                };
+            let (packet, _addr) = match r {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("{}", e);
+                    return Some(StreamItem::EOF);
+                }
             };
-            rt_handle.spawn(fut_no_err);
-        };
 
-        let synced_frame = cam_manager2.got_new_frame_live(
-            &packet,
-            &sync_pulse_pause_started_arc,
-            sync_time_min,
-            std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
-            send_new_frame_offset,
-        );
+            let raw_cam_name = RawCamName::new(packet.cam_name.clone());
+            live_stats_collector2.register_new_frame_data(&raw_cam_name, packet.points.len());
 
-        let cam_num = cam_manager.cam_num(&ros_cam_name);
+            let sync_time_min = match &trigger_cfg {
+                TriggerType::TriggerboxV1(_) => {
+                    // Using trigger box
+                    std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64)
+                }
+                TriggerType::FakeSync(_) => {
+                    // Using fake trigger
+                    std::time::Duration::from_secs(0)
+                }
+            };
 
-        raw_packet_logger
-            .log_raw_packets(&packet, cam_num, synced_frame)
-            .unwrap();
+            // Create closure which is called only if there is a new frame offset
+            // (which occurs upon synchronization).
+            let send_new_frame_offset = |frame| {
+                let strand_cam_http_session_handler = strand_cam_http_session_handler2.clone();
+                let cam_name = raw_cam_name.clone();
+                let fut_no_err = async move {
+                    match strand_cam_http_session_handler
+                        .send_frame_offset(&cam_name, frame)
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("Error sending frame offset: {}", e);
+                        }
+                    };
+                };
+                tokio::spawn(fut_no_err);
+            };
 
-        let cam_num = match cam_num {
-            Some(cam_num) => cam_num,
-            None => {
-                let known_ros_cam_names = cam_manager.all_ros_cam_names();
-                let cam_names = known_ros_cam_names
-                    .iter()
-                    .map(|x| format!("\"{}\"", x.as_str()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                debug!(
-                    "Unknown camera name \"{}\" ({} expected cameras: [{}]).",
-                    ros_cam_name.as_str(),
-                    cam_names.len(),
-                    cam_names
-                );
-                // Cannot compute cam_num, drop this data.
-                return futures::future::ready(None);
-            }
-        };
+            let synced_frame = cam_manager2.got_new_frame_live(
+                &packet,
+                &sync_pulse_pause_started_arc,
+                sync_time_min,
+                std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
+                send_new_frame_offset,
+            );
 
-        let (synced_frame, trigger_timestamp) = match synced_frame {
-            Some(synced_frame) => {
-                let time_model = time_model_arc.read();
-                let trigger_timestamp = compute_trigger_timestamp(&time_model, synced_frame);
-                (synced_frame, trigger_timestamp)
-            }
-            None => {
-                // cannot compute synced_frame number, drop this data
-                return futures::future::ready(None);
-            }
-        };
+            let cam_num = cam_manager.cam_num(&raw_cam_name);
 
-        let frame_data = flydra2::FrameData::new(
-            ros_cam_name,
-            cam_num,
-            synced_frame,
-            trigger_timestamp,
-            packet.cam_received_time,
-            packet.device_timestamp,
-            packet.block_id,
-        );
+            raw_packet_logger
+                .log_raw_packets(&packet, cam_num, synced_frame)
+                .unwrap();
 
-        assert!(packet.points.len() < u8::max_value() as usize);
-        let points = packet
-            .points
-            .into_iter()
-            .enumerate()
-            .map(|(idx, pt)| {
-                assert!(idx <= 255);
-                flydra2::NumberedRawUdpPoint { idx: idx as u8, pt }
-            })
-            .collect();
+            let cam_num = match cam_num {
+                Some(cam_num) => cam_num,
+                None => {
+                    let known_raw_cam_names = cam_manager.all_raw_cam_names();
+                    let cam_names = known_raw_cam_names
+                        .iter()
+                        .map(|x| format!("\"{}\"", x.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    debug!(
+                        "Unknown camera name \"{}\" ({} expected cameras: [{}]).",
+                        raw_cam_name.as_str(),
+                        known_raw_cam_names.len(),
+                        cam_names
+                    );
+                    // Cannot compute cam_num, drop this data.
+                    return None;
+                }
+            };
 
-        let fdp = FrameDataAndPoints { frame_data, points };
-        futures::future::ready(Some(StreamItem::Packet(fdp)))
-        // This is the end of closure for each incoming packet.
-        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    });
+            let (synced_frame, trigger_timestamp) = match synced_frame {
+                Some(synced_frame) => {
+                    let time_model = time_model_arc.read();
+                    let trigger_timestamp = compute_trigger_timestamp(&time_model, synced_frame);
+                    (synced_frame, trigger_timestamp)
+                }
+                None => {
+                    // cannot compute synced_frame number, drop this data
+                    return None;
+                }
+            };
+
+            let frame_data = flydra2::FrameData::new(
+                raw_cam_name,
+                cam_num,
+                synced_frame,
+                trigger_timestamp,
+                packet.cam_received_time,
+                packet.device_timestamp,
+                packet.block_id,
+            );
+
+            assert!(packet.points.len() < u8::max_value() as usize);
+            let points = packet
+                .points
+                .into_iter()
+                .enumerate()
+                .map(|(idx, pt)| {
+                    assert!(idx <= 255);
+                    flydra2::NumberedRawUdpPoint { idx: idx as u8, pt }
+                })
+                .collect();
+
+            let fdp = FrameDataAndPoints { frame_data, points };
+            Some(StreamItem::Packet(fdp))
+            // This is the end of closure for each incoming packet.
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        }
+    };
+
+    let flydra2_stream = raw_cam_data_stream.filter_map(packet_filter);
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
-    let ms = flydra2::new_model_server(
+    let model_pose_server_addr =
+        flydra_types::get_best_remote_addr(&mainbrain_config.model_server_addr)?;
+    tokio::spawn(flydra2::new_model_server(
         data_rx,
-        valve.clone(),
-        &model_pose_server_addr,
-        info,
-        rt_handle2,
-    )
-    .await?;
+        *model_pose_server_addr.as_ref(),
+    ));
 
     {
         let mut tracker = tracker2.write();
-        tracker.modify(|shared| shared.model_server_addr = Some(*ms.local_addr()))
+        tracker.modify(|shared| shared.model_server_addr = Some(*model_pose_server_addr.as_ref()))
     }
 
     let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
     info!("expected_framerate: {:?}", expected_framerate);
 
+    tokio::spawn(send_updates_future);
+    tokio::spawn(http_serve_future);
+
     coord_processor.add_listener(data_tx);
-    let consume_future = coord_processor.consume_stream(
-        ValvedDebug::new(valve.wrap(flydra2_stream)),
-        expected_framerate,
-    );
 
     // We "block" (in an async way) here for the entire runtime of the program.
-    let writer_jh = consume_future.await;
-
-    // If these tasks are still running, cancel them.
-    debug!("Runtime ending. Aborting any remaining tasks.");
-    sync_start_jh.abort();
-    sync_done_jh.abort();
+    let writer_jh = coord_processor
+        .consume_stream(flydra2_stream, expected_framerate)
+        .await;
 
     // Allow writer task time to finish writing.
     debug!("Runtime ending. Joining coord_processor.consume_stream future.");
+
     writer_jh
         .join()
         .expect("join writer task 1")
         .expect("join writer task 2");
+
+    // If these tasks are still running, cancel them.
+    debug!("Runtime ending. Aborting any remaining tasks.");
+    // sync_start_jh.abort();
+    // sync_done_jh.abort();
 
     debug!("done {}:{}", file!(), line!());
 
@@ -1331,8 +1162,8 @@ pub async fn run(phase1: StartupPhase1) -> Result<()> {
 
 #[derive(Clone)]
 struct LiveStatsCollector {
-    shared: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
-    collected: Arc<RwLock<BTreeMap<RosCamName, LiveStatsAccum>>>,
+    shared: SharedStore,
+    collected: Arc<RwLock<BTreeMap<RawCamName, LiveStatsAccum>>>,
 }
 
 #[derive(Debug)]
@@ -1368,12 +1199,12 @@ impl LiveStatsAccum {
 }
 
 impl LiveStatsCollector {
-    fn new(shared: Arc<RwLock<ChangeTracker<HttpApiShared>>>) -> Self {
+    fn new(shared: SharedStore) -> Self {
         let collected = Arc::new(RwLock::new(BTreeMap::new()));
         Self { shared, collected }
     }
 
-    fn register_new_frame_data(&self, name: &RosCamName, n_points: usize) {
+    fn register_new_frame_data(&self, name: &RawCamName, n_points: usize) {
         let to_send = {
             // scope for lock on self.collected
             let mut collected = self.collected.write();
@@ -1406,13 +1237,13 @@ impl LiveStatsCollector {
     }
 }
 
-async fn toggle_saving_csv_tables(
+pub(crate) async fn toggle_saving_csv_tables(
     start_saving: bool,
     expected_framerate_arc: Arc<RwLock<Option<f32>>>,
     output_base_dirname: std::path::PathBuf,
     braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
-    per_cam_data_arc: Arc<RwLock<BTreeMap<RosCamName, PerCamSaveData>>>,
-    shared_data: Arc<RwLock<ChangeTracker<HttpApiShared>>>,
+    per_cam_data_arc: Arc<RwLock<BTreeMap<RawCamName, PerCamSaveData>>>,
+    shared_data: SharedStore,
 ) {
     if start_saving {
         let expected_framerate: Option<f32> = *expected_framerate_arc.read();
@@ -1519,4 +1350,10 @@ async fn begin_cam_sync_triggerbox_in_process(
     tx.send(StartPulses).await?;
     info!("requesting triggerbox to start sending pulses again");
     Ok(())
+}
+
+fn to_event_frame(state: &BraidHttpApiSharedState) -> String {
+    let buf = serde_json::to_string(&state).unwrap();
+    let frame_string = format!("event: {BRAID_EVENT_NAME}\ndata: {buf}\n\n");
+    frame_string
 }

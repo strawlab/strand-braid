@@ -185,8 +185,8 @@ fn do_parse(
             // assert!(accum.segment_cluster_timestamp.is_none());
             assert!(accum.pts.is_none());
             // convert to u64 because these numbers can get big.
-            let n_timesteps: u64 = get_uint(element).try_into().unwrap();
-            let timestep_nanos: u64 = accum.timestep_nanos.unwrap().try_into().unwrap();
+            let n_timesteps: u64 = get_uint(element).into();
+            let timestep_nanos: u64 = accum.timestep_nanos.unwrap().into();
             let pts_total_nanos = n_timesteps * timestep_nanos;
 
             let pts = std::time::Duration::from_nanos(pts_total_nanos);
@@ -199,7 +199,7 @@ fn do_parse(
             if let Some(cluster_pts) = accum.pts {
                 let x = if let Some(BoxData::SimpleBlockData(block_data)) = &element.box_data() {
                     let n_timesteps: u64 = block_data.timestamp.try_into().unwrap();
-                    let timestep_nanos: u64 = accum.timestep_nanos.unwrap().try_into().unwrap();
+                    let timestep_nanos: u64 = accum.timestep_nanos.unwrap().into();
                     let cluster_offset_nanos = n_timesteps * timestep_nanos;
                     let cluster_offset = std::time::Duration::from_nanos(cluster_offset_nanos);
                     let pts = cluster_pts + cluster_offset;

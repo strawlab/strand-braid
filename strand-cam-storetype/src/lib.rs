@@ -23,7 +23,11 @@ use led_box_comms::DeviceState;
 
 pub use led_box_comms::ToDevice as ToLedBoxDevice;
 
-pub const STRAND_CAM_EVENTS_URL_PATH: &str = "/strand-cam-events";
+// Note: this does not start with a slash because we do not want an absolute
+// root path in case we are in a case where we are proxied by braid. I.e. it
+// should work at `http://braid/cam-proxy/cam-name/strand-cam-events` as well as
+// `http://strand-cam/strand-cam-events`.
+pub const STRAND_CAM_EVENTS_URL_PATH: &str = "strand-cam-events";
 pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

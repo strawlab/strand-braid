@@ -1,20 +1,13 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
-#[macro_use]
-extern crate log;
-
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
 use tokio_stream::StreamExt;
 
-use bui_backend::{
-    highlevel::{ConnectionEvent, ConnectionEventType},
-    lowlevel::EventChunkSender,
-};
-use bui_backend_types::ConnectionKey;
-
 use basic_frame::DynamicFrame;
+use bui_backend_session_types::ConnectionKey;
+use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
 
 pub use http_video_streaming_types::{
     CircleParams, DrawableShape, FirehoseCallbackInner, Point, Shape, ToClient,
@@ -41,7 +34,6 @@ pub struct AnnotatedFrame {
     pub frame: DynamicFrame,
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
-    pub name: Option<String>,
     pub annotations: Vec<DrawableShape>,
 }
 
@@ -58,7 +50,6 @@ pub struct FirehoseCallback {
 }
 
 struct PerSender {
-    name_selector: NameSelector,
     out: EventChunkSender,
     frame_lifo: Option<Arc<Mutex<AnnotatedFrame>>>,
     ready_to_send: bool,
@@ -83,11 +74,9 @@ impl PerSender {
     fn new(
         out: EventChunkSender,
         conn_key: ConnectionKey,
-        name_selector: NameSelector,
         frame: Arc<Mutex<AnnotatedFrame>>,
     ) -> PerSender {
         PerSender {
-            name_selector,
             out,
             frame_lifo: Some(frame),
             ready_to_send: true,
@@ -96,33 +85,18 @@ impl PerSender {
         }
     }
     fn push(&mut self, frame: Arc<Mutex<AnnotatedFrame>>) {
-        let use_frame = match self.name_selector {
-            NameSelector::All => true,
-            NameSelector::None => false,
-            NameSelector::Name(ref select_name) => {
-                let mut tmp = false;
-                if let Some(ref this_name) = frame.lock().name {
-                    if this_name == select_name {
-                        tmp = true;
-                    }
-                }
-                tmp
-            }
-        };
-        if use_frame {
-            self.fno += 1;
-            self.frame_lifo = Some(frame);
-        }
+        self.fno += 1;
+        self.frame_lifo = Some(frame);
     }
     fn got_callback(&mut self, msg: FirehoseCallback) {
         match chrono::DateTime::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
             // match chrono::DateTime<chrono::FixedOffset>::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
             Ok(sent_time) => {
                 let latency = msg.arrival_time.signed_duration_since(sent_time);
-                trace!("latency: {:?}", latency);
+                tracing::trace!("latency: {:?}", latency);
             }
             Err(e) => {
-                error!("failed to parse timestamp in callback: {:?}", e);
+                tracing::error!("failed to parse timestamp in callback: {:?}", e);
             }
         }
         self.ready_to_send = true;
@@ -159,7 +133,6 @@ impl PerSender {
                         fno: self.fno,
                         ts_rfc3339: sent_time.to_rfc3339(),
                         ck: self.conn_key,
-                        name: most_recent_frame_data.name.clone(),
                     }
                 };
                 let buf = serde_json::to_string(&tc).expect("encode");
@@ -168,12 +141,12 @@ impl PerSender {
                     http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
                     buf
                 );
-                let hc = buf.into();
+                let hc = http_body::Frame::data(bytes::Bytes::from(buf));
 
-                match self.out.send(hc).await {
+                match self.out.send(Ok(hc)).await {
                     Ok(()) => {}
                     Err(_) => {
-                        info!("failed to send data to connection. dropping.");
+                        tracing::info!("failed to send data to connection. dropping.");
                         // Failed to send data to event stream key.
                         // TODO: drop this sender.
                     }
@@ -189,8 +162,6 @@ impl PerSender {
 }
 
 struct TaskState {
-    use_frame_selector: bool,
-    events_prefix: String,
     /// cache of senders
     per_sender_map: HashMap<ConnectionKey, PerSender>,
     /// most recent image frame, with annotations
@@ -212,32 +183,10 @@ impl TaskState {
         Ok(())
     }
     fn handle_connection(&mut self, conn_evt: ConnectionEvent) -> Result<()> {
-        let path = conn_evt.path.as_str();
         match conn_evt.typ {
             ConnectionEventType::Connect(chunk_sender) => {
                 // sender was added.
-                let name_selector = if path == self.events_prefix.as_str() {
-                    match self.use_frame_selector {
-                        true => NameSelector::None,
-                        false => NameSelector::All,
-                    }
-                } else {
-                    if !path.starts_with(self.events_prefix.as_str()) {
-                        return Err(Error::UnknownPath(
-                            #[cfg(feature = "backtrace")]
-                            std::backtrace::Backtrace::capture(),
-                        ));
-                    }
-                    let slash_idx = self.events_prefix.len() + 1; // get location of '/' separator
-                    let use_name = path[slash_idx..].to_string();
-                    NameSelector::Name(use_name)
-                };
-                let ps = PerSender::new(
-                    chunk_sender,
-                    conn_evt.connection_key,
-                    name_selector,
-                    self.frame.clone(),
-                );
+                let ps = PerSender::new(chunk_sender, conn_evt.connection_key, self.frame.clone());
                 self.per_sender_map.insert(conn_evt.connection_key, ps);
             }
             ConnectionEventType::Disconnect => {
@@ -259,7 +208,7 @@ impl TaskState {
         if let Some(ps) = self.per_sender_map.get_mut(&callback.inner.ck) {
             ps.got_callback(callback)
         } else {
-            warn!(
+            tracing::warn!(
                 "Got firehose_callback for non-existant connection key. \
                             Did connection disconnect?"
             );
@@ -270,53 +219,43 @@ impl TaskState {
 
 pub async fn firehose_task(
     connection_callback_rx: tokio::sync::mpsc::Receiver<ConnectionEvent>,
-    // sender_map_arc: SenderMap,
     mut firehose_rx: tokio::sync::mpsc::Receiver<AnnotatedFrame>,
     firehose_callback_rx: tokio::sync::mpsc::Receiver<FirehoseCallback>,
-    use_frame_selector: bool,
-    events_prefix: &str,
-    mut quit_rx: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<()> {
     // Wait for the first frame so we don't need to deal with an Option<>.
-    let frame = Arc::new(Mutex::new(firehose_rx.recv().await.unwrap()));
+    let first_frame = firehose_rx.recv().await.unwrap();
+    let frame = Arc::new(Mutex::new(first_frame));
 
     let mut task_state = TaskState {
-        events_prefix: events_prefix.to_string(),
-        use_frame_selector,
         per_sender_map: HashMap::new(),
         frame,
     };
 
     let mut connection_callback_rx =
         tokio_stream::wrappers::ReceiverStream::new(connection_callback_rx);
-    let mut firehose_rx = tokio_stream::wrappers::ReceiverStream::new(firehose_rx);
     let mut firehose_callback_rx =
         tokio_stream::wrappers::ReceiverStream::new(firehose_callback_rx);
     loop {
         tokio::select! {
-            _quit_val = &mut quit_rx => {
-                log::debug!("quitting.");
-                break;
-            }
             opt_new_connection = connection_callback_rx.next() => {
                 match opt_new_connection {
                     Some(new_connection) => {
                         task_state.handle_connection(new_connection)?;
                     }
                     None => {
-                        log::debug!("new connection senders done.");
+                        tracing::debug!("new connection senders done.");
                         // All senders done.
                         break;
                     }
                 }
             }
-            opt_new_frame = firehose_rx.next() => {
+            opt_new_frame = firehose_rx.recv() => {
                 match opt_new_frame {
                     Some(new_frame) => {
                         task_state.handle_frame(new_frame)?;
                     }
                     None => {
-                        log::debug!("new frame senders done.");
+                        tracing::debug!("new frame senders done.");
                         // All senders done.
                         break;
                     }
@@ -328,15 +267,15 @@ pub async fn firehose_task(
                         task_state.handle_callback(callback)?;
                     }
                     None => {
-                        log::debug!("new callback senders done.");
+                        tracing::debug!("new callback senders done.");
                         // All senders done.
                         break;
                     }
                 }
             },
         }
-        task_state.service().await?;
+        task_state.service().await?; // should use a timer for this??
     }
-    log::debug!("firehose task done.");
+    tracing::debug!("firehose task done.");
     Ok(())
 }

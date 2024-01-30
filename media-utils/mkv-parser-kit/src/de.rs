@@ -184,10 +184,10 @@ impl<'a, R: Read + Seek> Deserializer<'a, R> {
                     b'u' => {
                         assert!(buf.len() <= 4);
                         let val = match buf.len() {
-                            1 => buf[0].try_into().unwrap(),
+                            1 => buf[0].into(),
                             2 => {
                                 let buf: [u8; 2] = buf.try_into().unwrap();
-                                u16::from_be_bytes(buf).try_into().unwrap()
+                                u16::from_be_bytes(buf).into()
                             }
                             3 => {
                                 let mut buf4 = [0u8; 4];

@@ -1,34 +1,21 @@
 use chrono::Local;
-use std::{sync::Arc, time::Instant};
-use tracing::info;
+use std::time::Instant;
 
 use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let _tracing_guard = env_tracing_logger::init();
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
-
-    let runtime = Arc::new(runtime);
-    runtime.block_on(inner(runtime.handle().clone()))
-}
-
-async fn inner(rt_handle: tokio::runtime::Handle) -> Result<()> {
-    let addr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
-    info!("send_pose server at {}", addr);
-    let info = flydra_types::StaticMainbrainInfo {
-        name: env!("CARGO_PKG_NAME").into(),
-        version: env!("CARGO_PKG_VERSION").into(),
-    };
-
-    let (_quit_trigger, valve) = stream_cancel::Valve::new();
+    let addr: std::net::SocketAddr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
+    println!("send_pose server at {}", &addr);
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
-    new_model_server(data_rx, valve, &addr, info, rt_handle).await?;
+    let model_server_future = new_model_server(data_rx, addr);
+
+    tokio::spawn(async { model_server_future.await });
 
     let starti = Instant::now();
 

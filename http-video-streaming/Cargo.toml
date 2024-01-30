@@ -7,8 +7,6 @@ rust-version="1.60"
 
 [dependencies]
 thiserror = "1.0.33"
-bui-backend = {version="0.15", default-features = false}
-bui-backend-types = "0.8"
 chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 base64 = "0.6"
 tokio = {version="1", features=["sync","time","macros"]}
@@ -16,12 +14,17 @@ tokio-stream = "0.1.8"
 parking_lot = "0.12"
 serde_json = "1.0"
 futures = "0.3"
-convert-image = {path = "../convert-image"}
-log = "0.4"
 machine-vision-formats = "0.1"
-http-video-streaming-types = {path = "http-video-streaming-types"}
+bytes = "1.5.0"
+http-body = "1.0.0"
+tracing = "0.1.40"
 
+convert-image = {path = "../convert-image"}
+http-video-streaming-types = {path = "http-video-streaming-types"}
 basic-frame = {path="../basic-frame"}
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+event-stream-types = { path = "../event-stream-types" }
+bui-backend-session-types = { path = "../bui-backend-session/types" }
 
 [features]
 backtrace = ["convert-image/backtrace"]

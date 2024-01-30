@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult};
-use flydra_types::{MyFloat, RosCamName, TrackingParams};
+use flydra_types::{MyFloat, RawCamName, TrackingParams};
 
 #[derive(Clone)]
 pub(crate) struct NewObjectTestFlat3D {
@@ -22,7 +22,7 @@ impl NewObjectTestFlat3D {
 impl HypothesisTest for NewObjectTestFlat3D {
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RosCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         let recon_ref = &self.recon;
         assert!(good_points.len() < 2, "cannot have >1 camera");
@@ -30,7 +30,7 @@ impl HypothesisTest for NewObjectTestFlat3D {
             let cam = recon_ref.cam_by_name(cam_name.as_str()).unwrap();
             if let Some(surface_pt) = crate::flat_2d::distorted_2d_to_flat_3d(&cam, xy) {
                 let cams_and_reproj_dist = vec![CamAndDist {
-                    ros_cam_name: cam_name.clone(),
+                    raw_cam_name: cam_name.clone(),
                     reproj_dist: 0.0,
                 }];
                 return Some(HypothesisTestResult {

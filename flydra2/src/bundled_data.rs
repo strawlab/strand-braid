@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use flydra_types::{MiniArenaConfig, RosCamName};
+use flydra_types::{MiniArenaConfig, RawCamName};
 use nalgebra::Point2;
 
 use crate::connected_camera_manager::CameraList;
@@ -39,7 +39,7 @@ pub(crate) struct MiniArenaPointPerCam {
 
 #[derive(Debug, Default)]
 pub(crate) struct PerMiniArenaAllCamsOneFrameUndistorted {
-    pub(crate) per_cam: BTreeMap<RosCamName, Vec<MiniArenaPointPerCam>>,
+    pub(crate) per_cam: BTreeMap<RawCamName, Vec<MiniArenaPointPerCam>>,
 }
 
 // impl PerMiniArenaAllCamsOneFrameUndistorted {
@@ -176,9 +176,9 @@ impl BundledAllCamsOneFrameDistorted {
         let is_new = self.cameras.inner.insert(fdp.frame_data.cam_num.0);
         assert!(
             is_new,
-            "Received data twice: camera={}, orig frame={}. \
+            "Received data twice: camera=\"{}\", orig frame={}. \
                 new frame={}",
-            fdp.frame_data.cam_name,
+            fdp.frame_data.cam_name.as_str(),
             self.frame().0,
             fdp.frame_data.synced_frame.0
         );
@@ -192,7 +192,7 @@ impl BundledAllCamsOneFrameDistorted {
         &self.cameras
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn undistort_and_split_to_mini_arenas(
         self,
         recon: &flydra_mvg::FlydraMultiCameraSystem<MyFloat>,

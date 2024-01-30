@@ -152,7 +152,6 @@ where
         None,
         tracking_params,
         opt2,
-        tokio::runtime::Handle::current(),
         save_performance_histograms,
         &env!("CARGO_PKG_NAME"),
         no_progress,

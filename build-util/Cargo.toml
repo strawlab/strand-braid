@@ -3,10 +3,3 @@ name = "build-util"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.60"
-
-[dependencies]
-bui-backend-codegen = {version="0.9.1", default-features = false}
-
-[features]
-bundle_files = ["bui-backend-codegen/bundle_files"]
-serve_files = ["bui-backend-codegen/serve_files"]

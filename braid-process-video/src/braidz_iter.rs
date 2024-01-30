@@ -124,6 +124,13 @@ struct BraidArchivePerCam<'a> {
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
 
+fn as_ros_camid(raw_name: &str) -> String {
+    let ros_name: String = raw_name.replace('-', "_");
+    let ros_name: String = ros_name.replace(' ', "_");
+    let ros_name: String = ros_name.replace('/', "_");
+    ros_name
+}
+
 /// Iterate across multiple movies with a simultaneously recorded .braidz file
 /// used to synchronize the frames.
 pub(crate) struct BraidArchiveSyncVideoData<'a> {
@@ -137,11 +144,11 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
     pub(crate) fn new(
         archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
-        ros_camera_names: &[&str],
+        camera_names: &[&str],
         frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
         sync_threshold: chrono::Duration,
     ) -> Result<Self> {
-        assert_eq!(ros_camera_names.len(), frame_readers.len());
+        assert_eq!(camera_names.len(), frame_readers.len());
 
         // The readers will all have the current read position at
         // `approx_start_time` when this is called.
@@ -164,7 +171,24 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         // Get earliest starting video
         let i = t0.iter().argmin().unwrap();
         let earliest_start_rdr = &frame_readers[i];
-        let earliest_start_cam_name = &ros_camera_names[i];
+        let earliest_start_cam_name = &camera_names[i];
+
+        let camid2camn = &archive.cam_info.camid2camn;
+
+        // Backwards compatibility with old ROS names.
+        let as_camid = if camid2camn.contains_key(*earliest_start_cam_name) {
+            // If the camid2camn table has the new, "raw" name, use it.
+            str::to_string
+        } else {
+            // Otherwise, use the old ROS name.
+            if !camid2camn.contains_key(&as_ros_camid(earliest_start_cam_name)) {
+                anyhow::bail!(
+                    "Braidz archive does not contain raw camera name, but it also does not contain a ROS name."
+                );
+            }
+            as_ros_camid
+        };
+
         let earliest_start = earliest_start_rdr
             .peek1()
             .unwrap()
@@ -174,11 +198,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             .unwrap()
             .extra()
             .host_timestamp();
-        let earliest_start_cam_num = archive
-            .cam_info
-            .camid2camn
-            .get(*earliest_start_cam_name)
-            .unwrap();
+        let earliest_start_cam_num = &camid2camn.get(&as_camid(*earliest_start_cam_name)).unwrap();
 
         // Now get data2d row with this timestamp to find the synchronized frame number.
         let cam_rows = data2d.get(earliest_start_cam_num).ok_or_else(|| {
@@ -206,11 +226,11 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         }
         let found_frame = found_frame.unwrap();
 
-        let per_cam = ros_camera_names
+        let per_cam = camera_names
             .iter()
             .zip(frame_readers.into_iter())
             .map(|(cam_name, frame_reader)| {
-                let cam_num = *archive.cam_info.camid2camn.get(*cam_name).unwrap();
+                let cam_num = *camid2camn.get(&as_camid(*cam_name)).unwrap();
 
                 let cam_rows = data2d.get(&cam_num).unwrap();
                 for row in cam_rows.iter() {

@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 use serde::{Deserialize, Serialize};
 
@@ -33,10 +30,6 @@ pub enum Error {
 }
 
 type Result<T> = std::result::Result<T, Error>;
-
-fn default_lowlatency_camdata_udp_addr() -> String {
-    "127.0.0.1:0".to_string()
-}
 
 fn default_http_api_server_addr() -> String {
     "127.0.0.1:0".to_string()
@@ -95,8 +88,7 @@ pub struct MainbrainConfig {
     // /// Parameters to potentially raise the mainbrain thread priority.
     // sched_policy_priority: Option<(i32, i32)>,
     /// Address of UDP port to send low-latency detection data
-    #[serde(default = "default_lowlatency_camdata_udp_addr")]
-    pub lowlatency_camdata_udp_addr: String,
+    pub lowlatency_camdata_udp_addr: Option<String>,
     /// Address of HTTP port for control API
     #[serde(default = "default_http_api_server_addr")]
     pub http_api_server_addr: String,
@@ -108,8 +100,8 @@ pub struct MainbrainConfig {
     /// Save rows to data2d_distorted where nothing detected (saves timestamps)
     #[serde(default = "default_true")]
     pub save_empty_data2d: bool,
-    /// Secret to use for JWT auth on HTTP port for control API
-    pub jwt_secret: Option<String>,
+    /// Secret to use for signing HTTP cookies (base64 encoded)
+    pub secret_base64: Option<String>,
     /// For debugging: filename to store captured packet data.
     pub packet_capture_dump_fname: Option<std::path::PathBuf>,
     /// Threshold duration before logging error (msec).
@@ -130,12 +122,12 @@ impl std::default::Default for MainbrainConfig {
             tracking_params: flydra_types::default_tracking_params_full_3d(),
             // Raising the mainbrain thread priority is currently disabled.
             // sched_policy_priority: None,
-            lowlatency_camdata_udp_addr: default_lowlatency_camdata_udp_addr(),
+            lowlatency_camdata_udp_addr: None,
             http_api_server_addr: default_http_api_server_addr(),
             http_api_server_token: None,
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,
-            jwt_secret: None,
+            secret_base64: None,
             packet_capture_dump_fname: None,
             acquisition_duration_allowed_imprecision_msec:
                 flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,

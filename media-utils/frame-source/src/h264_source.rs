@@ -306,12 +306,10 @@ impl H264Source {
 
         let (timestamp_source, has_timestamps) = if frame0_precision_time.is_some() {
             ("MISPmicrosectime", true)
+        } else if mp4_pts.is_some() {
+            ("MP4 PTS", true)
         } else {
-            if mp4_pts.is_some() {
-                ("MP4 PTS", true)
-            } else {
-                ("(no timestamps)", false)
-            }
+            ("(no timestamps)", false)
         };
 
         Ok(Self {

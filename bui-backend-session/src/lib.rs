@@ -1,7 +1,5 @@
-#[macro_use]
-extern crate log;
-
-use bui_backend_types::AccessToken;
+use bui_backend_session_types::AccessToken;
+use http::{header::ACCEPT, HeaderValue};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use thiserror::Error;
@@ -9,13 +7,8 @@ use thiserror::Error;
 const SET_COOKIE: &str = "set-cookie";
 const COOKIE: &str = "cookie";
 
-pub type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, Error>;
-
-fn body_from_buf(body_buf: &[u8]) -> MyBody {
-    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
-    use http_body_util::BodyExt;
-    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
-}
+// pub type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, Error>;
+pub type MyBody = axum::body::Body;
 
 /// Possible errors
 #[derive(Error, Debug)]
@@ -26,37 +19,38 @@ pub enum Error {
     /// A wrapped error from the hyper-util crate
     #[error("hyper-util error `{0}`")]
     HyperUtil(#[from] hyper_util::client::legacy::Error),
+    /// The request was not successful.
+    #[error("request not successful. status code: `{0}`")]
+    RequestFailed(http::StatusCode),
 }
 
 /// A session for a single server.
-///
-/// Warning: this does not attempt to store cookies associated with a single
-/// server and thus could subject you to cross-signing attacks. Therefore, the
-/// name `InsecureSession`.
-#[derive(Clone)]
-pub struct InsecureSession {
+#[derive(Clone, Debug)]
+pub struct HttpSession {
     base_uri: hyper::Uri,
-    jar: Arc<RwLock<cookie::CookieJar>>,
+    jar: Arc<RwLock<cookie_store::CookieStore>>,
 }
 
 /// Create an `InsecureSession` which has already made a request
-pub async fn future_session(base_uri: &str, token: AccessToken) -> Result<InsecureSession, Error> {
-    let mut base = InsecureSession::new(base_uri);
+#[tracing::instrument(level = "debug", skip(token, jar))]
+pub async fn future_session(
+    base_uri: &str,
+    token: AccessToken,
+    jar: Arc<RwLock<cookie_store::CookieStore>>,
+) -> Result<HttpSession, Error> {
+    let mut base = HttpSession::new(base_uri, jar);
     base.get_with_token("", token).await?;
     Ok(base)
 }
 
-impl InsecureSession {
-    fn new(base_uri: &str) -> Self {
+impl HttpSession {
+    fn new(base_uri: &str, jar: Arc<RwLock<cookie_store::CookieStore>>) -> Self {
         let base_uri: hyper::Uri = base_uri.parse().expect("failed to parse uri");
         if let Some(pq) = base_uri.path_and_query() {
             assert_eq!(pq.path(), "/");
             assert!(pq.query().is_none());
         }
-        Self {
-            base_uri,
-            jar: Arc::new(RwLock::new(cookie::CookieJar::new())),
-        }
+        Self { base_uri, jar }
     }
     /// get a relative url to the base url
     fn get_rel_uri(&self, rel: &str, token1: Option<AccessToken>) -> hyper::Uri {
@@ -85,32 +79,57 @@ impl InsecureSession {
             .build()
             .expect("build url")
     }
-    async fn inner_get(
+    async fn inner_req(
         &mut self,
         rel: &str,
         token: Option<AccessToken>,
+        accepts: &[HeaderValue],
+        method: http::Method,
+        body: axum::body::Body,
     ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         let uri = self.get_rel_uri(rel, token);
 
-        let mut req = hyper::Request::new(body_from_buf(b""));
-        *req.method_mut() = hyper::Method::GET;
+        let mut req = hyper::Request::new(body);
+        *req.method_mut() = method;
         *req.uri_mut() = uri;
-        self.make_request(req).await
+        for accept in accepts.iter() {
+            req.headers_mut().insert(ACCEPT, (*accept).clone());
+        }
+        let response = self.make_request(req).await?;
+        Ok(response)
     }
     pub async fn get(
         &mut self,
         rel: &str,
     ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
-        self.inner_get(rel, None).await
+        self.inner_req(rel, None, &[], http::Method::GET, axum::body::Body::empty())
+            .await
+    }
+    pub async fn req_accepts(
+        &mut self,
+        rel: &str,
+        accepts: &[HeaderValue],
+        method: http::Method,
+        body: axum::body::Body,
+    ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
+        self.inner_req(rel, None, accepts, method, body).await
     }
     async fn get_with_token(
         &mut self,
         rel: &str,
         token: AccessToken,
     ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
-        self.inner_get(rel, Some(token)).await
+        self.inner_req(
+            rel,
+            Some(token),
+            &[],
+            http::Method::GET,
+            axum::body::Body::empty(),
+        )
+        .await
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn post(
         &mut self,
         rel: &str,
@@ -124,6 +143,7 @@ impl InsecureSession {
         self.make_request(req).await
     }
 
+    #[tracing::instrument(skip_all)]
     async fn make_request(
         &mut self,
         mut req: hyper::Request<MyBody>,
@@ -132,11 +152,13 @@ impl InsecureSession {
             hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
                 .build_http();
 
-        debug!("building request");
+        tracing::trace!("building request");
+        let url = url::Url::parse(req.uri().to_string().as_ref()).unwrap();
         {
             let jar = self.jar.read();
-            for cookie in jar.iter() {
-                debug!("adding cookie {}", cookie);
+            for (cookie_name, cookie_value) in jar.get_request_values(&url) {
+                let cookie = cookie_store::RawCookie::new(cookie_name, cookie_value);
+                tracing::trace!("adding cookie {}", cookie);
                 req.headers_mut().insert(
                     COOKIE,
                     hyper::header::HeaderValue::from_str(&cookie.to_string()).unwrap(),
@@ -144,36 +166,54 @@ impl InsecureSession {
             }
         }
 
-        let jar2 = self.jar.clone();
-        debug!("making request {:?}", req);
-        let response = client.request(req).await?;
+        req.headers_mut().insert(
+            http::header::CONTENT_TYPE,
+            hyper::header::HeaderValue::from_str("application/json").unwrap(),
+        );
 
-        debug!("handling response {:?}", response);
-        handle_response(jar2, response)
+        tracing::debug!("making request {:?}", req);
+        let response = client.request(req).await.map_err(|e| {
+            tracing::error!("encountered error {e}: {e:?}");
+            Error::from(e)
+        })?;
+
+        tracing::debug!("handling response {:?}", response);
+        let response = handle_response(&url, self.jar.clone(), response)?;
+        let status_code = response.status();
+        if !status_code.is_success() {
+            use http_body_util::BodyExt;
+            let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let body_str = std::string::String::from_utf8_lossy(body_bytes.as_ref());
+            tracing::error!("response {status_code:?}: \"{body_str}\"");
+            return Err(Error::RequestFailed(status_code));
+        }
+        Ok(response)
     }
 }
 
 fn handle_response(
-    jar2: Arc<RwLock<cookie::CookieJar>>,
+    url: &url::Url,
+    jar2: Arc<RwLock<cookie_store::CookieStore>>,
     mut response: hyper::Response<hyper::body::Incoming>,
 ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
-    debug!("starting to handle cookies in response {:?}", response);
+    tracing::trace!("starting to handle cookies in response {:?}", response);
 
     use hyper::header::Entry::*;
     match response.headers_mut().entry(SET_COOKIE) {
         Occupied(e) => {
             let (_key, drain) = e.remove_entry_mult();
             let mut jar = jar2.write();
-            for cookie_raw in drain {
-                let c = cookie::Cookie::parse(cookie_raw.to_str().unwrap().to_string()).unwrap();
-                jar.add(c);
-                // TODO FIXME do not reinsert same cookie again and again
-                debug!("stored cookie {:?}", cookie_raw);
-            }
+            jar.store_response_cookies(
+                drain.map(|cookie_raw| {
+                    cookie_store::RawCookie::parse(cookie_raw.to_str().unwrap().to_string())
+                        .unwrap()
+                }),
+                url,
+            );
         }
         Vacant(_) => {}
     }
 
-    debug!("done handling cookies in response {:?}", response);
+    tracing::trace!("done handling cookies in response {:?}", response);
     Ok(response)
 }

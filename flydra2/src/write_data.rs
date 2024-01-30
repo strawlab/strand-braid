@@ -128,9 +128,9 @@ impl WritingState {
             image_path.push(IMAGES_DIRNAME);
             std::fs::create_dir_all(&image_path)?;
 
-            for (ros_cam_name, data) in per_cam_data.iter() {
+            for (raw_cam_name, data) in per_cam_data.iter() {
                 let buf = data.current_image_png.as_slice();
-                let fname = format!("{}.png", ros_cam_name.as_str());
+                let fname = format!("{}.png", raw_cam_name.as_str());
                 let fullpath = image_path.clone().join(fname);
                 let mut fd = std::fs::File::create(&fullpath)?;
                 fd.write_all(buf)?;
@@ -148,11 +148,11 @@ impl WritingState {
                 std::fs::create_dir_all(&cam_settings_path)?;
             }
 
-            for (ros_cam_name, cam) in per_cam_data.iter() {
+            for (raw_cam_name, cam) in per_cam_data.iter() {
                 if let Some(data) = &cam.cam_settings_data {
                     let fname = format!(
                         "{}.{}",
-                        ros_cam_name.as_str(),
+                        raw_cam_name.as_str(),
                         data.current_cam_settings_extension
                     );
                     let fullpath = cam_settings_path.clone().join(fname);
@@ -173,10 +173,10 @@ impl WritingState {
                 std::fs::create_dir_all(&feature_detect_settings_path)?;
             }
 
-            for (ros_cam_name, cam) in per_cam_data.iter() {
+            for (raw_cam_name, cam) in per_cam_data.iter() {
                 if let Some(data) = &cam.feature_detect_settings {
                     let buf = toml::to_vec(&data.current_feature_detect_settings)?;
-                    let fname = format!("{}.toml", ros_cam_name.as_str());
+                    let fname = format!("{}.toml", raw_cam_name.as_str());
                     let fullpath = feature_detect_settings_path.clone().join(fname);
                     let mut fd = std::fs::File::create(&fullpath)?;
                     fd.write_all(&buf)?;
@@ -475,7 +475,7 @@ impl Drop for WritingState {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn writer_task_main(
     mut braidz_write_rx: tokio::sync::mpsc::Receiver<SaveToDiskMsg>,
     cam_manager: ConnectedCamerasManager,
@@ -719,7 +719,7 @@ mod test {
             FrameDataAndPoints {
                 frame_data: FrameData {
                     block_id: None,
-                    cam_name: RosCamName::new("cam".to_string()),
+                    cam_name: RawCamName::new("cam".to_string()),
                     cam_num: CamNum(0),
                     cam_received_timestamp: FlydraFloatTimestampLocal::from_f64(i as f64 + 0.123),
                     device_timestamp: None,

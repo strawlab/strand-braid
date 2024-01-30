@@ -3,8 +3,11 @@ name = "rust-cam-bui-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 license = "MIT/Apache-2.0"
+edition = "2021"
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
+serde = {version = "1.0", features = [ "derive" ] }
 chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
+tokio = "1"
+
+bui-backend-session-types = { path = "../bui-backend-session/types" }

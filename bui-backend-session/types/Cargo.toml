@@ -1,0 +1,13 @@
+[package]
+name = "bui-backend-session-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+uuid = { version = "1.0", features = ["serde"] }
+serde = {version="1.0", features=["derive"]}
+
+[features]
+default = []
+
+uuid-v4 = ["uuid/v4"]

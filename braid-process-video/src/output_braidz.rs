@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
-use flydra_types::{PerCamSaveData, RawCamName, RosCamName};
+use flydra_types::{PerCamSaveData, RawCamName};
 
 use crate::{
     config::{BraidRetrackVideoConfig, CameraCalibrationSource, TrackingParametersSource},
@@ -20,7 +20,7 @@ impl BraidStorage {
         b: &crate::config::BraidzOutputConfig,
         tracking_parameters: Option<flydra_types::TrackingParams>,
         sources: &[crate::CameraSource],
-        all_expected_cameras: BTreeSet<RosCamName>,
+        all_expected_cameras: BTreeSet<RawCamName>,
         expected_framerate: Option<f32>,
     ) -> Result<Self> {
         let output_braidz_path = std::path::PathBuf::from(&b.filename);
@@ -60,14 +60,14 @@ impl BraidStorage {
             std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-        let braidz_per_cam_save_data: BTreeMap<RosCamName, PerCamSaveData> = sources
+        let braidz_per_cam_save_data: BTreeMap<RawCamName, PerCamSaveData> = sources
             .iter()
             .map(|source| {
-                let ros_cam_name = source.per_cam_render.ros_name.clone().unwrap();
+                let raw_cam_name = source.per_cam_render.raw_name.clone();
                 let current_image_png = source.per_cam_render.frame0_png_buf.clone();
 
                 (
-                    ros_cam_name,
+                    raw_cam_name,
                     PerCamSaveData {
                         current_image_png,
                         cam_settings_data: None,
@@ -84,17 +84,12 @@ impl BraidStorage {
             signal_all_cams_synced,
         );
 
-        for ros_cam_name in all_expected_cameras.iter() {
-            let no_server = flydra_types::StrandCamHttpServerInfo::NoServer;
-            let orig_cam_name = RawCamName::new(ros_cam_name.to_string()); // this is a lie...
-            cam_manager.register_new_camera(&orig_cam_name, &no_server, ros_cam_name);
+        for raw_cam_name in all_expected_cameras.iter() {
+            let no_server = flydra_types::BuiServerInfo::NoServer;
+            cam_manager
+                .register_new_camera(&raw_cam_name, &no_server)
+                .map_err(|msg| anyhow::anyhow!("Error registering new camera: {msg}"))?;
         }
-
-        // Create `stream_cancel::Valve` for shutting everything down. Note this is
-        // `Clone`, so we can (and should) shut down everything with it. Here we let
-        // _quit_trigger drop when it goes out of scope. This is due to use in this
-        // offline context.
-        let (_quit_trigger, valve) = stream_cancel::Valve::new();
 
         let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);
         let frame_data_rx = tokio_stream::wrappers::ReceiverStream::new(frame_data_rx);
@@ -107,11 +102,9 @@ impl BraidStorage {
                 ignore_latency,
                 mini_arena_debug_image_dir: None,
             },
-            tokio::runtime::Handle::current(),
             cam_manager.clone(),
             recon.clone(),
             flydra2::BraidMetadataBuilder::saving_program_name("braid-process-video"),
-            valve,
         )?;
 
         let save_cfg = flydra2::StartSavingCsvConfig {
@@ -146,8 +139,8 @@ impl BraidStorage {
         all_cam_render_data: &[PerCamRenderFrame<'_>],
     ) -> Result<()> {
         for cam_render_data in all_cam_render_data.iter() {
-            let ros_cam_name = cam_render_data.p.ros_name.clone().unwrap();
-            let cam_num = self.cam_manager.cam_num(&ros_cam_name).unwrap();
+            let raw_cam_name = cam_render_data.p.raw_name.clone();
+            let cam_num = self.cam_manager.cam_num(&raw_cam_name).unwrap();
 
             let trigger_timestamp = synced_data
                 .braidz_info
@@ -155,7 +148,7 @@ impl BraidStorage {
                 .and_then(|bi| bi.trigger_timestamp.clone());
 
             let frame_data = flydra2::FrameData::new(
-                ros_cam_name,
+                raw_cam_name,
                 cam_num,
                 flydra_types::SyncFno(out_fno.try_into().unwrap()),
                 trigger_timestamp,

@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use machine_vision_formats::ImageData;
 use timestamped_frame::ExtraTimeData;
 
-use flydra_types::{Data2dDistortedRow, RawCamName, RosCamName};
+use flydra_types::{Data2dDistortedRow, RawCamName};
 
 mod peek2;
 use peek2::Peek2;
@@ -168,9 +168,10 @@ fn synchronize_readers_from(
     }
 }
 
+#[derive(Debug)]
 struct PerCamRender {
     best_name: String,
-    ros_name: Option<RosCamName>,
+    raw_name: RawCamName,
     frame0_png_buf: flydra_types::PngImageData,
     width: usize,
     height: usize,
@@ -179,7 +180,7 @@ struct PerCamRender {
 impl PerCamRender {
     fn from_reader(cam_id: &CameraIdentifier) -> Self {
         let best_name = cam_id.best_name();
-        let ros_name = cam_id.ros_name().map(RosCamName::new);
+        let raw_name = RawCamName::new(best_name.clone());
 
         let rdr = match &cam_id {
             CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
@@ -221,7 +222,7 @@ impl PerCamRender {
 
         Self {
             best_name,
-            ros_name,
+            raw_name,
             frame0_png_buf,
             width,
             height,
@@ -233,9 +234,9 @@ impl PerCamRender {
         braidz_cam: &BraidzCamId,
     ) -> Self {
         let image_sizes = braid_archive.image_sizes.as_ref().unwrap();
-        let (width, height) = image_sizes.get(&braidz_cam.ros_cam_name).unwrap();
-        let best_name = braidz_cam.ros_cam_name.clone(); // this is the best we can do
-        let ros_name = Some(RosCamName::new(braidz_cam.ros_cam_name.clone()));
+        let (width, height) = image_sizes.get(&braidz_cam.cam_id_str).unwrap();
+        let best_name = braidz_cam.cam_id_str.clone(); // this is the best we can do
+        let raw_name = RawCamName::new(best_name.clone());
 
         // generate blank first image of the correct size.
         let image_data: Vec<u8> = vec![0; *width * *height];
@@ -253,7 +254,7 @@ impl PerCamRender {
 
         Self {
             best_name,
-            ros_name,
+            raw_name,
             frame0_png_buf,
             width: *width,
             height: *height,
@@ -300,6 +301,7 @@ impl<'a> PerCamRenderFrame<'a> {
     }
 }
 
+#[derive(Debug)]
 struct CameraSource {
     cam_id: CameraIdentifier,
     per_cam_render: PerCamRender,
@@ -316,6 +318,7 @@ impl CameraSource {
     }
 }
 
+#[derive(Debug)]
 enum CameraIdentifier {
     MovieOnly(MovieCamId),
     BraidzOnly(BraidzCamId),
@@ -337,15 +340,7 @@ impl CameraIdentifier {
                         .unwrap_or_else(|| m.filename.clone())
                 })
             }
-            CameraIdentifier::BraidzOnly(b) => b.ros_cam_name.clone(),
-        }
-    }
-    fn ros_name(&self) -> Option<String> {
-        match self {
-            CameraIdentifier::MovieOnly(m) => m.ros_name(),
-            CameraIdentifier::BraidzOnly(b) | CameraIdentifier::Both((_, b)) => {
-                Some(b.ros_cam_name.clone())
-            }
+            CameraIdentifier::BraidzOnly(b) => b.cam_id_str.clone(),
         }
     }
     fn frame0_time(&self) -> chrono::DateTime<chrono::FixedOffset> {
@@ -369,28 +364,38 @@ struct MovieCamId {
     cfg_name: Option<String>,
     /// Title given in movie metadata
     title: Option<String>,
-    /// Title converted to ROS name (`-` replaced with `_`)
-    title_as_ros: Option<String>,
-    /// Filename converted to ROS name (`-` replaced with `_`)
-    filename_as_ros: Option<String>,
+    /// Camera name extracted from filename
+    cam_from_filename: Option<String>,
     frame0_time: chrono::DateTime<chrono::FixedOffset>,
 }
 
 impl MovieCamId {
-    fn ros_name(&self) -> Option<String> {
-        if let Some(title_as_ros) = &self.title_as_ros {
-            return Some(title_as_ros.clone());
+    fn raw_name(&self) -> Option<String> {
+        if let Some(title) = &self.title {
+            return Some(title.clone());
         }
-        if let Some(filename_as_ros) = &self.filename_as_ros {
-            return Some(filename_as_ros.clone());
+        if let Some(cam_from_filename) = &self.cam_from_filename {
+            return Some(cam_from_filename.clone());
         }
         None
     }
 }
 
+impl std::fmt::Debug for MovieCamId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MovieCamId")
+            .field("filename", &self.filename)
+            .field("cfg_name", &self.cfg_name)
+            .field("title", &self.title)
+            .field("cam_from_filename", &self.cam_from_filename)
+            .field("frame0_time", &self.frame0_time)
+            .finish()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 struct BraidzCamId {
-    ros_cam_name: String,
+    cam_id_str: String,
     camn: flydra_types::CamNum,
 }
 
@@ -455,10 +460,6 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
             let reader = Some(Peek2::new(frame_source.iter()));
 
-            let title_as_ros: Option<String> = title
-                .as_ref()
-                .map(|title| RawCamName::new(title.clone()).to_ros().as_str().to_string());
-
             let full_path = std::path::PathBuf::from(&s.filename);
             let filename = full_path
                 .file_name()
@@ -471,18 +472,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             let stem = filename.as_str().split('.').next().unwrap();
             // example: stem = "movie20211108_084523_Basler-22445994"
 
-            let filename_as_ros = movie_re.captures(stem).map(|caps| {
+            let cam_from_filename = movie_re.captures(stem).map(|caps| {
                 // get the raw camera name
-                let raw = caps.get(1).unwrap().as_str();
-                // example: raw = "Basler-22445994"
-
-                let ros = RawCamName::new(raw.to_string())
-                    .to_ros()
-                    .as_str()
-                    .to_string();
-                // example: ros = "Basler_22445994"
-
-                ros
+                caps.get(1).unwrap().as_str().to_string()
             });
 
             let cam_id = CameraIdentifier::MovieOnly(MovieCamId {
@@ -490,8 +482,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 filename,
                 cfg_name: s.camera_name.clone(),
                 title,
-                title_as_ros,
-                filename_as_ros,
+                cam_from_filename,
                 frame0_time,
                 reader,
             });
@@ -513,7 +504,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .camid2camn
             .iter()
             .map(|(cam_id, camn)| BraidzCamId {
-                ros_cam_name: cam_id.clone(),
+                cam_id_str: cam_id.clone(),
                 camn: *camn,
             })
             .collect()
@@ -530,7 +521,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
                     let cam_id = match cam_id {
                         CameraIdentifier::MovieOnly(m) => {
-                            if Some(braidz_cam_id.ros_cam_name.clone()) == m.ros_name() {
+                            if Some(braidz_cam_id.cam_id_str.clone()) == m.raw_name() {
                                 CameraIdentifier::Both((m, braidz_cam_id.clone()))
                             } else {
                                 CameraIdentifier::MovieOnly(m)
@@ -583,13 +574,13 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         }
     }
 
-    let ros_camera_names: Vec<String> = sources
+    let camera_names: Vec<String> = sources
         .iter()
         .map(|s| match &s.cam_id {
             CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
-                m.ros_name().unwrap()
+                m.raw_name().unwrap()
             }
-            CameraIdentifier::BraidzOnly(b) => b.ros_cam_name.clone(),
+            CameraIdentifier::BraidzOnly(b) => b.cam_id_str.clone(),
         })
         .collect();
 
@@ -672,13 +663,12 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             // In this path, we use the .braidz file as the source of
             // synchronization.
 
-            let ros_camera_names_ref: Vec<&str> =
-                ros_camera_names.iter().map(|x| x.as_str()).collect();
+            let camera_names_ref: Vec<&str> = camera_names.iter().map(|x| x.as_str()).collect();
 
             Box::new(braidz_iter::BraidArchiveSyncVideoData::new(
                 archive,
                 &data2d,
-                &ros_camera_names_ref,
+                &camera_names_ref,
                 frame_readers,
                 sync_threshold,
             )?)
@@ -699,10 +689,10 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         }
     };
 
-    let all_expected_cameras = ros_camera_names
+    let all_expected_cameras = camera_names
         .iter()
-        .map(|x| RosCamName::new(x.clone()))
-        .collect::<std::collections::BTreeSet<RosCamName>>();
+        .map(|x| RawCamName::new(x.clone()))
+        .collect::<std::collections::BTreeSet<_>>();
 
     // Initialize outputs
     let output_storage: Vec<Result<OutputStorage, _>> =

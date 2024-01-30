@@ -33,8 +33,6 @@ async fn test_min_two_rays_needed() {
 
     let opts = braid_offline::KalmanizeOptions::default();
 
-    let rt_handle = tokio::runtime::Handle::try_current().unwrap();
-
     let save_performance_histograms = true;
 
     braid_offline::kalmanize(
@@ -43,7 +41,6 @@ async fn test_min_two_rays_needed() {
         None,
         tracking_params,
         opts,
-        rt_handle,
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
         true,

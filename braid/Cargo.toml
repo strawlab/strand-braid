@@ -20,3 +20,5 @@ flydra-types = {path="../flydra-types"}
 flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types"}
 flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
 braid-config-data = {path = "../braid-config-data"}
+tracing-subscriber = "0.3.18"
+tracing = "0.1.40"

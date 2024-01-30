@@ -12,8 +12,6 @@ build-util = {path="../../build-util"}
 
 [dependencies]
 
-log = { version = "0.4", features = ["release_max_level_debug"] }
-env_logger = "0.10"
 configure = "0.1.1"
 thiserror = "1.0.33"
 anyhow = "1.0"
@@ -22,7 +20,6 @@ serde = "1.0"
 serde_json = "1.0"
 toml = "0.5"
 regex = "1.0"
-url = "2"
 braid-triggerbox = "0.4.1"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 futures = "0.3"
@@ -32,42 +29,50 @@ tokio-stream = "0.1.9"
 stream-cancel = "0.8"
 bytes = "1.0"
 clap = { version = "4.3.4", features = ["derive"] }
+preferences-serde1 = "2.0.0"
 qrcodegen = "1.4"
 image = "0.24.2"
 hyper = "1.1"
 lazy_static = "1.4"
-ctrlc = { version = "3.1.3", features = ["termination"] }
 csv = "1.1"
 http-body-util = "0.1.0"
 http = "1.0.0"
-
-includedir = { version = "0.6", optional = true }
-phf = { version = "0.8", optional = true }
-async-change-tracker = "0.3"
-bui-backend-types = "0.8"
-bui-backend = {version="0.15", default-features = false}
+async-change-tracker = "0.3.4"
+tracing = "0.1.40"
+axum = "0.7.4"
+tower = "0.4.13"
+tower-http = { version = "0.5.1", features = ["fs", "trace"] }
+tower-serve-static = { version = "0.1", optional = true }
+include_dir = { version = "0.7.3", optional = true }
+axum-token-auth = "0.1.0"
+http-body = "1.0.0"
+base64 = "0.12"
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}
-flydra-pt-detect-cfg = {path = "../../flydra-feature-detector/flydra-pt-detect-cfg"}
-strand-cam-storetype = {path = "../../strand-cam-storetype"}
-flydra-types = {path="../../flydra-types", features=["with-dns"]}
-flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
-rust-cam-bui-types = {path="../../rust-cam-bui-types"}
-mvg = {path="../../mvg"}
-flydra-mvg = {path="../../flydra-mvg"}
+bui-backend-session-types = { path = "../../bui-backend-session/types" }
 bui-backend-session = {path="../../bui-backend-session"}
-flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
 ci2-remote-control = {path = "../../ci2-remote-control"}
 datetime-conversion = {path = "../../datetime-conversion"}
+event-stream-types = { path = "../../event-stream-types" }
+flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
+flydra-mvg = {path="../../flydra-mvg"}
+flydra-pt-detect-cfg = {path = "../../flydra-feature-detector/flydra-pt-detect-cfg"}
+flydra-types = { path="../../flydra-types", features = [ "start-listener", "build-urls" ] }
+flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
+mvg = {path="../../mvg"}
+rust-cam-bui-types = {path="../../rust-cam-bui-types"}
+strand-cam-storetype = {path = "../../strand-cam-storetype"}
+cookie_store = "0.20.0"
+cookie = "0.18.0"
 
 [features]
 default = ["bundle_files"]
 
 deadlock_detection = ["parking_lot/deadlock_detection"]
 
-# BUI frontend
-bundle_files = ["flydra2/bundle_files", "bui-backend/bundle_files", "build-util/bundle_files", "includedir", "phf"]
-serve_files = ["flydra2/serve_files", "bui-backend/serve_files", "build-util/serve_files"]
+# BUI frontend. must pick one of the following two:
+bundle_files = ["flydra2/bundle_files", "tower-serve-static", "include_dir"]
+serve_files = ["flydra2/serve_files"]
 
 backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]

@@ -17,7 +17,7 @@ file have connected will Braid synchronize the cameras and allow recording of
 data.
 
 To start Strand Camera as a remote camera for Braid, run `strand-cam-pylon` (to
-start Strand Camera) with the command line argument `--braid_addr <URL>`
+start Strand Camera) with the command line argument `--braid-url <URL>`
 specifying the URL for the braid HTTP address. The camera name should also be
 specified on the command line, along with any other options.
 
@@ -25,5 +25,5 @@ In the following example, the Strand Camera will open the camera named
 `Basler-12345` and will connect to Braid running at `http://127.0.0.1:44444`.
 
 ```ignore
-strand-cam-pylon --camera-name Basler-12345 --braid_addr http://127.0.0.1:44444
+strand-cam-pylon --camera-name Basler-12345 --braid-url http://127.0.0.1:44444
 ```

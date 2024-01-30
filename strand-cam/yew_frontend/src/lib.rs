@@ -231,22 +231,6 @@ impl Component for Model {
             },
         );
 
-        // let task = {
-        //     // let notification = link.callback(|status| {
-        //     //     if status == EventSourceStatus::Error {
-        //     //         log::error!("event source error");
-        //     //     }
-        //     //     Msg::EsCheckState
-        //     // });
-        //     // let mut task = EventSourceService::new()
-        //     //     .connect(
-        //     //         strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
-        //     //         notification,
-        //     //     )
-        //     //     .unwrap();
-        //     task
-        // };
-
         Self {
             video_data: Rc::new(RefCell::new(VideoData::new(None))),
             server_state: None,
@@ -1314,39 +1298,6 @@ fn to_rate(rate_enum: &RecordingFrameRate) -> Option<f32> {
     }
 }
 
-// impl Model {
-//     fn send_message(&mut self, args: &CallbackType) -> Option<yew::services::fetch::FetchTask> {
-//         let post_request = Request::post("callback")
-//             .header("Content-Type", "application/json;charset=UTF-8")
-//             .body(Json(&args))
-//             .expect("Failed to build request.");
-
-//         let callback =
-//             self.link
-//                 .callback(move |response: Response<Json<Result<(), anyhow::Error>>>| {
-//                     if let (meta, Json(Ok(_body))) = response.into_parts() {
-//                         if meta.status.is_success() {
-//                             return Msg::Ignore;
-//                         }
-//                     }
-//                     log::error!("failed sending message");
-//                     Msg::Ignore
-//                 });
-//         let options = FetchOptions {
-//             credentials: Some(Credentials::SameOrigin),
-//             ..Default::default()
-//         };
-
-//         match FetchService::fetch_with_options(post_request, options, callback) {
-//             Ok(task) => Some(task),
-//             Err(err) => {
-//                 log::error!("sending message failed with error: {}", err);
-//                 None
-//             }
-//         }
-//     }
-// }
-
 // -----------------------------------------------------------------------------
 
 async fn post_message(msg: &CallbackType) -> Result<(), FetchError> {
@@ -1354,11 +1305,13 @@ async fn post_message(msg: &CallbackType) -> Result<(), FetchError> {
     let mut opts = RequestInit::new();
     opts.method("POST");
     opts.cache(web_sys::RequestCache::NoStore);
-    // opts.mode(web_sys::RequestMode::Cors);
-    // opts.headers("Content-Type", "application/json;charset=UTF-8")
-    // set SameOrigin
     let buf = serde_json::to_string(&msg).unwrap_throw();
     opts.body(Some(&JsValue::from_str(&buf)));
+    let headers = web_sys::Headers::new().unwrap_throw();
+    headers
+        .append("Content-Type", "application/json")
+        .unwrap_throw();
+    opts.headers(&headers);
 
     let url = "callback";
     let request = Request::new_with_str_and_init(url, &opts)?;

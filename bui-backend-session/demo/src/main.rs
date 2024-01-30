@@ -1,7 +1,7 @@
 use http_body_util::BodyExt;
 
 use bui_backend_session::future_session;
-use bui_backend_types::AccessToken;
+use bui_backend_session_types::AccessToken;
 
 #[tokio::main]
 async fn main() -> Result<(), bui_backend_session::Error> {

@@ -11,7 +11,6 @@ log = "0.4"
 env_logger = "0.10"
 tokio = {version="1.17", features=["macros","rt","tracing"]}
 tokio-stream = "0.1.8"
-stream-cancel = "0.8"
 anyhow = "1"
 chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 serde = {version="1", features=["derive"]}

@@ -15,11 +15,11 @@ use tracing::{debug, info, warn};
 
 use braidz_parser::open_maybe_gzipped;
 use flydra2::{
-    CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem,
+    new_model_server, CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData,
+    FrameDataAndPoints, NumberedRawUdpPoint, StreamItem,
 };
 use flydra_types::{
-    CamInfoRow, PerCamSaveData, RawCamName, RosCamName, SyncFno, TrackingParams,
+    CamInfoRow, PerCamSaveData, RawCamName, SyncFno, TrackingParams,
     FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
@@ -78,6 +78,12 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("error registering camera: {msg}")]
+    RegisterCameraError {
+        msg: &'static str,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
@@ -115,7 +121,7 @@ fn split_by_cam(invec: Vec<Data2dDistortedRow>) -> Vec<Vec<Data2dDistortedRow>> 
     by_cam.into_values().collect()
 }
 
-#[tracing::instrument]
+#[tracing::instrument(level = "debug", skip_all)]
 fn calc_fps_from_data<R: Read + std::fmt::Debug>(data_file: R) -> flydra2::Result<f64> {
     let rdr = csv::Reader::from_reader(data_file);
     let mut data_iter = rdr.into_deserialize();
@@ -209,7 +215,7 @@ pub struct KalmanizeOptions {
 /// Note that a temporary directly ending with `.braid` is initially created and
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
-#[tracing::instrument]
+#[tracing::instrument(level = "debug", skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub async fn kalmanize<Q, R>(
     mut data_src: braidz_parser::incremental_parser::IncrementalParser<
@@ -220,7 +226,6 @@ pub async fn kalmanize<Q, R>(
     forced_fps: Option<NotNan<f64>>,
     tracking_params: TrackingParams,
     opt2: KalmanizeOptions,
-    rt_handle: tokio::runtime::Handle,
     save_performance_histograms: bool,
     saving_program_name: &str,
     no_progress: bool,
@@ -273,10 +278,10 @@ where
                 count += 1;
                 info!("Calibration contains camera: {cam_id_in_calibration}");
                 if !cam_ids.iter().any(|x| x == cam_id_in_calibration) {
-                    let ros_name_calib = RawCamName::new(cam_id_in_calibration.clone()).to_ros();
+                    let raw_name_calib = RawCamName::new(cam_id_in_calibration.clone());
                     if cam_ids
                         .iter()
-                        .any(|x| x.as_str() == ros_name_calib.as_str())
+                        .any(|x| x.as_str() == raw_name_calib.as_str())
                     {
                         found += 1;
                     }
@@ -286,11 +291,8 @@ where
                 info!("Converting camera calibration names from original to ROS-compatible names.");
                 let mut new_cams = std::collections::BTreeMap::new();
                 for (orig_name, orig_value) in cams.cams_by_name().iter() {
-                    let ros_name = RawCamName::new(orig_name.clone())
-                        .to_ros()
-                        .as_str()
-                        .to_string();
-                    new_cams.insert(ros_name, orig_value.clone());
+                    let raw_name = RawCamName::new(orig_name.clone()).as_str().to_string();
+                    new_cams.insert(raw_name, orig_value.clone());
                 }
                 cams = if let Some(comment) = cams.comment() {
                     mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
@@ -334,7 +336,7 @@ where
 
     let all_expected_cameras = recon
         .cam_names()
-        .map(|x| RosCamName::new(x.to_string()))
+        .map(|x| RawCamName::new(x.to_string()))
         .collect();
 
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -347,12 +349,6 @@ where
         signal_all_cams_synced,
     );
 
-    // Create `stream_cancel::Valve` for shutting everything down. Note this is
-    // `Clone`, so we can (and should) shut down everything with it. Here we let
-    // _quit_trigger drop when it goes out of scope. This is due to use in this
-    // offline context.
-    let (_quit_trigger, valve) = stream_cancel::Valve::new();
-
     let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);
     let frame_data_rx = tokio_stream::wrappers::ReceiverStream::new(frame_data_rx);
     let save_empty_data2d = true;
@@ -364,11 +360,9 @@ where
             ignore_latency,
             mini_arena_debug_image_dir,
         },
-        rt_handle.clone(),
         cam_manager.clone(),
         Some(recon.clone()),
         metadata_builder.clone(),
-        valve,
     )?;
 
     let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
@@ -420,13 +414,13 @@ where
 
     let images_dirname = data_src.path_starter().join(IMAGES_DIRNAME);
 
-    let per_cam_data: BTreeMap<RosCamName, PerCamSaveData> = match images_dirname.list_paths() {
+    let per_cam_data: BTreeMap<RawCamName, PerCamSaveData> = match images_dirname.list_paths() {
         Ok(relnames) => relnames
             .iter()
             .map(|relname| {
                 assert_eq!(relname.extension(), Some(std::ffi::OsStr::new("png")));
-                let ros_cam_name =
-                    RosCamName::new(relname.file_stem().unwrap().to_str().unwrap().to_string());
+                let raw_cam_name =
+                    RawCamName::new(relname.file_stem().unwrap().to_str().unwrap().to_string());
 
                 let png_fname = data_src.path_starter().join(IMAGES_DIRNAME).join(relname);
                 let current_image_png = {
@@ -439,7 +433,7 @@ where
                 let mut current_feature_detect_settings_fname = data_src
                     .path_starter()
                     .join(FEATURE_DETECT_SETTINGS_DIRNAME)
-                    .join(format!("{}.toml", ros_cam_name.as_str()));
+                    .join(format!("{}.toml", raw_cam_name.as_str()));
 
                 let current_feature_detect_settings =
                     if current_feature_detect_settings_fname.exists() {
@@ -452,7 +446,7 @@ where
                     };
 
                 (
-                    ros_cam_name,
+                    raw_cam_name,
                     PerCamSaveData {
                         current_image_png: current_image_png.into(),
                         cam_settings_data: None,
@@ -471,18 +465,23 @@ where
     let mut cam_info_fname = data_src.path_starter();
     cam_info_fname.push(flydra_types::CAM_INFO_CSV_FNAME);
     let cam_info_file = open_maybe_gzipped(cam_info_fname)?;
-    let mut orig_camn_to_cam_name: BTreeMap<flydra_types::CamNum, RosCamName> = BTreeMap::new();
+    let mut orig_camn_to_cam_name: BTreeMap<flydra_types::CamNum, RawCamName> = BTreeMap::new();
     let rdr = csv::Reader::from_reader(cam_info_file);
     for row in rdr.into_deserialize::<CamInfoRow>() {
         let row = row?;
 
         let orig_cam_name = RawCamName::new(row.cam_id.to_string());
-        let ros_cam_name = RosCamName::new(row.cam_id.to_string());
-        let no_server = flydra_types::StrandCamHttpServerInfo::NoServer;
+        let no_server = flydra_types::BuiServerInfo::NoServer;
 
-        orig_camn_to_cam_name.insert(row.camn, ros_cam_name.clone());
+        orig_camn_to_cam_name.insert(row.camn, orig_cam_name.clone());
 
-        cam_manager.register_new_camera(&orig_cam_name, &no_server, &ros_cam_name);
+        cam_manager
+            .register_new_camera(&orig_cam_name, &no_server)
+            .map_err(|msg| Error::RegisterCameraError {
+                msg,
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            })?;
     }
 
     {
@@ -672,21 +671,16 @@ where
 
     let expected_framerate = Some(fps as f32);
 
-    // let model_server_addr = opt.model_server_addr.clone();
-
-    let (_quit_trigger, valve) = stream_cancel::Valve::new();
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
     let _model_server = match &opt2.model_server_addr {
         Some(ref addr) => {
             let addr = addr.parse().unwrap();
             info!("send_pose server at {}", addr);
-            let info = flydra_types::StaticMainbrainInfo {
-                name: env!("CARGO_PKG_NAME").into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-            };
             coord_processor.add_listener(data_tx);
-            Some(flydra2::new_model_server(data_rx, valve, &addr, info, rt_handle).await?)
+
+            let model_server_future = new_model_server(data_rx, addr);
+            Some(tokio::spawn(async { model_server_future.await }))
         }
         None => None,
     };
@@ -761,7 +755,7 @@ pub fn pick_csvgz_or_csv(csv_path: &Path) -> flydra2::Result<Box<dyn Read>> {
 
 /// This is our "real" main top-level function but we have some decoration we
 /// need to do in [main], so we name this differently.
-#[tracing::instrument]
+#[tracing::instrument(level = "debug", skip_all)]
 pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
     let data_src =
         braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())
@@ -826,8 +820,6 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
         ));
     }
 
-    let rt_handle = tokio::runtime::Handle::current();
-
     let save_performance_histograms = true;
 
     kalmanize(
@@ -836,7 +828,6 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
         opt.fps.map(|v| NotNan::new(v).unwrap()),
         tracking_params,
         opts,
-        rt_handle,
         save_performance_histograms,
         "braid-offline-retrack",
         opt.no_progress,

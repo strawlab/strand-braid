@@ -6,8 +6,7 @@ use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
 use flydra_types::{
-    CamInfo, CamNum, ConnectedCameraSyncState, RawCamName, RecentStats, RosCamName,
-    StrandCamHttpServerInfo, SyncFno,
+    BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, RawCamName, RecentStats, SyncFno,
 };
 
 pub(crate) trait HasCameraList {
@@ -39,10 +38,9 @@ impl HasCameraList for CameraList {
 #[derive(Debug)]
 pub struct ConnectedCameraInfo {
     cam_num: CamNum,
-    orig_cam_name: RawCamName,
-    ros_cam_name: RosCamName,
+    raw_cam_name: RawCamName,
     sync_state: ConnectedCameraSyncState,
-    http_camserver_info: StrandCamHttpServerInfo,
+    http_camserver_info: BuiServerInfo,
     frames_during_sync: u64,
 }
 
@@ -50,20 +48,20 @@ impl ConnectedCameraInfo {
     fn copy_to_caminfo(&self) -> CamInfoRow {
         CamInfoRow {
             camn: self.cam_num,
-            cam_id: self.ros_cam_name.as_str().to_string(),
+            cam_id: self.raw_cam_name.as_str().to_string(),
         }
     }
 }
 
 #[derive(Debug)]
 struct ConnectedCamerasManagerInner {
-    all_expected_cameras: BTreeSet<RosCamName>,
+    all_expected_cameras: BTreeSet<RawCamName>,
     next_cam_num: CamNum,
-    ccis: BTreeMap<RosCamName, ConnectedCameraInfo>,
-    not_yet_connected: BTreeMap<RosCamName, CamNum>,
+    ccis: BTreeMap<RawCamName, ConnectedCameraInfo>,
+    not_yet_connected: BTreeMap<RawCamName, CamNum>,
     all_expected_cameras_are_present: bool,
     all_expected_cameras_are_synced: bool,
-    first_frame_arrived: BTreeSet<RosCamName>,
+    first_frame_arrived: BTreeSet<RawCamName>,
 }
 
 pub trait ConnectedCamCallback: Send {
@@ -100,7 +98,7 @@ impl HasCameraList for ConnectedCamerasManager {
 impl ConnectedCamerasManager {
     pub fn new(
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        all_expected_cameras: BTreeSet<RosCamName>,
+        all_expected_cameras: BTreeSet<RawCamName>,
         signal_all_cams_present: Arc<AtomicBool>,
         signal_all_cams_synced: Arc<AtomicBool>,
     ) -> Self {
@@ -109,9 +107,9 @@ impl ConnectedCamerasManager {
         // pre-reserve cam numbers for cameras in calibration
         let next_cam_num = if let Some(ref recon) = recon {
             for (base_num, cam_name) in recon.cam_names().enumerate() {
-                let ros_cam_name = RosCamName::new(cam_name.to_string());
+                let raw_cam_name = RawCamName::new(cam_name.to_string());
                 let cam_num: CamNum = safe_u8(base_num).into();
-                not_yet_connected.insert(ros_cam_name, cam_num);
+                not_yet_connected.insert(raw_cam_name, cam_num);
             }
             safe_u8(recon.len())
         } else {
@@ -147,9 +145,9 @@ impl ConnectedCamerasManager {
             for cam_name in recon.cam_names() {
                 let cam_num = next_cam_num;
                 next_cam_num = safe_u8(next_cam_num as usize + 1);
-                let ros_cam_name = RosCamName::new(cam_name.to_string());
+                let raw_cam_name = RawCamName::new(cam_name.to_string());
                 let cam_num: CamNum = cam_num.into();
-                not_yet_connected.insert(ros_cam_name, cam_num);
+                not_yet_connected.insert(raw_cam_name, cam_num);
             }
         }
 
@@ -163,11 +161,8 @@ impl ConnectedCamerasManager {
 
         for cam_info in old_ccis.values() {
             // This calls self.notify_cam_changed_listeners():
-            self.register_new_camera(
-                &cam_info.orig_cam_name,
-                &cam_info.http_camserver_info,
-                &cam_info.ros_cam_name,
-            );
+            self.register_new_camera(&cam_info.raw_cam_name, &cam_info.http_camserver_info)
+                .unwrap();
         }
     }
 
@@ -176,7 +171,6 @@ impl ConnectedCamerasManager {
         &mut self,
         f: Box<dyn ConnectedCamCallback>,
     ) -> Option<Box<dyn ConnectedCamCallback>> {
-        info!("setting listener for new cameras info");
         let old = {
             let mut mutex_guard = self.on_cam_change_func.lock();
             mutex_guard.replace(f)
@@ -198,9 +192,9 @@ impl ConnectedCamerasManager {
                     .ccis
                     .values()
                     .map(|cci| CamInfo {
-                        name: cci.ros_cam_name.clone(),
+                        name: cci.raw_cam_name.clone(),
                         state: cci.sync_state.clone(),
-                        http_camserver_info: cci.http_camserver_info.clone(),
+                        strand_cam_http_server_info: cci.http_camserver_info.clone(),
                         recent_stats: RecentStats::default(),
                     })
                     .collect()
@@ -214,17 +208,15 @@ impl ConnectedCamerasManager {
     /// See `new` and `register_new_camera` for the case when multiple cameras
     /// will be added.
     pub fn new_single_cam(
-        orig_cam_name: &RawCamName,
-        http_camserver_info: &StrandCamHttpServerInfo,
+        raw_cam_name: &RawCamName,
+        http_camserver_info: &BuiServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     ) -> Self {
-        let ros_cam_name = orig_cam_name.to_ros();
-
         let signal_all_cams_present = Arc::new(AtomicBool::new(false));
         let signal_all_cams_synced = Arc::new(AtomicBool::new(false));
 
         let mut all_expected_cameras = BTreeSet::new();
-        all_expected_cameras.insert(ros_cam_name.clone());
+        all_expected_cameras.insert(raw_cam_name.clone());
 
         let this = Self::new(
             recon,
@@ -233,26 +225,26 @@ impl ConnectedCamerasManager {
             signal_all_cams_synced,
         );
         {
-            let orig_cam_name = orig_cam_name.clone();
+            let raw_cam_name = raw_cam_name.clone();
 
             let mut inner = this.inner.write();
 
             assert!(
-                !inner.ccis.contains_key(&ros_cam_name),
+                !inner.ccis.contains_key(&raw_cam_name),
                 "camera connecting again?"
             );
 
-            let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name)
+            let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&raw_cam_name)
             {
                 debug!(
                     "registering camera {}, which is in existing calibration",
-                    ros_cam_name.as_str()
+                    raw_cam_name.as_str()
                 );
                 pre_existing
             } else {
                 debug!(
                     "registering camera {}, which is not in existing calibration",
-                    ros_cam_name.as_str()
+                    raw_cam_name.as_str()
                 );
                 // unknown (and thus un-calibrated) camera
                 let cam_num = inner.next_cam_num;
@@ -261,11 +253,10 @@ impl ConnectedCamerasManager {
             };
 
             inner.ccis.insert(
-                ros_cam_name.clone(),
+                raw_cam_name.clone(),
                 ConnectedCameraInfo {
                     cam_num,
-                    orig_cam_name,
-                    ros_cam_name,
+                    raw_cam_name,
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
@@ -275,8 +266,8 @@ impl ConnectedCamerasManager {
         this
     }
 
-    pub fn remove(&mut self, ros_cam_name: &RosCamName) {
-        self.inner.write().ccis.remove(ros_cam_name);
+    pub fn remove(&mut self, raw_cam_name: &RawCamName) {
+        self.inner.write().ccis.remove(raw_cam_name);
         self.notify_cam_changed_listeners();
     }
 
@@ -286,34 +277,30 @@ impl ConnectedCamerasManager {
     /// added.
     pub fn register_new_camera(
         &mut self,
-        orig_cam_name: &RawCamName,
-        http_camserver_info: &StrandCamHttpServerInfo,
-        ros_cam_name: &RosCamName,
-    ) {
-        let orig_cam_name = orig_cam_name.clone();
-        let ros_cam_name = ros_cam_name.clone();
+        raw_cam_name: &RawCamName,
+        http_camserver_info: &BuiServerInfo,
+    ) -> Result<(), &'static str> {
+        let raw_cam_name = raw_cam_name.clone();
         let cam_num = {
             // This scope is for the write lock on self.inner. Keep it minimal.
             let mut inner = self.inner.write();
 
-            assert!(
-                !inner.ccis.contains_key(&ros_cam_name),
-                "camera {} already connected",
-                ros_cam_name
-            );
+            if inner.ccis.contains_key(&raw_cam_name) {
+                return Err("camera already connected");
+            }
 
-            let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&ros_cam_name)
+            let cam_num = if let Some(pre_existing) = inner.not_yet_connected.remove(&raw_cam_name)
             {
                 debug!(
                     "registering camera {}, which is in existing calibration",
-                    ros_cam_name.as_str()
+                    raw_cam_name.as_str()
                 );
                 pre_existing
             } else {
                 if self.recon.is_some() {
                     tracing::warn!(
                         "Camera {} connected, but this is not in existing calibration.",
-                        ros_cam_name.as_str()
+                        raw_cam_name.as_str()
                     );
                 }
                 // unknown (and thus un-calibrated) camera
@@ -323,11 +310,10 @@ impl ConnectedCamerasManager {
             };
 
             inner.ccis.insert(
-                ros_cam_name.clone(),
+                raw_cam_name.clone(),
                 ConnectedCameraInfo {
                     cam_num: cam_num.clone(),
-                    orig_cam_name: orig_cam_name.clone(),
-                    ros_cam_name: ros_cam_name.clone(),
+                    raw_cam_name: raw_cam_name.clone(),
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
@@ -336,13 +322,13 @@ impl ConnectedCamerasManager {
             cam_num
         };
         info!(
-            "register_new_camera got original camera name \"{}\", \
-            ROS camera name \"{}\", assigned camera number {}",
-            orig_cam_name.as_str(),
-            ros_cam_name.as_str(),
+            "register_new_camera got camera name \"{}\", \
+            assigned camera number {}",
+            raw_cam_name.as_str(),
             cam_num
         );
         self.notify_cam_changed_listeners();
+        Ok(())
     }
 
     /// Register that a new frame was received
@@ -361,7 +347,7 @@ impl ConnectedCamerasManager {
     {
         assert!(packet.framenumber >= 0);
 
-        let ros_cam_name = RosCamName::new(packet.cam_name.clone());
+        let raw_cam_name = RawCamName::new(packet.cam_name.clone());
 
         let cam_frame = packet.framenumber as u64;
         let mut synced_frame = None;
@@ -371,7 +357,7 @@ impl ConnectedCamerasManager {
         let mut do_check_if_all_cameras_synchronized = false;
         {
             let inner = self.inner.read();
-            if let Some(cci) = inner.ccis.get(&ros_cam_name) {
+            if let Some(cci) = inner.ccis.get(&raw_cam_name) {
                 // We know this camera already.
                 use crate::ConnectedCameraSyncState::*;
                 match cci.sync_state {
@@ -412,7 +398,7 @@ impl ConnectedCamerasManager {
                                 // raises the issue slightly earlier.
                                 panic!(
                                     "Impossible frame number. cam_name: {}, cam_frame: {}, frame0: {}",
-                                    ros_cam_name.as_str(),
+                                    raw_cam_name.as_str(),
                                     cam_frame,
                                     frame0,
                                 );
@@ -434,7 +420,7 @@ impl ConnectedCamerasManager {
             let frames_during_sync = {
                 // This scope is for the write lock on self.inner. Keep it minimal.
                 let mut inner = self.inner.write();
-                let frames_during_sync = match inner.ccis.get_mut(&ros_cam_name) {
+                let frames_during_sync = match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.frames_during_sync += 1;
                         cci.frames_during_sync
@@ -448,9 +434,9 @@ impl ConnectedCamerasManager {
 
             if frames_during_sync > 10 {
                 error!(
-                    "Many frames during sync period. Camera {} not \
+                    "Many frames during sync period. Camera \"{}\" not \
                        being externally triggered?",
-                    ros_cam_name.as_str()
+                    raw_cam_name.as_str()
                 );
             }
         }
@@ -460,7 +446,7 @@ impl ConnectedCamerasManager {
             {
                 // This scope is for the write lock on self.inner. Keep it minimal.
                 let mut inner = self.inner.write();
-                match inner.ccis.get_mut(&ros_cam_name) {
+                match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.sync_state = ConnectedCameraSyncState::Synchronized(frame0);
                     }
@@ -475,8 +461,8 @@ impl ConnectedCamerasManager {
             // Do notifications associated with synchronization.
             send_new_frame_offset(frame0);
             info!(
-                "cam {} synchronized with frame offset: {}",
-                ros_cam_name.as_str(),
+                "cam \"{}\" synchronized with frame offset: {}",
+                raw_cam_name.as_str(),
                 frame0,
             );
             do_check_if_all_cameras_synchronized = true;
@@ -485,8 +471,11 @@ impl ConnectedCamerasManager {
         if do_check_if_all_cameras_present && !self.inner.read().all_expected_cameras_are_present {
             let mut inner = self.inner.write();
             let i2: &mut ConnectedCamerasManagerInner = &mut inner;
-            if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
-                info!("first frame from camera {} arrived.", ros_cam_name);
+            if i2.first_frame_arrived.insert(raw_cam_name.clone()) {
+                info!(
+                    "first frame from camera \"{}\" arrived.",
+                    raw_cam_name.as_str()
+                );
                 if i2.first_frame_arrived == i2.all_expected_cameras {
                     inner.all_expected_cameras_are_present = true;
                     self.signal_all_cams_present.store(true, Ordering::SeqCst);
@@ -502,13 +491,13 @@ impl ConnectedCamerasManager {
         {
             let mut inner = self.inner.write();
             let i2: &mut ConnectedCamerasManagerInner = &mut inner;
-            // if i2.first_frame_arrived.insert(ros_cam_name.clone()) {
-            //     info!("first frame from camera {} arrived.", ros_cam_name);
+            // if i2.first_frame_arrived.insert(raw_cam_name.clone()) {
+            //     info!("first frame from camera {} arrived.", raw_cam_name);
             let mut all_synced = true;
-            for ros_cam_name in i2.all_expected_cameras.iter() {
+            for raw_cam_name in i2.all_expected_cameras.iter() {
                 let this_sync = i2
                     .ccis
-                    .get(ros_cam_name)
+                    .get(raw_cam_name)
                     .map(|cci| cci.sync_state.is_synchronized())
                     .unwrap_or(false);
                 if !this_sync {
@@ -528,40 +517,37 @@ impl ConnectedCamerasManager {
         synced_frame.map(SyncFno)
     }
 
-    pub fn get_ros_cam_name(&self, cam_num: CamNum) -> Option<RosCamName> {
+    pub fn get_raw_cam_name(&self, cam_num: CamNum) -> Option<RawCamName> {
         for cci in self.inner.read().ccis.values() {
             if cci.cam_num == cam_num {
-                return Some(cci.ros_cam_name.clone());
+                return Some(cci.raw_cam_name.clone());
             }
         }
         None
     }
 
-    pub fn all_ros_cam_names(&self) -> Vec<RosCamName> {
+    pub fn all_raw_cam_names(&self) -> Vec<RawCamName> {
         self.inner
             .read()
             .ccis
             .values()
-            .map(|cci| cci.ros_cam_name.clone())
+            .map(|cci| cci.raw_cam_name.clone())
             .collect()
     }
 
-    pub fn http_camserver_info(
-        &self,
-        ros_cam_name: &RosCamName,
-    ) -> Option<StrandCamHttpServerInfo> {
+    pub fn http_camserver_info(&self, raw_cam_name: &RawCamName) -> Option<BuiServerInfo> {
         self.inner
             .read()
             .ccis
-            .get(ros_cam_name)
+            .get(raw_cam_name)
             .map(|cci| cci.http_camserver_info.clone())
     }
 
-    pub fn cam_num(&self, ros_cam_name: &RosCamName) -> Option<CamNum> {
+    pub fn cam_num(&self, raw_cam_name: &RawCamName) -> Option<CamNum> {
         let inner = self.inner.read();
-        match inner.ccis.get(ros_cam_name) {
+        match inner.ccis.get(raw_cam_name) {
             Some(cci) => Some(cci.cam_num),
-            None => inner.not_yet_connected.get(ros_cam_name).copied(),
+            None => inner.not_yet_connected.get(raw_cam_name).copied(),
         }
     }
 

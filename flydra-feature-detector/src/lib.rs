@@ -36,7 +36,7 @@ use timestamped_frame::{ExtraTimeData, HostTimeData};
 use basic_frame::DynamicFrame;
 use flydra_types::{
     FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, ImageProcessingSteps,
-    RawCamName, RosCamName,
+    RawCamName,
 };
 use ufmf::UFMFWriter;
 
@@ -418,7 +418,7 @@ fn save_bg_data(
 ///
 /// Most work is done in [Self::process_new_frame].
 pub struct FlydraFeatureDetector {
-    ros_cam_name: RosCamName,
+    raw_cam_name: RawCamName,
     cfg: ImPtDetectCfg,
     roi_sz: FastImageSize,
     #[allow(dead_code)]
@@ -444,7 +444,7 @@ const NUM_MSEC_BINS: usize = 100;
 const WARN_THRESH_MSEC: usize = 60;
 
 struct AcquisitionHistogram {
-    ros_cam_name: RosCamName,
+    raw_cam_name: RawCamName,
     start: std::time::Instant,
     msec_bins: Vec<u32>,
     longest_frame: u64,
@@ -454,11 +454,11 @@ struct AcquisitionHistogram {
 
 impl AcquisitionHistogram {
     fn new(
-        ros_cam_name: &RosCamName,
+        raw_cam_name: &RawCamName,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
     ) -> Self {
         Self {
-            ros_cam_name: ros_cam_name.clone(),
+            raw_cam_name: raw_cam_name.clone(),
             start: std::time::Instant::now(),
             msec_bins: vec![0; NUM_MSEC_BINS],
             longest_frame: 0,
@@ -481,7 +481,7 @@ impl AcquisitionHistogram {
                     // unless it exceeds 5 msec.
                     error!(
                         "{} frame {} acquisition duration negative? ({} msecs)",
-                        self.ros_cam_name.as_str(),
+                        self.raw_cam_name.as_str(),
                         frameno,
                         msecs
                     );
@@ -533,7 +533,7 @@ impl AcquisitionHistogram {
             };
             let msg = format!(
                 "{} acquisition duration statistics: mode: {} msec, max: {} msec (longest: {})",
-                self.ros_cam_name.as_str(),
+                self.raw_cam_name.as_str(),
                 argmax,
                 max_str,
                 self.longest_frame
@@ -550,7 +550,7 @@ impl AcquisitionHistogram {
 impl FlydraFeatureDetector {
     /// Create new [FlydraFeatureDetector].
     pub fn new(
-        orig_cam_name: &RawCamName,
+        raw_cam_name: &RawCamName,
         w: u32,
         h: u32,
         cfg: ImPtDetectCfg,
@@ -560,13 +560,11 @@ impl FlydraFeatureDetector {
         >,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
     ) -> Result<Self> {
-        let ros_cam_name = orig_cam_name.to_ros();
-
         let acquisition_histogram =
-            AcquisitionHistogram::new(&ros_cam_name, acquisition_duration_allowed_imprecision_msec);
+            AcquisitionHistogram::new(&raw_cam_name, acquisition_duration_allowed_imprecision_msec);
 
         let mut result = Self {
-            ros_cam_name,
+            raw_cam_name: raw_cam_name.clone(),
             cfg,
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
@@ -656,7 +654,7 @@ impl FlydraFeatureDetector {
         if self.acquisition_histogram.is_old() {
             self.acquisition_histogram.show_stats();
             self.acquisition_histogram = AcquisitionHistogram::new(
-                &self.ros_cam_name,
+                &self.raw_cam_name,
                 self.acquisition_duration_allowed_imprecision_msec,
             );
         }
@@ -710,7 +708,7 @@ impl FlydraFeatureDetector {
 
         // Create empty packet for results on this frame, add found points later.
         let mut packet = FlydraRawUdpPacket {
-            cam_name: self.ros_cam_name.as_str().to_string(),
+            cam_name: self.raw_cam_name.as_str().to_string(),
             timestamp: opt_trigger_stamp,
             cam_received_time: acquire_stamp,
             device_timestamp,

@@ -10,62 +10,58 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
-#[macro_use]
-extern crate log;
-
 use anyhow::Context;
 
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
 
+use async_change_tracker::ChangeTracker;
+use event_stream_types::{
+    AcceptsEventStream, ConnectionEvent, ConnectionEventType, ConnectionSessionKey,
+    EventBroadcaster, TolerantJson,
+};
+use futures::{sink::SinkExt, stream::StreamExt};
+use http::StatusCode;
 use http_video_streaming as video_streaming;
-use machine_vision_formats as formats;
-
-#[cfg(feature = "flydratrax")]
-use nalgebra as na;
-
+use hyper_tls::HttpsConnector;
+use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 #[cfg(feature = "fiducial")]
 use libflate::finish::AutoFinishUnchecked;
 #[cfg(feature = "fiducial")]
 use libflate::gzip::Encoder;
-
-use futures::{channel::mpsc, sink::SinkExt, stream::StreamExt};
-use serde::{Deserialize, Serialize};
-
-use hyper_tls::HttpsConnector;
-use hyper_util::{client::legacy::Client, rt::TokioExecutor};
-
+use machine_vision_formats as formats;
+#[cfg(feature = "flydratrax")]
+use nalgebra as na;
 #[allow(unused_imports)]
-use preferences::{AppInfo, Preferences};
+use preferences_serde1::{AppInfo, Preferences};
+use serde::{Deserialize, Serialize};
+use tower_http::trace::TraceLayer;
+use tracing::{debug, error, info, trace, warn};
 
+use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
 use ci2::{Camera, CameraInfo, CameraModule};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
-
-use async_change_tracker::ChangeTracker;
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use formats::PixFmt;
 use timestamped_frame::ExtraTimeData;
-
-use bui_backend::highlevel::{create_bui_app_inner, BuiAppInner};
-use bui_backend::{AccessControl, CallbackHandler};
-use bui_backend_types::CallbackDataAndSession;
 
 #[cfg(feature = "flydratrax")]
 use http_video_streaming_types::{DrawableShape, StrokeStyle};
 
 use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
-use std::{error::Error as StdError, future::Future, path::Path, pin::Pin};
+use std::{path::Path, result::Result as StdResult};
 
 #[cfg(feature = "flydra_feat_detect")]
 use ci2_remote_control::CsvSaveConfig;
 use ci2_remote_control::{
     CamArg, CodecSelection, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options, RecordingFrameRate,
 };
+#[cfg(feature = "flydratrax")]
+use flydra_types::BuiServerAddrInfo;
 use flydra_types::{
-    MainbrainBuiLocation, RawCamName, RealtimePointsDestAddr, RosCamName,
-    StartSoftwareFrameRateLimit, StrandCamBuiServerInfo, StrandCamHttpServerInfo,
+    BuiServerInfo, RawCamName, RealtimePointsDestAddr, StartSoftwareFrameRateLimit,
 };
 
 use flydra_feature_detector_types::ImPtDetectCfg;
@@ -80,8 +76,9 @@ use strand_cam_csv_config_types::{FullCfgFview2_0_26, SaveCfgFview2_0_25};
 
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
-use strand_cam_storetype::ToLedBoxDevice;
-use strand_cam_storetype::{CallbackType, ImOpsState, RangedValue, StoreType};
+use strand_cam_storetype::{
+    CallbackType, ImOpsState, RangedValue, StoreType, ToLedBoxDevice, STRAND_CAM_EVENT_NAME,
+};
 
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
@@ -93,14 +90,10 @@ use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 
 use rust_cam_bui_types::RecordingPath;
 
-use parking_lot::RwLock;
 use std::fs::File;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
-
-/// default strand-cam HTTP port when not running in Braid.
-const DEFAULT_HTTP_ADDR: &str = "127.0.0.1:3440";
 
 pub const APP_INFO: AppInfo = AppInfo {
     name: "strand-cam",
@@ -121,13 +114,18 @@ pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
 #[cfg(feature = "imtrack-dark-circle")]
 pub use flydra_pt_detect_cfg::default_dark_circle as default_im_pt_detect;
 
-include!(concat!(env!("OUT_DIR"), "/frontend.rs")); // Despite slash, this does work on Windows.
+#[cfg(feature = "bundle_files")]
+static ASSETS_DIR: include_dir::Dir<'static> =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/pkg");
 
 #[cfg(feature = "flydratrax")]
 const KALMAN_TRACKING_PREFS_KEY: &'static str = "kalman-tracking";
 
 #[cfg(feature = "flydratrax")]
 const LED_PROGRAM_PREFS_KEY: &'static str = "led-config";
+
+const COOKIE_SECRET_KEY: &str = "cookie-secret-base64";
+const BRAID_COOKIE_KEY: &str = "braid-cookie";
 
 #[cfg(feature = "flydratrax")]
 mod flydratrax_handle_msg;
@@ -185,8 +183,8 @@ pub enum StrandCamError {
     },
     #[error("try send error")]
     TrySendError,
-    #[error("BUI backend error: {0}")]
-    BuiBackendError(#[from] bui_backend::Error),
+    // #[error("BUI backend error: {0}")]
+    // BuiBackendError(#[from] bui_backend::Error),
     #[error("BUI backend session error: {0}")]
     BuiBackendSessionError(#[from] bui_backend_session::Error),
     #[error("Braid HTTP session error: {0}")]
@@ -203,11 +201,11 @@ pub enum StrandCamError {
     PluginDisconnected,
     #[error("video streaming error")]
     VideoStreamingError(#[from] video_streaming::Error),
-    #[error(
-        "The --jwt-secret argument must be passed or the JWT_SECRET environment \
-                  variable must be set."
-    )]
-    JwtError,
+    // #[error(
+    //     "The --jwt-secret argument must be passed or the JWT_SECRET environment \
+    //               variable must be set."
+    // )]
+    // JwtError,
     #[cfg(feature = "flydratrax")]
     #[error("MVG error: {0}")]
     MvgError(
@@ -313,7 +311,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    fn check<T, E>(&self, result: std::result::Result<T, E>) -> T
+    fn check<T, E>(&self, result: StdResult<T, E>) -> T
     where
         E: std::convert::Into<anyhow::Error>,
     {
@@ -399,7 +397,7 @@ pub(crate) enum Msg {
     SetIsSavingObjDetectionCsv(CsvSaveConfig),
     #[cfg(feature = "flydra_feat_detect")]
     SetExpConfig(ImPtDetectCfg),
-    Store(Arc<RwLock<ChangeTracker<StoreType>>>),
+    Store(Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>),
     #[cfg(feature = "flydra_feat_detect")]
     TakeCurrentImageAsBackground,
     #[cfg(feature = "flydra_feat_detect")]
@@ -412,7 +410,7 @@ pub(crate) enum Msg {
 }
 
 impl std::fmt::Debug for Msg {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> StdResult<(), std::fmt::Error> {
         write!(f, "strand_cam::Msg{{..}}")
     }
 }
@@ -636,33 +634,19 @@ struct FlydraConfigState {
 }
 
 #[cfg(feature = "checkercal")]
-type CollectedCornersArc = Arc<RwLock<Vec<Vec<(f32, f32)>>>>;
-
-async fn register_node_and_update_image(
-    api_http_address: flydra_types::MainbrainBuiLocation,
-    msg: flydra_types::RegisterNewCamera,
-    mut transmit_msg_rx: mpsc::Receiver<flydra_types::HttpApiCallback>,
-) -> Result<()> {
-    let mut mainbrain_session =
-        braid_http_session::mainbrain_future_session(api_http_address).await?;
-    mainbrain_session.register_flydra_camnode(&msg).await?;
-    while let Some(msg) = transmit_msg_rx.next().await {
-        mainbrain_session.send_message(msg).await?;
-    }
-    Ok(())
-}
+type CollectedCornersArc = Arc<parking_lot::RwLock<Vec<Vec<(f32, f32)>>>>;
 
 async fn convert_stream(
-    ros_cam_name: RosCamName,
+    raw_cam_name: RawCamName,
     mut transmit_feature_detect_settings_rx: tokio::sync::mpsc::Receiver<
         flydra_feature_detector_types::ImPtDetectCfg,
     >,
-    mut transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
+    transmit_msg_tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
 ) -> Result<()> {
     while let Some(val) = transmit_feature_detect_settings_rx.recv().await {
         let msg =
-            flydra_types::HttpApiCallback::UpdateFeatureDetectSettings(flydra_types::PerCam {
-                ros_cam_name: ros_cam_name.clone(),
+            flydra_types::BraidHttpApiCallback::UpdateFeatureDetectSettings(flydra_types::PerCam {
+                raw_cam_name: raw_cam_name.clone(),
                 inner: flydra_types::UpdateFeatureDetectSettings {
                     current_feature_detect_settings: val,
                 },
@@ -672,19 +656,12 @@ async fn convert_stream(
     Ok(())
 }
 
-struct MainbrainInfo {
-    mainbrain_internal_addr: MainbrainBuiLocation,
-    transmit_msg_rx: mpsc::Receiver<flydra_types::HttpApiCallback>,
-    transmit_msg_tx: mpsc::Sender<flydra_types::HttpApiCallback>,
-}
-
 // We perform image analysis in its own task.
 async fn frame_process_task(
-    my_runtime: tokio::runtime::Handle,
-    #[cfg(feature = "flydratrax")] flydratrax_model_server: (
-        tokio::sync::mpsc::Sender<(flydra2::SendType, flydra2::TimeDataPassthrough)>,
-        flydra2::ModelServer,
-    ),
+    #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
+        flydra2::SendType,
+        flydra2::TimeDataPassthrough,
+    )>,
     #[cfg(feature = "flydratrax")] flydratrax_calibration_source: CalSource,
     cam_name: RawCamName,
     #[cfg(feature = "flydra_feat_detect")] camera_cfg: CameraCfgFview2_0_26,
@@ -702,13 +679,12 @@ async fn frame_process_task(
     >,
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    mut quit_rx: tokio::sync::oneshot::Receiver<()>,
     is_starting_tx: tokio::sync::oneshot::Sender<()>,
-    #[cfg(feature = "flydratrax")] http_camserver_info: StrandCamBuiServerInfo,
+    #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerAddrInfo,
     process_frame_priority: Option<(i32, i32)>,
-    mainbrain_info: Option<MainbrainInfo>,
+    transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
     camdata_addr: Option<RealtimePointsDestAddr>,
-    led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
+    led_box_heartbeat_update_arc: Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
     #[cfg(feature = "flydratrax")] save_empty_data2d: SaveEmptyData2dType,
@@ -716,13 +692,14 @@ async fn frame_process_task(
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
         f64,
     >,
-    new_cam_data: flydra_types::RegisterNewCamera,
     frame_info_extractor: &dyn ci2::ExtractFrameInfo,
     #[cfg(feature = "flydra_feat_detect")] app_name: &'static str,
 ) -> anyhow::Result<()> {
+    let my_runtime: tokio::runtime::Handle = tokio::runtime::Handle::current();
+
     let is_braid = camdata_addr.is_some();
 
-    let ros_cam_name: RosCamName = new_cam_data.ros_cam_name.clone();
+    let raw_cam_name: RawCamName = cam_name.clone();
 
     #[cfg(feature = "posix_sched_fifo")]
     {
@@ -792,31 +769,21 @@ async fn frame_process_task(
         Some(0)
     };
 
-    let (transmit_feature_detect_settings_tx, transmit_msg_tx) = if let Some(info) = mainbrain_info
-    {
-        let addr = info.mainbrain_internal_addr;
-        let transmit_msg_tx = info.transmit_msg_tx.clone();
-
+    let (transmit_feature_detect_settings_tx, mut transmit_msg_tx) = if is_braid {
         let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
             tokio::sync::mpsc::channel::<flydra_feature_detector_types::ImPtDetectCfg>(10);
 
-        my_runtime.spawn(convert_stream(
-            ros_cam_name.clone(),
-            transmit_feature_detect_settings_rx,
-            transmit_msg_tx,
-        ));
+        let transmit_msg_tx = transmit_msg_tx.unwrap();
 
-        let transmit_msg_rx = info.transmit_msg_rx;
-        my_runtime.spawn(register_node_and_update_image(
-            addr,
-            new_cam_data,
-            // current_image_png,
-            transmit_msg_rx,
+        my_runtime.spawn(convert_stream(
+            raw_cam_name.clone(),
+            transmit_feature_detect_settings_rx,
+            transmit_msg_tx.clone(),
         ));
 
         (
             Some(transmit_feature_detect_settings_tx),
-            Some(info.transmit_msg_tx),
+            Some(transmit_msg_tx),
         )
     } else {
         (None, None)
@@ -850,7 +817,7 @@ async fn frame_process_task(
     )?;
     #[cfg(feature = "flydra_feat_detect")]
     let mut csv_save_state = SavingState::NotSaving;
-    let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
+    let mut shared_store_arc: Option<Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
     #[cfg(feature = "flydratrax")]
     let mut kalman_tracking_config = KalmanTrackingConfig::default(); // this is replaced below
@@ -870,7 +837,7 @@ async fn frame_process_task(
     #[cfg(feature = "flydratrax")]
     let red_style = StrokeStyle::from_rgb(255, 100, 100);
 
-    let expected_framerate_arc = Arc::new(RwLock::new(None));
+    let expected_framerate_arc = Arc::new(parking_lot::RwLock::new(None));
 
     is_starting_tx.send(()).ok(); // signal that we are we are no longer starting
 
@@ -902,14 +869,14 @@ async fn frame_process_task(
     #[cfg(feature = "checkercal")]
     let mut checkerboard_loop_dur = std::time::Duration::from_millis(500);
 
-    let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
+    let current_image_timer_arc = Arc::new(parking_lot::RwLock::new(std::time::Instant::now()));
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
     let mut opt_clock_model = None;
     let mut opt_frame_offset = None;
 
-    while quit_rx.try_recv() == Err(tokio::sync::oneshot::error::TryRecvError::Empty) {
+    loop {
         #[cfg(feature = "flydra_feat_detect")]
         {
             if let Some(ref ssa) = shared_store_arc {
@@ -1020,9 +987,9 @@ async fn frame_process_task(
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
                                 let http_camserver =
-                                    StrandCamHttpServerInfo::Server(http_camserver_info.clone());
+                                    BuiServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
-                                let flydratrax_model_server2 = flydratrax_model_server.clone();
+                                let model_server_data_tx2 = model_server_data_tx.clone();
                                 let valve2 = valve.clone();
 
                                 let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(
@@ -1040,13 +1007,11 @@ async fn frame_process_task(
                                         ignore_latency,
                                         mini_arena_debug_image_dir: None,
                                     },
-                                    tokio::runtime::Handle::current(),
                                     cam_manager,
                                     Some(recon),
                                     flydra2::BraidMetadataBuilder::saving_program_name(
                                         "strand-cam",
                                     ),
-                                    valve.clone(),
                                 )
                                 .expect("create CoordProcessor");
 
@@ -1055,8 +1020,7 @@ async fn frame_process_task(
 
                                 opt_braidz_write_tx_weak = Some(braidz_write_tx_weak);
 
-                                let (model_server_data_tx, _model_server) =
-                                    flydratrax_model_server2;
+                                let model_server_data_tx = model_server_data_tx2;
 
                                 coord_processor.add_listener(model_sender); // the local LED control thing
                                 coord_processor.add_listener(model_server_data_tx); // the HTTP thing
@@ -1110,7 +1074,7 @@ async fn frame_process_task(
                         match braidz_write_tx.send(SaveToDiskMsg::StopSavingCsv).await {
                             Ok(()) => {}
                             Err(_) => {
-                                log::info!("Channel to data writing task closed. Ending.");
+                                info!("Channel to data writing task closed. Ending.");
                                 break;
                             }
                         }
@@ -1190,7 +1154,7 @@ async fn frame_process_task(
                 let local = chrono::Local::now();
 
                 // Get start time, either from buffered frames if present or current time.
-                let creation_time = if let Some(frame0) = frames.get(0) {
+                let creation_time = if let Some(frame0) = frames.front() {
                     frame0.extra().host_timestamp().into()
                 } else {
                     local
@@ -1520,10 +1484,7 @@ async fn frame_process_task(
                                         {
                                             Ok(_n_bytes) => {}
                                             Err(e) => {
-                                                log::error!(
-                                                    "Unable to send image moment data. {}",
-                                                    e
-                                                );
+                                                error!("Unable to send image moment data. {}", e);
                                             }
                                         }
                                     }
@@ -1583,7 +1544,7 @@ async fn frame_process_task(
                             datetime_conversion::datetime_to_f64(&process_new_frame_start);
 
                         let tracker_annotation = flydra_types::FlydraRawUdpPacket {
-                            cam_name: ros_cam_name.as_str().to_string(),
+                            cam_name: raw_cam_name.as_str().to_string(),
                             timestamp: opt_trigger_stamp,
                             cam_received_time: acquire_stamp,
                             device_timestamp,
@@ -1675,7 +1636,7 @@ async fn frame_process_task(
 
                                     let cam_num = 0.into(); // Only one camera, so this must be correct.
                                     let frame_data = flydra2::FrameData::new(
-                                        ros_cam_name.clone(),
+                                        raw_cam_name.clone(),
                                         cam_num,
                                         SyncFno(
                                             frame.extra().host_framenumber().try_into().unwrap(),
@@ -1945,30 +1906,43 @@ async fn frame_process_task(
 
                 {
                     // send current image every 2 seconds
-                    let mut timer = current_image_timer_arc.write();
-                    let elapsed = timer.elapsed();
-                    if elapsed > std::time::Duration::from_millis(2000) {
-                        *timer = std::time::Instant::now();
+                    let send_msg = {
+                        let mut timer = current_image_timer_arc.write();
+                        let elapsed = timer.elapsed();
+                        let mut send_msg = false;
+                        if elapsed > std::time::Duration::from_millis(2000) {
+                            *timer = std::time::Instant::now();
+                            send_msg = true;
+                        }
+                        send_msg
+                    };
+
+                    if send_msg {
                         // encode frame to png buf
 
-                        if let Some(mut transmit_msg_tx) = transmit_msg_tx.clone() {
-                            let ros_cam_name = ros_cam_name.clone();
+                        if let Some(cb_sender) = transmit_msg_tx.as_ref() {
                             let current_image_png = match_all_dynamic_fmts!(&frame, x, {
                                 convert_image::frame_to_image(x, convert_image::ImageOptions::Png)
                                     .unwrap()
                             });
 
-                            my_runtime.spawn(async move {
-                                let msg = flydra_types::HttpApiCallback::UpdateCurrentImage(
-                                    flydra_types::PerCam {
-                                        ros_cam_name,
-                                        inner: flydra_types::UpdateImage {
-                                            current_image_png: current_image_png.into(),
-                                        },
+                            let raw_cam_name = raw_cam_name.clone();
+
+                            let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
+                                flydra_types::PerCam {
+                                    raw_cam_name,
+                                    inner: flydra_types::UpdateImage {
+                                        current_image_png: current_image_png.into(),
                                     },
-                                );
-                                transmit_msg_tx.send(msg).await.unwrap();
-                            });
+                                },
+                            );
+                            match cb_sender.send(msg).await {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    tracing::error!("While sending current image: {e}");
+                                    transmit_msg_tx = None;
+                                }
+                            };
                         }
                     }
                 }
@@ -2003,20 +1977,25 @@ async fn frame_process_task(
                 #[cfg(not(feature = "flydratrax"))]
                 let annotations = vec![];
 
-                let name = None;
                 if firehose_tx.capacity() == 0 {
-                    debug!("cannot transmit frame for viewing: channel full");
+                    trace!("cannot transmit frame for viewing: channel full");
                 } else {
-                    firehose_tx
+                    let result = firehose_tx
                         .send(AnnotatedFrame {
                             frame,
                             found_points,
                             valid_display,
                             annotations,
-                            name,
                         })
-                        .await
-                        .unwrap();
+                        .await;
+                    match result {
+                        Ok(()) => {}
+                        Err(e) => {
+                            tracing::error!(
+                                "error while sending frame for display in browser: {e} {e:?}"
+                            );
+                        }
+                    }
                 }
             }
             #[cfg(feature = "flydra_feat_detect")]
@@ -2088,7 +2067,7 @@ async fn frame_process_task(
                                 match braidz_write_tx.send(SaveToDiskMsg::StopSavingCsv).await {
                                     Ok(()) => {}
                                     Err(_) => {
-                                        log::info!("Channel to data writing task closed. Ending.");
+                                        info!("Channel to data writing task closed. Ending.");
                                         break;
                                     }
                                 }
@@ -2163,7 +2142,10 @@ async fn frame_process_task(
 }
 
 fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<DatagramSocket> {
-    info!("Sending detected coordinates to: {:?}", dest_addr);
+    info!(
+        "Sending detected coordinates to: {}",
+        dest_addr.into_string()
+    );
 
     let timeout = std::time::Duration::new(0, 1);
 
@@ -2242,21 +2224,19 @@ trait IgnoreSendError {
     fn ignore_send_error(self);
 }
 
-impl<T: std::fmt::Debug> IgnoreSendError
-    for std::result::Result<(), tokio::sync::mpsc::error::SendError<T>>
-{
+impl<T: std::fmt::Debug> IgnoreSendError for StdResult<(), tokio::sync::mpsc::error::SendError<T>> {
     fn ignore_send_error(self) {
         match self {
             Ok(()) => {}
             Err(e) => {
-                log::debug!("Ignoring send error ({}:{}): {:?}", file!(), line!(), e)
+                debug!("Ignoring send error ({}:{}): {:?}", file!(), line!(), e)
             }
         }
     }
 }
 
 #[derive(Clone)]
-struct MyCallbackHandler {
+struct StrandCamCallbackSenders {
     firehose_callback_tx: tokio::sync::mpsc::Sender<FirehoseCallback>,
     cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
@@ -2264,169 +2244,12 @@ struct MyCallbackHandler {
     tx_frame: tokio::sync::mpsc::Sender<Msg>,
 }
 
-impl CallbackHandler for MyCallbackHandler {
-    type Data = CallbackType;
-
-    /// HTTP request to "/callback" has been made with payload which as been
-    /// deserialized into `Self::Data` and session data stored in
-    /// [CallbackDataAndSession].
-    fn call<'a>(
-        &'a self,
-        data_sess: CallbackDataAndSession<Self::Data>,
-    ) -> Pin<Box<dyn Future<Output = std::result::Result<(), Box<dyn StdError + Send>>> + Send + 'a>>
-    {
-        let payload = data_sess.payload;
-        let fut = async {
-            match payload {
-                CallbackType::ToCamera(cam_arg) => {
-                    debug!("in cb: {:?}", cam_arg);
-                    self.cam_args_tx.send(cam_arg).await.ignore_send_error();
-                }
-                CallbackType::FirehoseNotify(inner) => {
-                    let arrival_time = chrono::Utc::now();
-                    let fc = FirehoseCallback {
-                        arrival_time,
-                        inner,
-                    };
-                    self.firehose_callback_tx.send(fc).await.ignore_send_error();
-                }
-                CallbackType::TakeCurrentImageAsBackground => {
-                    #[cfg(feature = "flydra_feat_detect")]
-                    self.tx_frame
-                        .send(Msg::TakeCurrentImageAsBackground)
-                        .await
-                        .ignore_send_error();
-                }
-                CallbackType::ClearBackground(value) => {
-                    #[cfg(feature = "flydra_feat_detect")]
-                    self.tx_frame
-                        .send(Msg::ClearBackground(value))
-                        .await
-                        .ignore_send_error();
-                    #[cfg(not(feature = "flydra_feat_detect"))]
-                    let _ = value;
-                }
-                CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
-                    // todo: make this whole block async and remove the `futures::executor::block_on` aspect here.
-                    info!("in led_box callback: {:?}", led_box_arg);
-                    self.led_box_tx_std
-                        .send(led_box_arg)
-                        .await
-                        .ignore_send_error();
-                }),
-            }
-        };
-        Box::pin(async {
-            fut.await;
-            Ok(())
-        })
-    }
-}
-
-pub struct StrandCamApp {
-    inner: BuiAppInner<StoreType, CallbackType>,
-}
-
-impl StrandCamApp {
-    async fn new(
-        rt_handle: tokio::runtime::Handle,
-        shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
-        secret: Option<Vec<u8>>,
-        http_server_addr: &str,
-        config: Config,
-        cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
-        led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-        tx_frame: tokio::sync::mpsc::Sender<Msg>,
-        shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    ) -> std::result::Result<
-        (
-            tokio::sync::mpsc::Receiver<FirehoseCallback>,
-            Self,
-            tokio::sync::mpsc::Receiver<bui_backend::highlevel::ConnectionEvent>,
-        ),
-        StrandCamError,
-    > {
-        let chan_size = 10;
-
-        let addr: std::net::SocketAddr = http_server_addr.parse().unwrap();
-        let auth = if let Some(ref secret) = secret {
-            bui_backend::highlevel::generate_random_auth(addr, secret.clone())?
-        } else if addr.ip().is_loopback() {
-            AccessControl::Insecure(addr)
-        } else {
-            return Err(StrandCamError::JwtError);
-        };
-
-        // A channel for the data sent from the client browser.
-        let (firehose_callback_tx, firehose_callback_rx) = tokio::sync::mpsc::channel(10);
-
-        let callback_handler = Box::new(MyCallbackHandler {
-            cam_args_tx,
-            firehose_callback_tx,
-            led_box_tx_std,
-            tx_frame,
-        });
-
-        let (rx_conn, bui_server) = bui_backend::lowlevel::launcher(
-            config.clone(),
-            &auth,
-            chan_size,
-            strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
-            None,
-            callback_handler,
-        );
-
-        let (new_conn_rx, inner) = create_bui_app_inner(
-            rt_handle.clone(),
-            Some(shutdown_rx),
-            &auth,
-            shared_store_arc,
-            Some(strand_cam_storetype::STRAND_CAM_EVENT_NAME.to_string()),
-            rx_conn,
-            bui_server,
-        )
-        .await?;
-
-        // let mut new_conn_rx_valved = valve.wrap(new_conn_rx);
-        // let new_conn_future = async move {
-        //     while let Some(msg) = new_conn_rx_valved.next().await {
-        //         connection_callback_tx.send(msg).await.unwrap();
-        //     }
-        //     debug!("new_conn_future closing {}:{}", file!(), line!());
-        // };
-        // let txers = Arc::new(RwLock::new(HashMap::new()));
-        // let txers2 = txers.clone();
-        // let mut new_conn_rx_valved = valve.wrap(new_conn_rx);
-        // let new_conn_future = async move {
-        //     while let Some(msg) = new_conn_rx_valved.next().await {
-        //         let mut txers = txers2.write();
-        //         match msg.typ {
-        //             ConnectionEventType::Connect(chunk_sender) => {
-        //                 txers.insert(
-        //                     msg.connection_key,
-        //                     (msg.session_key, chunk_sender, msg.path),
-        //                 );
-        //             }
-        //             ConnectionEventType::Disconnect => {
-        //                 txers.remove(&msg.connection_key);
-        //             }
-        //         }
-        //     }
-        //     debug!("new_conn_future closing {}:{}", file!(), line!());
-        // };
-        // let _task_join_handle = rt_handle.spawn(new_conn_future);
-
-        let my_app = StrandCamApp { inner };
-
-        Ok((firehose_callback_rx, my_app, new_conn_rx))
-    }
-
-    fn inner(&self) -> &BuiAppInner<StoreType, CallbackType> {
-        &self.inner
-    }
-    // fn inner_mut(&mut self) -> &mut BuiAppInner<StoreType, CallbackType> {
-    //     &mut self.inner
-    // }
+#[derive(Clone)]
+struct StrandCamAppState {
+    event_broadcaster: EventBroadcaster<ConnectionSessionKey>,
+    callback_senders: StrandCamCallbackSenders,
+    tx_new_connection: tokio::sync::mpsc::Sender<event_stream_types::ConnectionEvent>,
+    shared_store_arc: Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>,
 }
 
 #[cfg(feature = "fiducial")]
@@ -2462,7 +2285,7 @@ async fn check_version(
         MyBody,
         // http_body_util::Empty<bytes::Bytes>,
     >,
-    known_version: Arc<RwLock<semver::Version>>,
+    known_version: Arc<parking_lot::RwLock<semver::Version>>,
     app_name: &'static str,
 ) -> Result<()> {
     let url = format!("https://version-check.strawlab.org/{app_name}");
@@ -2493,7 +2316,7 @@ async fn check_version(
     let known_version3 = known_version2.clone();
 
     let body = res.into_body();
-    let chunks: std::result::Result<http_body_util::Collected<bytes::Bytes>, _> = {
+    let chunks: StdResult<http_body_util::Collected<bytes::Bytes>, _> = {
         use http_body_util::BodyExt;
         body.collect().await
     };
@@ -2502,7 +2325,7 @@ async fn check_version(
     let version: VersionResponse = match serde_json::from_slice(&data) {
         Ok(version) => version,
         Err(e) => {
-            log::warn!("Could not parse version response JSON from {}: {}", url, e);
+            warn!("Could not parse version response JSON from {}: {}", url, e);
             return Ok(());
         }
     };
@@ -2542,7 +2365,7 @@ fn display_qr_url(url: &str) {
     writeln!(stdout_handle).expect("write failed");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Defines whether runtime changes from the user are persisted to disk.
 ///
 /// If they are persisted to disk, upon program re-start, the disk
@@ -2551,6 +2374,13 @@ fn display_qr_url(url: &str) {
 pub enum ImPtDetectCfgSource {
     ChangesNotSavedToDisk(ImPtDetectCfg),
     ChangedSavedToDisk((&'static AppInfo, String)),
+}
+
+#[cfg(feature = "flydra_feat_detect")]
+impl Default for ImPtDetectCfgSource {
+    fn default() -> Self {
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect())
+    }
 }
 
 #[cfg(feature = "plugin-process-frame")]
@@ -2603,31 +2433,72 @@ enum ToDevice {
     Centroid(MomentCentroid),
 }
 
-// #[derive(Debug, Serialize, Deserialize)]
+/// CLI args for the case when we will connect to Braid.
+///
+/// Prior to the connection, we don't know much about what our configuration
+/// should be. This is very limited because most configuration should be done in
+/// the Braid configuration .toml file.
+#[derive(Debug, Default, Clone)]
+pub struct BraidArgs {
+    pub braid_url: String,
+    pub camera_name: String,
+}
+
+/// CLI args for the case when we run standalone.
+#[derive(Debug, Clone, Default)]
+pub struct StandaloneArgs {
+    pub camera_name: Option<String>,
+    /// The HTTP socket address for the Strand Cam BUI.
+    pub http_server_addr: Option<String>,
+    pub pixel_format: Option<String>,
+    /// If set, camera acquisition will external trigger.
+    pub force_camera_sync_mode: bool,
+    /// If enabled, limit framerate (FPS) at startup.
+    ///
+    /// Despite the name ("software"), this actually sets the hardware
+    /// acquisition rate via the `AcquisitionFrameRate` camera parameter.
+    pub software_limit_framerate: StartSoftwareFrameRateLimit,
+    /// Threshold duration before logging error (msec).
+    ///
+    /// If the image acquisition timestamp precedes the computed trigger
+    /// timestamp, clearly an error has happened. This error must lie in the
+    /// computation of the trigger timestamp. This specifies the threshold error
+    /// at which an error is logged. (The underlying source of such errors
+    /// remains unknown.)
+    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    /// Filename of vendor-specific camera settings file.
+    pub camera_settings_filename: Option<std::path::PathBuf>,
+    #[cfg(feature = "flydra_feat_detect")]
+    pub tracker_cfg_src: ImPtDetectCfgSource,
+}
+
+#[derive(Debug)]
+pub enum StandaloneOrBraid {
+    Standalone(StandaloneArgs),
+    Braid(BraidArgs),
+}
+
+impl Default for StandaloneOrBraid {
+    fn default() -> Self {
+        Self::Standalone(Default::default())
+    }
+}
+
 #[derive(Debug)]
 pub struct StrandCamArgs {
-    /// A handle to the tokio runtime.
-    pub handle: Option<tokio::runtime::Handle>,
     /// Is Strand Cam running inside Braid context?
-    pub is_braid: bool,
-    pub secret: Option<Vec<u8>>,
-    pub camera_name: Option<String>,
-    pub pixel_format: Option<String>,
-    pub http_server_addr: Option<String>,
+    pub standalone_or_braid: StandaloneOrBraid,
+    /// base64 encoded secret. minimum 256 bits.
+    pub secret: Option<String>,
     pub no_browser: bool,
     pub mp4_filename_template: String,
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
-    #[cfg(feature = "flydra_feat_detect")]
-    pub tracker_cfg_src: ImPtDetectCfgSource,
     pub csv_save_dir: String,
     pub raise_grab_thread_priority: bool,
     #[cfg(feature = "posix_sched_fifo")]
     pub process_frame_priority: Option<(i32, i32)>,
     pub led_box_device_path: Option<String>,
-    pub mainbrain_internal_addr: Option<MainbrainBuiLocation>,
-    pub camdata_addr: Option<RealtimePointsDestAddr>,
-    pub show_url: bool,
     #[cfg(feature = "plugin-process-frame")]
     pub process_frame_callback: Option<ProcessFrameCbData>,
     #[cfg(feature = "plugin-process-frame")]
@@ -2640,27 +2511,6 @@ pub struct StrandCamArgs {
     pub flydratrax_calibration_source: CalSource,
     #[cfg(feature = "fiducial")]
     pub apriltag_csv_filename_template: String,
-
-    /// If set, camera acquisition will external trigger.
-    pub force_camera_sync_mode: bool,
-
-    /// If enabled, limit framerate (FPS) at startup.
-    ///
-    /// Despite the name ("software"), this actually sets the hardware
-    /// acquisition rate via the `AcquisitionFrameRate` camera parameter.
-    pub software_limit_framerate: StartSoftwareFrameRateLimit,
-
-    /// Filename of vendor-specific camera settings file.
-    pub camera_settings_filename: Option<std::path::PathBuf>,
-
-    /// Threshold duration before logging error (msec).
-    ///
-    /// If the image acquisition timestamp precedes the computed trigger
-    /// timestamp, clearly an error has happened. This error must lie in the
-    /// computation of the trigger timestamp. This specifies the threshold error
-    /// at which an error is logged. (The underlying source of such errors
-    /// remains unknown.)
-    pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -2678,12 +2528,8 @@ pub enum CalSource {
 impl Default for StrandCamArgs {
     fn default() -> Self {
         Self {
-            handle: None,
-            is_braid: false,
+            standalone_or_braid: Default::default(),
             secret: None,
-            camera_name: None,
-            pixel_format: None,
-            http_server_addr: None,
             no_browser: true,
             mp4_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4".to_string(),
             fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
@@ -2691,31 +2537,21 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
-            #[cfg(feature = "flydra_feat_detect")]
-            tracker_cfg_src: ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect()),
             csv_save_dir: "/dev/null".to_string(),
             raise_grab_thread_priority: false,
             #[cfg(feature = "posix_sched_fifo")]
             process_frame_priority: None,
             led_box_device_path: None,
-            mainbrain_internal_addr: None,
-            camdata_addr: None,
-            show_url: true,
             #[cfg(feature = "plugin-process-frame")]
             process_frame_callback: None,
             #[cfg(feature = "plugin-process-frame")]
             plugin_wait_dur: std::time::Duration::from_millis(5),
-            force_camera_sync_mode: false,
-            software_limit_framerate: StartSoftwareFrameRateLimit::NoChange,
-            camera_settings_filename: None,
             #[cfg(feature = "flydratrax")]
             flydratrax_calibration_source: CalSource::PseudoCal,
             #[cfg(feature = "flydratrax")]
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
             model_server_addr: flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
-            acquisition_duration_allowed_imprecision_msec:
-                flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
         }
     }
 }
@@ -2768,61 +2604,329 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
     Ok(true)
 }
 
+fn to_event_frame(state: &StoreType) -> String {
+    let buf = serde_json::to_string(&state).unwrap();
+    let frame_string = format!("event: {STRAND_CAM_EVENT_NAME}\ndata: {buf}\n\n");
+    frame_string
+}
+
+async fn events_handler(
+    axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
+    session_key: axum_token_auth::SessionKey,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<SocketAddr>,
+    _: AcceptsEventStream,
+    req: axum::extract::Request,
+) -> impl axum::response::IntoResponse {
+    tracing::trace!("events");
+    // Connection wants to subscribe to event stream.
+
+    let key = ConnectionSessionKey::new(session_key.0, addr);
+    let (tx, body) = app_state.event_broadcaster.new_connection(key);
+
+    // Send an initial copy of our state.
+    let shared_store = app_state.shared_store_arc.read().as_ref().clone();
+    let frame_string = to_event_frame(&shared_store);
+    match tx
+        .send(Ok(http_body::Frame::data(frame_string.into())))
+        .await
+    {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::SendError(_)) => {
+            // The receiver was dropped because the connection closed. Should probably do more here.
+            tracing::debug!("initial send error");
+        }
+    }
+
+    // Create a new channel in which the receiver is used to send responses to
+    // the new connection. The sender receives changes from a global change
+    // receiver.
+    let typ = ConnectionEventType::Connect(tx);
+    let path = req.uri().path().to_string();
+    let connection_key = ConnectionKey { addr };
+    let session_key = SessionKey(session_key.0);
+
+    match app_state
+        .tx_new_connection
+        .send(ConnectionEvent {
+            typ,
+            session_key,
+            connection_key,
+            path,
+        })
+        .await
+    {
+        Ok(()) => Ok(body),
+        Err(_) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "sending new connection failed",
+        )),
+    }
+}
+
+async fn callback_handler(
+    axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
+    _session_key: axum_token_auth::SessionKey,
+    TolerantJson(payload): TolerantJson<CallbackType>,
+) -> impl axum::response::IntoResponse {
+    tracing::trace!("callback");
+    match payload {
+        CallbackType::ToCamera(cam_arg) => {
+            debug!("in cb: {:?}", cam_arg);
+            app_state
+                .callback_senders
+                .cam_args_tx
+                .send(cam_arg)
+                .await
+                .ignore_send_error();
+        }
+        CallbackType::FirehoseNotify(inner) => {
+            let arrival_time = chrono::Utc::now();
+            let fc = FirehoseCallback {
+                arrival_time,
+                inner,
+            };
+            app_state
+                .callback_senders
+                .firehose_callback_tx
+                .send(fc)
+                .await
+                .ignore_send_error();
+        }
+        CallbackType::TakeCurrentImageAsBackground => {
+            #[cfg(feature = "flydra_feat_detect")]
+            app_state
+                .callback_senders
+                .tx_frame
+                .send(Msg::TakeCurrentImageAsBackground)
+                .await
+                .ignore_send_error();
+        }
+        CallbackType::ClearBackground(value) => {
+            #[cfg(feature = "flydra_feat_detect")]
+            app_state
+                .callback_senders
+                .tx_frame
+                .send(Msg::ClearBackground(value))
+                .await
+                .ignore_send_error();
+            #[cfg(not(feature = "flydra_feat_detect"))]
+            let _ = value;
+        }
+        CallbackType::ToLedBox(led_box_arg) => futures::executor::block_on(async {
+            info!("in led_box callback: {:?}", led_box_arg);
+            app_state
+                .callback_senders
+                .led_box_tx_std
+                .send(led_box_arg)
+                .await
+                .ignore_send_error();
+        }),
+    }
+    Ok::<_, axum::extract::rejection::JsonRejection>(axum::Json(()))
+}
+
+async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
+    match err.downcast::<axum_token_auth::ValidationErrors>() {
+        Ok(err) => {
+            tracing::error!(
+                "Validation error(s): {:?}",
+                err.errors().collect::<Vec<_>>()
+            );
+            (StatusCode::UNAUTHORIZED, "Request is not authorized")
+        }
+        Err(orig_err) => {
+            tracing::error!("Unhandled internal error: {orig_err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+        }
+    }
+}
+
+#[derive(Debug)]
+struct BraidInfo {
+    mainbrain_session: braid_http_session::MainbrainSession,
+    camdata_addr: flydra_types::RealtimePointsDestAddr,
+    tracker_cfg_src: ImPtDetectCfgSource,
+    config_from_braid: flydra_types::RemoteCameraInfoResponse,
+}
+
+/// Wrapper to enforce that first message is fixed to be
+/// [flydra_types::RegisterNewCamera].
+struct FirstMsgForced {
+    tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
+}
+
+impl FirstMsgForced {
+    /// Wrap a sender.
+    fn new(tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>) -> Self {
+        Self { tx }
+    }
+
+    /// Send the first message and return the Sender.
+    async fn send_first_msg(
+        self,
+        new_cam_data: flydra_types::RegisterNewCamera,
+    ) -> std::result::Result<
+        tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
+        tokio::sync::mpsc::error::SendError<flydra_types::BraidHttpApiCallback>,
+    > {
+        self.tx
+            .send(flydra_types::BraidHttpApiCallback::NewCamera(new_cam_data))
+            .await?;
+        Ok(self.tx)
+    }
+}
+
+// -----------
+
+/// top-level function once args are parsed from CLI.
 pub fn run_app<M, C>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> Result<()>
+) -> anyhow::Result<()>
 where
-    M: ci2::CameraModule<CameraType = C>,
+    M: ci2::CameraModule<CameraType = C> + 'static,
     C: 'static + ci2::Camera + Send,
 {
-    let handle = args
-        .handle
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!("no tokio runtime handle"))?;
+    // Start tokio runtime here.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(4)
+        .thread_name("strand-cam-runtime")
+        .thread_stack_size(3 * 1024 * 1024)
+        .build()?;
 
-    let my_handle = handle.clone();
-
-    let (_bui_server_info, tx_cam_arg2, fut, _my_app) =
-        handle.block_on(setup_app(mymod, my_handle, args, app_name))?;
-
-    ctrlc::set_handler(move || {
-        info!("got Ctrl-C, shutting down");
-
-        // Send quit message.
-        debug!("starting to send quit message {}:{}", file!(), line!());
-        match tx_cam_arg2.blocking_send(CamArg::DoQuit) {
-            Ok(()) => {}
-            Err(e) => {
-                error!("failed sending quit command: {}", e);
-            }
-        }
-        debug!("done sending quit message {}:{}", file!(), line!());
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    handle.block_on(fut)?;
+    runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
 
     info!("done");
     Ok(())
 }
 
-pub async fn setup_app<M, C>(
-    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
-    rt_handle: tokio::runtime::Handle,
+/// First, connect to Braid if requested, then run.
+async fn run_after_maybe_connecting_to_braid<M, C>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<(
-    StrandCamBuiServerInfo,
-    tokio::sync::mpsc::Sender<CamArg>,
-    impl futures::Future<Output = Result<()>>,
-    StrandCamApp,
-)>
+) -> anyhow::Result<()>
+where
+    M: ci2::CameraModule<CameraType = C> + 'static,
+    C: 'static + ci2::Camera + Send,
+{
+    // If connecting to braid, do it here.
+    let res_braid: std::result::Result<BraidInfo, StandaloneArgs> = {
+        match &args.standalone_or_braid {
+            StandaloneOrBraid::Braid(braid_args) => {
+                info!("Will connect to braid at \"{}\"", braid_args.braid_url);
+                let mainbrain_bui_loc = flydra_types::MainbrainBuiLocation(
+                    flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?,
+                );
+
+                let jar: cookie_store::CookieStore =
+                    match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
+                        Ok(jar) => {
+                            tracing::debug!("loaded cookie store {BRAID_COOKIE_KEY}");
+                            jar
+                        }
+                        Err(e) => {
+                            tracing::debug!(
+                                "cookie store {BRAID_COOKIE_KEY} not loaded: {e} {e:?}"
+                            );
+                            cookie_store::CookieStore::new(None)
+                        }
+                    };
+                let jar = Arc::new(parking_lot::RwLock::new(jar));
+                let mut mainbrain_session =
+                    braid_http_session::mainbrain_future_session(mainbrain_bui_loc, jar.clone())
+                        .await?;
+                tracing::debug!("Opened HTTP session with Braid.");
+                {
+                    // We have the cookie from braid now, so store it to disk.
+                    let jar = jar.read();
+                    Preferences::save(&*jar, &APP_INFO, BRAID_COOKIE_KEY)?;
+                    tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
+                }
+
+                let camera_name = flydra_types::RawCamName::new(braid_args.camera_name.clone());
+
+                let config_from_braid: flydra_types::RemoteCameraInfoResponse =
+                    mainbrain_session.get_remote_info(&camera_name).await?;
+
+                let camdata_addr = {
+                    let camdata_addr = config_from_braid
+                        .camdata_addr
+                        .parse::<std::net::SocketAddr>()?;
+                    let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
+
+                    flydra_types::RealtimePointsDestAddr::IpAddr(addr_info_ip)
+                };
+
+                let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
+                    config_from_braid.config.point_detection_config.clone(),
+                );
+
+                Ok(BraidInfo {
+                    mainbrain_session,
+                    config_from_braid,
+                    camdata_addr,
+                    tracker_cfg_src,
+                })
+            }
+            StandaloneOrBraid::Standalone(standalone_args) => Err(standalone_args.clone()),
+        }
+    };
+
+    run_until_done(mymod, args, app_name, res_braid).await
+}
+
+// -----------
+
+/// This is the main function where we spend all time after parsing startup args
+/// and, in case of connecting to braid, getting the inital connection
+/// information.
+///
+/// This function is way too huge and should be refactored.
+#[tracing::instrument(level = "debug", skip_all)]
+async fn run_until_done<M, C>(
+    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+    args: StrandCamArgs,
+    app_name: &'static str,
+    res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
+) -> anyhow::Result<()>
 where
     M: ci2::CameraModule<CameraType = C>,
     C: 'static + ci2::Camera + Send,
 {
+    let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
+        StandaloneOrBraid::Braid(braid_args) => {
+            let braid_info = match &res_braid {
+                Ok(braid_info) => braid_info,
+                Err(_) => {
+                    anyhow::bail!("requested braid, but no braid config");
+                }
+            };
+            let http_server_addr = braid_info
+                .config_from_braid
+                .config
+                .http_server_addr
+                .as_ref()
+                .map(Clone::clone);
+            let braid_info =
+                flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+
+            if braid_info.addr().ip().is_loopback() {
+                http_server_addr.unwrap_or_else(|| "127.0.0.1:0".to_string())
+            } else {
+                http_server_addr.unwrap_or_else(|| "0.0.0.0:0".to_string())
+            }
+        }
+        StandaloneOrBraid::Standalone(standalone_args) => standalone_args
+            .http_server_addr
+            .as_ref()
+            .map(Clone::clone)
+            .unwrap_or_else(|| "127.0.0.1:3440".to_string()),
+    };
+    tracing::debug!("Strand Camera HTTP server: {strand_cam_bui_http_address_string}");
+
     let target_feature_string = target::features().join(", ");
     info!("Compiled with features: {}", target_feature_string);
 
@@ -2830,7 +2934,12 @@ where
         warn!("Package 'imops' was not compiled with simd support. Image processing with imops will be slow.");
     }
 
-    debug!("CLI request for camera {:?}", args.camera_name);
+    let requested_camera_name = match &args.standalone_or_braid {
+        StandaloneOrBraid::Standalone(args) => args.camera_name.clone(),
+        StandaloneOrBraid::Braid(args) => Some(args.camera_name.clone()),
+    };
+
+    debug!("Request for camera \"{requested_camera_name:?}\"");
 
     // -----------------------------------------------
 
@@ -2845,7 +2954,7 @@ where
         info!("  camera {:?} detected", cam_info.name());
     }
 
-    let name = match args.camera_name {
+    let use_camera_name = match requested_camera_name {
         Some(ref name) => name,
         None => cam_infos[0].name(),
     };
@@ -2853,7 +2962,7 @@ where
     let frame_info_extractor = mymod.frame_info_extractor();
     let settings_file_ext = mymod.settings_file_extension().to_string();
 
-    let mut cam = match mymod.threaded_async_camera(name) {
+    let mut cam = match mymod.threaded_async_camera(use_camera_name) {
         Ok(cam) => cam,
         Err(e) => {
             let msg = format!("{e}");
@@ -2864,24 +2973,43 @@ where
 
     let raw_name = cam.name().to_string();
     info!("  got camera {}", raw_name);
-    let cam_name = RawCamName::new(raw_name);
-    let ros_cam_name = cam_name.to_ros();
+    let raw_cam_name = RawCamName::new(raw_name);
 
     let camera_gamma = cam
         .feature_float("Gamma")
-        .map_err(|e| log::warn!("Ignoring error getting gamma: {}", e))
+        .map_err(|e| warn!("Ignoring error getting gamma: {}", e))
         .ok()
         .map(|x: f64| x as f32);
 
+    let camera_settings_filename = match &res_braid {
+        Ok(bi) => bi.config_from_braid.config.camera_settings_filename.clone(),
+        Err(a) => a.camera_settings_filename.clone(),
+    };
+
+    let pixel_format = match &res_braid {
+        Ok(bi) => bi.config_from_braid.config.pixel_format.clone(),
+        Err(a) => a.pixel_format.clone(),
+    };
+
+    let acquisition_duration_allowed_imprecision_msec = match &res_braid {
+        Ok(bi) => {
+            bi.config_from_braid
+                .config
+                .acquisition_duration_allowed_imprecision_msec
+        }
+        Err(a) => a.acquisition_duration_allowed_imprecision_msec,
+    };
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let _ = acquisition_duration_allowed_imprecision_msec;
+
     let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
-        if let Some(camera_settings_filename) = &args.camera_settings_filename {
-            let settings =
-                std::fs::read_to_string(camera_settings_filename).with_context(|| {
-                    format!(
-                        "Failed to read camera settings from file \"{}\"",
-                        camera_settings_filename.display()
-                    )
-                })?;
+        if let Some(fname) = &camera_settings_filename {
+            let settings = std::fs::read_to_string(fname).with_context(|| {
+                format!(
+                    "Failed to read camera settings from file \"{}\"",
+                    fname.display()
+                )
+            })?;
 
             cam.node_map_load(&settings)?;
             (false, false)
@@ -2890,7 +3018,7 @@ where
                 debug!("  possible pixel format: {}", pixfmt);
             }
 
-            if let Some(ref pixfmt_str) = args.pixel_format {
+            if let Some(ref pixfmt_str) = pixel_format {
                 use std::str::FromStr;
                 let pixfmt = PixFmt::from_str(pixfmt_str)
                     .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
@@ -2954,7 +3082,6 @@ where
     // Buffer 20 frames to be processed before dropping them.
     let (tx_frame, rx_frame) = tokio::sync::mpsc::channel::<Msg>(20);
     let tx_frame2 = tx_frame.clone();
-    let tx_frame3 = tx_frame.clone();
 
     // Get initial frame to determine width, height and pixel_format.
     debug!("  started acquisition, waiting for first frame");
@@ -2976,6 +3103,18 @@ where
 
     let (firehose_tx, firehose_rx) = tokio::sync::mpsc::channel::<AnnotatedFrame>(5);
 
+    // Put first frame in channel.
+    firehose_tx
+        .send(AnnotatedFrame {
+            frame: frame.clone(),
+            found_points: vec![],
+            valid_display: None,
+            annotations: vec![],
+        })
+        .await
+        .unwrap();
+    // .map_err(|e| anhow::anyhow!("failed to send frame"))?;
+
     let image_width = frame.width();
     let image_height = frame.height();
 
@@ -2991,14 +3130,30 @@ where
 
     let raise_grab_thread_priority = args.raise_grab_thread_priority;
 
-    #[cfg(feature = "flydra_feat_detect")]
-    let tracker_cfg_src = args.tracker_cfg_src;
-
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = args.save_empty_data2d;
 
     #[cfg(feature = "flydra_feat_detect")]
-    let tracker_cfg = match &tracker_cfg_src {
+    let tracker_cfg_src = match &res_braid {
+        Ok(bi) => bi.tracker_cfg_src.clone(),
+        Err(a) => a.tracker_cfg_src.clone(),
+    };
+
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    match &res_braid {
+        Ok(bi) => {
+            let _ = bi.tracker_cfg_src.clone(); // silence unused field warning.
+        }
+        Err(_) => {}
+    };
+
+    // Here we just create some default, it does not matter what, because it
+    // will not be used for anything.
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
+
+    #[cfg(feature = "flydra_feat_detect")]
+    let im_pt_detect_cfg = match &tracker_cfg_src {
         ImPtDetectCfgSource::ChangedSavedToDisk(src) => {
             // Retrieve the saved preferences
             let (app_info, ref prefs_key) = src;
@@ -3016,25 +3171,55 @@ where
         ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
     };
 
-    #[cfg(feature = "flydra_feat_detect")]
-    let im_pt_detect_cfg = tracker_cfg.clone();
+    let force_camera_sync_mode = match &res_braid {
+        Ok(bi) => bi.config_from_braid.force_camera_sync_mode,
+        Err(a) => a.force_camera_sync_mode,
+    };
 
-    let mainbrain_info = args.mainbrain_internal_addr.map(|addr| {
-        let (transmit_msg_tx, transmit_msg_rx) = mpsc::channel::<flydra_types::HttpApiCallback>(10);
+    let camdata_addr = match &res_braid {
+        Ok(bi) => Some(bi.camdata_addr.clone()),
+        Err(_a) => None,
+    };
 
-        MainbrainInfo {
-            mainbrain_internal_addr: addr,
-            transmit_msg_rx,
-            transmit_msg_tx,
+    let software_limit_framerate = match &res_braid {
+        Ok(bi) => bi.config_from_braid.software_limit_framerate.clone(),
+        Err(a) => a.software_limit_framerate.clone(),
+    };
+
+    let mut mainbrain_session = match res_braid {
+        Ok(bi) => Some(bi.mainbrain_session),
+        Err(_a) => None,
+    };
+
+    // spawn channel to send data to mainbrain
+    let (mainbrain_msg_tx, mut mainbrain_msg_rx) = tokio::sync::mpsc::channel(10);
+
+    let first_msg_tx = if mainbrain_session.is_some() {
+        // Wrap Sender to force a specific first message type.
+        Some(FirstMsgForced::new(mainbrain_msg_tx))
+    } else {
+        // Drop Sender as we'll never need it.
+        None
+    };
+
+    let mainbrain_transmitter_fut = async move {
+        while let Some(msg) = mainbrain_msg_rx.recv().await {
+            if let Some(ref mut mainbrain_session) = &mut mainbrain_session {
+                match mainbrain_session.post_callback_message(msg).await {
+                    Ok(()) => {}
+                    Err(e) => {
+                        tracing::error!("failed sending message to mainbrain: {e}");
+                        break;
+                    }
+                }
+            }
         }
-    });
-
-    let transmit_msg_tx = mainbrain_info.as_ref().map(|i| i.transmit_msg_tx.clone());
+    };
 
     let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
 
-    let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
+    let led_box_heartbeat_update_arc = Arc::new(parking_lot::RwLock::new(None));
 
     let gain_ranged = RangedValue {
         name: "gain".into(),
@@ -3068,19 +3253,41 @@ where
 
     let current_cam_settings_extension = settings_file_ext.to_string();
 
-    if args.force_camera_sync_mode {
-        cam.start_default_external_triggering().unwrap();
-        send_cam_settings_to_braid(
-            &cam.node_map_save()?,
-            transmit_msg_tx.as_ref(),
-            &current_cam_settings_extension,
-            &ros_cam_name,
-        )
-        .map(|fut| rt_handle.spawn(fut));
+    let (listener, http_camserver_info) =
+        flydra_types::start_listener(&strand_cam_bui_http_address_string).await?;
+
+    let mut transmit_msg_tx = None;
+    if let Some(first_msg_tx) = first_msg_tx {
+        let new_cam_data = flydra_types::RegisterNewCamera {
+            raw_cam_name: raw_cam_name.clone(),
+            http_camserver_info: Some(BuiServerInfo::Server(http_camserver_info.clone())),
+            cam_settings_data: Some(flydra_types::UpdateCamSettings {
+                current_cam_settings_buf: settings_on_start,
+                current_cam_settings_extension: settings_file_ext,
+            }),
+            current_image_png: current_image_png.into(),
+        };
+
+        // Get the generic sender back.
+        transmit_msg_tx = Some(first_msg_tx.send_first_msg(new_cam_data).await?);
+        tracing::info!("Registered camera \"{raw_cam_name}\" with Braid.");
     }
 
-    if args.camera_settings_filename.is_none() {
-        if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &args.software_limit_framerate {
+    if force_camera_sync_mode {
+        cam.start_default_external_triggering().unwrap();
+        if let Some(transmit_msg_tx) = &transmit_msg_tx {
+            send_cam_settings_to_braid(
+                &cam.node_map_save()?,
+                transmit_msg_tx,
+                &current_cam_settings_extension,
+                &raw_cam_name,
+            )
+            .await?;
+        }
+    }
+
+    if camera_settings_filename.is_none() {
+        if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate {
             // Set the camera.
             cam.set_software_frame_rate_limit(*fps_limit).unwrap();
             // Store the values we set.
@@ -3194,18 +3401,16 @@ where
 
     let im_ops_state = ImOpsState::default();
 
-    // Here we just create some default, it does not matter what, because it
-    // will not be used for anything.
-    #[cfg(not(feature = "flydra_feat_detect"))]
-    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
-
     #[cfg(feature = "flydra_feat_detect")]
     let has_image_tracker_compiled = true;
 
     #[cfg(not(feature = "flydra_feat_detect"))]
     let has_image_tracker_compiled = false;
 
-    let is_braid = args.is_braid;
+    let is_braid = match &args.standalone_or_braid {
+        StandaloneOrBraid::Braid(_) => true,
+        StandaloneOrBraid::Standalone(_) => false,
+    };
 
     // -----------------------------------------------
     // Check if we can use nv h264 and, if so, set that as default.
@@ -3220,18 +3425,18 @@ where
 
     let mp4_filename_template = args
         .mp4_filename_template
-        .replace("{CAMNAME}", cam_name.as_str());
+        .replace("{CAMNAME}", raw_cam_name.as_str());
     let fmf_filename_template = args
         .fmf_filename_template
-        .replace("{CAMNAME}", cam_name.as_str());
+        .replace("{CAMNAME}", raw_cam_name.as_str());
     let ufmf_filename_template = args
         .ufmf_filename_template
-        .replace("{CAMNAME}", cam_name.as_str());
+        .replace("{CAMNAME}", raw_cam_name.as_str());
 
     #[cfg(feature = "fiducial")]
     let format_str_apriltag_csv = args
         .apriltag_csv_filename_template
-        .replace("{CAMNAME}", cam_name.as_str());
+        .replace("{CAMNAME}", use_camera_name);
 
     #[cfg(not(feature = "fiducial"))]
     let format_str_apriltag_csv = "".into();
@@ -3273,7 +3478,7 @@ where
         measured_fps: 0.0,
         is_saving_im_pt_detect_csv: None,
         has_image_tracker_compiled,
-        im_pt_detect_cfg,
+        im_pt_detect_cfg: im_pt_detect_cfg.clone(),
         has_flydratrax_compiled,
         kalman_tracking_config,
         led_program_config,
@@ -3294,63 +3499,135 @@ where
         camera_calibration: None,
     });
 
-    let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
+    let frame_processing_error_state = Arc::new(parking_lot::RwLock::new(
+        FrameProcessingErrorState::default(),
+    ));
 
-    let camdata_addr = args.camdata_addr;
+    // let mut config = get_default_config();
+    // config.cookie_name = "strand-camclient".to_string();
 
-    let mut config = get_default_config();
-    config.cookie_name = "strand-camclient".to_string();
+    let mut shared_store_changes_rx = shared_store.get_changes(1);
 
-    let shared_store_arc = Arc::new(RwLock::new(shared_store));
+    // A channel for the data sent from the client browser.
+    let (firehose_callback_tx, firehose_callback_rx) = tokio::sync::mpsc::channel(10);
 
-    let cam_args_tx2 = cam_args_tx.clone();
-    let secret = args.secret.clone();
+    let callback_senders = StrandCamCallbackSenders {
+        cam_args_tx: cam_args_tx.clone(),
+        firehose_callback_tx,
+        led_box_tx_std: led_box_tx_std.clone(),
+        tx_frame: tx_frame.clone(),
+    };
+
+    let (tx_new_connection, rx_new_connection) = tokio::sync::mpsc::channel(10);
+
+    let shared_state = Arc::new(parking_lot::RwLock::new(shared_store));
+    let shared_store_arc = shared_state.clone();
+
+    // Create our app state.
+    let app_state = StrandCamAppState {
+        event_broadcaster: Default::default(),
+        callback_senders,
+        tx_new_connection,
+        shared_store_arc,
+    };
+
+    let shared_store_arc = shared_state.clone();
+
+    // This future will send state updates to all connected event listeners.
+    let event_broadcaster = app_state.event_broadcaster.clone();
+    let send_updates_future = async move {
+        while let Some((_prev_state, next_state)) = shared_store_changes_rx.next().await {
+            let frame_string = to_event_frame(&next_state);
+            event_broadcaster.broadcast_frame(frame_string).await;
+        }
+    };
+
+    #[cfg(feature = "bundle_files")]
+    let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
+
+    #[cfg(feature = "serve_files")]
+    let serve_dir = tower_http::services::fs::ServeDir::new(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("yew_frontend")
+            .join("pkg"),
+    );
+
+    let persistent_secret_base64 = if let Some(secret) = args.secret {
+        secret
+    } else {
+        match String::load(&APP_INFO, COOKIE_SECRET_KEY) {
+            Ok(secret_base64) => secret_base64,
+            Err(_) => {
+                tracing::debug!("No secret loaded from preferences file, generating new.");
+                let persistent_secret = cookie::Key::generate();
+                let persistent_secret_base64 = base64::encode(persistent_secret.master());
+                persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
+                persistent_secret_base64
+            }
+        }
+    };
+
+    let persistent_secret = base64::decode(persistent_secret_base64)?;
+    let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
+
+    // Setup our auth layer.
+    let token_config = match http_camserver_info.token() {
+        AccessToken::PreSharedToken(value) => Some(axum_token_auth::TokenConfig {
+            name: "token".to_string(),
+            value: value.clone(),
+        }),
+        AccessToken::NoToken => None,
+    };
+    let cfg = axum_token_auth::AuthConfig {
+        token_config,
+        persistent_secret,
+        cookie_name: "strand-cam-session",
+        cookie_expires: Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)), // 400 days
+    };
+
+    let auth_layer = cfg.into_layer();
+    // Create axum router.
+    let router = axum::Router::new()
+        .route("/strand-cam-events", axum::routing::get(events_handler))
+        .route("/callback", axum::routing::post(callback_handler))
+        .nest_service("/", serve_dir)
+        .layer(
+            tower::ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                // Auth layer will produce an error if the request cannot be
+                // authorized so we must handle that.
+                .layer(axum::error_handling::HandleErrorLayer::new(
+                    handle_auth_error,
+                ))
+                .layer(auth_layer),
+        )
+        .with_state(app_state);
+
+    // create future for our app
+    let http_serve_future = {
+        use std::future::IntoFuture;
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .into_future()
+    };
 
     // todo: integrate with quit_channel and quit_rx elsewhere.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let http_server_addr = if let Some(http_server_addr) = args.http_server_addr.as_ref() {
-        // In braid, this will be `127.0.0.1:0` to get a free port.
-        http_server_addr.clone()
+    let url = http_camserver_info.build_url();
+
+    // Display where we are listening.
+    if is_braid {
+        debug!("Strand Cam predicted URL: {url}");
     } else {
-        // This will be `127.0.0.1:3440` to get a free port.
-        DEFAULT_HTTP_ADDR.to_string()
-    };
-
-    let (firehose_callback_rx, my_app, connection_callback_rx) = StrandCamApp::new(
-        rt_handle.clone(),
-        shared_store_arc.clone(),
-        secret,
-        &http_server_addr,
-        config,
-        cam_args_tx2.clone(),
-        led_box_tx_std.clone(),
-        tx_frame3,
-        shutdown_rx,
-    )
-    .await?;
-
-    // The value `args.http_server_addr` is transformed to
-    // `local_addr` by doing things like replacing port 0
-    // with the actual open port number.
-
-    let (is_loopback, http_camserver_info) = {
-        let local_addr = *my_app.inner().local_addr();
-        let is_loopback = local_addr.ip().is_loopback();
-        let token = my_app.inner().token();
-        (is_loopback, StrandCamBuiServerInfo::new(local_addr, token))
-    };
-
-    let url = http_camserver_info.guess_base_url_with_token();
-
-    if args.show_url {
-        println!("Depending on things, you may be able to login with this url: {url}",);
-
-        if !is_loopback {
-            println!("This same URL as a QR code:");
-            display_qr_url(&url);
+        info!("Strand Cam predicted URL: {url}");
+        if !flydra_types::is_loopback(&url) {
+            println!("QR code for {url}");
+            display_qr_url(&format!("{url}"));
         }
     }
 
@@ -3361,73 +3638,41 @@ where
     let process_frame_callback = args.process_frame_callback;
 
     #[cfg(feature = "checkercal")]
-    let collected_corners_arc: CollectedCornersArc = Arc::new(RwLock::new(Vec::new()));
+    let collected_corners_arc: CollectedCornersArc = Arc::new(parking_lot::RwLock::new(Vec::new()));
 
-    let frame_process_cjh = {
+    let frame_process_task_jh = {
         let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
 
         #[cfg(feature = "flydra_feat_detect")]
-        let acquisition_duration_allowed_imprecision_msec =
-            args.acquisition_duration_allowed_imprecision_msec;
-        #[cfg(feature = "flydra_feat_detect")]
         let csv_save_dir = args.csv_save_dir.clone();
+
         #[cfg(feature = "flydratrax")]
-        let model_server_addr = args.model_server_addr.clone();
+        let model_server_addr = flydra_types::get_best_remote_addr(&args.model_server_addr)?;
+
         #[cfg(feature = "flydratrax")]
         let led_box_tx_std = led_box_tx_std.clone();
         #[cfg(feature = "flydratrax")]
         let http_camserver_info2 = http_camserver_info.clone();
         let led_box_heartbeat_update_arc2 = led_box_heartbeat_update_arc.clone();
-
-        let handle2 = rt_handle.clone();
         #[cfg(feature = "flydratrax")]
-        let (model_server_data_tx, model_server, flydratrax_calibration_source) = {
-            info!("send_pose server at {}", model_server_addr);
-            let info = flydra_types::StaticMainbrainInfo {
-                name: env!("CARGO_PKG_NAME").into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-            };
-
+        let (model_server_data_tx, flydratrax_calibration_source) = {
+            info!("send_pose server at {}", model_server_addr.as_ref());
             let (model_server_data_tx, data_rx) = tokio::sync::mpsc::channel(50);
-
-            // we need the tokio reactor already by here
-            let model_server = flydra2::new_model_server(
-                data_rx,
-                valve.clone(),
-                &model_server_addr,
-                info,
-                handle2.clone(),
-            )
-            .await?;
+            let model_server_future =
+                flydra2::new_model_server(data_rx, *model_server_addr.as_ref());
+            tokio::spawn(async { model_server_future.await });
             let flydratrax_calibration_source = args.flydratrax_calibration_source;
-            (
-                model_server_data_tx,
-                model_server,
-                flydratrax_calibration_source,
-            )
-        };
-
-        let new_cam_data = flydra_types::RegisterNewCamera {
-            orig_cam_name: cam_name.clone(),
-            ros_cam_name: ros_cam_name.clone(),
-            http_camserver_info: Some(StrandCamHttpServerInfo::Server(http_camserver_info.clone())),
-            cam_settings_data: Some(flydra_types::UpdateCamSettings {
-                current_cam_settings_buf: settings_on_start,
-                current_cam_settings_extension: settings_file_ext,
-            }),
-            current_image_png: current_image_png.into(),
+            (model_server_data_tx, flydratrax_calibration_source)
         };
 
         #[cfg(feature = "flydratrax")]
         let valve2 = valve.clone();
-        let cam_name2 = cam_name.clone();
-        let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
+        let cam_name2 = raw_cam_name.clone();
         let frame_process_task_fut = {
             {
                 frame_process_task(
-                    handle2,
                     #[cfg(feature = "flydratrax")]
-                    (model_server_data_tx, model_server),
+                    model_server_data_tx,
                     #[cfg(feature = "flydratrax")]
                     flydratrax_calibration_source,
                     cam_name2,
@@ -3439,7 +3684,7 @@ where
                     image_height,
                     rx_frame,
                     #[cfg(feature = "flydra_feat_detect")]
-                    tracker_cfg,
+                    im_pt_detect_cfg,
                     #[cfg(feature = "flydra_feat_detect")]
                     std::path::Path::new(&csv_save_dir).to_path_buf(),
                     firehose_tx,
@@ -3451,12 +3696,11 @@ where
                     plugin_wait_dur,
                     #[cfg(feature = "flydratrax")]
                     led_box_tx_std,
-                    quit_rx,
                     is_starting_tx,
                     #[cfg(feature = "flydratrax")]
                     http_camserver_info2,
                     process_frame_priority,
-                    mainbrain_info,
+                    transmit_msg_tx.clone(),
                     camdata_addr,
                     led_box_heartbeat_update_arc2,
                     #[cfg(feature = "plugin-process-frame")]
@@ -3469,7 +3713,6 @@ where
                     valve2,
                     #[cfg(feature = "flydra_feat_detect")]
                     acquisition_duration_allowed_imprecision_msec,
-                    new_cam_data,
                     frame_info_extractor,
                     #[cfg(feature = "flydra_feat_detect")]
                     app_name,
@@ -3479,11 +3722,7 @@ where
         let join_handle = tokio::spawn(frame_process_task_fut);
         debug!("waiting for frame acquisition thread to start");
         is_starting_rx.await?;
-        // TODO: how to check if task still running?
-        ControlledTaskJoinHandle {
-            quit_channel,
-            join_handle,
-        }
+        join_handle
     };
     debug!("frame_process_task spawned");
 
@@ -3528,13 +3767,12 @@ where
 
     // install frame handling
     let n_buffered_frames = 100;
-    let frame_stream = cam.frames(n_buffered_frames, async_thread_start)?;
-    let mut frame_valved = valve.wrap(frame_stream);
+    let mut frame_stream = cam.frames(n_buffered_frames, async_thread_start)?;
     let cam_stream_future = {
         let shared_store_arc = shared_store_arc.clone();
         let frame_processing_error_state = frame_processing_error_state.clone();
         async move {
-            while let Some(frame_msg) = frame_valved.next().await {
+            while let Some(frame_msg) = frame_stream.next().await {
                 match frame_msg {
                     ci2_async::FrameResult::Frame(frame) => {
                         let frame: DynamicFrame = frame;
@@ -3602,7 +3840,7 @@ where
 
         // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
         // versions later.
-        let known_version = Arc::new(RwLock::new(app_version));
+        let known_version = Arc::new(parking_lot::RwLock::new(app_version));
 
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
@@ -3627,18 +3865,18 @@ where
             }
             debug!("version check future done {}:{}", file!(), line!());
         };
-        rt_handle.spawn(Box::pin(stream_future)); // confirmed: valved and finishes
+        tokio::spawn(Box::pin(stream_future)); // confirmed: valved and finishes
         debug!("version check future spawned {}:{}", file!(), line!());
     }
 
-    rt_handle.spawn(Box::pin(cam_stream_future)); // confirmed: valved and finishes
+    tokio::spawn(Box::pin(cam_stream_future)); // confirmed: valved and finishes
     debug!("cam_stream_future future spawned {}:{}", file!(), line!());
 
     let cam_arg_future = {
         let shared_store_arc = shared_store_arc.clone();
 
         #[cfg(feature = "checkercal")]
-        let cam_name2 = cam_name.clone();
+        let cam_name2 = raw_cam_name.clone();
 
         let mut cam_args_rx = tokio_stream::wrappers::ReceiverStream::new(cam_args_rx);
 
@@ -3677,13 +3915,16 @@ where
                     }
                     CamArg::SetExposureTime(v) => match cam.set_exposure_time(v) {
                         Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name,
-                            )
-                            .map(|fut| rt_handle.spawn(fut));
+                            if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx,
+                                    &current_cam_settings_extension,
+                                    &raw_cam_name,
+                                )
+                                .await
+                                .unwrap();
+                            }
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.exposure_time.current = v);
                         }
@@ -3693,13 +3934,16 @@ where
                     },
                     CamArg::SetGain(v) => match cam.set_gain(v) {
                         Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name,
-                            )
-                            .map(|fut| rt_handle.spawn(fut));
+                            if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx,
+                                    &current_cam_settings_extension,
+                                    &raw_cam_name,
+                                )
+                                .await
+                                .unwrap();
+                            }
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| tracker.gain.current = v);
                         }
@@ -3709,13 +3953,16 @@ where
                     },
                     CamArg::SetGainAuto(v) => match cam.set_gain_auto(v) {
                         Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name,
-                            )
-                            .map(|fut| rt_handle.spawn(fut));
+                            if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx,
+                                    &current_cam_settings_extension,
+                                    &raw_cam_name,
+                                )
+                                .await
+                                .unwrap();
+                            }
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| match cam.gain_auto() {
                                 Ok(latest) => {
@@ -3753,13 +4000,16 @@ where
                     }
                     CamArg::SetExposureAuto(v) => match cam.set_exposure_auto(v) {
                         Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name,
-                            )
-                            .map(|fut| rt_handle.spawn(fut));
+                            if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx,
+                                    &current_cam_settings_extension,
+                                    &raw_cam_name,
+                                )
+                                .await
+                                .unwrap();
+                            }
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| match cam.exposure_auto() {
                                 Ok(latest) => {
@@ -3778,13 +4028,16 @@ where
                     CamArg::SetFrameRateLimitEnabled(v) => {
                         match cam.set_acquisition_frame_rate_enable(v) {
                             Ok(()) => {
-                                send_cam_settings_to_braid(
-                                    &cam.node_map_save().unwrap(),
-                                    transmit_msg_tx.as_ref(),
-                                    &current_cam_settings_extension,
-                                    &ros_cam_name,
-                                )
-                                .map(|fut| rt_handle.spawn(fut));
+                                if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                    send_cam_settings_to_braid(
+                                        &cam.node_map_save().unwrap(),
+                                        transmit_msg_tx,
+                                        &current_cam_settings_extension,
+                                        &raw_cam_name,
+                                    )
+                                    .await
+                                    .unwrap();
+                                }
                                 let mut tracker = shared_store_arc.write();
                                 tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate_enable() {
@@ -3804,13 +4057,16 @@ where
                     }
                     CamArg::SetFrameRateLimit(v) => match cam.set_acquisition_frame_rate(v) {
                         Ok(()) => {
-                            send_cam_settings_to_braid(
-                                &cam.node_map_save().unwrap(),
-                                transmit_msg_tx.as_ref(),
-                                &current_cam_settings_extension,
-                                &ros_cam_name,
-                            )
-                            .map(|fut| rt_handle.spawn(fut));
+                            if let Some(transmit_msg_tx) = &transmit_msg_tx {
+                                send_cam_settings_to_braid(
+                                    &cam.node_map_save().unwrap(),
+                                    transmit_msg_tx,
+                                    &current_cam_settings_extension,
+                                    &raw_cam_name,
+                                )
+                                .await
+                                .unwrap();
+                            }
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|shared| match cam.acquisition_frame_rate() {
                                 Ok(latest) => {
@@ -4317,13 +4573,12 @@ where
                                     .collect()
                             };
 
-                            let ros_cam_name = cam_name2.to_ros();
                             let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
 
                             if let Some(debug_dir) = &checkerboard_save_debug {
                                 let format_str = format!(
                                     "checkerboard_input_{}.%Y%m%d_%H%M%S.yaml",
-                                    ros_cam_name.as_str()
+                                    cam_name2.as_str()
                                 );
                                 let stamped = local.format(&format_str).to_string();
 
@@ -4359,7 +4614,7 @@ where
                                             intrinsics,
                                             width: image_width as usize,
                                             height: image_height as usize,
-                                            name: ros_cam_name.as_str().to_string(),
+                                            name: raw_cam_name.as_str().to_string(),
                                         }
                                         .into();
 
@@ -4371,12 +4626,12 @@ where
                                         .unwrap();
 
                                     let format_str =
-                                        format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
+                                        format!("{}.%Y%m%d_%H%M%S.yaml", raw_cam_name.as_str());
                                     let stamped = local.format(&format_str).to_string();
                                     let cam_info_file_stamped = cal_dir.join(stamped);
 
                                     let mut cam_info_file = cal_dir.clone();
-                                    cam_info_file.push(ros_cam_name.as_str());
+                                    cam_info_file.push(raw_cam_name.as_str());
                                     cam_info_file.set_extension("yaml");
 
                                     // Save timestamped version first for backup
@@ -4456,29 +4711,21 @@ where
         // sleep to let the webserver start before opening browser
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        open_browser(url)?;
-    } else {
-        info!("listening at {}", url);
+        open_browser(format!("{url}"))?;
     }
 
-    let (quit_channel, quit_rx) = tokio::sync::oneshot::channel();
-
-    let join_handle = tokio::spawn(video_streaming::firehose_task(
-        connection_callback_rx,
-        firehose_rx,
-        firehose_callback_rx,
-        false,
-        strand_cam_storetype::STRAND_CAM_EVENTS_URL_PATH,
-        quit_rx,
-    ));
-
-    let video_streaming_cjh = ControlledTaskJoinHandle {
-        quit_channel,
-        join_handle,
-    };
+    let connection_callback_rx = rx_new_connection;
+    let firehose_task_join_handle = tokio::spawn(async {
+        // The first thing this task does is pop a frame from firehose_rx, so we
+        // should ensure there is one present.
+        video_streaming::firehose_task(connection_callback_rx, firehose_rx, firehose_callback_rx)
+            .await
+            .unwrap();
+    });
 
     #[cfg(feature = "plugin-process-frame")]
-    let plugin_streaming_cjh = {
+    let (plugin_streaming_control, plugin_streaming_jh) = {
+        let cam_args_tx2 = cam_args_tx.clone();
         let (flag, control) = thread_control::make_pair();
         let join_handle = std::thread::Builder::new()
             .name("plugin_streaming".to_string())
@@ -4496,14 +4743,9 @@ where
                     }
                 }
                 thread_closer.success();
-            })?
-            .into();
-        ControlledThreadJoinHandle {
-            control,
-            join_handle,
-        }
+            })?;
+        (control, join_handle)
     };
-
     debug!("  running forever");
 
     {
@@ -4668,102 +4910,40 @@ where
         }
     }
 
-    let ajh = AllJoinHandles {
-        frame_process_cjh,
-        video_streaming_cjh,
-        #[cfg(feature = "plugin-process-frame")]
-        plugin_streaming_cjh,
-    };
-
     let cam_arg_future2 = async move {
         cam_arg_future.await?;
 
         // we get here once the whole program is trying to shut down.
         info!("Now stopping spawned tasks.");
-        let result: Result<()> = ajh.close_and_join_all().await;
-        result
+        Ok::<_, StrandCamError>(())
     };
 
-    Ok((http_camserver_info, cam_args_tx, cam_arg_future2, my_app))
-}
+    // Now run until first future returns, then exit.
+    info!("Strand Cam launched.");
+    tokio::select! {
+        res = http_serve_future => {res?},
+        res = cam_arg_future2 => {res?},
+        _ = mainbrain_transmitter_fut => {},
+        _ = send_updates_future => {},
+        _ = shutdown_rx => {},
+        res = frame_process_task_jh => {res?.unwrap()},
+        res = firehose_task_join_handle=> {res?},
+    }
 
-#[cfg(feature = "plugin-process-frame")]
-pub struct ControlledThreadJoinHandle<T> {
-    control: thread_control::Control,
-    join_handle: std::thread::JoinHandle<T>,
-}
-
-#[cfg(feature = "plugin-process-frame")]
-impl<T> ControlledThreadJoinHandle<T> {
-    fn thead_close_and_join(self) -> std::thread::Result<T> {
-        debug!(
-            "sending stop {:?} {:?}",
-            self.join_handle.thread().name(),
-            self.join_handle.thread().id()
-        );
-        self.control.stop();
-        while !self.control.is_done() {
+    #[cfg(feature = "plugin-process-frame")]
+    {
+        plugin_streaming_control.stop();
+        while !plugin_streaming_control.is_done() {
             debug!(
                 "waiting for stop {:?} {:?}",
-                self.join_handle.thread().name(),
-                self.join_handle.thread().id()
+                plugin_streaming_jh.thread().name(),
+                plugin_streaming_jh.thread().id()
             );
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        debug!(
-            "joining {:?} {:?}",
-            self.join_handle.thread().name(),
-            self.join_handle.thread().id()
-        );
-        let result = self.join_handle.join();
-        debug!("joining done");
-        result
     }
-}
 
-pub struct ControlledTaskJoinHandle<T> {
-    quit_channel: tokio::sync::oneshot::Sender<()>,
-    join_handle: tokio::task::JoinHandle<T>,
-}
-
-impl<T> ControlledTaskJoinHandle<T> {
-    async fn close_and_join(self) -> std::result::Result<T, tokio::task::JoinError> {
-        debug!("sending stop");
-
-        // debug!(
-        //     "sending stop {:?} {:?}",
-        //     self.join_handle.thread().name(),
-        //     self.join_handle.thread().id()
-        // );
-        self.quit_channel.send(()).ok();
-        debug!("joining");
-
-        // debug!(
-        //     "joining {:?} {:?}",
-        //     self.join_handle.thread().name(),
-        //     self.join_handle.thread().id()
-        // );
-        let result = self.join_handle.await?;
-        debug!("joining done");
-        Ok(result)
-    }
-}
-
-pub struct AllJoinHandles {
-    frame_process_cjh: ControlledTaskJoinHandle<anyhow::Result<()>>,
-    video_streaming_cjh: ControlledTaskJoinHandle<std::result::Result<(), video_streaming::Error>>,
-    #[cfg(feature = "plugin-process-frame")]
-    plugin_streaming_cjh: ControlledThreadJoinHandle<()>,
-}
-
-impl AllJoinHandles {
-    async fn close_and_join_all(self) -> Result<()> {
-        self.frame_process_cjh.close_and_join().await??;
-        self.video_streaming_cjh.close_and_join().await??;
-        #[cfg(feature = "plugin-process-frame")]
-        self.plugin_streaming_cjh.thead_close_and_join().unwrap();
-        Ok(())
-    }
+    Ok(())
 }
 
 #[cfg(feature = "plugin-process-frame")]
@@ -4844,31 +5024,25 @@ fn make_family(family: &ci2_remote_control::TagFamily) -> apriltag::Family {
     }
 }
 
-fn send_cam_settings_to_braid(
+async fn send_cam_settings_to_braid(
     cam_settings: &str,
-    transmit_msg_tx: Option<&mpsc::Sender<flydra_types::HttpApiCallback>>,
+    transmit_msg_tx: &tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
     current_cam_settings_extension: &str,
-    ros_cam_name: &RosCamName,
-) -> Option<impl std::future::Future<Output = ()>> {
-    if let Some(transmit_msg_tx) = transmit_msg_tx {
-        let current_cam_settings_buf = cam_settings.to_string();
-        let current_cam_settings_extension = current_cam_settings_extension.to_string();
-        let ros_cam_name = ros_cam_name.clone();
-        let mut transmit_msg_tx = transmit_msg_tx.clone();
-        let fut = async move {
-            let msg = flydra_types::HttpApiCallback::UpdateCamSettings(flydra_types::PerCam {
-                ros_cam_name,
-                inner: flydra_types::UpdateCamSettings {
-                    current_cam_settings_buf,
-                    current_cam_settings_extension,
-                },
-            });
-            transmit_msg_tx.send(msg).await.unwrap();
-        };
-        Some(fut)
-    } else {
-        None
-    }
+    raw_cam_name: &RawCamName,
+) -> StdResult<(), tokio::sync::mpsc::error::SendError<flydra_types::BraidHttpApiCallback>> {
+    let current_cam_settings_buf = cam_settings.to_string();
+    let current_cam_settings_extension = current_cam_settings_extension.to_string();
+    let raw_cam_name = raw_cam_name.clone();
+    let transmit_msg_tx = transmit_msg_tx.clone();
+
+    let msg = flydra_types::BraidHttpApiCallback::UpdateCamSettings(flydra_types::PerCam {
+        raw_cam_name,
+        inner: flydra_types::UpdateCamSettings {
+            current_cam_settings_buf,
+            current_cam_settings_extension,
+        },
+    });
+    transmit_msg_tx.send(msg).await
 }
 
 fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
