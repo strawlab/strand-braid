@@ -17,7 +17,7 @@ gloo = "0.8.0"
 gloo-file = "0.2"
 yew = { version = "0.20.0", features = ["csr"] }
 
-wasm-bindgen = "0.2.89"
+wasm-bindgen = "0.2.90"
 js-sys = "0.3.28"
 plotters = { version = "0.3.4", default-features = false, features = [
     "bitmap_encoder",
