@@ -8,10 +8,12 @@ braidz-cli usr/bin
 compute-flydra1-compat usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin
+show-timestamps usr/bin
 strand-cam-pylon usr/bin
 strand-cam-flydratrax-pylon usr/bin
 strand-cam-flydratrax-pylon.desktop usr/share/applications
 strand-cam-vimba usr/bin
+strand-convert usr/bin
 
 # # Commented out because we do not want to distribute this library:
 # libVimbaC.so usr/lib/strand-braid

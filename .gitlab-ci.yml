@@ -875,7 +875,7 @@ slow-braid-process-video-test:
     - cd braid-process-video
     - cargo test --release -- --include-ignored
 
-braidz-cli-ubuntu2004:
+extra-programs-ubuntu2004:
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
@@ -883,16 +883,25 @@ braidz-cli-ubuntu2004:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
+    - mkdir -p $CI_PROJECT_DIR/build
+
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/media-utils/strand-convert
+    - cargo build --release
+    - cp ../../target/release/strand-convert $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/media-utils/show-timestamps
+    - cargo build --release
+    - cp ../../target/release/show-timestamps $CI_PROJECT_DIR/build
   artifacts:
     paths:
       - build/
-    name: "braidz-cli-ubuntu2004-${CI_COMMIT_SHA}"
+    name: "extra-programs-ubuntu2004-${CI_COMMIT_SHA}"
 
-braidz-cli-ubuntu2204:
+extra-programs-ubuntu2204:
   when: manual
   image: ubuntu:jammy
   script:
@@ -901,14 +910,23 @@ braidz-cli-ubuntu2204:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
+    - mkdir -p $CI_PROJECT_DIR/build
+
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/build
     - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/media-utils/strand-convert
+    - cargo build --release
+    - cp ../../target/release/strand-convert $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/media-utils/show-timestamps
+    - cargo build --release
+    - cp ../../target/release/show-timestamps $CI_PROJECT_DIR/build
   artifacts:
     paths:
       - build/
-    name: "braidz-cli-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "extra-programs-ubuntu2204-${CI_COMMIT_SHA}"
 
 fmf-cli-ubuntu2004:
   image: ubuntu:focal
@@ -1112,7 +1130,7 @@ strand-braid-ubuntu-2004:
     - braid-process-video-ubuntu2004
     - braid-ubuntu2004
     # - braid-strand-cam-pylon-ubuntu2004
-    - braidz-cli-ubuntu2004
+    - extra-programs-ubuntu2004
     - fmf-cli-ubuntu2004
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
@@ -1160,7 +1178,7 @@ strand-braid-ubuntu-2204:
     - braid-offline-ubuntu2204
     - braid-process-video-ubuntu2204
     - braid-ubuntu2204
-    - braidz-cli-ubuntu2204
+    - extra-programs-ubuntu2204
     - fmf-cli-ubuntu2204
     - strand-cam-vimba-ubuntu2204
     - strand-cam-pylon-ubuntu2204
