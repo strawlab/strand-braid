@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -92,6 +89,7 @@ impl From<String> for Error {
 /// A module for opening cameras (e.g. pylon).
 pub trait CameraModule {
     type CameraType: Camera;
+    type Guard;
 
     // TODO: have full_name and friendly_name?
     fn name(&self) -> &str;

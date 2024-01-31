@@ -69,10 +69,11 @@ fn _test_camera_is_send() {
     implements::<ThreadedAsyncCamera<i8>>();
 }
 
-pub struct ThreadedAsyncCameraModule<M, C> {
+pub struct ThreadedAsyncCameraModule<M, C, G> {
     cam_module: M,
     name: String,
     camera_type: std::marker::PhantomData<C>,
+    guard_type: std::marker::PhantomData<G>,
 }
 
 impl<C: 'static> ThreadedAsyncCamera<C>
@@ -161,9 +162,9 @@ where
     }
 }
 
-impl<M, C> ThreadedAsyncCameraModule<M, C>
+impl<M, C, G> ThreadedAsyncCameraModule<M, C, G>
 where
-    M: ci2::CameraModule<CameraType = C>,
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
 {
     pub fn threaded_async_camera(&mut self, name: &str) -> Result<ThreadedAsyncCamera<C>> {
@@ -184,16 +185,18 @@ where
     }
 }
 
-pub fn into_threaded_async<M, C>(cam_module: M) -> ThreadedAsyncCameraModule<M, C>
+pub fn into_threaded_async<M, C, G>(cam_module: M, _guard: &G) -> ThreadedAsyncCameraModule<M, C, G>
 where
-    M: ci2::CameraModule<CameraType = C>,
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
 {
     let name = format!("async-{}", cam_module.name());
+
     ThreadedAsyncCameraModule {
         cam_module,
         name,
         camera_type: std::marker::PhantomData,
+        guard_type: std::marker::PhantomData,
     }
 }
 
@@ -385,12 +388,13 @@ where
     }
 }
 
-impl<M, C> ci2::CameraModule for ThreadedAsyncCameraModule<M, C>
+impl<M, C, G> ci2::CameraModule for ThreadedAsyncCameraModule<M, C, G>
 where
-    M: ci2::CameraModule<CameraType = C>,
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
 {
     type CameraType = C;
+    type Guard = G;
 
     fn name(&self) -> &str {
         self.name.as_ref()

@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 use parking_lot::Mutex;
 use std::{
@@ -244,8 +241,35 @@ pub fn new_module() -> ci2::Result<WrappedModule> {
     Ok(WrappedModule {})
 }
 
+pub struct VimbaTerminateGuard {
+    already_dropped: bool,
+}
+
+impl Drop for VimbaTerminateGuard {
+    fn drop(&mut self) {
+        if !self.already_dropped {
+            unsafe {
+                VIMBA_LIB.shutdown();
+            }
+            self.already_dropped = true;
+        }
+    }
+}
+
+pub fn make_singleton_guard<'a>(
+    _pylon_module: &dyn ci2::CameraModule<
+        CameraType = WrappedCamera<'a>,
+        Guard = VimbaTerminateGuard,
+    >,
+) -> ci2::Result<VimbaTerminateGuard> {
+    Ok(VimbaTerminateGuard {
+        already_dropped: false,
+    })
+}
+
 impl<'a> ci2::CameraModule for &'a WrappedModule {
     type CameraType = WrappedCamera<'a>;
+    type Guard = VimbaTerminateGuard;
 
     fn name(self: &&'a WrappedModule) -> &'static str {
         "vimba"

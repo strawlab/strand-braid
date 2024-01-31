@@ -2779,13 +2779,13 @@ impl FirstMsgForced {
 // -----------
 
 /// top-level function once args are parsed from CLI.
-pub fn run_app<M, C>(
-    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+pub fn run_app<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
 ) -> anyhow::Result<()>
 where
-    M: ci2::CameraModule<CameraType = C> + 'static,
+    M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
 {
     // Start tokio runtime here.
@@ -2803,13 +2803,13 @@ where
 }
 
 /// First, connect to Braid if requested, then run.
-async fn run_after_maybe_connecting_to_braid<M, C>(
-    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+async fn run_after_maybe_connecting_to_braid<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
 ) -> anyhow::Result<()>
 where
-    M: ci2::CameraModule<CameraType = C> + 'static,
+    M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
 {
     // If connecting to braid, do it here.
@@ -2886,14 +2886,14 @@ where
 ///
 /// This function is way too huge and should be refactored.
 #[tracing::instrument(level = "debug", skip_all)]
-async fn run_until_done<M, C>(
-    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+async fn run_until_done<M, C, G>(
+    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
 ) -> anyhow::Result<()>
 where
-    M: ci2::CameraModule<CameraType = C>,
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
 {
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {

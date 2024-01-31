@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 extern crate machine_vision_formats as formats;
 
@@ -85,8 +82,35 @@ pub fn new_module() -> ci2::Result<WrappedModule> {
     })
 }
 
+pub struct PylonTerminateGuard {
+    already_dropped: bool,
+}
+
+impl Drop for PylonTerminateGuard {
+    fn drop(&mut self) {
+        if !self.already_dropped {
+            unsafe {
+                pylon_cxx::terminate(true);
+            }
+            self.already_dropped = true;
+        }
+    }
+}
+
+pub fn make_singleton_guard<'a>(
+    _pylon_module: &dyn ci2::CameraModule<
+        CameraType = WrappedCamera<'a>,
+        Guard = PylonTerminateGuard,
+    >,
+) -> ci2::Result<PylonTerminateGuard> {
+    Ok(PylonTerminateGuard {
+        already_dropped: false,
+    })
+}
+
 impl<'a> ci2::CameraModule for &'a WrappedModule {
     type CameraType = WrappedCamera<'a>;
+    type Guard = PylonTerminateGuard;
 
     fn name(self: &&'a WrappedModule) -> &'static str {
         "pyloncxx"

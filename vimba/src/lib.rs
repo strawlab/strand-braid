@@ -1,7 +1,4 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -155,6 +152,13 @@ impl VimbaLibrary {
         };
 
         Self::from_dynamic_lib_path(vimbac_path)
+    }
+
+    /// This is unsafe because really you should drop [VimbaLibrary] rather than
+    /// this. If you are using this, it cannot be guaranteed that VmbShutdown
+    /// will not be called again.
+    pub unsafe fn shutdown(&self) {
+        vimba_call_no_err!(self.vimba_lib.VmbShutdown());
     }
 
     pub fn from_dynamic_lib_path<P: AsRef<std::path::Path>>(

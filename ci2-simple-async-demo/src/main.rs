@@ -73,7 +73,8 @@ where
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let mut async_mod = ci2_async::into_threaded_async(&*CAMLIB);
+    let guard = backend::make_singleton_guard(&&*CAMLIB)?;
+    let mut async_mod = ci2_async::into_threaded_async(&*CAMLIB, &guard);
     let infos = async_mod.camera_infos()?;
 
     if infos.len() == 0 {

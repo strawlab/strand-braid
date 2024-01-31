@@ -12,12 +12,12 @@ use crate::APP_INFO;
 
 use anyhow::Result;
 
-pub fn cli_main<M, C>(
-    mymod: ci2_async::ThreadedAsyncCameraModule<M, C>,
+pub fn cli_main<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     app_name: &'static str,
 ) -> Result<()>
 where
-    M: ci2::CameraModule<CameraType = C> + 'static,
+    M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
 {
     dotenv::dotenv().ok();
