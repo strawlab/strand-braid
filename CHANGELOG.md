@@ -29,6 +29,11 @@
   to H264 using NvEnc hardware.
 * New light mode for browser UI. Selection between dark and light mode is done
   according to browser and OS preferences.
+* Security of web sessions is simplified. Braid and Strand Camera now use a
+  cookie signing secret which is persisted to disk and does not require the user
+  to set. A token is needed for the first request via HTTP but typically the
+  token-free URL can be used for subsequent requests.
+* Binary release compiled with Basler Pylon version 7.3.
 
 ### Changed
 
