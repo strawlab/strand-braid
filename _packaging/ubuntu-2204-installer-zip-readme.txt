@@ -8,7 +8,8 @@ and Braid (https://strawlab.org/braid/) software packages.
 ### Pylon (Basler cameras)
 
 To install, you must first install the package
-`pylon_6.2.0.21487-deb0_amd64.deb`. Download from
+`pylon_7.3.0.27189-deb0_amd64.deb`. Download from the file
+`pylon_7.3.0.27189_linux-x86_64_debs.tar.gz` available at
 https://www.baslerweb.com/en/sales-support/downloads/software-downloads/
 
 ### Vimba (Allied Vision Technology cameras)
