@@ -180,6 +180,10 @@ access the cameras.</p>
 <p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
 hardware to synchronize the cameras. This is based on an Arduino
 microcontroller.</p>
+<p>On Ubuntu, it is important to add your user to the <code>dialout</code> group so that you
+can access the Triggerbox. Do so like this:</p>
+<pre><code class="language-ignore">sudo adduser &lt;username&gt; dialout
+</code></pre>
 <h3><a class="header" href="#trigger-cables" id="trigger-cables">Trigger cables</a></h3>
 <p>TODO: write this and describe how to check everything is working.</p>
 

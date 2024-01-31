@@ -242,6 +242,10 @@ access the cameras.</p>
 <p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
 hardware to synchronize the cameras. This is based on an Arduino
 microcontroller.</p>
+<p>On Ubuntu, it is important to add your user to the <code>dialout</code> group so that you
+can access the Triggerbox. Do so like this:</p>
+<pre><code class="language-ignore">sudo adduser &lt;username&gt; dialout
+</code></pre>
 <h3><a class="header" href="#trigger-cables" id="trigger-cables">Trigger cables</a></h3>
 <p>TODO: write this and describe how to check everything is working.</p>
 <h1><a class="header" href="#braidz-files" id="braidz-files"><code>.braidz</code> files</a></h1>
@@ -747,12 +751,12 @@ Braid-tuned variant of Strand Camera. Only once all cameras listed in the TOML
 file have connected will Braid synchronize the cameras and allow recording of
 data.</p>
 <p>To start Strand Camera as a remote camera for Braid, run <code>strand-cam-pylon</code> (to
-start Strand Camera) with the command line argument <code>--braid_addr &lt;URL&gt;</code>
+start Strand Camera) with the command line argument <code>--braid-url &lt;URL&gt;</code>
 specifying the URL for the braid HTTP address. The camera name should also be
 specified on the command line, along with any other options.</p>
 <p>In the following example, the Strand Camera will open the camera named
 <code>Basler-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.</p>
-<pre><code class="language-ignore">strand-cam-pylon --camera-name Basler-12345 --braid_addr http://127.0.0.1:44444
+<pre><code class="language-ignore">strand-cam-pylon --camera-name Basler-12345 --braid-url http://127.0.0.1:44444
 </code></pre>
 <h1><a class="header" href="#scripting-with-python" id="scripting-with-python">Scripting with Python</a></h1>
 <p>Everything in Strand Cam and Braid that can be controlled from the web browser
