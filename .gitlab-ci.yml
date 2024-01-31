@@ -318,7 +318,7 @@ led-box-ubuntu2004-debs:
     - cd led-box
     - cp $CI_PROJECT_DIR/build/led-box ./
     - cp $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin ./led-box-firmware.bin
-    - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+    - dpkg-buildpackage -rfakeroot -b -uc -us
     - cd ..
     - cp -a led-box*.changes $CI_PROJECT_DIR/focal-led-box-debs/
     - cp -a led-box*.deb $CI_PROJECT_DIR/focal-led-box-debs/
@@ -341,7 +341,7 @@ led-box-standalone-ubuntu2004-deb:
     - cd led-box-standalone
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/led-box-standalone ./
-    - DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+    - dpkg-buildpackage -rfakeroot -b -uc -us
     - cd ..
     - cp -a led-box-standalone*.changes $CI_PROJECT_DIR/led-box-standalone-debs/
     - cp -a led-box-standalone*.deb $CI_PROJECT_DIR/led-box-standalone-debs/

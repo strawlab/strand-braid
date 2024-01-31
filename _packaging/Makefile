@@ -23,4 +23,4 @@ strand-braid/debian/changelog:
 
 # The full deb
 strand-braid_VERSION_amd64.deb: strand-braid/debian/changelog strand-braid/strand-cam-pylon
-	cd strand-braid && DEB_BUILD_OPTIONS=nostrip dpkg-buildpackage -rfakeroot -b -uc -us
+	cd strand-braid && dpkg-buildpackage -rfakeroot -b -uc -us
