@@ -679,7 +679,6 @@ async fn frame_process_task(
     >,
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    is_starting_tx: tokio::sync::oneshot::Sender<()>,
     #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerAddrInfo,
     process_frame_priority: Option<(i32, i32)>,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
@@ -838,8 +837,6 @@ async fn frame_process_task(
     let red_style = StrokeStyle::from_rgb(255, 100, 100);
 
     let expected_framerate_arc = Arc::new(parking_lot::RwLock::new(None));
-
-    is_starting_tx.send(()).ok(); // signal that we are we are no longer starting
 
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
@@ -3640,9 +3637,7 @@ where
     #[cfg(feature = "checkercal")]
     let collected_corners_arc: CollectedCornersArc = Arc::new(parking_lot::RwLock::new(Vec::new()));
 
-    let frame_process_task_jh = {
-        let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
-
+    let frame_process_task_fut = {
         #[cfg(feature = "flydra_feat_detect")]
         let csv_save_dir = args.csv_save_dir.clone();
 
@@ -3668,7 +3663,7 @@ where
         #[cfg(feature = "flydratrax")]
         let valve2 = valve.clone();
         let cam_name2 = raw_cam_name.clone();
-        let frame_process_task_fut = frame_process_task(
+        frame_process_task(
             #[cfg(feature = "flydratrax")]
             model_server_data_tx,
             #[cfg(feature = "flydratrax")]
@@ -3694,7 +3689,6 @@ where
             plugin_wait_dur,
             #[cfg(feature = "flydratrax")]
             led_box_tx_std,
-            is_starting_tx,
             #[cfg(feature = "flydratrax")]
             http_camserver_info2,
             process_frame_priority,
@@ -3714,11 +3708,7 @@ where
             frame_info_extractor,
             #[cfg(feature = "flydra_feat_detect")]
             app_name,
-        );
-        let join_handle = tokio::spawn(frame_process_task_fut);
-        debug!("waiting for frame acquisition task to start");
-        is_starting_rx.await?;
-        join_handle
+        )
     };
     debug!("frame_process_task spawned");
 
@@ -4922,7 +4912,7 @@ where
         _ = mainbrain_transmitter_fut => {},
         _ = send_updates_future => {},
         _ = shutdown_rx => {},
-        res = frame_process_task_jh => {res?.unwrap()},
+        res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle=> {res?},
     }
 
