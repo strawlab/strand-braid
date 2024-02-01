@@ -3668,59 +3668,55 @@ where
         #[cfg(feature = "flydratrax")]
         let valve2 = valve.clone();
         let cam_name2 = raw_cam_name.clone();
-        let frame_process_task_fut = {
-            {
-                frame_process_task(
-                    #[cfg(feature = "flydratrax")]
-                    model_server_data_tx,
-                    #[cfg(feature = "flydratrax")]
-                    flydratrax_calibration_source,
-                    cam_name2,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    camera_cfg,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    image_width,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    image_height,
-                    rx_frame,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    im_pt_detect_cfg,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    std::path::Path::new(&csv_save_dir).to_path_buf(),
-                    firehose_tx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_handler_thread_tx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_result_rx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_wait_dur,
-                    #[cfg(feature = "flydratrax")]
-                    led_box_tx_std,
-                    is_starting_tx,
-                    #[cfg(feature = "flydratrax")]
-                    http_camserver_info2,
-                    process_frame_priority,
-                    transmit_msg_tx.clone(),
-                    camdata_addr,
-                    led_box_heartbeat_update_arc2,
-                    #[cfg(feature = "plugin-process-frame")]
-                    do_process_frame_callback,
-                    #[cfg(feature = "checkercal")]
-                    collected_corners_arc.clone(),
-                    #[cfg(feature = "flydratrax")]
-                    save_empty_data2d,
-                    #[cfg(feature = "flydratrax")]
-                    valve2,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    acquisition_duration_allowed_imprecision_msec,
-                    frame_info_extractor,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    app_name,
-                )
-            }
-        };
+        let frame_process_task_fut = frame_process_task(
+            #[cfg(feature = "flydratrax")]
+            model_server_data_tx,
+            #[cfg(feature = "flydratrax")]
+            flydratrax_calibration_source,
+            cam_name2,
+            #[cfg(feature = "flydra_feat_detect")]
+            camera_cfg,
+            #[cfg(feature = "flydra_feat_detect")]
+            image_width,
+            #[cfg(feature = "flydra_feat_detect")]
+            image_height,
+            rx_frame,
+            #[cfg(feature = "flydra_feat_detect")]
+            im_pt_detect_cfg,
+            #[cfg(feature = "flydra_feat_detect")]
+            std::path::Path::new(&csv_save_dir).to_path_buf(),
+            firehose_tx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_handler_thread_tx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_result_rx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_wait_dur,
+            #[cfg(feature = "flydratrax")]
+            led_box_tx_std,
+            is_starting_tx,
+            #[cfg(feature = "flydratrax")]
+            http_camserver_info2,
+            process_frame_priority,
+            transmit_msg_tx.clone(),
+            camdata_addr,
+            led_box_heartbeat_update_arc2,
+            #[cfg(feature = "plugin-process-frame")]
+            do_process_frame_callback,
+            #[cfg(feature = "checkercal")]
+            collected_corners_arc.clone(),
+            #[cfg(feature = "flydratrax")]
+            save_empty_data2d,
+            #[cfg(feature = "flydratrax")]
+            valve2,
+            #[cfg(feature = "flydra_feat_detect")]
+            acquisition_duration_allowed_imprecision_msec,
+            frame_info_extractor,
+            #[cfg(feature = "flydra_feat_detect")]
+            app_name,
+        );
         let join_handle = tokio::spawn(frame_process_task_fut);
-        debug!("waiting for frame acquisition thread to start");
+        debug!("waiting for frame acquisition task to start");
         is_starting_rx.await?;
         join_handle
     };
