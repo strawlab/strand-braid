@@ -2780,7 +2780,7 @@ pub fn run_app<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2793,10 +2793,10 @@ where
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
-    runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
+    let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
 
     info!("done");
-    Ok(())
+    Ok(mymod)
 }
 
 /// First, connect to Braid if requested, then run.
@@ -2804,7 +2804,7 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2888,7 +2888,7 @@ async fn run_until_done<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
@@ -4915,6 +4915,7 @@ where
         res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle=> {res?},
     }
+    info!("Strand Cam ending nicely. :)");
 
     #[cfg(feature = "plugin-process-frame")]
     {
@@ -4929,7 +4930,7 @@ where
         }
     }
 
-    Ok(())
+    Ok(mymod)
 }
 
 #[cfg(feature = "plugin-process-frame")]

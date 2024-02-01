@@ -15,7 +15,7 @@ use anyhow::Result;
 pub fn cli_main<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     app_name: &'static str,
-) -> Result<()>
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
