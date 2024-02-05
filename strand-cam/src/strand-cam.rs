@@ -404,7 +404,6 @@ pub(crate) enum Msg {
     ClearBackground(f32),
     SetFrameOffset(u64),
     SetClockModel(Option<rust_cam_bui_types::ClockModel>),
-    QuitFrameProcessThread,
     StartAprilTagRec(String),
     StopAprilTagRec,
 }
@@ -2125,10 +2124,6 @@ async fn frame_process_task(
             #[cfg(feature = "flydra_feat_detect")]
             Msg::SetTracking(value) => {
                 is_doing_object_detection = value;
-            }
-            Msg::QuitFrameProcessThread => {
-                break;
-            }
         };
     }
     info!(
@@ -4660,8 +4655,6 @@ where
             tx_frame2
                 .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
                 .await?;
-
-            tx_frame2.send(Msg::QuitFrameProcessThread).await?; // this will quit the frame_process_task
 
             // Tell all streams to quit.
             debug!(
