@@ -2124,6 +2124,7 @@ async fn frame_process_task(
             #[cfg(feature = "flydra_feat_detect")]
             Msg::SetTracking(value) => {
                 is_doing_object_detection = value;
+            }
         };
     }
     info!(
