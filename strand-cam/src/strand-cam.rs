@@ -3606,9 +3606,6 @@ where
         .into_future()
     };
 
-    // todo: integrate with quit_channel and quit_rx elsewhere.
-    let (quit_trigger, valve) = stream_cancel::Valve::new();
-
     let url = http_camserver_info.build_url();
 
     // Display where we are listening.
@@ -3825,13 +3822,11 @@ where
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
 
-        let interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
-
-        let mut incoming1 = valve.wrap(interval_stream);
+        let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
         let known_version2 = known_version;
         let stream_future = async move {
-            while incoming1.next().await.is_some() {
+            while interval_stream.next().await.is_some() {
                 let https = HttpsConnector::new();
                 let client = Client::builder(TokioExecutor::new()).build::<_, MyBody>(https);
 
@@ -4663,7 +4658,6 @@ where
                 file!(),
                 line!()
             );
-            quit_trigger.cancel();
 
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
