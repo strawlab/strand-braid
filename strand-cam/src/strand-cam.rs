@@ -4892,19 +4892,11 @@ where
         }
     }
 
-    let cam_arg_future2 = async move {
-        cam_arg_future.await?;
-
-        // we get here once the whole program is trying to shut down.
-        info!("Now stopping spawned tasks.");
-        Ok::<_, StrandCamError>(())
-    };
-
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
     tokio::select! {
         res = http_serve_future => {res?},
-        res = cam_arg_future2 => {res?},
+        res = cam_arg_future => {res?},
         _ = mainbrain_transmitter_fut => {},
         _ = send_updates_future => {},
         res = frame_process_task_fut => {res?},
