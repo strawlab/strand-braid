@@ -1,0 +1,19 @@
+# Simple example of a Braid configuration TOML file
+
+# The reference documentation for this file is
+# [`BraidConfig2](file:///Users/andrew/Documents/src/rust-play/rust-cam/target/doc/braid_config_data/struct.BraidConfig2.html).
+
+# This configuration uses 3 emulated Basler cameras. Set the environment
+# variable `PYLON_CAMEMU=3` to configure the Basler Pylon driver to emulate 3
+# cameras. In normal usage, you would set your camera names here. There is one
+# `[[cameras]]` section for each Strand Camera instance to be launched, and thus
+# one such section for each camera.
+[[cameras]]
+# Each camera `name` is computed from its vendor and serial number.
+name = "Basler-0815-0000"
+
+[[cameras]]
+name = "Basler-0815-0001"
+
+[[cameras]]
+name = "Basler-0815-0002"

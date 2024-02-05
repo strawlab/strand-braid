@@ -1015,6 +1015,8 @@ braid-ubuntu2004:
     # build braid
     - cd $CI_PROJECT_DIR/braid
     - NUM_JOBS=2 cargo build --release
+    - ../target/release/braid-default-config # ensure default config gets printed
+    - ../target/release/braid-show-config simple.toml # ensure simple.toml config parses
     - ldd ../target/release/braid
     - cp ../target/release/braid $CI_PROJECT_DIR/build
     - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
@@ -1050,6 +1052,8 @@ braid-ubuntu2204:
     # build braid
     - cd $CI_PROJECT_DIR/braid
     - NUM_JOBS=2 cargo build --release
+    - ../target/release/braid-default-config # ensure default config gets printed
+    - ../target/release/braid-show-config simple.toml # ensure simple.toml config parses
     - ldd ../target/release/braid
     - cp ../target/release/braid $CI_PROJECT_DIR/build
     - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
