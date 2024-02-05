@@ -38,6 +38,13 @@ fn default_http_api_server_addr() -> String {
     DEFAULT_HTTP_API_SERVER_ADDR.to_string()
 }
 
+/// The default value for [MainbrainConfig::output_base_dirname].
+pub const DEFAULT_OUTPUT_BASE_DIRNAME: &str = "~/BRAID-DATA";
+
+fn default_output_base_dirname() -> std::path::PathBuf {
+    DEFAULT_OUTPUT_BASE_DIRNAME.into()
+}
+
 fn default_model_server_addr() -> std::net::SocketAddr {
     flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap()
 }
@@ -85,6 +92,8 @@ pub struct MainbrainConfig {
     /// calibration format.
     pub cal_fname: Option<std::path::PathBuf>,
     /// Directory where data should be saved. Can contain shell variables.
+    /// Defaults to [DEFAULT_OUTPUT_BASE_DIRNAME].
+    #[serde(default = "default_output_base_dirname")]
     pub output_base_dirname: std::path::PathBuf,
     /// Parameters for Kalman filter and data association
     #[serde(default = "flydra_types::default_tracking_params_full_3d")]
@@ -147,7 +156,7 @@ impl std::default::Default for MainbrainConfig {
     fn default() -> Self {
         Self {
             cal_fname: Some(std::path::PathBuf::from("/path/to/cal.xml")),
-            output_base_dirname: std::path::PathBuf::from("/path/to/savedir"),
+            output_base_dirname: default_output_base_dirname(),
             tracking_params: flydra_types::default_tracking_params_full_3d(),
             // Raising the mainbrain thread priority is currently disabled.
             // sched_policy_priority: None,
