@@ -155,7 +155,7 @@ pub struct MainbrainConfig {
 impl std::default::Default for MainbrainConfig {
     fn default() -> Self {
         Self {
-            cal_fname: Some(std::path::PathBuf::from("/path/to/cal.xml")),
+            cal_fname: None,
             output_base_dirname: default_output_base_dirname(),
             tracking_params: flydra_types::default_tracking_params_full_3d(),
             // Raising the mainbrain thread priority is currently disabled.
@@ -179,6 +179,8 @@ impl std::default::Default for MainbrainConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BraidConfig2 {
+    /// Mainbrain configuration
+    #[serde(default = "MainbrainConfig::default")]
     pub mainbrain: MainbrainConfig,
     /// Triggerbox configuration.
     #[serde(default)]
