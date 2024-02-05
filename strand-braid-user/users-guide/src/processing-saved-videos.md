@@ -7,7 +7,7 @@ produce various outputs.
 
 <!--- todo: convert image to show .mp4 not .mkv -->
 
-![braid-process-video.png](braid-process-video.png)
+![images/braid-process-video.png](images/braid-process-video.png)
 
 As shown in the figure, this program takes `.mp4` (or `.fmf`) video input files
 saved by Braid and a configuration file and then creates an output `.mp4` video

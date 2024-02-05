@@ -29,15 +29,15 @@ A Jupyter Notebook to create all of these plots can be found in `braid-plotting.
 
 ### `braid-analysis-plot-data2d-timeseries.py`
 
-![braid-analysis-plot-data2d-timeseries.png](braid-analysis-plot-data2d-timeseries.png)
+![images/braid-analysis-plot-data2d-timeseries.png](images/braid-analysis-plot-data2d-timeseries.png)
 
 ### `braid-analysis-plot-kalman-estimates-timeseries.py`
 
-![braid-analysis-plot-kalman-estimates-timeseries.png](braid-analysis-plot-kalman-estimates-timeseries.png)
+![images/braid-analysis-plot-kalman-estimates-timeseries.png](images/braid-analysis-plot-kalman-estimates-timeseries.png)
 
 ### `braid-analysis-plot3d.py`
 
-![braid-analysis-plot3d.png](braid-analysis-plot3d.png)
+![images/braid-analysis-plot3d.png](images/braid-analysis-plot3d.png)
 
 ## File Format
 
