@@ -12,6 +12,6 @@ pub fn braid_start(name: &str) -> Result<()> {
     env_tracing_logger::init();
 
     let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
-    log::info!("{} {}", name, version);
+    tracing::info!("{} {}", name, version);
     Ok(())
 }

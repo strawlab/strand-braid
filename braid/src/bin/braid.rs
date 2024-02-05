@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 use anyhow::{Context, Result};
 
 use clap::Parser;
@@ -23,7 +20,7 @@ fn main() -> Result<()> {
     // commands.
 
     let args = BraidLauncherCliArgs::parse();
-    debug!("{:?}", args);
+    tracing::debug!("{:?}", args);
 
     let cmd_name = format!("braid-{}", args.command);
 
@@ -36,7 +33,7 @@ fn main() -> Result<()> {
         std::process::exit(code);
     }
 
-    debug!("done");
+    tracing::debug!("done");
 
     Ok(())
 }

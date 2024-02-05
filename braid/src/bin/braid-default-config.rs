@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 use anyhow::Result;
 use braid::{braid_start, BraidConfig2};
 use clap::Parser;
@@ -14,7 +11,7 @@ fn main() -> Result<()> {
     braid_start("default-config")?;
 
     let args = BraidDefaultConfigCliArgs::parse();
-    debug!("{:?}", args);
+    tracing::debug!("{:?}", args);
 
     let cfg = BraidConfig2::default();
     // This 2 step serialization is needed to avoid ValueAfterTable

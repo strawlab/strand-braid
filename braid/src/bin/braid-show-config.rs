@@ -1,7 +1,4 @@
-#[macro_use]
-extern crate log;
-
-use anyhow::Result;
+use anyhow::{Context, Result};
 use braid::braid_start;
 use clap::Parser;
 
@@ -14,12 +11,17 @@ struct BraidShowConfigCliArgs {
 }
 
 fn main() -> Result<()> {
-    braid_start("show-config")?;
+    braid_start("show-config").with_context(|| format!("launching show-config command"))?;
 
     let args = BraidShowConfigCliArgs::parse();
-    debug!("{:?}", args);
+    tracing::debug!("{:?}", args);
 
-    let cfg = braid_config_data::parse_config_file(&args.config_file)?;
+    let cfg = braid_config_data::parse_config_file(&args.config_file).with_context(|| {
+        format!(
+            "While parsing configuration file {}",
+            args.config_file.display()
+        )
+    })?;
     // This 2 step serialization is needed to avoid ValueAfterTable
     // error. See https://github.com/alexcrichton/toml-rs/issues/142
     let value = toml::Value::try_from(&cfg)?;
