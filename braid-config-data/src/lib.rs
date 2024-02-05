@@ -31,8 +31,11 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// The default value for [MainbrainConfig::http_api_server_addr].
+pub const DEFAULT_HTTP_API_SERVER_ADDR: &str = "127.0.0.1:0";
+
 fn default_http_api_server_addr() -> String {
-    "127.0.0.1:0".to_string()
+    DEFAULT_HTTP_API_SERVER_ADDR.to_string()
 }
 
 fn default_model_server_addr() -> std::net::SocketAddr {
@@ -68,6 +71,8 @@ fn fixup_relative_path(path: &mut std::path::PathBuf, dirname: &std::path::Path)
     Ok(())
 }
 
+/// The configuration for Braid's "mainbrain" - the central component of Braid
+/// that integrates information from multiple cameras and performs tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MainbrainConfig {
@@ -89,7 +94,33 @@ pub struct MainbrainConfig {
     // sched_policy_priority: Option<(i32, i32)>,
     /// Address of UDP port to send low-latency detection data
     pub lowlatency_camdata_udp_addr: Option<String>,
-    /// Address of HTTP port for control API
+    /// Address of HTTP port for control API. This is specified in the format
+    /// `IP:PORT` where:
+    ///
+    /// `IP` can be:
+    ///  - a numerical IPv4 address:
+    ///    - e.g. `1.1.1.1` uses the specific IP
+    ///    - `127.0.0.1` for the loopback interface
+    ///    - `0.0.0.0` to open the server on all available IPv4 interfaces
+    ///  - a numerical IPv6 address:
+    ///    - e.g. `[2001:db8:3333:4444:5555:6666:7777:8888]` uses the specific
+    ///      IP
+    ///    - `[::1]` for the loopback interface
+    ///    - `[::]` to open the server on all available IPv6 interfaces
+    ///  - a hostname which resolves to an IP address (depending on your DNS
+    ///    configuration, resolves to either IPv4 or IPv6):
+    ///    - `localhost` resolves to the IP address of the loopback interface
+    ///    - e.g. `hostname` for a specific IP address
+    ///
+    /// `PORT` can be:
+    ///  - `0` allows the operating system to choose an unassigned port
+    ///    dynamically
+    ///  - e.g. `1234` uses the specific port
+    ///
+    /// Set to `0.0.0.0:0` to be automatically assigned a public IP address with
+    /// a dynamically assigned port.
+    ///
+    /// The default value is set to [DEFAULT_HTTP_API_SERVER_ADDR].
     #[serde(default = "default_http_api_server_addr")]
     pub http_api_server_addr: String,
     /// Address of HTTP port for model server emitting realtime tracking results
