@@ -92,8 +92,6 @@ pub struct MainbrainConfig {
     /// Address of HTTP port for control API
     #[serde(default = "default_http_api_server_addr")]
     pub http_api_server_addr: String,
-    /// Token required to use HTTP port for control API
-    pub http_api_server_token: Option<String>,
     /// Address of HTTP port for model server emitting realtime tracking results
     #[serde(default = "default_model_server_addr")]
     pub model_server_addr: std::net::SocketAddr,
@@ -124,7 +122,6 @@ impl std::default::Default for MainbrainConfig {
             // sched_policy_priority: None,
             lowlatency_camdata_udp_addr: None,
             http_api_server_addr: default_http_api_server_addr(),
-            http_api_server_token: None,
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,
             secret_base64: None,
