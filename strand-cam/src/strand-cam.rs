@@ -686,7 +686,6 @@ async fn frame_process_task(
     #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
     #[cfg(feature = "flydratrax")] save_empty_data2d: SaveEmptyData2dType,
-    #[cfg(feature = "flydratrax")] valve: stream_cancel::Valve,
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
         f64,
     >,
@@ -986,7 +985,6 @@ async fn frame_process_task(
                                     BuiServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
                                 let model_server_data_tx2 = model_server_data_tx.clone();
-                                let valve2 = valve.clone();
 
                                 let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(
                                     &cam_name2,
@@ -1022,9 +1020,8 @@ async fn frame_process_task(
                                 coord_processor.add_listener(model_server_data_tx); // the HTTP thing
 
                                 let expected_framerate = *expected_framerate_arc2.read();
-                                let flydra2_rx_valved = valve2.wrap(flydra2_rx);
-                                let consume_future = coord_processor
-                                    .consume_stream(flydra2_rx_valved, expected_framerate);
+                                let consume_future =
+                                    coord_processor.consume_stream(flydra2_rx, expected_framerate);
 
                                 let flydra_jh = my_runtime.spawn(async {
                                     // Run until flydra is done.
@@ -3651,8 +3648,6 @@ where
             (model_server_data_tx, flydratrax_calibration_source)
         };
 
-        #[cfg(feature = "flydratrax")]
-        let valve2 = valve.clone();
         let cam_name2 = raw_cam_name.clone();
         frame_process_task(
             #[cfg(feature = "flydratrax")]
@@ -3692,8 +3687,6 @@ where
             collected_corners_arc.clone(),
             #[cfg(feature = "flydratrax")]
             save_empty_data2d,
-            #[cfg(feature = "flydratrax")]
-            valve2,
             #[cfg(feature = "flydra_feat_detect")]
             acquisition_duration_allowed_imprecision_msec,
             frame_info_extractor,
@@ -3840,11 +3833,11 @@ where
             }
             debug!("version check future done {}:{}", file!(), line!());
         };
-        tokio::spawn(Box::pin(stream_future)); // confirmed: valved and finishes
+        tokio::spawn(Box::pin(stream_future));
         debug!("version check future spawned {}:{}", file!(), line!());
     }
 
-    tokio::spawn(Box::pin(cam_stream_future)); // confirmed: valved and finishes
+    tokio::spawn(Box::pin(cam_stream_future));
     debug!("cam_stream_future future spawned {}:{}", file!(), line!());
 
     let cam_arg_future = {
@@ -4651,13 +4644,6 @@ where
             tx_frame2
                 .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
                 .await?;
-
-            // Tell all streams to quit.
-            debug!(
-                "*** sending quit trigger to all valved streams. **** {}:{}",
-                file!(),
-                line!()
-            );
 
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
