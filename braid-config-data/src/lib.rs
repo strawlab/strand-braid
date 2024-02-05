@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use flydra_types::{BraidCameraConfig, FakeSyncConfig, TriggerType, TriggerboxConfig};
 
+/// The Braid configuration error type.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("lookup error on variable: {source}")]
@@ -78,8 +79,9 @@ fn fixup_relative_path(path: &mut std::path::PathBuf, dirname: &std::path::Path)
     Ok(())
 }
 
-/// The configuration for Braid's "mainbrain" - the central component of Braid
-/// that integrates information from multiple cameras and performs tracking.
+/// The sub-configuration of [BraidConfig] for `mainbrain` - the central
+/// component of Braid that integrates information from multiple cameras and
+/// performs tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MainbrainConfig {
@@ -172,13 +174,16 @@ impl std::default::Default for MainbrainConfig {
     }
 }
 
-/// The new configuration format.
+/// The Braid configuration format used in [the Braid configuration `TOML`
+/// file](https://strawlab.github.io/strand-braid/braid_configuration_and_launching.html).
 ///
-/// Backwards compatibility is maintained by first attempting to deserialize
-/// with this definition.
+/// This is the new configuration format. Backwards compatibility is maintained
+/// by first attempting to deserialize with this definition.
+///
+/// See the types of each field for sub-configuration values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BraidConfig2 {
+pub struct BraidConfig {
     /// Mainbrain configuration
     #[serde(default = "MainbrainConfig::default")]
     pub mainbrain: MainbrainConfig,
@@ -188,13 +193,13 @@ pub struct BraidConfig2 {
     pub cameras: Vec<BraidCameraConfig>,
 }
 
-impl From<BraidConfig1> for BraidConfig2 {
-    fn from(orig: BraidConfig1) -> BraidConfig2 {
+impl From<BraidConfig1> for BraidConfig {
+    fn from(orig: BraidConfig1) -> BraidConfig {
         let trigger = match orig.trigger {
             None => TriggerType::FakeSync(FakeSyncConfig::default()),
             Some(x) => TriggerType::TriggerboxV1(x),
         };
-        BraidConfig2 {
+        BraidConfig {
             mainbrain: orig.mainbrain,
             trigger,
             cameras: orig.cameras,
@@ -205,13 +210,14 @@ impl From<BraidConfig1> for BraidConfig2 {
 /// The old configuration format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc(hidden)]
 pub struct BraidConfig1 {
     pub mainbrain: MainbrainConfig,
     pub trigger: Option<TriggerboxConfig>,
     pub cameras: Vec<BraidCameraConfig>,
 }
 
-impl BraidConfig2 {
+impl BraidConfig {
     /// For all paths which are relative, make them relative to the
     /// config file location.
     fn fixup_relative_paths(&mut self, orig_path: &std::path::Path) -> Result<()> {
@@ -238,7 +244,7 @@ impl BraidConfig2 {
     }
 }
 
-impl std::default::Default for BraidConfig2 {
+impl std::default::Default for BraidConfig {
     fn default() -> Self {
         Self {
             mainbrain: MainbrainConfig::default(),
@@ -256,29 +262,30 @@ impl std::default::Default for BraidConfig2 {
     }
 }
 
-pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidConfig2> {
+/// Parse a `.toml` file and return a [BraidConfig] structure.
+pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidConfig> {
     use std::io::Read;
 
     let mut file = std::fs::File::open(fname.as_ref())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut cfg: BraidConfig2 = match toml::from_str(&contents) {
+    let mut cfg: BraidConfig = match toml::from_str(&contents) {
         Ok(cfg) => cfg,
         Err(err_cfg2) => {
             let cfg1: BraidConfig1 = match toml::from_str(&contents) {
                 Ok(cfg1) => cfg1,
                 Err(err_cfg1) => {
                     log::error!(
-                        "parsing config file first as BraidConfig2 failed \
+                        "parsing config file first as BraidConfig failed \
                     and then again as BraidConfig1 failed. The parse error for \
                     BraidConfig1 is: {}\n The original error when parsing \
-                    BraidConfig2 will now be raised.",
+                    BraidConfig will now be raised.",
                         err_cfg1
                     );
                     return Err(err_cfg2.into());
                 }
             };
-            BraidConfig2::from(cfg1)
+            BraidConfig::from(cfg1)
         }
     };
     // let mut cfg: BraidConfig = toml::from_str(&contents)?;

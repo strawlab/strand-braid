@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-pub use braid_config_data::BraidConfig2;
+pub use braid_config_data::BraidConfig;
 
 pub fn braid_start(name: &str) -> Result<()> {
     dotenv::dotenv().ok();
