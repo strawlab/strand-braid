@@ -1,7 +1,7 @@
 # Simple example of a Braid configuration TOML file
 
 # The reference documentation for this file is
-# [`BraidConfig](https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.BraidConfig.html).
+# https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.BraidConfig.html
 
 # This configuration uses 3 emulated Basler cameras. Set the environment
 # variable `PYLON_CAMEMU=3` to configure the Basler Pylon driver to emulate 3
