@@ -3613,8 +3613,6 @@ where
     // todo: integrate with quit_channel and quit_rx elsewhere.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
 
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
     let url = http_camserver_info.build_url();
 
     // Display where we are listening.
@@ -4672,8 +4670,6 @@ where
                 line!()
             );
             quit_trigger.cancel();
-            debug!("*** sending shutdown to hyper **** {}:{}", file!(), line!());
-            shutdown_tx.send(()).expect("sending shutdown to hyper");
 
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
@@ -4911,7 +4907,6 @@ where
         res = cam_arg_future2 => {res?},
         _ = mainbrain_transmitter_fut => {},
         _ = send_updates_future => {},
-        _ = shutdown_rx => {},
         res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle=> {res?},
     }
