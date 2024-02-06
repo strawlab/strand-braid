@@ -33,14 +33,18 @@ macro_rules! do_send {
                     ));
                 }
             }
-            Err(err) => {
-                if std::io::ErrorKind::WouldBlock == err.kind() {
-                    warn!("dropping socket data");
-                } else {
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::WouldBlock => {
+                    warn!("WouldBlock: dropping socket data");
+                }
+                std::io::ErrorKind::ConnectionRefused => {
+                    warn!("ConnectionRefused: dropping socket data");
+                }
+                _ => {
                     error!("error sending socket data: {:?}", err);
                     return Err(err.into());
                 }
-            }
+            },
         }
     }};
 }
