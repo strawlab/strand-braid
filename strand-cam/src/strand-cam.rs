@@ -404,7 +404,6 @@ pub(crate) enum Msg {
     ClearBackground(f32),
     SetFrameOffset(u64),
     SetClockModel(Option<rust_cam_bui_types::ClockModel>),
-    QuitFrameProcessThread,
     StartAprilTagRec(String),
     StopAprilTagRec,
 }
@@ -679,7 +678,6 @@ async fn frame_process_task(
     >,
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    is_starting_tx: tokio::sync::oneshot::Sender<()>,
     #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerAddrInfo,
     process_frame_priority: Option<(i32, i32)>,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
@@ -688,7 +686,6 @@ async fn frame_process_task(
     #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: CollectedCornersArc,
     #[cfg(feature = "flydratrax")] save_empty_data2d: SaveEmptyData2dType,
-    #[cfg(feature = "flydratrax")] valve: stream_cancel::Valve,
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
         f64,
     >,
@@ -839,8 +836,6 @@ async fn frame_process_task(
 
     let expected_framerate_arc = Arc::new(parking_lot::RwLock::new(None));
 
-    is_starting_tx.send(()).ok(); // signal that we are we are no longer starting
-
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
     #[cfg(feature = "fiducial")]
@@ -990,7 +985,6 @@ async fn frame_process_task(
                                     BuiServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
                                 let model_server_data_tx2 = model_server_data_tx.clone();
-                                let valve2 = valve.clone();
 
                                 let cam_manager = flydra2::ConnectedCamerasManager::new_single_cam(
                                     &cam_name2,
@@ -1026,9 +1020,8 @@ async fn frame_process_task(
                                 coord_processor.add_listener(model_server_data_tx); // the HTTP thing
 
                                 let expected_framerate = *expected_framerate_arc2.read();
-                                let flydra2_rx_valved = valve2.wrap(flydra2_rx);
-                                let consume_future = coord_processor
-                                    .consume_stream(flydra2_rx_valved, expected_framerate);
+                                let consume_future =
+                                    coord_processor.consume_stream(flydra2_rx, expected_framerate);
 
                                 let flydra_jh = my_runtime.spawn(async {
                                     // Run until flydra is done.
@@ -2129,9 +2122,6 @@ async fn frame_process_task(
             Msg::SetTracking(value) => {
                 is_doing_object_detection = value;
             }
-            Msg::QuitFrameProcessThread => {
-                break;
-            }
         };
     }
     info!(
@@ -2783,7 +2773,7 @@ pub fn run_app<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2796,10 +2786,10 @@ where
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
-    runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
+    let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
 
     info!("done");
-    Ok(())
+    Ok(mymod)
 }
 
 /// First, connect to Braid if requested, then run.
@@ -2807,7 +2797,7 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2891,7 +2881,7 @@ async fn run_until_done<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
-) -> anyhow::Result<()>
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
@@ -3613,11 +3603,6 @@ where
         .into_future()
     };
 
-    // todo: integrate with quit_channel and quit_rx elsewhere.
-    let (quit_trigger, valve) = stream_cancel::Valve::new();
-
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-
     let url = http_camserver_info.build_url();
 
     // Display where we are listening.
@@ -3640,9 +3625,7 @@ where
     #[cfg(feature = "checkercal")]
     let collected_corners_arc: CollectedCornersArc = Arc::new(parking_lot::RwLock::new(Vec::new()));
 
-    let frame_process_task_jh = {
-        let (is_starting_tx, is_starting_rx) = tokio::sync::oneshot::channel();
-
+    let frame_process_task_fut = {
         #[cfg(feature = "flydra_feat_detect")]
         let csv_save_dir = args.csv_save_dir.clone();
 
@@ -3665,64 +3648,51 @@ where
             (model_server_data_tx, flydratrax_calibration_source)
         };
 
-        #[cfg(feature = "flydratrax")]
-        let valve2 = valve.clone();
         let cam_name2 = raw_cam_name.clone();
-        let frame_process_task_fut = {
-            {
-                frame_process_task(
-                    #[cfg(feature = "flydratrax")]
-                    model_server_data_tx,
-                    #[cfg(feature = "flydratrax")]
-                    flydratrax_calibration_source,
-                    cam_name2,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    camera_cfg,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    image_width,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    image_height,
-                    rx_frame,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    im_pt_detect_cfg,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    std::path::Path::new(&csv_save_dir).to_path_buf(),
-                    firehose_tx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_handler_thread_tx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_result_rx,
-                    #[cfg(feature = "plugin-process-frame")]
-                    plugin_wait_dur,
-                    #[cfg(feature = "flydratrax")]
-                    led_box_tx_std,
-                    is_starting_tx,
-                    #[cfg(feature = "flydratrax")]
-                    http_camserver_info2,
-                    process_frame_priority,
-                    transmit_msg_tx.clone(),
-                    camdata_addr,
-                    led_box_heartbeat_update_arc2,
-                    #[cfg(feature = "plugin-process-frame")]
-                    do_process_frame_callback,
-                    #[cfg(feature = "checkercal")]
-                    collected_corners_arc.clone(),
-                    #[cfg(feature = "flydratrax")]
-                    save_empty_data2d,
-                    #[cfg(feature = "flydratrax")]
-                    valve2,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    acquisition_duration_allowed_imprecision_msec,
-                    frame_info_extractor,
-                    #[cfg(feature = "flydra_feat_detect")]
-                    app_name,
-                )
-            }
-        };
-        let join_handle = tokio::spawn(frame_process_task_fut);
-        debug!("waiting for frame acquisition thread to start");
-        is_starting_rx.await?;
-        join_handle
+        frame_process_task(
+            #[cfg(feature = "flydratrax")]
+            model_server_data_tx,
+            #[cfg(feature = "flydratrax")]
+            flydratrax_calibration_source,
+            cam_name2,
+            #[cfg(feature = "flydra_feat_detect")]
+            camera_cfg,
+            #[cfg(feature = "flydra_feat_detect")]
+            image_width,
+            #[cfg(feature = "flydra_feat_detect")]
+            image_height,
+            rx_frame,
+            #[cfg(feature = "flydra_feat_detect")]
+            im_pt_detect_cfg,
+            #[cfg(feature = "flydra_feat_detect")]
+            std::path::Path::new(&csv_save_dir).to_path_buf(),
+            firehose_tx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_handler_thread_tx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_result_rx,
+            #[cfg(feature = "plugin-process-frame")]
+            plugin_wait_dur,
+            #[cfg(feature = "flydratrax")]
+            led_box_tx_std,
+            #[cfg(feature = "flydratrax")]
+            http_camserver_info2,
+            process_frame_priority,
+            transmit_msg_tx.clone(),
+            camdata_addr,
+            led_box_heartbeat_update_arc2,
+            #[cfg(feature = "plugin-process-frame")]
+            do_process_frame_callback,
+            #[cfg(feature = "checkercal")]
+            collected_corners_arc.clone(),
+            #[cfg(feature = "flydratrax")]
+            save_empty_data2d,
+            #[cfg(feature = "flydra_feat_detect")]
+            acquisition_duration_allowed_imprecision_msec,
+            frame_info_extractor,
+            #[cfg(feature = "flydra_feat_detect")]
+            app_name,
+        )
     };
     debug!("frame_process_task spawned");
 
@@ -3845,13 +3815,11 @@ where
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
 
-        let interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
-
-        let mut incoming1 = valve.wrap(interval_stream);
+        let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
         let known_version2 = known_version;
         let stream_future = async move {
-            while incoming1.next().await.is_some() {
+            while interval_stream.next().await.is_some() {
                 let https = HttpsConnector::new();
                 let client = Client::builder(TokioExecutor::new()).build::<_, MyBody>(https);
 
@@ -3865,11 +3833,11 @@ where
             }
             debug!("version check future done {}:{}", file!(), line!());
         };
-        tokio::spawn(Box::pin(stream_future)); // confirmed: valved and finishes
+        tokio::spawn(Box::pin(stream_future));
         debug!("version check future spawned {}:{}", file!(), line!());
     }
 
-    tokio::spawn(Box::pin(cam_stream_future)); // confirmed: valved and finishes
+    tokio::spawn(Box::pin(cam_stream_future));
     debug!("cam_stream_future future spawned {}:{}", file!(), line!());
 
     let cam_arg_future = {
@@ -4677,18 +4645,6 @@ where
                 .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
                 .await?;
 
-            tx_frame2.send(Msg::QuitFrameProcessThread).await?; // this will quit the frame_process_task
-
-            // Tell all streams to quit.
-            debug!(
-                "*** sending quit trigger to all valved streams. **** {}:{}",
-                file!(),
-                line!()
-            );
-            quit_trigger.cancel();
-            debug!("*** sending shutdown to hyper **** {}:{}", file!(), line!());
-            shutdown_tx.send(()).expect("sending shutdown to hyper");
-
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
                 control.stop();
@@ -4910,25 +4866,17 @@ where
         }
     }
 
-    let cam_arg_future2 = async move {
-        cam_arg_future.await?;
-
-        // we get here once the whole program is trying to shut down.
-        info!("Now stopping spawned tasks.");
-        Ok::<_, StrandCamError>(())
-    };
-
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
     tokio::select! {
         res = http_serve_future => {res?},
-        res = cam_arg_future2 => {res?},
+        res = cam_arg_future => {res?},
         _ = mainbrain_transmitter_fut => {},
         _ = send_updates_future => {},
-        _ = shutdown_rx => {},
-        res = frame_process_task_jh => {res?.unwrap()},
+        res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle=> {res?},
     }
+    info!("Strand Cam ending nicely. :)");
 
     #[cfg(feature = "plugin-process-frame")]
     {
@@ -4943,7 +4891,7 @@ where
         }
     }
 
-    Ok(())
+    Ok(mymod)
 }
 
 #[cfg(feature = "plugin-process-frame")]

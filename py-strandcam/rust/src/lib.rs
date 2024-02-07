@@ -205,7 +205,7 @@ pub unsafe extern "C" fn sc_run_app_with_process_frame_cb(
         let guard = ci2_pyloncxx::make_singleton_guard(&&*PYLON_MODULE).unwrap();
         let mymod = ci2_async::into_threaded_async(&*PYLON_MODULE, &guard);
         match strand_cam::run_app(mymod, args, APP_NAME) {
-            Ok(()) => {}
+            Ok(_) => {}
             Err(e) => {
                 set_last_error(e.into());
                 return;
