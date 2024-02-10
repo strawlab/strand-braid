@@ -43,7 +43,7 @@ impl std::fmt::Display for MyError {
 // Model
 
 struct Model {
-    shared: Option<BraidHttpApiSharedState>,
+    shared: Option<Box<BraidHttpApiSharedState>>,
     es: EventSource,
     fail_msg: String,
     html_page_title: Option<String>,
@@ -56,7 +56,7 @@ struct Model {
 // -----------------------------------------------------------------------------
 
 enum Msg {
-    NewServerState(BraidHttpApiSharedState),
+    NewServerState(Box<BraidHttpApiSharedState>),
     FailedDecode(serde_json::Error),
     DoRecordCsvTables(bool),
     DoRecordMp4Files(bool),
@@ -177,14 +177,14 @@ impl Component for Model {
                 return false; // Don't update DOM, do that when backend notifies us of new state.
             }
             Msg::DoRecordMp4Files(val) => {
-                return self.send_to_all_cams(&ctx, BraidHttpApiCallback::DoRecordMp4Files(val));
+                return self.send_to_all_cams(ctx, BraidHttpApiCallback::DoRecordMp4Files(val));
             }
             Msg::SetPostTriggerBufferSize(val) => {
                 return self
-                    .send_to_all_cams(&ctx, BraidHttpApiCallback::SetPostTriggerBufferSize(val));
+                    .send_to_all_cams(ctx, BraidHttpApiCallback::SetPostTriggerBufferSize(val));
             }
             Msg::PostTriggerMp4Recording => {
-                return self.send_to_all_cams(&ctx, BraidHttpApiCallback::PostTriggerMp4Recording);
+                return self.send_to_all_cams(ctx, BraidHttpApiCallback::PostTriggerMp4Recording);
             }
         }
         true
@@ -227,7 +227,7 @@ impl Model {
         });
         ctx.link()
             .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
-        return false; // Don't update DOM, do that when backend notifies us of new state.
+        false // Don't update DOM, do that when backend notifies us of new state.
     }
 
     fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
@@ -376,7 +376,7 @@ fn view_calibration(calibration_filename: &Option<String>) -> Html {
     }
 }
 
-fn view_cam_list(cams: &Vec<CamInfo>) -> Html {
+fn view_cam_list(cams: &[CamInfo]) -> Html {
     let n_cams_msg = if cams.len() == 1 {
         "1 camera:".to_string()
     } else {
@@ -430,7 +430,7 @@ fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
                 IpAddr::V6(_) => IpAddr::V6(Ipv6Addr::LOCALHOST),
             }
         } else {
-            addr.ip().clone()
+            addr.ip()
         };
         let url = format!("http://{}:{}/", ip, addr.port());
         html! {
