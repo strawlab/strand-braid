@@ -214,8 +214,7 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
     };
 
     let secret = matches
-        .get_one::<String>("strand_cam_cookie_secret")
-        .map(Clone::clone)
+        .get_one::<String>("strand_cam_cookie_secret").cloned()
         .clone();
 
     let mkv_filename_template = matches

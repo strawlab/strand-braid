@@ -2898,9 +2898,7 @@ where
             let http_server_addr = braid_info
                 .config_from_braid
                 .config
-                .http_server_addr
-                .as_ref()
-                .map(Clone::clone);
+                .http_server_addr.clone();
             let braid_info =
                 flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
@@ -2911,9 +2909,7 @@ where
             }
         }
         StandaloneOrBraid::Standalone(standalone_args) => standalone_args
-            .http_server_addr
-            .as_ref()
-            .map(Clone::clone)
+            .http_server_addr.clone()
             .unwrap_or_else(|| "127.0.0.1:3440".to_string()),
     };
     tracing::debug!("Strand Camera HTTP server: {strand_cam_bui_http_address_string}");
