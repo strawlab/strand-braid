@@ -3002,6 +3002,7 @@ where
             })?;
 
             cam.node_map_load(&settings)?;
+            info!("loaded camera settings file \"{}\"", fname.display());
             (false, false)
         } else {
             for pixfmt in cam.possible_pixel_formats()?.iter() {
