@@ -190,12 +190,99 @@ pub enum StartSoftwareFrameRateLimit {
     NoChange,
 }
 
+/// This contains information that Strand Camera needs to start the camera.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RemoteCameraInfoResponse {
+    /// The destination for the low-latency tracking (UDP or UDS socket)
     pub camdata_addr: String,
     pub config: BraidCameraConfig,
     pub force_camera_sync_mode: bool,
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
+    /// PTP sync configuration (global for all cameras)
+    pub ptp_sync_config: Option<PtpSyncConfig>,
+}
+
+/// Newtype storing time as number of nanoseconds since Jan 1, 1970 in UTC.
+///
+/// This is the lower 64 bits of the 80 bit PTP timestamp.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PtpStamp(u64);
+
+impl PtpStamp {
+    pub fn new(val: u64) -> Self {
+        PtpStamp(val)
+    }
+
+    pub fn get(&self) -> u64 {
+        self.0
+    }
+
+    pub fn duration_since(&self, other: &Self) -> Option<PtpStampDuration> {
+        if self.0 >= other.0 {
+            Some(PtpStampDuration(self.0 - other.0))
+        } else {
+            None
+        }
+    }
+}
+
+/// Newtype storing a duration between two [PtpStamp] values.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PtpStampDuration(u64);
+
+impl PtpStampDuration {
+    pub fn nanos(&self) -> u64 {
+        self.0
+    }
+}
+
+impl<TZ> TryFrom<chrono::DateTime<TZ>> for PtpStamp
+where
+    TZ: chrono::TimeZone,
+{
+    type Error = &'static str;
+
+    fn try_from(orig: chrono::DateTime<TZ>) -> Result<Self, Self::Error> {
+        Ok(Self(
+            orig.to_utc()
+                .timestamp_nanos_opt()
+                .ok_or("could not convert DateTime to i64 nanosec")?
+                .try_into()
+                .map_err(|_| "could not convert i64 nanosec to u64")?,
+        ))
+    }
+}
+
+impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Utc> {
+    type Error = &'static str;
+    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
+        let secs = orig.0 / 1_000_000_000;
+        let nsecs = orig.0 % 1_000_000_000;
+        chrono::DateTime::from_timestamp(
+            secs.try_into()
+                .map_err(|_| "could not convert u64 nanosec to i64")?,
+            nsecs
+                .try_into()
+                .map_err(|_| "could not convert u64 nanosec to u32")?,
+        )
+        .ok_or("could not convert timestamp to DateTime")
+    }
+}
+
+impl TryFrom<PtpStamp> for chrono::DateTime<chrono::FixedOffset> {
+    type Error = &'static str;
+    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
+        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
+        Ok(utc.into())
+    }
+}
+
+impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Local> {
+    type Error = &'static str;
+    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
+        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
+        Ok(utc.into())
+    }
 }
 
 pub const DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC: Option<f64> = Some(5.0);
@@ -290,6 +377,9 @@ pub struct RegisterNewCamera {
     pub cam_settings_data: Option<UpdateCamSettings>,
     /// The current image.
     pub current_image_png: PngImageData,
+    /// The period of the periodic signal generator in the camera.
+    /// This is used for PTP-based synchronization.
+    pub camera_periodic_signal_period_usec: Option<f64>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -354,7 +444,7 @@ impl ConnectedCameraSyncState {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BraidHttpApiSharedState {
-    pub fake_sync: bool,
+    pub trigger_type: TriggerType,
     pub clock_model_copy: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
     // This is "fake" because it only signals if each of the connected computers
@@ -1058,7 +1148,7 @@ bitflags! {
 }
 
 /// TriggerboxV1 configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct TriggerboxConfig {
     pub device_fname: String,
@@ -1086,7 +1176,16 @@ const fn default_query_dt() -> std::time::Duration {
     std::time::Duration::from_millis(1500)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PtpSyncConfig {
+    /// The period of the periodic signal.
+    ///
+    /// If this is set, it is transmitted to the cameras.
+    pub periodic_signal_period_usec: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FakeSyncConfig {
     pub framerate: f64,
@@ -1098,11 +1197,16 @@ impl Default for FakeSyncConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 #[serde(tag = "trigger_type")]
 pub enum TriggerType {
+    /// Cameras are synchronized via hardware triggers controlled
+    /// via a [Straw Lab triggerbox](https://github.com/strawlab/triggerbox).
     TriggerboxV1(TriggerboxConfig),
+    /// Cameras are synchronized using PTP (Precision Time Protocol, IEEE 1588).
+    PtpSync(PtpSyncConfig),
+    /// Cameras are not synchronized, but we pretend they are.
     FakeSync(FakeSyncConfig),
 }
 

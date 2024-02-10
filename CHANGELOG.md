@@ -2,6 +2,8 @@
 
 ### Added
 
+* Support PTP synchronized cameras without external triggering hardware. Tested
+  with Basler Ace2 GigE cameras.
 * Support for saving video .mp4 files in Strand Camera, `braid-process-video`,
   `strand-convert`, and other utilities. Video is encoded with the H.264 codec
   and metadata, including precise timestamps, are stored in the h264 stream. To

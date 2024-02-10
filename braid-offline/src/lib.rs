@@ -476,7 +476,7 @@ where
         orig_camn_to_cam_name.insert(row.camn, orig_cam_name.clone());
 
         cam_manager
-            .register_new_camera(&orig_cam_name, &no_server)
+            .register_new_camera(&orig_cam_name, &no_server, None)
             .map_err(|msg| Error::RegisterCameraError {
                 msg,
                 #[cfg(feature = "backtrace")]

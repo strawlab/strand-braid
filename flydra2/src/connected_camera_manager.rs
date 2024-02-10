@@ -6,7 +6,8 @@ use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
 use flydra_types::{
-    BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, RawCamName, RecentStats, SyncFno,
+    BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, PtpStamp, PtpSyncConfig, RawCamName,
+    RecentStats, SyncFno, TriggerType,
 };
 
 pub(crate) trait HasCameraList {
@@ -42,6 +43,7 @@ pub struct ConnectedCameraInfo {
     sync_state: ConnectedCameraSyncState,
     http_camserver_info: BuiServerInfo,
     frames_during_sync: u64,
+    camera_periodic_signal_period_usec: Option<f64>,
 }
 
 impl ConnectedCameraInfo {
@@ -80,6 +82,7 @@ pub struct ConnectedCamerasManager {
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     signal_all_cams_present: Arc<AtomicBool>,
     signal_all_cams_synced: Arc<AtomicBool>,
+    launch_time: chrono::DateTime<chrono::Utc>,
 }
 
 impl HasCameraList for ConnectedCamerasManager {
@@ -130,6 +133,7 @@ impl ConnectedCamerasManager {
             })),
             on_cam_change_func: Arc::new(Mutex::new(None)),
             recon: recon.clone(),
+            launch_time: chrono::Utc::now(),
         }
     }
 
@@ -161,8 +165,12 @@ impl ConnectedCamerasManager {
 
         for cam_info in old_ccis.values() {
             // This calls self.notify_cam_changed_listeners():
-            self.register_new_camera(&cam_info.raw_cam_name, &cam_info.http_camserver_info)
-                .unwrap();
+            self.register_new_camera(
+                &cam_info.raw_cam_name,
+                &cam_info.http_camserver_info,
+                cam_info.camera_periodic_signal_period_usec,
+            )
+            .unwrap();
         }
     }
 
@@ -211,6 +219,7 @@ impl ConnectedCamerasManager {
         raw_cam_name: &RawCamName,
         http_camserver_info: &BuiServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
+        camera_periodic_signal_period_usec: Option<f64>,
     ) -> Self {
         let signal_all_cams_present = Arc::new(AtomicBool::new(false));
         let signal_all_cams_synced = Arc::new(AtomicBool::new(false));
@@ -260,6 +269,7 @@ impl ConnectedCamerasManager {
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
+                    camera_periodic_signal_period_usec,
                 },
             );
         }
@@ -279,6 +289,7 @@ impl ConnectedCamerasManager {
         &mut self,
         raw_cam_name: &RawCamName,
         http_camserver_info: &BuiServerInfo,
+        camera_periodic_signal_period_usec: Option<f64>,
     ) -> Result<(), &'static str> {
         let raw_cam_name = raw_cam_name.clone();
         let cam_num = {
@@ -317,6 +328,7 @@ impl ConnectedCamerasManager {
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
+                    camera_periodic_signal_period_usec,
                 },
             );
             cam_num
@@ -340,11 +352,39 @@ impl ConnectedCamerasManager {
         sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
         sync_time_min: std::time::Duration,
         sync_time_max: std::time::Duration,
-        mut send_new_frame_offset: F,
+        send_new_frame_offset: F,
+        trigger_cfg: &TriggerType,
     ) -> Option<SyncFno>
     where
         F: FnMut(u64),
     {
+        let sync_data = match &trigger_cfg {
+            TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => self
+                .got_new_frame_live_triggerbox(
+                    packet,
+                    sync_pulse_pause_started_arc,
+                    sync_time_min,
+                    sync_time_max,
+                ),
+            TriggerType::PtpSync(ptpcfg) => {
+                if let Some(sync_data) = self.got_new_frame_live_ptp(packet, ptpcfg) {
+                    sync_data
+                } else {
+                    return None;
+                }
+            }
+        };
+        self.finish_got_new_frame_live(sync_data, send_new_frame_offset)
+    }
+
+    /// Register that a new frame was received if we are using the triggerbox (or fake sync).
+    fn got_new_frame_live_triggerbox(
+        &self,
+        packet: &flydra_types::FlydraRawUdpPacket,
+        sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
+        sync_time_min: std::time::Duration,
+        sync_time_max: std::time::Duration,
+    ) -> SyncData {
         assert!(packet.framenumber >= 0);
 
         let raw_cam_name = RawCamName::new(packet.cam_name.clone());
@@ -354,7 +394,6 @@ impl ConnectedCamerasManager {
         let mut new_frame0 = None;
         let mut got_frame_during_sync_time = false;
         let mut do_check_if_all_cameras_present = false;
-        let mut do_check_if_all_cameras_synchronized = false;
         {
             let inner = self.inner.read();
             if let Some(cci) = inner.ccis.get(&raw_cam_name) {
@@ -411,9 +450,9 @@ impl ConnectedCamerasManager {
                     }
                 };
             }
-            // If we do not know the camera, it is because we are shutting down
-            // and have already removed the camera and thus we should ignore
-            // this new data.
+            // If we do not know the camera, it is because we are starting up
+            // (or shutting down and have already removed the camera) and thus
+            // we should ignore this new data.
         }
 
         if got_frame_during_sync_time {
@@ -440,7 +479,91 @@ impl ConnectedCamerasManager {
                 );
             }
         }
+        SyncData {
+            new_frame0,
+            raw_cam_name,
+            do_check_if_all_cameras_present,
+            synced_frame,
+        }
+    }
 
+    /// Register that a new frame was received if we are using PTP
+    fn got_new_frame_live_ptp(
+        &self,
+        packet: &flydra_types::FlydraRawUdpPacket,
+        ptpcfg: &PtpSyncConfig,
+    ) -> Option<SyncData> {
+        let raw_cam_name = RawCamName::new(packet.cam_name.clone());
+        let inner = self.inner.read();
+        if let Some(cci) = inner.ccis.get(&raw_cam_name) {
+            let camera_periodic_signal_period_usec = cci
+                .camera_periodic_signal_period_usec
+                .expect("could not get period for PTP sync");
+            if let Some(expected_period) = ptpcfg.periodic_signal_period_usec {
+                if approx::relative_ne!(expected_period, camera_periodic_signal_period_usec) {
+                    panic!("camera period not set to expected period");
+                }
+            }
+            let device_timestamp = PtpStamp::new(
+                packet
+                    .device_timestamp
+                    .expect("could not get device_timestamp for frame")
+                    .get(),
+            );
+            let launch_time_ptp = self.launch_time.try_into().unwrap();
+            let elapsed_since_launch =
+                if let Some(dur) = device_timestamp.duration_since(&launch_time_ptp) {
+                    dur
+                } else {
+                    // This would happen if time runs backwards. I have not
+                    // seen this scenario, but it shouldn't cause a panic.
+                    return None;
+                };
+
+            let camera_periodic_signal_period_nsec = camera_periodic_signal_period_usec * 1000.0;
+            let raw_fno = (elapsed_since_launch.nanos() as f64 / camera_periodic_signal_period_nsec)
+                .round() as u64;
+
+            let mut do_check_if_all_cameras_present = false;
+
+            let synced_frame = Some(raw_fno);
+            let mut new_frame0 = None;
+            use crate::ConnectedCameraSyncState::*;
+            match &cci.sync_state {
+                Unsynchronized => {
+                    new_frame0 = Some(0);
+                    do_check_if_all_cameras_present = true;
+                }
+                Synchronized(_frame0) => {}
+            }
+
+            Some(SyncData {
+                new_frame0,
+                raw_cam_name,
+                do_check_if_all_cameras_present,
+                synced_frame,
+            })
+        } else {
+            // Camera starting up (or shutting down). Ignore this frame.)
+            None
+        }
+    }
+
+    fn finish_got_new_frame_live<F>(
+        &self,
+        sync_data: SyncData,
+        mut send_new_frame_offset: F,
+    ) -> Option<SyncFno>
+    where
+        F: FnMut(u64),
+    {
+        let SyncData {
+            new_frame0,
+            raw_cam_name,
+            do_check_if_all_cameras_present,
+            synced_frame,
+        } = sync_data;
+        let mut do_check_if_all_cameras_synchronized = false;
         if let Some(frame0) = new_frame0 {
             // Perform the book-keeping associated with synchronization.
             {
@@ -574,6 +697,13 @@ impl std::fmt::Debug for ConnectedCamerasManager {
         f.debug_struct("ConnectedCamerasManager")
             .finish_non_exhaustive()
     }
+}
+
+struct SyncData {
+    new_frame0: Option<u64>,
+    raw_cam_name: RawCamName,
+    do_check_if_all_cameras_present: bool,
+    synced_frame: Option<u64>,
 }
 
 #[test]

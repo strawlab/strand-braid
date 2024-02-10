@@ -31,9 +31,15 @@ pub(crate) async fn callback_handler(
                 debug!("got NewCamera {:?}", cam_info.raw_cam_name.as_str());
                 let http_camserver_info = cam_info.http_camserver_info.unwrap();
                 let cam_settings_data = cam_info.cam_settings_data.unwrap();
+                let camera_periodic_signal_period_usec =
+                    cam_info.camera_periodic_signal_period_usec;
                 let mut cam_manager3 = app_state.cam_manager.clone();
                 cam_manager3
-                    .register_new_camera(&cam_info.raw_cam_name, &http_camserver_info)
+                    .register_new_camera(
+                        &cam_info.raw_cam_name,
+                        &http_camserver_info,
+                        camera_periodic_signal_period_usec,
+                    )
                     .map_err(|msg| (StatusCode::BAD_REQUEST, msg))?;
 
                 let mut current_cam_data = app_state.per_cam_data_arc.write();

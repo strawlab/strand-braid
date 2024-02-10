@@ -27,7 +27,7 @@ use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, MyFloat, StreamItem};
 use flydra_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
-    BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec,
+    BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
     FlydraFloatTimestampLocal, HostClock, PerCamSaveData, RawCamName, SyncFno, TriggerType,
     Triggerbox, BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME,
 };
@@ -174,11 +174,20 @@ async fn remote_camera_info_handler(
     if let Some(config) = cam_cfg {
         let software_limit_framerate = app_state.software_limit_framerate.clone();
 
+        let ptp_sync_config = if let TriggerType::PtpSync(cfg) =
+            &app_state.shared_store.read().as_ref().trigger_type
+        {
+            Some(cfg.clone())
+        } else {
+            None
+        };
+
         let msg = flydra_types::RemoteCameraInfoResponse {
             camdata_addr: app_state.public_camdata_addr,
             config: config.clone(),
             force_camera_sync_mode: app_state.force_camera_sync_mode,
             software_limit_framerate,
+            ptp_sync_config,
         };
         Ok(axum::Json(msg))
     } else {
@@ -626,12 +635,12 @@ pub(crate) async fn do_run_forever(
         debug!("shutdown handler finished {}:{}", file!(), line!());
     });
 
-    let (triggerbox_cmd, triggerbox_rx, fake_sync) = match &trigger_cfg {
+    let (triggerbox_cmd, triggerbox_rx) = match &trigger_cfg {
         TriggerType::TriggerboxV1(_) => {
             let (tx, rx) = tokio::sync::mpsc::channel(20);
-            (Some(tx), Some(rx), false)
+            (Some(tx), Some(rx))
         }
-        TriggerType::FakeSync(_) => (None, None, true),
+        TriggerType::FakeSync(_) | TriggerType::PtpSync(_) => (None, None),
     };
 
     let sync_pulse_pause_started: Option<std::time::Instant> = None;
@@ -640,7 +649,7 @@ pub(crate) async fn do_run_forever(
     let flydra_app_name = "Braid".to_string();
 
     let shared = BraidHttpApiSharedState {
-        fake_sync,
+        trigger_type: trigger_cfg.clone(),
         csv_tables_dirname: None,
         fake_mp4_recording_path: None,
         post_trigger_buffer_size: 0,
@@ -824,7 +833,6 @@ pub(crate) async fn do_run_forever(
         })
     };
 
-    // if let Some(ref cfg) = trigger_cfg {
     match &trigger_cfg {
         TriggerType::TriggerboxV1(cfg) => {
             let device_fname = cfg.device_fname.clone();
@@ -887,15 +895,15 @@ pub(crate) async fn do_run_forever(
             };
             let _join_handle = tokio::spawn(fut);
         }
-        TriggerType::FakeSync(cfg) => {
+        TriggerType::FakeSync(FakeSyncConfig { framerate }) => {
             info!("No triggerbox configuration. Using fake synchronization.");
 
             signal_triggerbox_connected.store(true, Ordering::SeqCst);
 
             let mut expected_framerate = expected_framerate_arc.write();
-            *expected_framerate = Some(cfg.framerate as f32);
+            *expected_framerate = Some(*framerate as f32);
 
-            let gain = 1.0 / cfg.framerate;
+            let gain = 1.0 / framerate;
 
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
             let offset = datetime_conversion::datetime_to_f64(&now);
@@ -904,6 +912,15 @@ pub(crate) async fn do_run_forever(
                 gain,
                 n_measurements: 0,
                 offset,
+                residuals: 0.0,
+            }));
+        }
+        TriggerType::PtpSync(_) => {
+            // With PTP we simply trust the clocks. How simple.
+            (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
+                gain: 1.0,
+                n_measurements: 0,
+                offset: 0.0,
                 residuals: 0.0,
             }));
         }
@@ -924,6 +941,7 @@ pub(crate) async fn do_run_forever(
     let cam_manager2 = cam_manager.clone();
     let valve2 = valve.clone();
     let triggerbox_cmd2 = triggerbox_cmd.clone();
+    let fake_sync = matches!(trigger_cfg, TriggerType::FakeSync(_));
     let _sync_start_jh = tokio::spawn(async move {
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
             std::time::Duration::from_secs(1),
@@ -938,6 +956,7 @@ pub(crate) async fn do_run_forever(
                 info!("have triggerbox and all cameras. Synchronizing cameras.");
                 synchronize_cameras(
                     triggerbox_cmd2,
+                    fake_sync,
                     sync_pulse_pause_started_arc2.clone(),
                     cam_manager2.clone(),
                     time_model_arc2.clone(),
@@ -1014,7 +1033,7 @@ pub(crate) async fn do_run_forever(
                     // Using trigger box
                     std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64)
                 }
-                TriggerType::FakeSync(_) => {
+                TriggerType::FakeSync(_) | TriggerType::PtpSync(_) => {
                     // Using fake trigger
                     std::time::Duration::from_secs(0)
                 }
@@ -1045,6 +1064,7 @@ pub(crate) async fn do_run_forever(
                 sync_time_min,
                 std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
                 send_new_frame_offset,
+                &trigger_cfg,
             );
 
             let cam_num = cam_manager.cam_num(&raw_cam_name);
@@ -1306,6 +1326,7 @@ pub(crate) async fn toggle_saving_csv_tables(
 
 async fn synchronize_cameras(
     triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
+    fake_sync: bool,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
@@ -1328,7 +1349,9 @@ async fn synchronize_cameras(
 
     if let Some(tx) = triggerbox_cmd {
         begin_cam_sync_triggerbox_in_process(tx).await?;
-    } else {
+    }
+
+    if fake_sync {
         info!("Using fake synchronization method.");
     }
     Ok(())

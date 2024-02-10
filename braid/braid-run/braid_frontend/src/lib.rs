@@ -11,7 +11,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Event, EventSource, MessageEvent};
 
-use flydra_types::{BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo};
+use flydra_types::{
+    BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
+};
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
 use yew::prelude::*;
@@ -282,7 +284,7 @@ impl Model {
                     <div>{"Recording disabled until cameras are synchronized and clock model is established."}</div>
                 }
             };
-            let fake_sync_warning = if value.fake_sync {
+            let fake_sync_warning = if let TriggerType::FakeSync(_) = value.trigger_type {
                 html! {
                     <div>
                         {"⚠ Emulating synchronization because no trigger box in use. Data will not be perfectly synchronized. ⚠"}

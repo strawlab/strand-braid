@@ -990,6 +990,7 @@ async fn frame_process_task(
                                     &cam_name2,
                                     &http_camserver,
                                     &Some(recon2),
+                                    None,
                                 );
                                 let tracking_params =
                                     flydra_types::default_tracking_params_flat_3d();
@@ -3177,9 +3178,12 @@ where
         Err(a) => a.software_limit_framerate.clone(),
     };
 
-    let mut mainbrain_session = match res_braid {
-        Ok(bi) => Some(bi.mainbrain_session),
-        Err(_a) => None,
+    let (mut mainbrain_session, ptpcfg) = match res_braid {
+        Ok(bi) => (
+            Some(bi.mainbrain_session),
+            bi.config_from_braid.ptp_sync_config,
+        ),
+        Err(_a) => (None, None),
     };
 
     // spawn channel to send data to mainbrain
@@ -3206,6 +3210,40 @@ where
             }
         }
     };
+
+    const PERIOD_NAME: &str = "BslPeriodicSignalPeriod";
+    if let Some(val) = ptpcfg.as_ref().and_then(|c| c.periodic_signal_period_usec) {
+        cam.feature_float_set(PERIOD_NAME, val)?;
+    }
+
+    let camera_periodic_signal_period_usec = {
+        match cam.feature_float(PERIOD_NAME) {
+            Ok(value) => Some(value),
+            Err(e) => {
+                tracing::debug!("Could not read feature {PERIOD_NAME}: {e}");
+                None
+            }
+        }
+    };
+
+    if ptpcfg.is_some() {
+        cam.feature_bool_set("PtpEnable", true)?;
+        loop {
+            cam.command_execute("PtpDataSetLatch", true)?;
+            let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
+            tracing::debug!("PTP clock offset {ptp_offset_from_master} microseconds.");
+            if ptp_offset_from_master.abs() < 1_000_000 {
+                // if within 1 millisecond from master, call it good enough.
+                break;
+            }
+            tracing::warn!(
+                "PTP clock offset {ptp_offset_from_master} microseconds, waiting \
+                for convergence."
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        }
+        tracing::info!("PTP clock within threshold from master.");
+    }
 
     let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
@@ -3257,6 +3295,7 @@ where
                 current_cam_settings_extension: settings_file_ext,
             }),
             current_image_png: current_image_png.into(),
+            camera_periodic_signal_period_usec,
         };
 
         // Get the generic sender back.
