@@ -150,7 +150,7 @@ impl H264Source {
 
         // Use data from container if present
         if let Some(dfc) = data_from_mp4_track {
-            log::debug!("Using SPS and PPS data from mp4 track.");
+            tracing::debug!("Using SPS and PPS data from mp4 track.");
             {
                 // SPS
                 let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
@@ -180,11 +180,11 @@ impl H264Source {
         }
 
         // iterate through all NAL units.
-        log::debug!("iterating through all NAL units");
+        tracing::debug!("iterating through all NAL units");
         for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
             let nal = RefNal::new(nal_unit, &[], true);
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
-            log::debug!("NALU index {nalu_index}, {nal_unit_type:?}");
+            tracing::debug!("NALU index {nalu_index}, {nal_unit_type:?}");
             match nal_unit_type {
                 UnitType::SEI => {
                     let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
@@ -237,7 +237,7 @@ impl H264Source {
                                 break;
                             }
                             Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
-                                log::error!(
+                                tracing::error!(
                                     "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
                                 );
                                 // We do not process this NAL unit but nor do we
