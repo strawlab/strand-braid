@@ -192,11 +192,12 @@ pub struct Frame {
 
 impl std::fmt::Debug for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "Frame {{ width: {}, height: {}, block_id: {}, device_timestamp: {} }}",
-            self.width, self.height, self.block_id, self.device_timestamp
-        )
+        f.debug_struct("Frame")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("block_id", &self.block_id)
+            .field("device_timestamp", &self.device_timestamp)
+            .finish()
     }
 }
 
