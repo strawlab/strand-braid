@@ -2866,19 +2866,12 @@ where
         }
     };
 
-    run_until_done(mymod, args, app_name, res_braid).await
+    select_cam_and_run(mymod, args, app_name, res_braid).await
 }
 
-// -----------
-
-/// This is the main function where we spend all time after parsing startup args
-/// and, in case of connecting to braid, getting the inital connection
-/// information.
-///
-/// This function is way too huge and should be refactored.
-#[tracing::instrument(level = "debug", skip_all)]
-async fn run_until_done<M, C, G>(
-    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
+/// Determine the camera name to be used and call `run()`.
+async fn select_cam_and_run<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
@@ -2895,10 +2888,7 @@ where
                     anyhow::bail!("requested braid, but no braid config");
                 }
             };
-            let http_server_addr = braid_info
-                .config_from_braid
-                .config
-                .http_server_addr.clone();
+            let http_server_addr = braid_info.config_from_braid.config.http_server_addr.clone();
             let braid_info =
                 flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
@@ -2909,7 +2899,8 @@ where
             }
         }
         StandaloneOrBraid::Standalone(standalone_args) => standalone_args
-            .http_server_addr.clone()
+            .http_server_addr
+            .clone()
             .unwrap_or_else(|| "127.0.0.1:3440".to_string()),
     };
     tracing::debug!("Strand Camera HTTP server: {strand_cam_bui_http_address_string}");
@@ -2946,6 +2937,38 @@ where
         None => cam_infos[0].name(),
     };
 
+    run(
+        mymod,
+        args,
+        app_name,
+        res_braid,
+        strand_cam_bui_http_address_string,
+        use_camera_name,
+    )
+    .await
+}
+
+// -----------
+
+/// This is the main function where we spend all time after parsing startup args
+/// and, in case of connecting to braid, getting the inital connection
+/// information.
+///
+/// This function is way too huge and should be refactored.
+#[tracing::instrument(skip(mymod, args, app_name, res_braid, strand_cam_bui_http_address_string))]
+async fn run<M, C, G>(
+    mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
+    args: StrandCamArgs,
+    app_name: &'static str,
+    res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
+    strand_cam_bui_http_address_string: String,
+    cam: &str,
+) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+where
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
+    C: 'static + ci2::Camera + Send,
+{
+    let use_camera_name = cam; // simple arg name important for tracing::instrument
     let frame_info_extractor = mymod.frame_info_extractor();
     let settings_file_ext = mymod.settings_file_extension().to_string();
 
@@ -3296,7 +3319,7 @@ where
 
         // Get the generic sender back.
         transmit_msg_tx = Some(first_msg_tx.send_first_msg(new_cam_data).await?);
-        tracing::info!("Registered camera \"{raw_cam_name}\" with Braid.");
+        tracing::info!("Registered camera with Braid.");
     }
 
     if force_camera_sync_mode {
