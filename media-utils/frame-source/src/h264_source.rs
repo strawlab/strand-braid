@@ -191,9 +191,14 @@ impl H264Source {
                     loop {
                         match sei_reader.next() {
                             Ok(Some(sei_message)) => {
+                                tracing::debug!("SEI payload type: {:?}", sei_message.payload_type);
                                 match &sei_message.payload_type {
                                     HeaderType::UserDataUnregistered => {
                                         let udu = UserDataUnregistered::read(&sei_message)?;
+                                        tracing::debug!(
+                                            "SEI UserDataUnregistered uuid: {:?}",
+                                            udu.uuid
+                                        );
                                         match udu.uuid {
                                             &H264_METADATA_UUID => {
                                                 let md: H264Metadata =
