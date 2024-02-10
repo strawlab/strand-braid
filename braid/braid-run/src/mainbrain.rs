@@ -211,7 +211,7 @@ async fn cam_proxy_handler_inner(
         .headers()
         .get_all(http::header::ACCEPT)
         .iter()
-        .map(Clone::clone)
+        .cloned()
         .collect();
     let cam_name = RawCamName::new(raw_cam_name);
 

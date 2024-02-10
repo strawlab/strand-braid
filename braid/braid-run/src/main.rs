@@ -141,7 +141,7 @@ async fn main() -> Result<()> {
 
     debug!("done launching cameras");
 
-    let secret_base64 = cfg.mainbrain.secret_base64.as_ref().map(Clone::clone);
+    let secret_base64 = cfg.mainbrain.secret_base64.clone();
 
     // This runs the whole thing and "blocks". Now wait for everything to end.
     mainbrain::do_run_forever(
