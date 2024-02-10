@@ -13,6 +13,11 @@ struct BraidShowConfigCliArgs {
 fn main() -> Result<()> {
     braid_start("show-config").with_context(|| format!("launching show-config command"))?;
 
+    env_tracing_logger::init();
+
+    let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+    tracing::info!("{} {}", env!("CARGO_PKG_NAME"), version);
+
     let args = BraidShowConfigCliArgs::parse();
     tracing::debug!("{:?}", args);
 

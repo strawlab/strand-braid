@@ -47,6 +47,10 @@ include_dir = { version = "0.7.3", optional = true }
 axum-token-auth = "0.1.0"
 http-body = "1.0.0"
 base64 = "0.12"
+cookie_store = "0.20.0"
+cookie = "0.18.0"
+tracing-subscriber = "0.3.18"
+shellexpand = "2.0"
 
 braid = {path=".."}
 braid-config-data = {path="../../braid-config-data"}
@@ -54,6 +58,7 @@ bui-backend-session-types = { path = "../../bui-backend-session/types" }
 bui-backend-session = {path="../../bui-backend-session"}
 ci2-remote-control = {path = "../../ci2-remote-control"}
 datetime-conversion = {path = "../../datetime-conversion"}
+env-tracing-logger = {path = "../../env-tracing-logger" }
 event-stream-types = { path = "../../event-stream-types" }
 flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
 flydra-mvg = {path="../../flydra-mvg"}
@@ -63,8 +68,6 @@ flydra2 = {path="../../flydra2", default-features = false, features=["braid"]}
 mvg = {path="../../mvg"}
 rust-cam-bui-types = {path="../../rust-cam-bui-types"}
 strand-cam-storetype = {path = "../../strand-cam-storetype"}
-cookie_store = "0.20.0"
-cookie = "0.18.0"
 
 [features]
 default = ["bundle_files"]

@@ -646,7 +646,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
 fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "fmf=info,error");
+        std::env::set_var("RUST_LOG", "fmf=info,warn");
     }
 
     env_logger::init();

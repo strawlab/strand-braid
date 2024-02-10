@@ -7,4 +7,4 @@ rust-version = "1.60"
 
 [dependencies]
 tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter", "time"] }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }

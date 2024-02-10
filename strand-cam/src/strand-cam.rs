@@ -2485,6 +2485,7 @@ pub struct StrandCamArgs {
     pub mp4_filename_template: String,
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
+    pub disable_console: bool,
     pub csv_save_dir: String,
     pub raise_grab_thread_priority: bool,
     #[cfg(feature = "posix_sched_fifo")]
@@ -2525,6 +2526,7 @@ impl Default for StrandCamArgs {
             mp4_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4".to_string(),
             fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
             ufmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf".to_string(),
+            disable_console: false,
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
@@ -2779,6 +2781,27 @@ where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
 {
+    // Initial log file name has process ID in case multiple cameras are
+    // launched simultaneously. The (still open) log file gets renamed later to
+    // include the camera name. We need to start logging as soon as possible
+    // (before we necessarily know the camera name) because we may need to debug
+    // connectivity problems to Braid or problems starting the camera.
+    let initial_log_file_name = format!(
+        "~/.strand-cam-{}-{}.log",
+        std::time::SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap()
+            .as_micros(),
+        std::process::id()
+    );
+    let initial_log_file_name =
+        std::path::PathBuf::from(shellexpand::full(&initial_log_file_name)?.to_string());
+    // TODO: delete log files older than, e.g. one week.
+
+    let _guard =
+        env_tracing_logger::initiate_logging(Some(&initial_log_file_name), args.disable_console)
+            .map_err(|e| anyhow::anyhow!("error initiating logging: {e}"))?;
+
     // Start tokio runtime here.
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -2787,7 +2810,12 @@ where
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
-    let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(mymod, args, app_name))?;
+    let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
+        mymod,
+        args,
+        app_name,
+        &initial_log_file_name,
+    ))?;
 
     info!("done");
     Ok(mymod)
@@ -2798,6 +2826,7 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
+    initial_log_file_name: &Path,
 ) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
@@ -2866,7 +2895,7 @@ where
         }
     };
 
-    select_cam_and_run(mymod, args, app_name, res_braid).await
+    select_cam_and_run(mymod, args, app_name, res_braid, initial_log_file_name).await
 }
 
 /// Determine the camera name to be used and call `run()`.
@@ -2875,6 +2904,7 @@ async fn select_cam_and_run<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
+    initial_log_file_name: &Path,
 ) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -2936,6 +2966,31 @@ where
         Some(ref name) => name,
         None => cam_infos[0].name(),
     };
+
+    // Rename the log file (which is open and being written to) so that the name
+    // includes the camera name.
+    let new_log_file_name = format!(
+        "~/.strand-cam-{}-{}.log",
+        std::time::SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap()
+            .as_micros(),
+        use_camera_name
+    );
+    let new_log_file_name =
+        std::path::PathBuf::from(shellexpand::full(&new_log_file_name)?.to_string());
+    tracing::debug!(
+        "Renaming log file \"{}\" -> \"{}\"",
+        initial_log_file_name.display(),
+        new_log_file_name.display()
+    );
+    std::fs::rename(initial_log_file_name, &new_log_file_name).with_context(|| {
+        format!(
+            "Renaming log file \"{}\" -> \"{}\"",
+            initial_log_file_name.display(),
+            new_log_file_name.display()
+        )
+    })?;
 
     run(
         mymod,

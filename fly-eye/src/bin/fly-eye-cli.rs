@@ -45,7 +45,7 @@ fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "fly_eye=info,error");
+        std::env::set_var("RUST_LOG", "fly_eye=info,warn");
     }
 
     env_logger::init();

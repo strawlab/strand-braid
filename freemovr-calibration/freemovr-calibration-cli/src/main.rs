@@ -252,7 +252,7 @@ fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
-            "freemovr_calibration=info,freemovr_calibration_cli=info,error",
+            "freemovr_calibration=info,freemovr_calibration_cli=info,warn",
         );
     }
 

@@ -300,6 +300,8 @@ pub struct BraidCameraConfig {
     /// in which certain characters are not allowed.)
     pub name: String,
     /// Filename of vendor-specific camera settings file.
+    ///
+    /// Can contain shell variables such as `~`, `$A`, or `${B}`.
     pub camera_settings_filename: Option<std::path::PathBuf>,
     /// The pixel format to use.
     pub pixel_format: Option<String>,

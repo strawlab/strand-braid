@@ -13,7 +13,6 @@ struct BraidLauncherCliArgs {
 
 fn main() -> Result<()> {
     env_tracing_logger::init();
-    // braid::braid_start("braid")?;
 
     // TODO: In case of no command given (or a query command), iterate all dirs
     // on environment path, collect braid-* executables, show these as possible

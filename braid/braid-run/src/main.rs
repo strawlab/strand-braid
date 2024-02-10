@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use tracing::debug;
 
@@ -19,6 +19,9 @@ mod multicam_http_session_handler;
 struct BraidRunCliArgs {
     /// Input directory
     config_file: std::path::PathBuf,
+    /// Flag if logging to console should be disabled.
+    #[arg(short, long)]
+    disable_console: bool,
 }
 
 fn compute_strand_cam_args(
@@ -39,8 +42,6 @@ fn launch_strand_cam(
     camera: &BraidCameraConfig,
     mainbrain_internal_addr: &MainbrainBuiLocation,
 ) -> Result<()> {
-    use anyhow::Context;
-
     // On initial startup strand cam queries for
     // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
     // provide much info.
@@ -83,10 +84,29 @@ async fn main() -> Result<()> {
     braid_start("run")?;
 
     let args = BraidRunCliArgs::parse();
-    debug!("{:?}", args);
+    let cfg = parse_config_file(&args.config_file).with_context(|| {
+        format!(
+            "when parsing configuration file {}",
+            args.config_file.display()
+        )
+    })?;
 
-    let cfg = parse_config_file(&args.config_file)?;
-    debug!("{:?}", cfg);
+    let log_file_name = format!(
+        "~/.braid-{}.log",
+        std::time::SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap()
+            .as_micros(),
+    );
+    let log_file_name = std::path::PathBuf::from(shellexpand::full(&log_file_name)?.to_string());
+    // TODO: delete log files older than, e.g. one week.
+
+    let _guard = env_tracing_logger::initiate_logging(Some(&log_file_name), args.disable_console)
+        .map_err(|e| anyhow::anyhow!("error initiating logging: {e}"))?;
+
+    let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+    tracing::info!("{} {}", "run", version);
+    tracing::debug!("{:?}", cfg);
 
     let camera_configs = cfg
         .cameras

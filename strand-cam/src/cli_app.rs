@@ -10,7 +10,7 @@ use crate::{run_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs
 
 use crate::APP_INFO;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 pub fn cli_main<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
@@ -25,13 +25,12 @@ where
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
-            "strand_cam=info,flydra_feature_detector=info,rt_image_viewer=info,error",
+            "strand_cam=info,flydra_feature_detector=info,rt_image_viewer=info,warn",
         );
     }
 
-    env_tracing_logger::init();
+    let args = parse_args(app_name).with_context(|| format!("parsing args"))?;
 
-    let args = parse_args(app_name)?;
     run_app(mymod, args, app_name)
 }
 
@@ -214,7 +213,8 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
     };
 
     let secret = matches
-        .get_one::<String>("strand_cam_cookie_secret").cloned()
+        .get_one::<String>("strand_cam_cookie_secret")
+        .cloned()
         .clone();
 
     let mkv_filename_template = matches

@@ -1,9 +1,4 @@
-use tracing::subscriber::SetGlobalDefaultError;
-use tracing_subscriber::{
-    fmt::{self, time},
-    prelude::*,
-    EnvFilter,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 struct Guard {}
 
@@ -12,23 +7,36 @@ impl Drop for Guard {
 }
 
 pub fn init() -> impl Drop {
-    init_result()
-        .map_err(|e| e.1)
-        .expect("Could not set global default")
+    initiate_logging::<&str>(None, false).unwrap()
 }
 
-fn init_result() -> Result<impl Drop, (impl Drop, tracing::subscriber::SetGlobalDefaultError)> {
-    let evt_fmt = tracing_subscriber::fmt::format()
-        .with_timer(time::Uptime::default())
-        .compact();
-    let fmt_layer = fmt::layer().event_format(evt_fmt);
+/// Start logging to file and console, both optional.
+pub fn initiate_logging<P: AsRef<std::path::Path>>(
+    path: Option<P>,
+    disable_console: bool,
+) -> Result<impl Drop, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let file_layer = if let Some(path) = path {
+        let file = std::fs::File::create(path)?;
+        let file_writer = std::sync::Mutex::new(file);
+        Some(
+            tracing_subscriber::fmt::layer()
+                .with_writer(file_writer)
+                .with_ansi(false),
+        )
+    } else {
+        None
+    };
 
-    tracing_subscriber::registry()
-        .with(fmt_layer)
-        .with(EnvFilter::from_default_env())
-        .init();
+    let console_layer = if disable_console {
+        None
+    } else {
+        Some(fmt::layer().with_timer(tracing_subscriber::fmt::time::Uptime::default()))
+    };
 
-    let _guard = Guard {};
-
-    Ok::<_, (Guard, SetGlobalDefaultError)>(_guard)
+    let collector = tracing_subscriber::registry()
+        .with(file_layer)
+        .with(console_layer)
+        .with(tracing_subscriber::filter::EnvFilter::from_default_env());
+    tracing::subscriber::set_global_default(collector)?;
+    Ok(Guard {})
 }
