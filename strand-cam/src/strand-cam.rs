@@ -4763,7 +4763,7 @@ where
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
                 control.stop();
                 while !control.is_done() {
-                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 }
                 info!("camera thread stopped");
                 join_handle.join().expect("join camera thread");
@@ -4777,11 +4777,14 @@ where
         }
     };
 
-    if !args.no_browser {
-        // sleep to let the webserver start before opening browser
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    let (launched_tx, mut launched_rx) = tokio::sync::watch::channel(());
 
-        open_browser(format!("{url}"))?;
+    if !args.no_browser {
+        tokio::spawn(async move {
+            // Let the webserver start before opening browser.
+            let _ = launched_rx.changed().await.unwrap();
+            open_browser(format!("{url}")).unwrap();
+        });
     }
 
     let connection_callback_rx = rx_new_connection;
@@ -4982,6 +4985,7 @@ where
 
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
+    launched_tx.send(())?;
     tokio::select! {
         res = http_serve_future => {res?},
         res = cam_arg_future => {res?},
