@@ -438,6 +438,29 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     //     })
     // }
 
+    fn command_execute(&self, name: &str, _verify: bool) -> ci2::Result<()> {
+        self.camera.lock().command_run(name).map_vimba_err()
+    }
+
+    fn feature_bool(&self, name: &str) -> ci2::Result<bool> {
+        self.camera.lock().feature_boolean(name).map_vimba_err()
+    }
+
+    fn feature_bool_set(&self, name: &str, value: bool) -> ci2::Result<()> {
+        self.camera
+            .lock()
+            .feature_boolean_set(name, value)
+            .map_vimba_err()
+    }
+
+    fn feature_enum(&self, name: &str) -> ci2::Result<String> {
+        self.camera
+            .lock()
+            .feature_enum(name)
+            .map_vimba_err()
+            .map(Into::into)
+    }
+
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
         self.camera
             .lock()
@@ -447,6 +470,24 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
 
     fn feature_float(&self, name: &str) -> ci2::Result<f64> {
         self.camera.lock().feature_float(name).map_vimba_err()
+    }
+
+    fn feature_float_set(&self, name: &str, value: f64) -> ci2::Result<()> {
+        self.camera
+            .lock()
+            .feature_float_set(name, value)
+            .map_vimba_err()
+    }
+
+    fn feature_int(&self, name: &str) -> ci2::Result<i64> {
+        self.camera.lock().feature_int(name).map_vimba_err()
+    }
+
+    fn feature_int_set(&self, name: &str, value: i64) -> ci2::Result<()> {
+        self.camera
+            .lock()
+            .feature_int_set(name, value)
+            .map_vimba_err()
     }
 
     // ----- end: weakly typed but easier to implement API -----

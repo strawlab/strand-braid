@@ -503,6 +503,42 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     //     todo!();
     // }
 
+    fn command_execute(&self, name: &str, verify: bool) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .command_node(name)
+            .map_pylon_err()?
+            .execute(verify)
+            .map_pylon_err()
+    }
+
+    fn feature_bool(&self, name: &str) -> ci2::Result<bool> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .boolean_node(name)
+            .map_pylon_err()?
+            .value()
+            .map_pylon_err()
+    }
+
+    fn feature_bool_set(&self, name: &str, value: bool) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .boolean_node(name)
+            .map_pylon_err()?
+            .set_value(value)
+            .map_pylon_err()
+    }
+
+    fn feature_enum(&self, name: &str) -> ci2::Result<String> {
+        let camera = self.inner.lock();
+        let node = camera.node_map().enum_node(name).map_pylon_err()?;
+        node.value().map_pylon_err()
+    }
+
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
         let camera = self.inner.lock();
         let mut node = camera.node_map().enum_node(name).map_pylon_err()?;
@@ -517,6 +553,36 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             .float_node(name)
             .map_pylon_err()?
             .value()
+            .map_pylon_err()
+    }
+
+    fn feature_float_set(&self, name: &str, value: f64) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .float_node(name)
+            .map_pylon_err()?
+            .set_value(value)
+            .map_pylon_err()
+    }
+
+    fn feature_int(&self, name: &str) -> ci2::Result<i64> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .integer_node(name)
+            .map_pylon_err()?
+            .value()
+            .map_pylon_err()
+    }
+
+    fn feature_int_set(&self, name: &str, value: i64) -> ci2::Result<()> {
+        let camera = self.inner.lock();
+        camera
+            .node_map()
+            .integer_node(name)
+            .map_pylon_err()?
+            .set_value(value)
             .map_pylon_err()
     }
 

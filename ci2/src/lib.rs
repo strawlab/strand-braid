@@ -133,8 +133,15 @@ pub trait Camera: CameraInfo {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> Result<AccessQueryResult>;
+    fn command_execute(&self, name: &str, verify: bool) -> Result<()>;
+    fn feature_bool(&self, name: &str) -> Result<bool>;
+    fn feature_bool_set(&self, name: &str, value: bool) -> Result<()>;
+    fn feature_enum(&self, name: &str) -> Result<String>;
     fn feature_enum_set(&self, name: &str, value: &str) -> Result<()>;
     fn feature_float(&self, name: &str) -> Result<f64>;
+    fn feature_float_set(&self, name: &str, value: f64) -> Result<()>;
+    fn feature_int(&self, name: &str) -> Result<i64>;
+    fn feature_int_set(&self, name: &str, value: i64) -> Result<()>;
 
     // ----- end: weakly typed but easier to implement API -----
 

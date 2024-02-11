@@ -484,6 +484,14 @@ impl<'lib> Camera<'lib> {
         Ok(result)
     }
 
+    pub fn feature_int_set(&self, feature_name: &str, value: i64) -> Result<()> {
+        let data = std::ffi::CString::new(feature_name)?;
+        vimba_call!(self
+            .vimba_lib
+            .VmbFeatureIntSet(self.handle, data.as_ptr(), value))?;
+        Ok(())
+    }
+
     pub fn feature_float(&self, feature_name: &str) -> Result<f64> {
         let mut result = 0.0;
         let data = std::ffi::CString::new(feature_name)?;
