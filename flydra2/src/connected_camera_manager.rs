@@ -373,6 +373,9 @@ impl ConnectedCamerasManager {
                     return None;
                 }
             }
+            TriggerType::DeviceTimestamp => {
+                todo!();
+            }
         };
         self.finish_got_new_frame_live(sync_data, send_new_frame_offset)
     }

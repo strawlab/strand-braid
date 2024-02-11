@@ -125,7 +125,9 @@ async fn main() -> Result<()> {
             false,
             flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.framerate),
         ),
-        TriggerType::PtpSync(_) => (false, flydra_types::StartSoftwareFrameRateLimit::NoChange),
+        TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
+            (false, flydra_types::StartSoftwareFrameRateLimit::NoChange)
+        }
     };
     let show_tracking_params = false;
 

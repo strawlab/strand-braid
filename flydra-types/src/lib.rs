@@ -198,8 +198,8 @@ pub struct RemoteCameraInfoResponse {
     pub config: BraidCameraConfig,
     pub force_camera_sync_mode: bool,
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
-    /// PTP sync configuration (global for all cameras)
-    pub ptp_sync_config: Option<PtpSyncConfig>,
+    /// camera triggering configuration (global for all cameras)
+    pub trig_config: TriggerType,
 }
 
 /// Newtype storing time as number of nanoseconds since Jan 1, 1970 in UTC.
@@ -447,7 +447,8 @@ impl ConnectedCameraSyncState {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BraidHttpApiSharedState {
     pub trigger_type: TriggerType,
-    pub clock_model_copy: Option<ClockModel>,
+    pub needs_clock_model: bool,
+    pub clock_model: Option<ClockModel>,
     pub csv_tables_dirname: Option<RecordingPath>,
     // This is "fake" because it only signals if each of the connected computers
     // is recording MKVs.
@@ -1052,7 +1053,7 @@ pub use cam_num::CamNum;
 
 mod timestamp;
 pub use crate::timestamp::{
-    get_start_ts, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
+    triggerbox_time, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
 };
 
 pub mod timestamp_f64;
@@ -1208,6 +1209,7 @@ pub enum TriggerType {
     TriggerboxV1(TriggerboxConfig),
     /// Cameras are synchronized using PTP (Precision Time Protocol, IEEE 1588).
     PtpSync(PtpSyncConfig),
+    DeviceTimestamp,
     /// Cameras are not synchronized, but we pretend they are.
     FakeSync(FakeSyncConfig),
 }

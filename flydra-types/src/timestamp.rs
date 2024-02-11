@@ -14,7 +14,7 @@ use chrono::Utc;
 pub trait Source {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Triggerbox;
+pub struct Triggerbox; // Actually, this is not neccesarily from triggerbox. TODO: should rename to "CleverComputation" or something.
 impl Source for Triggerbox {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,6 +45,16 @@ impl<S, TZ: chrono::TimeZone> From<&chrono::DateTime<TZ>> for FlydraFloatTimesta
 impl<S, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloatTimestampLocal<S> {
     fn from(val: chrono::DateTime<TZ>) -> FlydraFloatTimestampLocal<S> {
         FlydraFloatTimestampLocal::from_dt(&val)
+    }
+}
+
+impl TryFrom<PtpStamp> for FlydraFloatTimestampLocal<Triggerbox> {
+    type Error = &'static str;
+    fn try_from(
+        val: PtpStamp,
+    ) -> std::result::Result<FlydraFloatTimestampLocal<Triggerbox>, &'static str> {
+        let dt: chrono::DateTime<chrono::Utc> = val.try_into()?;
+        Ok(FlydraFloatTimestampLocal::from_dt(&dt))
     }
 }
 
@@ -95,7 +105,7 @@ impl<S> FlydraFloatTimestampLocal<S> {
 /// (which maps the particular frame numbers for a given camera into a
 /// synchronized frame number).
 #[inline]
-pub fn get_start_ts(
+pub fn triggerbox_time(
     clock_model: Option<&ClockModel>,
     frame_offset: Option<u64>,
     frame: usize,

@@ -14,7 +14,7 @@ use web_sys::{Event, EventSource, MessageEvent};
 use flydra_types::{
     BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
 };
-use rust_cam_bui_types::{ClockModel, RecordingPath};
+use rust_cam_bui_types::RecordingPath;
 
 use yew::prelude::*;
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
@@ -255,9 +255,12 @@ impl Model {
 
     fn view_shared(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref value) = self.shared {
-            let record_widget = if value.all_expected_cameras_are_synced
-                && value.clock_model_copy.is_some()
-            {
+            let clock_model_ready = if value.needs_clock_model {
+                value.clock_model.is_some()
+            } else {
+                true
+            };
+            let record_widget = if value.all_expected_cameras_are_synced && clock_model_ready {
                 html! {
                     <div>
                         <div>
@@ -300,7 +303,7 @@ impl Model {
                     {fake_sync_warning}
                     <div>
                         {record_widget}
-                        {view_clock_model(&value.clock_model_copy)}
+                        {view_clock_model(&value)}
                         {view_calibration(&value.calibration_filename)}
                         {view_cam_list(&value.connected_cameras)}
                         {view_model_server_link(&value.model_server_addr)}
@@ -336,23 +339,27 @@ impl Model {
     }
 }
 
-fn view_clock_model(clock_model: &Option<ClockModel>) -> Html {
-    if let Some(ref cm) = clock_model {
-        html! {
-            <div>
-                <p>
-                    {format!("trigger device clock model: {:?}", cm)}
-                </p>
-            </div>
+fn view_clock_model(shared: &BraidHttpApiSharedState) -> Html {
+    if shared.needs_clock_model {
+        if let Some(ref cm) = shared.clock_model {
+            html! {
+                <div>
+                    <p>
+                        {format!("trigger device clock model: {:?}", cm)}
+                    </p>
+                </div>
+            }
+        } else {
+            html! {
+                <div>
+                    <p>
+                        {"No trigger device clock model."}
+                    </p>
+                </div>
+            }
         }
     } else {
-        html! {
-            <div>
-                <p>
-                    {"No trigger device clock model."}
-                </p>
-            </div>
-        }
+        html! {}
     }
 }
 

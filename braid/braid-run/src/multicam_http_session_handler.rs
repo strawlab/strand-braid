@@ -262,12 +262,13 @@ impl StrandCamHttpSessionHandler {
     ) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
-            self.send_clock_model(cam_name, clock_model.clone()).await?;
+            self.send_triggerbox_clock_model(cam_name, clock_model.clone())
+                .await?;
         }
         Ok(())
     }
 
-    pub(crate) async fn send_clock_model(
+    pub(crate) async fn send_triggerbox_clock_model(
         &self,
         cam_name: &RawCamName,
         clock_model: Option<rust_cam_bui_types::ClockModel>,
@@ -279,7 +280,7 @@ impl StrandCamHttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::SetClockModel(clock_model);
+        let args = ci2_remote_control::CamArg::SetTriggerboxClockModel(clock_model);
         self.post(&cam_name, args).await
     }
 

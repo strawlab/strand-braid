@@ -174,20 +174,14 @@ async fn remote_camera_info_handler(
     if let Some(config) = cam_cfg {
         let software_limit_framerate = app_state.software_limit_framerate.clone();
 
-        let ptp_sync_config = if let TriggerType::PtpSync(cfg) =
-            &app_state.shared_store.read().as_ref().trigger_type
-        {
-            Some(cfg.clone())
-        } else {
-            None
-        };
+        let trig_config = app_state.shared_store.read().as_ref().trigger_type.clone();
 
         let msg = flydra_types::RemoteCameraInfoResponse {
             camdata_addr: app_state.public_camdata_addr,
             config: config.clone(),
             force_camera_sync_mode: app_state.force_camera_sync_mode,
             software_limit_framerate,
-            ptp_sync_config,
+            trig_config,
         };
         Ok(axum::Json(msg))
     } else {
@@ -640,7 +634,14 @@ pub(crate) async fn do_run_forever(
             let (tx, rx) = tokio::sync::mpsc::channel(20);
             (Some(tx), Some(rx))
         }
-        TriggerType::FakeSync(_) | TriggerType::PtpSync(_) => (None, None),
+        TriggerType::FakeSync(_) | TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
+            (None, None)
+        }
+    };
+
+    let needs_clock_model = match &trigger_cfg {
+        TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => true,
+        TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => false,
     };
 
     let sync_pulse_pause_started: Option<std::time::Instant> = None;
@@ -653,12 +654,13 @@ pub(crate) async fn do_run_forever(
         csv_tables_dirname: None,
         fake_mp4_recording_path: None,
         post_trigger_buffer_size: 0,
-        clock_model_copy: None,
+        clock_model: None,
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
         connected_cameras: Vec::new(),
         model_server_addr: None,
         flydra_app_name,
         all_expected_cameras_are_synced: false,
+        needs_clock_model,
     };
     let shared_store = ChangeTracker::new(shared);
     let mut shared_store_changes_rx = shared_store.get_changes(1);
@@ -802,34 +804,43 @@ pub(crate) async fn do_run_forever(
         let time_model_arc = time_model_arc.clone();
         let strand_cam_http_session_handler = strand_cam_http_session_handler.clone();
         let tracker = tracker.clone();
+        let trigger_cfg = trigger_cfg.clone();
         Box::new(move |tm1: Option<braid_triggerbox::ClockModel>| {
-            let tm = tm1.map(|x| rust_cam_bui_types::ClockModel {
-                gain: x.gain,
-                offset: x.offset,
-                n_measurements: x.n_measurements,
-                residuals: x.residuals,
-            });
-            let cm = tm.clone();
-            {
-                let mut guard = time_model_arc.write();
-                *guard = tm;
-            }
-            {
-                let mut tracker_guard = tracker.write();
-                tracker_guard.modify(|shared| shared.clock_model_copy = cm.clone());
-            }
-            let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
-            tokio::spawn(async move {
-                let r = strand_cam_http_session_handler2
-                    .send_clock_model_to_all(cm)
-                    .await;
-                match r {
-                    Ok(_http_response) => {}
-                    Err(e) => {
-                        error!("error sending clock model: {}", e);
+            match &trigger_cfg {
+                TriggerType::FakeSync(_) | TriggerType::TriggerboxV1(_) => {
+                    let tm = tm1.map(|x| rust_cam_bui_types::ClockModel {
+                        gain: x.gain,
+                        offset: x.offset,
+                        n_measurements: x.n_measurements,
+                        residuals: x.residuals,
+                    });
+                    let cm = tm.clone();
+                    {
+                        let mut guard = time_model_arc.write();
+                        *guard = tm;
                     }
-                };
-            });
+                    {
+                        let mut tracker_guard = tracker.write();
+                        tracker_guard.modify(|shared| shared.clock_model = cm.clone());
+                    }
+                    let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
+                    tokio::spawn(async move {
+                        let r = strand_cam_http_session_handler2
+                            .send_clock_model_to_all(cm)
+                            .await;
+                        match r {
+                            Ok(_http_response) => {}
+                            Err(e) => {
+                                error!("error sending clock model: {}", e);
+                            }
+                        };
+                    });
+                }
+                TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
+                    // no central clock model
+                    panic!("No need for clock model.");
+                }
+            }
         })
     };
 
@@ -915,14 +926,14 @@ pub(crate) async fn do_run_forever(
                 residuals: 0.0,
             }));
         }
-        TriggerType::PtpSync(_) => {
-            // With PTP we simply trust the clocks. How simple.
-            (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
-                gain: 1.0,
-                n_measurements: 0,
-                offset: 0.0,
-                residuals: 0.0,
-            }));
+        TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
+            // // We simply trust the clocks. How simple.
+            // (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
+            //     gain: 1.0,
+            //     n_measurements: 0,
+            //     offset: 0.0,
+            //     residuals: 0.0,
+            // }));
         }
     };
 

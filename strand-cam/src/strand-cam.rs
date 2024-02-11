@@ -61,7 +61,8 @@ use ci2_remote_control::{
 #[cfg(feature = "flydratrax")]
 use flydra_types::BuiServerAddrInfo;
 use flydra_types::{
-    BuiServerInfo, RawCamName, RealtimePointsDestAddr, StartSoftwareFrameRateLimit,
+    BuiServerInfo, FlydraFloatTimestampLocal, PtpStamp, RawCamName, RealtimePointsDestAddr,
+    StartSoftwareFrameRateLimit, TriggerType,
 };
 
 use flydra_feature_detector_types::ImPtDetectCfg;
@@ -83,7 +84,7 @@ use strand_cam_storetype::{
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
 #[cfg(feature = "flydratrax")]
-use flydra_types::{FlydraFloatTimestampLocal, HostClock, SyncFno, Triggerbox};
+use flydra_types::{HostClock, SyncFno, Triggerbox};
 
 #[cfg(feature = "flydratrax")]
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
@@ -130,8 +131,10 @@ const BRAID_COOKIE_KEY: &str = "braid-cookie";
 #[cfg(feature = "flydratrax")]
 mod flydratrax_handle_msg;
 
+mod clock_model;
 mod datagram_socket;
 mod post_trigger_buffer;
+
 use datagram_socket::DatagramSocket;
 
 pub mod cli_app;
@@ -148,6 +151,8 @@ pub enum StrandCamError {
     StringError(String),
     #[error("error: {0}")]
     AnyhowError(#[from] anyhow::Error),
+    #[error("Could not fit clock model {0}")]
+    ClockModelFitError(String),
     #[error("no cameras found")]
     NoCamerasFound,
     #[error("IncompleteSend")]
@@ -403,7 +408,7 @@ pub(crate) enum Msg {
     #[cfg(feature = "flydra_feat_detect")]
     ClearBackground(f32),
     SetFrameOffset(u64),
-    SetClockModel(Option<rust_cam_bui_types::ClockModel>),
+    SetTriggerboxClockModel(Option<rust_cam_bui_types::ClockModel>),
     StartAprilTagRec(String),
     StopAprilTagRec,
 }
@@ -691,6 +696,9 @@ async fn frame_process_task(
     >,
     frame_info_extractor: &dyn ci2::ExtractFrameInfo,
     #[cfg(feature = "flydra_feat_detect")] app_name: &'static str,
+    device_clock_model: Option<rust_cam_bui_types::ClockModel>,
+    local_and_cam_time0: Option<(u64, u64)>,
+    trigger_type: Option<TriggerType>,
 ) -> anyhow::Result<()> {
     let my_runtime: tokio::runtime::Handle = tokio::runtime::Handle::current();
 
@@ -868,7 +876,7 @@ async fn frame_process_task(
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
-    let mut opt_clock_model = None;
+    let mut triggerbox_clock_model = None;
     let mut opt_frame_offset = None;
 
     loop {
@@ -1222,20 +1230,50 @@ async fn frame_process_task(
             }
             Msg::Mframe(frame) => {
                 let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
-                let opt_trigger_stamp = flydra_types::get_start_ts(
-                    opt_clock_model.as_ref(),
-                    opt_frame_offset,
-                    extracted_frame_info.host_framenumber,
-                );
-                let (timestamp_source, save_mp4_fmf_stamp) =
-                    if let Some(trigger_timestamp) = &opt_trigger_stamp {
-                        (TimestampSource::BraidTrigger, trigger_timestamp.into())
-                    } else {
-                        (
-                            TimestampSource::HostAcquiredTimestamp,
-                            extracted_frame_info.host_timestamp,
+                let device_timestamp = extracted_frame_info.device_timestamp;
+                let block_id = extracted_frame_info.frame_id;
+
+                // Compute, as cleverly as possible, a timestamp.
+                let braid_ts = match trigger_type {
+                    Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
+                        flydra_types::triggerbox_time(
+                            triggerbox_clock_model.as_ref(),
+                            opt_frame_offset,
+                            extracted_frame_info.host_framenumber,
                         )
-                    };
+                    }
+                    Some(TriggerType::PtpSync(_)) => {
+                        let ptp_stamp = PtpStamp::new(device_timestamp.unwrap().get());
+                        Some(ptp_stamp.try_into().unwrap())
+                    }
+                    Some(TriggerType::DeviceTimestamp) => {
+                        let cm = device_clock_model.as_ref().unwrap();
+                        let this_local_and_cam_time0 = local_and_cam_time0.as_ref().unwrap();
+                        let (local_time0, cam_time0) = this_local_and_cam_time0;
+                        let device_timestamp = device_timestamp.unwrap().get();
+                        let device_elapsed_nanos = device_timestamp - cam_time0;
+                        let local_elapsed_nanos: f64 =
+                            (device_elapsed_nanos as f64) * cm.gain + cm.offset;
+                        // let ts: f64 = (device_timestamp as f64) * cm.gain + cm.offset;
+                        dbg!((local_elapsed_nanos, device_timestamp, &cm));
+
+                        let local_nanos = local_time0 + local_elapsed_nanos.round() as u64;
+                        let local: chrono::DateTime<chrono::Utc> =
+                            PtpStamp::new(local_nanos).try_into().unwrap();
+                        let x = FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(local);
+                        dbg!(&x);
+                        Some(x)
+                    }
+                    None => None,
+                };
+                let (timestamp_source, save_mp4_fmf_stamp) = if let Some(stamp) = &braid_ts {
+                    (TimestampSource::BraidTrigger, stamp.into())
+                } else {
+                    (
+                        TimestampSource::HostAcquiredTimestamp,
+                        extracted_frame_info.host_timestamp,
+                    )
+                };
 
                 if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
                     if let Some(ref mut store) = shared_store_arc {
@@ -1521,12 +1559,9 @@ async fn frame_process_task(
                         }
                     }
 
-                    let device_timestamp = extracted_frame_info.device_timestamp;
-                    let block_id = extracted_frame_info.frame_id;
-
                     #[cfg(not(feature = "flydra_feat_detect"))]
                     {
-                        use flydra_types::{FlydraFloatTimestampLocal, ImageProcessingSteps};
+                        use flydra_types::ImageProcessingSteps;
 
                         // In case we are not doing flydra feature detection, send frame data to braid anyway.
                         let process_new_frame_start = chrono::Utc::now();
@@ -1539,7 +1574,7 @@ async fn frame_process_task(
 
                         let tracker_annotation = flydra_types::FlydraRawUdpPacket {
                             cam_name: raw_cam_name.as_str().to_string(),
-                            timestamp: opt_trigger_stamp,
+                            timestamp: braid_ts,
                             cam_received_time: acquire_stamp,
                             device_timestamp,
                             block_id,
@@ -1574,7 +1609,7 @@ async fn frame_process_task(
                                     inner_ufmf_state,
                                     device_timestamp,
                                     block_id,
-                                    opt_trigger_stamp,
+                                    braid_ts,
                                 )?;
                             if let Some(ref coord_socket) = coord_socket {
                                 // Send the data to the mainbrain
@@ -2098,8 +2133,8 @@ async fn frame_process_task(
                     im_tracker.set_frame_offset(fo);
                 }
             }
-            Msg::SetClockModel(cm) => {
-                opt_clock_model = cm;
+            Msg::SetTriggerboxClockModel(cm) => {
+                triggerbox_clock_model = cm;
             }
             Msg::StopMp4 => {
                 if let Some(mut inner) = my_mp4_writer.take() {
@@ -2399,7 +2434,7 @@ struct ProcessFrameCbData {}
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub enum TimestampSource {
-    BraidTrigger,
+    BraidTrigger, // TODO: rename to CleverComputation or similar
     HostAcquiredTimestamp,
 }
 
@@ -3252,10 +3287,10 @@ where
         Err(a) => a.software_limit_framerate.clone(),
     };
 
-    let (mut mainbrain_session, ptpcfg) = match res_braid {
+    let (mut mainbrain_session, trigger_type) = match res_braid {
         Ok(bi) => (
             Some(bi.mainbrain_session),
-            bi.config_from_braid.ptp_sync_config,
+            Some(bi.config_from_braid.trig_config),
         ),
         Err(_a) => (None, None),
     };
@@ -3286,9 +3321,88 @@ where
     };
 
     const PERIOD_NAME: &str = "BslPeriodicSignalPeriod";
-    if let Some(val) = ptpcfg.as_ref().and_then(|c| c.periodic_signal_period_usec) {
-        cam.feature_float_set(PERIOD_NAME, val)?;
+
+    let mut local_remote = Vec::new();
+    let mut local_time0 = None;
+    let mut cam_time0 = None;
+    let mut device_clock_model = None;
+
+    match &trigger_type {
+        Some(TriggerType::PtpSync(ptpcfg)) => {
+            if let Some(period) = ptpcfg.periodic_signal_period_usec {
+                cam.feature_float_set(PERIOD_NAME, period)?;
+            }
+            cam.feature_bool_set("PtpEnable", true)?;
+            loop {
+                cam.command_execute("PtpDataSetLatch", true)?;
+                let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
+                tracing::debug!("PTP clock offset {ptp_offset_from_master} microseconds.");
+                if ptp_offset_from_master.abs() < 1_000_000 {
+                    // if within 1 millisecond from master, call it good enough.
+                    break;
+                }
+                tracing::warn!(
+                    "PTP clock offset {ptp_offset_from_master} microseconds, waiting \
+                    for convergence."
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+            }
+            tracing::info!("PTP clock within threshold from master.");
+        }
+        Some(TriggerType::DeviceTimestamp) => {
+            // Attempt to relate camera timestamps to our clock
+            tracing::info!("Reading camera timestamps to fit initial clock model.");
+
+            let n_pts = 5;
+            let mut tmp_debug_device_timestamp = None;
+            for i in 0..n_pts {
+                let (local, cam_time) = measure_times(&cam)?;
+                tmp_debug_device_timestamp.get_or_insert(cam_time);
+                let local_time_nanos = flydra_types::PtpStamp::try_from(local).unwrap().get();
+                local_time0.get_or_insert(local_time_nanos);
+                let cam_time_ts = flydra_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
+                cam_time0.get_or_insert(cam_time_ts);
+
+                let this_local_time0 = local_time0.as_ref().unwrap();
+                let this_cam_time0 = cam_time0.as_ref().unwrap();
+                // dbg!(&local_time_nanos);
+                // dbg!(&local_time_secs);
+                let local_elapsed_nanos = local_time_nanos - this_local_time0;
+                let device_elapsed_nanos = cam_time_ts - this_cam_time0;
+                local_remote.push((device_elapsed_nanos as f64, local_elapsed_nanos as f64));
+                // local_remote.push((cam_time_ts as f64, local_ts as f64));
+                if i < n_pts - 1 {
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+            }
+            let (gain, offset, residuals) = clock_model::fit_time_model(&local_remote)?;
+            dbg!((gain, offset, residuals));
+
+            let cm = rust_cam_bui_types::ClockModel {
+                gain,
+                offset,
+                residuals,
+                n_measurements: local_remote.len().try_into().unwrap(),
+            };
+
+            let device_timestamp: u64 = tmp_debug_device_timestamp.unwrap().try_into().unwrap();
+            let this_cam_time0 = cam_time0.as_ref().unwrap();
+            let device_elapsed_nanos = device_timestamp - this_cam_time0;
+            let local_estimate_elapsed_nanos: f64 =
+                (device_elapsed_nanos as f64) * cm.gain + cm.offset;
+
+            dbg!((local_estimate_elapsed_nanos, device_timestamp, &cm));
+            device_clock_model = Some(cm);
+        }
+        _ => {}
     }
+
+    let local_and_cam_time0 = if let Some(ct0) = cam_time0 {
+        let local_time0 = local_time0.as_ref().unwrap();
+        Some((*local_time0, ct0))
+    } else {
+        None
+    };
 
     let camera_periodic_signal_period_usec = {
         match cam.feature_float(PERIOD_NAME) {
@@ -3299,25 +3413,6 @@ where
             }
         }
     };
-
-    if ptpcfg.is_some() {
-        cam.feature_bool_set("PtpEnable", true)?;
-        loop {
-            cam.command_execute("PtpDataSetLatch", true)?;
-            let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
-            tracing::debug!("PTP clock offset {ptp_offset_from_master} microseconds.");
-            if ptp_offset_from_master.abs() < 1_000_000 {
-                // if within 1 millisecond from master, call it good enough.
-                break;
-            }
-            tracing::warn!(
-                "PTP clock offset {ptp_offset_from_master} microseconds, waiting \
-                for convergence."
-            );
-            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-        }
-        tracing::info!("PTP clock within threshold from master.");
-    }
 
     let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
@@ -3806,6 +3901,9 @@ where
             frame_info_extractor,
             #[cfg(feature = "flydra_feat_detect")]
             app_name,
+            device_clock_model,
+            local_and_cam_time0,
+            trigger_type,
         )
     };
     debug!("frame_process_task spawned");
@@ -4173,8 +4271,8 @@ where
                     CamArg::SetFrameOffset(fo) => {
                         tx_frame2.send(Msg::SetFrameOffset(fo)).await?;
                     }
-                    CamArg::SetClockModel(cm) => {
-                        tx_frame2.send(Msg::SetClockModel(cm)).await?;
+                    CamArg::SetTriggerboxClockModel(cm) => {
+                        tx_frame2.send(Msg::SetTriggerboxClockModel(cm)).await?;
                     }
                     CamArg::SetFormatStr(v) => {
                         let mut tracker = shared_store_arc.write();
@@ -5005,11 +5103,27 @@ where
                 plugin_streaming_jh.thread().name(),
                 plugin_streaming_jh.thread().id()
             );
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
     }
 
     Ok(mymod)
+}
+
+fn measure_times<C>(cam: &C) -> Result<(chrono::DateTime<chrono::Utc>, i64)>
+where
+    C: ci2::Camera,
+{
+    let start = chrono::Utc::now();
+    cam.command_execute("TimestampLatch", true)?;
+    let remote = cam.feature_int("TimestampLatchValue")?;
+    let stop = chrono::Utc::now();
+    let max_err = stop - start;
+    // assume symmetric delay
+    let remote_offset_symmetric = max_err / 2;
+    let remote_in_local = start + remote_offset_symmetric;
+    tracing::debug!("Camera timestamp: {remote_in_local} {remote} {max_err}.");
+    Ok((remote_in_local, remote))
 }
 
 #[cfg(feature = "plugin-process-frame")]

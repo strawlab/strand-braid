@@ -633,13 +633,13 @@ impl FlydraFeatureDetector {
         ufmf_state: UfmfState,
         device_timestamp: Option<std::num::NonZeroU64>,
         block_id: Option<std::num::NonZeroU64>,
-        opt_trigger_stamp: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
+        braid_ts: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
-        let acquire_duration = match opt_trigger_stamp {
+        let acquire_duration = match braid_ts {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside
                 // the camera driver.
@@ -709,7 +709,7 @@ impl FlydraFeatureDetector {
         // Create empty packet for results on this frame, add found points later.
         let mut packet = FlydraRawUdpPacket {
             cam_name: self.raw_cam_name.as_str().to_string(),
-            timestamp: opt_trigger_stamp,
+            timestamp: braid_ts,
             cam_received_time: acquire_stamp,
             device_timestamp,
             block_id,

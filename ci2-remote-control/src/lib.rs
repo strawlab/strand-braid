@@ -391,7 +391,7 @@ pub enum CamArg {
     CamArgSetKalmanTrackingConfig(String),
     CamArgSetLedProgramConfig(String),
     SetFrameOffset(u64),
-    SetClockModel(Option<ClockModel>),
+    SetTriggerboxClockModel(Option<ClockModel>),
     SetFormatStr(String),
     ToggleCheckerboardDetection(bool),
     ToggleCheckerboardDebug(bool),
