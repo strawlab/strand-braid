@@ -29,7 +29,7 @@ use flydra_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
     BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
     FlydraFloatTimestampLocal, HostClock, PerCamSaveData, RawCamName, SyncFno, TriggerType,
-    Triggerbox, BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME,
+    Triggerbox, BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
@@ -54,7 +54,6 @@ pub(crate) const APP_INFO: AppInfo = AppInfo {
 const COOKIE_SECRET_KEY: &str = "cookie-secret-base64";
 pub(crate) const STRAND_CAM_COOKIE_KEY: &str = "strand-cam-cookie";
 
-const SYNCHRONIZE_DURATION_SEC: u8 = 3;
 type SharedStore = Arc<RwLock<ChangeTracker<BraidHttpApiSharedState>>>;
 
 #[derive(thiserror::Error, Debug)]
@@ -1039,17 +1038,6 @@ pub(crate) async fn do_run_forever(
             let raw_cam_name = RawCamName::new(packet.cam_name.clone());
             live_stats_collector2.register_new_frame_data(&raw_cam_name, packet.points.len());
 
-            let sync_time_min = match &trigger_cfg {
-                TriggerType::TriggerboxV1(_) => {
-                    // Using trigger box
-                    std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64)
-                }
-                TriggerType::FakeSync(_) | TriggerType::PtpSync(_) => {
-                    // Using fake trigger
-                    std::time::Duration::from_secs(0)
-                }
-            };
-
             // Create closure which is called only if there is a new frame offset
             // (which occurs upon synchronization).
             let send_new_frame_offset = |frame| {
@@ -1072,8 +1060,6 @@ pub(crate) async fn do_run_forever(
             let synced_frame = cam_manager2.got_new_frame_live(
                 &packet,
                 &sync_pulse_pause_started_arc,
-                sync_time_min,
-                std::time::Duration::from_secs(SYNCHRONIZE_DURATION_SEC as u64 + 2),
                 send_new_frame_offset,
                 &trigger_cfg,
             );
@@ -1377,10 +1363,7 @@ async fn begin_cam_sync_triggerbox_in_process(
     info!("requesting triggerbox to stop sending pulses");
     use braid_triggerbox::Cmd::*;
     tx.send(StopPulsesAndReset).await?;
-    tokio::time::sleep(std::time::Duration::from_secs(
-        SYNCHRONIZE_DURATION_SEC as u64,
-    ))
-    .await;
+    tokio::time::sleep(std::time::Duration::from_secs(TRIGGERBOX_SYNC_SECONDS)).await;
     tx.send(StartPulses).await?;
     info!("requesting triggerbox to start sending pulses again");
     Ok(())

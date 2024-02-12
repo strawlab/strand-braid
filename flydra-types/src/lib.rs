@@ -46,6 +46,8 @@ pub const FEATURE_DETECT_SETTINGS_DIRNAME: &str = "feature_detect_settings";
 pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
 pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
 
+pub const TRIGGERBOX_SYNC_SECONDS: u64 = 3;
+
 // Ideas for future:
 //
 // Make tracking model and parameters "pluggable" so that other models - with

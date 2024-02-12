@@ -7,7 +7,7 @@ use tracing::{debug, error, info};
 use crate::{safe_u8, CamInfoRow, MyFloat};
 use flydra_types::{
     BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, PtpStamp, PtpSyncConfig, RawCamName,
-    RecentStats, SyncFno, TriggerType,
+    RecentStats, SyncFno, TriggerType, TRIGGERBOX_SYNC_SECONDS,
 };
 
 pub(crate) trait HasCameraList {
@@ -350,8 +350,6 @@ impl ConnectedCamerasManager {
         &self,
         packet: &flydra_types::FlydraRawUdpPacket,
         sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
-        sync_time_min: std::time::Duration,
-        sync_time_max: std::time::Duration,
         send_new_frame_offset: F,
         trigger_cfg: &TriggerType,
     ) -> Option<SyncFno>
@@ -359,13 +357,14 @@ impl ConnectedCamerasManager {
         F: FnMut(u64),
     {
         let sync_data = match &trigger_cfg {
-            TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => self
-                .got_new_frame_live_triggerbox(
-                    packet,
-                    sync_pulse_pause_started_arc,
-                    sync_time_min,
-                    sync_time_max,
-                ),
+            TriggerType::TriggerboxV1(_) => self.got_new_frame_live_triggerbox(
+                packet,
+                sync_pulse_pause_started_arc,
+                TRIGGERBOX_SYNC_SECONDS,
+            ),
+            TriggerType::FakeSync(_) => {
+                self.got_new_frame_live_triggerbox(packet, sync_pulse_pause_started_arc, 0)
+            }
             TriggerType::PtpSync(ptpcfg) => {
                 if let Some(sync_data) = self.got_new_frame_live_ptp(packet, ptpcfg) {
                     sync_data
@@ -385,10 +384,12 @@ impl ConnectedCamerasManager {
         &self,
         packet: &flydra_types::FlydraRawUdpPacket,
         sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
-        sync_time_min: std::time::Duration,
-        sync_time_max: std::time::Duration,
+        sync_time_min_sec: u64,
     ) -> SyncData {
         assert!(packet.framenumber >= 0);
+
+        let sync_time_min: std::time::Duration = std::time::Duration::from_secs(sync_time_min_sec);
+        let sync_time_max = std::time::Duration::from_secs(TRIGGERBOX_SYNC_SECONDS + 2);
 
         let raw_cam_name = RawCamName::new(packet.cam_name.clone());
 
