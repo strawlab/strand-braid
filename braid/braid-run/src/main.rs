@@ -39,6 +39,7 @@ fn compute_strand_cam_args(
 }
 
 fn launch_strand_cam(
+    strand_cam_set: &mut tokio::task::JoinSet<()>,
     camera: &BraidCameraConfig,
     mainbrain_internal_addr: &MainbrainBuiLocation,
 ) -> Result<()> {
@@ -61,8 +62,10 @@ fn launch_strand_cam(
     ));
     debug!("strand cam executable name: \"{}\"", exe.display());
 
+    let cam_name = camera.name.clone();
+
     let mut exec = std::process::Command::new(&exe);
-    let args = compute_strand_cam_args(camera, mainbrain_internal_addr)?;
+    let args = compute_strand_cam_args(&camera, mainbrain_internal_addr)?;
     exec.args(&args);
     debug!("exec: {:?}", exec);
     let mut obj = exec.spawn().context(format!(
@@ -71,11 +74,17 @@ fn launch_strand_cam(
     ))?;
     debug!("obj: {:?}", obj);
 
-    std::thread::spawn(move || {
+    let _abort_handle = strand_cam_set.spawn_blocking(move || {
         let exit_code = obj.wait().unwrap();
-        debug!("done. exit_code: {:?}", exit_code);
+        if !exit_code.success() {
+            tracing::error!(
+                "Strand Cam executable for {cam_name} exited with error {}",
+                exit_code.code().unwrap()
+            );
+        } else {
+            debug!("Strand Cam executable done.");
+        }
     });
-
     Ok(())
 }
 
@@ -143,23 +152,23 @@ async fn main() -> Result<()> {
     let mainbrain_internal_addr = MainbrainBuiLocation(mainbrain_server_info.clone());
 
     let cfg_cameras = cfg.cameras;
-    let _strand_cams = cfg_cameras
-        .into_iter()
-        .filter_map(|camera| {
-            if camera.start_backend != StartCameraBackend::Remote {
-                Some(launch_strand_cam(&camera, &mainbrain_internal_addr))
-            } else {
-                tracing::info!(
-                    "Not starting remote camera \"{}\". Use args: {}",
-                    camera.name,
-                    compute_strand_cam_args(&camera, &mainbrain_internal_addr)
-                        .unwrap()
-                        .join(" ")
-                );
-                None
-            }
-        })
-        .collect::<Result<Vec<()>>>()?;
+    let mut strand_cam_set = tokio::task::JoinSet::new();
+    for camera in cfg_cameras.into_iter() {
+        if camera.start_backend != StartCameraBackend::Remote {
+            launch_strand_cam(&mut strand_cam_set, &camera, &mainbrain_internal_addr)?;
+        } else {
+            tracing::info!(
+                "Not starting remote camera \"{}\". Use args: {}",
+                camera.name,
+                compute_strand_cam_args(&camera, &mainbrain_internal_addr)
+                    .unwrap()
+                    .join(" ")
+            );
+            // Insert dummy future that never completes so that the JoinSet does
+            // not complete.
+            strand_cam_set.spawn(std::future::pending());
+        }
+    }
 
     debug!("done launching cameras");
 
@@ -180,6 +189,7 @@ async fn main() -> Result<()> {
         "braid",
         listener,
         mainbrain_server_info,
+        strand_cam_set,
     )
     .await?;
 

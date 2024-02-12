@@ -504,6 +504,7 @@ pub(crate) async fn do_run_forever(
     saving_program_name: &str,
     listener: tokio::net::TcpListener,
     mainbrain_server_info: BuiServerAddrInfo,
+    mut strand_cam_set: tokio::task::JoinSet<()>,
 ) -> Result<()> {
     let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
     let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
@@ -1149,23 +1150,25 @@ pub(crate) async fn do_run_forever(
     let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
     info!("expected_framerate: {:?}", expected_framerate);
 
-    tokio::spawn(send_updates_future);
-    tokio::spawn(http_serve_future);
-
     coord_processor.add_listener(data_tx);
+    let coord_proc_fut = coord_processor.consume_stream(flydra2_stream, expected_framerate);
 
     // We "block" (in an async way) here for the entire runtime of the program.
-    let writer_jh = coord_processor
-        .consume_stream(flydra2_stream, expected_framerate)
-        .await;
-
-    // Allow writer task time to finish writing.
-    debug!("Runtime ending. Joining coord_processor.consume_stream future.");
-
-    writer_jh
-        .join()
-        .expect("join writer task 1")
-        .expect("join writer task 2");
+    // The first one of these to exit will end all of them. This should be
+    // `coord_proc_fut`.
+    tokio::select! {
+        _ = send_updates_future => {},
+        _ = http_serve_future => {},
+        _ = strand_cam_set.join_next() => {},
+        writer_jh = coord_proc_fut => {
+            // Allow writer task time to finish writing.
+            debug!("Runtime ending. Joining coord_processor.consume_stream future.");
+            writer_jh
+                .join()
+                .expect("join writer task 1")
+                .expect("join writer task 2");
+        },
+    };
 
     // If these tasks are still running, cancel them.
     debug!("Runtime ending. Aborting any remaining tasks.");
