@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 
 pub fn braid_start(_name: &str) -> Result<()> {
     dotenv::dotenv().ok();

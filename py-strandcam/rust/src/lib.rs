@@ -1,18 +1,16 @@
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::mem;
-use std::ptr;
-// use std::str;
-use anyhow::Error;
-use std::borrow::Cow;
 use std::os::raw::c_char;
+use std::ptr;
 
 use plugin_defs::{DataHandle, ProcessFrameFunc};
 
 thread_local! {
-    pub static LAST_ERROR: RefCell<Option<Error>> = RefCell::new(None);
+    pub static LAST_ERROR: RefCell<Option<eyre::Report>> = RefCell::new(None);
 }
 
-fn set_last_error(err: Error) {
+fn set_last_error(err: eyre::Report) {
     LAST_ERROR.with(|e| {
         *e.borrow_mut() = Some(err);
     });
@@ -28,7 +26,7 @@ pub enum StrandCamErrorCode {
 
 impl StrandCamErrorCode {
     /// This maps all errors that can possibly happen.
-    pub fn from_error(error: &Error) -> StrandCamErrorCode {
+    pub fn from_error(error: &eyre::Report) -> StrandCamErrorCode {
         for cause in error.chain() {
             if cause.downcast_ref::<Panic>().is_some() {
                 return StrandCamErrorCode::Panic;

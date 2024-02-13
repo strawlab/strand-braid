@@ -10,7 +10,7 @@ use crate::{run_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs
 
 use crate::APP_INFO;
 
-use anyhow::{Context, Result};
+use eyre::{eyre, Result, WrapErr};
 
 pub fn cli_main<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
@@ -48,10 +48,10 @@ fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32
                 let priority = priority.parse()?;
                 Ok(Some((policy, priority)))
             }
-            None => Err(anyhow::anyhow!(errstr)),
+            None => Err(eyre!(errstr)),
         },
         None => match matches.get_one::<String>("sched_priority") {
-            Some(_priority) => Err(anyhow::anyhow!(errstr)),
+            Some(_priority) => Err(eyre!(errstr)),
             None => Ok(None),
         },
     }
@@ -72,7 +72,7 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSo
     Ok(tracker_cfg_src)
 }
 
-fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
+fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let cli_args = get_cli_args();
 
     let arg_default_box: Box<StrandCamArgs> = Default::default();
@@ -219,17 +219,17 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
 
     let mkv_filename_template = matches
         .get_one::<String>("mkv_filename_template")
-        .ok_or_else(|| anyhow::anyhow!("expected mkv_filename_template"))?
+        .ok_or_else(|| eyre!("expected mkv_filename_template"))?
         .to_string();
 
     let fmf_filename_template = matches
         .get_one::<String>("fmf_filename_template")
-        .ok_or_else(|| anyhow::anyhow!("expected fmf_filename_template"))?
+        .ok_or_else(|| eyre!("expected fmf_filename_template"))?
         .to_string();
 
     let ufmf_filename_template = matches
         .get_one::<String>("ufmf_filename_template")
-        .ok_or_else(|| anyhow::anyhow!("expected ufmf_filename_template"))?
+        .ok_or_else(|| eyre!("expected ufmf_filename_template"))?
         .to_string();
 
     let camera_name: Option<String> = matches.get_one::<String>("camera_name").map(Into::into);
@@ -254,18 +254,18 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
             (Some(xml_fname), None) => crate::CalSource::XmlFile(PathBuf::from(xml_fname)),
             (None, Some(json_fname)) => crate::CalSource::PymvgJsonFile(PathBuf::from(json_fname)),
             (Some(_), Some(_)) => {
-                anyhow::bail!("Can only specify xml or pymvg calibration, not both.");
+                eyre::bail!("Can only specify xml or pymvg calibration, not both.");
             }
         }
     };
 
     let csv_save_dir = matches
         .get_one::<String>("csv_save_dir")
-        .ok_or_else(|| anyhow::anyhow!("expected csv_save_dir"))?
+        .ok_or_else(|| eyre!("expected csv_save_dir"))?
         .to_string();
 
     let csv_save_dir = shellexpand::full(&csv_save_dir)
-        .map_err(|e| anyhow::anyhow!("{}", e))?
+        .map_err(|e| eyre!("{}", e))?
         .into();
 
     let http_server_addr: Option<String> = matches
@@ -281,7 +281,7 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
     #[cfg(feature = "flydratrax")]
     let model_server_addr = matches
         .get_one::<String>("model_server_addr")
-        .ok_or_else(|| anyhow::anyhow!("expected model_server_addr"))?
+        .ok_or_else(|| eyre!("expected model_server_addr"))?
         .to_string()
         .parse()
         .unwrap();
@@ -302,7 +302,7 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
             // These values are not relevant or are set via
             // [flydra_types::RemoteCameraInfoResponse].
             if matches.contains_id(argname) {
-                anyhow::bail!(
+                eyre::bail!(
                     "'{argname}' cannot be set from the command line when calling \
                     strand-cam from braid.",
                 );
@@ -310,16 +310,14 @@ fn parse_args(app_name: &str) -> anyhow::Result<StrandCamArgs> {
         }
 
         if matches.get_count("force_camera_sync_mode") != 0 {
-            anyhow::bail!(
+            eyre::bail!(
                 "'force_camera_sync_mode' cannot be set from the command line when calling \
                 strand-cam from braid.",
             );
         }
 
         let camera_name = camera_name.ok_or_else(|| {
-            anyhow::anyhow!(
-                "camera name must be set using command-line argument when running with braid"
-            )
+            eyre!("camera name must be set using command-line argument when running with braid")
         })?;
 
         StandaloneOrBraid::Braid(BraidArgs {

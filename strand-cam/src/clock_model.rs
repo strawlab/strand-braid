@@ -1,8 +1,19 @@
 use nalgebra as na;
 
-use crate::Result;
+#[derive(Debug)]
+pub(crate) struct ClockModelFitError(String);
 
-pub(crate) fn fit_time_model(past_data: &[(f64, f64)]) -> Result<(f64, f64, f64)> {
+impl std::fmt::Display for ClockModelFitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "error fitting clock model: {}", self.0)
+    }
+}
+
+impl std::error::Error for ClockModelFitError {}
+
+pub(crate) fn fit_time_model(
+    past_data: &[(f64, f64)],
+) -> Result<(f64, f64, f64), ClockModelFitError> {
     use na::{OMatrix, OVector, U2};
 
     let mut a: Vec<f64> = Vec::with_capacity(past_data.len() * 2);
@@ -17,8 +28,7 @@ pub(crate) fn fit_time_model(past_data: &[(f64, f64)]) -> Result<(f64, f64, f64)
     let b = OVector::<f64, na::Dyn>::from_row_slice(&b);
 
     let epsilon = 1e-10;
-    let results = lstsq::lstsq(&a, &b, epsilon)
-        .map_err(|msg| crate::StrandCamError::ClockModelFitError(msg.into()))?;
+    let results = lstsq::lstsq(&a, &b, epsilon).map_err(|msg| ClockModelFitError(msg.into()))?;
 
     let gain = results.solution[0];
     let offset = results.solution[1];

@@ -604,10 +604,10 @@ pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<Remotely
 #[cfg(feature = "start-listener")]
 pub async fn start_listener(
     address_string: &str,
-) -> anyhow::Result<(tokio::net::TcpListener, BuiServerAddrInfo)> {
+) -> eyre::Result<(tokio::net::TcpListener, BuiServerAddrInfo)> {
     let socket_addr = std::net::ToSocketAddrs::to_socket_addrs(&address_string)?
         .next()
-        .ok_or_else(|| anyhow::anyhow!("no address found for HTTP server"))?;
+        .ok_or_else(|| eyre::eyre!("no address found for HTTP server"))?;
 
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
     let listener_local_addr = listener.local_addr()?;

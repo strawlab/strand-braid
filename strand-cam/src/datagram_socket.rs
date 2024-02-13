@@ -1,10 +1,7 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::net::UdpSocket;
 use tracing::{error, warn};
 
-use crate::StrandCamError;
+use eyre::Result;
 
 pub(crate) enum DatagramSocket {
     Udp(UdpSocket),
@@ -27,10 +24,7 @@ macro_rules! do_send {
         match $sock.send(&$data) {
             Ok(sz) => {
                 if sz != $data.len() {
-                    return Err(StrandCamError::IncompleteSend(
-                        #[cfg(feature = "backtrace")]
-                        Backtrace::capture(),
-                    ));
+                    eyre::bail!("incomplete send");
                 }
             }
             Err(err) => match err.kind() {
@@ -50,7 +44,7 @@ macro_rules! do_send {
 }
 
 impl DatagramSocket {
-    pub(crate) fn send_complete(&self, x: &[u8]) -> Result<(), StrandCamError> {
+    pub(crate) fn send_complete(&self, x: &[u8]) -> Result<()> {
         use DatagramSocket::*;
         match self {
             Udp(s) => do_send!(s, x),

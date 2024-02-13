@@ -33,7 +33,7 @@ use flydra_types::{
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-use anyhow::Result;
+use color_eyre::{eyre, Result};
 
 use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
 
@@ -361,7 +361,7 @@ async fn launch_braid_http_backend(
         use std::future::IntoFuture;
         axum::serve(listener, router)
             .into_future()
-            .map_err(anyhow::Error::from)
+            .map_err(eyre::Report::from)
     };
 
     // Display where we are listening.
@@ -525,7 +525,7 @@ pub(crate) async fn do_run_forever(
         info!("using calibration: {}", cal_fname.display());
 
         // read the calibration
-        let cal_file = anyhow::Context::with_context(std::fs::File::open(cal_fname), || {
+        let cal_file = eyre::WrapErr::with_context(std::fs::File::open(cal_fname), || {
             format!("loading calibration {}", cal_fname.display())
         })?;
 
@@ -894,7 +894,8 @@ pub(crate) async fn do_run_forever(
                 max_triggerbox_measurement_error,
                 sleep_dur,
             )
-            .await?;
+            .await
+            .map_err(|e| eyre::eyre!("on TriggerboxDevice::new: {e} {e:?}"))?;
             let query_dt2 = *query_dt;
             debug!("starting triggerbox task {}:{}", file!(), line!());
             let fut = async move {

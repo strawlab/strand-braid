@@ -12,7 +12,8 @@ configure = "0.1.1"
 toml = "0.5"
 clap = { version = "4.3.4", features = ["derive"] }
 tracing = "0.1.40"
-anyhow = "1.0"
+eyre = "0.6.2"
+color-eyre = "0.6.2"
 dotenv = "0.15"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
 

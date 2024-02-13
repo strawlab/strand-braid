@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 thiserror = "1.0"
-anyhow = "1.0"
+eyre = "0.6.2"
 lazy_static = "1"
 
 strand-cam = {path="../../strand-cam", default-features = false, features=["flydra_feat_detect", "bundle_files", "plugin-process-frame", "flydra_feat_detect", "imtrack-absdiff", "use_ipp"]}

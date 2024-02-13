@@ -1,7 +1,10 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
-use anyhow::{Context, Result};
 use clap::Parser;
+use color_eyre::{
+    eyre::{self, WrapErr},
+    Result,
+};
 use tracing::debug;
 
 use braid::braid_start;
@@ -111,7 +114,7 @@ async fn main() -> Result<()> {
     // TODO: delete log files older than, e.g. one week.
 
     let _guard = env_tracing_logger::initiate_logging(Some(&log_file_name), args.disable_console)
-        .map_err(|e| anyhow::anyhow!("error initiating logging: {e}"))?;
+        .map_err(|e| eyre::eyre!("error initiating logging: {e}"))?;
 
     let version = format!("{} (git {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
     tracing::info!("{} {}", "run", version);

@@ -1,6 +1,5 @@
-use anyhow::{Context, Result};
-
 use clap::Parser;
+use color_eyre::{eyre::WrapErr, Result};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]

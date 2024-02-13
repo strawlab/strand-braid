@@ -84,7 +84,7 @@ fn test_cbor_packet() {
 }
 
 #[test]
-fn test_serialize_timestamps_to_csv() -> anyhow::Result<()> {
+fn test_serialize_timestamps_to_csv() -> eyre::Result<()> {
     use chrono::TimeZone;
 
     let t1_orig = 123.123456789;

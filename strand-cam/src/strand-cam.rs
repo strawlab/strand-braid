@@ -5,13 +5,6 @@
 
 // TODO: UI automatically reconnect to app after app restart.
 
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
-use anyhow::Context;
-
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
 
@@ -35,6 +28,7 @@ use nalgebra as na;
 #[allow(unused_imports)]
 use preferences_serde1::{AppInfo, Preferences};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::error::SendError;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info, trace, warn};
 
@@ -141,160 +135,7 @@ pub mod cli_app;
 
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
-pub type Result<M> = std::result::Result<M, StrandCamError>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum StrandCamError {
-    // #[error("other error")]
-    // OtherError,
-    #[error("string error: {0}")]
-    StringError(String),
-    #[error("error: {0}")]
-    AnyhowError(#[from] anyhow::Error),
-    #[error("Could not fit clock model {0}")]
-    ClockModelFitError(String),
-    #[error("no cameras found")]
-    NoCamerasFound,
-    #[error("IncompleteSend")]
-    IncompleteSend(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("unix domain sockets not supported")]
-    UnixDomainSocketsNotSupported(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("conversion to socket address failed")]
-    SocketAddressConversionFailed(#[cfg(feature = "backtrace")] Backtrace),
-    #[error("ConvertImageError: {0}")]
-    ConvertImageError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        convert_image::Error,
-    ),
-    #[error("FMF error: {0}")]
-    FMFError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        fmf::FMFError,
-    ),
-    #[error("UFMF error: {0}")]
-    UFMFError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        ufmf::UFMFError,
-    ),
-    #[error("io error: {source}")]
-    IoError {
-        #[from]
-        source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
-    #[error("try send error")]
-    TrySendError,
-    // #[error("BUI backend error: {0}")]
-    // BuiBackendError(#[from] bui_backend::Error),
-    #[error("BUI backend session error: {0}")]
-    BuiBackendSessionError(#[from] bui_backend_session::Error),
-    #[error("Braid HTTP session error: {0}")]
-    BraidHttpSessionError(#[from] braid_http_session::Error),
-    #[error("hyper_util client legacy error: {0}")]
-    HyperUtilClientLegacyError(#[from] hyper_util::client::legacy::Error),
-    #[error("ci2 error: {0}")]
-    Ci2Error(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        ci2::Error,
-    ),
-    #[error("plugin disconnected")]
-    PluginDisconnected,
-    #[error("video streaming error")]
-    VideoStreamingError(#[from] video_streaming::Error),
-    // #[error(
-    //     "The --jwt-secret argument must be passed or the JWT_SECRET environment \
-    //               variable must be set."
-    // )]
-    // JwtError,
-    #[cfg(feature = "flydratrax")]
-    #[error("MVG error: {0}")]
-    MvgError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        mvg::MvgError,
-    ),
-    #[error("{0}")]
-    Mp4WriterError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        mp4_writer::Error,
-    ),
-    #[error("{0}")]
-    AddrParseError(#[from] std::net::AddrParseError),
-    #[error("background movie writer error: {0}")]
-    BgMovieWriterError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        bg_movie_writer::Error,
-    ),
-    #[error("Braid update image listener disconnected")]
-    BraidUpdateImageListenerDisconnected,
-    #[error("{0}")]
-    NvEncError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        nvenc::NvEncError,
-    ),
-    #[cfg(feature = "flydratrax")]
-    #[error("flydra2 error: {0}")]
-    Flydra2Error(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        flydra2::Error,
-    ),
-    #[error("futures mpsc send error: {0}")]
-    FuturesChannelMpscSend(#[from] futures::channel::mpsc::SendError),
-    #[error("SendMsgErr")]
-    SendMsgErr {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
-    #[cfg(feature = "fiducial")]
-    #[error("{0}")]
-    CsvError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        csv::Error,
-    ),
-    #[error("thread done")]
-    ThreadDone,
-
-    #[error("{0}")]
-    SerialportError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        tokio_serial::Error,
-    ),
-
-    #[error("A camera name is required")]
-    CameraNameRequired,
-    #[error("hyper error: {0}")]
-    HyperError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        hyper::Error,
-    ),
-    #[error("tokio::task::JoinError: {0}")]
-    TokioTaskJoinError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        tokio::task::JoinError,
-    ),
-}
-
-impl<T> From<tokio::sync::mpsc::error::SendError<T>> for StrandCamError {
-    fn from(_orig: tokio::sync::mpsc::error::SendError<T>) -> StrandCamError {
-        StrandCamError::SendMsgErr {
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
-        }
-    }
-}
+use eyre::{eyre, Result, WrapErr};
 
 #[cfg(feature = "plugin-process-frame")]
 struct CloseAppOnThreadExit {
@@ -318,7 +159,7 @@ impl CloseAppOnThreadExit {
 
     fn check<T, E>(&self, result: StdResult<T, E>) -> T
     where
-        E: std::convert::Into<anyhow::Error>,
+        E: std::convert::Into<eyre::Report>,
     {
         match result {
             Ok(v) => v,
@@ -326,7 +167,7 @@ impl CloseAppOnThreadExit {
         }
     }
 
-    fn fail(&self, e: anyhow::Error) -> ! {
+    fn fail(&self, e: eyre::Report) -> ! {
         display_err(
             e,
             self.file,
@@ -347,7 +188,7 @@ impl CloseAppOnThreadExit {
 
 #[cfg(feature = "plugin-process-frame")]
 fn display_err(
-    err: anyhow::Error,
+    err: eyre::Report,
     file: &str,
     line: u32,
     thread_name: Option<&str>,
@@ -699,7 +540,7 @@ async fn frame_process_task(
     device_clock_model: Option<rust_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<(u64, u64)>,
     trigger_type: Option<TriggerType>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let my_runtime: tokio::runtime::Handle = tokio::runtime::Handle::current();
 
     let is_braid = camdata_addr.is_some();
@@ -982,7 +823,6 @@ async fn frame_process_task(
                                         led_box_tx_std2,
                                     )
                                     .await
-                                    .map_err(|e| anyhow::Error::new(Box::new(e)))
                                     .unwrap();
                                 };
                                 let msg_handler_jh = my_runtime.spawn(msg_handler_fut);
@@ -1913,7 +1753,7 @@ async fn frame_process_task(
                                         error!("Not displaying annotation because the plugin took too long.");
                                     } else {
                                         error!("The plugin disconnected.");
-                                        return Err(StrandCamError::PluginDisconnected.into());
+                                        eyre::bail!("The plugin disconnected.");
                                     }
                                 }
                             }
@@ -2186,10 +2026,7 @@ fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<Dat
         }
         #[cfg(not(feature = "flydra-uds"))]
         RealtimePointsDestAddr::UnixDomainSocket(_uds) => {
-            Err(StrandCamError::UnixDomainSocketsNotSupported(
-                #[cfg(feature = "backtrace")]
-                Backtrace::capture(),
-            ))
+            Err(eyre!("unix domain sockets are not supported"))
         }
         RealtimePointsDestAddr::IpAddr(dest_ip_addr) => {
             let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
@@ -2217,10 +2054,7 @@ fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<Dat
                 sock.connect(&dest)?;
                 Ok(DatagramSocket::Udp(sock))
             } else {
-                Err(StrandCamError::SocketAddressConversionFailed(
-                    #[cfg(feature = "backtrace")]
-                    Backtrace::capture(),
-                ))
+                Err(eyre!("socket address conversion failed"))
             }
         }
     }
@@ -2811,7 +2645,7 @@ pub fn run_app<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2835,7 +2669,7 @@ where
 
     let _guard =
         env_tracing_logger::initiate_logging(Some(&initial_log_file_name), args.disable_console)
-            .map_err(|e| anyhow::anyhow!("error initiating logging: {e}"))?;
+            .map_err(|e| eyre!("error initiating logging: {e}"))?;
 
     // Start tokio runtime here.
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -2862,7 +2696,7 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     initial_log_file_name: &Path,
-) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
@@ -2940,7 +2774,7 @@ async fn select_cam_and_run<M, C, G>(
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     initial_log_file_name: &Path,
-) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
@@ -2950,7 +2784,7 @@ where
             let braid_info = match &res_braid {
                 Ok(braid_info) => braid_info,
                 Err(_) => {
-                    anyhow::bail!("requested braid, but no braid config");
+                    eyre::bail!("requested braid, but no braid config");
                 }
             };
             let http_server_addr = braid_info.config_from_braid.config.http_server_addr.clone();
@@ -2990,7 +2824,7 @@ where
 
     let cam_infos = mymod.camera_infos()?;
     if cam_infos.is_empty() {
-        return Err(StrandCamError::NoCamerasFound.into());
+        eyre::bail!("No cameras found.");
     }
 
     for cam_info in cam_infos.iter() {
@@ -3053,7 +2887,7 @@ async fn run<M, C, G>(
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     strand_cam_bui_http_address_string: String,
     cam: &str,
-) -> anyhow::Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
@@ -3102,80 +2936,80 @@ where
     #[cfg(not(feature = "flydra_feat_detect"))]
     let _ = acquisition_duration_allowed_imprecision_msec;
 
-    let (frame_rate_limit_supported, mut frame_rate_limit_enabled) =
-        if let Some(fname) = &camera_settings_filename {
-            let settings = std::fs::read_to_string(fname).with_context(|| {
-                format!(
-                    "Failed to read camera settings from file \"{}\"",
-                    fname.display()
-                )
-            })?;
+    let (frame_rate_limit_supported, mut frame_rate_limit_enabled) = if let Some(fname) =
+        &camera_settings_filename
+    {
+        let settings = std::fs::read_to_string(fname).with_context(|| {
+            format!(
+                "Failed to read camera settings from file \"{}\"",
+                fname.display()
+            )
+        })?;
 
-            cam.node_map_load(&settings)?;
-            info!("loaded camera settings file \"{}\"", fname.display());
-            (false, false)
-        } else {
-            for pixfmt in cam.possible_pixel_formats()?.iter() {
-                debug!("  possible pixel format: {}", pixfmt);
-            }
+        cam.node_map_load(&settings)?;
+        info!("loaded camera settings file \"{}\"", fname.display());
+        (false, false)
+    } else {
+        for pixfmt in cam.possible_pixel_formats()?.iter() {
+            debug!("  possible pixel format: {}", pixfmt);
+        }
 
-            if let Some(ref pixfmt_str) = pixel_format {
-                use std::str::FromStr;
-                let pixfmt = PixFmt::from_str(pixfmt_str)
-                    .map_err(|e: &str| StrandCamError::StringError(e.to_string()))?;
-                info!("  setting pixel format: {}", pixfmt);
-                cam.set_pixel_format(pixfmt)?;
-            }
+        if let Some(ref pixfmt_str) = pixel_format {
+            use std::str::FromStr;
+            let pixfmt = PixFmt::from_str(pixfmt_str).map_err(|e: &str| eyre!(e.to_string()))?;
+            info!("  setting pixel format: {}", pixfmt);
+            cam.set_pixel_format(pixfmt)?;
+        }
 
-            debug!("  current pixel format: {}", cam.pixel_format()?);
+        debug!("  current pixel format: {}", cam.pixel_format()?);
 
-            let (frame_rate_limit_supported, frame_rate_limit_enabled) = {
-                // This entire section should be removed and converted to a query
-                // of the cameras capabilities.
+        let (frame_rate_limit_supported, frame_rate_limit_enabled) = {
+            // This entire section should be removed and converted to a query
+            // of the cameras capabilities.
 
-                // Save the value of whether the frame rate limiter is enabled.
-                let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
-                debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
+            // Save the value of whether the frame rate limiter is enabled.
+            let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+            debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
 
-                // Check if we can set the frame rate, first by setting a limit to be on.
-                let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
-                    Ok(()) => {
-                        debug!("set set_acquisition_frame_rate_enable true");
-                        // Then by setting a limit to be off.
-                        match cam.set_acquisition_frame_rate_enable(false) {
-                            Ok(()) => {
-                                debug!("{}:{}", file!(), line!());
-                                true
-                            }
-                            Err(e) => {
-                                debug!("err {} {}:{}", e, file!(), line!());
-                                false
-                            }
+            // Check if we can set the frame rate, first by setting a limit to be on.
+            let frame_rate_limit_supported = match cam.set_acquisition_frame_rate_enable(true) {
+                Ok(()) => {
+                    debug!("set set_acquisition_frame_rate_enable true");
+                    // Then by setting a limit to be off.
+                    match cam.set_acquisition_frame_rate_enable(false) {
+                        Ok(()) => {
+                            debug!("{}:{}", file!(), line!());
+                            true
+                        }
+                        Err(e) => {
+                            debug!("err {} {}:{}", e, file!(), line!());
+                            false
                         }
                     }
-                    Err(e) => {
-                        debug!("err {} {}:{}", e, file!(), line!());
-                        false
-                    }
-                };
-
-                if frame_rate_limit_supported {
-                    // Restore the state of the frame rate limiter.
-                    cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
-                    debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
                 }
-
-                (frame_rate_limit_supported, frame_rate_limit_enabled)
+                Err(e) => {
+                    debug!("err {} {}:{}", e, file!(), line!());
+                    false
+                }
             };
 
-            match cam.feature_enum_set("AcquisitionMode", "Continuous") {
-                Ok(()) => {}
-                Err(e) => {
-                    debug!("Ignoring error when setting AcquisitionMode: {}", e);
-                }
+            if frame_rate_limit_supported {
+                // Restore the state of the frame rate limiter.
+                cam.set_acquisition_frame_rate_enable(frame_rate_limit_enabled)?;
+                debug!("set frame_rate_limit_enabled {}", frame_rate_limit_enabled);
             }
+
             (frame_rate_limit_supported, frame_rate_limit_enabled)
         };
+
+        match cam.feature_enum_set("AcquisitionMode", "Continuous") {
+            Ok(()) => {}
+            Err(e) => {
+                debug!("Ignoring error when setting AcquisitionMode: {}", e);
+            }
+        }
+        (frame_rate_limit_supported, frame_rate_limit_enabled)
+    };
 
     let settings_on_start = cam.node_map_save()?;
 
@@ -3986,7 +3820,7 @@ where
                             });
                             error!("Channel full sending frame to process thread. Dropping frame data.");
                         } else {
-                            tx_frame.send(Msg::Mframe(frame)).await?;
+                            tx_frame.send(Msg::Mframe(frame)).await.map_err(to_eyre)?;
                         }
                     }
                     ci2_async::FrameResult::SingleFrameError(s) => {
@@ -3995,7 +3829,7 @@ where
                 }
             }
             debug!("cam_stream_future future done {}:{}", file!(), line!());
-            Ok::<_, StrandCamError>(())
+            Ok::<_, eyre::Report>(())
         }
     };
 
@@ -4269,10 +4103,16 @@ where
                         }
                     },
                     CamArg::SetFrameOffset(fo) => {
-                        tx_frame2.send(Msg::SetFrameOffset(fo)).await?;
+                        tx_frame2
+                            .send(Msg::SetFrameOffset(fo))
+                            .await
+                            .map_err(to_eyre)?;
                     }
                     CamArg::SetTriggerboxClockModel(cm) => {
-                        tx_frame2.send(Msg::SetTriggerboxClockModel(cm)).await?;
+                        tx_frame2
+                            .send(Msg::SetTriggerboxClockModel(cm))
+                            .await
+                            .map_err(to_eyre)?;
                     }
                     CamArg::SetFormatStr(v) => {
                         let mut tracker = shared_store_arc.write();
@@ -4299,7 +4139,7 @@ where
                             };
 
                             // Send the command.
-                            tx_frame2.send(msg).await?;
+                            tx_frame2.send(msg).await.map_err(to_eyre)?;
                         }
                     }
                     CamArg::ToggleAprilTagFamily(family) => {
@@ -4394,7 +4234,7 @@ where
                                 }
                                 None => Msg::StopAprilTagRec,
                             };
-                            tx_frame2.send(msg).await?;
+                            tx_frame2.send(msg).await.map_err(to_eyre)?;
                         }
 
                         // Here we save the new recording state.
@@ -4409,11 +4249,17 @@ where
                     }
                     CamArg::PostTrigger => {
                         info!("Start MP4 recording via post trigger.");
-                        tx_frame2.send(Msg::PostTriggerStartMp4).await?;
+                        tx_frame2
+                            .send(Msg::PostTriggerStartMp4)
+                            .await
+                            .map_err(to_eyre)?;
                     }
                     CamArg::SetPostTriggerBufferSize(size) => {
                         info!("Set post trigger buffer size to {size}.");
-                        tx_frame2.send(Msg::SetPostTriggerBufferSize(size)).await?;
+                        tx_frame2
+                            .send(Msg::SetPostTriggerBufferSize(size))
+                            .await
+                            .map_err(to_eyre)?;
                     }
                     CamArg::SetIsRecordingFmf(do_recording) => {
                         // Copy values from cache and release the lock immediately.
@@ -4444,7 +4290,7 @@ where
                             };
 
                             // Send the command.
-                            tx_frame2.send(msg).await?;
+                            tx_frame2.send(msg).await.map_err(to_eyre)?;
 
                             // Save the new recording state.
                             let mut tracker = shared_store_arc.write();
@@ -4488,7 +4334,7 @@ where
                                 };
 
                                 // Send the command.
-                                tx_frame2.send(msg).await?;
+                                tx_frame2.send(msg).await.map_err(to_eyre)?;
 
                                 // Save the new recording state.
                                 let mut tracker = shared_store_arc.write();
@@ -4508,7 +4354,10 @@ where
                                     shared.is_doing_object_detection = value;
                                 });
                             }
-                            tx_frame2.send(Msg::SetTracking(value)).await?;
+                            tx_frame2
+                                .send(Msg::SetTracking(value))
+                                .await
+                                .map_err(to_eyre)?;
                         }
                     }
                     CamArg::DoQuit => {
@@ -4519,7 +4368,8 @@ where
                         #[cfg(feature = "flydra_feat_detect")]
                         tx_frame2
                             .send(Msg::SetIsSavingObjDetectionCsv(value))
-                            .await?;
+                            .await
+                            .map_err(to_eyre)?;
                     }
                     CamArg::SetObjDetectionConfig(yaml_buf) => {
                         // parse buffer
@@ -4532,7 +4382,10 @@ where
                                 let cfg2 = cfg.clone();
 
                                 // Update config and send to frame process thread
-                                tx_frame2.send(Msg::SetExpConfig(cfg.clone())).await?;
+                                tx_frame2
+                                    .send(Msg::SetExpConfig(cfg.clone()))
+                                    .await
+                                    .map_err(to_eyre)?;
                                 {
                                     let mut tracker = shared_store_arc.write();
                                     tracker.modify(|shared| {
@@ -4848,14 +4701,15 @@ where
 
             // In theory, all things currently being saved should nicely stop themselves when dropped.
             // For now, while we are working on ctrlc handling, we manually stop them.
-            tx_frame2.send(Msg::StopFMF).await?;
-            tx_frame2.send(Msg::StopMp4).await?;
+            tx_frame2.send(Msg::StopFMF).await.map_err(to_eyre)?;
+            tx_frame2.send(Msg::StopMp4).await.map_err(to_eyre)?;
             #[cfg(feature = "flydra_feat_detect")]
-            tx_frame2.send(Msg::StopUFMF).await?;
+            tx_frame2.send(Msg::StopUFMF).await.map_err(to_eyre)?;
             #[cfg(feature = "flydra_feat_detect")]
             tx_frame2
                 .send(Msg::SetIsSavingObjDetectionCsv(CsvSaveConfig::NotSaving))
-                .await?;
+                .await
+                .map_err(to_eyre)?;
 
             info!("attempting to nicely stop camera");
             if let Some((control, join_handle)) = cam.control_and_join_handle() {
@@ -4871,7 +4725,7 @@ where
             }
 
             info!("cam_args_rx future is resolved");
-            Ok::<_, StrandCamError>(())
+            Ok::<_, eyre::Report>(())
         }
     };
 
@@ -4993,12 +4847,12 @@ where
                         );
                     }
                     msg => {
-                        anyhow::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
+                        eyre::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
                             msg, led_box_comms::COMM_VERSION);
                     }
                 },
                 _ => {
-                    anyhow::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                    eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
                         led_box_comms::COMM_VERSION);
                 }
             }
@@ -5283,4 +5137,8 @@ impl FinalMp4RecordingConfig {
         };
         FinalMp4RecordingConfig { final_cfg }
     }
+}
+
+fn to_eyre<T>(e: SendError<T>) -> eyre::Report {
+    eyre!("SendError: {e} {e:?}")
 }
