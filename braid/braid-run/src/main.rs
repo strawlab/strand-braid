@@ -81,8 +81,8 @@ fn launch_strand_cam(
         let exit_code = obj.wait().unwrap();
         if !exit_code.success() {
             tracing::error!(
-                "Strand Cam executable for {cam_name} exited with error {}",
-                exit_code.code().unwrap()
+                "Strand Cam executable for {cam_name} exited with exit code {:?}",
+                exit_code.code()
             );
         } else {
             debug!("Strand Cam executable done.");
