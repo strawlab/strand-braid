@@ -4,11 +4,12 @@
 
 * Support PTP synchronized cameras without external triggering hardware. Tested
   with Basler Ace2 GigE cameras.
-* Support for saving video .mp4 files in Strand Camera, `braid-process-video`,
-  `strand-convert`, and other utilities. Video is encoded with the H.264 codec
-  and metadata, including precise timestamps, are stored in the h264 stream. To
-  do compression, the [openh264 encoder](https://github.com/cisco/openh264) is
-  always available. With [appropriate NVENC
+* Save video to .mp4 files in Strand Camera (instead of .mkv files). Update
+  Braid, `braid-process-video`, `strand-convert`, and other utilities to use
+  MP4. Video is encoded with the H.264 codec and metadata, including precise
+  timestamps, are stored in the h264 stream. To do compression, the [openh264
+  encoder](https://github.com/cisco/openh264) is always available. With
+  [appropriate NVENC
   hardware](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new),
   hardware-accelerated encoding is also supported.
 * Added support from Allied Vision Technologies cameras using the Vimba driver.
