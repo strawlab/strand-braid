@@ -948,12 +948,7 @@ where
     let mp4_config = mp4::Mp4Config {
         major_brand: str::parse("isom").unwrap(),
         minor_version: 512,
-        compatible_brands: vec![
-            str::parse("isom").unwrap(),
-            str::parse("iso2").unwrap(),
-            str::parse("avc1").unwrap(),
-            str::parse("mp41").unwrap(),
-        ],
+        compatible_brands: vec![str::parse("isom").unwrap()],
         // This is `movie_timescale`, the number of
         // time units that pass in one second.
         timescale: MOVIE_TIMESCALE,
