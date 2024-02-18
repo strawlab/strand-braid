@@ -93,7 +93,7 @@ fn avcc_to_nalu_ebsp(buf: &[u8]) -> Result<Vec<&[u8]>> {
         let sz: usize = u32::from_be_bytes(header).try_into().unwrap();
         let used = sz + 4;
         if cur_buf.len() < used {
-            anyhow::bail!("AVCC buffer length: {}+4 but buffer {}", sz, buf.len());
+            anyhow::bail!("AVCC buffer length: {sz}+4 but buffer {}", cur_buf.len());
         }
         result.push(&cur_buf[4..used]);
         cur_buf = &cur_buf[used..];
