@@ -4,7 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use color_eyre::{
+    eyre::{self as anyhow, WrapErr},
+    Result,
+};
 
 use super::*;
 

@@ -2,7 +2,10 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use color_eyre::{
+    eyre::{self as anyhow, WrapErr},
+    Result,
+};
 
 use crate::h264_source::H264Source;
 use mp4::MediaType;
