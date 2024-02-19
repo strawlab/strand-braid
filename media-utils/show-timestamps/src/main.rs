@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use anyhow::Result;
 use clap::{Parser, ValueEnum};
+use color_eyre::Result;
 
 trait DisplayTimestamp {
     fn to_display(&self) -> String;
