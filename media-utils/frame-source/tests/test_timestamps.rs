@@ -5,7 +5,7 @@ use ci2_remote_control::Mp4RecordingConfig;
 use frame_source::FrameDataSource;
 
 #[test]
-fn test_h264_precision_timestamps() -> anyhow::Result<()> {
+fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
     let start: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
         NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
         Utc,

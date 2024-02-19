@@ -1,7 +1,7 @@
 use frame_source::FrameDataSource;
 
 #[test]
-fn parse_h264() -> anyhow::Result<()> {
+fn parse_h264() -> color_eyre::Result<()> {
     let file_buf = include_bytes!("data/test_less-avc_mono8_15x14.h264");
     let mut cursor = std::io::Cursor::new(file_buf);
     let do_decode_h264 = true;
