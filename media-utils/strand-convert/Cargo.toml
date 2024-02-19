@@ -7,7 +7,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 [dependencies]
 clap = {version="4.0.10", features=["derive"]}
 env_logger = "0.10"
-anyhow = "1"
+color-eyre = "0.6.2"
 serde_json = "1.0.85"
 log = "0.4.17"
 indicatif = "0.17.1"
@@ -28,4 +28,4 @@ tempfile = "3.4.0"
 zip = { version = "0.6.2", default-features = false, features=["deflate", "time"] }
 
 [features]
-backtrace = ["mp4-writer/backtrace", "frame-source/backtrace", "anyhow/backtrace"]
+backtrace = ["mp4-writer/backtrace", "frame-source/backtrace"]

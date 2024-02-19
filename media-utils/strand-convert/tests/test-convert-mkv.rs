@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use anyhow::Result;
 use ci2_remote_control::H264Metadata;
+use color_eyre::Result;
 use frame_source::FrameDataSource;
 
 // use frame_source::{EncodedH264, ImageData};

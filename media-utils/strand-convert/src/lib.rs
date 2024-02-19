@@ -6,8 +6,11 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
+use color_eyre::{
+    eyre::{self as anyhow, WrapErr},
+    Result,
+};
 use indicatif::{HumanBytes, HumanDuration, ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
