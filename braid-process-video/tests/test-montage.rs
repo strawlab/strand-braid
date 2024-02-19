@@ -1,3 +1,5 @@
+use color_eyre::eyre::{self as anyhow};
+
 use braid_process_video::{
     BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig, VideoSourceConfig,
 };

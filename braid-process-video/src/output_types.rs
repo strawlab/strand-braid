@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use std::io::Write;
 
 use crate::{output_braidz::BraidStorage, output_video::VideoStorage, PerCamRenderFrame};

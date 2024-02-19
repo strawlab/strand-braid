@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, io::Write};
 
-use anyhow::{Context as ContextTrait, Result};
 use chrono::{DateTime, Utc};
+use color_eyre::{
+    eyre::{self as anyhow, WrapErr},
+    Result,
+};
 use frame_source::{FrameData, FrameDataSource};
 use futures::future::join_all;
 use ordered_float::NotNan;

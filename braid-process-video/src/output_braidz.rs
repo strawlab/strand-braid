@@ -1,4 +1,7 @@
-use anyhow::Result;
+use color_eyre::{
+    eyre::{self as anyhow},
+    Result,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 use flydra_types::{PerCamSaveData, RawCamName};

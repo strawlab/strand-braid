@@ -1,5 +1,8 @@
-use anyhow::{Context as ContextTrait, Result};
 use clap::Parser;
+use color_eyre::{
+    eyre::{self as anyhow, WrapErr},
+    Result,
+};
 
 use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig, Validate};
 

@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, iter::Peekable};
 
-use anyhow::Result;
 use chrono::{DateTime, Utc};
+use color_eyre::{
+    eyre::{self as anyhow},
+    Result,
+};
 
 use flydra_types::{CamNum, Data2dDistortedRow};
 use frame_source::FrameData;

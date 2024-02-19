@@ -1,5 +1,8 @@
-use anyhow::Result;
 use chrono::{DateTime, Utc};
+use color_eyre::{
+    eyre::{self as anyhow},
+    Result,
+};
 
 use crate::{peek2::Peek2, SyncedPictures};
 use frame_source::FrameData;

@@ -1,5 +1,8 @@
-use anyhow::Result;
 use chrono::{DateTime, Utc};
+use color_eyre::{
+    eyre::{self as anyhow},
+    Result,
+};
 use std::io::Write;
 
 use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};

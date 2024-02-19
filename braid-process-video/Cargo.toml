@@ -11,7 +11,7 @@ log = "0.4"
 env_logger = "0.10"
 tokio = {version="1.17", features=["macros","rt","tracing"]}
 tokio-stream = "0.1.8"
-anyhow = "1"
+color-eyre = "0.6.2"
 chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
 serde = {version="1", features=["derive"]}
 toml = "0.5"
@@ -44,7 +44,7 @@ flydra-mvg = {path="../flydra-mvg"}
 frame-source = {path="../media-utils/frame-source"}
 
 [features]
-backtrace = ["anyhow/backtrace", "mp4-writer/backtrace",
+backtrace = ["mp4-writer/backtrace",
     "convert-image/backtrace", "braidz-parser/backtrace",
     "fmf/backtrace",
     ]
