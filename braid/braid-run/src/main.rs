@@ -75,7 +75,6 @@ fn launch_strand_cam(
         "Starting Strand Cam executable \"{}\"",
         exe.display()
     ))?;
-    debug!("obj: {:?}", obj);
 
     let _abort_handle = strand_cam_set.spawn_blocking(move || {
         let exit_code = obj.wait().unwrap();
