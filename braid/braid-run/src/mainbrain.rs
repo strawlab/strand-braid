@@ -826,6 +826,7 @@ pub(crate) async fn do_run_forever(
                         tracker_guard.modify(|shared| shared.clock_model = cm.clone());
                     }
                     let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
+                    // TODO: Do we really need to spawn here? Why not just .await?
                     tokio::spawn(async move {
                         let r = strand_cam_http_session_handler2
                             .send_clock_model_to_all(cm)
