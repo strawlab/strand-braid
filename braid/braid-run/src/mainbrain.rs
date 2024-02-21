@@ -734,7 +734,7 @@ pub(crate) async fn do_run_forever(
 
     // This future will send state updates to all connected event listeners.
     let event_broadcaster = app_state.event_broadcaster.clone();
-    let send_updates_future = async move {
+    let event_broadcast_fut = async move {
         while let Some((_prev_state, next_state)) = shared_store_changes_rx.next().await {
             let frame_string = to_event_frame(&next_state);
             event_broadcaster.broadcast_frame(frame_string).await;
@@ -1156,10 +1156,17 @@ pub(crate) async fn do_run_forever(
     // The first one of these to exit will end all of them. This should be
     // `coord_proc_fut`.
     tokio::select! {
-        _ = send_updates_future => {},
-        _ = http_serve_future => {},
-        _ = strand_cam_set.join_next() => {},
+        _ = event_broadcast_fut => {
+            info!("Event broadcaster finished.");
+        },
+        _ = http_serve_future => {
+            info!("HTTP Server finished.");
+        },
+        _ = strand_cam_set.join_next() => {
+            info!("Strand Camera future set finished.");
+        },
         writer_jh = coord_proc_fut => {
+            info!("Coordinate processor finished.");
             // Allow writer task time to finish writing.
             debug!("Runtime ending. Joining coord_processor.consume_stream future.");
             writer_jh
