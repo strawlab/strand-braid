@@ -39,6 +39,7 @@ http-body-util = "0.1.0"
 http = "1.0.0"
 async-change-tracker = "0.3.4"
 tracing = "0.1.40"
+tracing-panic = "0.1.1"
 axum = "0.7.4"
 tower = "0.4.13"
 tower-http = { version = "0.5.1", features = ["fs", "trace"] }

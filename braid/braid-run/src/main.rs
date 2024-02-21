@@ -92,6 +92,7 @@ fn launch_strand_cam(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    std::panic::set_hook(Box::new(tracing_panic::panic_hook));
     braid_start("run")?;
 
     let args = BraidRunCliArgs::parse();
