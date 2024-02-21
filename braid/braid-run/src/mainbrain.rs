@@ -755,47 +755,49 @@ pub(crate) async fn do_run_forever(
         assert!(old_callback.is_none());
     }
 
-    let (triggerbox_data_tx, triggerbox_data_rx) =
+    let (triggerbox_data_tx, mut triggerbox_data_rx) =
         tokio::sync::mpsc::channel::<braid_triggerbox::TriggerClockInfoRow>(20);
 
-    let triggerbox_data_rx = tokio_stream::wrappers::ReceiverStream::new(triggerbox_data_rx);
-    let mut triggerbox_data_rx = valve.wrap(triggerbox_data_rx);
+    match &trigger_cfg {
+        TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => {
+            let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
+            let signal_triggerbox_connected = signal_triggerbox_connected.clone();
 
-    {
-        let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
-        let signal_triggerbox_connected = signal_triggerbox_connected.clone();
+            let mut has_triggerbox_connected = false;
+            let triggerbox_future = async move {
+                debug!(
+                    "starting triggerbox listener future {}:{}",
+                    file!(),
+                    line!()
+                );
+                while let Some(msg) = triggerbox_data_rx.recv().await {
+                    if !has_triggerbox_connected {
+                        has_triggerbox_connected = true;
+                        info!("triggerbox is connected.");
+                        signal_triggerbox_connected.store(true, Ordering::SeqCst);
+                    }
+                    let msg2 = flydra_types::TriggerClockInfoRow {
+                        start_timestamp: msg.start_timestamp.into(),
+                        framecount: msg.framecount,
+                        tcnt: msg.tcnt,
+                        stop_timestamp: msg.stop_timestamp.into(),
+                    };
 
-        let mut has_triggerbox_connected = false;
-        let triggerbox_future = async move {
-            debug!(
-                "starting triggerbox listener future {}:{}",
-                file!(),
-                line!()
-            );
-            while let Some(msg) = triggerbox_data_rx.next().await {
-                if !has_triggerbox_connected {
-                    has_triggerbox_connected = true;
-                    info!("triggerbox is connected.");
-                    signal_triggerbox_connected.store(true, Ordering::SeqCst);
+                    if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                        // `braidz_write_tx` will be dropped after this scope.
+                        braidz_write_tx
+                            .send(flydra2::SaveToDiskMsg::TriggerClockInfo(msg2))
+                            .await
+                            .unwrap();
+                    }
                 }
-                let msg2 = flydra_types::TriggerClockInfoRow {
-                    start_timestamp: msg.start_timestamp.into(),
-                    framecount: msg.framecount,
-                    tcnt: msg.tcnt,
-                    stop_timestamp: msg.stop_timestamp.into(),
-                };
-
-                if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
-                    // `braidz_write_tx` will be dropped after this scope.
-                    braidz_write_tx
-                        .send(flydra2::SaveToDiskMsg::TriggerClockInfo(msg2))
-                        .await
-                        .unwrap();
-                }
-            }
-            debug!("triggerbox listener future done {}:{}", file!(), line!());
-        };
-        tokio::spawn(triggerbox_future);
+                debug!("triggerbox listener future done {}:{}", file!(), line!());
+            };
+            tokio::spawn(triggerbox_future);
+        }
+        _ => {
+            debug!("not listening to triggerbox");
+        }
     }
 
     let tracker = shared_store.clone();
