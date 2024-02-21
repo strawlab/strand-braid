@@ -80,6 +80,7 @@ http-body-util = "0.1.0"
 tower = "0.4.13"
 axum = "0.7.4"
 tracing = "0.1.40"
+tracing-panic = "0.1.1"
 axum-token-auth = "0.1.0"
 tower-http = { version = "0.5.1", features = ["trace", "fs"] }
 tower-serve-static = { version = "0.1", optional = true }

@@ -20,6 +20,7 @@ where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
 {
+    std::panic::set_hook(Box::new(tracing_panic::panic_hook));
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
