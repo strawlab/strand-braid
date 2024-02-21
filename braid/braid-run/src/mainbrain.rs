@@ -930,13 +930,8 @@ pub(crate) async fn do_run_forever(
             }));
         }
         TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
-            // // We simply trust the clocks. How simple.
-            // (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
-            //     gain: 1.0,
-            //     n_measurements: 0,
-            //     offset: 0.0,
-            //     residuals: 0.0,
-            // }));
+            // We simply trust the clocks. How simple.
+            signal_triggerbox_connected.store(true, Ordering::SeqCst);
         }
     };
 

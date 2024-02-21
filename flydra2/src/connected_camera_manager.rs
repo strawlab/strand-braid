@@ -514,15 +514,17 @@ impl ConnectedCamerasManager {
                     .expect("could not get device_timestamp for frame")
                     .get(),
             );
-            let launch_time_ptp = self.launch_time.try_into().unwrap();
-            let elapsed_since_launch =
-                if let Some(dur) = device_timestamp.duration_since(&launch_time_ptp) {
-                    dur
-                } else {
-                    // This would happen if time runs backwards. I have not
-                    // seen this scenario, but it shouldn't cause a panic.
-                    return None;
-                };
+            let launch_time_ptp = PtpStamp::try_from(self.launch_time).unwrap();
+            let elapsed_since_launch = if let Some(dur) =
+                device_timestamp.duration_since(&launch_time_ptp)
+            {
+                dur
+            } else {
+                tracing::warn!("Launch time precedes device timestamp. Is time running backwards?");
+                // This would happen if time runs backwards. I have not
+                // seen this scenario, but it shouldn't cause a panic.
+                return None;
+            };
 
             let camera_periodic_signal_period_nsec = camera_periodic_signal_period_usec * 1000.0;
             let raw_fno = (elapsed_since_launch.nanos() as f64 / camera_periodic_signal_period_nsec)
@@ -703,6 +705,7 @@ impl std::fmt::Debug for ConnectedCamerasManager {
     }
 }
 
+#[derive(Debug)]
 struct SyncData {
     new_frame0: Option<u64>,
     raw_cam_name: RawCamName,
