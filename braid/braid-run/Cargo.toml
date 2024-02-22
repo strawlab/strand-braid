@@ -38,7 +38,7 @@ csv = "1.1"
 http-body-util = "0.1.0"
 http = "1.0.0"
 async-change-tracker = "0.3.4"
-tracing = "0.1.40"
+tracing = { version = "0.1.40", features = ["release_max_level_debug"] }
 tracing-panic = "0.1.1"
 axum = "0.7.4"
 tower = "0.4.13"
