@@ -1140,7 +1140,7 @@ impl H264Parser {
                     // Don't insert the timestamp before SPS or PPS.
                     if let Some(ts) = precision_timestamp.take() {
                         let mut rbsp_msg = [0u8; 32];
-                        rbsp_msg[0] = 0x06; // code 6 - SEI?
+                        rbsp_msg[0] = 0x06; // code 6 - SEI
                         rbsp_msg[1] = 0x05; // header type: UserDataUnregistered
                         rbsp_msg[2] = 28; // size
                         timestamp_to_sei_payload(ts, &mut rbsp_msg[3..31]);
@@ -1358,7 +1358,7 @@ fn timestamp_to_sei_payload(timestamp: chrono::DateTime<chrono::Utc>, payload: &
 
     let precision_time_stamp_bytes: [u8; 8] = precision_time_stamp.to_be_bytes();
 
-    payload[0..16].copy_from_slice(b"MISPmicrosectime"); // uuid_iso_iec_11578,
+    payload[0..16].copy_from_slice(b"MISPmicrosectime"); // uuid_iso_iec_11578
 
     payload[16] = 0x1F; // Time Stamp Status byte from MISB Standard 0603
 
