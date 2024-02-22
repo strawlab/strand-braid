@@ -1071,10 +1071,11 @@ async fn frame_process_task(
             Msg::Mframe(frame) => {
                 let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
                 let device_timestamp = extracted_frame_info.device_timestamp;
+                tracing::trace!("device_timestamp: {device_timestamp:?}");
                 let block_id = extracted_frame_info.frame_id;
 
                 // Compute, as cleverly as possible, a timestamp.
-                let braid_ts = match trigger_type {
+                let braid_ts = match &trigger_type {
                     Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
                         flydra_types::triggerbox_time(
                             triggerbox_clock_model.as_ref(),
@@ -1082,8 +1083,20 @@ async fn frame_process_task(
                             extracted_frame_info.host_framenumber,
                         )
                     }
-                    Some(TriggerType::PtpSync(_)) => {
+                    Some(TriggerType::PtpSync(ptpcfg)) => {
                         let ptp_stamp = PtpStamp::new(device_timestamp.unwrap().get());
+                        if let Some(periodic_signal_period_usec) =
+                            &ptpcfg.periodic_signal_period_usec
+                        {
+                            let nanos = ptp_stamp.get();
+                            let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
+                            let device_timestamp_chrono =
+                                chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
+                                    .unwrap();
+                            tracing::trace!(
+                                "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
+                            );
+                        }
                         Some(ptp_stamp.try_into().unwrap())
                     }
                     Some(TriggerType::DeviceTimestamp) => {
@@ -3165,23 +3178,36 @@ where
         Some(TriggerType::PtpSync(ptpcfg)) => {
             if let Some(period) = ptpcfg.periodic_signal_period_usec {
                 cam.feature_float_set(PERIOD_NAME, period)?;
+                tracing::debug!("Set camera parameter {PERIOD_NAME} to {period} microseconds");
             }
             cam.feature_bool_set("PtpEnable", true)?;
+            // Wait until we are within 1 msec from master.
+            const THRESHOLD: i64 = 1_000_000; // Should make this a runtime parameter.
             loop {
                 cam.command_execute("PtpDataSetLatch", true)?;
                 let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
-                tracing::debug!("PTP clock offset {ptp_offset_from_master} microseconds.");
-                if ptp_offset_from_master.abs() < 1_000_000 {
+                // Basler docs: "PtpOffsetFromMaster: Indicates the estimated
+                // temporal offset between the master clock and the clock of the
+                // current PTP device in ticks (1 tick = 1 nanosecond)."
+                tracing::debug!("PTP clock offset {ptp_offset_from_master} nanoseconds.");
+                if ptp_offset_from_master.abs() < THRESHOLD {
                     // if within 1 millisecond from master, call it good enough.
                     break;
                 }
                 tracing::warn!(
-                    "PTP clock offset {ptp_offset_from_master} microseconds, waiting \
-                    for convergence."
+                    "PTP clock offset {ptp_offset_from_master} nanoseconds (threshold \
+                        {THRESHOLD}), waiting 1 second for convergence."
                 );
                 tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
             }
-            tracing::info!("PTP clock within threshold from master.");
+            tracing::info!("PTP clock within threshold {THRESHOLD} nanoseconds from master.");
+
+            if cam.feature_enum("TriggerMode")? != "On" {
+                cam.feature_enum_set("TriggerMode", "On")?;
+            }
+            if cam.feature_enum("TriggerSource")? != "PeriodicSignal1" {
+                cam.feature_enum_set("TriggerSource", "PeriodicSignal1")?;
+            }
         }
         Some(TriggerType::DeviceTimestamp) => {
             // Attempt to relate camera timestamps to our clock
@@ -3240,7 +3266,10 @@ where
 
     let camera_periodic_signal_period_usec = {
         match cam.feature_float(PERIOD_NAME) {
-            Ok(value) => Some(value),
+            Ok(value) => {
+                tracing::debug!("Camera parameter {PERIOD_NAME}: {value} microseconds");
+                Some(value)
+            }
             Err(e) => {
                 tracing::debug!("Could not read feature {PERIOD_NAME}: {e}");
                 None
