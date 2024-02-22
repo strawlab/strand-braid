@@ -43,7 +43,7 @@ pub struct ConnectedCameraInfo {
     sync_state: ConnectedCameraSyncState,
     http_camserver_info: BuiServerInfo,
     frames_during_sync: u64,
-    camera_periodic_signal_period_usec: Option<f64>,
+    _camera_periodic_signal_period_usec: Option<f64>,
 }
 
 impl ConnectedCameraInfo {
@@ -82,7 +82,8 @@ pub struct ConnectedCamerasManager {
     recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
     signal_all_cams_present: Arc<AtomicBool>,
     signal_all_cams_synced: Arc<AtomicBool>,
-    launch_time: chrono::DateTime<chrono::Utc>,
+    launch_time_ptp: PtpStamp,
+    periodic_signal_period_usec: Option<f64>,
 }
 
 impl HasCameraList for ConnectedCamerasManager {
@@ -104,6 +105,7 @@ impl ConnectedCamerasManager {
         all_expected_cameras: BTreeSet<RawCamName>,
         signal_all_cams_present: Arc<AtomicBool>,
         signal_all_cams_synced: Arc<AtomicBool>,
+        periodic_signal_period_usec: Option<f64>,
     ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
@@ -119,6 +121,18 @@ impl ConnectedCamerasManager {
             0
         };
 
+        let launch_time = chrono::Utc::now();
+        let mut launch_time_ptp = PtpStamp::try_from(launch_time).unwrap();
+
+        if let Some(periodic_signal_period_usec) = periodic_signal_period_usec.as_ref() {
+            // Round to period so that calculation of frame number in PTP mode are
+            // are not at knife edge between .4999 and 0.5001 of the period.
+            let periodic_signal_period_nsec = (periodic_signal_period_usec * 1000.0) as u64;
+            launch_time_ptp = PtpStamp::new(
+                (launch_time_ptp.get() / periodic_signal_period_nsec) * periodic_signal_period_nsec,
+            );
+        }
+
         Self {
             signal_all_cams_present,
             signal_all_cams_synced,
@@ -133,7 +147,8 @@ impl ConnectedCamerasManager {
             })),
             on_cam_change_func: Arc::new(Mutex::new(None)),
             recon: recon.clone(),
-            launch_time: chrono::Utc::now(),
+            launch_time_ptp,
+            periodic_signal_period_usec,
         }
     }
 
@@ -168,7 +183,7 @@ impl ConnectedCamerasManager {
             self.register_new_camera(
                 &cam_info.raw_cam_name,
                 &cam_info.http_camserver_info,
-                cam_info.camera_periodic_signal_period_usec,
+                self.periodic_signal_period_usec,
             )
             .unwrap();
         }
@@ -232,6 +247,7 @@ impl ConnectedCamerasManager {
             all_expected_cameras,
             signal_all_cams_present,
             signal_all_cams_synced,
+            camera_periodic_signal_period_usec,
         );
         {
             let raw_cam_name = raw_cam_name.clone();
@@ -269,7 +285,7 @@ impl ConnectedCamerasManager {
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
-                    camera_periodic_signal_period_usec,
+                    _camera_periodic_signal_period_usec: camera_periodic_signal_period_usec,
                 },
             );
         }
@@ -291,6 +307,11 @@ impl ConnectedCamerasManager {
         http_camserver_info: &BuiServerInfo,
         camera_periodic_signal_period_usec: Option<f64>,
     ) -> Result<(), &'static str> {
+        if camera_periodic_signal_period_usec != self.periodic_signal_period_usec {
+            return Err(
+                "camera_periodic_signal_period_usec differs from periodic_signal_period_usec.",
+            );
+        }
         let raw_cam_name = raw_cam_name.clone();
         let cam_num = {
             // This scope is for the write lock on self.inner. Keep it minimal.
@@ -328,7 +349,7 @@ impl ConnectedCamerasManager {
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
-                    camera_periodic_signal_period_usec,
+                    _camera_periodic_signal_period_usec: camera_periodic_signal_period_usec,
                 },
             );
             cam_num
@@ -498,10 +519,14 @@ impl ConnectedCamerasManager {
         ptpcfg: &PtpSyncConfig,
     ) -> Option<SyncData> {
         let raw_cam_name = RawCamName::new(packet.cam_name.clone());
+        let cam = raw_cam_name.as_str();
+        let my_span = tracing::span!(tracing::Level::DEBUG, "got_new_frame_live_ptp", cam);
+        let _enter = my_span.enter();
+
         let inner = self.inner.read();
         if let Some(cci) = inner.ccis.get(&raw_cam_name) {
-            let camera_periodic_signal_period_usec = cci
-                .camera_periodic_signal_period_usec
+            let camera_periodic_signal_period_usec = self
+                .periodic_signal_period_usec
                 .expect("could not get period for PTP sync");
             if let Some(expected_period) = ptpcfg.periodic_signal_period_usec {
                 if approx::relative_ne!(expected_period, camera_periodic_signal_period_usec) {
@@ -514,9 +539,8 @@ impl ConnectedCamerasManager {
                     .expect("could not get device_timestamp for frame")
                     .get(),
             );
-            let launch_time_ptp = PtpStamp::try_from(self.launch_time).unwrap();
             let elapsed_since_launch = if let Some(dur) =
-                device_timestamp.duration_since(&launch_time_ptp)
+                device_timestamp.duration_since(&self.launch_time_ptp)
             {
                 dur
             } else {
@@ -527,8 +551,18 @@ impl ConnectedCamerasManager {
             };
 
             let camera_periodic_signal_period_nsec = camera_periodic_signal_period_usec * 1000.0;
-            let raw_fno = (elapsed_since_launch.nanos() as f64 / camera_periodic_signal_period_nsec)
-                .round() as u64;
+            let n_periods =
+                elapsed_since_launch.nanos() as f64 / camera_periodic_signal_period_nsec;
+            let raw_fno = n_periods.round() as u64;
+            let device_timestamp_value = device_timestamp.get();
+            tracing::trace!(device_timestamp_value, n_periods, raw_fno);
+            tracing::trace!(
+                "packet.block_id: {:?}, packet.framenumber: {:?}, launch_time_ptp: {:?}",
+                packet.block_id,
+                packet.framenumber,
+                self.launch_time_ptp
+            );
+            tracing::trace!("elapsed_since_launch: {elapsed_since_launch:?}, camera_periodic_signal_period_nsec: {camera_periodic_signal_period_nsec}, raw_fno: {raw_fno}");
 
             let mut do_check_if_all_cameras_present = false;
 

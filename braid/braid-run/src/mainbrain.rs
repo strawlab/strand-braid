@@ -548,11 +548,18 @@ pub(crate) async fn do_run_forever(
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+    let periodic_signal_period_usec = if let TriggerType::PtpSync(ptpcfg) = &trigger_cfg {
+        ptpcfg.periodic_signal_period_usec
+    } else {
+        None
+    };
+
     let mut cam_manager = flydra2::ConnectedCamerasManager::new(
         &recon,
         all_expected_cameras,
         signal_all_cams_present.clone(),
         signal_all_cams_synced.clone(),
+        periodic_signal_period_usec,
     );
 
     let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, STRAND_CAM_COOKIE_KEY) {

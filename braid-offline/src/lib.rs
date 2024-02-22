@@ -347,6 +347,7 @@ where
         all_expected_cameras,
         signal_all_cams_present,
         signal_all_cams_synced,
+        None,
     );
 
     let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);
