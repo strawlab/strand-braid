@@ -4,12 +4,8 @@ use std::{
     path::Path,
 };
 
-use color_eyre::{
-    eyre::{self as anyhow, WrapErr},
-    Result,
-};
+use color_eyre::eyre::{self as anyhow, WrapErr};
 
-use basic_frame::DynamicFrame;
 use mkv_strand_reader::ParsedStrandCamMkv;
 
 use super::*;

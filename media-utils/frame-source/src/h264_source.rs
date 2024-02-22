@@ -5,10 +5,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use color_eyre::{
-    eyre::{self as anyhow, WrapErr},
-    Result,
-};
+use color_eyre::eyre::{self as anyhow, WrapErr};
 
 use h264_reader::{
     nal::{

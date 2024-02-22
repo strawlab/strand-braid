@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use std::collections::BTreeMap;
-use std::default::Default;
 use std::io::Read;
 
 use nalgebra as na;

@@ -2,7 +2,6 @@ use nalgebra as na;
 use nalgebra::core::dimension::{U3, U4};
 use nalgebra::core::OMatrix;
 use nalgebra::RealField;
-use serde;
 
 use serde::{Deserialize, Serialize};
 

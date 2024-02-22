@@ -1,7 +1,5 @@
 //! This is an incremental parser for braid archives.
 
-use std::io::{Read, Seek};
-
 use crate::*;
 
 /// The implementation specifies in what state we are in terms of parsing an archive.

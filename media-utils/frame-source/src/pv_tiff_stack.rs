@@ -1,13 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
-use std::{
-    io::Cursor,
-    path::{Path, PathBuf},
-};
+use std::{io::Cursor, path::Path};
 
-use color_eyre::{
-    eyre::{self as anyhow, WrapErr},
-    Result,
-};
+use color_eyre::eyre::{self as anyhow, WrapErr};
 
 use super::*;
 

@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, VecDeque};
-use std::iter::Iterator;
 use withkey::WithKey;
 
 // TODO: better error handling. Do not wrap Result types, but handle Results automatically.

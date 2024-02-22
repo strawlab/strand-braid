@@ -685,10 +685,6 @@ where
     }
 }
 
-trait PtsDur {
-    fn pts_dur(&self) -> std::time::Duration;
-}
-
 fn write_frame<T, FRAME, FMT>(
     state: &mut RecordingState<'_, T>,
     raw_frame: &FRAME,

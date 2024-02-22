@@ -187,22 +187,9 @@ struct TrackingParamsSaver {
     git_revision: String,
 }
 
-trait TimeDelta {
-    type CompareWith;
-    fn duration_since(&self, other: &Self::CompareWith, frame_dt: f64) -> f64;
-}
-
 #[derive(Clone, Debug, Serialize)]
 struct SyncedFrameCount {
     frame: SyncFno,
-}
-
-impl TimeDelta for SyncedFrameCount {
-    type CompareWith = SyncedFrameCount;
-    fn duration_since(&self, other: &SyncedFrameCount, dt: f64) -> f64 {
-        let df = self.frame.0 as i64 - other.frame.0 as i64;
-        df as f64 * dt
-    }
 }
 
 impl std::cmp::PartialEq for SyncedFrameCount {
@@ -220,13 +207,6 @@ impl std::cmp::PartialOrd for SyncedFrameCount {
 #[derive(Clone, Debug)]
 struct TimestampSyncSource {
     stamp: FlydraFloatTimestampLocal<Triggerbox>,
-}
-
-impl TimeDelta for TimestampSyncSource {
-    type CompareWith = TimestampSyncSource;
-    fn duration_since(&self, other: &TimestampSyncSource, _dt: f64) -> f64 {
-        self.stamp.as_f64() - other.stamp.as_f64()
-    }
 }
 
 impl std::cmp::PartialEq for TimestampSyncSource {

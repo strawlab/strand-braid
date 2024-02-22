@@ -1,11 +1,10 @@
 use crate::*;
 use tracing::info;
 
-use std::{io::Write, sync::Arc};
+use std::io::Write;
 
 use flydra_types::{
-    TrackingParams, BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME,
-    IMAGES_DIRNAME,
+    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
 
 struct WritingState {
@@ -646,7 +645,7 @@ pub(crate) fn writer_task_main(
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::sync::atomic::AtomicBool;
 
     #[test]
     fn test_save_braidz_on_drop() {

@@ -1,7 +1,6 @@
 // modified from https://github.com/mvdnes/zip-rs/blob/master/examples/write_dir.rs
 
 use std::io::{Seek, Write};
-use std::iter::Iterator;
 use zip::{result::ZipResult, write::FileOptions, ZipWriter};
 
 use std::fs::File;
