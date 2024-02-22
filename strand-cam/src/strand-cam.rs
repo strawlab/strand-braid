@@ -4687,6 +4687,15 @@ where
                                         })
                                         .unwrap();
 
+                                    if !cal_dir.exists() {
+                                        std::fs::create_dir_all(&cal_dir)?;
+                                    }
+
+                                    info!(
+                                        "Using calibration directory at \"{}\"",
+                                        cal_dir.display()
+                                    );
+
                                     let format_str =
                                         format!("{}.%Y%m%d_%H%M%S.yaml", raw_cam_name.as_str());
                                     let stamped = local.format(&format_str).to_string();
