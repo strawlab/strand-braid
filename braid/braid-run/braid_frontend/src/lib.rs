@@ -6,17 +6,16 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use gloo_events::EventListener;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Event, EventSource, MessageEvent};
+use web_sys::{EventSource, MessageEvent};
 
 use flydra_types::{
     BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
 };
 use rust_cam_bui_types::RecordingPath;
 
-use yew::prelude::*;
+use yew::{html,Context, Html, Component, Event};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};

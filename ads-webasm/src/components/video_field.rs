@@ -1,11 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;
-use bui_backend_session_types;
 use gloo::timers::callback::Timeout;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
 use yew::{html, Callback, Component, Context, Html, MouseEvent, Properties};
 
 use yew_tincture::components::CheckboxLabel;

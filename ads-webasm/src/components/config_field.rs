@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_yaml;
 use web_sys::HtmlInputElement;
 use yew::{classes, html, Callback, Component, Context, Html, InputEvent, Properties, TargetCast};
 use yew_tincture::components::Button;
