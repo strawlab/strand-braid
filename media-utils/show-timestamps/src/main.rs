@@ -29,12 +29,11 @@ impl DisplayTimestamp for std::time::Duration {
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
-    /// Input. Either file (e.g. `file.mp4`) or TIFF image directory. The first
-    /// TIFF file in a TIFF image directory is also accepted.
+    /// Inputs. Either files (e.g. `file.mp4`) or TIFF image directories. The
+    /// first TIFF file in a TIFF image directory is also accepted.
     ///
     /// For a TIFF image directory, images will be ordered alphabetically.
-    #[arg(short, long)]
-    input: String,
+    inputs: Vec<String>,
 
     /// Output format.
     #[arg(long, value_enum, default_value_t)]
@@ -68,109 +67,111 @@ fn main() -> Result<()> {
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
 
-    let mut input_path = std::path::PathBuf::from(cli.input);
-    let is_file = std::fs::metadata(&input_path)?.is_file();
-    if is_file {
-        let file_ext = input_path
-            .extension()
-            .map(|x| x.to_str())
-            .flatten()
-            .map(|x| x.to_lowercase());
-        if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
-            // tif file - assume this is image sequence and use directory.
-            input_path.pop();
+    for input in cli.inputs.iter() {
+        let mut input_path = std::path::PathBuf::from(input);
+        let is_file = std::fs::metadata(&input_path)?.is_file();
+        if is_file {
+            let file_ext = input_path
+                .extension()
+                .map(|x| x.to_str())
+                .flatten()
+                .map(|x| x.to_lowercase());
+            if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
+                // tif file - assume this is image sequence and use directory.
+                input_path.pop();
+            }
         }
-    }
 
-    let mut src = frame_source::from_path(&input_path, do_decode_h264)?;
-    let has_timestamps = src.has_timestamps();
+        let mut src = frame_source::from_path(&input_path, do_decode_h264)?;
+        let has_timestamps = src.has_timestamps();
 
-    let start_time_str = src
-        .frame0_time()
-        .map(|x| format!("{x}"))
-        .unwrap_or_else(|| "(unknown)".to_string());
-    match cli.output {
-        OutputFormat::EveryFrame | OutputFormat::Summary => {
-            println!("Path: {}", input_path.display());
-            println!(
-                "  Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                start_time_str,
-                src.width(),
-                src.height(),
-                src.timestamp_source(),
-            );
-        }
-        OutputFormat::CSV => {
-            println!(
-                "# Path:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                input_path.display(),
-                start_time_str,
-                src.width(),
-                src.height(),
-                src.timestamp_source(),
-            );
-            let col_name = if has_timestamps {
-                "timestamp_msec"
-            } else {
-                "fraction"
-            };
-            println!("frame_idx,{col_name}");
-        }
-    }
-
-    let mut prev_timestamp: Option<frame_source::Timestamp> = None;
-
-    let mut count = 0;
-    for frame in src.iter() {
-        let frame = frame?;
-
+        let start_time_str = src
+            .frame0_time()
+            .map(|x| format!("{x}"))
+            .unwrap_or_else(|| "(unknown)".to_string());
         match cli.output {
-            OutputFormat::EveryFrame => {
-                let delta = if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
-                    (prev_timestamp, frame.timestamp())
-                {
-                    let delta = t - prev_timestamp.unwrap_duration();
-                    format!("    (delta: {})", delta.to_display())
-                } else {
-                    String::new()
-                };
+            OutputFormat::EveryFrame | OutputFormat::Summary => {
+                println!("Path: {}", input_path.display());
                 println!(
-                    "    {:5}: {:10}{}",
-                    frame.idx(),
-                    frame.timestamp().to_display(),
-                    delta,
+                    "  Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
+                    start_time_str,
+                    src.width(),
+                    src.height(),
+                    src.timestamp_source(),
                 );
             }
             OutputFormat::CSV => {
-                let time_val = match frame.timestamp() {
-                    frame_source::Timestamp::Duration(dur) => {
-                        format!("{}", dur.as_secs_f64() * 1000.0)
-                    }
-                    frame_source::Timestamp::Fraction(frac) => format!("{}", frac),
+                println!(
+                    "# Path:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
+                    input_path.display(),
+                    start_time_str,
+                    src.width(),
+                    src.height(),
+                    src.timestamp_source(),
+                );
+                let col_name = if has_timestamps {
+                    "timestamp_msec"
+                } else {
+                    "fraction"
                 };
-                println!("{},{time_val}", frame.idx());
+                println!("frame_idx,{col_name}");
             }
-            OutputFormat::Summary => {}
         }
-        prev_timestamp = Some(frame.timestamp());
-        count += 1;
-    }
 
-    match cli.output {
-        OutputFormat::EveryFrame | OutputFormat::Summary => {
-            if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp {
-                if count > 0 {
-                    let fps = count as f64 / prev_timestamp.as_secs_f64();
+        let mut prev_timestamp: Option<frame_source::Timestamp> = None;
+
+        let mut count = 0;
+        for frame in src.iter() {
+            let frame = frame?;
+
+            match cli.output {
+                OutputFormat::EveryFrame => {
+                    let delta = if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
+                        (prev_timestamp, frame.timestamp())
+                    {
+                        let delta = t - prev_timestamp.unwrap_duration();
+                        format!("    (delta: {})", delta.to_display())
+                    } else {
+                        String::new()
+                    };
                     println!(
-                        "  {} frames in {}: {:.2} frames per second",
-                        count,
-                        prev_timestamp.to_display(),
-                        fps
+                        "    {:5}: {:10}{}",
+                        frame.idx(),
+                        frame.timestamp().to_display(),
+                        delta,
                     );
                 }
+                OutputFormat::CSV => {
+                    let time_val = match frame.timestamp() {
+                        frame_source::Timestamp::Duration(dur) => {
+                            format!("{}", dur.as_secs_f64() * 1000.0)
+                        }
+                        frame_source::Timestamp::Fraction(frac) => format!("{}", frac),
+                    };
+                    println!("{},{time_val}", frame.idx());
+                }
+                OutputFormat::Summary => {}
             }
+            prev_timestamp = Some(frame.timestamp());
+            count += 1;
         }
-        _ => {}
+
+        match cli.output {
+            OutputFormat::EveryFrame | OutputFormat::Summary => {
+                if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp {
+                    if count > 0 {
+                        let fps = count as f64 / prev_timestamp.as_secs_f64();
+                        println!(
+                            "  {} frames in {}: {:.2} frames per second",
+                            count,
+                            prev_timestamp.to_display(),
+                            fps
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     Ok(())
