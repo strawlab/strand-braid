@@ -9,15 +9,29 @@ use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
+// fn default_mp4_config() -> Mp4RecordingConfig {
+//     use ci2_remote_control::OpenH264Preset;
+//     let preset = OpenH264Preset::AllFrames;
+//     let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+//         debug: false,
+//         preset,
+//     });
+//     Mp4RecordingConfig {
+//         codec,
+//         max_framerate: Default::default(),
+//         h264_metadata: None,
+//     }
+// }
+
 fn default_mp4_config() -> Mp4RecordingConfig {
-    use ci2_remote_control::OpenH264Preset;
-    let preset = OpenH264Preset::AllFrames;
-    let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
-        debug: false,
-        preset,
-    });
+    // use ci2_remote_control::OpenH264Preset;
+    // let preset = OpenH264Preset::AllFrames;
+    // let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+    //     debug: false,
+    //     preset,
+    // });
     Mp4RecordingConfig {
-        codec,
+        codec: Mp4Codec::H264LessAvc,
         max_framerate: Default::default(),
         h264_metadata: None,
     }
@@ -265,8 +279,10 @@ impl<'lib> VideoStorage<'lib> {
         // Now render the SVG file to a pixmap.
         let pixmap_size = rtree.svg_node().size.to_screen_size();
         let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+        tracing::debug!("rendering with resvg");
         resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
 
+        tracing::debug!("rasterizing");
         let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
 
         if false {
@@ -280,7 +296,8 @@ impl<'lib> VideoStorage<'lib> {
             std::fs::write(format!("frame{:05}.png", out_fno), png_buf)?;
         }
 
-        // Save the pixmap into the MKV file being saved.
+        // Save the pixmap into the MP4 file being saved.
+        tracing::debug!("writing to MP4");
         self.mp4_writer.write(&rasterized, save_ts)?;
 
         Ok(())

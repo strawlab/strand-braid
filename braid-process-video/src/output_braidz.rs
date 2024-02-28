@@ -2,7 +2,10 @@ use color_eyre::{
     eyre::{self as anyhow},
     Result,
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    future::Future,
+};
 
 use flydra_types::{PerCamSaveData, RawCamName};
 
@@ -25,7 +28,11 @@ impl BraidStorage {
         sources: &[crate::CameraSource],
         all_expected_cameras: BTreeSet<RawCamName>,
         expected_framerate: Option<f32>,
-    ) -> Result<Self> {
+        braidz_calibration: Option<braidz_types::CalibrationInfo>,
+    ) -> Result<(
+        Self,
+        impl Future<Output = std::thread::JoinHandle<Result<(), flydra2::Error>>>,
+    )> {
         let output_braidz_path = std::path::PathBuf::from(&b.filename);
         let output_dirname =
             if output_braidz_path.extension() == Some(std::ffi::OsStr::new("braidz")) {
@@ -38,6 +45,12 @@ impl BraidStorage {
 
         let recon = match cfg.processing_config.camera_calibration_source {
             CameraCalibrationSource::None => None,
+            CameraCalibrationSource::CopyExisting => {
+                let braidz_types::CalibrationInfo { water, cameras } = braidz_calibration.unwrap();
+                Some(flydra_mvg::FlydraMultiCameraSystem::from_system(
+                    cameras, water,
+                ))
+            }
         };
 
         let tracking_params: flydra_types::TrackingParams = match cfg
@@ -128,13 +141,15 @@ impl BraidStorage {
             .unwrap();
 
         let coord_proc_fut = coord_processor.consume_stream(frame_data_rx, expected_framerate);
-        tokio::spawn(coord_proc_fut);
 
-        Ok(Self {
-            cam_manager,
-            frame_data_tx,
-            output_braidz_path,
-        })
+        Ok((
+            Self {
+                cam_manager,
+                frame_data_tx,
+                output_braidz_path,
+            },
+            coord_proc_fut,
+        ))
     }
     pub(crate) async fn render_frame(
         &mut self,

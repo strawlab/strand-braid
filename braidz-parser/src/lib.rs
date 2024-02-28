@@ -134,7 +134,8 @@ pub struct BraidzArchive<R: Read + Seek> {
     pub metadata: BraidMetadata,
     pub expected_fps: f64,
     pub calibration_info: Option<CalibrationInfo>,
-    pub kalman_estimates_info: Option<KalmanEstimatesInfo>, // TODO: rename to kalman_estimates
+    pub kalman_estimates_info: Option<KalmanEstimatesInfo>,
+    pub kalman_estimates_table: Option<Vec<KalmanEstimatesRow>>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
     pub cam_info: CamInfo,
@@ -343,6 +344,7 @@ pub fn braidz_parse<R: Read + Seek>(
         calibration_info: state.calibration_info,
         cam_info: state.cam_info,
         kalman_estimates_info: state.kalman_estimates_info,
+        kalman_estimates_table: state.kalman_estimates_table,
         data2d_distorted: state.data2d_distorted,
         reconstruction_latency_hlog: state.reconstruction_latency_hlog,
         reprojection_distance_hlog: state.reprojection_distance_hlog,

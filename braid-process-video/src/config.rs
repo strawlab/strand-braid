@@ -127,8 +127,8 @@ impl Default for BrightPointOptions {
 pub enum CameraCalibrationSource {
     #[serde(rename = "none")]
     None,
-    // #[serde(rename = "copy")]
-    // CopyExisting,
+    #[serde(rename = "copy")]
+    CopyExisting,
 }
 
 impl Default for CameraCalibrationSource {

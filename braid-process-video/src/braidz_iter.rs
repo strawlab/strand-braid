@@ -6,7 +6,7 @@ use color_eyre::{
     Result,
 };
 
-use flydra_types::{CamNum, Data2dDistortedRow};
+use flydra_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
 use frame_source::FrameData;
 use timestamped_frame::ExtraTimeData;
 
@@ -20,6 +20,7 @@ fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) ->
 /// Iterate across timepoints where no movie sources were given, relying only on
 /// data in the archive.
 pub(crate) struct BraidArchiveNoVideoData {
+    kalman_estimates_table: Option<Vec<KalmanEstimatesRow>>,
     my_iter_peekable: Peekable<Box<dyn Iterator<Item = Result<Data2dDistortedRow, csv::Error>>>>,
     frame_num: i64,
     accum: Vec<Data2dDistortedRow>,
@@ -31,12 +32,14 @@ impl BraidArchiveNoVideoData {
         archive: &'static mut braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         camns: Vec<CamNum>,
     ) -> Result<Self> {
+        let kalman_estimates_table = archive.kalman_estimates_table.clone();
         let my_iter = Box::new(archive.iter_data2d_distorted()?);
         let my_iter: Box<dyn Iterator<Item = Result<Data2dDistortedRow, csv::Error>>> = my_iter;
         let mut my_iter_peekable = my_iter.peekable();
         let row0 = my_iter_peekable.peek().unwrap();
         let frame_num = row0.as_ref().unwrap().frame;
         Ok(Self {
+            kalman_estimates_table,
             camns,
             my_iter_peekable,
             frame_num,
@@ -45,9 +48,35 @@ impl BraidArchiveNoVideoData {
     }
 }
 
-fn rows2result(camns: &[CamNum], rows: &[Data2dDistortedRow]) -> SyncedPictures {
+fn get_kest_rows(
+    frame_num: i64,
+    kalman_estimates_table: &Option<Vec<KalmanEstimatesRow>>,
+) -> Vec<KalmanEstimatesRow> {
+    let this_frame_num_sync = SyncFno::from(u64::try_from(frame_num).unwrap());
+
+    if let Some(kei) = kalman_estimates_table {
+        // FIXME TODO: this is really stupid not optimized
+        tracing::warn!("stupid, not-optimized inner loop");
+        let mut kest_rows = Vec::new();
+        for row in kei.iter() {
+            if row.frame == this_frame_num_sync {
+                kest_rows.push(row.clone());
+            }
+        }
+        kest_rows
+    } else {
+        // No kalman estimates
+        vec![]
+    }
+}
+
+fn rows2result_no_video(
+    kalman_estimates_table: &Option<Vec<KalmanEstimatesRow>>,
+    camns: &[CamNum],
+    rows: &[Data2dDistortedRow],
+) -> SyncedPictures {
     assert!(!rows.is_empty());
-    // let frame_num = rows[0].frame;
+    let frame_num = rows[0].frame;
     let cam_received_timestamp = rows[0].cam_received_timestamp.clone();
     let timestamp: DateTime<Utc> = cam_received_timestamp.into();
     let mut camera_pictures = Vec::new();
@@ -55,6 +84,7 @@ fn rows2result(camns: &[CamNum], rows: &[Data2dDistortedRow]) -> SyncedPictures 
     for camn in camns {
         let mut this_cam_this_frame = vec![];
         for row in rows {
+            debug_assert_eq!(frame_num, row.frame);
             if &row.camn == camn {
                 this_cam_this_frame.push(row.clone());
             }
@@ -66,9 +96,12 @@ fn rows2result(camns: &[CamNum], rows: &[Data2dDistortedRow]) -> SyncedPictures 
         });
     }
 
+    let kalman_estimates = get_kest_rows(frame_num, kalman_estimates_table);
+
     let braidz_info = Some(crate::BraidzFrameInfo {
-        // frame_num,
+        frame_num,
         trigger_timestamp: None,
+        kalman_estimates,
     });
 
     SyncedPictures {
@@ -90,7 +123,11 @@ impl Iterator for BraidArchiveNoVideoData {
                         return None;
                     } else {
                         let rows = std::mem::take(&mut self.accum);
-                        return Some(Ok(rows2result(&self.camns, &rows)));
+                        return Some(Ok(rows2result_no_video(
+                            &self.kalman_estimates_table,
+                            &self.camns,
+                            &rows,
+                        )));
                     }
                 }
                 Some(Err(_)) => {
@@ -111,7 +148,8 @@ impl Iterator for BraidArchiveNoVideoData {
                     } else {
                         // next frame not part of current result, return this result.
                         let rows = std::mem::take(&mut self.accum);
-                        let result = rows2result(&self.camns, &rows);
+                        let result =
+                            rows2result_no_video(&self.kalman_estimates_table, &self.camns, &rows);
                         self.frame_num = next_row_ref.frame;
                         return Some(Ok(result));
                     }
@@ -137,6 +175,7 @@ fn as_ros_camid(raw_name: &str) -> String {
 /// Iterate across multiple movies with a simultaneously recorded .braidz file
 /// used to synchronize the frames.
 pub(crate) struct BraidArchiveSyncVideoData<'a> {
+    archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
     per_cam: Vec<BraidArchivePerCam<'a>>,
     sync_threshold: chrono::Duration,
     cur_braidz_frame: i64,
@@ -255,6 +294,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             .collect();
 
         Ok(Self {
+            archive,
             per_cam,
             cur_braidz_frame: found_frame,
             sync_threshold,
@@ -278,7 +318,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
             let mut trigger_timestamp = None;
 
-            // Iterate across all input mkv cameras.
+            // Iterate across all input mp4 cameras.
             let camera_pictures: Vec<Result<crate::OutTimepointPerCamera>> = self
                 .per_cam
                 .iter_mut()
@@ -291,7 +331,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                         let peek_row: Data2dDistortedRow = (*peek_row).clone(); // drop the original to free memory reference.
                         if peek_row.frame < this_frame_num {
                             // We are behind where we want to be. Skip this
-                            // mkv frame.
+                            // mp4 frame.
                             cam_rows_peek_iter.next().unwrap();
                             continue;
                         }
@@ -332,7 +372,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
                     let mut found = false;
 
-                    // Now get the next MKV frame and ensure its timestamp is correct.
+                    // Now get the next MP4 frame and ensure its timestamp is correct.
                     if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
                         let p1_pts_chrono = peek1_frame
                             .as_ref()
@@ -345,26 +385,26 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                         if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
                             found = true;
                         } else if p1_pts_chrono > need_chrono {
-                            // peek1 MKV frame is after the time needed,
-                            // so the frame is not in MKV. (Are we
-                            // before first frame in MKV? Or is a frame
+                            // peek1 MP4 frame is after the time needed,
+                            // so the frame is not in MP4. (Are we
+                            // before first frame in MP4? Or is a frame
                             // skipped?)
                         } else {
-                            panic!("Frame number in MKV is missing from BRAIDZ.");
+                            panic!("Frame number in MP4 is missing from BRAIDZ.");
                         }
                     } else {
                         n_cams_done += 1;
                     }
 
-                    let mkv_frame = if found {
+                    let mp4_frame = if found {
                         n_cams_this_frame += 1;
-                        // Take this MKV frame image data.
+                        // Take this MP4 frame image data.
                         this_cam.frame_reader.next()
                     } else {
                         None
                     };
 
-                    let mkv_frame = match mkv_frame {
+                    let mp4_frame = match mp4_frame {
                         Some(Ok(f)) => f.take_decoded(),
                         Some(Err(e)) => {
                             return Err(e);
@@ -374,20 +414,24 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
                     Ok(crate::OutTimepointPerCamera::new(
                         row0_pts_chrono,
-                        mkv_frame,
+                        mp4_frame,
                         this_cam_this_frame,
                     ))
                 })
                 .collect();
 
-            // All mkv files done. End.
+            // All mp4 files done. End.
             if n_cams_done == self.per_cam.len() {
                 return None;
             }
 
+            let kalman_estimates =
+                get_kest_rows(this_frame_num, &self.archive.kalman_estimates_table);
+
             let braidz_info = Some(crate::BraidzFrameInfo {
-                // frame_num: this_frame_num,
+                frame_num: this_frame_num,
                 trigger_timestamp,
+                kalman_estimates,
             });
 
             let camera_pictures: Result<Vec<crate::OutTimepointPerCamera>> =

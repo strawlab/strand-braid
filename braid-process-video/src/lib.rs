@@ -12,7 +12,7 @@ use ordered_float::NotNan;
 use machine_vision_formats::ImageData;
 use timestamped_frame::ExtraTimeData;
 
-use flydra_types::{Data2dDistortedRow, RawCamName};
+use flydra_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
 
 mod peek2;
 use peek2::Peek2;
@@ -83,8 +83,9 @@ pub(crate) struct SyncedPictures {
 
 #[derive(Debug)]
 pub(crate) struct BraidzFrameInfo {
-    // frame_num: i64,
+    frame_num: i64,
     trigger_timestamp: Option<flydra_types::FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
+    kalman_estimates: Vec<KalmanEstimatesRow>,
 }
 
 fn synchronize_readers_from(
@@ -431,6 +432,10 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .map(|kei| kei.tracking_parameters.clone())
     });
 
+    let braidz_calibration = braid_archive
+        .as_ref()
+        .and_then(|archive| archive.calibration_info.clone());
+
     let expected_framerate = braid_archive
         .as_ref()
         .map(|archive| archive.expected_fps as f32);
@@ -714,17 +719,24 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     path: output_filename.clone(),
                     fd: std::fs::File::create(&output_filename)?,
                 })),
-                OutputConfig::Braidz(b) => Ok(OutputStorage::Braid(
-                    output_braidz::BraidStorage::new(
+                OutputConfig::Braidz(b) => {
+                    let (braidz_storage, coord_proc_fut) = output_braidz::BraidStorage::new(
                         cfg,
                         &b,
                         tracking_parameters.clone(),
                         &sources,
                         all_expected_cameras.clone(),
                         expected_framerate,
+                        braidz_calibration.clone(),
                     )
-                    .await?,
-                )),
+                    .await?;
+
+                    // TODO: this is not going to work like this.
+                    let _terrible_jh_jh = tokio::spawn(coord_proc_fut);
+                    tracing::warn!("Braidz output will not work due to unfinished implementation");
+
+                    Ok(OutputStorage::Braid(braidz_storage))
+                }
             }
         }))
         .await;
@@ -799,20 +811,16 @@ fn gather_frame_data<'a>(
 
         cam_render_data.pts_chrono = per_cam.timestamp;
 
-        for (rowi, row_data2d) in per_cam.this_cam_this_frame.iter().enumerate() {
+        for row_data2d in per_cam.this_cam_this_frame.iter() {
             {
-                let row_dt: DateTime<Utc> = (&row_data2d.cam_received_timestamp).into();
                 for output in output_storage.iter_mut() {
                     if let OutputStorage::Debug(d) = output {
                         writeln!(
                             d.fd,
-                            "   Collect {}: {} ({}), rowi {}, {} ({}), {}, {}",
+                            "   Collect {}: {}, frame {}, {}, {}",
                             source.cam_id.best_name(),
                             per_cam.timestamp,
-                            datetime_conversion::datetime_to_f64(&per_cam.timestamp),
-                            rowi,
-                            row_dt,
-                            row_data2d.cam_received_timestamp.as_f64(),
+                            row_data2d.frame,
                             row_data2d.x,
                             row_data2d.y,
                         )?;
@@ -836,10 +844,9 @@ fn gather_frame_data<'a>(
                 if let OutputStorage::Debug(d) = output {
                     writeln!(
                         d.fd,
-                        "   Collect {}: {} ({}) no points",
+                        "   Collect {}: {} no points",
                         source.cam_id.best_name(),
                         per_cam.timestamp,
-                        datetime_conversion::datetime_to_f64(&per_cam.timestamp),
                     )?;
                     #[allow(unused_assignments)]
                     {

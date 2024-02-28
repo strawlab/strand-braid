@@ -29,6 +29,7 @@ csv = "1.1"
 tracing-panic = "0.1.1"
 
 channellib = {path="../channellib"}
+braidz-types = {path="../braidz-types"}
 env-tracing-logger = {path="../env-tracing-logger"}
 mp4-writer = {path="../media-utils/mp4-writer", features=["openh264"]}
 ci2-remote-control = { path = "../ci2-remote-control"}

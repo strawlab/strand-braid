@@ -28,6 +28,7 @@ pub struct FullyParsed {
     pub expected_fps: f64,
     pub calibration_info: Option<CalibrationInfo>,
     pub kalman_estimates_info: Option<KalmanEstimatesInfo>, // TODO: rename to kalman_estimates
+    pub kalman_estimates_table: Option<Vec<KalmanEstimatesRow>>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
     pub cam_info: CamInfo,
@@ -384,10 +385,11 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             }
         });
 
-        let kalman_estimates_info = {
+        let (kalman_estimates_info, kalman_estimates_table) = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
-            let kalman_estimates_info = match open_maybe_gzipped(fname) {
+            let mut kalman_estimates_table = Vec::new();
+            match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let kest_reader = csv::Reader::from_reader(rdr);
                     let mut trajectories = BTreeMap::new();
@@ -420,6 +422,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         zlim[0] = min(zlim[0], row.z);
                         zlim[1] = max(zlim[1], row.z);
                         num_rows += 1;
+                        kalman_estimates_table.push(row);
                     }
 
                     let mut total_distance: f64 = 0.0;
@@ -447,7 +450,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         }
                     };
 
-                    Some(KalmanEstimatesInfo {
+                    (Some(KalmanEstimatesInfo {
                         xlim,
                         ylim,
                         zlim,
@@ -455,7 +458,8 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         num_rows,
                         tracking_parameters,
                         total_distance,
-                    })
+                    }),
+                    Some(kalman_estimates_table))
                 }
                 Err(e) =>
                 {
@@ -465,14 +469,13 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                             source: zip_or_dir::Error::FileNotFound,
                             #[cfg(feature = "backtrace")]
                             backtrace,
-                        } => None,
+                        } => (None,None),
                         _ => {
                             return Err(e);
                         }
                     }
                 }
-            };
-            kalman_estimates_info
+            }
         };
 
         let image_sizes = if let Some(calibration_info) = basics.calibration_info.as_ref() {
@@ -518,6 +521,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 calibration_info: basics.calibration_info,
                 cam_info,
                 kalman_estimates_info,
+                kalman_estimates_table,
                 data2d_distorted,
                 reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
                 reprojection_distance_hlog: basics.reprojection_distance_hlog,
