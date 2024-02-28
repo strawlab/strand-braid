@@ -89,7 +89,7 @@ fn get_files(
 }
 
 fn init_logging() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = env_tracing_logger::initiate_logging::<&str>(None, false);
 }
 
 #[ignore]

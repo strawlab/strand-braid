@@ -40,11 +40,13 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
     }
 
-    env_logger::init();
+    env_tracing_logger::init();
 
     let command = Commands::parse();
 
@@ -86,7 +88,7 @@ async fn main() -> Result<()> {
     };
 
     let cfg_as_string = toml::to_string_pretty(cfg.valid()).unwrap();
-    log::info!(
+    tracing::info!(
         "Generating output using the following configuration:\n\n```\n{}```\n",
         cfg_as_string
     );

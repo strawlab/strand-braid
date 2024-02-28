@@ -93,7 +93,7 @@ fn synchronize_readers_from(
 ) {
     // Advance each reader until upcoming frame is not before the start time.
     for reader in readers.iter_mut() {
-        // log::debug!("filename: {}", reader.as_ref().filename().display());
+        // tracing::debug!("filename: {}", reader.as_ref().filename().display());
 
         // Get information for first frame
         let p1_pts_chrono = reader
@@ -119,9 +119,9 @@ fn synchronize_readers_from(
             .unwrap()
             .abs();
 
-        log::debug!("  p1_pts_chrono: {}", p1_pts_chrono);
-        log::debug!("  p2_pts_chrono: {}", p2_pts_chrono);
-        log::debug!("  p1_delta: {}", p1_delta);
+        tracing::debug!("  p1_pts_chrono: {}", p1_pts_chrono);
+        tracing::debug!("  p2_pts_chrono: {}", p2_pts_chrono);
+        tracing::debug!("  p1_delta: {}", p1_delta);
 
         if p1_pts_chrono >= approx_start_time {
             // First frame is already after the start time, use it unconditionally.
@@ -561,7 +561,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             sources.append(&mut cam_ids);
             true
         } else {
-            log::info!("No sources given (either video files or braidz archive).");
+            tracing::info!("No sources given (either video files or braidz archive).");
             return Ok(vec![]);
         }
     } else {
@@ -618,7 +618,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         let approx_start_time: Option<DateTime<_>> = frame0_times.iter().max().map(Clone::clone);
 
         if let Some(approx_start_time) = &approx_start_time {
-            log::info!("start time determined from videos: {}", approx_start_time);
+            tracing::info!("start time determined from videos: {}", approx_start_time);
         }
 
         let frame_duration = cfg
@@ -657,7 +657,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .map(|x| chrono::Duration::from_std(std::time::Duration::from_micros(x)).unwrap())
             .unwrap_or(frame_duration / 2);
 
-        log::info!(
+        tracing::info!(
             "sync_threshold: {} microseconds",
             sync_threshold.num_microseconds().unwrap()
         );
@@ -754,7 +754,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         }
 
         if out_fno % cfg.log_interval_frames.unwrap_or(100) == 0 {
-            log::info!("frame {}", out_fno);
+            tracing::info!("frame {}", out_fno);
         }
 
         // --- Collect input data for this timepoint. -----

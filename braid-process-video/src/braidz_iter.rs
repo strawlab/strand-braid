@@ -100,7 +100,7 @@ impl Iterator for BraidArchiveNoVideoData {
                     if next_row_ref.frame < self.frame_num {
                         // Unexpected data from the past.
                         // TODO: could use `AscendingGroupIter` to handle this case.
-                        log::error!("skipping data from the past (received data from frame {} while processing {}", next_row_ref.frame, self.frame_num);
+                        tracing::error!("skipping data from the past (received data from frame {} while processing {}", next_row_ref.frame, self.frame_num);
                         let _skipped_row = self.my_iter_peekable.next().unwrap().unwrap();
                         continue;
                     }

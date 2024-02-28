@@ -14,7 +14,7 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
     with_debug_file: bool,
     time_dilation_factor: Option<f32>,
 ) -> Result<Valid<BraidRetrackVideoConfig>> {
-    log::info!(
+    tracing::info!(
         "generating auto config from dir \"{}\"",
         source_dir.as_ref().display()
     );

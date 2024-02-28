@@ -95,11 +95,11 @@ impl Iterator for SyncedIter {
                             None
                         } else if timestamp1 < min_threshold {
                             // Just skip a frame in the file? Not sure about this.
-                            // log::warn!(
+                            // tracing::warn!(
                             //     "Two frames within minimum threshold file {}. Skipping frame with timestamp {}.",
                             //     frame_reader.as_ref().filename().display(), timestamp1,
                             // );
-                            log::warn!(
+                            tracing::warn!(
                                 "Two frames within minimum threshold. Skipping frame with timestamp {}.",
                                 timestamp1,
                             );
