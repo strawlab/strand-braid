@@ -925,8 +925,16 @@ pub(crate) async fn do_run_forever(
                 residuals: 0.0,
             }));
         }
-        TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
-            // We simply trust the clocks. How simple.
+        TriggerType::PtpSync(ptpcfg) => {
+            signal_triggerbox_connected.store(true, Ordering::SeqCst);
+
+            if let Some(periodic_signal_period_usec) = ptpcfg.periodic_signal_period_usec {
+                let framerate = 1e6 / periodic_signal_period_usec;
+                let mut expected_framerate = expected_framerate_arc.write();
+                *expected_framerate = Some(framerate as f32);
+            }
+        }
+        TriggerType::DeviceTimestamp => {
             signal_triggerbox_connected.store(true, Ordering::SeqCst);
         }
     };
