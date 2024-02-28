@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::io::Read;
 
+use na::{Matrix3, Vector3};
 use nalgebra as na;
 
 use na::RealField;
@@ -159,5 +160,21 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
 
         let coords = cam_geom::best_intersection_of_rays(&rays)?;
         Ok(coords.into())
+    }
+
+    pub fn align(&self, s: R, rot: Matrix3<R>, t: Vector3<R>) -> Result<Self> {
+        let comment = self.comment.clone();
+
+        let mut aligned = BTreeMap::new();
+
+        for (name, orig_cam) in self.cams_by_name.iter() {
+            let cam = orig_cam.align(s, rot, t)?;
+            aligned.insert(name.clone(), cam);
+        }
+
+        Ok(Self {
+            cams_by_name: aligned,
+            comment,
+        })
     }
 }

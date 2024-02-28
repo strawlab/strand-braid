@@ -4,7 +4,7 @@
 use serde::Deserialize;
 
 use na::core::dimension::{U1, U2, U3, U4};
-use na::core::{Matrix3, OMatrix, Vector3, Vector5};
+use na::core::{Matrix3, Matrix4, OMatrix, Vector3, Vector5};
 use na::geometry::{Point2, Point3, Rotation3, UnitQuaternion};
 use na::{allocator::Allocator, DefaultAllocator, RealField};
 use nalgebra as na;
@@ -190,6 +190,15 @@ fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4,
         })
 }
 
+fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R, U4, U4>> {
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 100)
+        .ok_or(MvgError::SvdFailed)?
+        .pseudo_inverse(na::convert(1.0e-7))
+        .map_err(|e| MvgError::PinvError {
+            error: format!("inserve_failed {}", e),
+        })
+}
+
 impl<R: RealField + Copy> Camera<R> {
     pub fn new(
         width: usize,
@@ -219,6 +228,16 @@ impl<R: RealField + Copy> Camera<R> {
     }
 
     pub fn from_pmat(width: usize, height: usize, pmat: &OMatrix<R, U3, U4>) -> Result<Self> {
+        let distortion = Distortion::zero();
+        Self::from_pmat_with_distortion(width, height, pmat, distortion)
+    }
+
+    fn from_pmat_with_distortion(
+        width: usize,
+        height: usize,
+        pmat: &OMatrix<R, U3, U4>,
+        distortion: Distortion<R>,
+    ) -> Result<Self> {
         let m = (*pmat).remove_column(3);
         let (rquat, k) = rq_decomposition(m)?;
 
@@ -233,7 +252,8 @@ impl<R: RealField + Copy> Camera<R> {
         let cx = k[(0, 2)];
         let cy = k[(1, 2)];
 
-        let intrinsics = RosOpenCvIntrinsics::from_params(fx, skew, fy, cx, cy);
+        let intrinsics =
+            RosOpenCvIntrinsics::from_params_with_distortion(fx, skew, fy, cx, cy, distortion);
         let camcenter = pmat2cam_center(pmat);
         let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);
 
@@ -251,8 +271,22 @@ impl<R: RealField + Copy> Camera<R> {
     }
 
     pub fn linear_part_as_pmat(&self) -> &OMatrix<R, U3, U4> {
-        // TODO: remove this function?
         &self.cache.m
+    }
+
+    pub fn align(&self, s: R, rot: Matrix3<R>, t: Vector3<R>) -> Result<Self> {
+        let m = build_xform(s, rot, t);
+        let mi = my_pinv_4x4(&m)?;
+
+        let pmat = &self.cache.m;
+        let aligned_pmat = pmat * mi;
+
+        Self::from_pmat_with_distortion(
+            self.width,
+            self.height,
+            &aligned_pmat,
+            self.intrinsics().distortion.clone(),
+        )
     }
 
     /// return a copy of this camera looking in the opposite direction
@@ -391,6 +425,21 @@ impl<R: RealField + Copy> std::default::Default for Camera<R> {
         let intrinsics = crate::make_default_intrinsics();
         Camera::new(640, 480, extrinsics, intrinsics).unwrap()
     }
+}
+
+fn build_xform<R: RealField + Copy>(s: R, rot: Matrix3<R>, t: Vector3<R>) -> Matrix4<R> {
+    let mut m1 = Matrix4::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            m1[(i, j)] = rot[(i, j)];
+        }
+    }
+    let mut m2 = m1 * s;
+    for i in 0..3 {
+        m2[(i, 3)] = t[i];
+    }
+    m2[(3, 3)] = R::one();
+    m2
 }
 
 #[allow(clippy::many_single_char_names)]
