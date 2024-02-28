@@ -3,21 +3,21 @@ name = "flydra-mvg"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.60"
 
 [dependencies]
 log = "0.4"
 num-traits = "0.2"
-nalgebra = {version="0.32", features=["serde-serialize"]}
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
 parry3d-f64 = "0.13.5"
 alga = "0.9"
-serde = {version="1.0", features=["derive"]}
-serde-xml-rs = "0.5" # TODO: switch to https://crates.io/crates/quick-xml
-cam-geom = {version = "0.14", features=["serde-serialize"]}
-opencv-ros-camera = {version = "0.14", features=["serde-serialize"]}
+serde = { version = "1.0", features = ["derive"] }
+serde-xml-rs = "0.5"                                                     # TODO: switch to https://crates.io/crates/quick-xml
+cam-geom = { version = "0.14", features = ["serde-serialize"] }
+opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
 
-mvg = {path="../mvg"}
-refraction = {path="../refraction"}
+mvg = { path = "../mvg" }
+refraction = { path = "../refraction" }
 
 [dev-dependencies]
 num-iter = "0.1"
