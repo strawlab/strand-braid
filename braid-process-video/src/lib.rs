@@ -8,6 +8,7 @@ use color_eyre::{
 use flydra_mvg::FlydraMultiCameraSystem;
 use frame_source::{FrameData, FrameDataSource};
 use futures::future::join_all;
+use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
 use machine_vision_formats::ImageData;
@@ -800,8 +801,19 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         None => moment_iter,
     };
 
+    let pb = match moment_iter.size_hint().1 {
+        Some(n_expected) => {
+            // Custom progress bar with space at right end to prevent obscuring last
+            // digit with cursor.
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            ProgressBar::new(n_expected.try_into().unwrap()).with_style(style)
+        }
+        None => ProgressBar::new_spinner(),
+    };
+
     // Iterate over all output frames.
     for (out_fno, synced_data) in moment_iter.enumerate() {
+        pb.set_position(out_fno.try_into().unwrap());
         let synced_data = synced_data?;
 
         if let Some(start_frame) = cfg.skip_n_first_output_frames {
@@ -831,6 +843,8 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 .await?;
         }
     }
+
+    pb.finish_and_clear();
 
     Ok(output_storage
         .iter()
