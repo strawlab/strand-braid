@@ -40,8 +40,6 @@ use color_eyre::{
 
 use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
 
-pub(crate) type BoxedStdError = Box<dyn std::error::Error + Send>;
-
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/pkg");

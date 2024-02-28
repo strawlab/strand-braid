@@ -3,7 +3,7 @@ use preferences_serde1::Preferences;
 use std::{collections::BTreeMap, sync::Arc};
 use tracing::{debug, error, info, warn};
 
-use bui_backend_session::{self, HttpSession};
+use bui_backend_session::HttpSession;
 use flydra_types::{BuiServerInfo, RawCamName};
 use strand_cam_storetype::CallbackType;
 
@@ -21,20 +21,7 @@ pub(crate) enum MaybeSession {
     Errored,
 }
 
-trait MyErrorTrait<T> {
-    fn boxerr(self) -> std::result::Result<T, BoxedStdError>;
-}
-
-impl<T> MyErrorTrait<T> for std::result::Result<T, MainbrainError> {
-    fn boxerr(self) -> std::result::Result<T, BoxedStdError> {
-        match self {
-            Ok(v) => Ok(v),
-            Err(e) => Err(Box::new(e)),
-        }
-    }
-}
-
-use crate::mainbrain::{BoxedStdError, MainbrainError, MainbrainResult};
+use crate::mainbrain::{MainbrainError, MainbrainResult};
 
 impl StrandCamHttpSessionHandler {
     pub(crate) fn new(
