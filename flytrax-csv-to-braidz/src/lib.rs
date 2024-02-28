@@ -155,6 +155,7 @@ where
         save_performance_histograms,
         &env!("CARGO_PKG_NAME"),
         no_progress,
+        None,
     )
     .await?;
 

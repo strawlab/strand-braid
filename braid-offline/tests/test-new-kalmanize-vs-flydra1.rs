@@ -347,6 +347,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
         true,
+        None,
     )
     .await?;
     println!("done tracking");

@@ -229,6 +229,7 @@ pub async fn kalmanize<Q, R>(
     save_performance_histograms: bool,
     saving_program_name: &str,
     no_progress: bool,
+    new_calibration: Option<flydra_mvg::FlydraMultiCameraSystem<f64>>,
 ) -> Result<(), Error>
 where
     Q: AsRef<Path> + std::fmt::Debug,
@@ -265,45 +266,49 @@ where
             .collect();
         let local = src_info.metadata.original_recording_time;
 
-        let recon = if let Some(ci) = &src_info.calibration_info {
-            // Check if we need to convert "real" camera names to ROS-compatible
-            // names. We are trying to move everywhere to "real" camera names,
-            // but old code (and perhaps current code) converts the real names
-            // to ROS-compatible names. E.g. real name "Basler-1234" ROS name
-            // "Basler_1234".
-            let mut cams = ci.cameras.clone();
-            let mut found = 0;
-            let mut count = 0;
-            for cam_id_in_calibration in cams.cams_by_name().keys() {
-                count += 1;
-                info!("Calibration contains camera: {cam_id_in_calibration}");
-                if !cam_ids.iter().any(|x| x == cam_id_in_calibration) {
-                    let raw_name_calib = RawCamName::new(cam_id_in_calibration.clone());
-                    if cam_ids
-                        .iter()
-                        .any(|x| x.as_str() == raw_name_calib.as_str())
-                    {
-                        found += 1;
+        let recon = match (&src_info.calibration_info, new_calibration) {
+            (_, Some(recon)) => recon,
+            (Some(ci), None) => {
+                // Check if we need to convert "real" camera names to ROS-compatible
+                // names. We are trying to move everywhere to "real" camera names,
+                // but old code (and perhaps current code) converts the real names
+                // to ROS-compatible names. E.g. real name "Basler-1234" ROS name
+                // "Basler_1234".
+                let mut cams = ci.cameras.clone();
+                let mut found = 0;
+                let mut count = 0;
+                for cam_id_in_calibration in cams.cams_by_name().keys() {
+                    count += 1;
+                    info!("Calibration contains camera: {cam_id_in_calibration}");
+                    if !cam_ids.iter().any(|x| x == cam_id_in_calibration) {
+                        let raw_name_calib = RawCamName::new(cam_id_in_calibration.clone());
+                        if cam_ids
+                            .iter()
+                            .any(|x| x.as_str() == raw_name_calib.as_str())
+                        {
+                            found += 1;
+                        }
                     }
                 }
-            }
-            if found > 0 && found == count {
-                info!("Converting camera calibration names from original to ROS-compatible names.");
-                let mut new_cams = std::collections::BTreeMap::new();
-                for (orig_name, orig_value) in cams.cams_by_name().iter() {
-                    let raw_name = RawCamName::new(orig_name.clone()).as_str().to_string();
-                    new_cams.insert(raw_name, orig_value.clone());
+                if found > 0 && found == count {
+                    info!("Converting camera calibration names from original to ROS-compatible names.");
+                    let mut new_cams = std::collections::BTreeMap::new();
+                    for (orig_name, orig_value) in cams.cams_by_name().iter() {
+                        let raw_name = RawCamName::new(orig_name.clone()).as_str().to_string();
+                        new_cams.insert(raw_name, orig_value.clone());
+                    }
+                    cams = if let Some(comment) = cams.comment() {
+                        mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
+                    } else {
+                        mvg::MultiCameraSystem::new(new_cams)
+                    };
                 }
-                cams = if let Some(comment) = cams.comment() {
-                    mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
-                } else {
-                    mvg::MultiCameraSystem::new(new_cams)
-                };
+                let water = ci.water;
+                flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
             }
-            let water = ci.water;
-            flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
-        } else {
-            return Err(Error::NoCalibrationFound);
+            (None, None) => {
+                return Err(Error::NoCalibrationFound);
+            }
         };
 
         (local, src_info.expected_fps, recon)
@@ -823,6 +828,15 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
 
     let save_performance_histograms = true;
 
+    let calibration = opt
+        .new_calibration
+        .map(|cal_fname| {
+            flydra_mvg::FlydraMultiCameraSystem::<f64>::from_path(&cal_fname).with_context(|| {
+                anyhow::anyhow!("while reading calibration file \"{}\"", cal_fname.display())
+            })
+        })
+        .transpose()?;
+
     kalmanize(
         data_src,
         output_braidz,
@@ -832,6 +846,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
         save_performance_histograms,
         "braid-offline-retrack",
         opt.no_progress,
+        calibration,
     )
     .await?;
     Ok(())
@@ -858,7 +873,9 @@ pub struct Cli {
     /// Tracking parameters TOML file.
     #[arg(long)]
     pub tracking_params: Option<std::path::PathBuf>,
-
+    /// New calibration
+    #[arg(long)]
+    pub new_calibration: Option<std::path::PathBuf>,
     /// Disable display of progress indicator
     #[arg(long)]
     pub no_progress: bool,

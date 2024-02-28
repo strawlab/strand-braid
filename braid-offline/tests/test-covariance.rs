@@ -44,6 +44,7 @@ async fn test_covariance() {
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
         true,
+        None,
     )
     .await
     .unwrap();

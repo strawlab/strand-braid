@@ -44,6 +44,7 @@ async fn test_min_two_rays_needed() {
         save_performance_histograms,
         &format!("{}:{}", file!(), line!()),
         true,
+        None,
     )
     .await
     .unwrap();
