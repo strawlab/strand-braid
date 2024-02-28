@@ -19,10 +19,53 @@ fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) ->
     -dur < dist && dist < dur
 }
 
+struct IndexedKEsts {
+    inner: Option<Peekable<std::vec::IntoIter<KalmanEstimatesRow>>>,
+}
+
+impl IndexedKEsts {
+    fn new(inner: Option<Vec<KalmanEstimatesRow>>) -> Self {
+        let inner = inner.map(|x| x.into_iter().peekable());
+        Self { inner }
+    }
+
+    fn get_kest_rows(&mut self, request_fnum: i64) -> Vec<KalmanEstimatesRow> {
+        let request_fnum = SyncFno::from(u64::try_from(request_fnum).unwrap());
+        if let Some(all_row_iter) = self.inner.as_mut() {
+            let mut frame_rows = Vec::new();
+
+            // Loop over iterator until we get to our requested fnum and
+            // accumulate those. Break when peeked fnum is higher than request.
+            loop {
+                let peek_fnum = all_row_iter.peek().map(|row| row.frame);
+                match peek_fnum {
+                    None => break,
+                    Some(peek_fnum) => {
+                        if peek_fnum > request_fnum {
+                            // Next fnum in table is greater than request - break.
+                            break;
+                        }
+                        let row = all_row_iter.next().unwrap();
+                        if peek_fnum == request_fnum {
+                            frame_rows.push(row);
+                        } else {
+                            debug_assert!(peek_fnum < request_fnum);
+                        }
+                    }
+                }
+            }
+            frame_rows
+        } else {
+            // No kalman estimates
+            vec![]
+        }
+    }
+}
+
 /// Iterate across timepoints where no movie sources were given, relying only on
 /// data in the archive.
 pub(crate) struct BraidArchiveNoVideoData {
-    kalman_estimates_table: Option<Vec<KalmanEstimatesRow>>,
+    kests: IndexedKEsts,
     my_iter_peekable: Peekable<Box<dyn Iterator<Item = Result<Data2dDistortedRow, csv::Error>>>>,
     frame_num: i64,
     accum: Vec<Data2dDistortedRow>,
@@ -46,7 +89,7 @@ impl BraidArchiveNoVideoData {
         let row0 = my_iter_peekable.peek().unwrap();
         let frame_num = row0.as_ref().unwrap().frame;
         Ok(Self {
-            kalman_estimates_table,
+            kests: IndexedKEsts::new(kalman_estimates_table),
             camns,
             my_iter_peekable,
             frame_num,
@@ -56,30 +99,8 @@ impl BraidArchiveNoVideoData {
     }
 }
 
-fn get_kest_rows(
-    frame_num: i64,
-    kalman_estimates_table: &Option<Vec<KalmanEstimatesRow>>,
-) -> Vec<KalmanEstimatesRow> {
-    let this_frame_num_sync = SyncFno::from(u64::try_from(frame_num).unwrap());
-
-    if let Some(kei) = kalman_estimates_table {
-        // FIXME TODO: this is really stupid not optimized
-        tracing::warn!("stupid, not-optimized inner loop");
-        let mut kest_rows = Vec::new();
-        for row in kei.iter() {
-            if row.frame == this_frame_num_sync {
-                kest_rows.push(row.clone());
-            }
-        }
-        kest_rows
-    } else {
-        // No kalman estimates
-        vec![]
-    }
-}
-
 fn rows2result_no_video(
-    kalman_estimates_table: &Option<Vec<KalmanEstimatesRow>>,
+    kalman_estimates_table: &mut IndexedKEsts,
     camns: &[CamNum],
     rows: &[Data2dDistortedRow],
     recon: &Option<FlydraMultiCameraSystem<f64>>,
@@ -105,7 +126,7 @@ fn rows2result_no_video(
         });
     }
 
-    let kalman_estimates = get_kest_rows(frame_num, kalman_estimates_table);
+    let kalman_estimates = kalman_estimates_table.get_kest_rows(frame_num);
 
     let braidz_info = Some(crate::BraidzFrameInfo {
         frame_num,
@@ -134,7 +155,7 @@ impl Iterator for BraidArchiveNoVideoData {
                     } else {
                         let rows = std::mem::take(&mut self.accum);
                         return Some(Ok(rows2result_no_video(
-                            &self.kalman_estimates_table,
+                            &mut self.kests,
                             &self.camns,
                             &rows,
                             &self.recon,
@@ -159,12 +180,8 @@ impl Iterator for BraidArchiveNoVideoData {
                     } else {
                         // next frame not part of current result, return this result.
                         let rows = std::mem::take(&mut self.accum);
-                        let result = rows2result_no_video(
-                            &self.kalman_estimates_table,
-                            &self.camns,
-                            &rows,
-                            &self.recon,
-                        );
+                        let result =
+                            rows2result_no_video(&mut self.kests, &self.camns, &rows, &self.recon);
                         self.frame_num = next_row_ref.frame;
                         return Some(Ok(result));
                     }
@@ -190,7 +207,8 @@ fn as_ros_camid(raw_name: &str) -> String {
 /// Iterate across multiple movies with a simultaneously recorded .braidz file
 /// used to synchronize the frames.
 pub(crate) struct BraidArchiveSyncVideoData<'a> {
-    archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
+    recon: Option<flydra_mvg::FlydraMultiCameraSystem<f64>>,
+    kests: IndexedKEsts,
     per_cam: Vec<BraidArchivePerCam<'a>>,
     sync_threshold: chrono::Duration,
     cur_braidz_frame: i64,
@@ -308,8 +326,15 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             })
             .collect();
 
+        let recon = archive.calibration_info.as_ref().map(|x| {
+            let CalibrationInfo { water, cameras } = x;
+            flydra_mvg::FlydraMultiCameraSystem::from_system(cameras.clone(), *water)
+        });
+        let kests = IndexedKEsts::new(archive.kalman_estimates_table);
+
         Ok(Self {
-            archive,
+            recon,
+            kests,
             per_cam,
             cur_braidz_frame: found_frame,
             sync_threshold,
@@ -440,13 +465,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                 return None;
             }
 
-            let kalman_estimates =
-                get_kest_rows(this_frame_num, &self.archive.kalman_estimates_table);
-
-            let recon = self.archive.calibration_info.as_ref().map(|x| {
-                let CalibrationInfo { water, cameras } = x;
-                flydra_mvg::FlydraMultiCameraSystem::from_system(cameras.clone(), *water)
-            });
+            let kalman_estimates = self.kests.get_kest_rows(this_frame_num);
 
             let braidz_info = Some(crate::BraidzFrameInfo {
                 frame_num: this_frame_num,
@@ -471,7 +490,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                     timestamp,
                     camera_pictures,
                     braidz_info,
-                    recon,
+                    recon: self.recon.clone(),
                 }));
             } else {
                 // If we haven't yet had a frame with all cameras, check if this
@@ -482,7 +501,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                         timestamp,
                         camera_pictures,
                         braidz_info,
-                        recon,
+                        recon: self.recon.clone(),
                     }));
                 }
             }
