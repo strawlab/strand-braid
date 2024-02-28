@@ -5,6 +5,7 @@ use color_eyre::{
     eyre::{self as anyhow, WrapErr},
     Result,
 };
+use flydra_mvg::FlydraMultiCameraSystem;
 use frame_source::{FrameData, FrameDataSource};
 use futures::future::join_all;
 use ordered_float::NotNan;
@@ -48,6 +49,8 @@ pub(crate) const DEFAULT_FEATURE_STYLE: &str = "fill: none; stroke: deepskyblue;
 pub(crate) const DEFAULT_CAMERA_TEXT_STYLE: &str =
     "font-family: Arial; font-size: 40px; fill: deepskyblue;";
 
+pub(crate) const DEFAULT_REPROJECTED_STYLE: &str = "fill: none; stroke: white; stroke-width: 3;";
+
 #[derive(Debug)]
 pub(crate) struct OutTimepointPerCamera {
     timestamp: DateTime<Utc>,
@@ -79,6 +82,52 @@ pub(crate) struct SyncedPictures {
     /// If a braidz file was used as synchronization source, more data is
     /// available.
     pub(crate) braidz_info: Option<BraidzFrameInfo>,
+    pub(crate) recon: Option<FlydraMultiCameraSystem<f64>>,
+}
+
+impl SyncedPictures {
+    fn project_kests(
+        &self,
+        cam: &CameraSource,
+        recon: &Option<FlydraMultiCameraSystem<f64>>,
+    ) -> Vec<(NotNan<f64>, NotNan<f64>)> {
+        let recon = match recon {
+            Some(recon) => recon,
+            None => {
+                return vec![];
+            }
+        };
+        let cam_name = &cam.per_cam_render.raw_name;
+        let cam = match recon.cam_by_name(cam_name.as_str()) {
+            Some(cam) => cam,
+            None => {
+                return vec![];
+            }
+        };
+
+        match &self.braidz_info {
+            Some(braidz_info) => braidz_info
+                .kalman_estimates
+                .iter()
+                .filter_map(|kest_row| {
+                    let pt3d = mvg::PointWorldFrame {
+                        coords: nalgebra::Point3::new(kest_row.x, kest_row.y, kest_row.z),
+                    };
+                    let pix2d = cam.project_3d_to_distorted_pixel(&pt3d);
+                    let x = pix2d.coords.x;
+                    let y = pix2d.coords.y;
+                    if x >= 0.0 && y >= 0.0 && x <= cam.width() as f64 && y <= cam.height() as f64 {
+                        Some((NotNan::new(x).unwrap(), NotNan::new(y).unwrap()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            None => {
+                vec![]
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -270,6 +319,7 @@ impl PerCamRender {
             p: self,
             png_buf: None,
             points: vec![],
+            reprojected_points: vec![],
             pts_chrono,
         }
     }
@@ -279,6 +329,7 @@ pub(crate) struct PerCamRenderFrame<'a> {
     pub(crate) p: &'a PerCamRender,
     pub(crate) png_buf: Option<Vec<u8>>,
     pub(crate) points: Vec<(NotNan<f64>, NotNan<f64>)>,
+    pub(crate) reprojected_points: Vec<(NotNan<f64>, NotNan<f64>)>,
     pub(crate) pts_chrono: DateTime<Utc>,
 }
 
@@ -803,13 +854,17 @@ fn gather_frame_data<'a>(
         // start adding information relevant for this frame in time.
         let mut cam_render_data = source.per_cam_render.new_render_data(per_cam.timestamp);
 
-        // Did we get an image from the MKV file?
+        // Did we get an image from the MP4 file?
         if let Some(pic) = &per_cam.image {
             cam_render_data.set_original_image(pic)?;
         }
         let mut wrote_debug = false;
 
         cam_render_data.pts_chrono = per_cam.timestamp;
+
+        cam_render_data
+            .reprojected_points
+            .extend(synced_data.project_kests(source, &synced_data.recon));
 
         for row_data2d in per_cam.this_cam_this_frame.iter() {
             {

@@ -1,11 +1,13 @@
 use std::{collections::BTreeMap, iter::Peekable};
 
+use braidz_types::CalibrationInfo;
 use chrono::{DateTime, Utc};
 use color_eyre::{
     eyre::{self as anyhow},
     Result,
 };
 
+use flydra_mvg::FlydraMultiCameraSystem;
 use flydra_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
 use frame_source::FrameData;
 use timestamped_frame::ExtraTimeData;
@@ -25,6 +27,7 @@ pub(crate) struct BraidArchiveNoVideoData {
     frame_num: i64,
     accum: Vec<Data2dDistortedRow>,
     camns: Vec<CamNum>,
+    recon: Option<flydra_mvg::FlydraMultiCameraSystem<f64>>,
 }
 
 impl BraidArchiveNoVideoData {
@@ -33,6 +36,10 @@ impl BraidArchiveNoVideoData {
         camns: Vec<CamNum>,
     ) -> Result<Self> {
         let kalman_estimates_table = archive.kalman_estimates_table.clone();
+        let recon = archive.calibration_info.as_ref().map(|x| {
+            let CalibrationInfo { water, cameras } = x;
+            flydra_mvg::FlydraMultiCameraSystem::from_system(cameras.clone(), *water)
+        });
         let my_iter = Box::new(archive.iter_data2d_distorted()?);
         let my_iter: Box<dyn Iterator<Item = Result<Data2dDistortedRow, csv::Error>>> = my_iter;
         let mut my_iter_peekable = my_iter.peekable();
@@ -44,6 +51,7 @@ impl BraidArchiveNoVideoData {
             my_iter_peekable,
             frame_num,
             accum: vec![],
+            recon,
         })
     }
 }
@@ -74,6 +82,7 @@ fn rows2result_no_video(
     kalman_estimates_table: &Option<Vec<KalmanEstimatesRow>>,
     camns: &[CamNum],
     rows: &[Data2dDistortedRow],
+    recon: &Option<FlydraMultiCameraSystem<f64>>,
 ) -> SyncedPictures {
     assert!(!rows.is_empty());
     let frame_num = rows[0].frame;
@@ -108,6 +117,7 @@ fn rows2result_no_video(
         timestamp,
         braidz_info,
         camera_pictures,
+        recon: recon.clone(),
     }
 }
 
@@ -127,6 +137,7 @@ impl Iterator for BraidArchiveNoVideoData {
                             &self.kalman_estimates_table,
                             &self.camns,
                             &rows,
+                            &self.recon,
                         )));
                     }
                 }
@@ -148,8 +159,12 @@ impl Iterator for BraidArchiveNoVideoData {
                     } else {
                         // next frame not part of current result, return this result.
                         let rows = std::mem::take(&mut self.accum);
-                        let result =
-                            rows2result_no_video(&self.kalman_estimates_table, &self.camns, &rows);
+                        let result = rows2result_no_video(
+                            &self.kalman_estimates_table,
+                            &self.camns,
+                            &rows,
+                            &self.recon,
+                        );
                         self.frame_num = next_row_ref.frame;
                         return Some(Ok(result));
                     }
@@ -428,6 +443,11 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
             let kalman_estimates =
                 get_kest_rows(this_frame_num, &self.archive.kalman_estimates_table);
 
+            let recon = self.archive.calibration_info.as_ref().map(|x| {
+                let CalibrationInfo { water, cameras } = x;
+                flydra_mvg::FlydraMultiCameraSystem::from_system(cameras.clone(), *water)
+            });
+
             let braidz_info = Some(crate::BraidzFrameInfo {
                 frame_num: this_frame_num,
                 trigger_timestamp,
@@ -451,6 +471,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                     timestamp,
                     camera_pictures,
                     braidz_info,
+                    recon,
                 }));
             } else {
                 // If we haven't yet had a frame with all cameras, check if this
@@ -461,6 +482,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                         timestamp,
                         camera_pictures,
                         braidz_info,
+                        recon,
                     }));
                 }
             }

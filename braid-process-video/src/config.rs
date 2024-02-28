@@ -227,6 +227,11 @@ pub struct VideoOutputOptions {
     ///
     /// The default value of `None` will resolve to [`crate::DEFAULT_FEATURE_STYLE`].
     pub feature_style: Option<String>,
+
+    /// The SVG style string of the point to overlay when drawing reprojected 3D points.
+    ///
+    /// The default value of `None` will resolve to [`crate::DEFAULT_REPROJECTED_STYLE`].
+    pub reprojected_style: Option<String>,
     /// The SVG style string of the camera text.
     ///
     /// The default value of `None` will resolve to [`crate::DEFAULT_CAMERA_TEXT_STYLE`].

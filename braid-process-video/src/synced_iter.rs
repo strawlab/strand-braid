@@ -9,6 +9,8 @@ use frame_source::FrameData;
 use timestamped_frame::ExtraTimeData;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
+///
+/// There is no braidz source of truth in this case.
 pub(crate) struct SyncedIter {
     frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
     /// The shortest value to consider frames synchronized.
@@ -82,7 +84,7 @@ impl Iterator for SyncedIter {
             .filter_map(|frame_reader| {
                 let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().decoded().unwrap().extra().host_timestamp());
 
-                let mkv_frame = if let Some(timestamp1) = timestamp1 {
+                let mp4_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;
                     if min_threshold <= timestamp1 && timestamp1 <= max_threshold {
                         stamps.push(timestamp1);
@@ -111,12 +113,12 @@ impl Iterator for SyncedIter {
                         }
                     }
                 } else {
-                    // end of stream
+                    // end of stream:
                     None
                 };
 
                 if let Some(timestamp1) = timestamp1 {
-                    let mkv_frame = match mkv_frame {
+                    let mp4_frame = match mp4_frame {
                         Some(Ok(f)) => Some(f.take_decoded().unwrap()),
                         Some(Err(e)) => {
                             return Some(Err(e));
@@ -126,7 +128,7 @@ impl Iterator for SyncedIter {
 
                     Some(Ok(crate::OutTimepointPerCamera::new(
                         timestamp1,
-                        mkv_frame,
+                        mp4_frame,
                         vec![],
                     )))
                 } else {
@@ -163,6 +165,7 @@ impl Iterator for SyncedIter {
                 timestamp,
                 camera_pictures,
                 braidz_info: None,
+                recon: None,
             }))
         } else {
             assert_eq!(camera_pictures.len(), 0);

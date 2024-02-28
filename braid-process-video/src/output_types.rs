@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use ordered_float::NotNan;
 use std::io::Write;
 
 use crate::{output_braidz::BraidStorage, output_video::VideoStorage, PerCamRenderFrame};
@@ -76,21 +77,26 @@ impl DebugStorage {
             writeln!(self.fd, " - Output frame {}: No braidz info", out_fno)?;
         }
         for cam_render_data in all_cam_render_data.iter() {
-            if cam_render_data.points.is_empty() {
-                writeln!(
-                    self.fd,
-                    "   Output frame {}, camera {}: no points",
-                    out_fno, cam_render_data.p.best_name
-                )?;
-            } else {
-                for xy in cam_render_data.points.iter() {
+            let mut write_it = |pts: &[(NotNan<f64>, NotNan<f64>)], name| {
+                if pts.is_empty() {
                     writeln!(
                         self.fd,
-                        "   Output frame {}, camera {}: points: {} {}",
-                        out_fno, cam_render_data.p.best_name, xy.0, xy.1
+                        "   Output frame {}, camera {}: no detected {name} points",
+                        out_fno, cam_render_data.p.best_name
                     )?;
+                } else {
+                    for xy in pts.iter() {
+                        writeln!(
+                            self.fd,
+                            "   Output frame {}, camera {}: {name} points: {} {}",
+                            out_fno, cam_render_data.p.best_name, xy.0, xy.1
+                        )?;
+                    }
                 }
-            }
+                Ok::<_, color_eyre::eyre::Error>(())
+            };
+            write_it(&cam_render_data.points, "feature")?;
+            write_it(&cam_render_data.reprojected_points, "reprojected")?;
         }
         Ok(())
     }

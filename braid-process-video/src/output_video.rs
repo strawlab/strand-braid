@@ -45,6 +45,7 @@ pub(crate) struct VideoStorage<'lib> {
     pub(crate) composite_margin_pixels: usize,
     pub(crate) feature_radius: String,
     pub(crate) feature_style: String,
+    pub(crate) reprojected_style: String,
     pub(crate) cam_text_style: String,
     pub(crate) video_options: VideoOutputOptions,
     pub(crate) cum_width: usize,
@@ -97,6 +98,13 @@ impl<'lib> VideoStorage<'lib> {
             .map(Clone::clone)
             .unwrap_or_else(|| crate::DEFAULT_FEATURE_STYLE.to_string());
 
+        let reprojected_style = v
+            .video_options
+            .reprojected_style
+            .as_ref()
+            .map(Clone::clone)
+            .unwrap_or_else(|| crate::DEFAULT_REPROJECTED_STYLE.to_string());
+
         let cam_text_style = v
             .video_options
             .cam_text_style
@@ -116,6 +124,7 @@ impl<'lib> VideoStorage<'lib> {
             composite_margin_pixels,
             feature_radius,
             feature_style,
+            reprojected_style,
             cam_text_style,
             video_options: v.video_options.clone(),
             cum_width,
@@ -136,6 +145,7 @@ impl<'lib> VideoStorage<'lib> {
         let composite_margin_pixels = self.composite_margin_pixels;
         let feature_radius = &self.feature_radius;
         let feature_style = &self.feature_style;
+        let reprojected_style = &self.reprojected_style;
         let cam_text_style = &self.cam_text_style;
 
         let ts = &synced_data.timestamp;
@@ -230,6 +240,17 @@ impl<'lib> VideoStorage<'lib> {
                                 d.attr("style", feature_style)
                             })?;
                         }
+
+                        // Draw 3d points
+                        for xy in cam_render_data.reprojected_points.iter() {
+                            w.single("circle", |d| {
+                                d.attr("cx", xy.0.as_ref())?;
+                                d.attr("cy", xy.1.as_ref())?;
+                                d.attr("r", feature_radius)?;
+                                d.attr("style", reprojected_style)
+                            })?;
+                        }
+
                         Ok(())
                     })?;
 
