@@ -684,6 +684,27 @@ where
         writer.write_all(buf.as_bytes())?;
         Ok(())
     }
+
+    /// Read a calibration from a path.
+    pub fn from_path<P>(cal_fname: P) -> Result<Self>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let cal_fname = cal_fname.as_ref();
+
+        let cal_file = std::fs::File::open(cal_fname)?;
+
+        if cal_fname.extension() == Some(std::ffi::OsStr::new("json"))
+            || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
+        {
+            // Assume any .json or .pymvg file is a pymvg file.
+            let system = mvg::MultiCameraSystem::from_pymvg_json(cal_file)?;
+            Ok(Self::from_system(system, None))
+        } else {
+            // Otherwise, assume it is a flydra xml file.
+            Ok(Self::from_flydra_xml(cal_file)?)
+        }
+    }
 }
 
 // FlydraCamera ----------------------------------------------

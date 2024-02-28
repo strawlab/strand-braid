@@ -24,7 +24,7 @@ use tracing::{debug, error, info};
 
 use bui_backend_session_types::AccessToken;
 use event_stream_types::{AcceptsEventStream, EventBroadcaster};
-use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, MyFloat, StreamItem};
+use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
 use flydra_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
     BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
@@ -33,7 +33,10 @@ use flydra_types::{
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-use color_eyre::{eyre, Result};
+use color_eyre::{
+    eyre::{self, WrapErr},
+    Result,
+};
 
 use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
 
@@ -523,24 +526,11 @@ pub(crate) async fn do_run_forever(
 
     let recon = if let Some(ref cal_fname) = cal_fname {
         info!("using calibration: {}", cal_fname.display());
-
-        // read the calibration
-        let cal_file = eyre::WrapErr::with_context(std::fs::File::open(cal_fname), || {
-            format!("loading calibration {}", cal_fname.display())
-        })?;
-
-        if cal_fname.extension() == Some(std::ffi::OsStr::new("json"))
-            || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
-        {
-            // Assume any .json or .pymvg file is a pymvg file.
-            let system = mvg::MultiCameraSystem::<MyFloat>::from_pymvg_json(cal_file)?;
-            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_system(
-                system, None,
-            ))
-        } else {
-            // Otherwise, assume it is a flydra xml file.
-            Some(flydra_mvg::FlydraMultiCameraSystem::<MyFloat>::from_flydra_xml(cal_file)?)
-        }
+        Some(
+            flydra_mvg::FlydraMultiCameraSystem::from_path(cal_fname).with_context(|| {
+                format!("loading calibration in file \"{}\"", cal_fname.display())
+            })?,
+        )
     } else {
         None
     };
