@@ -844,8 +844,8 @@ impl CoordProcessor {
     /// runtime is done without returning from this function. It is async,
     /// though, and yields many times throughout this execution.
     ///
-    /// Upon completion, returns a [tokio::task::JoinHandle] from a spawned
-    /// writing task. To ensure data is completely saved, this should be driven
+    /// Upon completion, returns a [std::thread::JoinHandle] from a spawned
+    /// writing thread. To ensure data is completely saved, this should be driven
     /// to completion before ending the process.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn consume_stream<S>(
