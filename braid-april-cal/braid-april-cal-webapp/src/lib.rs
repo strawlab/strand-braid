@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
 
 use yew::prelude::*;
 use yew_tincture::components::Button;
@@ -8,6 +8,9 @@ use yew_tincture::components::Button;
 use ads_webasm::components::{CsvData, CsvDataField, MaybeCsvData};
 
 use braid_april_cal::*;
+
+// TODO: update webpage to allow uploading intrinsic calibration YAML files
+// which are provided to `CalData::known_good_intrinsics`.
 
 pub struct Model {
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
@@ -113,8 +116,10 @@ impl Component for Model {
             <p>{"This page computes a "}<a href="https://strawlab.org/braid/">{"Braid"}</a>
                {" calibration based on April Tag fiducial marker detection data. "}
                {"The source code for this page may be found "}
-               <a href="https://github.com/strawlab/strand-braid/tree/main/braid-april-cal-webapp">
-               {"here"}</a>{"."}</p>
+               <a href="https://github.com/strawlab/strand-braid/tree/main/braid-april-cal/braid-april-cal-webapp">
+               {"here"}</a>{". A related "}
+               <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">
+               {"tutorial"}</a>{" may also be interesting."}</p>
             <h2>{"Input: 3D coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file with columns: id, x, y, z."}</p>
             <label class={classes!("btn", "custom-file-upload")}>
