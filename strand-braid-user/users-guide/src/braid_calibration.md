@@ -22,7 +22,7 @@ The XML calibration files used in Braid are backwards-compatible with those from
 Braid's predecessor, Flydra. Several of the steps described here also use tools
 from Flydra.
 
-## Step 1: setup cameras (zoom, focus, aperture, gain) and lights
+## Step 0: setup cameras (zoom, focus, aperture, gain) and lights
 
 Setup camera position, zoom, focus (using an object in the tracking volume) and
 aperture (slightly stopped down from wide-open). Exposure times and gains are
@@ -36,7 +36,21 @@ power cycled, it will reset to new values.
 Try to a luminance distribution which extends across the entire dynamic range of
 your sensor (from intensity values 0 to 255) with very little clipping.
 
-## Step 2: run "Checkerboard Calibration" to get the camera intrinsic parameters
+## Methods for calibration
+
+The "traditional" calibration method, inherited from
+[flydra](https://github.com/strawlab/flydra), uses the [MultiCamSelfCal MCSC
+library](https://github.com/strawlab/MultiCamSelfCal).
+
+Other methods of calibration are in development. For example, the [Braid April
+Tag Calibration Tool](https://strawlab.org/braid-april-cal-webapp/). There is
+also [a tutorial Jupyter
+notebook](https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb)
+for a manual approach involving April Tags. These April Tag approaches may be
+particularly interesting in a setting where Braid is used for tracking in a
+Virtual Reality setup where computer displays can be used to show April Tags.
+
+## MCSC Method, Step 1: run "Checkerboard Calibration" to get the camera intrinsic parameters
 
 (There is a script to draw checkerboards as SVG files:
 [`draw_checkerboard_svg.py`](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py).)
@@ -55,7 +69,7 @@ results of this calibration are saved to the directory
 
 Repeat this for all cameras before proceeding to the next step.
 
-## Step 3: collect calibration data and run MultiCamSelfCal (MCSC)
+## MCSC Method, Step 2: collect calibration data and run MultiCamSelfCal (MCSC)
 
 To calibrate Braid, we use
 [MultiCamSelfCal](https://github.com/strawlab/MultiCamSelfCal). This is a
