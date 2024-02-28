@@ -12,7 +12,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1.0"
 thiserror = "1.0.33"
-log = "0.4"
 alga = "0.9"
 cam-geom = { version = "0.14", features = ["serde-serialize"] }
 opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
