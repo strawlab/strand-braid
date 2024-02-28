@@ -207,7 +207,19 @@ pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv", ".mp4"];
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
+pub enum VideoCodecConfig {
+    #[default]
+    #[serde(rename = "openh264")]
+    OpenH264,
+    #[serde(rename = "lessavc")]
+    LessAvc,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct VideoOutputOptions {
+    /// The codec to use when encoding video.
+    pub codec: VideoCodecConfig,
     /// The space surrounding each image in the composite view.
     ///
     /// The default value of `None` will resolve to
@@ -241,6 +253,9 @@ pub struct VideoOutputOptions {
     /// The default value of `None` means this value will not be set in the
     /// saved video.
     pub title: Option<String>,
+    /// Save SVG and PNG intermediate images used to generate movies.
+    #[serde(default)]
+    pub save_debug_images: bool,
 }
 
 impl VideoOutputOptions {

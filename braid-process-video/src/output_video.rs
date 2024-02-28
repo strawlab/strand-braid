@@ -9,34 +9,6 @@ use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
-// fn default_mp4_config() -> Mp4RecordingConfig {
-//     use ci2_remote_control::OpenH264Preset;
-//     let preset = OpenH264Preset::AllFrames;
-//     let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
-//         debug: false,
-//         preset,
-//     });
-//     Mp4RecordingConfig {
-//         codec,
-//         max_framerate: Default::default(),
-//         h264_metadata: None,
-//     }
-// }
-
-fn default_mp4_config() -> Mp4RecordingConfig {
-    // use ci2_remote_control::OpenH264Preset;
-    // let preset = OpenH264Preset::AllFrames;
-    // let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
-    //     debug: false,
-    //     preset,
-    // });
-    Mp4RecordingConfig {
-        codec: Mp4Codec::H264LessAvc,
-        max_framerate: Default::default(),
-        h264_metadata: None,
-    }
-}
-
 pub(crate) struct VideoStorage<'lib> {
     pub(crate) path: std::path::PathBuf,
     pub(crate) mp4_writer: mp4_writer::Mp4Writer<'lib, std::fs::File>,
@@ -77,7 +49,26 @@ impl<'lib> VideoStorage<'lib> {
         }
         let fd = std::fs::File::create(output_filename)?;
 
-        let mp4_cfg = default_mp4_config();
+        let mp4_cfg = match v.video_options.codec {
+            crate::config::VideoCodecConfig::OpenH264 => {
+                use ci2_remote_control::OpenH264Preset;
+                let preset = OpenH264Preset::AllFrames;
+                let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+                    debug: false,
+                    preset,
+                });
+                Mp4RecordingConfig {
+                    codec,
+                    max_framerate: Default::default(),
+                    h264_metadata: None,
+                }
+            }
+            crate::config::VideoCodecConfig::LessAvc => Mp4RecordingConfig {
+                codec: Mp4Codec::H264LessAvc,
+                max_framerate: Default::default(),
+                h264_metadata: None,
+            },
+        };
 
         let mp4_writer = mp4_writer::Mp4Writer::new(fd, mp4_cfg, None)?;
         let composite_margin_pixels = v
@@ -300,13 +291,11 @@ impl<'lib> VideoStorage<'lib> {
         // Now render the SVG file to a pixmap.
         let pixmap_size = rtree.svg_node().size.to_screen_size();
         let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
-        tracing::debug!("rendering with resvg");
         resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
 
-        tracing::debug!("rasterizing");
         let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
 
-        if false {
+        if self.video_options.save_debug_images {
             // Write composited SVG to disk.
             let mut debug_svg_fd = std::fs::File::create(format!("frame{:05}.svg", out_fno))?;
             debug_svg_fd.write_all(&svg_buf)?;
@@ -318,7 +307,6 @@ impl<'lib> VideoStorage<'lib> {
         }
 
         // Save the pixmap into the MP4 file being saved.
-        tracing::debug!("writing to MP4");
         self.mp4_writer.write(&rasterized, save_ts)?;
 
         Ok(())
