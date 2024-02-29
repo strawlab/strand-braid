@@ -416,6 +416,8 @@ struct MovieCamId {
     reader: Option<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
     /// File name of the movie (without directory path)
     filename: String,
+    /// Source of timestamp data in the video file
+    timestamp_source: String,
     /// Name of camera given in configuration file
     cfg_name: Option<String>,
     /// Title given in movie metadata
@@ -441,6 +443,7 @@ impl std::fmt::Debug for MovieCamId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MovieCamId")
             .field("filename", &self.filename)
+            .field("timestamp_source", &self.timestamp_source)
             .field("cfg_name", &self.cfg_name)
             .field("title", &self.title)
             .field("cam_from_filename", &self.cam_from_filename)
@@ -515,6 +518,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         .zip(frame_sources.iter_mut())
         .map(|(s, frame_source)| {
             let frame0_time = frame_source.frame0_time().unwrap();
+            let timestamp_source: String = frame_source.timestamp_source().into();
 
             let title: Option<String> = frame_source.camera_name().map(Into::into);
 
@@ -528,6 +532,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 .to_str()
                 .unwrap()
                 .to_string();
+            tracing::debug!("Video source {}: timestamp_source {}", filename, timestamp_source);
 
             let stem = filename.as_str().split('.').next().unwrap();
             // example: stem = "movie20211108_084523_Basler-22445994"
@@ -540,6 +545,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             let cam_id = CameraIdentifier::MovieOnly(MovieCamId {
                 _full_path: full_path,
                 filename,
+                timestamp_source,
                 cfg_name: s.camera_name.clone(),
                 title,
                 cam_from_filename,

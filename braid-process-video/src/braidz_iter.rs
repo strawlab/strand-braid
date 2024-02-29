@@ -192,6 +192,7 @@ impl Iterator for BraidArchiveNoVideoData {
 }
 
 struct BraidArchivePerCam<'a> {
+    cam_name: String,
     frame_reader: Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
@@ -319,6 +320,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
                 let cam_rows_peek_iter = cam_rows.iter().peekable();
 
                 BraidArchivePerCam {
+                    cam_name: cam_name.to_string(),
                     frame_reader,
                     cam_num,
                     cam_rows_peek_iter,
@@ -363,6 +365,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                 .per_cam
                 .iter_mut()
                 .map(|this_cam| {
+                    let cam_name = this_cam.cam_name.as_str();
                     // Get the rows exclusively for this camera.
                     let cam_rows_peek_iter = &mut this_cam.cam_rows_peek_iter;
 
@@ -414,9 +417,11 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
 
                     // Now get the next MP4 frame and ensure its timestamp is correct.
                     if let Some(peek1_frame) = this_cam.frame_reader.peek1() {
-                        let p1_pts_chrono = peek1_frame
+                        let frame_data = peek1_frame
                             .as_ref()
-                            .unwrap()
+                            .unwrap();
+                        let idx = frame_data.idx();
+                        let p1_pts_chrono = frame_data
                             .decoded()
                             .unwrap()
                             .extra()
@@ -430,7 +435,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                             // before first frame in MP4? Or is a frame
                             // skipped?)
                         } else {
-                            panic!("Frame number in MP4 is missing from BRAIDZ.");
+                            panic!("Cam {cam_name}: frame {idx} ({p1_pts_chrono}) in video is missing from BRAIDZ.");
                         }
                     } else {
                         n_cams_done += 1;
