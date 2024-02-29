@@ -50,6 +50,7 @@ pub(crate) const DEFAULT_FEATURE_STYLE: &str = "fill: none; stroke: deepskyblue;
 pub(crate) const DEFAULT_CAMERA_TEXT_STYLE: &str =
     "font-family: Arial; font-size: 40px; fill: deepskyblue;";
 
+pub(crate) const DEFAULT_REPROJECTED_RADIUS: &str = "12";
 pub(crate) const DEFAULT_REPROJECTED_STYLE: &str = "fill: none; stroke: white; stroke-width: 3;";
 
 #[derive(Debug)]

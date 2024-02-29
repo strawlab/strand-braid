@@ -16,6 +16,7 @@ pub(crate) struct VideoStorage<'lib> {
     pub(crate) first_timestamp: Option<DateTime<Utc>>,
     pub(crate) composite_margin_pixels: usize,
     pub(crate) feature_radius: String,
+    pub(crate) reprojected_radius: String,
     pub(crate) feature_style: String,
     pub(crate) reprojected_style: String,
     pub(crate) cam_text_style: String,
@@ -89,6 +90,12 @@ impl<'lib> VideoStorage<'lib> {
             .map(Clone::clone)
             .unwrap_or_else(|| crate::DEFAULT_FEATURE_STYLE.to_string());
 
+        let reprojected_radius = v
+            .video_options
+            .reprojected_radius
+            .as_ref()
+            .map(Clone::clone)
+            .unwrap_or_else(|| crate::DEFAULT_REPROJECTED_RADIUS.to_string());
         let reprojected_style = v
             .video_options
             .reprojected_style
@@ -114,6 +121,7 @@ impl<'lib> VideoStorage<'lib> {
             first_timestamp: None,
             composite_margin_pixels,
             feature_radius,
+            reprojected_radius,
             feature_style,
             reprojected_style,
             cam_text_style,
@@ -135,6 +143,7 @@ impl<'lib> VideoStorage<'lib> {
 
         let composite_margin_pixels = self.composite_margin_pixels;
         let feature_radius = &self.feature_radius;
+        let reprojected_radius = &self.reprojected_radius;
         let feature_style = &self.feature_style;
         let reprojected_style = &self.reprojected_style;
         let cam_text_style = &self.cam_text_style;
@@ -237,7 +246,7 @@ impl<'lib> VideoStorage<'lib> {
                             w.single("circle", |d| {
                                 d.attr("cx", xy.0.as_ref())?;
                                 d.attr("cy", xy.1.as_ref())?;
-                                d.attr("r", feature_radius)?;
+                                d.attr("r", reprojected_radius)?;
                                 d.attr("style", reprojected_style)
                             })?;
                         }

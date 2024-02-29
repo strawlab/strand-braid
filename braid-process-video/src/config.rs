@@ -235,6 +235,11 @@ pub struct VideoOutputOptions {
     /// The default value of `None` will resolve to
     /// [`crate::DEFAULT_FEATURE_RADIUS`].
     pub feature_radius: Option<String>,
+    /// The radius of the circle to overlay when drawing reprojected points.
+    ///
+    /// The default value of `None` will resolve to
+    /// [`crate::DEFAULT_REPROJECTED_RADIUS`].
+    pub reprojected_radius: Option<String>,
     /// The SVG style string of the point to overlay when drawing braidz 2D features.
     ///
     /// The default value of `None` will resolve to [`crate::DEFAULT_FEATURE_STYLE`].
