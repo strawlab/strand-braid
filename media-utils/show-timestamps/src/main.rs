@@ -85,8 +85,10 @@ fn main() -> Result<()> {
         let mut src = frame_source::from_path(&input_path, do_decode_h264)?;
         let has_timestamps = src.has_timestamps();
 
-        let start_time_str = src
-            .frame0_time()
+        let start_time = src.frame0_time();
+
+        let start_time_str = start_time
+            .as_ref()
             .map(|x| format!("{x}"))
             .unwrap_or_else(|| "(unknown)".to_string());
         match cli.output {
@@ -126,14 +128,25 @@ fn main() -> Result<()> {
 
             match cli.output {
                 OutputFormat::EveryFrame => {
-                    let delta = if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
-                        (prev_timestamp, frame.timestamp())
-                    {
-                        let delta = t - prev_timestamp.unwrap_duration();
-                        format!("    (delta: {})", delta.to_display())
-                    } else {
-                        String::new()
-                    };
+                    let delta =
+                        if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
+                            (prev_timestamp, frame.timestamp())
+                        {
+                            let total_str = if let Some(start_time) = start_time.as_ref() {
+                                let stamp_chrono = *start_time + t;
+                                format!(
+                                    " datetime {}, since 1970-01-01 {}",
+                                    stamp_chrono,
+                                    datetime_conversion::datetime_to_f64(&stamp_chrono)
+                                )
+                            } else {
+                                String::new()
+                            };
+                            let delta = t - prev_timestamp.unwrap_duration();
+                            format!("    (delta: {}){total_str}", delta.to_display())
+                        } else {
+                            String::new()
+                        };
                     println!(
                         "    {:5}: {:10}{}",
                         frame.idx(),
