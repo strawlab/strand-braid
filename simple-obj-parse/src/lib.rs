@@ -1,5 +1,4 @@
 use genmesh::EmitTriangles;
-use std::convert::TryInto;
 
 mod error;
 
