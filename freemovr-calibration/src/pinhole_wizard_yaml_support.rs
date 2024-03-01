@@ -615,9 +615,12 @@ pub fn merge_vdisps<D: PinholeCalib>(
 #[cfg(test)]
 mod tests {
 
-    use crate::pinhole_wizard_yaml_support::*;
-    use crate::DisplayGeometry;
-    use nalgebra::geometry::Point2;
+    use crate::{
+        as_ncollide_mesh, parse_obj_from_reader,
+        pinhole_wizard_yaml_support::{mask_from_points, LoadedSphere, WorldCoord},
+        DisplayGeometry, SphereGeom, TriMeshGeom,
+    };
+    use nalgebra::geometry::{Point2, Point3};
 
     fn check_texcoord_worldcoord_roundtrip(geom: &dyn DisplayGeometry, uvs: &[Point2<f64>]) {
         for uv in uvs.iter() {
