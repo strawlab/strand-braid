@@ -1,8 +1,5 @@
 #![deny(rust_2018_idioms)]
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -36,6 +33,8 @@ pub enum MvgError {
     InvalidRectMatrix,
     #[error("unsupported type")]
     UnsupportedType,
+    #[error("rerun does not supported this model of camera intrinsics")]
+    RerunUnsupportedIntrinsics,
     #[error("multiple valid roots found")]
     MultipleValidRootsFound,
     #[error("no valid root found")]
@@ -107,6 +106,8 @@ mod pymvg_support;
 pub mod intrinsics;
 
 pub mod extrinsics;
+
+mod rerun_io;
 
 mod camera;
 pub use crate::camera::{rq_decomposition, Camera};

@@ -15,6 +15,7 @@ thiserror = "1.0.33"
 alga = "0.9"
 cam-geom = { version = "0.14", features = ["serde-serialize"] }
 opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
+rerun = "0.14.0"
 
 [dev-dependencies]
 num-iter = "0.1"

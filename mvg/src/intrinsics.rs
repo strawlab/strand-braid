@@ -1,7 +1,7 @@
 use nalgebra as na;
 use nalgebra::RealField;
 
-use crate::RosOpenCvIntrinsics;
+use opencv_ros_camera::RosOpenCvIntrinsics;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirrorAxis {
