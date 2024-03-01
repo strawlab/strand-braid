@@ -7,8 +7,12 @@ rust-version = "1.60"
 
 [dependencies]
 clap = { version = "4.3.4", features = ["derive"] }
-env-tracing-logger = { path = "../../env-tracing-logger" }
 serde_yaml = "0.9"
 anyhow = "1.0"
 
+tracing = "0.1.40"
+rerun = "0.14.1"
+
 braidz-parser = { path = ".." }
+env-tracing-logger = { path = "../../env-tracing-logger" }
+mvg = { path = "../../mvg", features = ["rerun-io"] }

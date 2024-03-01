@@ -34,7 +34,7 @@ pub enum MvgError {
     #[error("unsupported type")]
     UnsupportedType,
     #[cfg(feature = "rerun-io")]
-    #[error("rerun does not supported this model of camera intrinsics")]
+    #[error("rerun does not support this model of camera intrinsics")]
     RerunUnsupportedIntrinsics,
     #[error("multiple valid roots found")]
     MultipleValidRootsFound,
