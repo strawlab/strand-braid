@@ -833,14 +833,10 @@ fn get_idx(
     const EPSILON: f64 = 1e-2;
     const LARGE: f64 = 1e5;
 
-    // TODO: hopefully this is done at compile time??
-    let eps = nalgebra::convert(EPSILON);
-    let large = nalgebra::convert(LARGE);
-
     let acc = haystack
         .iter()
         .enumerate()
-        .fold((0, large), |acc, (this_idx, h)| {
+        .fold((0, LARGE), |acc, (this_idx, h)| {
             let (min_idx, min_val) = acc;
             let this_val = nalgebra::distance_squared(h, needle);
             if this_val < min_val {
@@ -850,7 +846,7 @@ fn get_idx(
             }
         });
     let (min_idx, min_val) = acc;
-    if min_val <= eps {
+    if min_val <= EPSILON {
         Some(min_idx)
     } else {
         None
