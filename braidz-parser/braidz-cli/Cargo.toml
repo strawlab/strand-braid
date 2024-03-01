@@ -7,7 +7,7 @@ rust-version = "1.60"
 
 [dependencies]
 clap = { version = "4.3.4", features = ["derive"] }
-env_logger = "0.10"
+env-tracing-logger = { path = "../../env-tracing-logger" }
 serde_yaml = "0.9"
 anyhow = "1.0"
 

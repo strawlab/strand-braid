@@ -15,7 +15,7 @@ struct Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    env_tracing_logger::init();
     let opt = Opt::parse();
     let attr = std::fs::metadata(&opt.input)
         .with_context(|| format!("Getting file metadata for {}", opt.input.display()))?;
