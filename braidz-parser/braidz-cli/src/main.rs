@@ -80,14 +80,17 @@ fn main() -> anyhow::Result<()> {
                     tracing::error!("omitting water");
                 }
                 for (cam_name, cam) in cal.cameras.cams().iter() {
-                    rec.log(
+                    rec.log_timeless(
                         format!("world/camera/{cam_name}"),
                         &cam.rr_transform3d_archetype(),
                     )?;
 
                     match cam.rr_pinhole_archetype() {
                         Ok(pinhole) => {
-                            rec.log(format!("world/camera/{cam_name}/raw_image"), &pinhole)?;
+                            rec.log_timeless(
+                                format!("world/camera/{cam_name}/raw_image"),
+                                &pinhole,
+                            )?;
                         }
                         Err(e) => {
                             tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
@@ -95,7 +98,7 @@ fn main() -> anyhow::Result<()> {
                             https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
                             let linearized_camera = cam.linearize_remove_skew()?;
                             let pinhole = linearized_camera.rr_pinhole_archetype()?;
-                            rec.log(
+                            rec.log_timeless(
                                 format!("world/camera/{cam_name}/linearized_image"),
                                 &pinhole,
                             )?;
@@ -104,19 +107,18 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
-                let mut trajectories =
-                    std::collections::BTreeMap::<u32, Vec<(f32, f32, f32)>>::new();
                 for row in kalman_estimates_table.iter() {
-                    trajectories
-                        .entry(row.obj_id)
-                        .or_insert_with(Vec::new)
-                        .push((row.x as f32, row.y as f32, row.z as f32));
-                }
-
-                for (obj_id, trajectory) in trajectories.iter() {
+                    tracing::info!("row: {row:?}");
+                    rec.set_time_sequence(
+                        "recording_sequence",
+                        i64::try_from(row.frame.0).unwrap(),
+                    );
+                    if let Some(timestamp) = &row.timestamp {
+                        rec.set_time_seconds("recording_time", timestamp.as_f64());
+                    }
                     rec.log(
-                        format!("world/obj_id/{obj_id}"),
-                        &rerun::Points3D::new(trajectory.as_slice()),
+                        format!("world/obj_id/{}", row.obj_id),
+                        &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
                     )?;
                 }
             }
