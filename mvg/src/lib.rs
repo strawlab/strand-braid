@@ -33,6 +33,7 @@ pub enum MvgError {
     InvalidRectMatrix,
     #[error("unsupported type")]
     UnsupportedType,
+    #[cfg(feature = "rerun-io")]
     #[error("rerun does not supported this model of camera intrinsics")]
     RerunUnsupportedIntrinsics,
     #[error("multiple valid roots found")]
@@ -107,6 +108,7 @@ pub mod intrinsics;
 
 pub mod extrinsics;
 
+#[cfg(feature = "rerun-io")]
 mod rerun_io;
 
 mod camera;
