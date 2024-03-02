@@ -178,6 +178,8 @@ impl MiniArenaPointPerCamFlat {
     }
 }
 
+// TODO: this gets called from an async task but does blocking IO. It should be
+// rewritten to use async IO.
 pub(crate) struct MiniArenaAssignmentDebug {
     wtr: csv::Writer<std::io::BufWriter<std::fs::File>>,
 }

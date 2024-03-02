@@ -31,7 +31,9 @@ impl BraidStorage {
         braidz_calibration: Option<braidz_types::CalibrationInfo>,
     ) -> Result<(
         Self,
-        impl Future<Output = std::thread::JoinHandle<Result<(), flydra2::Error>>>,
+        impl Future<
+            Output = Result<std::thread::JoinHandle<Result<(), flydra2::Error>>, flydra2::Error>,
+        >,
     )> {
         let output_braidz_path = std::path::PathBuf::from(&b.filename);
         let output_dirname =

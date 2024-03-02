@@ -840,19 +840,19 @@ impl CoordProcessor {
 
     /// Consume the CoordProcessor and the input stream.
     ///
-    /// Returns a future that completes when done. The vast majority of the
-    /// runtime is done without returning from this function. It is async,
-    /// though, and yields many times throughout this execution.
+    /// Returns a future that completes when done. This is basically the "main
+    /// loop". It is async, though, and yields many times throughout this
+    /// execution.
     ///
     /// Upon completion, returns a [std::thread::JoinHandle] from a spawned
-    /// writing thread. To ensure data is completely saved, this should be driven
-    /// to completion before ending the process.
+    /// writing thread. To ensure data is completely saved, this should be
+    /// driven to completion before ending the process.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn consume_stream<S>(
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
-    ) -> std::thread::JoinHandle<Result<()>>
+    ) -> Result<std::thread::JoinHandle<Result<()>>>
     where
         S: 'static + Send + futures::stream::Stream<Item = StreamItem>,
     {
@@ -958,7 +958,8 @@ impl CoordProcessor {
             };
 
             if let Some(dbg) = mini_arena_assignment_debug.as_mut() {
-                dbg.write_frame(&undistorted).unwrap();
+                // This uses blocking IO. It should be rewritten to use async IO.
+                dbg.write_frame(&undistorted)?;
             }
 
             if let Some(mcs) = &self.model_collections {
@@ -1025,7 +1026,7 @@ impl CoordProcessor {
         }
         debug!("consume_stream future done");
 
-        self.writer_join_handle
+        Ok(self.writer_join_handle)
     }
 
     fn next_obj_id_func(&self) -> u32 {

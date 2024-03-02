@@ -698,9 +698,9 @@ where
 
     let consume_future = coord_processor.consume_stream(frame_data_rx, expected_framerate);
 
-    let (writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
+    let (res_writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
-    writer_jh
+    res_writer_jh?
         .join()
         .expect("finish writer task 1")
         .expect("finish writer task 2");

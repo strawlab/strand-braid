@@ -1168,11 +1168,11 @@ pub(crate) async fn do_run_forever(
         _ = strand_cam_set.join_next() => {
             info!("Strand Camera future set finished.");
         },
-        writer_jh = coord_proc_fut => {
+        res_writer_jh = coord_proc_fut => {
             info!("Coordinate processor finished.");
             // Allow writer task time to finish writing.
             debug!("Runtime ending. Joining coord_processor.consume_stream future.");
-            writer_jh
+            res_writer_jh?
                 .join()
                 .expect("join writer task 1")
                 .expect("join writer task 2");

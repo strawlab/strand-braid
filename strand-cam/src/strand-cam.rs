@@ -874,7 +874,7 @@ async fn frame_process_task(
 
                                 let flydra_jh = my_runtime.spawn(async {
                                     // Run until flydra is done.
-                                    let jh = consume_future.await;
+                                    let jh = consume_future.await.unwrap();
 
                                     debug!(
                                         "waiting on flydratrax coord processor {}:{}",

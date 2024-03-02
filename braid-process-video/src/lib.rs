@@ -533,7 +533,11 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 .to_str()
                 .unwrap()
                 .to_string();
-            tracing::debug!("Video source {}: timestamp_source {}", filename, timestamp_source);
+            tracing::debug!(
+                "Video source {}: timestamp_source {}",
+                filename,
+                timestamp_source
+            );
 
             let stem = filename.as_str().split('.').next().unwrap();
             // example: stem = "movie20211108_084523_Basler-22445994"
@@ -791,7 +795,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     .await?;
 
                     // TODO: this is not going to work like this.
-                    let _terrible_jh_jh = tokio::spawn(coord_proc_fut);
+                    let _terrible_jh_jh = tokio::spawn(async { coord_proc_fut.await });
                     tracing::warn!("Braidz output will not work due to unfinished implementation");
 
                     Ok(OutputStorage::Braid(braidz_storage))
