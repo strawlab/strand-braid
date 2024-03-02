@@ -564,7 +564,7 @@ impl FlydraFeatureDetector {
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
     ) -> Result<Self> {
         let acquisition_histogram =
-            AcquisitionHistogram::new(&raw_cam_name, acquisition_duration_allowed_imprecision_msec);
+            AcquisitionHistogram::new(raw_cam_name, acquisition_duration_allowed_imprecision_msec);
 
         let mut result = Self {
             raw_cam_name: raw_cam_name.clone(),
