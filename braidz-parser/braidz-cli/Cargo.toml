@@ -8,7 +8,7 @@ rust-version = "1.76"
 [dependencies]
 clap = { version = "4.3.4", features = ["derive"] }
 serde_yaml = "0.9"
-anyhow = "1.0"
+color-eyre = "0.6.2"
 
 tracing = "0.1.40"
 rerun = "0.14.1"
@@ -16,3 +16,7 @@ rerun = "0.14.1"
 braidz-parser = { path = ".." }
 env-tracing-logger = { path = "../../env-tracing-logger" }
 mvg = { path = "../../mvg", features = ["rerun-io"] }
+braidz-types = { path = "../../braidz-types" }
+opencv-ros-camera = "0.14.1"
+cam-geom = "0.14.1"
+nalgebra = "0.32.4"

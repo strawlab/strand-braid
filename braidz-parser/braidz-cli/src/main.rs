@@ -1,5 +1,6 @@
-use anyhow::Context;
+use braidz_types::{CamInfo, CamNum};
 use clap::{Parser, Subcommand};
+use color_eyre::eyre::{self as anyhow, WrapErr};
 use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use std::path::PathBuf;
 
@@ -30,6 +31,93 @@ enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+}
+
+struct QqqCamData {
+    ent_path: String,
+    use_intrinsics: Option<opencv_ros_camera::RosOpenCvIntrinsics<f64>>,
+}
+
+struct Qqq {
+    rec: rerun::RecordingStream,
+    cam_info: CamInfo,
+    my_cam_data: std::collections::BTreeMap<CamNum, QqqCamData>,
+}
+
+impl Qqq {
+    fn new(rec: rerun::RecordingStream, cam_info: CamInfo) -> Self {
+        Self {
+            rec,
+            cam_info,
+            my_cam_data: Default::default(),
+        }
+    }
+
+    fn add_camera_calibration(
+        &mut self,
+        cam_name: &str,
+        cam: &mvg::Camera<f64>,
+    ) -> anyhow::Result<()> {
+        let camn = self.cam_info.camid2camn.get(cam_name).unwrap();
+        self.rec.log_timeless(
+            format!("world/camera/{cam_name}"),
+            &cam.rr_transform3d_archetype(),
+        )?;
+
+        let cam_data = match cam.rr_pinhole_archetype() {
+            Ok(pinhole) => {
+                let ent_path = format!("world/camera/{cam_name}/im");
+
+                self.rec.log_timeless(ent_path.clone(), &pinhole)?;
+                QqqCamData {
+                    ent_path,
+                    use_intrinsics: None,
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
+                            Approximating the camera. When non-linear cameras are added to Rerun (see \
+                            https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
+                let use_intrinsics = Some(cam.intrinsics().clone());
+                let lin_cam = cam.linearize_to_cam_geom();
+                let ent_path = format!("world/camera/{cam_name}/lin");
+                self.rec.log_timeless(
+                    ent_path.clone(),
+                    &to_pinhole(&lin_cam, cam.width(), cam.height()),
+                )?;
+                QqqCamData {
+                    ent_path,
+                    use_intrinsics,
+                }
+            }
+        };
+        self.my_cam_data.insert(*camn, cam_data);
+        Ok(())
+    }
+
+    fn log_data2d_distorted(&self, row: &braidz_types::Data2dDistortedRow) -> anyhow::Result<()> {
+        if row.x.is_nan() {
+            return Ok(());
+        }
+        let cam_data = self.my_cam_data.get(&row.camn).unwrap();
+
+        self.rec.set_time_sequence("recording_sequence", row.frame);
+
+        let dt = row.cam_received_timestamp.as_f64();
+        self.rec.set_time_seconds("recording_time", dt);
+
+        let arch = if let Some(nl_intrinsics) = &cam_data.use_intrinsics {
+            let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
+            let linearized = nl_intrinsics.undistort(&pt2d);
+            let x = linearized.data[0];
+            let y = linearized.data[1];
+            rerun::Points2D::new([(x as f32, y as f32)])
+        } else {
+            rerun::Points2D::new([(row.x as f32, row.y as f32)])
+        };
+        self.rec.log(cam_data.ent_path.as_str(), &arch)?;
+        Ok(())
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -73,42 +161,27 @@ fn main() -> anyhow::Result<()> {
                 output.push(".rrd");
                 output.into()
             });
+
             let rec = rerun::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
                 .save(&output)
                 .with_context(|| format!("Creating output file {}", output.display()))?;
+            let mut qqq = Qqq::new(rec.clone(), archive.cam_info.clone());
             if let Some(cal) = &archive.calibration_info {
                 if cal.water.is_some() {
                     tracing::error!("omitting water");
                 }
                 for (cam_name, cam) in cal.cameras.cams().iter() {
-                    rec.log_timeless(
-                        format!("world/camera/{cam_name}"),
-                        &cam.rr_transform3d_archetype(),
-                    )?;
-
-                    match cam.rr_pinhole_archetype() {
-                        Ok(pinhole) => {
-                            rec.log_timeless(
-                                format!("world/camera/{cam_name}/raw_image"),
-                                &pinhole,
-                            )?;
-                        }
-                        Err(e) => {
-                            tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
-                            Approximating the camera. When non-linear cameras are added to Rerun (see \
-                            https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
-                            let lin_cam = cam.linearize_to_cam_geom();
-                            rec.log_timeless(
-                                format!("world/camera/{cam_name}/linearized_image"),
-                                &to_pinhole(&lin_cam, cam.width(), cam.height()),
-                            )?;
-                        }
-                    };
+                    qqq.add_camera_calibration(cam_name, cam)?;
                 }
             }
+            // let cam_info = &archive.cam_info;
+            for row in archive.iter_data2d_distorted()? {
+                let row = row?;
+                qqq.log_data2d_distorted(&row)?;
+            }
+
             if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
                 for row in kalman_estimates_table.iter() {
-                    tracing::info!("row: {row:?}");
                     rec.set_time_sequence(
                         "recording_sequence",
                         i64::try_from(row.frame.0).unwrap(),
