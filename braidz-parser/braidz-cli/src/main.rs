@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
                             tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
                             Approximating the camera. When non-linear cameras are added to Rerun (see \
                             https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
-                            let linearized_camera = cam.linearize_remove_skew()?;
+                            let linearized_camera = cam.linearize()?;
                             let pinhole = linearized_camera.rr_pinhole_archetype()?;
                             rec.log_timeless(
                                 format!("world/camera/{cam_name}/linearized_image"),
