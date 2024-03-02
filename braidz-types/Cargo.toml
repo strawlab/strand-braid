@@ -18,6 +18,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
 
 flydra-types = { path = "../flydra-types" }
 mvg = { path = "../mvg", features = ["serde-serialize"] }
+regex = "1.10.3"
 
 [features]
 backtrace = ["mvg/backtrace"]

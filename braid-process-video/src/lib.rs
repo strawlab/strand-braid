@@ -496,8 +496,6 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         .as_ref()
         .map(|archive| archive.expected_fps as f32);
 
-    let movie_re = regex::Regex::new(r"^movie\d{8}_\d{6}_(.*)$").unwrap();
-
     let frame_sources: Vec<Result<_>> = cfg
         .input_video
         .iter()
@@ -526,26 +524,13 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             let reader = Some(Peek2::new(frame_source.iter()));
 
             let full_path = std::path::PathBuf::from(&s.filename);
-            let filename = full_path
-                .file_name()
-                .unwrap()
-                .to_os_string()
-                .to_str()
-                .unwrap()
-                .to_string();
+
+            let (filename, cam_from_filename) = braidz_types::camera_name_from_filename(&full_path);
             tracing::debug!(
                 "Video source {}: timestamp_source {}",
                 filename,
                 timestamp_source
             );
-
-            let stem = filename.as_str().split('.').next().unwrap();
-            // example: stem = "movie20211108_084523_Basler-22445994"
-
-            let cam_from_filename = movie_re.captures(stem).map(|caps| {
-                // get the raw camera name
-                caps.get(1).unwrap().as_str().to_string()
-            });
 
             let cam_id = CameraIdentifier::MovieOnly(MovieCamId {
                 _full_path: full_path,

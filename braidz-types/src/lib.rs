@@ -89,3 +89,37 @@ pub struct KalmanEstimatesSummary {
     /// The sum of total distance in all trajectories.
     pub total_distance: f64,
 }
+
+pub fn camera_name_from_filename<P: AsRef<std::path::Path>>(
+    full_path: P,
+) -> (String, Option<String>) {
+    let filename = full_path
+        .as_ref()
+        .file_name()
+        .unwrap()
+        .to_os_string()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    const MOVIE_REGEXP: &str = r"^movie\d{8}_\d{6}.?\d*_(.*).mp4$";
+    let movie_re = regex::Regex::new(MOVIE_REGEXP).unwrap();
+    let cam_from_filename = movie_re.captures(&filename).map(|caps| {
+        // get the raw camera name
+        caps.get(1).unwrap().as_str().to_string()
+    });
+    (filename, cam_from_filename)
+}
+
+#[test]
+fn test_cam_from_filename() {
+    // prior to adding subseconds
+    let fname1 = "dir1/movie20211108_084523_Basler-22445994.mp4";
+    let (_, cam) = camera_name_from_filename(fname1);
+    assert_eq!(cam, Some("Basler-22445994".to_string()));
+
+    // with subseconds
+    let fname2 = "movie20240302_144852.000002145_Basler-40454395.mp4";
+    let (_, cam) = camera_name_from_filename(fname2);
+    assert_eq!(cam, Some("Basler-40454395".to_string()));
+}
