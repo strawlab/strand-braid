@@ -3,11 +3,13 @@ name = "simple-obj-parse"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.76"
 
 [dependencies]
 nalgebra = "0.32"
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features = [
+    "serde-serialize",
+] }
 textured-tri-mesh = { path = "../textured-tri-mesh" }
 genmesh = "0.6"
 obj = { version = "0.10", features = ["genmesh"] }

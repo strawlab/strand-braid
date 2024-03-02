@@ -3,17 +3,20 @@ name = "convert-image"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 machine-vision-formats = "0.1.1"
-image = {version="0.24.2", default-features=false, features=["jpeg","png"]}
+image = { version = "0.24.2", default-features = false, features = [
+    "jpeg",
+    "png",
+] }
 thiserror = "1.0.33"
-bayer = {version="0.1", default-features=false}
+bayer = { version = "0.1", default-features = false }
 itertools = "0.10.3"
 
 image-iter = { path = "../image-iter" }
 simple-frame = { path = "../simple-frame" }
 
 [features]
-backtrace=[]
+backtrace = []

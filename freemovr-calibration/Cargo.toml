@@ -3,7 +3,7 @@ name = "freemovr-calibration"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 thiserror = "1.0.33"
@@ -15,28 +15,35 @@ serde_yaml = "0.9"
 serde_json = "1.0"
 alga = "0.9"
 nalgebra = "0.32"
-ncollide2d = { package = "ncollide2d-updated", version = "0.35.0"}
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
+ncollide2d = { package = "ncollide2d-updated", version = "0.35.0" }
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features = [
+    "serde-serialize",
+] }
 cam-geom = "0.14"
 opencv-ros-camera = "0.14"
 genmesh = "0.6"
-obj = {version="0.10", features=["genmesh"]}
+obj = { version = "0.10", features = ["genmesh"] }
 byteorder = "1.2.2"
 image = "0.24.2"
 csv = "1.1"
-chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
 
 dlt = "0.12"
-mvg = {path="../mvg", features=["serde-serialize"]}
-camcal = {path="../camcal", optional=true}
-opencv-calibrate = {path="../opencv-calibrate", optional=true}
-simple-obj-parse = {path="../simple-obj-parse"}
-textured-tri-mesh = {path="../textured-tri-mesh"}
-ncollide-geom = {path="ncollide-geom"}
+mvg = { path = "../mvg", features = ["serde-serialize"] }
+camcal = { path = "../camcal", optional = true }
+opencv-calibrate = { path = "../opencv-calibrate", optional = true }
+simple-obj-parse = { path = "../simple-obj-parse" }
+textured-tri-mesh = { path = "../textured-tri-mesh" }
+ncollide-geom = { path = "ncollide-geom" }
 
 [dev-dependencies]
 approx = "0.5"
-opencv-calibrate = {path="../opencv-calibrate"}
+opencv-calibrate = { path = "../opencv-calibrate" }
 
 [features]
 default = []

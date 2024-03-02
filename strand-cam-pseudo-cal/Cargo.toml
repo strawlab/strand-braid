@@ -3,7 +3,7 @@ name = "strand-cam-pseudo-cal"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 [dependencies]
 serde_json = "1.0.29"
@@ -11,10 +11,10 @@ nalgebra = "0.32"
 opencv-ros-camera = "0.14"
 cam-geom = "0.14"
 
-mvg = {path="../mvg"}
-flydra-mvg = {path="../flydra-mvg"}
-http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
-flydra-types = {path="../flydra-types"}
+mvg = { path = "../mvg" }
+flydra-mvg = { path = "../flydra-mvg" }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+flydra-types = { path = "../flydra-types" }
 
 [dev-dependencies]
 approx = "0.5"

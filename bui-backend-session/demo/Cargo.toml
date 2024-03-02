@@ -3,14 +3,14 @@ name = "bui-backend-session-demo"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 futures = "0.3"
 hyper = "1.1"
-tokio = {version="1.0.1", features=["full"]}
+tokio = { version = "1.0.1", features = ["full"] }
 http-body-util = "0.1.0"
 bytes = "1.5.0"
 
-bui-backend-session = {path=".."}
+bui-backend-session = { path = ".." }
 bui-backend-session-types = { path = "../types" }

@@ -3,7 +3,7 @@ name = "fly-eye"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 anyhow = "1.0.57"
@@ -16,16 +16,20 @@ glium = "0.32.1"
 winit = "0.27.5"
 imagefmt = "4.0.0"
 time = "0.3.9"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 
 basic-frame = { path = "../basic-frame" }
 convert-image = { path = "../convert-image" }
 machine-vision-formats = "0.1"
 machine-vision-shaders = { path = "../machine-vision-shaders" }
-crossbeam-ok = {path="../crossbeam-ok"}
+crossbeam-ok = { path = "../crossbeam-ok" }
 ci2 = { path = "../ci2" }
-channellib = {path="../channellib"}
-ci2-pyloncxx = {path="../ci2-pyloncxx", optional=true}
+channellib = { path = "../channellib" }
+ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 
 [features]
 default = ["fly-eye"]

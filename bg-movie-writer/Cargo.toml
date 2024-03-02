@@ -3,19 +3,23 @@ name = "bg-movie-writer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 log = "0.4.5"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 thiserror = "1.0.33"
 
-mp4-writer = { path="../media-utils/mp4-writer", features = [ "openh264" ] }
+mp4-writer = { path = "../media-utils/mp4-writer", features = ["openh264"] }
 machine-vision-formats = "0.1"
-ci2-remote-control = { path = "../ci2-remote-control"}
-nvenc = {path="../nvenc"}
+ci2-remote-control = { path = "../ci2-remote-control" }
+nvenc = { path = "../nvenc" }
 basic-frame = { path = "../basic-frame" }
-channellib = {path="../channellib"}
+channellib = { path = "../channellib" }
 
 [features]
 backtrace = ["mp4-writer/backtrace", "channellib/backtrace"]

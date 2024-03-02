@@ -3,9 +3,9 @@ name = "ci2-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.76"
 
 [dependencies]
-serde = {version = "1.0", default-features = false}
+serde = { version = "1.0", default-features = false }
 serde_derive = "1.0"
-enum-iter = { path="../../enum-iter"}
+enum-iter = { path = "../../enum-iter" }

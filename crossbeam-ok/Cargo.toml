@@ -3,8 +3,8 @@ name = "crossbeam-ok"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
-channellib = {path="../channellib"}
+channellib = { path = "../channellib" }
 log = "0.4"

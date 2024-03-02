@@ -1,52 +1,61 @@
 [package]
 name = "flytrax-csv-to-braidz"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 [dependencies]
 log = { version = "0.4.5", features = ["release_max_level_debug"] }
-clap = {version="4.0.10", features=["derive"]}
+clap = { version = "4.0.10", features = ["derive"] }
 parking_lot = "0.12"
 csv = "1.1"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-serde = {version="^1.0", features=["derive"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
+serde = { version = "^1.0", features = ["derive"] }
 serde_derive = "1.0.79"
 serde_json = "1.0.29"
 serde_yaml = "0.9"
 toml = "0.5"
-nalgebra = {version="0.32", features=["serde-serialize"]}
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
 alga = "0.9"
 configure = "0.1.1"
 itertools = "0.8"
 lazy_static = "1.4.0"
 futures = "0.3"
-tokio = {version="1.0.1", default-features=false, features=["macros"]}
+tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 tempfile = "3.4.0"
 anyhow = "1.0"
-image = { version = "0.24.2", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.24.2", default-features = false, features = [
+    "jpeg",
+    "png",
+] }
 opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
 
-datetime-conversion = {path="../datetime-conversion"}
-env-tracing-logger = {path="../env-tracing-logger"}
-flydra-mvg = {path="../flydra-mvg"}
-http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
-flydra-types = {path="../flydra-types"}
-strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
-strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal"}
-flydra2 = {path="../flydra2", default-features = false, features=["bundle_files"]}
-braidz-types = {path="../braidz-types"}
-braidz-parser = {path="../braidz-parser"}
-zip-or-dir = {path="../zip-or-dir"}
-braid-offline = {path="../braid-offline", default-features = false}
-flytrax-apriltags-calibration = {path="../braid-april-cal/flytrax-apriltags-calibration"}
-flytrax-io = {path="../strand-cam/flytrax-io"}
+datetime-conversion = { path = "../datetime-conversion" }
+env-tracing-logger = { path = "../env-tracing-logger" }
+flydra-mvg = { path = "../flydra-mvg" }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+flydra-types = { path = "../flydra-types" }
+strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
+strand-cam-pseudo-cal = { path = "../strand-cam-pseudo-cal" }
+flydra2 = { path = "../flydra2", default-features = false, features = [
+    "bundle_files",
+] }
+braidz-types = { path = "../braidz-types" }
+braidz-parser = { path = "../braidz-parser" }
+zip-or-dir = { path = "../zip-or-dir" }
+braid-offline = { path = "../braid-offline", default-features = false }
+flytrax-apriltags-calibration = { path = "../braid-april-cal/flytrax-apriltags-calibration" }
+flytrax-io = { path = "../strand-cam/flytrax-io" }
 
 [dev-dependencies]
 env_logger = "0.10.0"
 test-log = "0.2.12"
-download-verify = {path="../download-verify"}
+download-verify = { path = "../download-verify" }
 
 [features]
 backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]

@@ -1,9 +1,9 @@
 [package]
 name = "braid-offline"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,10 +12,14 @@ clap = { version = "4.3.4", features = ["derive"] }
 thiserror = "1.0.33"
 anyhow = "1.0"
 csv = "1.1"
-serde = {version="^1.0", features=["derive"]}
+serde = { version = "^1.0", features = ["derive"] }
 toml = "0.5"
 itertools = "0.10.3"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 tokio = { version = "1.0.1", default-features = false, features = [
     "rt-multi-thread",
     "macros",
@@ -30,26 +34,32 @@ tracing = "0.1.37"
 tracing-futures = { version = "0.2.5" }
 ordered-float = "1"
 
-env-tracing-logger = {path="../env-tracing-logger"}
-csv-eof = {path="../csv-eof"}
-flydra2 = {path="../flydra2", default-features=false, features=["bundle_files"]}
-flydra-types = {path="../flydra-types"}
-groupby = {path="../groupby"}
-zip-or-dir = {path="../zip-or-dir"}
-flydra-mvg = {path="../flydra-mvg"}
-braidz-parser = {path="../braidz-parser"}
-flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
+env-tracing-logger = { path = "../env-tracing-logger" }
+csv-eof = { path = "../csv-eof" }
+flydra2 = { path = "../flydra2", default-features = false, features = [
+    "bundle_files",
+] }
+flydra-types = { path = "../flydra-types" }
+groupby = { path = "../groupby" }
+zip-or-dir = { path = "../zip-or-dir" }
+flydra-mvg = { path = "../flydra-mvg" }
+braidz-parser = { path = "../braidz-parser" }
+flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
 mvg = { path = "../mvg" }
 
 [dev-dependencies]
 tempfile = "3.4.0"
-zip = { version = "0.6.2", default-features = false, features=["time"] }
+zip = { version = "0.6.2", default-features = false, features = ["time"] }
 approx = "0.5"
 fs_extra = "1.1"
 serde_yaml = "0.9"
 
-download-verify = {path="../download-verify"}
-braidz-types = {path="../braidz-types"}
+download-verify = { path = "../download-verify" }
+braidz-types = { path = "../braidz-types" }
 
 [features]
-backtrace = ["zip-or-dir/backtrace", "flydra2/backtrace", "braidz-parser/backtrace" ]
+backtrace = [
+    "zip-or-dir/backtrace",
+    "flydra2/backtrace",
+    "braidz-parser/backtrace",
+]

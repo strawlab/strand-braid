@@ -2,7 +2,7 @@
 name = "braid-config-data"
 version = "0.1.0"
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 toml = "0.5"
@@ -10,8 +10,8 @@ shellexpand = "2.0"
 thiserror = "1.0.33"
 log = "0.4"
 
-flydra-types = {path="../flydra-types"}
-serde = {version="1.0.79",features=["derive"]}
+flydra-types = { path = "../flydra-types" }
+serde = { version = "1.0.79", features = ["derive"] }
 
 [features]
 backtrace = []

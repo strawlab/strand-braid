@@ -3,13 +3,18 @@ name = "http-video-streaming"
 version = "0.1.0"
 authors = ["strawlab"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 thiserror = "1.0.33"
-chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
 base64 = "0.6"
-tokio = {version="1", features=["sync","time","macros"]}
+tokio = { version = "1", features = ["sync", "time", "macros"] }
 tokio-stream = "0.1.8"
 parking_lot = "0.12"
 serde_json = "1.0"
@@ -19,9 +24,9 @@ bytes = "1.5.0"
 http-body = "1.0.0"
 tracing = "0.1.40"
 
-convert-image = {path = "../convert-image"}
-http-video-streaming-types = {path = "http-video-streaming-types"}
-basic-frame = {path="../basic-frame"}
+convert-image = { path = "../convert-image" }
+http-video-streaming-types = { path = "http-video-streaming-types" }
+basic-frame = { path = "../basic-frame" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 event-stream-types = { path = "../event-stream-types" }
 bui-backend-session-types = { path = "../bui-backend-session/types" }

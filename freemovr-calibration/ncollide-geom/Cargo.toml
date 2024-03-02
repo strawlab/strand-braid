@@ -3,9 +3,9 @@ name = "ncollide-geom"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
-ncollide2d = { package = "ncollide2d-updated", version = "0.35.0"}
+ncollide2d = { package = "ncollide2d-updated", version = "0.35.0" }
 delaunator = "0.2.0"
 nalgebra = "0.32"

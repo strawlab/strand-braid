@@ -3,13 +3,13 @@ name = "nvenc"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dynlink-cuda = {path="dynlink-cuda"}
-dynlink-nvidia-encode = {path="dynlink-nvidia-encode"}
+dynlink-cuda = { path = "dynlink-cuda" }
+dynlink-nvidia-encode = { path = "dynlink-nvidia-encode" }
 thiserror = "1.0.33"
 
 [features]

@@ -3,15 +3,19 @@ name = "ci2"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 thiserror = "1.0.33"
 anyhow = "1.0"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 
 machine-vision-formats = "0.1"
-ci2-types = {path="ci2-types"}
+ci2-types = { path = "ci2-types" }
 basic-frame = { path = "../basic-frame" }
 timestamped-frame = { path = "../timestamped-frame" }
 

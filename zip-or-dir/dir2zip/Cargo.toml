@@ -3,10 +3,10 @@ name = "dir2zip"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
 anyhow = "1"
 
-zip-or-dir = {path=".."}
+zip-or-dir = { path = ".." }

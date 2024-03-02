@@ -3,33 +3,43 @@ name = "freemovr-calibration-webapp"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = {version="0.20.0", features=["csr"]}
+yew = { version = "0.20.0", features = ["csr"] }
 yew-agent = "0.2.0"
 yew-tincture = "0.1"
 js-sys = "0.3"
 wasm-bindgen = "0.2"
-web-sys = {version="0.3", features=["CssStyleDeclaration","HtmlAnchorElement"]}
+web-sys = { version = "0.3", features = [
+    "CssStyleDeclaration",
+    "HtmlAnchorElement",
+] }
 log = "0.4"
 wasm-logger = "0.2.0"
-serde = {version = "1.0", default-features = false, features=["derive"]}
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 http = "0.2"
 itertools = "0.7.8"
-chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features=["serde-serialize"] }
+chrono = { version = "0.4.23", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
+ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features = [
+    "serde-serialize",
+] }
 
-mvg = {path="../../mvg", features=["serde-serialize"]}
-enum-iter = {path="../../enum-iter"}
-ads-webasm = {path="../../ads-webasm", features=["obj","csv-widget"]}
+mvg = { path = "../../mvg", features = ["serde-serialize"] }
+enum-iter = { path = "../../enum-iter" }
+ads-webasm = { path = "../../ads-webasm", features = ["obj", "csv-widget"] }
 
-freemovr-calibration = {path=".."}
+freemovr-calibration = { path = ".." }
 
 [features]
 backtrace = ["mvg/backtrace", "freemovr-calibration/backtrace"]

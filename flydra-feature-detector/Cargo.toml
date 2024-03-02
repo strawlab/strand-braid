@@ -3,60 +3,64 @@ name = "flydra-feature-detector"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
 log = { version = "0.4", features = ["release_max_level_debug"] }
 thiserror = "1.0.33"
 machine-vision-formats = "0.1"
-timestamped-frame = {path="../timestamped-frame"}
-basic-frame = {path="../basic-frame"}
+timestamped-frame = { path = "../timestamped-frame" }
+basic-frame = { path = "../basic-frame" }
 num-traits = "0.2"
 thread-control = "0.1"
 cast = "0.2.2"
-serde = {version="1.0",features=["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
-tokio = {version="1.0.1", default-features=false, features=["rt"]}
+tokio = { version = "1.0.1", default-features = false, features = ["rt"] }
 stream-cancel = "0.8"
 nalgebra = "0.32"
 parry2d-f64 = "0.13.5"
-ipp-sys = {version="0.4.4", optional=true}
+ipp-sys = { version = "0.4.4", optional = true }
 
-fastimage = { path = "../fastimage", optional=true }
-fastfreeimage = {path="../fastfreeimage", optional=true}
+fastimage = { path = "../fastimage", optional = true }
+fastfreeimage = { path = "../fastfreeimage", optional = true }
 ci2 = { path = "../ci2" }
 ci2-remote-control = { path = "../ci2-remote-control" }
-rust-cam-bui-types = {path="../rust-cam-bui-types" }
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 flydra-types = { path = "../flydra-types" }
-ufmf = {path = "../ufmf"}
+ufmf = { path = "../ufmf" }
 byteorder = "1.1"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-unix_socket = {version="0.5", optional=true}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
+unix_socket = { version = "0.5", optional = true }
 futures = "0.3"
-mvg = {path="../mvg"}
-flydra-feature-detector-types = {path="flydra-feature-detector-types", default-features = false}
-http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
-datetime-conversion = {path="../datetime-conversion"}
-posix-scheduler = {path="../posix-scheduler", optional=true}
-crossbeam-ok = {path="../crossbeam-ok"}
-channellib = {path="../channellib"}
-braid-http-session = {path="../braid-http-session"}
+mvg = { path = "../mvg" }
+flydra-feature-detector-types = { path = "flydra-feature-detector-types", default-features = false }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+datetime-conversion = { path = "../datetime-conversion" }
+posix-scheduler = { path = "../posix-scheduler", optional = true }
+crossbeam-ok = { path = "../crossbeam-ok" }
+channellib = { path = "../channellib" }
+braid-http-session = { path = "../braid-http-session" }
 
-parry-geom = {path = "../parry-geom"}
+parry-geom = { path = "../parry-geom" }
 
 [dev-dependencies]
 fmf = { path = "../fmf" }
-download-verify = {path="../download-verify"}
+download-verify = { path = "../download-verify" }
 env_logger = "0.10"
-flydra-pt-detect-cfg = {path = "flydra-pt-detect-cfg"}
-tokio = {version="1.0.1", default-features=false, features=["macros"]}
+flydra-pt-detect-cfg = { path = "flydra-pt-detect-cfg" }
+tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 anyhow = "1"
 
 [features]
-flydra-uds=["unix_socket"]
+flydra-uds = ["unix_socket"]
 
-linux = ["posix-scheduler","posix-scheduler/linux"]
+linux = ["posix-scheduler", "posix-scheduler/linux"]
 
 backtrace = ["ci2/backtrace", "mvg/backtrace"]
 use_ipp = ["fastimage", "ipp-sys"]

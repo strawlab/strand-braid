@@ -2,7 +2,7 @@
 name = "vimba"
 version = "0.1.0"
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 vimba-sys = "0.2.0"
@@ -12,11 +12,16 @@ machine-vision-formats = "0.1"
 log = "0.4"
 
 [dev-dependencies]
-anyhow="1"
+anyhow = "1"
 env_logger = "0.10"
 lazy_static = "1"
-tokio = {version="1", features=["sync","macros","rt-multi-thread","time"]}
-channellib = {path="../channellib"}
+tokio = { version = "1", features = [
+    "sync",
+    "macros",
+    "rt-multi-thread",
+    "time",
+] }
+channellib = { path = "../channellib" }
 
 [features]
 backtrace = []

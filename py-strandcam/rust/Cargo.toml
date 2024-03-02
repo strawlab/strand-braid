@@ -3,7 +3,7 @@ name = "strandcam-cabi"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 [lib]
 name = "strandcam"
@@ -14,8 +14,15 @@ thiserror = "1.0"
 eyre = "0.6.2"
 lazy_static = "1"
 
-strand-cam = {path="../../strand-cam", default-features = false, features=["flydra_feat_detect", "bundle_files", "plugin-process-frame", "flydra_feat_detect", "imtrack-absdiff", "use_ipp"]}
-plugin-defs = {path="../../plugin-defs"}
+strand-cam = { path = "../../strand-cam", default-features = false, features = [
+    "flydra_feat_detect",
+    "bundle_files",
+    "plugin-process-frame",
+    "flydra_feat_detect",
+    "imtrack-absdiff",
+    "use_ipp",
+] }
+plugin-defs = { path = "../../plugin-defs" }
 ipp-sys = "0.4.4" # Just so we can specify features
 
 ci2-async = { path = "../../ci2-async" }
@@ -23,4 +30,4 @@ ci2-pyloncxx = { path = "../../ci2-pyloncxx" }
 
 [build-dependencies]
 cbindgen = { version = "0.25", default-features = false }
-plugin-defs = {path="../../plugin-defs"}
+plugin-defs = { path = "../../plugin-defs" }

@@ -3,7 +3,7 @@ name = "imagesrc-gst"
 version = "0.1.0"
 authors = ["strawlab"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 glib = "0.10"
@@ -15,7 +15,7 @@ log = "0.4"
 thread-control = "0.1.2"
 parking_lot = "0.12"
 
-imagesrc = {path="../imagesrc"}
+imagesrc = { path = "../imagesrc" }
 machine-vision-formats = "0.1"
 
 [dev-dependencies]

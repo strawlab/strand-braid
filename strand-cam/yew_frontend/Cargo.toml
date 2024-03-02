@@ -1,9 +1,9 @@
 [package]
 name = "strand-cam-frontend-yew"
-version = "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,27 +17,27 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 gloo-events = "0.1.1"
 gloo-utils = "0.1"
-yew = {version="0.20.0", features=["csr"]}
-serde = {version = "1.0", default-features = false}
+yew = { version = "0.20.0", features = ["csr"] }
+serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
 serde_yaml = "0.9"
 http = "0.2"
-backtrace = "0.3.40" # here only to require this high version number, not used directly
+backtrace = "0.3.40"                                  # here only to require this high version number, not used directly
 yew-tincture = "0.1"
 
-strand-cam-storetype = {path = "../../strand-cam-storetype", default-features=false}
-flydra-feature-detector-types = {path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
-http-video-streaming-types = {path = "../../http-video-streaming/http-video-streaming-types"}
-ci2-types = {path="../../ci2/ci2-types"}
+strand-cam-storetype = { path = "../../strand-cam-storetype", default-features = false }
+flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
+http-video-streaming-types = { path = "../../http-video-streaming/http-video-streaming-types" }
+ci2-types = { path = "../../ci2/ci2-types" }
 ci2-remote-control = { path = "../../ci2-remote-control" }
 
-led-box-comms = {path="../../led-box-comms"}
-enum-iter = {path="../../enum-iter"}
-ads-webasm = {path="../../ads-webasm"}
+led-box-comms = { path = "../../led-box-comms" }
+enum-iter = { path = "../../enum-iter" }
+ads-webasm = { path = "../../ads-webasm" }
 
 [dependencies.web-sys]
-version="0.3"
-features=[
+version = "0.3"
+features = [
     "DomRect",
     "DomTokenList",
     "Element",

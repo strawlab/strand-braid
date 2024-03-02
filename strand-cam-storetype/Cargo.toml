@@ -3,20 +3,20 @@ name = "strand-cam-storetype"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.76"
 
 [dependencies]
-serde = {version = "1.0", default-features = false, features=["derive"]}
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 
-led-box-comms = {path="../led-box-comms"}
+led-box-comms = { path = "../led-box-comms" }
 ci2-types = { path = "../ci2/ci2-types" }
-ci2-remote-control = { path = "../ci2-remote-control"}
-flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types"}
-http-video-streaming-types = {path="../http-video-streaming/http-video-streaming-types"}
-rust-cam-bui-types = {path="../rust-cam-bui-types"}
-mvg = {path="../mvg", features=["serde-serialize"]}
+ci2-remote-control = { path = "../ci2-remote-control" }
+flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+mvg = { path = "../mvg", features = ["serde-serialize"] }
 
 [features]
 default = ["std"]

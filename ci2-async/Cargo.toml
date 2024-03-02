@@ -3,7 +3,7 @@ name = "ci2-async"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 futures = "0.3"
@@ -11,7 +11,7 @@ log = "0.4"
 parking_lot = "0.12"
 thread-control = "0.1.2"
 
-ci2 = {path="../ci2"}
+ci2 = { path = "../ci2" }
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }

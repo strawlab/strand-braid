@@ -1,26 +1,31 @@
 [package]
 name = "braid-process-video"
-version = "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                                             # braid release synchronized
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.76"
 description = "process videos within the Braid multi-camera framework"
 
 [dependencies]
 # apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
 tracing = "0.1"
-tokio = {version="1.17", features=["macros","rt","tracing"]}
+tokio = { version = "1.17", features = ["macros", "rt", "tracing"] }
 tokio-stream = "0.1.8"
 color-eyre = "0.6.2"
-chrono = {version="0.4.23", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
-serde = {version="1", features=["derive"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
+serde = { version = "1", features = ["derive"] }
 toml = "0.5"
 machine-vision-formats = "0.1.1"
-clap = {version="4", features=["derive"]}
+clap = { version = "4", features = ["derive"] }
 resvg = "0.19"
 tagger = "4.0"
 tiny-skia = "0.6.1"
 usvg = { version = "0.19.0", default-features = false }
-image = {version="0.24.2", default-features=false, features=["png"]}
+image = { version = "0.24.2", default-features = false, features = ["png"] }
 base64 = "0.6"
 ordered-float = "1"
 regex = "1"
@@ -30,31 +35,33 @@ tracing-panic = "0.1.1"
 nalgebra = "0.32"
 indicatif = "0.17"
 
-channellib = {path="../channellib"}
-braidz-types = {path="../braidz-types"}
-env-tracing-logger = {path="../env-tracing-logger"}
-mp4-writer = {path="../media-utils/mp4-writer", features=["openh264"]}
-ci2-remote-control = { path = "../ci2-remote-control"}
-braidz-parser = {path="../braidz-parser"}
-flydra-types = {path="../flydra-types"}
+channellib = { path = "../channellib" }
+braidz-types = { path = "../braidz-types" }
+env-tracing-logger = { path = "../env-tracing-logger" }
+mp4-writer = { path = "../media-utils/mp4-writer", features = ["openh264"] }
+ci2-remote-control = { path = "../ci2-remote-control" }
+braidz-parser = { path = "../braidz-parser" }
+flydra-types = { path = "../flydra-types" }
 convert-image = { path = "../convert-image" }
-datetime-conversion = {path="../datetime-conversion"}
-basic-frame = {path="../basic-frame", features=["convert-image"]}
-simple-frame = {path="../simple-frame"}
-fmf = {path="../fmf"}
-timestamped-frame = {path="../timestamped-frame"}
-flydra2 = {path="../flydra2"}
-flydra-mvg = {path="../flydra-mvg"}
-mvg = {path="../mvg"}
-frame-source = {path="../media-utils/frame-source"}
+datetime-conversion = { path = "../datetime-conversion" }
+basic-frame = { path = "../basic-frame", features = ["convert-image"] }
+simple-frame = { path = "../simple-frame" }
+fmf = { path = "../fmf" }
+timestamped-frame = { path = "../timestamped-frame" }
+flydra2 = { path = "../flydra2" }
+flydra-mvg = { path = "../flydra-mvg" }
+mvg = { path = "../mvg" }
+frame-source = { path = "../media-utils/frame-source" }
 
 [features]
-backtrace = ["mp4-writer/backtrace",
-    "convert-image/backtrace", "braidz-parser/backtrace",
+backtrace = [
+    "mp4-writer/backtrace",
+    "convert-image/backtrace",
+    "braidz-parser/backtrace",
     "fmf/backtrace",
-    ]
+]
 
 [dev-dependencies]
-download-verify = {path="../download-verify"}
+download-verify = { path = "../download-verify" }
 serde_json = "1"
 frame-source = { path = "../media-utils/frame-source" }

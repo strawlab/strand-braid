@@ -3,12 +3,12 @@ name = "download-verify"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 ureq = "2.5.0"
-thiserror="1.0"
+thiserror = "1.0"
 sha2 = "0.10.2"
 hex = "0.4"

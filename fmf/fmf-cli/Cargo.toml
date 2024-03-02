@@ -1,11 +1,11 @@
 [package]
 name = "fmf-cli"
 description = "work with .fmf (fly movie format) files"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                              # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 autobins = false
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [[bin]]
 name = "fmf"
@@ -16,25 +16,39 @@ doc = false
 log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.3.4", features = ["derive"] }
-chrono = {version="0.4.27", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.27", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 anyhow = "1.0"
 glob = "0.3"
-image = {version="0.24.2", default-features=false, features=["jpeg","png","bmp","pnm"]}
+image = { version = "0.24.2", default-features = false, features = [
+    "jpeg",
+    "png",
+    "bmp",
+    "pnm",
+] }
 machine-vision-formats = "0.1"
 
-timestamped-frame = {path="../../timestamped-frame"}
-fmf = {path=".."}
+timestamped-frame = { path = "../../timestamped-frame" }
+fmf = { path = ".." }
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 simple-frame = { path = "../../simple-frame" }
 
-mp4-writer = { path = "../../media-utils/mp4-writer", features=["openh264"] }
-ci2-remote-control = { path = "../../ci2-remote-control"}
+mp4-writer = { path = "../../media-utils/mp4-writer", features = ["openh264"] }
+ci2-remote-control = { path = "../../ci2-remote-control" }
 
-nvenc = {path="../../nvenc"}
+nvenc = { path = "../../nvenc" }
 
 [dev-dependencies]
 tempfile = "3.4.0"
 
 [features]
-backtrace = ["anyhow/backtrace", "mp4-writer/backtrace", "convert-image/backtrace", "fmf/backtrace"]
+backtrace = [
+    "anyhow/backtrace",
+    "mp4-writer/backtrace",
+    "convert-image/backtrace",
+    "fmf/backtrace",
+]

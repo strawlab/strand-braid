@@ -3,43 +3,48 @@ name = "flydra-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
 libc = "0.2"
 byteorder = "1"
-chrono = {version="0.4.27", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
+chrono = { version = "0.4.27", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
 thiserror = "1.0"
-serde = {version="1.0", features=["derive"]}
-serde_cbor = {version="0.11.2", optional=true}
-tokio-util = {version="0.7.3", features=["codec"], optional=true}
-bytes = {version="1.0", optional=true}
+serde = { version = "1.0", features = ["derive"] }
+serde_cbor = { version = "0.11.2", optional = true }
+tokio-util = { version = "0.7.3", features = ["codec"], optional = true }
+bytes = { version = "1.0", optional = true }
 bitflags = "1.0"
-ordered-float = {version="3.0.0", features=["serde"]}
+ordered-float = { version = "3.0.0", features = ["serde"] }
 static_assertions = "1.1.0"
-nalgebra = {version="0.32", features=["serde-serialize"]}
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
 num-integer = "0.1"
 http = "1"
-if-addrs = {version="0.11.0", optional=true}
+if-addrs = { version = "0.11.0", optional = true }
 percent-encoding = "2.3.1"
 
 eyre = { version = "0.6", optional = true }
 axum-token-auth = { version = "0.1.0", optional = true }
-tokio = {version="1", optional=true}
+tokio = { version = "1", optional = true }
 
-withkey = {path="../withkey"}
-datetime-conversion = {path="../datetime-conversion"}
-rust-cam-bui-types = {path="../rust-cam-bui-types"}
-flydra-pt-detect-cfg = {path="../flydra-feature-detector/flydra-pt-detect-cfg"}
-flydra-feature-detector-types = {path="../flydra-feature-detector/flydra-feature-detector-types"}
+withkey = { path = "../withkey" }
+datetime-conversion = { path = "../datetime-conversion" }
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
+flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
 bui-backend-session-types = { path = "../bui-backend-session/types" }
 
 [features]
-default=["with-tokio-codec"]
+default = ["with-tokio-codec"]
 
-with-tokio-codec=["tokio-util", "bytes", "serde_cbor"]
-start-listener = [ "eyre", "axum-token-auth", "tokio" ]
+with-tokio-codec = ["tokio-util", "bytes", "serde_cbor"]
+start-listener = ["eyre", "axum-token-auth", "tokio"]
 build-urls = ["if-addrs"]
 
 [dev-dependencies]

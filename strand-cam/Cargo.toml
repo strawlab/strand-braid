@@ -1,37 +1,37 @@
 [package]
 name = "strand-cam"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 build = "build.rs"
 homepage = "https://strawlab.org/strand-cam"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.76"
 
 [lib]
 path = "src/strand-cam.rs"
 
 [dependencies]
-jemallocator = {version="0.3", optional=true}
+jemallocator = { version = "0.3", optional = true }
 async-change-tracker = "0.3.4"
 qrcodegen = "1.4"
-csv = {version="1.1", optional=true}
-libflate = {version="1.0", optional=true}
-env-tracing-logger = {path="../env-tracing-logger"}
+csv = { version = "1.1", optional = true }
+libflate = { version = "1.0", optional = true }
+env-tracing-logger = { path = "../env-tracing-logger" }
 
-serde = {version="1.0.79",features=["derive"]}
+serde = { version = "1.0.79", features = ["derive"] }
 serde_json = "1.0.29"
 serde_yaml = "0.9"
 serde_cbor = "0.11"
 webbrowser = "0.8.3"
 tempfile = "3.4.0"
-clap = { version = "4", features = [ "string", "env" ] }
+clap = { version = "4", features = ["string", "env"] }
 preferences-serde1 = "2.0.0"
 base64 = "0.12"
 directories = "4.0.1"
 eyre = "0.6.12"
 parking_lot = "0.12"
-thread-control = {version="0.1.2", optional=true}
-ipp-sys = {version="0.4.4", optional=true}
+thread-control = { version = "0.1.2", optional = true }
+ipp-sys = { version = "0.4.4", optional = true }
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
 ci2-types = { path = "../ci2/ci2-types" }
@@ -39,34 +39,47 @@ ci2-remote-control = { path = "../ci2-remote-control" }
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame", features = ["convert-image"] }
-fmf = {path = "../fmf"}
-ufmf = {path = "../ufmf"}
-chrono = {version="0.4.27", default-features=false, features=["serde", "clock", "std", "wasmbind"]}
-convert-image = {path = "../convert-image"}
-hyper = {version="1.1", features=["client","http1"]}
+fmf = { path = "../fmf" }
+ufmf = { path = "../ufmf" }
+chrono = { version = "0.4.27", default-features = false, features = [
+    "serde",
+    "clock",
+    "std",
+    "wasmbind",
+] }
+convert-image = { path = "../convert-image" }
+hyper = { version = "1.1", features = ["client", "http1"] }
 hyper-tls = "0.6"
 futures = "0.3"
-tokio = {version="1.0.1", default-features=false, features=["rt","rt-multi-thread","time","sync"]}
-tokio-util = {version = "0.7.3", features=["codec"]}
-tokio-stream = {version = "0.1.6", features=["time"]}
+tokio = { version = "1.0.1", default-features = false, features = [
+    "rt",
+    "rt-multi-thread",
+    "time",
+    "sync",
+] }
+tokio-util = { version = "0.7.3", features = ["codec"] }
+tokio-stream = { version = "0.1.6", features = ["time"] }
 dotenv = "0.15.0"
-strand-cam-storetype = {path = "../strand-cam-storetype"}
-flydra-feature-detector = {path = "../flydra-feature-detector", default-features = false, optional=true}
-flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false}
-flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
-datetime-conversion = {path = "../datetime-conversion"}
-http-video-streaming-types = {path = "../http-video-streaming/http-video-streaming-types"}
-http-video-streaming = {path = "../http-video-streaming"}
+strand-cam-storetype = { path = "../strand-cam-storetype" }
+flydra-feature-detector = { path = "../flydra-feature-detector", default-features = false, optional = true }
+flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
+flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
+datetime-conversion = { path = "../datetime-conversion" }
+http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+http-video-streaming = { path = "../http-video-streaming" }
 semver = { version = "1", features = ["serde"] }
 shellexpand = "2"
-imops = {path="../imops"}
-led-box = {path="../led-box"}
-led-box-comms = {path="../led-box-comms"}
-flydra-types = {path="../flydra-types", features = [ "start-listener", "build-urls" ] }
-flydra2 = {path="../flydra2", default-features = false, optional=true}
-mvg = {path="../mvg", optional=true}
-flydra-mvg = {path="../flydra-mvg", optional=true}
-tokio-serial = { version = "5.4.3"}
+imops = { path = "../imops" }
+led-box = { path = "../led-box" }
+led-box-comms = { path = "../led-box-comms" }
+flydra-types = { path = "../flydra-types", features = [
+    "start-listener",
+    "build-urls",
+] }
+flydra2 = { path = "../flydra2", default-features = false, optional = true }
+mvg = { path = "../mvg", optional = true }
+flydra-mvg = { path = "../flydra-mvg", optional = true }
+tokio-serial = { version = "5.4.3" }
 bytes = "1.0"
 nalgebra = "0.32.1"
 lstsq = "0.5.0"
@@ -90,35 +103,43 @@ http = "1.0.0"
 cookie = "0.18.0"
 
 bui-backend-session-types = { path = "../bui-backend-session/types" }
-braid-config-data = {path="../braid-config-data"}
-opencv-calibrate = {path="../opencv-calibrate", optional=true}
-camcal = {path="../camcal", optional=true}
-posix-scheduler = { path = "../posix-scheduler", optional=true}
-rust-cam-bui-types = {path="../rust-cam-bui-types"}
-mp4-writer = { path = "../media-utils/mp4-writer", features = [ "openh264" ] }
-strand-cam-csv-config-types = {path="../strand-cam-csv-config-types"}
-plugin-defs = {path="../plugin-defs", optional=true}
-bg-movie-writer = {path="../bg-movie-writer"}
-strand-cam-pseudo-cal = {path="../strand-cam-pseudo-cal", optional=true}
-nvenc = {path="../nvenc"}
-ads-apriltag = {path="../apriltag", optional=true}
-channellib = {path="../channellib", optional=true}
-braid-http-session = {path="../braid-http-session"}
+braid-config-data = { path = "../braid-config-data" }
+opencv-calibrate = { path = "../opencv-calibrate", optional = true }
+camcal = { path = "../camcal", optional = true }
+posix-scheduler = { path = "../posix-scheduler", optional = true }
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+mp4-writer = { path = "../media-utils/mp4-writer", features = ["openh264"] }
+strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
+plugin-defs = { path = "../plugin-defs", optional = true }
+bg-movie-writer = { path = "../bg-movie-writer" }
+strand-cam-pseudo-cal = { path = "../strand-cam-pseudo-cal", optional = true }
+nvenc = { path = "../nvenc" }
+ads-apriltag = { path = "../apriltag", optional = true }
+channellib = { path = "../channellib", optional = true }
+braid-http-session = { path = "../braid-http-session" }
 bui-backend-session = { path = "../bui-backend-session" }
 event-stream-types = { path = "../event-stream-types" }
 cookie_store = "0.20.0"
 
 [build-dependencies]
-build-util = {path="../build-util"}
+build-util = { path = "../build-util" }
 
 [features]
 default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = ["ci2/backtrace", "mp4-writer/backtrace", "bg-movie-writer/backtrace",
-    "convert-image/backtrace", "http-video-streaming/backtrace",
-    "flydra-feature-detector?/backtrace", "mvg?/backtrace", "flydra-mvg?/backtrace", "flydra2?/backtrace"]
+backtrace = [
+    "ci2/backtrace",
+    "mp4-writer/backtrace",
+    "bg-movie-writer/backtrace",
+    "convert-image/backtrace",
+    "http-video-streaming/backtrace",
+    "flydra-feature-detector?/backtrace",
+    "mvg?/backtrace",
+    "flydra-mvg?/backtrace",
+    "flydra2?/backtrace",
+]
 
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
@@ -130,15 +151,22 @@ posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 
 # Serve style
 ## Bundle files into executable
-bundle_files = ["flydra2?/bundle_files", "tower-serve-static", "include_dir" ]
+bundle_files = ["flydra2?/bundle_files", "tower-serve-static", "include_dir"]
 ## Serve files from disk at runtime
 serve_files = ["flydra2?/serve_files"]
 
 imtrack-dark-circle = []
 imtrack-absdiff = []
 
-flydratrax = ["mvg", "strand-cam-pseudo-cal", "flydra-mvg",
-    "approx", "alga", "flydra2", "flydra_feat_detect"]
+flydratrax = [
+    "mvg",
+    "strand-cam-pseudo-cal",
+    "flydra-mvg",
+    "approx",
+    "alga",
+    "flydra2",
+    "flydra_feat_detect",
+]
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["flydra-feature-detector"]

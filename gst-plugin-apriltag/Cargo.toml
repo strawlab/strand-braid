@@ -5,7 +5,7 @@ version = "0.1.0"
 license = "BSD-2-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 repository = "https://github.com/strawlab/strand-braid"
 
 [lib]
@@ -21,13 +21,13 @@ gstreamer-base = "0.16"
 gstreamer-video = "0.16"
 lazy_static = "1.0"
 csv = "1.1"
-serde = {version="1.0", features=["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 bytes = "0.6"
 
-ads-apriltag = {path="../apriltag"}
+ads-apriltag = { path = "../apriltag" }
 
 [build-dependencies]
 gst-plugin-version-helper = "0.7.5"
 
 [dev-dependencies]
-download-verify = {path="../download-verify"}
+download-verify = { path = "../download-verify" }

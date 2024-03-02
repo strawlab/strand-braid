@@ -3,12 +3,12 @@ name = "ci2-remote-control"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.76"
 
 [dependencies]
-serde = {version = "1.0", default-features = false}
+serde = { version = "1.0", default-features = false }
 serde_derive = "1.0"
-ci2-types = {path="../ci2/ci2-types"}
-rust-cam-bui-types = {path="../rust-cam-bui-types"}
-enum-iter = {path="../enum-iter"}
-chrono = {version="0.4.23", default-features=false}
+ci2-types = { path = "../ci2/ci2-types" }
+rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+enum-iter = { path = "../enum-iter" }
+chrono = { version = "0.4.23", default-features = false }

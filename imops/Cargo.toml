@@ -3,25 +3,25 @@ name = "imops"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
 machine-vision-formats = { version = "0.1", default-features = false }
 image-iter = { path = "../image-iter", default-features = false }
 
 [dev-dependencies]
-simple-frame = {path="../simple-frame"}
+simple-frame = { path = "../simple-frame" }
 criterion = "0.5"
 
 [features]
 # Tests require std but crate itself should be no_std.
 # Test that this remains true by building for a target without std:
 #     cargo build --no-default-features --target thumbv7em-none-eabihf
-default=["std"]
-std=["machine-vision-formats/std", "image-iter/std"]
+default = ["std"]
+std = ["machine-vision-formats/std", "image-iter/std"]
 
 # This feature currently requires nightly but gives 5x-10x speedups.
-simd=[]
+simd = []
 
 [[bench]]
 name = "my_benchmark"

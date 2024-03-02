@@ -5,10 +5,10 @@ version = "0.1.0"
 license = "BSD-3-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-rust-version="1.60"
+rust-version = "1.76"
 
 [dependencies]
-opencv-calibrate = {path=".."}
+opencv-calibrate = { path = ".." }
 image = "0.24.2"
 serde_yaml = "0.9"
 clap = { version = "4.3.4", features = ["derive"] }
