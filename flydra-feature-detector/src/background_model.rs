@@ -1,17 +1,16 @@
-use crate::*;
+use crate::{errors::Error, fastim_mod, ipp_ctypes, Result};
 
-use crate::errors::Error;
+use flydra_feature_detector_types::ImPtDetectCfg;
+use machine_vision_formats::{self as formats, ImageData, Stride};
+use timestamped_frame::ExtraTimeData;
 
 #[cfg(feature = "linux")]
 use ::posix_scheduler;
 
 use basic_frame::DynamicFrame;
 
-use formats::{ImageData, Stride};
-use timestamped_frame::ExtraTimeData;
-
 use crossbeam_ok::CrossbeamOk;
-use fastimage::{
+use fastim_mod::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
 
@@ -53,8 +52,8 @@ impl BackgroundModel {
         let mean_im = FastImageData::copy_from_32f8u_c1(&running_mean, RoundMode::Near)?;
         let (w, h) = (mean_im.width(), mean_im.height());
         let current_roi = FastImageRegion::new(
-            fastimage::Point::new(0, 0),
-            fastimage::FastImageSize::new(w, h),
+            fastim_mod::Point::new(0, 0),
+            fastim_mod::FastImageSize::new(w, h),
         );
 
         let mut worker = BackgroundModelWorker {

@@ -1,7 +1,9 @@
-use crate::*;
+use crate::{fastim_mod, Result};
 
 use basic_frame::BasicExtra;
-use timestamped_frame::ExtraTimeData;
+use fastim_mod::FastImage;
+use machine_vision_formats::{self as formats, ImageBuffer, ImageBufferRef};
+use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[derive(Clone)]
 pub(crate) struct BorrowedFrame<'a, FMT>
@@ -64,12 +66,12 @@ impl<'a, FMT: Clone> ExtraTimeData for BorrowedFrame<'a, FMT> {
 // }
 
 pub(crate) fn borrow_fi<C, D, FMT>(
-    fid: &fastimage::FastImageData<C, D>,
+    fid: &fastim_mod::FastImageData<C, D>,
     host_timestamp: chrono::DateTime<chrono::Utc>,
     host_framenumber: usize,
 ) -> Result<BorrowedFrame<'_, FMT>>
 where
-    C: fastimage::ChanTrait,
+    C: fastim_mod::ChanTrait,
     D: Copy + num_traits::Zero + PartialEq,
     FMT: Clone,
 {

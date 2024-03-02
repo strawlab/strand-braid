@@ -1,8 +1,7 @@
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
-#[cfg(feature = "do_not_use_ipp")]
-use fastfreeimage as fastimage;
+use crate::fastim_mod;
 
 pub type Result<M> = std::result::Result<M, Error>;
 
@@ -35,7 +34,7 @@ pub enum Error {
     },
 
     #[error("FastImageError({0})")]
-    FastImageError(#[from] fastimage::Error),
+    FastImageError(#[from] fastim_mod::Error),
     #[error("{0}")]
     FlydraTypesError(#[from] flydra_types::FlydraTypesError),
     #[error("IoError: {source}")]

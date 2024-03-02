@@ -11,7 +11,10 @@ compile_error!("Need either feature 'do_not_use_ipp' or 'use_ipp' enabled.");
 compile_error!("Need only one of feature 'do_not_use_ipp' or 'use_ipp' enabled, not both.");
 
 #[cfg(feature = "do_not_use_ipp")]
-use fastfreeimage as fastimage;
+use fastfreeimage as fastim_mod;
+
+#[cfg(feature = "use_ipp")]
+use fastimage as fastim_mod;
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
@@ -25,13 +28,13 @@ use serde::Serialize;
 use chrono::{DateTime, Utc};
 use std::fs::File;
 
-use fastimage::{
+use fastim_mod::{
     ipp_ctypes, ripp, AlgorithmHint, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion,
     FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
 };
 
-use formats::{pixel_format::Mono32f, ImageBuffer, ImageBufferRef, Stride};
-use timestamped_frame::{ExtraTimeData, HostTimeData};
+use formats::{pixel_format::Mono32f, Stride};
+use timestamped_frame::ExtraTimeData;
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
@@ -239,7 +242,7 @@ impl TrackingState {
             )?;
         }
 
-        let origin = fastimage::Point::new(0, 0);
+        let origin = fastim_mod::Point::new(0, 0);
 
         let mut cmpdiff_im_roi_view =
             MutableFastImageView::view_region(&mut self.cmpdiff_im, &self.background.current_roi)?;
@@ -301,7 +304,7 @@ impl TrackingState {
             let top2 = std::cmp::min(top2, self.background.current_roi.top());
             let roi2_sz = FastImageSize::new(right2 - left2, top2 - bottom2);
 
-            let roi2 = FastImageRegion::new(fastimage::Point::new(left2, bottom2), roi2_sz);
+            let roi2 = FastImageRegion::new(fastim_mod::Point::new(left2, bottom2), roi2_sz);
             {
                 let mut absdiff_im_roi2_view =
                     MutableFastImageView::view_region(&mut absdiff_im_roi_view, &roi2)?;
