@@ -109,7 +109,7 @@ pub mod intrinsics;
 pub mod extrinsics;
 
 #[cfg(feature = "rerun-io")]
-mod rerun_io;
+pub mod rerun_io;
 
 mod camera;
 pub use crate::camera::{rq_decomposition, Camera};

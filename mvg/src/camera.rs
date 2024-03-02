@@ -276,16 +276,29 @@ impl<R: RealField + Copy> Camera<R> {
 
     /// Return a linearized copy of self.
     ///
-    /// The returned camera will not have distortion.
-    pub fn linearize(&self) -> Result<Self> {
+    /// The returned camera will not have distortion. In other words, the raw
+    /// projected ("distorted") pixels are identical with the "undistorted"
+    /// variant. The camera model is a perfect linear pinhole.
+    pub fn linearize_to_cam_geom(
+        &self,
+    ) -> cam_geom::Camera<R, cam_geom::IntrinsicParametersPerspective<R>> {
         let fx = self.intrinsics().k[(0, 0)];
         let skew = self.intrinsics().k[(0, 1)];
         let fy = self.intrinsics().k[(1, 1)];
         let cx = self.intrinsics().k[(0, 2)];
         let cy = self.intrinsics().k[(1, 2)];
-        let intrinsics = RosOpenCvIntrinsics::from_params(fx, skew, fy, cx, cy);
-        let extrinsics = self.extrinsics().clone();
-        Camera::new(self.width(), self.height(), extrinsics, intrinsics)
+
+        let intrinsics =
+            cam_geom::IntrinsicParametersPerspective::from(cam_geom::PerspectiveParams {
+                fx,
+                fy,
+                skew,
+                cx,
+                cy,
+            });
+
+        let pose = self.extrinsics().clone();
+        cam_geom::Camera::new(intrinsics, pose)
     }
 
     pub fn align(&self, s: R, rot: Matrix3<R>, t: Vector3<R>) -> Result<Self> {

@@ -40,8 +40,50 @@ fn test_distortion_roundtrip() {
     }
 }
 
+// #[test]
+// fn test_linearized_camera() -> anyhow::Result<()> {
+//     let (width, height) = (640, 480);
+//     let distortion = Distortion::from_opencv_vec(na::Vector5::new(-0.1, 0.05, 0.1, -0.05, 0.01));
+//     let intrinsics = RosOpenCvIntrinsics::from_params_with_distortion(
+//         100.0, 1.0, 101.0, 320.0, 240.0, distortion,
+//     );
+//     let extrinsics = mvg::extrinsics::make_default_extrinsics();
+//     let cam = mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
+//     let linearized = cam.linearize()?;
+//     assert!(linearized.intrinsics().distortion.is_linear());
+//     let uv_raws = generate_uv_raw(width, height);
+//     for distorted_orig in uv_raws.iter() {
+//         // Project the distorted pixel coordinate into 3D world space coordinate.
+//         let world_coord = cam.project_distorted_pixel_to_3d_with_dist(distorted_orig, 1.0);
+//         // Image the 3D world space coordinate with the linearized camera.
+//         let distorted_linear = linearized.project_3d_to_distorted_pixel(&world_coord);
+//         // Although the points are "distorted", they will have identical
+//         // coordinates to their undistorted version because there is no
+//         // distortion.
+//         let distorted_linear2 = (&distorted_linear).into();
+//         let undistorted_linear = linearized.intrinsics().undistort(&distorted_linear2);
+//         // These should be exactly equal without any floating point errors.
+//         assert_eq!(
+//             undistorted_linear.data.transpose(),
+//             distorted_linear.coords.coords
+//         );
+
+//         // And, perhaps most importantly, these coordinates from the linear
+//         // camera should be the same (withing floating point numerical error) as
+//         // the undistorted variant from the original camera.
+//         let distorted_orig2 = (&*distorted_orig).into();
+//         let undistorted_orig = intrinsics.undistort(&distorted_orig2);
+//         approx::assert_relative_eq!(
+//             undistorted_orig.data,
+//             undistorted_linear.data,
+//             epsilon = 1e-6
+//         );
+//     }
+//     Ok(())
+// }
+
 #[test]
-fn test_linearized_camera() -> anyhow::Result<()> {
+fn test_linearized_cam_geom_camera() -> anyhow::Result<()> {
     let (width, height) = (640, 480);
     let distortion = Distortion::from_opencv_vec(na::Vector5::new(-0.1, 0.05, 0.1, -0.05, 0.01));
     let intrinsics = RosOpenCvIntrinsics::from_params_with_distortion(
@@ -49,35 +91,21 @@ fn test_linearized_camera() -> anyhow::Result<()> {
     );
     let extrinsics = mvg::extrinsics::make_default_extrinsics();
     let cam = mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
-    let linearized = cam.linearize()?;
-    assert!(linearized.intrinsics().distortion.is_linear());
+    let linearized = cam.linearize_to_cam_geom();
     let uv_raws = generate_uv_raw(width, height);
     for distorted_orig in uv_raws.iter() {
         // Project the distorted pixel coordinate into 3D world space coordinate.
         let world_coord = cam.project_distorted_pixel_to_3d_with_dist(distorted_orig, 1.0);
         // Image the 3D world space coordinate with the linearized camera.
-        let distorted_linear = linearized.project_3d_to_distorted_pixel(&world_coord);
-        // Although the points are "distorted", they will have identical
-        // coordinates to their undistorted version because there is no
-        // distortion.
-        let distorted_linear2 = (&distorted_linear).into();
-        let undistorted_linear = linearized.intrinsics().undistort(&distorted_linear2);
-        // These should be exactly equal without any floating point errors.
-        assert_eq!(
-            undistorted_linear.data.transpose(),
-            distorted_linear.coords.coords
-        );
+        let world_coords = cam_geom::Points::new(world_coord.coords.coords.transpose());
+        let linear_2d = linearized.world_to_pixel(&world_coords);
 
-        // And, perhaps most importantly, these coordinates from the linear
-        // camera should be the same (withing floating point numerical error) as
-        // the undistorted variant from the original camera.
+        // The coordinates from the linear camera should be the same (within
+        // floating point numerical error) as the undistorted variant from the
+        // original camera.
         let distorted_orig2 = (&*distorted_orig).into();
         let undistorted_orig = intrinsics.undistort(&distorted_orig2);
-        approx::assert_relative_eq!(
-            undistorted_orig.data,
-            undistorted_linear.data,
-            epsilon = 1e-6
-        );
+        approx::assert_relative_eq!(undistorted_orig.data, linear_2d.data, epsilon = 1e-6);
     }
     Ok(())
 }

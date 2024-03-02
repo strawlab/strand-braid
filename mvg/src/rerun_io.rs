@@ -101,9 +101,8 @@ fn pinhole_projection_component<R: RealField>(
     if !cam.distortion.is_linear() {
         return Err(MvgError::RerunUnsupportedIntrinsics);
     }
-    // Does rerun actually cameras with nonzero skew? Here we are restrictive
-    // and say "no", but actually it might.
-    for loc in [(0, 1), (1, 0), (2, 0), (2, 1)] {
+    // Does rerun actually cameras with nonzero skew? Here we are say "yes", but actually it might not.
+    for loc in [(1, 0), (2, 0), (2, 1)] {
         if cam.p[loc].clone().abs() > 1e-16.R() {
             return Err(MvgError::RerunUnsupportedIntrinsics);
         }
@@ -125,6 +124,32 @@ fn pinhole_projection_component_lossy<R: RealField>(
 
     let m = rerun::datatypes::Mat3x3([fx, 0.0, 0.0, 0.0, fy, 0.0, cx, cy, 1.0]);
     rerun::components::PinholeProjection(m)
+}
+
+pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
+    cam: &cam_geom::Camera<R, cam_geom::IntrinsicParametersPerspective<R>>,
+    width: usize,
+    height: usize,
+) -> rerun::archetypes::Pinhole {
+    let i = cam.intrinsics();
+    let m = rerun::datatypes::Mat3x3([
+        i.fx().f32(),
+        0.0,
+        0.0,
+        0.0,
+        i.fy().f32(),
+        0.0,
+        i.cx().f32(),
+        i.cy().f32(),
+        1.0,
+    ]);
+    let image_from_camera = rerun::components::PinholeProjection(m);
+    let resolution: rerun::Vec2D = (width as f32, height as f32).into();
+    rerun::archetypes::Pinhole {
+        image_from_camera,
+        resolution: Some(resolution.into()),
+        camera_xyz: None,
+    }
 }
 
 #[cfg(test)]

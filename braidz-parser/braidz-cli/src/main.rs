@@ -1,5 +1,6 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -96,11 +97,10 @@ fn main() -> anyhow::Result<()> {
                             tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
                             Approximating the camera. When non-linear cameras are added to Rerun (see \
                             https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
-                            let linearized_camera = cam.linearize()?;
-                            let pinhole = linearized_camera.rr_pinhole_archetype()?;
+                            let lin_cam = cam.linearize_to_cam_geom();
                             rec.log_timeless(
                                 format!("world/camera/{cam_name}/linearized_image"),
-                                &pinhole,
+                                &to_pinhole(&lin_cam, cam.width(), cam.height()),
                             )?;
                         }
                     };
