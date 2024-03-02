@@ -1,16 +1,14 @@
-extern crate nalgebra as na;
-extern crate num_traits;
 #[macro_use]
 extern crate approx;
-extern crate alga;
-extern crate num_iter;
 
-extern crate mvg;
+use color_eyre::eyre as anyhow;
+use opencv_ros_camera::{from_ros_yaml, Distortion, NamedIntrinsicParameters, RosOpenCvIntrinsics};
 
-use opencv_ros_camera::{from_ros_yaml, NamedIntrinsicParameters};
-
-use nalgebra::core::Unit;
-use nalgebra::geometry::{Point2, Point3, Quaternion};
+use nalgebra::{
+    self as na,
+    core::Unit,
+    geometry::{Point2, Point3, Quaternion},
+};
 
 use mvg::{Camera, DistortedPixel, PointWorldFrame};
 
@@ -43,6 +41,48 @@ fn test_distortion_roundtrip() {
 }
 
 #[test]
+fn test_linearized_camera() -> anyhow::Result<()> {
+    let (width, height) = (640, 480);
+    let distortion = Distortion::from_opencv_vec(na::Vector5::new(-0.1, 0.05, 0.1, -0.05, 0.01));
+    let intrinsics = RosOpenCvIntrinsics::from_params_with_distortion(
+        100.0, 1.0, 101.0, 320.0, 240.0, distortion,
+    );
+    let extrinsics = mvg::extrinsics::make_default_extrinsics();
+    let cam = mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
+    let linearized = cam.linearize()?;
+    assert!(linearized.intrinsics().distortion.is_linear());
+    let uv_raws = generate_uv_raw(width, height);
+    for distorted_orig in uv_raws.iter() {
+        // Project the distorted pixel coordinate into 3D world space coordinate.
+        let world_coord = cam.project_distorted_pixel_to_3d_with_dist(distorted_orig, 1.0);
+        // Image the 3D world space coordinate with the linearized camera.
+        let distorted_linear = linearized.project_3d_to_distorted_pixel(&world_coord);
+        // Although the points are "distorted", they will have identical
+        // coordinates to their undistorted version because there is no
+        // distortion.
+        let distorted_linear2 = (&distorted_linear).into();
+        let undistorted_linear = linearized.intrinsics().undistort(&distorted_linear2);
+        // These should be exactly equal without any floating point errors.
+        assert_eq!(
+            undistorted_linear.data.transpose(),
+            distorted_linear.coords.coords
+        );
+
+        // And, perhaps most importantly, these coordinates from the linear
+        // camera should be the same (withing floating point numerical error) as
+        // the undistorted variant from the original camera.
+        let distorted_orig2 = (&*distorted_orig).into();
+        let undistorted_orig = intrinsics.undistort(&distorted_orig2);
+        approx::assert_relative_eq!(
+            undistorted_orig.data,
+            undistorted_linear.data,
+            epsilon = 1e-6
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
     let system1 = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
@@ -70,8 +110,8 @@ fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
     let r1 = reloaded.project_3d_to_distorted_pixel(&p1);
     let r2 = reloaded.project_3d_to_distorted_pixel(&p2);
 
-    approx::assert_relative_eq!(o1.coords, r1.coords, epsilon=1e-6);
-    approx::assert_relative_eq!(o2.coords, r2.coords, epsilon=1e-6);
+    approx::assert_relative_eq!(o1.coords, r1.coords, epsilon = 1e-6);
+    approx::assert_relative_eq!(o2.coords, r2.coords, epsilon = 1e-6);
 
     Ok(())
 }
@@ -109,8 +149,16 @@ fn test_load_pymvg() -> anyhow::Result<()> {
         coords: Point3::new(0.0, 0.0, 0.0),
     });
 
-    approx::assert_relative_eq!(p1.coords, na::Point2::new(1833.09435806, 2934.94805999), epsilon=1e-6);
-    approx::assert_relative_eq!(p2.coords, na::Point2::new(616.11767192, 269.61411571), epsilon=1e-6);
+    approx::assert_relative_eq!(
+        p1.coords,
+        na::Point2::new(1833.09435806, 2934.94805999),
+        epsilon = 1e-6
+    );
+    approx::assert_relative_eq!(
+        p2.coords,
+        na::Point2::new(616.11767192, 269.61411571),
+        epsilon = 1e-6
+    );
 
     // Now test some values directly read from the pymvg json file -----------------
     assert_eq!(cam.width(), 1080);

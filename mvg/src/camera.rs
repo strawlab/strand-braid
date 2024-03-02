@@ -288,20 +288,6 @@ impl<R: RealField + Copy> Camera<R> {
         Camera::new(self.width(), self.height(), extrinsics, intrinsics)
     }
 
-    /// Return a linearized copy of self with no skew.
-    ///
-    /// The returned camera will not have distortion or skew.
-    pub fn linearize_remove_skew(&self) -> Result<Self> {
-        let fx = self.intrinsics().k[(0, 0)];
-        let skew = na::zero();
-        let fy = self.intrinsics().k[(1, 1)];
-        let cx = self.intrinsics().k[(0, 2)];
-        let cy = self.intrinsics().k[(1, 2)];
-        let intrinsics = RosOpenCvIntrinsics::from_params(fx, skew, fy, cx, cy);
-        let extrinsics = self.extrinsics().clone();
-        Camera::new(self.width(), self.height(), extrinsics, intrinsics)
-    }
-
     pub fn align(&self, s: R, rot: Matrix3<R>, t: Vector3<R>) -> Result<Self> {
         let m = build_xform(s, rot, t);
         let mi = my_pinv_4x4(&m)?;
