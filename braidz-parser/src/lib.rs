@@ -523,8 +523,8 @@ fn test_append_to_path() {
 }
 
 /// Pick the `.csv` file (if it exists) as first choice, else pick `.csv.gz`.
-pub fn open_maybe_gzipped<'a, R: Read + Seek>(
-    mut path_like: zip_or_dir::PathLike<'a, R>,
+pub fn open_maybe_gzipped<R: Read + Seek>(
+    mut path_like: zip_or_dir::PathLike<R>,
 ) -> Result<MaybeGzippedReader, Error> {
     let compressed_relname = append_to_path(path_like.path(), ".gz");
 

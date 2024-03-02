@@ -450,16 +450,18 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         }
                     };
 
-                    (Some(KalmanEstimatesInfo {
-                        xlim,
-                        ylim,
-                        zlim,
-                        trajectories,
-                        num_rows,
-                        tracking_parameters,
-                        total_distance,
-                    }),
-                    Some(kalman_estimates_table))
+                    (
+                        Some(KalmanEstimatesInfo {
+                            xlim,
+                            ylim,
+                            zlim,
+                            trajectories,
+                            num_rows,
+                            tracking_parameters,
+                            total_distance,
+                        }),
+                        Some(kalman_estimates_table),
+                    )
                 }
                 Err(e) =>
                 {
@@ -469,7 +471,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                             source: zip_or_dir::Error::FileNotFound,
                             #[cfg(feature = "backtrace")]
                             backtrace,
-                        } => (None,None),
+                        } => (None, None),
                         _ => {
                             return Err(e);
                         }
