@@ -289,9 +289,10 @@ impl std::fmt::Display for TagFamily {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum BitrateSelection {
     Bitrate500,
+    #[default]
     Bitrate1000,
     Bitrate2000,
     Bitrate3000,
@@ -299,12 +300,6 @@ pub enum BitrateSelection {
     Bitrate5000,
     Bitrate10000,
     BitrateUnlimited,
-}
-
-impl Default for BitrateSelection {
-    fn default() -> BitrateSelection {
-        BitrateSelection::Bitrate1000
-    }
 }
 
 impl std::fmt::Display for BitrateSelection {
