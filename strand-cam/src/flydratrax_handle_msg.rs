@@ -3,8 +3,6 @@ use parking_lot::RwLock;
 
 use flydra2::{SendKalmanEstimatesRow, SendType};
 
-use strand_cam_storetype::LedProgramConfig;
-
 // create a long-lived future that will process data from flydra and turn on
 // LEDs with it.
 pub async fn create_message_handler(
