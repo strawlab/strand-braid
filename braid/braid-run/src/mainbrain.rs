@@ -1095,8 +1095,28 @@ pub(crate) async fn do_run_forever(
 
             let (synced_frame, trigger_timestamp) = match synced_frame {
                 Some(synced_frame) => {
-                    let time_model = time_model_arc.read();
-                    let trigger_timestamp = compute_trigger_timestamp(&time_model, synced_frame);
+                    let trigger_timestamp = match &trigger_cfg {
+                        TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => {
+                            let time_model = time_model_arc.read();
+                            compute_trigger_timestamp(&time_model, synced_frame)
+                        }
+                        TriggerType::PtpSync(_) => {
+                            // In case where we trust camera sync data, use
+                            // timestamp from camera. All packets from all
+                            // cameras should have this same timestamp, so it
+                            // shouldn't matter which camera we use.
+                            packet.device_timestamp.map(|device_timestamp| {
+                                let ptp_stamp = flydra_types::PtpStamp::new(device_timestamp.get());
+                                let device_timestamp_chrono =
+                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
+                                        .unwrap();
+                                device_timestamp_chrono.into()
+                            })
+                        }
+                        TriggerType::DeviceTimestamp => {
+                            todo!();
+                        }
+                    };
                     (synced_frame, trigger_timestamp)
                 }
                 None => {
