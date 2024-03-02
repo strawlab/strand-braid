@@ -1085,17 +1085,21 @@ async fn frame_process_task(
                     }
                     Some(TriggerType::PtpSync(ptpcfg)) => {
                         let ptp_stamp = PtpStamp::new(device_timestamp.unwrap().get());
-                        if let Some(periodic_signal_period_usec) =
-                            &ptpcfg.periodic_signal_period_usec
-                        {
-                            let nanos = ptp_stamp.get();
-                            let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
-                            let device_timestamp_chrono =
-                                chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
-                                    .unwrap();
-                            tracing::trace!(
-                                "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
-                            );
+                        if tracing::Level::TRACE <= tracing::level_filters::STATIC_MAX_LEVEL {
+                            // Only run run this block if we compiled with
+                            // trace-level logging enabled.
+                            if let Some(periodic_signal_period_usec) =
+                                &ptpcfg.periodic_signal_period_usec
+                            {
+                                let nanos = ptp_stamp.get();
+                                let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
+                                let device_timestamp_chrono =
+                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
+                                        .unwrap();
+                                tracing::trace!(
+                                    "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
+                                );
+                            }
                         }
                         Some(ptp_stamp.try_into().unwrap())
                     }

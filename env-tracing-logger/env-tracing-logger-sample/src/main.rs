@@ -12,5 +12,12 @@ fn main() {
     tracing::info!("Hello, world!");
     log::info!("This is from log (not tracing).");
     tracing::trace!("This is at the trace level...");
+
+    // tracing::if_log_enabled!(tracing::Level::TRACE, {
+    //     println!("trace logging enabled at runtime")
+    // });
+    if tracing::Level::TRACE <= tracing::level_filters::STATIC_MAX_LEVEL {
+        println!("you compiled with trace messages enabled");
+    }
     my_span(42);
 }
