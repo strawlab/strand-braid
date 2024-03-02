@@ -8,7 +8,6 @@ use std::backtrace::Backtrace;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
-use std::convert::TryInto;
 use std::sync::Arc;
 
 use basic_frame::DynamicFrame;
