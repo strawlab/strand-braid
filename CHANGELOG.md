@@ -17,6 +17,11 @@
 * Braid can now start saving MP4 files in all cameras with a single button.
   Furthermore, additional support for post-triggering of all cameras can be
   done.
+* Add ability for a single Strand Camera instance to perform 2D tracking in
+  multiple mini arenas simultaneously. Inspired by
+  [MARGO](https://github.com/de-Bivort-Lab/margo). Trajectories are confined to
+  individual mini arenas. Automatic camera calibration can be performed by
+  making us of April Tags embedded in the arena walls.
 * Added support to save raw, uncompressed video to the MP4 container format.
 * Save camera gamma to MP4 files.
 * Strand Cam defaults to including the camera name in the saved MP4, FMF, uFMF,
