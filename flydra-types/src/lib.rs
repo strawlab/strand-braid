@@ -323,19 +323,15 @@ pub struct BraidCameraConfig {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum StartCameraBackend {
     /// Do not start a camera locally. Rather, wait for a remote camera to connect.
     Remote,
     /// Start a Pylon camera locally using `strand-cam-pylon` program.
+    #[default]
     Pylon,
     /// Start a Vimba camera locally using `strand-cam-vimba` program.
     Vimba,
-}
-
-impl Default for StartCameraBackend {
-    fn default() -> StartCameraBackend {
-        StartCameraBackend::Pylon
-    }
 }
 
 impl StartCameraBackend {
