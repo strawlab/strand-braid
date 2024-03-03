@@ -61,10 +61,10 @@ fn rr_translation_and_mat3<R: RealField>(
     let rot = extrinsics.rotation();
     let rot = rot.matrix();
     let mut col_major = [0.0; 9];
-    for j in 0..3 {
-        for i in 0..3 {
-            let idx = j * 3 + i;
-            col_major[idx] = rot[(i, j)].f32();
+    for row in 0..3 {
+        for col in 0..3 {
+            let idx = col * 3 + row;
+            col_major[idx] = rot[(row, col)].f32();
         }
     }
     let mat3x3 = Some(rerun::Mat3x3(col_major));
@@ -85,11 +85,38 @@ impl<R: RealField + Copy> crate::Camera<R> {
 
 #[test]
 fn test_extrinsics_rerun_roundtrip() {
-    // create camera, including extrinsics
-    let orig = crate::Camera::<f64>::default();
-    // convert to rerun // rerun::archetypes::Transform3D
-    let _rr = orig.rr_transform3d_archetype();
-    // TODO FIXME incomplete....
+    use nalgebra::Vector3;
+    let cc = Vector3::new(0.1, 2.3, 4.5);
+    let lookdir = Vector3::new(1.0, 1.0, 0.1);
+    let lookat = cc + lookdir;
+    let up = Vector3::new(0.0, 0.0, 1.0);
+    let up_unit = na::core::Unit::new_normalize(up);
+
+    let orig = cam_geom::ExtrinsicParameters::<f64>::from_view(&cc, &lookat, &up_unit);
+    let rmat = orig.rotation().matrix();
+
+    // convert to rerun
+    let rr = rr_translation_and_mat3(&orig);
+
+    // check camcenter
+    for i in 0..3 {
+        approx::assert_relative_eq!(
+            rr.translation.as_ref().unwrap()[i],
+            cc[i] as f32,
+            epsilon = 1e-10
+        );
+    }
+
+    // check rotation
+    for i in 0..3 {
+        for j in 0..3 {
+            approx::assert_relative_eq!(
+                rr.mat3x3.as_ref().unwrap().col(j)[i],
+                rmat[(i, j)] as f32,
+                epsilon = 1e-10
+            );
+        }
+    }
 }
 
 // intrinsics -----------
@@ -215,4 +242,39 @@ fn test_intrinsics_rerun_roundtrip() {
     let intrinsics = opencv_intrinsics::<f64>(&rr.image_from_camera);
     // compare original intrinsics with converted
     assert_eq!(orig.intrinsics(), &intrinsics);
+}
+
+#[test]
+fn test_intrinsics_rerun() {
+    use cam_geom::Points;
+    use nalgebra::{OMatrix, U3, U7};
+
+    // create camera, including intrinsics
+    let orig = crate::Camera::<f64>::default();
+    // convert to rerun
+    let rr = orig.rr_pinhole_archetype().unwrap();
+
+    let orig_intrinsics = orig.intrinsics();
+
+    #[rustfmt::skip]
+    let pts = Points::new(
+        OMatrix::<f64, U7, U3>::from_row_slice(
+            &[0.0,  0.0, 1.0,
+            1.0,  0.0, 1.0,
+            0.0,  1.0, 1.0,
+            1.0,  1.0, 1.0,
+            -1.0,  0.0, 1.0,
+            0.0, -1.0, 1.0,
+            -1.0, -1.0, 1.0]
+        )
+    );
+
+    let pixels_orig = orig_intrinsics.camera_to_undistorted_pixel(&pts);
+
+    for (pt3d, px_orig) in pts.data.row_iter().zip(pixels_orig.data.row_iter()) {
+        let pt3d_v2 = glam::Vec3::new(pt3d[0] as f32, pt3d[1] as f32, pt3d[2] as f32);
+        let pix_rr = rr.project(pt3d_v2);
+        approx::assert_relative_eq!(pix_rr.x, px_orig[0] as f32, epsilon = 1e-10);
+        approx::assert_relative_eq!(pix_rr.y, px_orig[1] as f32, epsilon = 1e-10);
+    }
 }
