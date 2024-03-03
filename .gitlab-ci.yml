@@ -164,7 +164,7 @@ test_crates_rust_1_76:
 
     # Test mvg
     - cd mvg
-    - cargo test
+    - cargo test --features rerun-io
     - cd ..
 
     # Test braid-april-cal-webapp
