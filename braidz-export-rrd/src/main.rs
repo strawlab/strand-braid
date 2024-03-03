@@ -1,5 +1,5 @@
 use braidz_types::{camera_name_from_filename, CamInfo, CamNum};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use color_eyre::eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use machine_vision_formats::{pixel_format, PixFmt};
@@ -13,31 +13,12 @@ const FRAMES_TIMELINE: &str = "frame";
 #[derive(Debug, Parser)]
 #[command(author, version)]
 struct Opt {
-    /// The command to run. Defaults to "print".
-    #[command(subcommand)]
-    command: Command,
-}
+    /// Output rrd filename. Defaults to "<INPUT>.rrd"
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// Print a summary of the .braidz file
-    Print {
-        /// print all data in the `data2d_distorted` table
-        #[arg(short, long)]
-        data2d_distorted: bool,
-
-        /// Input braidz filename
-        input: PathBuf,
-    },
-    /// Export an .rrd rerun file
-    ExportRRD {
-        /// Output rrd filename. Defaults to "<INPUT>.rrd"
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Further input filenames
-        inputs: Vec<PathBuf>,
-    },
+    /// Further input filenames
+    inputs: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -212,134 +193,107 @@ fn main() -> anyhow::Result<()> {
     }
     env_tracing_logger::init();
     let opt = Opt::parse();
-    let command = opt.command;
 
-    match command {
-        Command::Print {
-            data2d_distorted,
-            input,
-        } => {
-            let attr = std::fs::metadata(&input)
-                .with_context(|| format!("Getting file metadata for {}", input.display()))?;
-
-            let mut archive = braidz_parser::braidz_parse_path(&input)
-                .with_context(|| format!("Parsing file {}", input.display()))?;
-
-            let summary =
-                braidz_parser::summarize_braidz(&archive, input.display().to_string(), attr.len());
-
-            let yaml_buf = serde_yaml::to_string(&summary)?;
-            println!("{}", yaml_buf);
-
-            if data2d_distorted {
-                println!("data2d_distorted table: --------------");
-                for row in archive.iter_data2d_distorted()? {
-                    println!("{:?}", row);
-                }
-            }
+    let output = opt.output;
+    let inputs = opt.inputs;
+    let mut inputs: std::collections::HashSet<_> = inputs.into_iter().collect();
+    let input_braidz = {
+        let braidz_inputs: Vec<_> = inputs
+            .iter()
+            .filter(|x| x.as_os_str().to_string_lossy().ends_with(".braidz"))
+            .collect();
+        let n_braidz_files = braidz_inputs.len();
+        if n_braidz_files != 1 {
+            anyhow::bail!("expected exactly one .braidz file, found {n_braidz_files}");
+        } else {
+            braidz_inputs[0].clone()
         }
-        Command::ExportRRD { output, inputs } => {
-            let mut inputs: std::collections::HashSet<_> = inputs.into_iter().collect();
-            let input_braidz = {
-                let braidz_inputs: Vec<_> = inputs
-                    .iter()
-                    .filter(|x| x.as_os_str().to_string_lossy().ends_with(".braidz"))
-                    .collect();
-                let n_braidz_files = braidz_inputs.len();
-                if n_braidz_files != 1 {
-                    anyhow::bail!("expected exactly one .braidz file, found {n_braidz_files}");
-                } else {
-                    braidz_inputs[0].clone()
-                }
-            };
-            inputs.remove(&input_braidz);
+    };
+    inputs.remove(&input_braidz);
 
-            let mut archive = braidz_parser::braidz_parse_path(&input_braidz)
-                .with_context(|| format!("Parsing file {}", input_braidz.display()))?;
+    let mut archive = braidz_parser::braidz_parse_path(&input_braidz)
+        .with_context(|| format!("Parsing file {}", input_braidz.display()))?;
 
-            let inter_frame_interval_f64 = 1.0 / archive.expected_fps;
+    let inter_frame_interval_f64 = 1.0 / archive.expected_fps;
 
-            let output = output.unwrap_or_else(|| {
-                let mut output = input_braidz.as_os_str().to_owned();
-                output.push(".rrd");
-                output.into()
-            });
+    let output = output.unwrap_or_else(|| {
+        let mut output = input_braidz.as_os_str().to_owned();
+        output.push(".rrd");
+        output.into()
+    });
 
-            // Exclude expected output (e.g. from prior run) from inputs.
-            inputs.remove(&output);
-            dbg!(&inputs);
+    // Exclude expected output (e.g. from prior run) from inputs.
+    inputs.remove(&output);
 
-            let mp4_inputs: Vec<_> = inputs
-                .iter()
-                .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
-                .collect();
-            if mp4_inputs.len() != inputs.len() {
-                anyhow::bail!("expected only mp4 inputs beyond one .braidz file.");
-            }
+    let mp4_inputs: Vec<_> = inputs
+        .iter()
+        .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
+        .collect();
+    if mp4_inputs.len() != inputs.len() {
+        anyhow::bail!("expected only mp4 inputs beyond one .braidz file.");
+    }
 
-            // Initiate recording
-            let rec = rerun::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
-                .save(&output)
-                .with_context(|| format!("Creating output file {}", output.display()))?;
+    // Initiate recording
+    let rec = rerun::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
+        .save(&output)
+        .with_context(|| format!("Creating output file {}", output.display()))?;
 
-            // Create logger
-            let mut qqq = Qqq::new(rec.clone(), archive.cam_info.clone());
+    // Create logger
+    let mut qqq = Qqq::new(rec.clone(), archive.cam_info.clone());
 
-            // Process camera calibrations
-            if let Some(cal) = &archive.calibration_info {
-                if cal.water.is_some() {
-                    tracing::error!("omitting water");
-                }
-                for (cam_name, cam) in cal.cameras.cams().iter() {
-                    qqq.add_camera_calibration(cam_name, cam)?;
-                }
-            }
-
-            // Process 2D point detections
-            for row in archive.iter_data2d_distorted()? {
-                let row = row?;
-                qqq.log_data2d_distorted(&row)?;
-            }
-
-            // Process 3D kalman estimates
-            let mut last_detection_per_obj = std::collections::BTreeMap::new();
-            if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
-                for row in kalman_estimates_table.iter() {
-                    rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
-                    if let Some(timestamp) = &row.timestamp {
-                        rec.set_time_seconds(SECONDS_TIMELINE, timestamp.as_f64());
-                    }
-                    rec.log(
-                        format!("world/obj_id/{}", row.obj_id),
-                        &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
-                    )?;
-                    last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
-                }
-            }
-            // log end of trajectory - indicate there are no more data for this obj_id
-            let empty_position: Vec<(f32, f32, f32)> = vec![];
-            for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
-                rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
-                if let Some(timestamp) = &timestamp {
-                    rec.set_time_seconds(
-                        SECONDS_TIMELINE,
-                        timestamp.as_f64() + inter_frame_interval_f64,
-                    );
-                }
-                rec.log(
-                    format!("world/obj_id/{}", obj_id),
-                    &rerun::Points3D::new(&empty_position),
-                )?;
-            }
-
-            // Process videos
-            for mp4_filename in mp4_inputs.iter() {
-                qqq.log_video(mp4_filename)?;
-
-                // rec.log("image", &rerun::Image::try_from(image)?)?;
-            }
-            tracing::info!("Exported to Rerun RRD file: {}", output.display());
+    // Process camera calibrations
+    if let Some(cal) = &archive.calibration_info {
+        if cal.water.is_some() {
+            tracing::error!("omitting water");
+        }
+        for (cam_name, cam) in cal.cameras.cams().iter() {
+            qqq.add_camera_calibration(cam_name, cam)?;
         }
     }
+
+    // Process 2D point detections
+    for row in archive.iter_data2d_distorted()? {
+        let row = row?;
+        qqq.log_data2d_distorted(&row)?;
+    }
+
+    // Process 3D kalman estimates
+    let mut last_detection_per_obj = std::collections::BTreeMap::new();
+    if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
+        for row in kalman_estimates_table.iter() {
+            rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
+            if let Some(timestamp) = &row.timestamp {
+                rec.set_time_seconds(SECONDS_TIMELINE, timestamp.as_f64());
+            }
+            rec.log(
+                format!("world/obj_id/{}", row.obj_id),
+                &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
+            )?;
+            last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
+        }
+    }
+    // log end of trajectory - indicate there are no more data for this obj_id
+    let empty_position: Vec<(f32, f32, f32)> = vec![];
+    for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
+        rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
+        if let Some(timestamp) = &timestamp {
+            rec.set_time_seconds(
+                SECONDS_TIMELINE,
+                timestamp.as_f64() + inter_frame_interval_f64,
+            );
+        }
+        rec.log(
+            format!("world/obj_id/{}", obj_id),
+            &rerun::Points3D::new(&empty_position),
+        )?;
+    }
+
+    // Process videos
+    for mp4_filename in mp4_inputs.iter() {
+        qqq.log_video(mp4_filename)?;
+
+        // rec.log("image", &rerun::Image::try_from(image)?)?;
+    }
+    tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
 }
