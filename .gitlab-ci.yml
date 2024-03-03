@@ -885,6 +885,10 @@ extra-programs-ubuntu2004:
 
     - mkdir -p $CI_PROJECT_DIR/build
 
+    - cd $CI_PROJECT_DIR/braidz-export-rrd
+    - cargo build --release
+    - cp ../../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
+
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
     - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
@@ -911,6 +915,10 @@ extra-programs-ubuntu2204:
     - export RUSTFLAGS="-D warnings"
 
     - mkdir -p $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/braidz-export-rrd
+    - cargo build --release
+    - cp ../../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
