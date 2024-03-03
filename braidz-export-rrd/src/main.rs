@@ -1,11 +1,11 @@
-use braidz_types::{camera_name_from_filename, CamInfo, CamNum};
+use braidz_types::{camera_name_from_filename, CamNum};
 use clap::Parser;
 use color_eyre::eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use machine_vision_formats::{pixel_format, PixFmt};
 use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use ndarray::Array;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
@@ -22,23 +22,23 @@ struct Opt {
 }
 
 #[derive(Debug, Clone)]
-struct QqqCamData {
-    ent_path: String,
+struct CachedCamData {
+    entity_path: String,
     use_intrinsics: Option<opencv_ros_camera::RosOpenCvIntrinsics<f64>>,
 }
 
-struct Qqq {
+struct OfflineBraidzRerunLogger {
     rec: rerun::RecordingStream,
-    cam_info: CamInfo,
-    by_camn: std::collections::BTreeMap<CamNum, QqqCamData>,
-    by_camname: std::collections::BTreeMap<String, QqqCamData>,
+    camid2camn: BTreeMap<String, CamNum>,
+    by_camn: BTreeMap<CamNum, CachedCamData>,
+    by_camname: BTreeMap<String, CachedCamData>,
 }
 
-impl Qqq {
-    fn new(rec: rerun::RecordingStream, cam_info: CamInfo) -> Self {
+impl OfflineBraidzRerunLogger {
+    fn new(rec: rerun::RecordingStream, camid2camn: BTreeMap<String, CamNum>) -> Self {
         Self {
             rec,
-            cam_info,
+            camid2camn,
             by_camn: Default::default(),
             by_camname: Default::default(),
         }
@@ -49,7 +49,7 @@ impl Qqq {
         cam_name: &str,
         cam: &mvg::Camera<f64>,
     ) -> anyhow::Result<()> {
-        let camn = self.cam_info.camid2camn.get(cam_name).unwrap();
+        let camn = self.camid2camn.get(cam_name).unwrap();
         self.rec.log_timeless(
             format!("world/camera/{cam_name}"),
             &cam.rr_transform3d_archetype(),
@@ -60,8 +60,8 @@ impl Qqq {
                 let ent_path = format!("world/camera/{cam_name}/im");
 
                 self.rec.log_timeless(ent_path.clone(), &pinhole)?;
-                QqqCamData {
-                    ent_path,
+                CachedCamData {
+                    entity_path: ent_path,
                     use_intrinsics: None,
                 }
             }
@@ -76,8 +76,8 @@ impl Qqq {
                     ent_path.clone(),
                     &to_pinhole(&lin_cam, cam.width(), cam.height()),
                 )?;
-                QqqCamData {
-                    ent_path,
+                CachedCamData {
+                    entity_path: ent_path,
                     use_intrinsics,
                 }
             }
@@ -89,8 +89,7 @@ impl Qqq {
 
     fn log_video<P: AsRef<std::path::Path>>(&self, mp4_filename: P) -> anyhow::Result<()> {
         let (_, camname) = camera_name_from_filename(&mp4_filename);
-        // could also get camname from title in movie metadata...
-        dbg!(&camname);
+        // Should could get camname from title in movie metadata.
         let camname = camname.unwrap();
         let cam_data = self.by_camname.get(&camname).unwrap();
 
@@ -116,7 +115,7 @@ impl Qqq {
             self.rec
                 .set_time_seconds(SECONDS_TIMELINE, stamp_flydra.as_f64());
             let image = to_rr_image(frame.into_image(), cam_data)?;
-            self.rec.log(cam_data.ent_path.as_str(), &image)?;
+            self.rec.log(cam_data.entity_path.as_str(), &image)?;
         }
 
         Ok(())
@@ -143,12 +142,53 @@ impl Qqq {
         } else {
             rerun::Points2D::new([(row.x as f32, row.y as f32)])
         };
-        self.rec.log(cam_data.ent_path.as_str(), &arch)?;
+        self.rec.log(cam_data.entity_path.as_str(), &arch)?;
+        Ok(())
+    }
+
+    fn log_kalman_estimates(
+        &self,
+        kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
+        inter_frame_interval_f64: f64,
+    ) -> anyhow::Result<()> {
+        let mut last_detection_per_obj = BTreeMap::new();
+
+        // iterate through all saved data.
+        for row in kalman_estimates_table.iter() {
+            self.rec
+                .set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
+            if let Some(timestamp) = &row.timestamp {
+                self.rec
+                    .set_time_seconds(SECONDS_TIMELINE, timestamp.as_f64());
+            }
+            self.rec.log(
+                format!("world/obj_id/{}", row.obj_id),
+                &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
+            )?;
+            last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
+        }
+
+        // log end of trajectory - indicate there are no more data for this obj_id
+        let empty_position: Vec<(f32, f32, f32)> = vec![];
+        for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
+            self.rec
+                .set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
+            if let Some(timestamp) = &timestamp {
+                self.rec.set_time_seconds(
+                    SECONDS_TIMELINE,
+                    timestamp.as_f64() + inter_frame_interval_f64,
+                );
+            }
+            self.rec.log(
+                format!("world/obj_id/{}", obj_id),
+                &rerun::Points3D::new(&empty_position),
+            )?;
+        }
         Ok(())
     }
 }
 
-fn to_rr_image(im: ImageData, camdata: &QqqCamData) -> anyhow::Result<rerun::Image> {
+fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::Image> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => anyhow::bail!("image not decoded"),
@@ -239,7 +279,7 @@ fn main() -> anyhow::Result<()> {
         .with_context(|| format!("Creating output file {}", output.display()))?;
 
     // Create logger
-    let mut qqq = Qqq::new(rec.clone(), archive.cam_info.clone());
+    let mut rrd_logger = OfflineBraidzRerunLogger::new(rec, archive.cam_info.camid2camn.clone());
 
     // Process camera calibrations
     if let Some(cal) = &archive.calibration_info {
@@ -247,52 +287,24 @@ fn main() -> anyhow::Result<()> {
             tracing::error!("omitting water");
         }
         for (cam_name, cam) in cal.cameras.cams().iter() {
-            qqq.add_camera_calibration(cam_name, cam)?;
+            rrd_logger.add_camera_calibration(cam_name, cam)?;
         }
     }
 
     // Process 2D point detections
     for row in archive.iter_data2d_distorted()? {
         let row = row?;
-        qqq.log_data2d_distorted(&row)?;
+        rrd_logger.log_data2d_distorted(&row)?;
     }
 
     // Process 3D kalman estimates
-    let mut last_detection_per_obj = std::collections::BTreeMap::new();
     if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
-        for row in kalman_estimates_table.iter() {
-            rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
-            if let Some(timestamp) = &row.timestamp {
-                rec.set_time_seconds(SECONDS_TIMELINE, timestamp.as_f64());
-            }
-            rec.log(
-                format!("world/obj_id/{}", row.obj_id),
-                &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
-            )?;
-            last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
-        }
-    }
-    // log end of trajectory - indicate there are no more data for this obj_id
-    let empty_position: Vec<(f32, f32, f32)> = vec![];
-    for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
-        rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
-        if let Some(timestamp) = &timestamp {
-            rec.set_time_seconds(
-                SECONDS_TIMELINE,
-                timestamp.as_f64() + inter_frame_interval_f64,
-            );
-        }
-        rec.log(
-            format!("world/obj_id/{}", obj_id),
-            &rerun::Points3D::new(&empty_position),
-        )?;
+        rrd_logger.log_kalman_estimates(kalman_estimates_table, inter_frame_interval_f64)?;
     }
 
     // Process videos
     for mp4_filename in mp4_inputs.iter() {
-        qqq.log_video(mp4_filename)?;
-
-        // rec.log("image", &rerun::Image::try_from(image)?)?;
+        rrd_logger.log_video(mp4_filename)?;
     }
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
