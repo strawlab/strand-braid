@@ -64,7 +64,7 @@ fn rr_translation_and_mat3<R: RealField>(
     for row in 0..3 {
         for col in 0..3 {
             let idx = col * 3 + row;
-            col_major[idx] = rot[(row, col)].f32();
+            col_major[idx] = rot[(col, row)].f32();
         }
     }
     let mat3x3 = Some(rerun::Mat3x3(col_major));
@@ -112,7 +112,7 @@ fn test_extrinsics_rerun_roundtrip() {
         for j in 0..3 {
             approx::assert_relative_eq!(
                 rr.mat3x3.as_ref().unwrap().col(j)[i],
-                rmat[(i, j)] as f32,
+                rmat[(j, i)] as f32,
                 epsilon = 1e-10
             );
         }
