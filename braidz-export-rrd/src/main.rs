@@ -43,8 +43,10 @@ struct SimpleUndistortionCache {
 
 #[derive(Clone)]
 struct CachedCamData {
-    entity_path: String,
-    use_intrinsics: Option<MyUndistortionCache>,
+    image_ent_path: String,
+    log_raw_2d_points: Option<String>,
+    log_undistorted_2d_points: Option<String>,
+    undistortion_info: Option<MyUndistortionCache>,
     camn: CamNum,
     #[allow(dead_code)]
     cam_name: String,
@@ -57,6 +59,7 @@ struct OfflineBraidzRerunLogger {
     by_camname: BTreeMap<String, CachedCamData>,
     frametimes: BTreeMap<CamNum, Vec<(i64, f64)>>,
     inter_frame_interval_f64: f64,
+    have_image_data: bool,
 }
 
 impl OfflineBraidzRerunLogger {
@@ -64,6 +67,7 @@ impl OfflineBraidzRerunLogger {
         rec: rerun::RecordingStream,
         camid2camn: BTreeMap<String, CamNum>,
         inter_frame_interval_f64: f64,
+        have_image_data: bool,
     ) -> Self {
         Self {
             rec,
@@ -72,6 +76,7 @@ impl OfflineBraidzRerunLogger {
             by_camname: Default::default(),
             frametimes: Default::default(),
             inter_frame_interval_f64,
+            have_image_data,
         }
     }
 
@@ -86,29 +91,32 @@ impl OfflineBraidzRerunLogger {
             &cam.rr_transform3d_archetype(),
         )?;
 
+        let base_path = format!("world/camera/{cam_name}");
+        let raw_path = format!("{base_path}/raw");
+
         let cam_data = match cam.rr_pinhole_archetype() {
             Ok(pinhole) => {
-                // linear camera
-                let ent_path = format!("world/camera/{cam_name}/im");
-
-                self.rec.log_timeless(ent_path.clone(), &pinhole)?;
+                // Raw camera is linear. Life is easy.
+                self.rec.log_timeless(raw_path.clone(), &pinhole)?;
                 CachedCamData {
-                    entity_path: ent_path,
-                    use_intrinsics: None,
+                    image_ent_path: raw_path.clone(),
+                    log_raw_2d_points: Some(raw_path),
+                    log_undistorted_2d_points: None,
+                    undistortion_info: None,
                     camn: *camn,
                     cam_name: cam_name.to_string(),
                 }
             }
             Err(e) => {
+                let lin_path = format!("{base_path}/lin"); // undistorted = linear
                 tracing::warn!(
-                    "Could not convert camera calibration to rerun's pinhole model: {e}. \
-                            Approximating the camera. Waiting for \
-                            https://github.com/rerun-io/rerun/issues/2499) to fix this."
+                    "Could not convert camera calibration to rerun's linear pinhole \
+                    model with no distortion: {e}. Waiting for \
+                            https://github.com/rerun-io/rerun/issues/2499 to be resolved."
                 );
                 let lin_cam = cam.linearize_to_cam_geom();
-                let ent_path = format!("world/camera/{cam_name}/lin");
                 self.rec.log_timeless(
-                    ent_path.clone(),
+                    lin_path.clone(),
                     &to_pinhole(&lin_cam, cam.width(), cam.height()),
                 )?;
 
@@ -124,9 +132,25 @@ impl OfflineBraidzRerunLogger {
                     cam.height(),
                 )?);
 
+                let mut image_ent_path = lin_path.clone();
+
+                let log_raw_2d_points = if self.have_image_data && !CAN_UNDISTORT_IMAGES {
+                    // If we cannot undistort the images, also show the original
+                    // image detection coordinates.
+                    image_ent_path = raw_path.clone();
+                    Some(raw_path)
+                } else {
+                    None
+                };
+
+                // Always log the linear (a.k.a. undistorted) points.
+                let log_undistorted_2d_points = Some(lin_path);
+
                 CachedCamData {
-                    entity_path: ent_path,
-                    use_intrinsics,
+                    image_ent_path,
+                    log_raw_2d_points,
+                    log_undistorted_2d_points,
+                    undistortion_info: use_intrinsics,
                     camn: *camn,
                     cam_name: cam_name.to_string(),
                 }
@@ -190,7 +214,7 @@ impl OfflineBraidzRerunLogger {
             }
             self.rec.set_time_seconds(SECONDS_TIMELINE, stamp_f64);
             let image = to_rr_image(frame.into_image(), cam_data)?;
-            self.rec.log(cam_data.entity_path.as_str(), &image)?;
+            self.rec.log(cam_data.image_ent_path.clone(), &image)?;
         }
 
         Ok(())
@@ -215,24 +239,26 @@ impl OfflineBraidzRerunLogger {
             .or_insert_with(Vec::new)
             .push((row.frame, dt));
 
-        let arch = if let Some(nl_intrinsics) = &cam_data.use_intrinsics {
+        if let Some(ent_path) = &cam_data.log_raw_2d_points {
+            self.rec.log(
+                format!("{ent_path}/pts"),
+                &rerun::Points2D::new([(row.x as f32, row.y as f32)]),
+            )?;
+        };
+
+        if let (Some(undistortion_info), Some(ent_path)) = (
+            &cam_data.undistortion_info,
+            cam_data.log_undistorted_2d_points.as_ref(),
+        ) {
             let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
-            let linearized = nl_intrinsics.intrinsics.undistort(&pt2d);
+            let linearized = undistortion_info.intrinsics.undistort(&pt2d);
             let x = linearized.data[0];
             let y = linearized.data[1];
-            if CAN_UNDISTORT_IMAGES {
-                // Plot only undistorted point on undistorted image.
-                rerun::Points2D::new([(x as f32, y as f32)])
-            } else {
-                // Plot both the original ("distorted") point on the original
-                // ("distorted") image and the undistorted point, which will
-                // thus not be in the correct place.
-                rerun::Points2D::new([(x as f32, y as f32), (row.x as f32, row.y as f32)])
-            }
-        } else {
-            rerun::Points2D::new([(row.x as f32, row.y as f32)])
-        };
-        self.rec.log(cam_data.entity_path.as_str(), &arch)?;
+            self.rec.log(
+                format!("{ent_path}/pts"),
+                &rerun::Points2D::new([(x as f32, y as f32)]),
+            )?;
+        }
         Ok(())
     }
 
@@ -283,11 +309,14 @@ fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::
         _ => anyhow::bail!("image not decoded"),
     };
 
-    let decoded: DynamicFrame = if let Some(undist_cache) = &camdata.use_intrinsics {
+    let decoded: DynamicFrame = if let Some(undist_cache) = &camdata.undistortion_info {
         #[cfg(not(feature = "undistort-images"))]
         {
             let _ = undist_cache; // silence unused warning.
-            tracing::error!("Undistortion of images not compiled. Images will be wrong.");
+            tracing::error!(
+                "Support to undistortion images was not compiled. \
+            Images will be distorted but geometry will be linear."
+            );
             decoded
         }
         #[cfg(feature = "undistort-images")]
@@ -381,6 +410,7 @@ fn main() -> anyhow::Result<()> {
         rec,
         archive.cam_info.camid2camn.clone(),
         inter_frame_interval_f64,
+        !mp4_inputs.is_empty(),
     );
 
     // Process camera calibrations
