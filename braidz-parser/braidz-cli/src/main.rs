@@ -3,7 +3,6 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[structopt(name = "braidz-cli")]
 #[command(author, version)]
 struct Opt {
     /// Input braidz filename
