@@ -878,7 +878,8 @@ slow-braid-process-video-test:
 extra-programs-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper
+    - _packaging/setup-opencv-4.5.5-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -886,8 +887,8 @@ extra-programs-ubuntu2004:
     - mkdir -p $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - cargo build --release
-    - cp ../../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release --features undistort-images
+    - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
@@ -909,7 +910,8 @@ extra-programs-ubuntu2204:
   when: manual
   image: ubuntu:jammy
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper
+    - _packaging/setup-opencv-4.5.5-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -917,8 +919,8 @@ extra-programs-ubuntu2204:
     - mkdir -p $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - cargo build --release
-    - cp ../../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
+    - PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release --features undistort-images
+    - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
     - cargo build --release
