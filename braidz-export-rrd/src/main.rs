@@ -1,3 +1,4 @@
+use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
 use clap::Parser;
 use color_eyre::eyre::{self as anyhow, WrapErr};
@@ -6,6 +7,9 @@ use machine_vision_formats::{pixel_format, PixFmt};
 use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use ndarray::Array;
 use std::{collections::BTreeMap, path::PathBuf};
+
+#[cfg(feature = "undistort-images")]
+mod undistortion;
 
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
@@ -21,10 +25,29 @@ struct Opt {
     inputs: Vec<PathBuf>,
 }
 
-#[derive(Debug, Clone)]
+#[cfg(feature = "undistort-images")]
+const CAN_UNDISTORT_IMAGES: bool = true;
+#[cfg(not(feature = "undistort-images"))]
+const CAN_UNDISTORT_IMAGES: bool = false;
+
+#[cfg(feature = "undistort-images")]
+type MyUndistortionCache = undistortion::UndistortionCache;
+#[cfg(not(feature = "undistort-images"))]
+type MyUndistortionCache = SimpleUndistortionCache;
+
+#[allow(dead_code)]
+#[derive(Clone)]
+struct SimpleUndistortionCache {
+    intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
+}
+
+#[derive(Clone)]
 struct CachedCamData {
     entity_path: String,
-    use_intrinsics: Option<opencv_ros_camera::RosOpenCvIntrinsics<f64>>,
+    use_intrinsics: Option<MyUndistortionCache>,
+    camn: CamNum,
+    #[allow(dead_code)]
+    cam_name: String,
 }
 
 struct OfflineBraidzRerunLogger {
@@ -32,15 +55,23 @@ struct OfflineBraidzRerunLogger {
     camid2camn: BTreeMap<String, CamNum>,
     by_camn: BTreeMap<CamNum, CachedCamData>,
     by_camname: BTreeMap<String, CachedCamData>,
+    frametimes: BTreeMap<CamNum, Vec<(i64, f64)>>,
+    inter_frame_interval_f64: f64,
 }
 
 impl OfflineBraidzRerunLogger {
-    fn new(rec: rerun::RecordingStream, camid2camn: BTreeMap<String, CamNum>) -> Self {
+    fn new(
+        rec: rerun::RecordingStream,
+        camid2camn: BTreeMap<String, CamNum>,
+        inter_frame_interval_f64: f64,
+    ) -> Self {
         Self {
             rec,
             camid2camn,
             by_camn: Default::default(),
             by_camname: Default::default(),
+            frametimes: Default::default(),
+            inter_frame_interval_f64,
         }
     }
 
@@ -57,28 +88,47 @@ impl OfflineBraidzRerunLogger {
 
         let cam_data = match cam.rr_pinhole_archetype() {
             Ok(pinhole) => {
+                // linear camera
                 let ent_path = format!("world/camera/{cam_name}/im");
 
                 self.rec.log_timeless(ent_path.clone(), &pinhole)?;
                 CachedCamData {
                     entity_path: ent_path,
                     use_intrinsics: None,
+                    camn: *camn,
+                    cam_name: cam_name.to_string(),
                 }
             }
             Err(e) => {
-                tracing::warn!("Could not convert camera calibration to rerun's pinhole model: {e}. \
-                            Approximating the camera. When non-linear cameras are added to Rerun (see \
-                            https://github.com/rerun-io/rerun/issues/2499), this code can be updated.");
-                let use_intrinsics = Some(cam.intrinsics().clone());
+                tracing::warn!(
+                    "Could not convert camera calibration to rerun's pinhole model: {e}. \
+                            Approximating the camera. Waiting for \
+                            https://github.com/rerun-io/rerun/issues/2499) to fix this."
+                );
                 let lin_cam = cam.linearize_to_cam_geom();
                 let ent_path = format!("world/camera/{cam_name}/lin");
                 self.rec.log_timeless(
                     ent_path.clone(),
                     &to_pinhole(&lin_cam, cam.width(), cam.height()),
                 )?;
+
+                #[cfg(not(feature = "undistort-images"))]
+                let use_intrinsics = Some(SimpleUndistortionCache {
+                    intrinsics: cam.intrinsics().clone(),
+                });
+
+                #[cfg(feature = "undistort-images")]
+                let use_intrinsics = Some(undistortion::UndistortionCache::new(
+                    cam.intrinsics().clone(),
+                    cam.width(),
+                    cam.height(),
+                )?);
+
                 CachedCamData {
                     entity_path: ent_path,
                     use_intrinsics,
+                    camn: *camn,
+                    cam_name: cam_name.to_string(),
                 }
             }
         };
@@ -95,10 +145,18 @@ impl OfflineBraidzRerunLogger {
 
         let do_decode_h264 = true;
         let mut src = frame_source::from_path(&mp4_filename, do_decode_h264)?;
-
+        tracing::info!(
+            "Reading frames from {}: {}x{}",
+            mp4_filename.as_ref().display(),
+            src.width(),
+            src.height()
+        );
         let start_time = src.frame0_time().unwrap();
 
-        for frame in src.iter() {
+        let frametimes = self.frametimes.get(&cam_data.camn).unwrap();
+        let (data2d_fnos, data2d_stamps): (Vec<i64>, Vec<f64>) = frametimes.iter().cloned().unzip();
+
+        for (framecount, frame) in src.iter().enumerate() {
             let frame = frame?;
             let pts = match frame.timestamp() {
                 Timestamp::Duration(pts) => pts,
@@ -106,14 +164,31 @@ impl OfflineBraidzRerunLogger {
                     anyhow::bail!("video has no PTS timestamps.");
                 }
             };
+
             let stamp_chrono = start_time + pts;
             let stamp_flydra =
                 flydra_types::FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(
                     stamp_chrono,
                 );
-            self.rec.disable_timeline(FRAMES_TIMELINE);
-            self.rec
-                .set_time_seconds(SECONDS_TIMELINE, stamp_flydra.as_f64());
+            let stamp_f64 = stamp_flydra.as_f64();
+            let time_diffs: Vec<f64> = data2d_stamps
+                .iter()
+                .map(|x| (stamp_f64 - x).abs())
+                .collect();
+            let idx = argmin(&time_diffs).unwrap();
+            let min_diff = time_diffs[idx];
+            if min_diff <= (self.inter_frame_interval_f64 * 0.5) {
+                let frameno = data2d_fnos[idx];
+                self.rec.set_time_sequence(FRAMES_TIMELINE, frameno);
+            } else {
+                tracing::warn!(
+                    "could not find Braid framenumber for video {}, frame {}",
+                    mp4_filename.as_ref().display(),
+                    framecount
+                );
+                self.rec.disable_timeline(FRAMES_TIMELINE);
+            }
+            self.rec.set_time_seconds(SECONDS_TIMELINE, stamp_f64);
             let image = to_rr_image(frame.into_image(), cam_data)?;
             self.rec.log(cam_data.entity_path.as_str(), &image)?;
         }
@@ -121,7 +196,10 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_data2d_distorted(&self, row: &braidz_types::Data2dDistortedRow) -> anyhow::Result<()> {
+    fn log_data2d_distorted(
+        &mut self,
+        row: &braidz_types::Data2dDistortedRow,
+    ) -> anyhow::Result<()> {
         if row.x.is_nan() {
             return Ok(());
         }
@@ -132,13 +210,25 @@ impl OfflineBraidzRerunLogger {
         let dt = row.cam_received_timestamp.as_f64();
         self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
 
+        self.frametimes
+            .entry(cam_data.camn)
+            .or_insert_with(Vec::new)
+            .push((row.frame, dt));
+
         let arch = if let Some(nl_intrinsics) = &cam_data.use_intrinsics {
             let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
-            let linearized = nl_intrinsics.undistort(&pt2d);
+            let linearized = nl_intrinsics.intrinsics.undistort(&pt2d);
             let x = linearized.data[0];
             let y = linearized.data[1];
-            // plot undistorted and distorted pixel while we are not undistorting image.
-            rerun::Points2D::new([(x as f32, y as f32), (row.x as f32, row.y as f32)])
+            if CAN_UNDISTORT_IMAGES {
+                // Plot only undistorted point on undistorted image.
+                rerun::Points2D::new([(x as f32, y as f32)])
+            } else {
+                // Plot both the original ("distorted") point on the original
+                // ("distorted") image and the undistorted point, which will
+                // thus not be in the correct place.
+                rerun::Points2D::new([(x as f32, y as f32), (row.x as f32, row.y as f32)])
+            }
         } else {
             rerun::Points2D::new([(row.x as f32, row.y as f32)])
         };
@@ -149,7 +239,6 @@ impl OfflineBraidzRerunLogger {
     fn log_kalman_estimates(
         &self,
         kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
-        inter_frame_interval_f64: f64,
     ) -> anyhow::Result<()> {
         let mut last_detection_per_obj = BTreeMap::new();
 
@@ -176,7 +265,7 @@ impl OfflineBraidzRerunLogger {
             if let Some(timestamp) = &timestamp {
                 self.rec.set_time_seconds(
                     SECONDS_TIMELINE,
-                    timestamp.as_f64() + inter_frame_interval_f64,
+                    timestamp.as_f64() + self.inter_frame_interval_f64,
                 );
             }
             self.rec.log(
@@ -193,13 +282,22 @@ fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::
         ImageData::Decoded(decoded) => decoded,
         _ => anyhow::bail!("image not decoded"),
     };
-    if camdata.use_intrinsics.is_some() {
-        tracing::error!("undistort image not implemented.");
-    }
+
+    let decoded: DynamicFrame = if let Some(undist_cache) = &camdata.use_intrinsics {
+        #[cfg(not(feature = "undistort-images"))]
+        {
+            let _ = undist_cache; // silence unused warning.
+            tracing::error!("Undistortion of images not compiled. Images will be wrong.");
+            decoded
+        }
+        #[cfg(feature = "undistort-images")]
+        undistortion::undistort_image(decoded, undist_cache)?
+    } else {
+        decoded
+    };
 
     if true {
         // jpeg compression
-        use basic_frame::DynamicFrame;
         let contents = basic_frame::match_all_dynamic_fmts!(
             &decoded,
             x,
@@ -279,7 +377,11 @@ fn main() -> anyhow::Result<()> {
         .with_context(|| format!("Creating output file {}", output.display()))?;
 
     // Create logger
-    let mut rrd_logger = OfflineBraidzRerunLogger::new(rec, archive.cam_info.camid2camn.clone());
+    let mut rrd_logger = OfflineBraidzRerunLogger::new(
+        rec,
+        archive.cam_info.camid2camn.clone(),
+        inter_frame_interval_f64,
+    );
 
     // Process camera calibrations
     if let Some(cal) = &archive.calibration_info {
@@ -299,7 +401,7 @@ fn main() -> anyhow::Result<()> {
 
     // Process 3D kalman estimates
     if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
-        rrd_logger.log_kalman_estimates(kalman_estimates_table, inter_frame_interval_f64)?;
+        rrd_logger.log_kalman_estimates(kalman_estimates_table)?;
     }
 
     // Process videos
@@ -308,4 +410,25 @@ fn main() -> anyhow::Result<()> {
     }
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
+}
+
+fn argmin(arr: &[f64]) -> Option<usize> {
+    if arr.is_empty() {
+        return None;
+    }
+    let mut idx = 0;
+    let mut minval = arr[idx];
+    for (i, val) in arr.iter().enumerate() {
+        if val < &minval {
+            minval = *val;
+            idx = i;
+        }
+    }
+    Some(idx)
+}
+
+#[test]
+fn test_argmin() {
+    assert_eq!(argmin(&[1.0, -1.0, 10.0]), Some(1));
+    assert_eq!(argmin(&[]), None);
 }
