@@ -257,6 +257,8 @@ fn main() -> anyhow::Result<()> {
             let mut archive = braidz_parser::braidz_parse_path(&input_braidz)
                 .with_context(|| format!("Parsing file {}", input_braidz.display()))?;
 
+            let inter_frame_interval_f64 = 1.0 / archive.expected_fps;
+
             let output = output.unwrap_or_else(|| {
                 let mut output = input_braidz.as_os_str().to_owned();
                 output.push(".rrd");
@@ -300,6 +302,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             // Process 3D kalman estimates
+            let mut last_detection_per_obj = std::collections::BTreeMap::new();
             if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
                 for row in kalman_estimates_table.iter() {
                     rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
@@ -310,7 +313,23 @@ fn main() -> anyhow::Result<()> {
                         format!("world/obj_id/{}", row.obj_id),
                         &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
                     )?;
+                    last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
                 }
+            }
+            // log end of trajectory - indicate there are no more data for this obj_id
+            let empty_position: Vec<(f32, f32, f32)> = vec![];
+            for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
+                rec.set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
+                if let Some(timestamp) = &timestamp {
+                    rec.set_time_seconds(
+                        SECONDS_TIMELINE,
+                        timestamp.as_f64() + inter_frame_interval_f64,
+                    );
+                }
+                rec.log(
+                    format!("world/obj_id/{}", obj_id),
+                    &rerun::Points3D::new(&empty_position),
+                )?;
             }
 
             // Process videos
