@@ -1,8 +1,7 @@
 #![recursion_limit = "128"]
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
-#[macro_use]
-extern crate log;
+use tracing::{debug, error, info, warn};
 
 #[cfg(not(any(feature = "do_not_use_ipp", feature = "use_ipp")))]
 compile_error!("Need either feature 'do_not_use_ipp' or 'use_ipp' enabled.");
@@ -630,6 +629,7 @@ impl FlydraFeatureDetector {
     ///
     /// A ufmf file can be updated by setting the `ufmf_state` argument to a
     /// value other than [UfmfState::Stopped].
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn process_new_frame(
         &mut self,
         frame: &DynamicFrame,

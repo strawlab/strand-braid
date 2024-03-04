@@ -1,5 +1,7 @@
 use crate::{errors::Error, fastim_mod, ipp_ctypes, Result};
 
+use tracing::{debug, error};
+
 use flydra_feature_detector_types::ImPtDetectCfg;
 use machine_vision_formats::{self as formats, ImageData, Stride};
 use timestamped_frame::ExtraTimeData;

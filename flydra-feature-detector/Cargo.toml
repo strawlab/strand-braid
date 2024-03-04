@@ -7,7 +7,7 @@ rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-log = { version = "0.4", features = ["release_max_level_debug"] }
+tracing = "0.1"
 thiserror = "1.0.33"
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
