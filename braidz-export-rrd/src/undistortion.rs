@@ -8,7 +8,7 @@ use std::os::raw::c_void;
 
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct UndistortionCache {
     pub(crate) intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
     mapx: Mat,

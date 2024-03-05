@@ -42,7 +42,7 @@ struct SimpleUndistortionCache {
     intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct CachedCamData {
     image_ent_path: String,
     image_is_undistorted: bool,
@@ -239,7 +239,6 @@ impl OfflineBraidzRerunLogger {
             let image = to_rr_image(frame.into_image(), cam_data)?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
         }
-
         Ok(())
     }
 
@@ -247,20 +246,20 @@ impl OfflineBraidzRerunLogger {
         &mut self,
         row: &braidz_types::Data2dDistortedRow,
     ) -> anyhow::Result<()> {
-        if row.x.is_nan() {
-            return Ok(());
-        }
+        // Always cache timing data.
         let cam_data = self.by_camn.get(&row.camn).unwrap();
-
-        self.rec.set_time_sequence(FRAMES_TIMELINE, row.frame);
-
         let dt = row.cam_received_timestamp.as_f64();
-        self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
-
         self.frametimes
             .entry(cam_data.camn)
             .or_insert_with(Vec::new)
             .push((row.frame, dt));
+
+        // If not point detected, do not log it to rerun.
+        if row.x.is_nan() {
+            return Ok(());
+        }
+        self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
+        self.rec.set_time_sequence(FRAMES_TIMELINE, row.frame);
 
         if let Some(ent_path) = &cam_data.log_raw_2d_points {
             self.rec.log(
