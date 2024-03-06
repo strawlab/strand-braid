@@ -44,8 +44,8 @@ type MyUndistortionCache = undistortion::UndistortionCache;
 #[cfg(not(feature = "undistort-images"))]
 type MyUndistortionCache = SimpleUndistortionCache;
 
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
-#[derive(Clone)]
 struct SimpleUndistortionCache {
     intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
 }
@@ -280,7 +280,7 @@ impl OfflineBraidzRerunLogger {
         let dt = row.cam_received_timestamp.as_f64();
         self.frametimes
             .entry(cam_data.camn)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((row.frame, dt));
 
         self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
@@ -305,7 +305,7 @@ impl OfflineBraidzRerunLogger {
                         "must call in frame order for a given entity path"
                     );
                     self.rec
-                        .log(ent_path, &rerun::Points2D::new(&empty_position))?;
+                        .log(ent_path, &rerun::Points2D::new(empty_position))?;
                 }
             }
         };
@@ -335,7 +335,7 @@ impl OfflineBraidzRerunLogger {
                         "must call in frame order for a given entity path"
                     );
                     self.rec
-                        .log(ent_path, &rerun::Points2D::new(&empty_position))?;
+                        .log(ent_path, &rerun::Points2D::new(empty_position))?;
                 }
             }
         }
@@ -396,7 +396,7 @@ impl OfflineBraidzRerunLogger {
             }
             self.rec.log(
                 format!("world/obj_id/{}", obj_id),
-                &rerun::Points3D::new(&empty_position),
+                &rerun::Points3D::new(empty_position),
             )?;
         }
         Ok(())
