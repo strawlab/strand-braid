@@ -29,8 +29,11 @@ flydra-types = { path = "../flydra-types" }
 convert-image = { path = "../convert-image" }
 frame-source = { path = "../media-utils/frame-source" }
 basic-frame = { path = "../basic-frame", features = ["convert-image"] }
+ci2-remote-control = { path = "../ci2-remote-control" }
+mp4-writer = { path = "../media-utils/mp4-writer" }
 
 [features]
-default = ["undistort-images"]
+default = ["undistort-images", "openh264-encode"]
 
 undistort-images = ["opencv"]
+openh264-encode = ["mp4-writer/openh264-encode"]

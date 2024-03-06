@@ -4,6 +4,7 @@ use clap::Parser;
 use color_eyre::eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use machine_vision_formats::{pixel_format, PixFmt};
+use mp4_writer::Mp4Writer;
 use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use ndarray::Array;
 use std::{collections::BTreeMap, path::PathBuf};
@@ -14,6 +15,7 @@ mod undistortion;
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
 const DETECT_NAME: &str = "detect";
+const UNDIST_NAME: &str = ".linearized.mp4";
 
 #[derive(Debug, Parser)]
 #[command(author, version)]
@@ -24,6 +26,12 @@ struct Opt {
 
     /// Further input filenames
     inputs: Vec<PathBuf>,
+
+    #[arg(short, long)]
+    export_linearized_mp4s: bool,
+
+    #[arg(long)]
+    openh264: bool,
 }
 
 #[cfg(feature = "undistort-images")]
@@ -191,8 +199,19 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_video<P: AsRef<std::path::Path>>(&self, mp4_filename: P) -> anyhow::Result<()> {
+    fn log_video<P: AsRef<std::path::Path>>(
+        &self,
+        mp4_filename: P,
+        mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
+    ) -> anyhow::Result<()> {
         let (_, camname) = camera_name_from_filename(&mp4_filename);
+        if camname.is_none() {
+            tracing::warn!(
+                "Did not recognize camera name for file \"{}\". Skipping.",
+                mp4_filename.as_ref().display()
+            );
+            return Ok(());
+        }
         // Should could get camname from title in movie metadata.
         let camname = camname.unwrap();
         let cam_data = self.by_camname.get(&camname).unwrap();
@@ -243,8 +262,11 @@ impl OfflineBraidzRerunLogger {
                 self.rec.disable_timeline(FRAMES_TIMELINE);
             }
             self.rec.set_time_seconds(SECONDS_TIMELINE, stamp_f64);
-            let image = to_rr_image(frame.into_image(), cam_data)?;
+            let (image, decoded) = to_rr_image(frame.into_image(), cam_data)?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
+            if let Some(my_mp4_writer) = my_mp4_writer.as_mut() {
+                my_mp4_writer.write_dynamic(&decoded, stamp_chrono.into())?;
+            }
         }
         Ok(())
     }
@@ -381,7 +403,10 @@ impl OfflineBraidzRerunLogger {
     }
 }
 
-fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::Image> {
+fn to_rr_image(
+    im: ImageData,
+    camdata: &CachedCamData,
+) -> anyhow::Result<(rerun::Image, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => anyhow::bail!("image not decoded"),
@@ -411,7 +436,10 @@ fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::
             convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
         )?;
         let format = Some(rerun::external::image::ImageFormat::Jpeg);
-        Ok(rerun::Image::from_file_contents(contents, format).unwrap())
+        Ok((
+            rerun::Image::from_file_contents(contents, format).unwrap(),
+            decoded,
+        ))
     } else {
         // Much larger file size but higher quality.
         let w = decoded.width() as usize;
@@ -419,16 +447,17 @@ fn to_rr_image(im: ImageData, camdata: &CachedCamData) -> anyhow::Result<rerun::
 
         let image = match decoded.pixel_format() {
             PixFmt::Mono8 => {
-                let mono8 = decoded.into_pixel_format::<pixel_format::Mono8>()?;
+                let mono8 = decoded.clone().into_pixel_format::<pixel_format::Mono8>()?;
                 Array::from_vec(mono8.into()).into_shape((h, w, 1)).unwrap()
             }
             _ => {
-                let rgb8 =
-                    decoded.into_pixel_format::<machine_vision_formats::pixel_format::RGB8>()?;
+                let rgb8 = decoded
+                    .clone()
+                    .into_pixel_format::<machine_vision_formats::pixel_format::RGB8>()?;
                 Array::from_vec(rgb8.into()).into_shape((h, w, 3)).unwrap()
             }
         };
-        Ok(rerun::Image::try_from(image)?)
+        Ok((rerun::Image::try_from(image)?, decoded))
     }
 }
 
@@ -469,6 +498,11 @@ fn main() -> anyhow::Result<()> {
 
     // Exclude expected output (e.g. from prior run) from inputs.
     inputs.remove(&output);
+    // Exclude .linearized.mp4 files
+    let inputs: Vec<_> = inputs
+        .iter()
+        .filter(|x| !x.as_os_str().to_string_lossy().ends_with(UNDIST_NAME))
+        .collect();
 
     let mp4_inputs: Vec<_> = inputs
         .iter()
@@ -514,7 +548,61 @@ fn main() -> anyhow::Result<()> {
 
     // Process videos
     for mp4_filename in mp4_inputs.iter() {
-        rrd_logger.log_video(mp4_filename)?;
+        let my_mp4_writer = if opt.export_linearized_mp4s {
+            let linearized_mp4_output: PathBuf = {
+                let output = mp4_filename.as_os_str().to_owned();
+                let output = output.to_str().unwrap().to_string();
+                let o2 = output.trim_end_matches(".mp4");
+                let output_ref: &std::ffi::OsStr = o2.as_ref();
+                let mut output = output_ref.to_os_string();
+                output.push(UNDIST_NAME);
+                output.into()
+            };
+
+            tracing::info!(
+                "linearize (undistort) {} -> {}",
+                mp4_filename.display(),
+                linearized_mp4_output.display()
+            );
+            let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
+                format!(
+                    "Creating MP4 output file {}",
+                    linearized_mp4_output.display()
+                )
+            })?;
+
+            let codec = if opt.openh264 {
+                #[cfg(feature = "openh264-encode")]
+                {
+                    use ci2_remote_control::OpenH264Preset;
+                    ci2_remote_control::Mp4Codec::H264OpenH264(
+                        ci2_remote_control::OpenH264Options {
+                            debug: false,
+                            preset: OpenH264Preset::AllFrames,
+                        },
+                    )
+                }
+                #[cfg(not(feature = "openh264-encode"))]
+                anyhow::bail!(
+                    "requested OpenH264 codec, but support for OpenH264 was not compiled."
+                );
+            } else {
+                ci2_remote_control::Mp4Codec::H264LessAvc
+            };
+
+            let cfg = ci2_remote_control::Mp4RecordingConfig {
+                codec,
+                max_framerate: Default::default(),
+                h264_metadata: None,
+            };
+
+            let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None)?;
+            Some(my_mp4_writer)
+        } else {
+            None
+        };
+
+        rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
     }
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
