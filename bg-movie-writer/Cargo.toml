@@ -14,7 +14,9 @@ chrono = { version = "0.4.23", default-features = false, features = [
 ] }
 thiserror = "1.0.33"
 
-mp4-writer = { path = "../media-utils/mp4-writer", features = ["openh264"] }
+mp4-writer = { path = "../media-utils/mp4-writer", features = [
+    "openh264-encode",
+] }
 machine-vision-formats = "0.1"
 ci2-remote-control = { path = "../ci2-remote-control" }
 nvenc = { path = "../nvenc" }

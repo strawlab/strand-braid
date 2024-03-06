@@ -50,6 +50,7 @@ tempfile = "3.4.0"
 clap = { version = "4.0.10", features = ["derive"] }
 
 [features]
+openh264-encode = ["openh264"]
 backtrace = [
     "nvenc/backtrace",
     "dynlink-cuda/backtrace",

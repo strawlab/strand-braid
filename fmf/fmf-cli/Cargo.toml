@@ -37,7 +37,9 @@ convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 simple-frame = { path = "../../simple-frame" }
 
-mp4-writer = { path = "../../media-utils/mp4-writer", features = ["openh264"] }
+mp4-writer = { path = "../../media-utils/mp4-writer", features = [
+    "openh264-encode",
+] }
 ci2-remote-control = { path = "../../ci2-remote-control" }
 
 nvenc = { path = "../../nvenc" }

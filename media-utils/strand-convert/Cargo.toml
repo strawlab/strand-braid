@@ -1,31 +1,34 @@
 [package]
 name = "strand-convert"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.4"                       # braid release synchronized
 edition = "2021"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
-clap = {version="4.0.10", features=["derive"]}
+clap = { version = "4.0.10", features = ["derive"] }
 env_logger = "0.10"
 color-eyre = "0.6.2"
 serde_json = "1.0.85"
 log = "0.4.17"
 indicatif = "0.17.1"
-chrono = {version="0.4.23", default-features=false}
+chrono = { version = "0.4.23", default-features = false }
 ordered-float = "3.4.0"
 
-basic-frame = { path = "../../basic-frame"}
-convert-image = { path = "../../convert-image"}
-frame-source = { path = "../frame-source"}
-tiff-decoder = { path = "../tiff-decoder"}
-mp4-writer = { path = "../mp4-writer", features=["openh264"]}
+basic-frame = { path = "../../basic-frame" }
+convert-image = { path = "../../convert-image" }
+frame-source = { path = "../frame-source" }
+tiff-decoder = { path = "../tiff-decoder" }
+mp4-writer = { path = "../mp4-writer", features = ["openh264-encode"] }
 ci2-remote-control = { path = "../../ci2-remote-control" }
-nvenc = {path="../../nvenc"}
+nvenc = { path = "../../nvenc" }
 
 [dev-dependencies]
-download-verify = {path="../../download-verify"}
+download-verify = { path = "../../download-verify" }
 tempfile = "3.4.0"
-zip = { version = "0.6.2", default-features = false, features=["deflate", "time"] }
+zip = { version = "0.6.2", default-features = false, features = [
+    "deflate",
+    "time",
+] }
 
 [features]
 backtrace = ["mp4-writer/backtrace", "frame-source/backtrace"]

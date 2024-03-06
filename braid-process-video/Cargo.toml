@@ -38,7 +38,9 @@ indicatif = "0.17"
 channellib = { path = "../channellib" }
 braidz-types = { path = "../braidz-types" }
 env-tracing-logger = { path = "../env-tracing-logger" }
-mp4-writer = { path = "../media-utils/mp4-writer", features = ["openh264"] }
+mp4-writer = { path = "../media-utils/mp4-writer", features = [
+    "openh264-encode",
+] }
 ci2-remote-control = { path = "../ci2-remote-control" }
 braidz-parser = { path = "../braidz-parser" }
 flydra-types = { path = "../flydra-types" }
