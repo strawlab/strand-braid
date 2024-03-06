@@ -64,6 +64,12 @@ struct OfflineBraidzRerunLogger {
     inter_frame_interval_f64: f64,
     have_image_data: bool,
     did_show_2499_warning: bool,
+    /// Caches the frame number of the last data drawn for a given entity path.
+    ///
+    /// This is required because Rerun will continue showing an entity
+    /// persistently after it was initially shown unless it is removed. This
+    /// allows us to remove it.
+    last_data2d: BTreeMap<String, i64>,
 }
 
 impl OfflineBraidzRerunLogger {
@@ -82,6 +88,7 @@ impl OfflineBraidzRerunLogger {
             inter_frame_interval_f64,
             have_image_data,
             did_show_2499_warning: false,
+            last_data2d: Default::default(),
         }
     }
 
@@ -254,32 +261,61 @@ impl OfflineBraidzRerunLogger {
             .or_insert_with(Vec::new)
             .push((row.frame, dt));
 
-        // If not point detected, do not log it to rerun.
-        if row.x.is_nan() {
-            return Ok(());
-        }
         self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
         self.rec.set_time_sequence(FRAMES_TIMELINE, row.frame);
+        let empty_position: [(f32, f32); 0] = [];
 
-        if let Some(ent_path) = &cam_data.log_raw_2d_points {
-            self.rec.log(
-                format!("{ent_path}/{DETECT_NAME}"),
-                &rerun::Points2D::new([(row.x as f32, row.y as f32)]),
-            )?;
+        if let Some(path_base) = &cam_data.log_raw_2d_points {
+            let ent_path = format!("{path_base}/{DETECT_NAME}");
+            if !row.x.is_nan() {
+                self.rec.log(
+                    ent_path.clone(),
+                    &rerun::Points2D::new([(row.x as f32, row.y as f32)]),
+                )?;
+                self.last_data2d.insert(ent_path, row.frame);
+            } else {
+                // We have no detection at this frame. If required, tell rerun
+                // to stop drawing previous detections now.
+                if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
+                    assert_eq!(
+                        prior_frame + 1,
+                        row.frame,
+                        "must call in frame order for a given entity path"
+                    );
+                    self.rec
+                        .log(ent_path, &rerun::Points2D::new(&empty_position))?;
+                }
+            }
         };
 
-        if let (Some(undistortion_info), Some(ent_path)) = (
+        if let (Some(undistortion_info), Some(path_base)) = (
             &cam_data.undistortion_info,
             cam_data.log_undistorted_2d_points.as_ref(),
         ) {
-            let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
-            let linearized = undistortion_info.intrinsics.undistort(&pt2d);
-            let x = linearized.data[0];
-            let y = linearized.data[1];
-            self.rec.log(
-                format!("{ent_path}/{DETECT_NAME}"),
-                &rerun::Points2D::new([(x as f32, y as f32)]),
-            )?;
+            let ent_path = format!("{path_base}/{DETECT_NAME}");
+            if !row.x.is_nan() {
+                let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
+                let linearized = undistortion_info.intrinsics.undistort(&pt2d);
+                let x = linearized.data[0];
+                let y = linearized.data[1];
+                self.rec.log(
+                    ent_path.clone(),
+                    &rerun::Points2D::new([(x as f32, y as f32)]),
+                )?;
+                self.last_data2d.insert(ent_path, row.frame);
+            } else {
+                // We have no detection at this frame. If required, tell rerun
+                // to stop drawing previous detections now.
+                if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
+                    assert_eq!(
+                        prior_frame + 1,
+                        row.frame,
+                        "must call in frame order for a given entity path"
+                    );
+                    self.rec
+                        .log(ent_path, &rerun::Points2D::new(&empty_position))?;
+                }
+            }
         }
         Ok(())
     }
@@ -326,7 +362,7 @@ impl OfflineBraidzRerunLogger {
         }
 
         // log end of trajectory - indicate there are no more data for this obj_id
-        let empty_position: Vec<(f32, f32, f32)> = vec![];
+        let empty_position: [(f32, f32, f32); 0] = [];
         for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
             self.rec
                 .set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
