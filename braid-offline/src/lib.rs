@@ -792,6 +792,8 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
         )
     })?;
 
+    let cam_info = &data_src.basic_info().cam_info;
+
     let tracking_params: flydra_types::TrackingParams = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
@@ -799,6 +801,15 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
             let buf = std::fs::read_to_string(fname)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
             let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
+            let is_multicam = cam_info.camid2camn.keys().len() > 1;
+            if is_multicam == tracking_params.hypothesis_test_params.is_none() {
+                anyhow::bail!(
+                    "In tracking parameters file \"{}\" for multicamera data, \
+                    `hypothesis_test_params` must be set. For single camera data, \
+                    it must not be set.",
+                    fname.display()
+                );
+            }
             tracking_params
         }
         None => {
