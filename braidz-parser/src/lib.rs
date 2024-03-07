@@ -300,7 +300,7 @@ pub fn summarize_braidz<R: Read + Seek>(
 
     BraidzSummary {
         metadata: braidz_archive.metadata.clone(),
-        calibration_info: braidz_archive.calibration_info.clone(),
+        calibration_info: braidz_archive.calibration_info.clone().map(Into::into),
         expected_fps: braidz_archive.expected_fps,
         cam_info: braidz_archive.cam_info.clone(),
         filename,

@@ -40,11 +40,51 @@ pub struct BraidzSummary {
     pub metadata: BraidMetadata,
     pub cam_info: CamInfo,
     pub expected_fps: f64,
-    pub calibration_info: Option<CalibrationInfo>,
+    pub calibration_info: Option<CalibrationSummary>,
     pub data2d_summary: Option<Data2dSummary>,
     pub kalman_estimates_summary: Option<KalmanEstimatesSummary>,
     pub reconstruct_latency_usec_summary: Option<HistogramSummary>,
     pub reprojection_distance_100x_pixels_summary: Option<HistogramSummary>,
+}
+
+/// A summary of a multi-camera calibration
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CalibrationSummary {
+    /// If `Some(n)`, material with refractive index `n` at z<0.
+    pub water: Option<f64>,
+    /// All the cameras in this system.
+    pub cameras: Vec<CameraSummary>,
+}
+
+impl From<CalibrationInfo> for CalibrationSummary {
+    fn from(orig: CalibrationInfo) -> Self {
+        Self {
+            water: orig.water,
+            cameras: orig
+                .cameras
+                .cams_by_name()
+                .iter()
+                .map(|(name, cam)| CameraSummary::new(name, cam))
+                .collect(),
+        }
+    }
+}
+
+/// A summary of a camera calibration
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CameraSummary {
+    pub name: String,
+    pub camera_center: (f64, f64, f64),
+}
+
+impl CameraSummary {
+    pub fn new(name: &str, cam: &mvg::Camera<f64>) -> Self {
+        let cc = cam.extrinsics().camcenter();
+        Self {
+            name: name.into(),
+            camera_center: (cc[0], cc[1], cc[2]),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
