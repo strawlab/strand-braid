@@ -46,6 +46,7 @@ flydra-mvg = { path = "../flydra-mvg" }
 braidz-parser = { path = "../braidz-parser" }
 flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
 mvg = { path = "../mvg" }
+flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
 
 [dev-dependencies]
 tempfile = "3.4.0"

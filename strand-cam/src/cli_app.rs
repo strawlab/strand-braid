@@ -100,9 +100,9 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                     .help("Force auto-opening of browser"),
             )
             .arg(
-                Arg::new("mkv_filename_template")
+                Arg::new("mp4_filename_template")
                     .action(ArgAction::Set)
-                    .long("mkv_filename_template")
+                    .long("mp4_filename_template")
                     .default_value(&*arg_default.mp4_filename_template)
                     .help("Set the initial filename template of the destination to be saved to."),
             )
@@ -218,9 +218,9 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         .cloned()
         .clone();
 
-    let mkv_filename_template = matches
-        .get_one::<String>("mkv_filename_template")
-        .ok_or_else(|| eyre!("expected mkv_filename_template"))?
+    let mp4_filename_template = matches
+        .get_one::<String>("mp4_filename_template")
+        .ok_or_else(|| eyre!("expected mp4_filename_template"))?
         .to_string();
 
     let fmf_filename_template = matches
@@ -378,7 +378,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         standalone_or_braid,
         secret,
         no_browser,
-        mp4_filename_template: mkv_filename_template,
+        mp4_filename_template,
         fmf_filename_template,
         ufmf_filename_template,
 

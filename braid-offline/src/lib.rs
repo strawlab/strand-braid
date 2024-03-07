@@ -443,10 +443,24 @@ where
 
                 let current_feature_detect_settings =
                     if current_feature_detect_settings_fname.exists() {
-                        let mut fd = current_feature_detect_settings_fname.open().unwrap();
-                        let mut buf = vec![];
-                        fd.read_to_end(&mut buf).unwrap();
-                        toml::from_slice(&buf).unwrap()
+                        use flydra_feature_detector_types::ImPtDetectCfg;
+                        let read_settings =
+                            |fname: zip_or_dir::PathLike<_>| -> anyhow::Result<ImPtDetectCfg> {
+                                let mut fd = fname.open()?;
+                                let mut buf = vec![];
+                                fd.read_to_end(&mut buf)?;
+                                Ok(toml::from_slice(&buf)?)
+                            };
+                        match read_settings(current_feature_detect_settings_fname) {
+                            Ok(settings) => settings,
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to read feature detection \
+                                settings: {e}. Using defaults."
+                                );
+                                flydra_pt_detect_cfg::default_absdiff()
+                            }
+                        }
                     } else {
                         flydra_pt_detect_cfg::default_absdiff()
                     };
