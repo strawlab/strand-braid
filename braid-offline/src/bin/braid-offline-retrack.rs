@@ -1,4 +1,5 @@
 use clap::Parser;
+use color_eyre::eyre::{self as anyhow};
 use tracing_futures::Instrument;
 
 fn main() -> anyhow::Result<()> {

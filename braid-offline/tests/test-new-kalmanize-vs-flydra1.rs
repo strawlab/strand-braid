@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::Context;
+use color_eyre::eyre::{self as anyhow, WrapErr};
 
 use braid_offline::pick_csvgz_or_csv;
 

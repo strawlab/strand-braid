@@ -1,3 +1,5 @@
+use color_eyre::eyre::{self as anyhow};
+
 const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
 
 #[tokio::test]
