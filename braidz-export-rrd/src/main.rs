@@ -7,7 +7,11 @@ use machine_vision_formats::{pixel_format, PixFmt};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
 use ndarray::Array;
+use rayon::prelude::*;
 use std::{collections::BTreeMap, path::PathBuf};
+
+#[cfg(feature = "undistort-images")]
+use crate::undistortion::UndistortionCache;
 
 #[cfg(feature = "undistort-images")]
 mod undistortion;
@@ -39,16 +43,8 @@ const CAN_UNDISTORT_IMAGES: bool = true;
 #[cfg(not(feature = "undistort-images"))]
 const CAN_UNDISTORT_IMAGES: bool = false;
 
-#[cfg(feature = "undistort-images")]
-type MyUndistortionCache = undistortion::UndistortionCache;
 #[cfg(not(feature = "undistort-images"))]
-type MyUndistortionCache = SimpleUndistortionCache;
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct SimpleUndistortionCache {
-    intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
-}
+struct UndistortionCache {}
 
 #[derive(Clone, Debug)]
 struct CachedCamData {
@@ -57,7 +53,8 @@ struct CachedCamData {
     log_raw_2d_points: Option<String>,
     log_undistorted_2d_points: Option<String>,
     calibration: mvg::Camera<f64>,
-    undistortion_info: Option<MyUndistortionCache>,
+    /// non-linear intrinsics, if present
+    nl_intrinsics: Option<opencv_ros_camera::RosOpenCvIntrinsics<f64>>,
     camn: CamNum,
     #[allow(dead_code)]
     cam_name: String,
@@ -124,7 +121,7 @@ impl OfflineBraidzRerunLogger {
                     log_raw_2d_points: Some(raw_path),
                     log_undistorted_2d_points: None,
                     calibration: cam.clone(),
-                    undistortion_info: None,
+                    nl_intrinsics: None,
                     camn: *camn,
                     cam_name: cam_name.to_string(),
                 }
@@ -146,17 +143,7 @@ impl OfflineBraidzRerunLogger {
                     &to_pinhole(&lin_cam, cam.width(), cam.height()),
                 )?;
 
-                #[cfg(not(feature = "undistort-images"))]
-                let use_intrinsics = Some(SimpleUndistortionCache {
-                    intrinsics: cam.intrinsics().clone(),
-                });
-
-                #[cfg(feature = "undistort-images")]
-                let use_intrinsics = Some(undistortion::UndistortionCache::new(
-                    cam.intrinsics().clone(),
-                    cam.width(),
-                    cam.height(),
-                )?);
+                let use_intrinsics = Some(cam.intrinsics().clone());
 
                 let mut image_ent_path = lin_path.clone();
                 let mut image_is_undistorted = true;
@@ -185,7 +172,7 @@ impl OfflineBraidzRerunLogger {
                     calibration: cam.clone(),
                     log_raw_2d_points,
                     log_undistorted_2d_points,
-                    undistortion_info: use_intrinsics,
+                    nl_intrinsics: use_intrinsics,
                     camn: *camn,
                     cam_name: cam_name.to_string(),
                 }
@@ -216,6 +203,26 @@ impl OfflineBraidzRerunLogger {
         let camname = camname.unwrap();
         let cam_data = self.by_camname.get(&camname).unwrap();
 
+        let undist_cache = if let Some(intrinsics) = &cam_data.nl_intrinsics {
+            #[cfg(not(feature = "undistort-images"))]
+            {
+                let _ = intrinsics; // silence unused warning.
+                tracing::error!(
+                    "Support to undistortion images was not compiled. \
+                Images will be distorted but geometry will be linear."
+                );
+                None
+            }
+            #[cfg(feature = "undistort-images")]
+            Some(UndistortionCache::new(
+                intrinsics,
+                cam_data.calibration.width(),
+                cam_data.calibration.height(),
+            )?)
+        } else {
+            None
+        };
+
         let do_decode_h264 = true;
         let mut src = frame_source::from_path(&mp4_filename, do_decode_h264)?;
         tracing::info!(
@@ -224,8 +231,15 @@ impl OfflineBraidzRerunLogger {
             src.width(),
             src.height()
         );
+        assert_eq!(
+            cam_data.calibration.width(),
+            usize::try_from(src.width()).unwrap()
+        );
+        assert_eq!(
+            cam_data.calibration.height(),
+            usize::try_from(src.height()).unwrap()
+        );
         let start_time = src.frame0_time().unwrap();
-
         let frametimes = self.frametimes.get(&cam_data.camn).unwrap();
         let (data2d_fnos, data2d_stamps): (Vec<i64>, Vec<f64>) = frametimes.iter().cloned().unzip();
 
@@ -263,7 +277,7 @@ impl OfflineBraidzRerunLogger {
                 self.rec.disable_timeline(FRAMES_TIMELINE);
             }
             self.rec.set_time_seconds(SECONDS_TIMELINE, stamp_f64);
-            let (image, decoded) = to_rr_image(frame.into_image(), cam_data)?;
+            let (image, decoded) = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
             if let Some(my_mp4_writer) = my_mp4_writer.as_mut() {
                 my_mp4_writer.write_dynamic(&decoded, stamp_chrono.into())?;
@@ -311,14 +325,14 @@ impl OfflineBraidzRerunLogger {
             }
         };
 
-        if let (Some(undistortion_info), Some(path_base)) = (
-            &cam_data.undistortion_info,
+        if let (Some(nl_intrinsics), Some(path_base)) = (
+            &cam_data.nl_intrinsics,
             cam_data.log_undistorted_2d_points.as_ref(),
         ) {
             let ent_path = format!("{path_base}/{DETECT_NAME}");
             if !row.x.is_nan() {
                 let pt2d = cam_geom::Pixels::new(nalgebra::Vector2::new(row.x, row.y).transpose());
-                let linearized = undistortion_info.intrinsics.undistort(&pt2d);
+                let linearized = nl_intrinsics.undistort(&pt2d);
                 let x = linearized.data[0];
                 let y = linearized.data[1];
                 self.rec.log(
@@ -406,25 +420,23 @@ impl OfflineBraidzRerunLogger {
 
 fn to_rr_image(
     im: ImageData,
-    camdata: &CachedCamData,
+    undist_cache: Option<&UndistortionCache>,
 ) -> anyhow::Result<(rerun::Image, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => anyhow::bail!("image not decoded"),
     };
 
-    let decoded: DynamicFrame = if let Some(undist_cache) = &camdata.undistortion_info {
+    let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
+        #[cfg(feature = "undistort-images")]
+        {
+            undistortion::undistort_image(decoded, undist_cache)?
+        }
         #[cfg(not(feature = "undistort-images"))]
         {
-            let _ = undist_cache; // silence unused warning.
-            tracing::error!(
-                "Support to undistortion images was not compiled. \
-            Images will be distorted but geometry will be linear."
-            );
-            decoded
+            let _ = undist_cache; // silence unused variable warning.
+            unreachable!();
         }
-        #[cfg(feature = "undistort-images")]
-        undistortion::undistort_image(decoded, undist_cache)?
     } else {
         decoded
     };
@@ -548,7 +560,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Process videos
-    for mp4_filename in mp4_inputs.iter() {
+    mp4_inputs.as_slice().par_iter().for_each(|mp4_filename| {
         let my_mp4_writer = if opt.export_linearized_mp4s {
             let linearized_mp4_output: PathBuf = {
                 let output = mp4_filename.as_os_str().to_owned();
@@ -565,12 +577,14 @@ fn main() -> anyhow::Result<()> {
                 mp4_filename.display(),
                 linearized_mp4_output.display()
             );
-            let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
-                format!(
-                    "Creating MP4 output file {}",
-                    linearized_mp4_output.display()
-                )
-            })?;
+            let out_fd = std::fs::File::create(&linearized_mp4_output)
+                .with_context(|| {
+                    format!(
+                        "Creating MP4 output file {}",
+                        linearized_mp4_output.display()
+                    )
+                })
+                .unwrap();
 
             let codec = if opt.openh264 {
                 #[cfg(feature = "openh264-encode")]
@@ -584,9 +598,7 @@ fn main() -> anyhow::Result<()> {
                     )
                 }
                 #[cfg(not(feature = "openh264-encode"))]
-                anyhow::bail!(
-                    "requested OpenH264 codec, but support for OpenH264 was not compiled."
-                );
+                panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
             } else {
                 ci2_remote_control::Mp4Codec::H264LessAvc
             };
@@ -597,14 +609,14 @@ fn main() -> anyhow::Result<()> {
                 h264_metadata: None,
             };
 
-            let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None)?;
+            let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None).unwrap();
             Some(my_mp4_writer)
         } else {
             None
         };
 
-        rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
-    }
+        rrd_logger.log_video(mp4_filename, my_mp4_writer).unwrap();
+    });
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
 }

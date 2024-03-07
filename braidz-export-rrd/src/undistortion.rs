@@ -10,21 +10,20 @@ use opencv_ros_camera::RosOpenCvIntrinsics;
 
 #[derive(Clone, Debug)]
 pub(crate) struct UndistortionCache {
-    pub(crate) intrinsics: opencv_ros_camera::RosOpenCvIntrinsics<f64>,
     mapx: Mat,
     mapy: Mat,
 }
 
 impl UndistortionCache {
     pub(crate) fn new(
-        intrinsics: RosOpenCvIntrinsics<f64>,
+        intrinsics: &RosOpenCvIntrinsics<f64>,
         width: usize,
         height: usize,
     ) -> anyhow::Result<Self> {
         let mut mapx = Mat::default();
         let mut mapy = Mat::default();
 
-        let (camera_matrix, dist_coeffs) = to_opencv(&intrinsics)?;
+        let (camera_matrix, dist_coeffs) = to_opencv(intrinsics)?;
 
         // leave as empty, will be treated as identity 3x3 matrix.
         let rectify = Mat::default();
@@ -48,11 +47,7 @@ impl UndistortionCache {
             &mut mapy,
         )?;
 
-        Ok(Self {
-            intrinsics,
-            mapx,
-            mapy,
-        })
+        Ok(Self { mapx, mapy })
     }
 }
 
@@ -101,14 +96,11 @@ pub(crate) fn undistort_image(
 
     let mut undistorted_img = Mat::default();
 
-    let mapx = &undist_cache.mapx;
-    let mapy = &undist_cache.mapy;
-
     opencv::imgproc::remap(
         &distorted_img,
         &mut undistorted_img,
-        &mapx,
-        &mapy,
+        &undist_cache.mapx,
+        &undist_cache.mapy,
         opencv::imgproc::INTER_LINEAR,
         core::BORDER_CONSTANT,
         core::Scalar::default(),
