@@ -25,7 +25,7 @@ impl HypothesisTest for NewObjectTestFlat3D {
         good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         let recon_ref = &self.recon;
-        assert!(good_points.len() < 2, "cannot have >1 camera");
+        assert!(good_points.len() < 2, "cannot have >1 camera for Flat3D");
         if let Some((cam_name, xy)) = good_points.iter().next() {
             let cam = recon_ref.cam_by_name(cam_name.as_str()).unwrap();
             if let Some(surface_pt) = crate::flat_2d::distorted_2d_to_flat_3d(&cam, xy) {
