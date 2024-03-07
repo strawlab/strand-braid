@@ -255,9 +255,10 @@ impl OfflineBraidzRerunLogger {
                 self.rec.set_time_sequence(FRAMES_TIMELINE, frameno);
             } else {
                 tracing::warn!(
-                    "could not find Braid framenumber for video {}, frame {}",
+                    "could not find Braid framenumber for video {}, video frame {}, timestamp {}",
                     mp4_filename.as_ref().display(),
-                    framecount
+                    framecount,
+                    stamp_chrono
                 );
                 self.rec.disable_timeline(FRAMES_TIMELINE);
             }
