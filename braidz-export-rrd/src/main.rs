@@ -186,17 +186,15 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_video<P: AsRef<std::path::Path>>(
+    #[tracing::instrument(skip(self, my_mp4_writer))]
+    fn log_video(
         &self,
-        mp4_filename: P,
+        mp4_filename: &str,
         mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
     ) -> anyhow::Result<()> {
         let (_, camname) = camera_name_from_filename(&mp4_filename);
         if camname.is_none() {
-            tracing::warn!(
-                "Did not recognize camera name for file \"{}\". Skipping.",
-                mp4_filename.as_ref().display()
-            );
+            tracing::warn!("Did not recognize camera name for file \"{mp4_filename}\". Skipping.");
             return Ok(());
         }
         // Should could get camname from title in movie metadata.
@@ -225,12 +223,7 @@ impl OfflineBraidzRerunLogger {
 
         let do_decode_h264 = true;
         let mut src = frame_source::from_path(&mp4_filename, do_decode_h264)?;
-        tracing::info!(
-            "Reading frames from {}: {}x{}",
-            mp4_filename.as_ref().display(),
-            src.width(),
-            src.height()
-        );
+        tracing::info!("Frame size: {}x{}", src.width(), src.height());
         assert_eq!(
             cam_data.calibration.width(),
             usize::try_from(src.width()).unwrap()
@@ -269,10 +262,7 @@ impl OfflineBraidzRerunLogger {
                 self.rec.set_time_sequence(FRAMES_TIMELINE, frameno);
             } else {
                 tracing::warn!(
-                    "could not find Braid framenumber for video {}, video frame {}, timestamp {}",
-                    mp4_filename.as_ref().display(),
-                    framecount,
-                    stamp_chrono
+                    "could not find Braid frame number for video frame {framecount}, timestamp {stamp_chrono}",
                 );
                 self.rec.disable_timeline(FRAMES_TIMELINE);
             }
@@ -615,6 +605,7 @@ fn main() -> anyhow::Result<()> {
             None
         };
 
+        let mp4_filename = mp4_filename.to_str().unwrap();
         rrd_logger.log_video(mp4_filename, my_mp4_writer).unwrap();
     });
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
