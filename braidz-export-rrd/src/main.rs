@@ -28,12 +28,18 @@ struct Opt {
     #[arg(short, long)]
     output: Option<PathBuf>,
 
-    /// Further input filenames
+    /// Input filenames (.braidz and .mp4 files)
     inputs: Vec<PathBuf>,
 
+    /// Should "linearized" (undistorted) MP4s be made from the original MP4s?
+    ///
+    /// If not, no MP4 is exported.
     #[arg(short, long)]
     export_linearized_mp4s: bool,
 
+    /// Should OpenH264 encoder be used?
+    ///
+    /// If not, use LessAVC.
     #[arg(long)]
     openh264: bool,
 }
