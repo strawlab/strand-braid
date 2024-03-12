@@ -1,6 +1,6 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use color_eyre::eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use machine_vision_formats::{pixel_format, PixFmt};
@@ -21,6 +21,13 @@ const FRAMES_TIMELINE: &str = "frame";
 const DETECT_NAME: &str = "detect";
 const UNDIST_NAME: &str = ".linearized.mp4";
 
+#[derive(Debug, Default, Clone, PartialEq, ValueEnum)]
+enum Encoder {
+    #[default]
+    LessAVC,
+    OpenH264,
+}
+
 #[derive(Debug, Parser)]
 #[command(author, version)]
 struct Opt {
@@ -37,11 +44,9 @@ struct Opt {
     #[arg(short, long)]
     export_linearized_mp4s: bool,
 
-    /// Should OpenH264 encoder be used?
-    ///
-    /// If not, use LessAVC.
-    #[arg(long)]
-    openh264: bool,
+    /// If exporting MP4 files, which MP4 encoder should be be used?
+    #[arg(long, default_value = "less-avc")]
+    encoder: Encoder,
 }
 
 #[cfg(feature = "undistort-images")]
@@ -582,7 +587,7 @@ fn main() -> anyhow::Result<()> {
                 })
                 .unwrap();
 
-            let codec = if opt.openh264 {
+            let codec = if opt.encoder == Encoder::OpenH264 {
                 #[cfg(feature = "openh264-encode")]
                 {
                     use ci2_remote_control::OpenH264Preset;
