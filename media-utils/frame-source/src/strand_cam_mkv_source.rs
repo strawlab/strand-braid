@@ -137,7 +137,12 @@ enum Format {
 }
 
 impl<R: Read + Seek> StrandCamMkvSource<R> {
-    fn new<P>(rdr: R, path: Option<P>, do_decode_h264: bool) -> Result<Self>
+    fn new<P>(
+        rdr: R,
+        path: Option<P>,
+        do_decode_h264: bool,
+        timestamp_source: crate::TimestampSource,
+    ) -> Result<Self>
     where
         P: AsRef<std::path::Path>,
     {
@@ -156,7 +161,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         } else if &parsed.codec == "V_MPEG4/ISO/AVC" {
             Format::H264
         } else {
-            anyhow::bail!("unsuppored codec {}", parsed.codec);
+            anyhow::bail!("unsupported codec {}", parsed.codec);
         };
 
         let h264_decoder_state = if do_decode_h264 {
@@ -164,6 +169,10 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         } else {
             None
         };
+
+        match timestamp_source {
+            crate::TimestampSource::BestGuess => {}
+        }
 
         Ok(Self {
             rdr,
@@ -293,9 +302,10 @@ impl<'a, R: Read + Seek> Iterator for StrandCamMkvSourceIter<'a, R> {
     }
 }
 
-pub fn from_path<P: AsRef<Path>>(
+pub(crate) fn from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
+    timestamp_source: crate::TimestampSource,
 ) -> Result<StrandCamMkvSource<BufReader<std::fs::File>>> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
@@ -304,6 +314,7 @@ pub fn from_path<P: AsRef<Path>>(
         buf_reader,
         Some(path.as_ref().to_path_buf()),
         do_decode_h264,
+        timestamp_source,
     )
     .with_context(|| format!("Reading MKV file {}", path.as_ref().display()))
 }

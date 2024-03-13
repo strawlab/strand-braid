@@ -187,6 +187,10 @@ pub struct EncodedH264 {
     pub has_precision_timestamp: bool,
 }
 
+pub enum TimestampSource {
+    BestGuess,
+}
+
 /// Create a [FrameDataSource] from a path.
 ///
 /// The `do_decode_h264` argument specifies that an H264 source will be decoded
@@ -195,21 +199,45 @@ pub fn from_path<P: AsRef<std::path::Path>>(
     input: P,
     do_decode_h264: bool,
 ) -> Result<Box<dyn FrameDataSource>> {
+    from_path_with_timestamp_source(input, do_decode_h264, TimestampSource::BestGuess)
+}
+
+/// Create a [FrameDataSource] from a path with defined timestamp source
+///
+/// The `do_decode_h264` argument specifies that an H264 source will be decoded
+/// (e.g. to extract individual images).
+pub fn from_path_with_timestamp_source<P: AsRef<std::path::Path>>(
+    input: P,
+    do_decode_h264: bool,
+    timestamp_source: TimestampSource,
+) -> Result<Box<dyn FrameDataSource>> {
     let input_path = PathBuf::from(input.as_ref());
     let is_file = std::fs::metadata(input.as_ref())?.is_file();
     if is_file {
         if let Some(extension) = input_path.extension() {
             match extension.to_str() {
                 Some("mkv") => {
-                    let mkv_video = strand_cam_mkv_source::from_path(&input, do_decode_h264)?;
+                    let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
+                        &input,
+                        do_decode_h264,
+                        timestamp_source,
+                    )?;
                     return Ok(Box::new(mkv_video));
                 }
                 Some("mp4") => {
-                    let mp4_video = mp4_source::from_path(&input, do_decode_h264)?;
+                    let mp4_video = mp4_source::from_path_with_timestamp_source(
+                        &input,
+                        do_decode_h264,
+                        timestamp_source,
+                    )?;
                     return Ok(Box::new(mp4_video));
                 }
                 Some("h264") => {
-                    let h264_video = h264_source::from_annexb_path(&input, do_decode_h264)?;
+                    let h264_video = h264_source::from_annexb_path_with_timestamp_source(
+                        &input,
+                        do_decode_h264,
+                        timestamp_source,
+                    )?;
                     return Ok(Box::new(h264_video));
                 }
                 _ => {}

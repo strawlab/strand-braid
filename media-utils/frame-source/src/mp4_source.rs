@@ -10,10 +10,11 @@ use color_eyre::{
 use crate::h264_source::H264Source;
 use mp4::MediaType;
 
-pub fn from_reader<R: std::io::Read + std::io::Seek>(
+pub(crate) fn from_reader_with_timestamp_source<R: std::io::Read + std::io::Seek>(
     rdr: R,
     do_decode_h264: bool,
     size: u64,
+    timestamp_source: crate::TimestampSource,
 ) -> Result<H264Source> {
     let mut mp4_reader = mp4::Mp4Reader::read_header(rdr, size)?;
     let timescale = mp4_reader.timescale();
@@ -58,23 +59,29 @@ pub fn from_reader<R: std::io::Read + std::io::Seek>(
         sample_id += 1;
     }
 
-    let h264_source = H264Source::from_nal_units(
+    let h264_source = H264Source::from_nal_units_with_timestamp_source(
         nal_units,
         do_decode_h264,
         Some(mp4_pts),
         Some(data_from_mp4_track),
+        timestamp_source,
     )?;
     Ok(h264_source)
 }
 
-pub fn from_path<P: AsRef<Path>>(path: P, do_decode_h264: bool) -> Result<H264Source> {
+pub(crate) fn from_path_with_timestamp_source<P: AsRef<Path>>(
+    path: P,
+    do_decode_h264: bool,
+    timestamp_source: crate::TimestampSource,
+) -> Result<H264Source> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
     let size = rdr.metadata()?.len();
     let buf_reader = std::io::BufReader::new(rdr);
 
-    let result = from_reader(buf_reader, do_decode_h264, size)
-        .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
+    let result =
+        from_reader_with_timestamp_source(buf_reader, do_decode_h264, size, timestamp_source)
+            .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
     Ok(result)
 }
 

@@ -18,7 +18,10 @@ use h264_reader::{
 
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
-use super::*;
+use crate::{
+    h264_annexb_split, EncodedH264, FrameData, FrameDataSource, H264EncodingVariant, ImageData,
+    Result, Timestamp,
+};
 
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
 /// from an MP4 file.
@@ -133,11 +136,12 @@ pub(crate) struct FromMp4Track {
 
 impl H264Source {
     /// `nal_units` are EBSP without Annex B or AVCC headers.
-    pub(crate) fn from_nal_units(
+    pub(crate) fn from_nal_units_with_timestamp_source(
         nal_units: Vec<Vec<u8>>,
         do_decode_h264: bool,
         mp4_pts: Option<Vec<std::time::Duration>>,
         data_from_mp4_track: Option<FromMp4Track>,
+        timestamp_source: crate::TimestampSource,
     ) -> Result<Self> {
         let mut tz_offset = None;
         let mut h264_metadata = None;
@@ -309,12 +313,16 @@ impl H264Source {
             .as_ref()
             .map(|dt| dt.with_timezone(&timezone));
 
-        let (timestamp_source, has_timestamps) = if frame0_precision_time.is_some() {
-            ("MISPmicrosectime", true)
-        } else if mp4_pts.is_some() {
-            ("MP4 PTS", true)
-        } else {
-            ("(no timestamps)", false)
+        let (timestamp_source, has_timestamps) = match timestamp_source {
+            crate::TimestampSource::BestGuess => {
+                if frame0_precision_time.is_some() {
+                    ("MISPmicrosectime", true)
+                } else if mp4_pts.is_some() {
+                    ("MP4 PTS", true)
+                } else {
+                    ("(no timestamps)", false)
+                }
+            }
         };
 
         Ok(Self {
@@ -332,7 +340,11 @@ impl H264Source {
     }
 
     /// split Annex B data into NAL units.
-    pub(crate) fn from_annexb<R: Read + Seek>(mut rdr: R, do_decode_h264: bool) -> Result<Self> {
+    pub(crate) fn from_annexb_with_timestamp_source<R: Read + Seek>(
+        mut rdr: R,
+        do_decode_h264: bool,
+        timestamp_source: crate::TimestampSource,
+    ) -> Result<Self> {
         let raw_h264_buf: Vec<u8> = {
             let mut raw_h264_buf = Vec::new();
             rdr.read_to_end(&mut raw_h264_buf)?;
@@ -340,7 +352,13 @@ impl H264Source {
         };
 
         let nal_units: Vec<_> = h264_annexb_split(&raw_h264_buf).collect();
-        Self::from_nal_units(nal_units, do_decode_h264, None, None)
+        Self::from_nal_units_with_timestamp_source(
+            nal_units,
+            do_decode_h264,
+            None,
+            None,
+            timestamp_source,
+        )
     }
 }
 
@@ -474,16 +492,24 @@ impl<'a> Iterator for RawH264Iter<'a> {
     }
 }
 
-pub fn from_annexb_path<P: AsRef<Path>>(path: P, do_decode_h264: bool) -> Result<H264Source> {
+pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
+    path: P,
+    do_decode_h264: bool,
+    timestamp_source: crate::TimestampSource,
+) -> Result<H264Source> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
-    from_annexb_reader(rdr, do_decode_h264)
+    from_annexb_reader_with_timestamp_source(rdr, do_decode_h264, timestamp_source)
         .with_context(|| format!("Reading H264 file {}", path.as_ref().display()))
 }
 
-pub fn from_annexb_reader<R: Read + Seek>(rdr: R, do_decode_h264: bool) -> Result<H264Source> {
+fn from_annexb_reader_with_timestamp_source<R: Read + Seek>(
+    rdr: R,
+    do_decode_h264: bool,
+    timestamp_source: crate::TimestampSource,
+) -> Result<H264Source> {
     let buf_reader = BufReader::new(rdr);
-    H264Source::from_annexb(buf_reader, do_decode_h264)
+    H264Source::from_annexb_with_timestamp_source(buf_reader, do_decode_h264, timestamp_source)
 }
 
 pub(crate) struct UserDataUnregistered<'a> {
