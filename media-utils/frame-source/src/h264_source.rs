@@ -6,7 +6,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self as anyhow, WrapErr};
-
 use h264_reader::{
     nal::{
         sei::{HeaderType, SeiMessage, SeiReader},
@@ -15,12 +14,13 @@ use h264_reader::{
     rbsp::BitReaderError,
     Context as H264ParsingContext,
 };
+use serde::{Deserialize, Serialize};
 
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
 use crate::{
-    h264_annexb_split, EncodedH264, FrameData, FrameDataSource, H264EncodingVariant, ImageData,
-    Result, Timestamp,
+    h264_annexb_split, ntp_timestamp::NtpTimestamp, EncodedH264, FrameData, FrameDataSource,
+    H264EncodingVariant, ImageData, MyAsStr, Result, Timestamp, TimestampSource,
 };
 
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
@@ -66,13 +66,14 @@ pub struct H264Source {
     nal_units: Vec<Vec<u8>>,
     /// timestamps from MP4 files, per NAL unit
     mp4_pts: Option<Vec<std::time::Duration>>,
-    frame_to_nalu_index: Vec<(usize, Option<DateTime<Utc>>)>,
+    frame_to_nalu_index: Vec<(usize, Option<DateTime<Utc>>, Option<NtpTimestamp>)>,
     pub h264_metadata: Option<H264Metadata>,
     frame0_precision_time: Option<chrono::DateTime<chrono::FixedOffset>>,
+    frame0_frameinfo_recv_ntp: Option<NtpTimestamp>,
     width: u32,
     height: u32,
     do_decode_h264: bool,
-    timestamp_source: &'static str,
+    timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
 }
 
@@ -92,7 +93,14 @@ impl FrameDataSource for H264Source {
         self.h264_metadata.as_ref().and_then(|x| x.gamma)
     }
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
-        self.frame0_precision_time
+        match &self.timestamp_source {
+            Some(TimestampSource::BestGuess) => unreachable!(),
+            Some(TimestampSource::MispMicrosectime) => self.frame0_precision_time,
+            Some(TimestampSource::FrameInfoRecvTime) => {
+                Some(self.frame0_frameinfo_recv_ntp.unwrap().into())
+            }
+            Some(TimestampSource::Mp4Pts) | None => None,
+        }
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 {
@@ -122,7 +130,7 @@ impl FrameDataSource for H264Source {
         })
     }
     fn timestamp_source(&self) -> &str {
-        self.timestamp_source
+        self.timestamp_source.as_str()
     }
     fn has_timestamps(&self) -> bool {
         self.has_timestamps
@@ -148,8 +156,10 @@ impl H264Source {
         let mut scratch = Vec::new();
         let mut parsing_ctx = H264ParsingContext::default();
         let mut frame0_precision_time = None;
+        let mut frame0_frameinfo_recv_ntp = None;
         let mut frame_to_nalu_index = Vec::new();
         let mut last_precision_time = None;
+        let mut last_frameinfo_recv_ntp = None;
         let mut next_frame_num = 0;
 
         // Use data from container if present
@@ -232,6 +242,16 @@ impl H264Source {
                                                     frame0_precision_time = Some(precision_time);
                                                 }
                                             }
+                                            b"strawlab.org/89H" => {
+                                                let fi: FrameInfo =
+                                                    serde_json::from_slice(udu.payload)?;
+                                                last_frameinfo_recv_ntp =
+                                                    Some(NtpTimestamp(fi.recv));
+                                                if next_frame_num == 0 {
+                                                    frame0_frameinfo_recv_ntp =
+                                                        last_frameinfo_recv_ntp.clone();
+                                                }
+                                            }
                                             _uuid => {
                                                 // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
                                             }
@@ -289,8 +309,13 @@ impl H264Source {
                 }
                 UnitType::SliceLayerWithoutPartitioningIdr
                 | UnitType::SliceLayerWithoutPartitioningNonIdr => {
-                    frame_to_nalu_index.push((nalu_index, last_precision_time));
+                    frame_to_nalu_index.push((
+                        nalu_index,
+                        last_precision_time,
+                        last_frameinfo_recv_ntp,
+                    ));
                     last_precision_time = None;
+                    last_frameinfo_recv_ntp = None;
                     next_frame_num += 1;
                 }
                 _nal_unit_type => {}
@@ -316,12 +341,38 @@ impl H264Source {
         let (timestamp_source, has_timestamps) = match timestamp_source {
             crate::TimestampSource::BestGuess => {
                 if frame0_precision_time.is_some() {
-                    ("MISPmicrosectime", true)
+                    (Some(crate::TimestampSource::MispMicrosectime), true)
+                } else if frame0_frameinfo_recv_ntp.is_some() {
+                    (Some(crate::TimestampSource::FrameInfoRecvTime), true)
                 } else if mp4_pts.is_some() {
-                    ("MP4 PTS", true)
+                    (Some(crate::TimestampSource::Mp4Pts), true)
                 } else {
-                    ("(no timestamps)", false)
+                    (None, false)
                 }
+            }
+            crate::TimestampSource::FrameInfoRecvTime => {
+                if frame0_frameinfo_recv_ntp.is_none() {
+                    anyhow::bail!(
+                        "Requested timestamp source {timestamp_source:?}, but FrameInfo not present."
+                    );
+                }
+                (Some(timestamp_source), true)
+            }
+            crate::TimestampSource::MispMicrosectime => {
+                if frame0_precision_time.is_none() {
+                    anyhow::bail!(
+                        "Requested timestamp source {timestamp_source:?}, but timestamp not present."
+                    );
+                }
+                (Some(timestamp_source), true)
+            }
+            crate::TimestampSource::Mp4Pts => {
+                if mp4_pts.is_none() {
+                    anyhow::bail!(
+                        "Requested timestamp source {timestamp_source:?}, but MP4 PTS not present."
+                    );
+                }
+                (Some(timestamp_source), true)
             }
         };
 
@@ -331,6 +382,7 @@ impl H264Source {
             frame_to_nalu_index,
             h264_metadata,
             frame0_precision_time,
+            frame0_frameinfo_recv_ntp,
             width,
             height,
             do_decode_h264,
@@ -382,7 +434,7 @@ impl<'a> Iterator for RawH264Iter<'a> {
                 // end of frame data
                 None
             }
-            Some((frame_nalu_index, precise_timestamp)) => {
+            Some((frame_nalu_index, precise_timestamp, frameinfo_recv_ntp)) => {
                 // create slice of all NAL units up to frame data
                 let nal_units = &self.parent.nal_units[self.next_nal_idx..=(*frame_nalu_index)];
                 let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]);
@@ -390,18 +442,27 @@ impl<'a> Iterator for RawH264Iter<'a> {
 
                 self.next_nal_idx = *frame_nalu_index + 1;
 
-                let frame_timestamp = if let Some(f0) = &self.parent.frame0_precision_time {
-                    Timestamp::Duration(
-                        precise_timestamp
-                            .unwrap()
-                            .signed_duration_since(*f0)
-                            .to_std()
-                            .unwrap(),
-                    )
-                } else if let Some(mp4_pts) = mp4_pts {
-                    Timestamp::Duration(mp4_pts)
-                } else {
-                    Timestamp::Fraction(fraction_done)
+                let frame_timestamp = match self.parent.timestamp_source {
+                    Some(TimestampSource::BestGuess) => unreachable!(),
+                    Some(TimestampSource::MispMicrosectime) => {
+                        let f0 = self.parent.frame0_precision_time.as_ref().unwrap();
+                        Timestamp::Duration(
+                            precise_timestamp
+                                .unwrap()
+                                .signed_duration_since(*f0)
+                                .to_std()
+                                .unwrap(),
+                        )
+                    }
+                    Some(TimestampSource::FrameInfoRecvTime) => {
+                        let t0 = self.parent.frame0_frameinfo_recv_ntp.as_ref().unwrap();
+                        let t0: chrono::DateTime<chrono::Utc> = (*t0).into();
+                        let this_frame: chrono::DateTime<chrono::Utc> =
+                            frameinfo_recv_ntp.unwrap().into();
+                        Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
+                    }
+                    Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
+                    None => Timestamp::Fraction(fraction_done),
                 };
 
                 if let Some(decoder) = &mut self.openh264_decoder_state {
@@ -587,4 +648,52 @@ fn copy_nalus_to_annex_b(nalus: &[Vec<u8>]) -> Vec<u8> {
         start_idx += src.len() + 4;
     }
     result
+}
+
+/// Timing information associated with each video frame
+///
+/// UUID strawlab.org/89H
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FrameInfo {
+    /// Receive timestamp as NTP (Network Time Protocol) timestamp
+    recv: u64,
+    /// RTP (Real Time Protocol) timestamp as reported by the sender
+    rtp: u32,
+}
+
+// ----
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn parse_h264() -> color_eyre::Result<()> {
+        let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
+        let mut cursor = std::io::Cursor::new(file_buf);
+        let do_decode_h264 = true;
+        let mut h264_src = from_annexb_reader_with_timestamp_source(
+            &mut cursor,
+            do_decode_h264,
+            TimestampSource::BestGuess,
+        )?;
+        assert_eq!(h264_src.width(), 15);
+        assert_eq!(h264_src.height(), 14);
+        let frames: Vec<_> = h264_src.iter().collect();
+        assert_eq!(frames.len(), 1);
+
+        let file_buf = include_bytes!("test-data/test_less-avc_rgb8_16x16.h264");
+        let mut cursor = std::io::Cursor::new(file_buf);
+        let do_decode_h264 = true;
+        let mut h264_src = from_annexb_reader_with_timestamp_source(
+            &mut cursor,
+            do_decode_h264,
+            TimestampSource::BestGuess,
+        )?;
+        assert_eq!(h264_src.width(), 16);
+        assert_eq!(h264_src.height(), 16);
+        let frames: Vec<_> = h264_src.iter().collect();
+        assert_eq!(frames.len(), 1);
+        Ok(())
+    }
 }

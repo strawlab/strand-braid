@@ -172,6 +172,9 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 
         match timestamp_source {
             crate::TimestampSource::BestGuess => {}
+            _ => {
+                anyhow::bail!("Support for {timestamp_source:?} timestamp source not (yet) implemented for Strand Cam MKV files.");
+            }
         }
 
         Ok(Self {

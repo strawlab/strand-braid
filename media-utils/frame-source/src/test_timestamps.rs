@@ -1,15 +1,12 @@
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
 
+use crate::FrameDataSource;
 use ci2_remote_control::Mp4RecordingConfig;
-use frame_source::FrameDataSource;
 
 #[test]
 fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
-    let start: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
-        NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
-        Utc,
-    );
+    let start: DateTime<Utc> = DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let dt_msec = 5;
 
@@ -36,7 +33,7 @@ fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
                 .unwrap();
 
         for fno in 0..=1000 {
-            let pts = Duration::milliseconds(fno * dt_msec);
+            let pts = Duration::try_milliseconds(fno * dt_msec).unwrap();
             let ts = start + pts;
             ptss.push(pts.to_std().unwrap());
             my_mp4_writer.write(&frame, ts)?;
@@ -48,7 +45,12 @@ fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
     let reader = std::io::Cursor::new(mp4_buf);
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-    let mut src = frame_source::mp4_source::from_reader(reader, do_decode_h264, size)?;
+    let mut src = crate::mp4_source::from_reader_with_timestamp_source(
+        reader,
+        do_decode_h264,
+        size,
+        crate::TimestampSource::BestGuess,
+    )?;
     assert_eq!(src.width(), W);
     assert_eq!(src.height(), H);
     assert_eq!(src.frame0_time().unwrap(), start);
@@ -56,7 +58,7 @@ fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
     for (frame, expected_pts) in src.iter().zip(ptss.iter()) {
         let frame = frame?;
         match frame.timestamp() {
-            frame_source::Timestamp::Duration(actual_pts) => {
+            crate::Timestamp::Duration(actual_pts) => {
                 assert_eq!(&actual_pts, expected_pts);
             }
             _ => {

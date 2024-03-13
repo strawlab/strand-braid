@@ -39,6 +39,10 @@ struct Cli {
     /// Output format.
     #[arg(long, value_enum, default_value_t)]
     output: OutputFormat,
+
+    /// Source of timestamp.
+    #[arg(long, value_enum, default_value_t)]
+    timestamp_source: TimestampSource,
 }
 
 #[derive(Default, Debug, Clone, ValueEnum)]
@@ -50,6 +54,22 @@ enum OutputFormat {
     EveryFrame,
     /// Print as comma-separated values with a row for every frame.
     CSV,
+}
+
+#[derive(Default, Debug, Clone, Copy, ValueEnum)]
+enum TimestampSource {
+    #[default]
+    BestGuess,
+    FrameInfoRecvTime,
+}
+
+impl From<TimestampSource> for frame_source::TimestampSource {
+    fn from(orig: TimestampSource) -> Self {
+        match orig {
+            TimestampSource::BestGuess => frame_source::TimestampSource::BestGuess,
+            TimestampSource::FrameInfoRecvTime => frame_source::TimestampSource::FrameInfoRecvTime,
+        }
+    }
 }
 
 impl std::fmt::Display for OutputFormat {
@@ -83,7 +103,11 @@ fn main() -> Result<()> {
             }
         }
 
-        let mut src = frame_source::from_path(&input_path, do_decode_h264)?;
+        let mut src = frame_source::from_path_with_timestamp_source(
+            &input_path,
+            do_decode_h264,
+            cli.timestamp_source.into(),
+        )?;
         let has_timestamps = src.has_timestamps();
 
         let start_time = src.frame0_time();

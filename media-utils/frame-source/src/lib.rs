@@ -17,6 +17,10 @@ pub mod mp4_source;
 pub mod strand_cam_mkv_source;
 pub use h264_split::h264_annexb_split;
 
+mod ntp_timestamp;
+#[cfg(test)]
+mod test_timestamps;
+
 /// A source of FrameData
 ///
 /// The `frame0_time` method return value is an `Option` because we want to be
@@ -187,8 +191,29 @@ pub struct EncodedH264 {
     pub has_precision_timestamp: bool,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum TimestampSource {
     BestGuess,
+    FrameInfoRecvTime,
+    Mp4Pts,
+    MispMicrosectime,
+}
+
+trait MyAsStr {
+    fn as_str(&self) -> &'static str;
+}
+
+impl MyAsStr for Option<TimestampSource> {
+    fn as_str(&self) -> &'static str {
+        use TimestampSource::*;
+        match self {
+            Some(BestGuess) => "(best guess)",
+            Some(FrameInfoRecvTime) => "FrameInfo receive time",
+            Some(Mp4Pts) => "MP4 PTS",
+            Some(MispMicrosectime) => "MISPmicrosectime",
+            None => "(no timestamps)",
+        }
+    }
 }
 
 /// Create a [FrameDataSource] from a path.
