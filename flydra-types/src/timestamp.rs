@@ -132,10 +132,7 @@ fn test_nan_handling() {
 #[test]
 fn ensure_conversion() {
     use chrono::{DateTime, Utc};
-    let t1 = DateTime::<Utc>::from_naive_utc_and_offset(
-        chrono::NaiveDateTime::from_timestamp_opt(60, 123_456_789).unwrap(),
-        Utc,
-    );
+    let t1 = DateTime::<Utc>::from_timestamp(60, 123_456_789).unwrap();
     let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
     let t3 = t2.value_f64.into_inner();
     assert!((t3 - 60.123456789).abs() < 1e-10);

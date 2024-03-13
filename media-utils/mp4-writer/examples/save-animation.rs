@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate log;
 
-use chrono::Utc;
 use clap::{Parser, ValueEnum};
 
 use machine_vision_formats::{
@@ -134,10 +133,7 @@ fn main() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
     // let start = Utc::now();
-    let start = chrono::DateTime::from_naive_utc_and_offset(
-        chrono::NaiveDateTime::from_timestamp_opt(60 * 60, 0).unwrap(),
-        Utc,
-    );
+    let start = chrono::DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
     let rgb = convert_image::piston_to_frame(image)?;
@@ -187,7 +183,7 @@ fn main() -> Result<(), anyhow::Error> {
                 };
 
                 let dt_msec = 5;
-                let sample_duration = chrono::Duration::milliseconds(dt_msec);
+                let sample_duration = chrono::Duration::try_milliseconds(dt_msec).unwrap();
 
                 let cfg = Mp4RecordingConfig {
                     codec,

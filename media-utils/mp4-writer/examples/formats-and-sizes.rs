@@ -1,7 +1,5 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use chrono::Utc;
-
 use ci2_remote_control::Mp4RecordingConfig;
 
 type IType = usize;
@@ -18,10 +16,7 @@ fn next16(x: IType) -> IType {
 fn main() -> Result<(), anyhow::Error> {
     let n_frames = 1;
 
-    let start = chrono::DateTime::from_naive_utc_and_offset(
-        chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
-        Utc,
-    );
+    let start = chrono::DateTime::from_timestamp(61, 0).unwrap();
 
     let mut outputs = Vec::new();
     for pixfmt in ["mono8", "rgb8"].iter() {
@@ -177,7 +172,7 @@ fn main() -> Result<(), anyhow::Error> {
 
         for count in 0..n_frames {
             let dt_msec = 5;
-            let dt = chrono::Duration::milliseconds(count as i64 * dt_msec);
+            let dt = chrono::Duration::try_milliseconds(count as i64 * dt_msec).unwrap();
 
             let ts = start.checked_add_signed(dt).unwrap();
             my_mp4_writer.write_dynamic(&image, ts)?;

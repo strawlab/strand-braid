@@ -7,7 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 log = "0.4"
-chrono = { version = "0.4.23", default-features = false, features = [
+chrono = { version = "0.4.35", default-features = false, features = [
     "clock",
     "std",
     "wasmbind",

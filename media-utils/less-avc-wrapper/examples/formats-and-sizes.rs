@@ -1,13 +1,9 @@
 // Copyright 2022-2023 Andrew D. Straw.
-use chrono::Utc;
 
 fn main() -> anyhow::Result<()> {
     let n_frames = 1;
 
-    let start = chrono::DateTime::from_naive_utc_and_offset(
-        chrono::NaiveDateTime::from_timestamp_opt(61, 0).unwrap(),
-        Utc,
-    );
+    let start = chrono::DateTime::from_timestamp(61, 0).unwrap();
 
     let mut outputs = Vec::new();
     for pixfmt in ["mono8", "rgb8"].iter() {
