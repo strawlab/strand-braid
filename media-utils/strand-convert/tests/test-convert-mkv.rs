@@ -59,7 +59,11 @@ fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
     let input_ext = fname.as_ref().extension().and_then(|x| x.to_str());
     match input_ext {
         Some("mkv") => {
-            let mkv_video = frame_source::strand_cam_mkv_source::from_path(&fname, false)?;
+            let mkv_video = frame_source::strand_cam_mkv_source::from_path_with_timestamp_source(
+                &fname,
+                false,
+                frame_source::TimestampSource::BestGuess,
+            )?;
             let metadata = &mkv_video.parsed.metadata;
             let camera_name = metadata.camera_name.clone();
             let gamma = metadata.gamma;
@@ -73,7 +77,11 @@ fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
             })
         }
         Some("mp4") => {
-            let mp4_video = frame_source::mp4_source::from_path(&fname, false)?;
+            let mp4_video = frame_source::mp4_source::from_path_with_timestamp_source(
+                &fname,
+                false,
+                frame_source::TimestampSource::BestGuess,
+            )?;
             Ok(mp4_video.h264_metadata.unwrap())
         }
         ext => {
