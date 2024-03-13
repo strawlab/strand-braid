@@ -41,7 +41,7 @@ timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame", features = ["convert-image"] }
 fmf = { path = "../fmf" }
 ufmf = { path = "../ufmf" }
-chrono = { version = "0.4.27", default-features = false, features = [
+chrono = { version = "0.4.35", default-features = false, features = [
     "serde",
     "clock",
     "std",

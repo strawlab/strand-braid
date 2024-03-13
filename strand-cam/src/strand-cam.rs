@@ -1634,7 +1634,9 @@ async fn frame_process_task(
                                         fd,
                                         min_interval,
                                         last_save: now
-                                            .checked_sub_signed(chrono::Duration::days(1))
+                                            .checked_sub_signed(
+                                                chrono::Duration::try_days(1).unwrap(),
+                                            )
                                             .unwrap(),
                                         t0: now,
                                     };
@@ -3951,7 +3953,8 @@ where
                                 if val <= 0 {
                                     *state = FrameProcessingErrorState::NotifyAll;
                                 } else {
-                                    let when = chrono::Utc::now() + chrono::Duration::seconds(val);
+                                    let when = chrono::Utc::now()
+                                        + chrono::Duration::try_seconds(val).unwrap();
                                     *state = FrameProcessingErrorState::IgnoreUntil(when);
                                 }
                             }
