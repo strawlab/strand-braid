@@ -468,7 +468,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {
             Some("mkv") => {
-                let mkv_video = strand_cam_mkv_source::from_path(&input_path, do_decode_h264)?;
+                let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
+                    &input_path,
+                    do_decode_h264,
+                    frame_source::TimestampSource::BestGuess,
+                )?;
                 let metadata = &mkv_video.parsed.metadata;
                 camera_name = metadata.camera_name.clone();
                 gamma = metadata.gamma;
@@ -482,7 +486,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = encoder;
             }
             Some("mp4") => {
-                let mp4_video = mp4_source::from_path(&input_path, do_decode_h264)?;
+                let mp4_video = mp4_source::from_path_with_timestamp_source(
+                    &input_path,
+                    do_decode_h264,
+                    frame_source::TimestampSource::BestGuess,
+                )?;
                 if let Some(metadata) = &mp4_video.h264_metadata {
                     camera_name = metadata.camera_name.clone();
                     gamma = metadata.gamma;

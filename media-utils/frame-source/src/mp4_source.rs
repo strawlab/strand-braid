@@ -69,7 +69,7 @@ pub(crate) fn from_reader_with_timestamp_source<R: std::io::Read + std::io::Seek
     Ok(h264_source)
 }
 
-pub(crate) fn from_path_with_timestamp_source<P: AsRef<Path>>(
+pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,

@@ -305,7 +305,7 @@ impl<'a, R: Read + Seek> Iterator for StrandCamMkvSourceIter<'a, R> {
     }
 }
 
-pub(crate) fn from_path_with_timestamp_source<P: AsRef<Path>>(
+pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
