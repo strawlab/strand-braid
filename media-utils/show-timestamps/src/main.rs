@@ -33,6 +33,7 @@ struct Cli {
     /// first TIFF file in a TIFF image directory is also accepted.
     ///
     /// For a TIFF image directory, images will be ordered alphabetically.
+    #[arg(required=true, num_args=1..)]
     inputs: Vec<String>,
 
     /// Output format.
