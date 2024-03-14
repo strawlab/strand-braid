@@ -571,7 +571,7 @@ distortion model (also called the Brown-Conrady distortion model).</p>
 <p>The XML calibration files used in Braid are backwards-compatible with those from
 Braid's predecessor, Flydra. Several of the steps described here also use tools
 from Flydra.</p>
-<h2><a class="header" href="#step-1-setup-cameras-zoom-focus-aperture-gain-and-lights" id="step-1-setup-cameras-zoom-focus-aperture-gain-and-lights">Step 1: setup cameras (zoom, focus, aperture, gain) and lights</a></h2>
+<h2><a class="header" href="#step-0-setup-cameras-zoom-focus-aperture-gain-and-lights" id="step-0-setup-cameras-zoom-focus-aperture-gain-and-lights">Step 0: setup cameras (zoom, focus, aperture, gain) and lights</a></h2>
 <p>Setup camera position, zoom, focus (using an object in the tracking volume) and
 aperture (slightly stopped down from wide-open). Exposure times and gains are
 set in Strand Cam for each camera individually. Note that if you intend to run
@@ -582,7 +582,18 @@ The camera keeps these values persistently when it is on, but if it has been
 power cycled, it will reset to new values.</p>
 <p>Try to a luminance distribution which extends across the entire dynamic range of
 your sensor (from intensity values 0 to 255) with very little clipping.</p>
-<h2><a class="header" href="#step-2-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters" id="step-2-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters">Step 2: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters</a></h2>
+<h2><a class="header" href="#methods-for-calibration" id="methods-for-calibration">Methods for calibration</a></h2>
+<p>The &quot;traditional&quot; calibration method, inherited from
+<a href="https://github.com/strawlab/flydra">flydra</a>, uses the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal MCSC
+library</a>.</p>
+<p>Other methods of calibration are in development. For example, the <a href="https://strawlab.org/braid-april-cal-webapp/">Braid April
+Tag Calibration Tool</a>. There is
+also <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">a tutorial Jupyter
+notebook</a>
+for a manual approach involving April Tags. These April Tag approaches may be
+particularly interesting in a setting where Braid is used for tracking in a
+Virtual Reality setup where computer displays can be used to show April Tags.</p>
+<h2><a class="header" href="#mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters" id="mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters">MCSC Method, Step 1: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters</a></h2>
 <p>(There is a script to draw checkerboards as SVG files:
 <a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py"><code>draw_checkerboard_svg.py</code></a>.)</p>
 <p>In Strand Cam, there is a region called &quot;Checkerboard Calibration&quot; which allows
@@ -597,7 +608,7 @@ least 10) checkerboards, click the &quot;Perform and Save Calibration&quot; butt
 results of this calibration are saved to the directory
 <code>$HOME/.config/strand-cam/camera_info</code>.</p>
 <p>Repeat this for all cameras before proceeding to the next step.</p>
-<h2><a class="header" href="#step-3-collect-calibration-data-and-run-multicamselfcal-mcsc" id="step-3-collect-calibration-data-and-run-multicamselfcal-mcsc">Step 3: collect calibration data and run MultiCamSelfCal (MCSC)</a></h2>
+<h2><a class="header" href="#mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc" id="mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc">MCSC Method, Step 2: collect calibration data and run MultiCamSelfCal (MCSC)</a></h2>
 <p>To calibrate Braid, we use
 <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>. This is a
 software package which takes simultaneously captured images of an LED moving
