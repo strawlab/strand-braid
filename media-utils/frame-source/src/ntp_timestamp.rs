@@ -25,23 +25,8 @@ pub(crate) struct NtpTimestamp(pub u64);
 
 impl std::fmt::Display for NtpTimestamp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let since_epoch = self.0.wrapping_sub(UNIX_EPOCH.0);
-        let sec_since_epoch = (since_epoch >> 32) as u32;
-        let tm = time::at(time::Timespec {
-            sec: i64::from(sec_since_epoch),
-            nsec: 0,
-        });
-        let ms = ((since_epoch & 0xFFFF_FFFF) * 1_000) >> 32;
-        let zone_minutes = tm.tm_utcoff.abs() / 60;
-        write!(
-            f,
-            "{}.{:03}{}{:02}:{:02}",
-            tm.strftime("%FT%T").map_err(|_| std::fmt::Error)?,
-            ms,
-            if tm.tm_utcoff > 0 { '+' } else { '-' },
-            zone_minutes / 60,
-            zone_minutes % 60
-        )
+        let date_time: chrono::DateTime<chrono::Local> = (*self).into();
+        write!(f, "{}", date_time.format("%FT%T%.3f%:z"),)
     }
 }
 
@@ -60,7 +45,7 @@ where
     let elapsed: chrono::TimeDelta = orig.to_utc() - epoch;
     let sec_since_epoch: u32 = elapsed.num_seconds().try_into()?;
     let nanos = elapsed.subsec_nanos();
-    let frac = nanos as f64 / 1e9;
+    let frac = f64::from(nanos) / 1e9;
     let frac_int = (frac * f64::from(u32::MAX)).round() as u32;
     let val = (u64::from(sec_since_epoch) << 32) + u64::from(frac_int);
     Ok(NtpTimestamp(val))
@@ -76,24 +61,21 @@ where
     }
 }
 
-// impl From<NtpTimestamp> for chrono::DateTime<chrono::Utc> {
-//     fn from(orig: NtpTimestamp) -> Self {
-//         // TODO: don't convert to string.
-//         let display = format!("{orig}");
-//         display.parse().unwrap()
-//     }
-// }
-
 impl<TZ> From<NtpTimestamp> for chrono::DateTime<TZ>
 where
     TZ: chrono::TimeZone,
     chrono::DateTime<TZ>: From<chrono::DateTime<chrono::Utc>>,
 {
     fn from(orig: NtpTimestamp) -> Self {
-        // TODO: don't convert to string.
-        let display = format!("{orig}");
-        let dt_utc: chrono::DateTime<chrono::Utc> = display.parse().unwrap();
-        chrono::DateTime::from(dt_utc)
+        let since_epoch = orig.0.wrapping_sub(UNIX_EPOCH.0);
+        let sec_since_epoch = (since_epoch >> 32) as u32;
+        let frac_int = (since_epoch & 0xFFFF_FFFF) as u32;
+        let frac = frac_int as f64 / f64::from(u32::MAX);
+        let nanos = (frac * 1e9) as u32;
+        let timedelta: chrono::TimeDelta =
+            chrono::TimeDelta::new(i64::from(sec_since_epoch), nanos).unwrap();
+        let date_time = chrono::DateTime::UNIX_EPOCH + timedelta;
+        date_time.into()
     }
 }
 
@@ -108,6 +90,14 @@ mod tests {
         let ntp_timestamp = chrono_to_ntp(orig).unwrap();
         let display = format!("{ntp_timestamp}");
         let parsed: chrono::DateTime<chrono::Utc> = display.parse().unwrap();
+        assert_eq!(orig, parsed);
+    }
+
+    #[test]
+    fn test_ntp_roundtrip_raw() {
+        let orig: chrono::DateTime<chrono::Utc> = ORIG_STR.parse().unwrap();
+        let ntp_timestamp = chrono_to_ntp(orig).unwrap();
+        let parsed: chrono::DateTime<chrono::Utc> = ntp_timestamp.into();
         assert_eq!(orig, parsed);
     }
 
