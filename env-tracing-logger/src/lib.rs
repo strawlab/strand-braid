@@ -32,7 +32,8 @@ pub fn initiate_logging<P: AsRef<std::path::Path>>(
     let console_layer = if disable_console {
         None
     } else {
-        Some(fmt::layer().with_file(true).with_line_number(true))
+        let with_ansi = !cfg!(windows) ;
+        Some(fmt::layer().with_ansi(with_ansi).with_file(true).with_line_number(true))
     };
 
     let collector = tracing_subscriber::registry()
