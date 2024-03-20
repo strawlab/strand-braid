@@ -11,7 +11,7 @@ yew = { version = "0.20.0", features = ["csr"] }
 js-sys = "0.3"
 gloo = "0.8.0"
 gloo-file = "0.2"
-wasm-bindgen = { version = "0.2.58" }
+wasm-bindgen = "0.2.92"
 serde = "1.0"
 serde_yaml = "0.9"
 serde_derive = "1.0"
