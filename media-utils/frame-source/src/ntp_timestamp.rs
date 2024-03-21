@@ -41,7 +41,11 @@ fn chrono_to_ntp<TZ>(orig: chrono::DateTime<TZ>) -> Result<NtpTimestamp, std::nu
 where
     TZ: chrono::TimeZone,
 {
-    let epoch: chrono::DateTime<chrono::Utc> = "1900-01-01 00:00:00Z".parse().unwrap();
+    let epoch_naive = chrono::NaiveDate::from_ymd_opt(1900, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    let epoch = chrono::TimeZone::from_local_datetime(&chrono::Utc, &epoch_naive).unwrap();
     let elapsed: chrono::TimeDelta = orig.to_utc() - epoch;
     let sec_since_epoch: u32 = elapsed.num_seconds().try_into()?;
     let nanos = elapsed.subsec_nanos();
