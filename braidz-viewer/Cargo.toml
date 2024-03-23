@@ -15,7 +15,7 @@ wasm-logger = "0.2.0"
 
 gloo = "0.8.0"
 gloo-file = "0.2"
-yew = { version = "0.20.0", features = ["csr"] }
+yew = { version = "0.21.0", features = ["csr"] }
 
 wasm-bindgen = "0.2.92"
 js-sys = "0.3.28"

@@ -9,9 +9,9 @@ rust-version = "1.76"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = { version = "0.20.0", features = ["csr"] }
+yew = { version = "0.21.0", features = ["csr"] }
 yew-agent = "0.2.0"
-yew-tincture = "0.1"
+yew-tincture = "0.2.2"
 js-sys = "0.3"
 wasm-bindgen = "0.2.92"
 web-sys = { version = "0.3", features = [

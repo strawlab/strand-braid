@@ -7,7 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 log = "0.4"
-yew = { version = "0.20.0", features = ["csr"] }
+yew = { version = "0.21.0", features = ["csr"] }
 js-sys = "0.3"
 gloo = "0.8.0"
 gloo-file = "0.2"
@@ -26,7 +26,7 @@ uuid = { version = "1.2.2", default-features = false, features = [
 ] } # add feature flag required for uuid crate
 csv = { version = "1.1", optional = true }
 
-yew-tincture = "0.1"
+yew-tincture = "0.2.2"
 
 simple-obj-parse = { path = "../simple-obj-parse", optional = true }
 textured-tri-mesh = { path = "../textured-tri-mesh", optional = true }

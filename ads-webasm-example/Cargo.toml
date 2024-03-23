@@ -16,10 +16,10 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-yew = { version = "0.20.0", features = ["csr"] }
+yew = { version = "0.21.0", features = ["csr"] }
 serde = { version = "1.0", default-features = false }
 serde_yaml = "0.9"
-yew-tincture = "0.1"
+yew-tincture = "0.2.2"
 log = "0.4"
 wasm-logger = "0.2.0"
 
