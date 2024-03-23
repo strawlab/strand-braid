@@ -5,7 +5,7 @@ use color_eyre::eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use machine_vision_formats::{pixel_format, PixFmt};
 use mp4_writer::Mp4Writer;
-use mvg::rerun_io::cam_geom_to_rr_pinhole_archetype as to_pinhole;
+use mvg::rerun_io::{cam_geom_to_rr_pinhole_archetype as to_pinhole, AsRerunTransform3D};
 use ndarray::Array;
 use rayon::prelude::*;
 use std::{collections::BTreeMap, path::PathBuf};
@@ -116,7 +116,7 @@ impl OfflineBraidzRerunLogger {
         let camn = self.camid2camn.get(cam_name).unwrap();
         self.rec.log_timeless(
             format!("world/camera/{cam_name}"),
-            &cam.rr_transform3d_archetype(),
+            &cam.extrinsics().as_rerun_transform3d().into(),
         )?;
 
         let base_path = format!("world/camera/{cam_name}");
@@ -382,15 +382,15 @@ impl OfflineBraidzRerunLogger {
             if log_reprojected_2d {
                 for (_cam_name, cam_data) in self.by_camname.iter() {
                     // TODO: how to annotate this with row.obj_id?
-                    let cam = &cam_data.calibration;
+                    let cam_cal = &cam_data.calibration;
                     let pt3d = mvg::PointWorldFrame {
                         coords: nalgebra::Point3::new(row.x, row.y, row.z),
                     };
                     let arch = if cam_data.image_is_undistorted {
-                        let pt2d = cam.project_3d_to_pixel(&pt3d).coords;
+                        let pt2d = cam_cal.project_3d_to_pixel(&pt3d).coords;
                         rerun::Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
                     } else {
-                        let pt2d = cam.project_3d_to_distorted_pixel(&pt3d).coords;
+                        let pt2d = cam_cal.project_3d_to_distorted_pixel(&pt3d).coords;
                         rerun::Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
                     };
                     let ent_path = &cam_data.image_ent_path;

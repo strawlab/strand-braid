@@ -55,7 +55,7 @@ impl<T: RealField> ToR<T> for f64 {
 
 fn rr_translation_and_mat3<R: RealField>(
     extrinsics: &cam_geom::ExtrinsicParameters<R>,
-) -> rerun::datatypes::TranslationAndMat3x3 {
+) -> rerun::TranslationAndMat3x3 {
     let t = extrinsics.camcenter();
     let translation = Some(rerun::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]));
     let rot = extrinsics.rotation();
@@ -68,18 +68,22 @@ fn rr_translation_and_mat3<R: RealField>(
         }
     }
     let mat3x3 = Some(rerun::Mat3x3(col_major));
-    rerun::datatypes::TranslationAndMat3x3 {
+    rerun::TranslationAndMat3x3 {
         translation,
         mat3x3,
         from_parent: false,
     }
 }
 
-impl<R: RealField + Copy> crate::Camera<R> {
-    /// return a [rerun::archetypes::Transform3D]
-    pub fn rr_transform3d_archetype(&self) -> rerun::archetypes::Transform3D {
-        let transform = rr_translation_and_mat3(self.extrinsics()).into();
-        rerun::archetypes::Transform3D { transform }
+pub trait AsRerunTransform3D {
+    fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D>;
+}
+
+impl AsRerunTransform3D for cam_geom::ExtrinsicParameters<f64> {
+    fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D> {
+        rerun::Transform3D {
+            transform: rr_translation_and_mat3(self).into(),
+        }
     }
 }
 
