@@ -1,8 +1,8 @@
 use gstreamer as gst;
 use gstreamer_app as gst_app;
 
-use gst::prelude::*;
 use futures::stream::Stream;
+use gst::prelude::*;
 
 #[derive(Debug)]
 pub struct Error {
@@ -27,31 +27,39 @@ enum ErrorKind {
 
 impl From<glib::Error> for Error {
     fn from(orig: glib::Error) -> Self {
-        Error {kind: ErrorKind::Glib(orig)}
+        Error {
+            kind: ErrorKind::Glib(orig),
+        }
     }
 }
 
 impl From<glib::BoolError> for Error {
     fn from(orig: glib::BoolError) -> Self {
-        Error {kind: ErrorKind::GlibBool(orig)}
+        Error {
+            kind: ErrorKind::GlibBool(orig),
+        }
     }
 }
 
 impl From<gst::StateChangeError> for Error {
     fn from(orig: gst::StateChangeError) -> Self {
-        Error {kind: ErrorKind::GstStateChange(orig)}
+        Error {
+            kind: ErrorKind::GstStateChange(orig),
+        }
     }
 }
 
 impl<'a> From<gst::message::Error<'a>> for Error {
     fn from(orig: gst::message::Error<'a>) -> Self {
-        Error {kind: ErrorKind::Glib(orig.get_error())}
+        Error {
+            kind: ErrorKind::Glib(orig.get_error()),
+        }
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
-        Error {kind}
+        Error { kind }
     }
 }
 
@@ -67,13 +75,12 @@ impl GstSample {
     }
 }
 
-impl imagesrc::Sample for GstSample {
-}
+impl imagesrc::Sample for GstSample {}
 
 pub struct GstSink {
     rx: Option<futures::channel::mpsc::Receiver<GstSample>>,
     pub control: thread_control::Control,
-    pub join_handle: std::thread::JoinHandle<Result<(),Error>>,
+    pub join_handle: std::thread::JoinHandle<Result<(), Error>>,
 }
 
 impl GstSink {
@@ -187,8 +194,9 @@ impl GstSink {
 }
 
 impl imagesrc::ImageSource<GstSample> for GstSink {
-    fn frames(&mut self) -> Result<Box<dyn Stream<Item=GstSample>+Send+Unpin>, Box<dyn std::error::Error>>
-    {
+    fn frames(
+        &mut self,
+    ) -> Result<Box<dyn Stream<Item = GstSample> + Send + Unpin>, Box<dyn std::error::Error>> {
         match self.rx.take() {
             Some(rx) => Ok(Box::new(rx)),
             None => Err(Box::new(Error::from(ErrorKind::AlreadyGrabbing))),
