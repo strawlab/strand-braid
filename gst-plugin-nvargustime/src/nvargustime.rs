@@ -125,7 +125,7 @@ impl NvArgusTime {
     }
 }
 
-const CLOCK_MONOTONIC: i32 = 1;
+const CLOCK_MONOTONIC: libc::clockid_t = 1;
 // const CLOCK_MONOTONIC_RAW: i32 = 4;
 
 // This trait registers our type with the GObject object system and
