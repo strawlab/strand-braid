@@ -1,4 +1,4 @@
-use std::{convert::TryInto, os::raw::c_char};
+use std::os::raw::c_char;
 
 use machine_vision_formats::pixel_format::Mono8;
 
