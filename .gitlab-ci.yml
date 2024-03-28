@@ -95,6 +95,18 @@ test_crates:
     - cargo build --release --features camsrc_pyloncxx
     - cd ..
 
+    - cd imagesrc-gst
+    - cargo check
+    - cd ..
+
+    - cd gst-plugin-nvargustime
+    - cargo check
+    - cd ..
+
+    - cd gst-plugin-apriltag
+    - cargo check
+    - cd ..
+
 test_flydra2:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
