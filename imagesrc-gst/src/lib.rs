@@ -6,6 +6,7 @@ use gst::prelude::*;
 
 #[derive(Debug)]
 pub struct Error {
+    #[allow(dead_code)]
     kind: ErrorKind,
 }
 
@@ -19,7 +20,9 @@ impl std::fmt::Display for Error {
 
 #[derive(Debug)]
 enum ErrorKind {
+    #[allow(dead_code)]
     Glib(glib::Error),
+    #[allow(dead_code)]
     GlibBool(glib::BoolError),
     GstStateChange(gst::StateChangeError),
     AlreadyGrabbing,
