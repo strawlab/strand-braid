@@ -9,16 +9,13 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use glib;
 use glib::prelude::*;
 use glib::subclass;
 use glib::subclass::prelude::*;
-use gst;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 
 use crate::TagFamily;
-use std::convert::TryInto;
 use std::i32;
 use std::sync::Mutex;
 
