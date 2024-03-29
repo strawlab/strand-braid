@@ -96,15 +96,15 @@ test_crates:
     - cd ..
 
     - cd imagesrc-gst
-    - cargo check
+    - cargo check --all-targets
     - cd ..
 
     - cd gst-plugin-nvargustime
-    - cargo check
+    - cargo check --all-targets
     - cd ..
 
     - cd gst-plugin-apriltag
-    - cargo check
+    - cargo check --all-targets
     - cd ..
 
     - cd led-box-comms
