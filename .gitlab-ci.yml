@@ -107,6 +107,10 @@ test_crates:
     - cargo check
     - cd ..
 
+    - cd led-box-comms
+    - cargo test
+    - cd ..
+
 test_flydra2:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
