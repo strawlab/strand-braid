@@ -60,6 +60,8 @@ tokio = { version = "1.0.1", default-features = false, features = [
 tokio-util = { version = "0.7.3", features = ["codec"] }
 tokio-stream = { version = "0.1.6", features = ["time"] }
 dotenv = "0.15.0"
+json-lines = { version = "0.1.0", features = ["codec"] }
+
 strand-cam-storetype = { path = "../strand-cam-storetype" }
 flydra-feature-detector = { path = "../flydra-feature-detector", default-features = false, optional = true }
 flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }

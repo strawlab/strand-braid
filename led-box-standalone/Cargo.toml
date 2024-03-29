@@ -22,6 +22,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
+json-lines = { version = "0.1.0", features = ["codec"] }
 
 led-box = { path = "../led-box" }
 led-box-comms = { path = "../led-box-comms" }

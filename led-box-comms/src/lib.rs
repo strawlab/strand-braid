@@ -10,15 +10,6 @@ extern crate collections;
 extern crate serde_derive;
 extern crate serde;
 
-#[cfg(all(test, feature = "std"))]
-#[macro_use]
-extern crate quickcheck;
-
-#[cfg(test)]
-extern crate rand;
-#[cfg(test)]
-use rand::Rng;
-
 extern crate enum_iter;
 
 #[cfg(not(feature = "std"))]
@@ -27,7 +18,8 @@ extern crate core as std;
 use enum_iter::EnumIter;
 
 pub const MAX_INTENSITY: u16 = 16000;
-pub const COMM_VERSION: u16 = 2;
+pub const COMM_VERSION: u16 = 3;
+pub const BAUD_RATE: u32 = 230_400;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 #[cfg_attr(feature = "print-defmt", derive(defmt::Format))]
@@ -43,6 +35,7 @@ pub enum FromDevice {
     DeviceState(DeviceState),
     EchoResponse8((u8, u8, u8, u8, u8, u8, u8, u8)),
     VersionResponse(u16),
+    StateWasSet,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
@@ -133,82 +126,5 @@ const ON_STATE_VARIANTS_REF: &[OnState] = &ON_STATE_VARIANTS;
 impl EnumIter for OnState {
     fn variants() -> &'static [Self] {
         ON_STATE_VARIANTS_REF
-    }
-}
-
-// --------------------------------------------------------
-// testing
-// --------------------------------------------------------
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for DeviceState {
-    fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> DeviceState {
-        DeviceState {
-            ch1: ChannelState::arbitrary(g),
-            ch2: ChannelState::arbitrary(g),
-            ch3: ChannelState::arbitrary(g),
-            ch4: ChannelState::arbitrary(g),
-        }
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ChannelState {
-    fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> ChannelState {
-        ChannelState {
-            num: g.gen(),
-            on_state: OnState::arbitrary(g),
-            intensity: g.gen(),
-        }
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for OnState {
-    fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> OnState {
-        match g.gen_range(0, 2) {
-            0 => OnState::Off,
-            1 => OnState::ConstantOn,
-            _ => unreachable!(),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-#[cfg(test)]
-mod tests {
-    extern crate ssmarshal;
-
-    use self::ssmarshal::{deserialize, serialize};
-    use serde::de::DeserializeOwned;
-    use serde::Serialize;
-    use std;
-
-    use {ChannelState, DeviceState, OnState};
-
-    fn rt_val<T: Serialize + DeserializeOwned + PartialEq + std::fmt::Debug>(val: &T) -> bool {
-        let mut buf = vec![0; std::mem::size_of::<T>()];
-        serialize(&mut buf, val).unwrap();
-        let new_val: T = deserialize(&buf).unwrap().0;
-        println!("\n\nOld: {:?}\nNew: {:?}", val, new_val);
-        val == &new_val
-    }
-
-    quickcheck! {
-        fn rt_device_state(val: DeviceState) -> bool {
-            rt_val(&val)
-        }
-    }
-
-    quickcheck! {
-        fn rt_channel_state(val: ChannelState) -> bool {
-            rt_val(&val)
-        }
-    }
-
-    quickcheck! {
-        fn rt_on_state(val: OnState) -> bool {
-            rt_val(&val)
-        }
     }
 }

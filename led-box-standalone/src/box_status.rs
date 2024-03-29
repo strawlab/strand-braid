@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 
 use log::{debug, error, info};
 
-use led_box::LedBoxCodec;
+use json_lines::codec::JsonLinesCodec;
 use led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -102,7 +102,7 @@ pub async fn handle_box(
     info!("connecting to {device_name}");
 
     #[allow(unused_mut)]
-    let mut port = tokio_serial::new(&device_name, 9600)
+    let mut port = tokio_serial::new(&device_name, led_box_comms::BAUD_RATE)
         .open_native_async()
         .unwrap();
     debug!("connected to {device_name}");
@@ -111,7 +111,7 @@ pub async fn handle_box(
     port.set_exclusive(false)
         .expect("Unable to set serial port exclusive to false");
 
-    let (mut serial_writer, mut serial_reader) = LedBoxCodec::default().framed(port).split();
+    let (mut serial_writer, mut serial_reader) = JsonLinesCodec::default().framed(port).split();
 
     // Clear potential initially present bytes from stream...
     let _ = tokio::time::timeout(std::time::Duration::from_millis(50), serial_reader.next()).await;
@@ -188,8 +188,14 @@ pub async fn handle_box(
                         (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                     debug!("round trip time: {} msec", now_millis - sent_millis);
                 }
-                Ok(msg) => {
-                    error!("unknown message received: {:?}", msg);
+                Ok(led_box_comms::FromDevice::StateWasSet)
+                | Ok(led_box_comms::FromDevice::DeviceState(_)) => {}
+                Ok(led_box_comms::FromDevice::VersionResponse(found)) => {
+                    info!("Found comm version {found}.");
+                    let expected = led_box_comms::COMM_VERSION;
+                    if found != expected {
+                        panic!("This program compiled to support comm version {expected}, but found version {found}.");
+                    }
                 }
                 Err(e) => {
                     panic!("unexpected error: {}: {:?}", e, e);

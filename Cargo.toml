@@ -123,7 +123,7 @@ members = [
     "zip-or-dir/dir2zip",
 ]
 
-exclude = ["led-box-firmware"]
+exclude = ["led-box-firmware", "led-box-firmware-pico"]
 
 [profile.release]
 debug = true

@@ -23,22 +23,22 @@ use embedded_hal::digital::v2::OutputPin;
 use stm32f3xx_hal::{
     flash::FlashExt,
     gpio::{self, GpioExt, Output, PushPull, AF7},
-    pac::USART2,
+    nb, pac,
     prelude::*,
     pwm::tim3,
-    serial::{Event, Rx, Serial, Tx},
+    serial::{Event, Serial},
 };
 
 use embedded_time::rate::Hertz;
 
-use defmt::{error, info, trace};
+use defmt::{error, info};
 
 use rtic::Mutex;
 
-use mini_rxtx::Decoded;
-
 use led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
 use stm32f3xx_hal::gpio::gpioa::PA5;
+
+use json_lines::accumulator::{FeedResult, NewlinesAccumulator};
 
 pub type UserLED = PA5<Output<PushPull>>;
 
@@ -49,17 +49,23 @@ const LED_PWM_FREQ: Hertz = Hertz(500);
 mod app {
     use super::*;
 
+    use heapless::spsc::{Consumer, Producer, Queue};
+    type SerialType = Serial<pac::USART2, (gpio::PA2<AF7<PushPull>>, gpio::PA3<AF7<PushPull>>)>;
+
+    const RX_BUF_SZ: usize = 512;
+    const RX_Q_SZ: usize = 256;
+    const TX_Q_SZ: usize = 128;
+
     // Late resources
     #[shared]
     struct Shared {
-        inner_led_state: InnerLedState,
-        rxtx: mini_rxtx::MiniTxRx<
-            Rx<USART2, gpio::PA3<AF7<PushPull>>>,
-            Tx<USART2, gpio::PA2<AF7<PushPull>>>,
-            128,
-            128,
-        >,
+        serial: SerialType,
         green_led: UserLED,
+    }
+
+    #[local]
+    struct Local {
+        inner_led_state: InnerLedState,
         pwm3_ch1: stm32f3xx_hal::pwm::PwmChannel<
             stm32f3xx_hal::pwm::Tim3Ch1,
             stm32f3xx_hal::pwm::WithPins,
@@ -76,17 +82,22 @@ mod app {
             stm32f3xx_hal::pwm::Tim3Ch4,
             stm32f3xx_hal::pwm::WithPins,
         >,
-    }
 
-    #[local]
-    struct Local {}
+        rx_prod: Producer<'static, u8, RX_Q_SZ>,
+        rx_cons: Consumer<'static, u8, RX_Q_SZ>,
+
+        tx_prod: Producer<'static, u8, TX_Q_SZ>,
+        tx_cons: Consumer<'static, u8, TX_Q_SZ>,
+    }
 
     #[init]
     fn init(c: init::Context) -> (Shared, Local, init::Monotonics) {
         // Device specific peripherals
         info!(
-            "hello from f303, COMM_VERSION {}",
-            led_box_comms::COMM_VERSION
+            "hello from f303, COMM_VERSION {}, BAUD_RATE {}, encoding {}",
+            led_box_comms::COMM_VERSION,
+            led_box_comms::BAUD_RATE,
+            "JSON + newlines",
         );
 
         let mut flash = c.device.FLASH.constrain();
@@ -106,13 +117,11 @@ mod app {
         let mut serial = Serial::new(
             c.device.USART2,
             (tx, rx),
-            9_600_u32.Bd(),
+            led_box_comms::BAUD_RATE.Bd(),
             clocks,
             &mut rcc.apb1,
         );
         serial.enable_interrupt(Event::ReceiveDataRegisterNotEmpty);
-        // serial.enable_interrupt(Event::TransmitDataRegisterEmtpy); // TODO I am confused why this is not needed.
-        let (tx, rx) = serial.split();
 
         {
             let pwm_freq_hz: Hertz = LED_PWM_FREQ.into();
@@ -180,154 +189,217 @@ mod app {
             extra_ir_led.set_high().unwrap();
         }
 
+        let rx_queue: &'static mut Queue<u8, RX_Q_SZ> = {
+            static mut Q: Queue<u8, RX_Q_SZ> = Queue::new();
+            unsafe { &mut Q }
+        };
+        let (rx_prod, rx_cons) = rx_queue.split();
+
+        let tx_queue: &'static mut Queue<u8, TX_Q_SZ> = {
+            static mut Q: Queue<u8, TX_Q_SZ> = Queue::new();
+            unsafe { &mut Q }
+        };
+        let (tx_prod, tx_cons) = tx_queue.split();
+
         // initialization of late resources
         (
-            Shared {
+            Shared { serial, green_led },
+            Local {
                 inner_led_state: InnerLedState::default(),
-                rxtx: mini_rxtx::MiniTxRx::new(tx, rx),
-                green_led,
                 pwm3_ch1,
                 pwm3_ch2,
                 pwm3_ch3,
                 pwm3_ch4,
+                rx_prod,
+                rx_cons,
+                tx_prod,
+                tx_cons,
             },
-            Local {},
             init::Monotonics(),
         )
     }
 
-    #[idle(shared = [rxtx, inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4, green_led])]
-    fn idle(mut c: idle::Context) -> ! {
-        let mut decode_buf = [0u8; 256];
-        let mut decoder = mini_rxtx::Decoder::new(&mut decode_buf);
-        let mut encode_buf: [u8; 32] = [0; 32];
-
+    #[idle(shared = [green_led, serial], local = [inner_led_state, pwm3_ch1, pwm3_ch2, pwm3_ch3, pwm3_ch4, rx_cons, tx_prod])]
+    fn idle(mut ctx: idle::Context) -> ! {
+        let mut decoder = NewlinesAccumulator::<RX_BUF_SZ>::new();
         let mut current_device_state = DeviceState::default();
+        let mut out_buf = [0u8; 256];
 
         info!("starting idle loop");
+
+        // ctx.shared
+        //     .green_led
+        //     .lock(|green_led| green_led.set_high().unwrap());
+
         loop {
-            let maybe_byte = c.shared.rxtx.lock(|x| x.pump());
-            if let Some(byte) = maybe_byte {
-                trace!("got byte: {}", byte);
-                // process byte
-                let mut response = None;
-                match decoder.consume::<led_box_comms::ToDevice>(byte) {
-                    Decoded::Msg(ToDevice::DeviceState(next_state)) => {
-                        // info!("new state received");
-
-                        update_device_state(&mut current_device_state, &next_state, &mut c);
-                        // info!("set new state");
+            let ret = if let Some(ch) = ctx.local.rx_cons.dequeue() {
+                let ret = match decoder.feed::<ToDevice>(&[ch]) {
+                    FeedResult::Consumed => None,
+                    FeedResult::OverFull(_remaining) => {
+                        error!("frame overflow");
+                        None
                     }
-                    Decoded::Msg(ToDevice::EchoRequest8(buf)) => {
-                        response = Some(FromDevice::EchoResponse8(buf));
-                        info!("echo");
+                    FeedResult::DeserError(_remaining) => {
+                        error!("deserialization");
+                        None
                     }
-                    Decoded::Msg(ToDevice::VersionRequest) => {
-                        response = Some(FromDevice::VersionResponse(led_box_comms::COMM_VERSION));
-                        info!("version request");
-                    }
-                    Decoded::FrameNotYetComplete => {
-                        // Frame not complete yet, do nothing until next byte.
-                    }
-                    Decoded::Error(_) => {
-                        panic!("error reading frame");
-                    }
-                }
-
-                if let Some(response) = response {
-                    let msg = mini_rxtx::serialize_msg(&response, &mut encode_buf).unwrap();
-                    c.shared.rxtx.lock(|sender| {
-                        sender.send_msg(msg).unwrap();
-                    });
-
-                    // rtic::pend(pac::Interrupt::USART2_EXTI26);
-                }
+                    FeedResult::Success { data, remaining: _ } => Some(data),
+                };
+                ret
             } else {
-                // TODO: fix things so we can do this. Right we busy-loop.
-                // // no byte to process: go to sleep and wait for interrupt
-                // cortex_m::asm::wfi();
+                None
+            };
+
+            if let Some(msg) = ret {
+                let response;
+                match msg {
+                    ToDevice::DeviceState(next_state) => {
+                        update_device_state(&mut current_device_state, &next_state, &mut ctx);
+                        response = FromDevice::StateWasSet;
+                        defmt::debug!("device state set");
+                    }
+                    ToDevice::EchoRequest8(buf) => {
+                        response = FromDevice::EchoResponse8(buf);
+                        defmt::debug!("echo");
+                    }
+                    ToDevice::VersionRequest => {
+                        response = FromDevice::VersionResponse(led_box_comms::COMM_VERSION);
+                        defmt::debug!("version request");
+                    }
+                }
+
+                let encoded = json_lines::to_slice_newline(&response, &mut out_buf[..]).unwrap();
+                for ch in encoded.iter() {
+                    ctx.local.tx_prod.enqueue(*ch).unwrap();
+                }
+
+                defmt::trace!("idle pushed {} bytes", encoded.len());
+                ctx.shared.serial.lock(|serial| {
+                    serial.enable_interrupt(Event::TransmitDataRegisterEmtpy);
+                });
             }
         }
     }
 
-    #[task(binds = USART2_EXTI26, shared = [rxtx, green_led])]
-    fn usart2_exti26(mut c: usart2_exti26::Context) {
-        use stm32f3xx_hal::serial::Error::*;
-        c.shared.rxtx.lock(|x| match x.on_interrupt() {
-            Ok(()) => {}
-            Err(Framing) => {
-                error!("serial Framing error.");
-                // x.rx().clear_framing_error();
+    #[task(binds = USART2_EXTI26, shared = [serial, green_led], local = [rx_prod, tx_cons])]
+    fn protocol_serial_task(mut cx: protocol_serial_task::Context) {
+        defmt::trace!("IRQ start");
+        // cx.shared.green_led.lock(|green_led| {
+        //     green_led.toggle().unwrap();
+        // });
+
+        cx.shared.serial.lock(|serial| {
+            if serial.is_event_triggered(Event::ReceiveDataRegisterNotEmpty) {
+                // got a byte
+                defmt::trace!("IRQ ReceiveDataRegisterNotEmpty");
+                match serial.read() {
+                    // this will clear the ReceiveDataRegisterNotEmpty event
+                    Ok(byte) => {
+                        defmt::trace!("IRQ got byte: '{}'", byte as char);
+
+                        cx.local.rx_prod.enqueue(byte).unwrap();
+                        // serial.configure_interrupt(Event::TransmissionComplete, Toggle::On);
+                    }
+                    Err(nb::Error::WouldBlock) => {
+                        //hmm?!
+                        error!("nb::Error::WouldBlock but IRQ fired!?!?");
+                    }
+                    Err(nb::Error::Other(err)) => {
+                        use stm32f3xx_hal::serial::Error;
+                        match err {
+                            Error::Framing => {
+                                defmt::error!("IRQ serial Framing error");
+                            }
+                            Error::Noise => {
+                                defmt::error!("IRQ serial Noise error");
+                            }
+                            Error::Overrun => {
+                                defmt::error!("IRQ serial Overrun error");
+                            }
+                            Error::Parity => {
+                                defmt::error!("IRQ serial Parity error");
+                            }
+                            _ => {
+                                defmt::error!("IRQ serial error");
+                            }
+                        }
+                    }
+                };
             }
-            Err(Noise) => {
-                error!("serial Noise error");
-            }
-            Err(Overrun) => {
-                error!("serial Overrun error");
-            }
-            Err(Parity) => {
-                error!("serial Parity error");
-            }
-            Err(_) => {
-                error!("serial unknown error");
+
+            // could send a byte
+            if serial.is_event_triggered(Event::TransmitDataRegisterEmtpy) {
+                defmt::trace!("IRQ TransmitDataRegisterEmtpy");
+                match cx.local.tx_cons.dequeue() {
+                    Some(ch) => {
+                        defmt::trace!("IRQ got char from tx_cons: {}", ch as char);
+                        serial.write(ch).unwrap(); // this will clear the TransmitDataRegisterEmtpy event
+                    }
+                    None => {
+                        // nothing more to send
+                        defmt::trace!("done sending");
+                        serial.disable_interrupt(Event::TransmitDataRegisterEmtpy);
+                    }
+                };
             }
         });
     }
 
     fn update_led_state(next_state: &ChannelState, ctx: &mut idle::Context) {
-        let mut set_pwm3_now = None;
+        let set_pwm3_now;
         {
-            ctx.shared.inner_led_state.lock(|inner_led_state| {
-                // borrowck scope for mutable reference into current_state
-                let inner_led_chan_state: &mut InnerLedChannelState = match next_state.num {
-                    1 => &mut inner_led_state.ch1,
-                    2 => &mut inner_led_state.ch2,
-                    3 => &mut inner_led_state.ch3,
-                    4 => &mut inner_led_state.ch4,
-                    _ => panic!("unknown channel"),
-                };
+            let inner_led_state = &mut ctx.local.inner_led_state;
 
-                // we can assume inner_led_chan_state corresponds to correct channel in next_state
-                // and thus we should ignore next_state.channel here
+            // borrowck scope for mutable reference into current_state
+            let inner_led_chan_state: &mut InnerLedChannelState = match next_state.num {
+                1 => &mut inner_led_state.ch1,
+                2 => &mut inner_led_state.ch2,
+                3 => &mut inner_led_state.ch3,
+                4 => &mut inner_led_state.ch4,
+                _ => panic!("unknown channel"),
+            };
 
-                // Calculate pwm period required for desired intensity.
-                let pwm_period = match next_state.on_state {
-                    OnState::Off => ZERO_INTENSITY,
-                    OnState::ConstantOn => next_state.intensity,
-                };
+            // we can assume inner_led_chan_state corresponds to correct channel in next_state
+            // and thus we should ignore next_state.channel here
 
-                if next_state.num == 1 {
-                    match next_state.on_state {
-                        OnState::Off => ctx
-                            .shared
-                            .green_led
-                            .lock(|green_led| green_led.set_low().unwrap()),
-                        OnState::ConstantOn => ctx
-                            .shared
-                            .green_led
-                            .lock(|green_led| green_led.set_high().unwrap()),
-                    };
-                }
+            // Calculate pwm period required for desired intensity.
+            let pwm_period = match next_state.on_state {
+                OnState::Off => ZERO_INTENSITY,
+                OnState::ConstantOn => next_state.intensity,
+            };
 
-                // Based on on_state, decide what to do.
+            if next_state.num == 1 {
                 match next_state.on_state {
-                    OnState::Off | OnState::ConstantOn => {
-                        set_pwm3_now = Some(pwm_period);
-                        inner_led_chan_state.period = pwm_period;
-                    }
+                    OnState::Off => ctx
+                        .shared
+                        .green_led
+                        .lock(|green_led| green_led.set_low().unwrap()),
+                    OnState::ConstantOn => ctx
+                        .shared
+                        .green_led
+                        .lock(|green_led| green_led.set_high().unwrap()),
+                };
+            }
+
+            // Based on on_state, decide what to do.
+            match next_state.on_state {
+                OnState::Off | OnState::ConstantOn => {
+                    set_pwm3_now = Some(pwm_period);
+                    inner_led_chan_state.period = pwm_period;
                 }
-            })
+            }
         }
         if let Some(pwm_period) = set_pwm3_now {
-            info!(
+            defmt::debug!(
                 "setting channel {} to period {}",
-                next_state.num, pwm_period
+                next_state.num,
+                pwm_period
             );
             match next_state.num {
-                1 => ctx.shared.pwm3_ch1.lock(|chan| chan.set_duty(pwm_period)),
-                2 => ctx.shared.pwm3_ch2.lock(|chan| chan.set_duty(pwm_period)),
-                3 => ctx.shared.pwm3_ch3.lock(|chan| chan.set_duty(pwm_period)),
-                4 => ctx.shared.pwm3_ch4.lock(|chan| chan.set_duty(pwm_period)),
+                1 => ctx.local.pwm3_ch1.set_duty(pwm_period),
+                2 => ctx.local.pwm3_ch2.set_duty(pwm_period),
+                3 => ctx.local.pwm3_ch3.set_duty(pwm_period),
+                4 => ctx.local.pwm3_ch4.set_duty(pwm_period),
                 _ => panic!("unknown channel"),
             };
         }

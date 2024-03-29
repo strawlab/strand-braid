@@ -11,3 +11,6 @@ rustflags = [
 
 [build]
 target = "thumbv7em-none-eabihf"
+
+# [env]
+# DEFMT_LOG = "debug"

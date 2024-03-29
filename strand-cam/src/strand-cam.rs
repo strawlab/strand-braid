@@ -4824,7 +4824,7 @@ where
         use tokio_serial::SerialPortBuilderExt;
         use tokio_util::codec::Decoder;
 
-        use led_box::LedBoxCodec;
+        use json_lines::codec::JsonLinesCodec;
         use led_box_comms::{ChannelState, DeviceState, OnState};
 
         let start_led_box_instant = std::time::Instant::now();
@@ -4861,7 +4861,7 @@ where
                 info!("opening LED box \"{}\"", serial_device);
                 // open with default settings 9600 8N1
                 #[allow(unused_mut)]
-                let mut port = tokio_serial::new(serial_device, 9600)
+                let mut port = tokio_serial::new(serial_device, led_box_comms::BAUD_RATE)
                     .open_native_async()
                     .unwrap();
 
@@ -4876,7 +4876,7 @@ where
 
         if let Some(port) = port {
             // wrap port with codec
-            let (mut writer, mut reader) = LedBoxCodec::default().framed(port).split();
+            let (mut writer, mut reader) = JsonLinesCodec::default().framed(port).split();
 
             // Clear potential initially present bytes from stream...
             let _ = tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await;
@@ -4896,9 +4896,13 @@ where
                             msg, led_box_comms::COMM_VERSION);
                     }
                 },
-                _ => {
-                    eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                Err(_elapsed) => {
+                    eyre::bail!("Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
                         led_box_comms::COMM_VERSION);
+                }
+                Ok(None) | Ok(Some(Err(_))) => {
+                    eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                          led_box_comms::COMM_VERSION);
                 }
             }
 
@@ -4924,6 +4928,7 @@ where
                             let mut led_box_heartbeat_update = led_box_heartbeat_update_arc.write();
                             *led_box_heartbeat_update = Some(std::time::Instant::now());
                         }
+                        Ok(led_box_comms::FromDevice::StateWasSet) => {}
                         Ok(msg) => {
                             todo!("Did not handle {:?}", msg);
                             // error!("unknown message received: {:?}", msg);
