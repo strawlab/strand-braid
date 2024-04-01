@@ -1246,15 +1246,36 @@ pub mod ripp {
     where
         SRCDST: MutableFastImage<D = u8, C = Chan1>,
     {
-        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
-            for srcdest in srcdest_row.iter_mut() {
-                match cmp_op {
-                    CompareOp::Less => {
+        const SIMD_SIZE: usize = 32;
+        match cmp_op {
+            CompareOp::Less => {
+                for srcdest_row in src_dest.valid_row_iter_mut(size)? {
+                    let mut my_iter = srcdest_row.chunks_exact_mut(SIMD_SIZE);
+                    for srcdest_chunk in my_iter.by_ref() {
+                        for srcdest in srcdest_chunk.iter_mut() {
+                            if *srcdest < threshold {
+                                *srcdest = value;
+                            }
+                        }
+                    }
+                    for srcdest in my_iter.into_remainder() {
                         if *srcdest < threshold {
                             *srcdest = value;
                         }
                     }
-                    CompareOp::Greater => {
+                }
+            }
+            CompareOp::Greater => {
+                for srcdest_row in src_dest.valid_row_iter_mut(size)? {
+                    let mut my_iter = srcdest_row.chunks_exact_mut(SIMD_SIZE);
+                    for srcdest_chunk in my_iter.by_ref() {
+                        for srcdest in srcdest_chunk.iter_mut() {
+                            if *srcdest > threshold {
+                                *srcdest = value;
+                            }
+                        }
+                    }
+                    for srcdest in my_iter.into_remainder() {
                         if *srcdest > threshold {
                             *srcdest = value;
                         }
