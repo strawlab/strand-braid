@@ -8,7 +8,7 @@ extern crate criterion;
 use criterion::Criterion;
 use itertools::multizip;
 
-use fastfreeimage::{ipp_ctypes, ripp, Chan1, FastImage, FastImageData};
+use fastfreeimage::{ipp_ctypes, ripp, Chan1, CompareOp, FastImage, FastImageData};
 
 const W: usize = 1280;
 const H: usize = 1024;
@@ -50,6 +50,38 @@ fn bench_abs_diff_8u_c1r(c: &mut Criterion) {
     });
 }
 
+fn bench_max_indx_8u_c1r(c: &mut Criterion) {
+    let im10 = FastImageData::<Chan1, u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10)
+        .unwrap();
+
+    let size = *im10.size();
+    c.bench_function("max_indx_8u_c1r", move |b| {
+        b.iter(|| ripp::max_indx_8u_c1r(&im10, &size).unwrap())
+    });
+}
+
+fn bench_threshold_val_8u_c1ir(c: &mut Criterion) {
+    let mut im10 =
+        FastImageData::<Chan1, u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10)
+            .unwrap();
+    let size = *im10.size();
+    c.bench_function("threshold_val_8u_c1ir", move |b| {
+        b.iter(|| ripp::threshold_val_8u_c1ir(&mut im10, &size, 9, 255, CompareOp::Less).unwrap())
+    });
+}
+
+fn bench_set_8u_c1mr(c: &mut Criterion) {
+    let mut dest =
+        FastImageData::<Chan1, u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10)
+            .unwrap();
+    let mask =
+        FastImageData::<Chan1, u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 0).unwrap();
+    let size = *dest.size();
+    c.bench_function("set_8u_c1mr", move |b| {
+        b.iter(|| ripp::set_8u_c1mr(20, &mut dest, &size, &mask).unwrap())
+    });
+}
+
 fn bench_abs_diff_naive_v2(c: &mut Criterion) {
     let im10: Vec<u8> = [10; W * H].to_vec();
     let im9: Vec<u8> = [9; W * H].to_vec();
@@ -71,7 +103,7 @@ fn bench_abs_diff_naive_v6(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = bench_abs_diff_8u_c1r, bench_abs_diff_naive_v2, bench_abs_diff_naive_v6
+    targets = bench_set_8u_c1mr, bench_threshold_val_8u_c1ir, bench_max_indx_8u_c1r, bench_abs_diff_8u_c1r, bench_abs_diff_naive_v2, bench_abs_diff_naive_v6
 }
 
 criterion_main!(benches);
