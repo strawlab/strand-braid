@@ -1204,19 +1204,36 @@ pub mod ripp {
     where
         S: FastImage<D = u8, C = Chan1>,
     {
-        let mut value = 0;
+        let mut max_all = 0;
         let mut loc = Point::new(0, 0);
 
+        // For each row
         for (row, src_row) in src.valid_row_iter(size)?.enumerate() {
-            for (col, src_el) in src_row.iter().enumerate() {
-                if *src_el > value {
-                    value = *src_el;
-                    loc.x = col as i32;
-                    loc.y = row as i32;
+            // find maximum value of each row
+            let mut max_row = 0;
+            for src_el in src_row.iter() {
+                if *src_el > max_row {
+                    max_row = *src_el;
                 }
             }
+            // and store if this maximum per-row value is the max overall.
+            if max_row > max_all {
+                max_all = max_row;
+                loc.y = row as i32;
+            }
         }
-        Ok((value, loc))
+
+        // Now take the row with the maximum value
+        let src_row = src.valid_row_iter(size)?.nth(loc.y as usize).unwrap();
+        // and find the column with the maximum value.
+        for (col, src_el) in src_row.iter().enumerate() {
+            if max_all == *src_el {
+                loc.x = col as i32;
+                break;
+            }
+        }
+
+        Ok((max_all, loc))
     }
 
     pub fn threshold_val_8u_c1ir<SRCDST>(
