@@ -706,14 +706,14 @@ where
 ///
 /// This is modeled after [std::slice::ChunksExact].
 pub struct ValidChunksExact<'a, T: 'a> {
-    padded_chunk_iter: std::slice::ChunksExact<'a, T>,
+    padded_chunk_iter: Option<std::slice::ChunksExact<'a, T>>,
     valid_n_elements: usize,
 }
 
 impl<'a, T> ValidChunksExact<'a, T> {
     fn new(slice: &'a [T], row_stride_n_elements: usize, valid_n_elements: usize) -> Self {
         assert!(valid_n_elements <= row_stride_n_elements);
-        let padded_chunk_iter = slice.chunks_exact(row_stride_n_elements);
+        let padded_chunk_iter = Some(slice.chunks_exact(row_stride_n_elements));
         Self {
             padded_chunk_iter,
             valid_n_elements,
@@ -724,9 +724,27 @@ impl<'a, T> ValidChunksExact<'a, T> {
 impl<'a, T> Iterator for ValidChunksExact<'a, T> {
     type Item = &'a [T];
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        self.padded_chunk_iter
-            .next()
-            .map(|padded| &padded[0..self.valid_n_elements])
+        // Next iterattion through chunked iterator.
+        if let Some(mut padded_chunk_iter) = self.padded_chunk_iter.take() {
+            if let Some(exact_chunk) = padded_chunk_iter
+                .next()
+                .map(|padded| &padded[0..self.valid_n_elements])
+            {
+                // Store the iterator and return the result.
+                self.padded_chunk_iter = Some(padded_chunk_iter);
+                Some(exact_chunk)
+            } else {
+                // The exact-size chunks are done, now do the remainder.
+                let last_elements = padded_chunk_iter.remainder();
+                if last_elements.is_empty() {
+                    None
+                } else {
+                    Some(&last_elements[0..self.valid_n_elements])
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -755,6 +773,21 @@ fn test_padded_chunks() {
     }
 }
 
+#[test]
+fn test_padded_chunks_short() {
+    // This is the same as the f32 case above and is a 2x4 valid matrix, but is
+    // missing the last padding.
+
+    // f32
+    let avec = vec![1.0, 2.0, 3.0, 4.0, -1.0, 1.1, 2.1, 3.1, 4.1];
+    let a1: &[f32] = avec.as_slice();
+
+    let mut myiter = ValidChunksExact::new(a1, 5, 4);
+    assert_eq!(myiter.next(), Some(&avec[0..4]));
+    assert_eq!(myiter.next(), Some(&avec[5..9]));
+    assert_eq!(myiter.next(), None);
+}
+
 // ------------------------------
 // ValidChunksExactMut
 // ------------------------------
@@ -763,14 +796,14 @@ fn test_padded_chunks() {
 ///
 /// This is modeled after [std::slice::ChunksExactMut].
 pub struct ValidChunksExactMut<'a, T: 'a> {
-    padded_chunk_iter_mut: std::slice::ChunksExactMut<'a, T>,
+    padded_chunk_iter_mut: Option<std::slice::ChunksExactMut<'a, T>>,
     valid_n_elements: usize,
 }
 
 impl<'a, T> ValidChunksExactMut<'a, T> {
     fn new(slice: &'a mut [T], padded_n_elements: usize, valid_n_elements: usize) -> Self {
         assert!(valid_n_elements <= padded_n_elements);
-        let padded_chunk_iter_mut = slice.chunks_exact_mut(padded_n_elements);
+        let padded_chunk_iter_mut = Some(slice.chunks_exact_mut(padded_n_elements));
         Self {
             padded_chunk_iter_mut,
             valid_n_elements,
@@ -781,9 +814,27 @@ impl<'a, T> ValidChunksExactMut<'a, T> {
 impl<'a, T> Iterator for ValidChunksExactMut<'a, T> {
     type Item = &'a mut [T];
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        self.padded_chunk_iter_mut
-            .next()
-            .map(|padded| &mut padded[0..self.valid_n_elements])
+        // Next iterattion through chunked iterator.
+        if let Some(mut padded_chunk_iter_mut) = self.padded_chunk_iter_mut.take() {
+            if let Some(exact_chunk) = padded_chunk_iter_mut
+                .next()
+                .map(|padded| &mut padded[0..self.valid_n_elements])
+            {
+                // Store the iterator and return the result.
+                self.padded_chunk_iter_mut = Some(padded_chunk_iter_mut);
+                Some(exact_chunk)
+            } else {
+                // The exact-size chunks are done, now do the remainder.
+                let last_elements = padded_chunk_iter_mut.into_remainder();
+                if last_elements.is_empty() {
+                    None
+                } else {
+                    Some(&mut last_elements[0..self.valid_n_elements])
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -812,6 +863,37 @@ fn test_padded_chunks_mut() {
         assert_eq!(
             &avec,
             &[101.0, 102.0, 103.0, 104.0, -1.0, 201.1, 202.1, 203.1, 204.1, -1.0]
+        );
+    }
+}
+
+#[test]
+fn test_padded_chunks_short_mut() {
+    {
+        // This is the same as above and is a 2x4 valid matrix, but is missing
+        // the last padding.
+        let mut avec: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, -1.0, 1.1, 2.1, 3.1, 4.1];
+        let a1 = avec.as_mut_slice();
+
+        {
+            let myiter = ValidChunksExactMut::new(a1, 5, 4);
+
+            let mut n_rows = 0;
+            for (row_num, row) in myiter.enumerate() {
+                let mut n_cols = 0;
+                for el in row.iter_mut() {
+                    *el += (row_num + 1) as f32 * 100.0;
+                    n_cols += 1;
+                }
+                assert_eq!(n_cols, 4);
+                n_rows += 1;
+            }
+            assert_eq!(n_rows, 2);
+        }
+
+        assert_eq!(
+            &avec,
+            &[101.0, 102.0, 103.0, 104.0, -1.0, 201.1, 202.1, 203.1, 204.1]
         );
     }
 }
