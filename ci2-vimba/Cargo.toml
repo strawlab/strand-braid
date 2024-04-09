@@ -21,7 +21,7 @@ parking_lot = "0.12.1"
 lazy_static = "1"
 tempfile = "3.4.0"
 
-vimba-sys = "0.2.0"
+vmbc-sys = "0.1"
 
 ci2 = { path = "../ci2" }
 basic-frame = { path = "../basic-frame" }

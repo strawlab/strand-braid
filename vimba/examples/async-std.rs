@@ -10,9 +10,7 @@ const N_BUFFER_FRAMES: usize = 3;
 const N_CHANNEL_FRAMES: usize = 10;
 
 lazy_static! {
-    // Prevent multiple concurrent access to structures and functions in Vimba
-    // which are not threadsafe.
-    static ref VIMBA_MUTEX: Mutex<()> = Mutex::new(());
+    static ref VIMBA: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
     static ref SENDER: Mutex<Option<Sender<Frame>>> = Mutex::new(None);
 }
@@ -26,17 +24,17 @@ struct Frame {
 
 #[no_mangle]
 pub unsafe extern "C" fn callback_c(
-    camera_handle: vimba_sys::VmbHandle_t,
-    frame: *mut vimba_sys::VmbFrame_t,
+    camera_handle: vmbc_sys::VmbHandle_t,
+    _stream_handle: vmbc_sys::VmbHandle_t,
+    frame: *mut vmbc_sys::VmbFrame_t,
 ) {
     match std::panic::catch_unwind(|| {
         if !IS_DONE.load(Ordering::Relaxed) {
-            let err = {
-                let _guard = VIMBA_MUTEX.lock().unwrap();
-                vimba_sys::VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
-            };
+            let err = VIMBA
+                .vimba_lib
+                .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c));
 
-            if err != vimba_sys::VmbErrorType::VmbErrorSuccess {
+            if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
                 eprintln!("CB: capture error: {}", err);
             } else {
                 // no error
@@ -84,26 +82,26 @@ pub unsafe extern "C" fn callback_c(
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
+    let version_info = vimba::VersionInfo::new(&VIMBA.vimba_lib)?;
+    println!(
+        "Vimba X API Version {}.{}.{}",
+        version_info.major, version_info.minor, version_info.patch
+    );
+
     let (tx, rx) = channellib::bounded(N_CHANNEL_FRAMES);
     {
         let mut sender_ref = SENDER.lock().unwrap();
         *sender_ref = Some(tx);
     }
-    let version_info = vimba::VersionInfo::new()?;
-    println!(
-        "Vimba API Version {}.{}.{}",
-        version_info.major, version_info.minor, version_info.patch
-    );
-    let lib = vimba::VimbaLibrary::new()?;
-    let n_cams = lib.n_cameras()?;
+    let n_cams = VIMBA.n_cameras()?;
     println!("{} cameras found", n_cams);
-    let camera_infos = lib.camera_info(n_cams)?;
+    let camera_infos = VIMBA.camera_info(n_cams)?;
     if !camera_infos.is_empty() {
         let cam_id = camera_infos[0].camera_id_string.as_str();
         println!("Opening camera {}", cam_id);
         println!("  {:?}", camera_infos[0]);
 
-        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL)?;
+        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
         let pixel_format = camera.pixel_format()?;
         println!("  pixel_format: {:?}", pixel_format);
 
@@ -115,17 +113,13 @@ fn main() -> anyhow::Result<()> {
             frames.push(frame);
         }
 
-        {
-            let _guard = VIMBA_MUTEX.lock().unwrap();
+        camera.capture_start()?;
 
-            camera.capture_start()?;
-
-            for mut frame in frames.iter_mut() {
-                camera.capture_frame_queue_with_callback(&mut frame, Some(callback_c))?;
-            }
-
-            camera.command_run("AcquisitionStart")?;
+        for mut frame in frames.iter_mut() {
+            camera.capture_frame_queue_with_callback(&mut frame, Some(callback_c))?;
         }
+
+        camera.command_run("AcquisitionStart")?;
 
         println!("acquiring frames for 10 seconds");
 
@@ -145,17 +139,14 @@ fn main() -> anyhow::Result<()> {
         IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
 
         println!("done acquiring frames");
-        {
-            let mut _guard = VIMBA_MUTEX.lock().unwrap();
-            camera.command_run("AcquisitionStop")?;
-            camera.capture_end()?;
-            camera.capture_queue_flush()?;
-            for mut frame in frames.into_iter() {
-                camera.frame_revoke(&mut frame)?;
-            }
+        camera.command_run("AcquisitionStop")?;
+        camera.capture_end()?;
+        camera.capture_queue_flush()?;
+        for mut frame in frames.into_iter() {
+            camera.frame_revoke(&mut frame)?;
         }
         camera.close()?;
     }
-    // When `lib` is dropped, `VmbShutdown` will automatically be called.
+    unsafe { VIMBA.shutdown() };
     Ok(())
 }

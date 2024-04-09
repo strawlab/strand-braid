@@ -7,7 +7,7 @@ use std::{convert::TryInto, pin::Pin};
 
 use machine_vision_formats as formats;
 
-use vimba_sys::{
+use vmbc_sys::{
     VmbCameraInfo_t, VmbErrorType, VmbFeaturePersistSettings_t, VmbFrameCallback,
     VmbFrameStatusType, VmbFrame_t, VmbHandle_t, VmbVersionInfo_t,
 };
@@ -132,22 +132,23 @@ macro_rules! vimba_call {
 }
 
 pub struct VimbaLibrary {
-    pub vimba_lib: vimba_sys::VimbaC,
+    pub vimba_lib: vmbc_sys::VimbaC,
     started: bool,
 }
 
 impl VimbaLibrary {
     pub fn new() -> std::result::Result<Self, Error> {
-        let vimbac_path = match std::env::var_os("VIMBAC_LIB_PATH") {
-            Some(vimbac_path) => std::path::PathBuf::from(vimbac_path),
+        let vimbac_path = match std::env::var_os("VIMBA_X_HOME") {
+            Some(vimba_x_home) => std::path::PathBuf::from(vimba_x_home)
+                .join("api")
+                .join("lib"),
             None => {
-                #[cfg(target_os = "windows")]
-                let vimbac_path =
-                    r#"C:\Program Files\Allied Vision\Vimba_6.0\VimbaC\Bin\Win64\VimbaC.dll"#;
+                #[cfg(target_os = "linux")]
+                let vmbc_path = "/opt/VimbaX_2023-4/api/lib/libVmbC.so";
 
-                #[cfg(not(target_os = "windows"))]
-                let vimbac_path = "/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so";
-                std::path::PathBuf::from(vimbac_path)
+                #[cfg(target_os = "macos")]
+                let vmbc_path = "/Library/Frameworks/VmbC.framework/Versions/A/VmbC";
+                std::path::PathBuf::from(vmbc_path)
             }
         };
 
@@ -164,7 +165,7 @@ impl VimbaLibrary {
     pub fn from_dynamic_lib_path<P: AsRef<std::path::Path>>(
         vimbac_path: P,
     ) -> std::result::Result<Self, Error> {
-        let vimba_lib = match unsafe { vimba_sys::VimbaC::new(vimbac_path.as_ref()) } {
+        let vimba_lib = match unsafe { vmbc_sys::VimbaC::new(vimbac_path.as_ref()) } {
             Ok(vimba_lib) => vimba_lib,
             Err(source) => {
                 let vimbac_path = vimbac_path.as_ref().to_path_buf();
@@ -175,7 +176,7 @@ impl VimbaLibrary {
             }
         };
 
-        vimba_call!(vimba_lib.VmbStartup())?;
+        vimba_call!(vimba_lib.VmbStartup(std::ptr::null()))?;
         Ok(VimbaLibrary {
             vimba_lib,
             started: true,
@@ -194,11 +195,16 @@ impl VimbaLibrary {
         let mut cameras: Vec<VmbCameraInfo_t> = vec![
             VmbCameraInfo_t {
                 cameraIdString: std::ptr::null_mut(),
+                cameraIdExtended: std::ptr::null_mut(),
                 cameraName: std::ptr::null_mut(),
                 modelName: std::ptr::null_mut(),
                 serialString: std::ptr::null_mut(),
+                transportLayerHandle: std::ptr::null_mut(),
+                interfaceHandle: std::ptr::null_mut(),
+                localDeviceHandle: std::ptr::null_mut(),
+                streamHandles: std::ptr::null_mut(),
+                streamCount: 0,
                 permittedAccess: 0,
-                interfaceIdString: std::ptr::null_mut(),
             };
             n_count as usize
         ];
@@ -217,6 +223,11 @@ impl VimbaLibrary {
                 camera_id_string: unsafe { std::ffi::CStr::from_ptr(ci.cameraIdString).to_str() }
                     .unwrap()
                     .to_string(),
+                camera_id_extended: unsafe {
+                    std::ffi::CStr::from_ptr(ci.cameraIdExtended).to_str()
+                }
+                .unwrap()
+                .to_string(),
                 camera_name: unsafe { std::ffi::CStr::from_ptr(ci.cameraName).to_str() }
                     .unwrap()
                     .to_string(),
@@ -227,11 +238,6 @@ impl VimbaLibrary {
                     .unwrap()
                     .to_string(),
                 permitted_access: AccessMode::new(ci.permittedAccess.try_into().unwrap()),
-                interface_id_string: unsafe {
-                    std::ffi::CStr::from_ptr(ci.interfaceIdString).to_str()
-                }
-                .unwrap()
-                .to_string(),
             })
             .collect();
         Ok(result)
@@ -254,7 +260,7 @@ pub struct VersionInfo {
 }
 
 impl VersionInfo {
-    pub fn new(vimba_c: &vimba_sys::VimbaC) -> Result<Self> {
+    pub fn new(vimba_c: &vmbc_sys::VimbaC) -> Result<Self> {
         let mut version_info = VmbVersionInfo_t {
             major: 0,
             minor: 0,
@@ -287,7 +293,7 @@ impl AccessMode {
 }
 
 pub mod access_mode {
-    use vimba_sys::VmbAccessModeType::*;
+    use vmbc_sys::VmbAccessModeType::*;
     pub const FULL: crate::AccessMode = crate::AccessMode {
         code: VmbAccessModeFull,
     };
@@ -296,17 +302,17 @@ pub mod access_mode {
 #[derive(Debug)]
 pub struct CameraInfo {
     pub camera_id_string: String,
+    pub camera_id_extended: String,
     pub camera_name: String,
     pub model_name: String,
     pub serial_string: String,
     pub permitted_access: AccessMode,
-    pub interface_id_string: String,
 }
 
 pub struct Camera<'lib> {
     handle: VmbHandle_t,
     is_open: bool,
-    vimba_lib: &'lib vimba_sys::VimbaC,
+    vimba_lib: &'lib vmbc_sys::VimbaC,
 }
 
 unsafe impl<'lib> Send for Camera<'lib> {}
@@ -330,7 +336,7 @@ impl<'lib> Camera<'lib> {
     pub fn open(
         camera_id: &str,
         access_mode: AccessMode,
-        vimba_lib: &'lib vimba_sys::VimbaC,
+        vimba_lib: &'lib vmbc_sys::VimbaC,
     ) -> Result<Self> {
         let data = std::ffi::CString::new(camera_id)?;
         let mut handle = std::mem::MaybeUninit::<VmbHandle_t>::uninit();
@@ -637,7 +643,7 @@ impl<'lib> Camera<'lib> {
         buf.push(0);
         let sz = std::mem::size_of::<VmbFeaturePersistSettings_t>();
         let sz = sz.try_into().unwrap(); // convert to u32 from usize
-        vimba_call!(self.vimba_lib.VmbCameraSettingsSave(
+        vimba_call!(self.vimba_lib.VmbSettingsSave(
             self.handle,
             buf.as_ptr() as *const i8,
             (&mut p_settings.inner) as *mut _,
@@ -655,7 +661,7 @@ impl<'lib> Camera<'lib> {
         buf.push(0);
         let sz = std::mem::size_of::<VmbFeaturePersistSettings_t>();
         let sz = sz.try_into().unwrap(); // convert to u32 from usize
-        vimba_call!(self.vimba_lib.VmbCameraSettingsLoad(
+        vimba_call!(self.vimba_lib.VmbSettingsLoad(
             self.handle,
             buf.as_ptr() as *const i8,
             (&mut p_settings.inner) as *mut _,
@@ -683,8 +689,9 @@ impl Default for FeaturePersistentSettings {
         // These values are saved in .xml file from the Vimba Viewer 5.1 GUI.
         Self {
             inner: VmbFeaturePersistSettings_t {
-                persistType: vimba_sys::VmbFeaturePersistType::VmbFeaturePersistNoLUT
-                    as vimba_sys::VmbFeaturePersist_t,
+                persistType: vmbc_sys::VmbFeaturePersistType::VmbFeaturePersistNoLUT
+                    as vmbc_sys::VmbFeaturePersist_t,
+                modulePersistFlags: vmbc_sys::VmbModulePersistFlagsType::VmbModulePersistFlagsNone,
                 maxIterations: 5,
                 loggingLevel: 4,
             },
@@ -734,16 +741,17 @@ impl Frame {
             bufferSize: buffer.len().try_into().unwrap(),
             context: [std::ptr::null_mut(); 4],
             receiveStatus: 0,
+            frameID: 0,
+            timestamp: 0,
+            imageData: std::ptr::null_mut(),
             receiveFlags: 0,
-            imageSize: 0,
-            ancillarySize: 0,
             pixelFormat: 0,
             width: 0,
             height: 0,
             offsetX: 0,
             offsetY: 0,
-            frameID: 0,
-            timestamp: 0,
+            payloadType: vmbc_sys::VmbPayloadType::VmbPayloadTypeUnknown,
+            chunkDataPresent: 0, // vmbc_sys::VmbBoolVal::VmbBoolFalse,
         });
 
         Self {
@@ -765,12 +773,12 @@ impl Frame {
         self.frame.height
     }
     #[inline]
-    pub fn image_size(&self) -> usize {
-        self.frame.imageSize.try_into().unwrap()
+    pub fn buffer_size(&self) -> usize {
+        self.frame.bufferSize.try_into().unwrap()
     }
     #[inline]
     pub fn buffer(&self) -> &[u8] {
-        &self.buffer[..self.image_size()]
+        &self.buffer[..self.buffer_size()]
     }
     #[inline]
     pub fn frame_id(&self) -> u64 {
@@ -788,7 +796,7 @@ impl Frame {
 
 pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
     use formats::PixFmt::*;
-    use vimba_sys::VmbPixelFormatType::*;
+    use vmbc_sys::VmbPixelFormatType::*;
     #[allow(non_upper_case_globals)]
     let fmt = match code {
         VmbPixelFormatMono8 => Mono8,
@@ -887,8 +895,8 @@ pub fn pixel_format_to_str(pixfmt: formats::pixel_format::PixFmt) -> Result<&'st
 // }
 
 // impl DataType {
-//     pub fn new(orig: vimba_sys::VmbFeatureData_t) -> Self {
-//         use vimba_sys::VmbFeatureDataType::*;
+//     pub fn new(orig: vmbc_sys::VmbFeatureData_t) -> Self {
+//         use vmbc_sys::VmbFeatureDataType::*;
 //         use DataType::*;
 //         #[allow(non_upper_case_globals)]
 //         match orig as i32 {
@@ -910,11 +918,11 @@ pub fn pixel_format_to_str(pixfmt: formats::pixel_format::PixFmt) -> Result<&'st
 
 // #[derive(Debug, Clone, PartialEq)]
 // pub struct AccessFlags {
-//     flags: vimba_sys::VmbFeatureFlags_t,
+//     flags: vmbc_sys::VmbFeatureFlags_t,
 // }
 
 // impl AccessFlags {
-//     pub fn new(orig: vimba_sys::VmbFeatureFlags_t) -> Self {
+//     pub fn new(orig: vmbc_sys::VmbFeatureFlags_t) -> Self {
 //         Self { flags: orig }
 //     }
 // }

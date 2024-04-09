@@ -12,9 +12,9 @@
   [appropriate NVENC
   hardware](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new),
   hardware-accelerated encoding is also supported.
-* Added support from Allied Vision Technologies cameras using the Vimba driver.
-  In the braid .toml configuration file, specify the camera with `start_backend =
-  "vimba"`.
+* Added support from Allied Vision Technologies cameras using the Vimba X
+  driver. In the braid .toml configuration file, specify the camera with
+  `start_backend = "vimba"`.
 * Braidz Viewer website at https://braidz.strawlab.org/ can be installed as a
   [Progressive Web App
   (PWA)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app).

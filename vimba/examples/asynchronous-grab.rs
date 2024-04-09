@@ -5,16 +5,15 @@ use lazy_static::lazy_static;
 const N_BUFFER_FRAMES: usize = 3;
 
 lazy_static! {
-    // Prevent multiple concurrent access to structures and functions in Vimba
-    // which are not threadsafe.
     static ref VIMBA: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn callback_c(
-    camera_handle: vimba_sys::VmbHandle_t,
-    frame: *mut vimba_sys::VmbFrame_t,
+    camera_handle: vmbc_sys::VmbHandle_t,
+    _stream_handle: vmbc_sys::VmbHandle_t,
+    frame: *mut vmbc_sys::VmbFrame_t,
 ) {
     match std::panic::catch_unwind(|| {
         println!("got frame {}", (*frame).frameID);
@@ -25,7 +24,7 @@ pub unsafe extern "C" fn callback_c(
                     .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
             };
 
-            if err != vimba_sys::VmbErrorType::VmbErrorSuccess {
+            if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
                 println!("CB: err: {}", err);
             }
         }
@@ -40,22 +39,24 @@ pub unsafe extern "C" fn callback_c(
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let lib = vimba::VimbaLibrary::new()?;
-    let version_info = vimba::VersionInfo::new(&lib.vimba_lib)?;
+    let version_info = vimba::VersionInfo::new(&VIMBA.vimba_lib)?;
     println!(
-        "Vimba API Version {}.{}.{}",
+        "Vimba X API Version {}.{}.{}",
         version_info.major, version_info.minor, version_info.patch
     );
 
-    let n_cams = lib.n_cameras()?;
+    let n_cams = VIMBA.n_cameras()?;
     println!("{} cameras found", n_cams);
-    let camera_infos = lib.camera_info(n_cams)?;
+    let camera_infos = VIMBA.camera_info(n_cams)?;
     if !camera_infos.is_empty() {
         let cam_id = camera_infos[0].camera_id_string.as_str();
         println!("Opening camera {}", cam_id);
         println!("  {:?}", camera_infos[0]);
 
-        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
+        let camera = {
+            let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
+            camera
+        };
         let pixel_format = camera.pixel_format()?;
         println!("  pixel_format: {:?}", pixel_format);
 
@@ -90,6 +91,6 @@ fn main() -> anyhow::Result<()> {
         }
         camera.close()?;
     }
-    // When `lib` is dropped, `VmbShutdown` will automatically be called.
+    unsafe { VIMBA.shutdown() };
     Ok(())
 }

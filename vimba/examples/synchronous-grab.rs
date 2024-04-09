@@ -3,7 +3,7 @@ fn main() -> anyhow::Result<()> {
     let lib = vimba::VimbaLibrary::new()?;
     let version_info = vimba::VersionInfo::new(&lib.vimba_lib)?;
     println!(
-        "Vimba API Version {}.{}.{}",
+        "Vimba X API Version {}.{}.{}",
         version_info.major, version_info.minor, version_info.patch
     );
     let n_cams = lib.n_cameras()?;
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
                     i,
                     frame.width(),
                     frame.height(),
-                    frame.image_size()
+                    frame.buffer_size()
                 );
             } else {
                 println!("  capture finished, but no completed frame.");

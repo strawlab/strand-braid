@@ -32,7 +32,7 @@ struct FrameSender {
 }
 
 struct CamHandle {
-    inner: vimba_sys::VmbHandle_t,
+    inner: vmbc_sys::VmbHandle_t,
 }
 
 unsafe impl Sync for CamHandle {}
@@ -53,15 +53,15 @@ fn ve2ce(orig: vimba::Error) -> ci2::Error {
 }
 
 fn callback_rust(
-    camera_handle: vimba_sys::VmbHandle_t,
-    frame: *mut vimba_sys::VmbFrame_t,
+    camera_handle: vmbc_sys::VmbHandle_t,
+    frame: *mut vmbc_sys::VmbFrame_t,
 ) -> ci2::Result<()> {
     let now = chrono::Utc::now(); // earliest possible timestamp
     let frame_status = unsafe { (*frame).receiveStatus };
     if !IS_DONE.load(Ordering::Relaxed) {
         // Copy all data from Vimba.
 
-        let msg = if frame_status == vimba_sys::VmbFrameStatusType::VmbFrameStatusComplete {
+        let msg = if frame_status == vmbc_sys::VmbFrameStatusType::VmbFrameStatusComplete {
             // Make reference to image buffer.
             let buf_ref = unsafe {
                 let buf_ref1 = (*frame).buffer;
@@ -76,7 +76,7 @@ fn callback_rust(
 
             let flags = unsafe { (*frame).receiveFlags };
             let frame_id =
-                if flags & vimba_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 as u32 != 0 {
+                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 as u32 != 0 {
                     unsafe { (*frame).frameID }
                 } else {
                     eprintln!("no frame number data in frame");
@@ -84,7 +84,7 @@ fn callback_rust(
                 };
 
             let device_timestamp =
-                if flags & vimba_sys::VmbFrameFlagsType::VmbFrameFlagsTimestamp.0 as u32 != 0 {
+                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsTimestamp.0 as u32 != 0 {
                     unsafe { (*frame).timestamp }
                 } else {
                     eprintln!("no timestamp data in frame");
@@ -118,13 +118,13 @@ fn callback_rust(
             }
         } else {
             let str_msg = match frame_status {
-                vimba_sys::VmbFrameStatusType::VmbFrameStatusIncomplete => {
+                vmbc_sys::VmbFrameStatusType::VmbFrameStatusIncomplete => {
                     "Frame could not be filled to the end"
                 }
-                vimba_sys::VmbFrameStatusType::VmbFrameStatusTooSmall => {
+                vmbc_sys::VmbFrameStatusType::VmbFrameStatusTooSmall => {
                     "Frame buffer was too small"
                 }
-                vimba_sys::VmbFrameStatusType::VmbFrameStatusInvalid => "Frame buffer was invalid",
+                vmbc_sys::VmbFrameStatusType::VmbFrameStatusInvalid => "Frame buffer was invalid",
                 other => {
                     if other == -4 {
                         eprintln!("undocumented frame status -4: was VmbShutdown() called?");
@@ -144,7 +144,7 @@ fn callback_rust(
             }
         };
 
-        if err_code != vimba_sys::VmbErrorType::VmbErrorSuccess {
+        if err_code != vmbc_sys::VmbErrorType::VmbErrorSuccess {
             let e = vimba::Error::from(vimba::VimbaError::from(err_code));
             return Err(ve2ce(e));
         }
@@ -184,8 +184,9 @@ fn callback_rust(
 /// callbacks.
 #[no_mangle]
 pub unsafe extern "C" fn callback_c(
-    camera_handle: vimba_sys::VmbHandle_t,
-    frame: *mut vimba_sys::VmbFrame_t,
+    camera_handle: vmbc_sys::VmbHandle_t,
+    _stream_handle: vmbc_sys::VmbHandle_t,
+    frame: *mut vmbc_sys::VmbFrame_t,
 ) {
     match std::panic::catch_unwind(|| {
         callback_rust(camera_handle, frame).unwrap();
@@ -257,7 +258,7 @@ impl Drop for VimbaTerminateGuard {
 }
 
 pub fn make_singleton_guard<'a>(
-    _pylon_module: &dyn ci2::CameraModule<
+    _vimba_module: &dyn ci2::CameraModule<
         CameraType = WrappedCamera<'a>,
         Guard = VimbaTerminateGuard,
     >,
