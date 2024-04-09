@@ -83,7 +83,7 @@ test_crates:
     # Test Pylon stuff
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - cd ci2-simple-demo
-    - cargo test --features backend_pyloncxx
+    - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
     - cd ..
 
     - cd ci2-cli
