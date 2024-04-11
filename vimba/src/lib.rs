@@ -143,6 +143,16 @@ impl VimbaLibrary {
                 .join("api")
                 .join("lib"),
             None => {
+                #[cfg(target_os = "windows")]
+                let vmbc_path = {
+                    // Tell Windows to add this directory to DLL search path.
+                    let dll_path =
+                        windows::core::s!(r#"C:\Program Files\Allied Vision\Vimba X\bin"#);
+                    unsafe { windows::Win32::System::LibraryLoader::SetDllDirectoryA(dll_path) }?;
+                    // Now we directly open this DLL, which should now be on the search path.
+                    "VmbC.dll"
+                };
+
                 #[cfg(target_os = "linux")]
                 let vmbc_path = "/opt/VimbaX_2023-4/api/lib/libVmbC.so";
 
