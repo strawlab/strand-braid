@@ -397,7 +397,7 @@ impl<'a> WrappedCamera<'a> {
                                         log::warn!("You seem to be using a USB3 camera on linux but the file \"{}\" \
                                         is set to only {}. For best performance, consider setting it to {}. \
                                         For more information, see \
-                                        https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/how-can-i-set-the-usbfs-on-linux-or-linux-for-arm-to-prevent-image-losses-with-pylon-and-usb-cameras/29826/.",
+                                        https://web.archive.org/web/20230318224225/https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/how-can-i-set-the-usbfs-on-linux-or-linux-for-arm-to-prevent-image-losses-with-pylon-and-usb-cameras/29826/.",
                                         fname, usbfs_memory_mb, desired_mb);
                                     } else {
                                         log::debug!(
