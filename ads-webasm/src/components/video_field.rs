@@ -4,9 +4,9 @@ use crate::video_data::VideoData;
 use gloo::timers::callback::Timeout;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
-use yew::{html, Callback, Component, Context, Html, MouseEvent, Properties};
+use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Properties};
 
-use yew_tincture::components::CheckboxLabel;
+use yew_tincture::components::{Button, CheckboxLabel};
 
 use http_video_streaming_types::{
     CanvasDrawableShape, CircleParams, FirehoseCallbackInner, Point, StrokeStyle,
@@ -46,6 +46,8 @@ pub struct VideoField {
     green: JsValue,
     rendered_frame_number: Option<u64>,
     timeout: Option<Timeout>,
+    zoom_mode: ZoomMode,
+    rotate_quarter_turns: i8,
 }
 
 pub enum Msg {
@@ -53,6 +55,15 @@ pub enum Msg {
     NotifySender(FirehoseCallbackInner),
     MouseMove(MouseEvent),
     ToggleCollapsed(bool),
+    ViewFit,
+    ViewScale(f64),
+    ViewRotateCW,
+    ViewRotateCCW,
+}
+
+pub enum ZoomMode {
+    Fit,
+    Scale(f64),
 }
 
 #[derive(PartialEq, Properties)]
@@ -80,6 +91,8 @@ impl Component for VideoField {
             green: JsValue::from("7fff7f"),
             rendered_frame_number: None,
             timeout: None,
+            zoom_mode: ZoomMode::Fit,
+            rotate_quarter_turns: 0,
         }
     }
 
@@ -154,8 +167,20 @@ impl Component for VideoField {
                     callback.emit(fci);
                 }
             }
+            Msg::ViewFit => {
+                self.zoom_mode = ZoomMode::Fit;
+            }
+            Msg::ViewScale(val) => {
+                self.zoom_mode = ZoomMode::Scale(val);
+            }
+            Msg::ViewRotateCW => {
+                self.rotate_quarter_turns = (self.rotate_quarter_turns + 1) % 4;
+            }
+            Msg::ViewRotateCCW => {
+                self.rotate_quarter_turns = (self.rotate_quarter_turns - 1) % 4;
+            }
         }
-        false
+        true
     }
 
     fn changed(&mut self, ctx: &Context<Self>, props: &Self::Properties) -> bool {
@@ -198,6 +223,7 @@ impl Component for VideoField {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let cprops = self.cprops(ctx.props().width, ctx.props().height);
         html! {
             <div class="wrap-collapsible">
               <CheckboxLabel
@@ -205,14 +231,28 @@ impl Component for VideoField {
                 initially_checked={self.show_div}
                 oncheck={ctx.link().callback(Msg::ToggleCollapsed)}
                 />
-              <div>
-                <canvas
-                    width={format!("{}",ctx.props().width)}
-                    height={format!("{}",ctx.props().height)}
-                    id={self.css_id.clone()}
-                    class="video-field-canvas"
-                    onmousemove={ctx.link().callback(Msg::MouseMove)}
-                    />
+              <div class={"canvas-wrap"} style={"overflow: hidden;"}>
+                <div class="pre-canvas">
+                    {"View: "}
+                    <Button title={"Fit"} onsignal={ctx.link().callback(|_| Msg::ViewFit)}/>
+                    <Button title={"25%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(0.25))}/>
+                    <Button title={"50%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(0.5))}/>
+                    <Button title={"100%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(1.0))}/>
+                    <Button title={"Rotate CW"} onsignal={ctx.link().callback(|_| Msg::ViewRotateCW)}/>
+                    <Button title={"Rotate CCW"} onsignal={ctx.link().callback(|_| Msg::ViewRotateCCW)}/>
+                </div>
+                <div class={"the-canvas-outer"} style={"overflow: hidden"}>
+                    <div class="the-canvas" style={cprops.div_style}>
+                        <canvas
+                            width={format!("{}",cprops.w)}
+                            height={format!("{}",cprops.h)}
+                            id={self.css_id.clone()}
+                            class={classes!("video-field-canvas")}
+                            style={cprops.canv_style}
+                            onmousemove={ctx.link().callback(Msg::MouseMove)}
+                            />
+                    </div>
+                </div>
                 { self.view_text(ctx) }
               </div>
             </div>
@@ -220,13 +260,47 @@ impl Component for VideoField {
     }
 }
 
+struct CProps {
+    w: u32,
+    h: u32,
+    div_style: String,
+    canv_style: String,
+}
+
 impl VideoField {
-    fn view_text(&self, ctx: &Context<Self>) -> Html {
-        let mouse_str = if let Some(ref mouse_pos) = self.mouse_xy {
-            format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
-        } else {
-            "".to_string()
+    fn cprops(&self, ctx_w: u32, ctx_h: u32) -> CProps {
+        // let myw = if landscape { ctx_w } else { ctx_h };
+        let rot_deg = self.rotate_quarter_turns as i32 * 90;
+        let (div_style, canv_style) = match self.zoom_mode {
+            ZoomMode::Fit => (
+                format!("transform: rotate({rot_deg}deg); overflow: hidden; position: relative;"),
+                "width: 100%; height: auto;".into(),
+            ),
+            ZoomMode::Scale(scale) => (
+                format!("transform: rotate({rot_deg}deg); overflow: hidden; position: relative;"),
+                format!(
+                    "width: {}px; height: {}px;",
+                    ctx_w as f64 * scale,
+                    ctx_h as f64 * scale,
+                ),
+            ),
         };
+        CProps {
+            w: ctx_w,
+            h: ctx_h,
+            div_style,
+            canv_style,
+        }
+    }
+
+    fn view_text(&self, ctx: &Context<Self>) -> Html {
+        let mouse_str =
+            if let (Some(ref mouse_pos), 0) = (self.mouse_xy.as_ref(), self.rotate_quarter_turns) {
+                // TODO: when self.rotate_quarter_turns is not 0, correct these numbers.
+                format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
+            } else {
+                "".to_string()
+            };
         let fno_str = format!("{}", self.rendered_frame_number.unwrap_or(0));
         html! {
             <div class="video-field-text">
