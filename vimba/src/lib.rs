@@ -37,12 +37,33 @@ fn err_str(err: i32) -> &'static str {
         VmbErrorNotSupported => "VmbErrorNotSupported",
         VmbErrorIncomplete => "VmbErrorIncomplete",
         VmbErrorIO => "VmbErrorIO",
+        VmbErrorValidValueSetNotPresent => "VmbErrorValidValueSetNotPresent",
+        VmbErrorGenTLUnspecified => "VmbErrorGenTLUnspecified",
+        VmbErrorUnspecified => "VmbErrorUnspecified",
+        VmbErrorBusy => "VmbErrorBusy",
+        VmbErrorNoData => "VmbErrorNoData",
+        VmbErrorParsingChunkData => "VmbErrorParsingChunkData",
+        VmbErrorInUse => "VmbErrorInUse",
+        VmbErrorUnknown => "VmbErrorUnknown",
+        VmbErrorXml => "VmbErrorXml",
+        VmbErrorNotAvailable => "VmbErrorNotAvailable",
+        VmbErrorNotInitialized => "VmbErrorNotInitialized",
+        VmbErrorInvalidAddress => "VmbErrorInvalidAddress",
+        VmbErrorAlready => "VmbErrorAlready",
+        VmbErrorNoChunkData => "VmbErrorNoChunkData",
+        VmbErrorUserCallbackException => "VmbErrorUserCallbackException",
+        VmbErrorFeaturesUnavailable => "VmbErrorFeaturesUnavailable",
+        VmbErrorTLNotFound => "VmbErrorTLNotFound",
+        VmbErrorAmbiguous => "VmbErrorAmbiguous",
+        VmbErrorRetriesExceeded => "VmbErrorRetriesExceeded",
+        VmbErrorInsufficientBufferCount => "VmbErrorInsufficientBufferCount",
+        VmbErrorCustom => "VmbErrorCustom",
         _ => "unknown error",
     }
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("Vimba Error {code}: {msg}")]
+#[error("Vimba X error {code}: {msg}")]
 pub struct VimbaError {
     pub code: i32,
     pub msg: &'static str,
