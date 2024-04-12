@@ -15,13 +15,16 @@ fn main() -> anyhow::Result<()> {
         let cam_id = camera_infos[0].camera_id_string.as_str();
         println!("Opening camera {}", cam_id);
         let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &lib.vimba_lib)?;
-
-        let mut settings_settings = vimba::FeaturePersistentSettings::default(); // let's get meta. settings to load the settings.
+        // Settings to load the settings. Let's get meta.
+        let settings_settings = vmbc_sys::VmbFeaturePersistSettings_t {
+            persistType: vmbc_sys::VmbFeaturePersistType::VmbFeaturePersistNoLUT,
+            ..vimba::default_feature_persist_settings()
+        };
         println!(
             "  loading settings from: {}",
             settings_path.to_string_lossy()
         );
-        camera.camera_settings_load(settings_path, &mut settings_settings)?;
+        camera.camera_settings_load(settings_path, &settings_settings)?;
     }
     Ok(())
 }

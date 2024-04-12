@@ -668,7 +668,7 @@ impl<'lib> Camera<'lib> {
     pub fn camera_settings_save<P: AsRef<std::path::Path>>(
         &self,
         out_path: P,
-        p_settings: &mut FeaturePersistentSettings,
+        p_settings: &VmbFeaturePersistSettings_t,
     ) -> Result<()> {
         let mut buf = path_to_bytes(out_path);
         buf.push(0);
@@ -677,7 +677,7 @@ impl<'lib> Camera<'lib> {
         vimba_call!(self.vimba_lib.VmbSettingsSave(
             self.handle,
             buf.as_ptr() as *const i8,
-            (&mut p_settings.inner) as *mut _,
+            p_settings as *const _,
             sz
         ))?;
         Ok(())
@@ -686,7 +686,7 @@ impl<'lib> Camera<'lib> {
     pub fn camera_settings_load<P: AsRef<std::path::Path>>(
         &self,
         in_path: P,
-        p_settings: &mut FeaturePersistentSettings,
+        p_settings: &VmbFeaturePersistSettings_t,
     ) -> Result<()> {
         let mut buf = path_to_bytes(in_path);
         buf.push(0);
@@ -695,7 +695,7 @@ impl<'lib> Camera<'lib> {
         vimba_call!(self.vimba_lib.VmbSettingsLoad(
             self.handle,
             buf.as_ptr() as *const i8,
-            (&mut p_settings.inner) as *mut _,
+            p_settings as *const _,
             sz
         ))?;
         Ok(())
@@ -711,22 +711,16 @@ impl<'lib> Drop for Camera<'lib> {
     }
 }
 
-pub struct FeaturePersistentSettings {
-    inner: VmbFeaturePersistSettings_t,
-}
-
-impl Default for FeaturePersistentSettings {
-    fn default() -> Self {
-        // These values are saved in .xml file from the Vimba Viewer 5.1 GUI.
-        Self {
-            inner: VmbFeaturePersistSettings_t {
-                persistType: vmbc_sys::VmbFeaturePersistType::VmbFeaturePersistNoLUT
-                    as vmbc_sys::VmbFeaturePersist_t,
-                modulePersistFlags: vmbc_sys::VmbModulePersistFlagsType::VmbModulePersistFlagsNone,
-                maxIterations: 5,
-                loggingLevel: 4,
-            },
-        }
+pub fn default_feature_persist_settings() -> VmbFeaturePersistSettings_t {
+    // These values are the defaults in vmbpy-1.0.4 from Vimba X in the
+    // save_settings() and load_settings() function signatures with the
+    // exception of maxIterations and loggingLevel, which are the values that
+    // Vimba X viewer seems to use.
+    VmbFeaturePersistSettings_t {
+        persistType: vmbc_sys::VmbFeaturePersistType::VmbFeaturePersistStreamable,
+        modulePersistFlags: vmbc_sys::VmbModulePersistFlagsType::VmbModulePersistFlagsNone,
+        maxIterations: 10,
+        loggingLevel: 4,
     }
 }
 

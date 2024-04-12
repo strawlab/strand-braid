@@ -490,10 +490,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             // When file goes out of scope, it will be closed.
         }
 
-        let mut settings_settings = vimba::FeaturePersistentSettings::default(); // let's get meta. settings to load the settings.
+        let settings_settings = vimba::default_feature_persist_settings(); // let's get meta. settings to load the settings.
         self.camera
             .lock()
-            .camera_settings_load(&settings_path, &mut settings_settings)
+            .camera_settings_load(&settings_path, &settings_settings)
             .map_vimba_err()
 
         // tempdir will be closed and removed when it is dropped.
@@ -505,10 +505,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         // write the settings to a file
         let settings_path = dir.path().join("settings.xml");
 
-        let mut settings_settings = vimba::FeaturePersistentSettings::default(); // let's get meta. settings to save the settings.
+        let settings_settings = vimba::default_feature_persist_settings(); // let's get meta. settings to save the settings.
         self.camera
             .lock()
-            .camera_settings_save(&settings_path, &mut settings_settings)
+            .camera_settings_save(&settings_path, &settings_settings)
             .map_vimba_err()?;
 
         let buf = std::fs::read_to_string(&settings_path)?;
