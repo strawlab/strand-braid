@@ -315,24 +315,6 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
             rx
         };
 
-        let set_device_link_throughput_limit_mode =
-            match std::env::var_os("DISABLE_SET_DEVICE_LINK_THROUGHPUT_LIMIT_MODE") {
-                Some(v) => &v == "0",
-                None => true,
-            };
-
-        if set_device_link_throughput_limit_mode {
-            let mode = camera
-                .feature_enum("DeviceLinkThroughputLimitMode")
-                .map_vimba_err()?;
-
-            if mode == "On" {
-                camera
-                    .feature_enum_set("DeviceLinkThroughputLimitMode", "Off")
-                    .map_vimba_err()?;
-            }
-        }
-
         Ok(WrappedCamera {
             camera: Arc::new(Mutex::new(camera)),
             acquisition_started: false,
