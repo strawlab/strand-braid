@@ -46,6 +46,9 @@
   cookie signing secret which is persisted to disk and does not require the user
   to set. A token is needed for the first request via HTTP but typically the
   token-free URL can be used for subsequent requests.
+* Live view video field has new viewing modes, namely "25%", "50%" and "100%"
+  scaled modes in addition to the existing "Fit" mode. Also "Rotate CW" and
+  "Rotate CCW" buttons were added.
 * Binary release compiled with Basler Pylon version 7.3.
 
 ### Changed
