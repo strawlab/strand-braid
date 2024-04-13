@@ -146,74 +146,108 @@ pub async fn new_model_server(
     mut data_rx: tokio::sync::mpsc::Receiver<(SendType, TimeDataPassthrough)>,
     addr: std::net::SocketAddr,
 ) -> Result<()> {
-    {
-        let app_state = ModelServerAppState::default();
+    let app_state = ModelServerAppState::default();
 
-        let listener = tokio::net::TcpListener::bind(addr).await?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
-        #[cfg(feature = "bundle_files")]
-        let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
+    #[cfg(feature = "bundle_files")]
+    let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
 
-        #[cfg(feature = "serve_files")]
-        let serve_dir = tower_http::services::fs::ServeDir::new(
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
-        );
+    #[cfg(feature = "serve_files")]
+    let serve_dir = tower_http::services::fs::ServeDir::new(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
+    );
 
-        // Create axum router.
-        let router = axum::Router::new()
-            .route(EVENTS_PATH, axum::routing::get(events_handler))
-            .nest_service("/", serve_dir)
-            .with_state(app_state.clone());
+    // Create axum router.
+    let router = axum::Router::new()
+        .route(EVENTS_PATH, axum::routing::get(events_handler))
+        .nest_service("/", serve_dir)
+        .with_state(app_state.clone());
 
-        // create future for our app
-        let http_serve_future = {
-            use std::future::IntoFuture;
-            axum::serve(listener, router).into_future()
-        };
+    // create future for our app
+    let http_serve_future = {
+        use std::future::IntoFuture;
+        axum::serve(listener, router).into_future()
+    };
 
-        info!("ModelServer at http://{}:{}/", addr.ip(), addr.port());
+    info!("ModelServer at http://{}:{}/", addr.ip(), addr.port());
 
-        debug!(
-            "ModelServer events at http://{}:{}{}",
-            addr.ip(),
-            addr.port(),
-            EVENTS_PATH,
-        );
+    debug!(
+        "ModelServer events at http://{}:{}{}",
+        addr.ip(),
+        addr.port(),
+        EVENTS_PATH,
+    );
 
-        // Infinite loop to process and forward data.
-        let app_state2 = app_state.clone();
-        let new_data_processor_future = async move {
-            let app_state = app_state2;
-            // Wait for the next update time to arrive ...
-            loop {
-                let opt_new_data = data_rx.recv().await;
-                match &opt_new_data {
-                    Some(data) => {
-                        if let (SendType::CalibrationFlydraXml(calib), tdpt) = &data {
-                            let mut current_calibration =
-                                app_state.current_calibration.write().unwrap();
-                            *current_calibration = Some((calib.clone(), tdpt.clone()));
-                        }
-                        send_msg(data, &app_state).await?;
+    // Infinite loop to process and forward data.
+    let app_state2 = app_state.clone();
+    let new_data_processor_future = async move {
+        let app_state = app_state2;
+
+        const ENV_KEY: &str = "RERUN_VIEWER_ADDR";
+        let rec = std::env::var_os(ENV_KEY).map(|addr_str| {
+            let socket_addr = std::net::ToSocketAddrs::to_socket_addrs(addr_str.to_str().unwrap())
+                .unwrap()
+                .next()
+                .unwrap();
+            tracing::info!("Streaming data to rerun at {socket_addr}");
+            let rec = rerun::RecordingStreamBuilder::new("braid")
+                .connect_opts(socket_addr, None)
+                .unwrap();
+            rec
+        });
+
+        if rec.is_none() {
+            tracing::info!(
+                "No Rerun viewer address specified with environment variable \
+            \"{ENV_KEY}\", not logging data to Rerun. (Hint: the Rerun Viewer \
+                listens by default on port 9876.)"
+            );
+        }
+
+        // Wait for the next update time to arrive ...
+        loop {
+            let opt_new_data = data_rx.recv().await;
+            match &opt_new_data {
+                Some(data) => {
+                    if let (SendType::CalibrationFlydraXml(calib), tdpt) = &data {
+                        let mut current_calibration =
+                            app_state.current_calibration.write().unwrap();
+                        *current_calibration = Some((calib.clone(), tdpt.clone()));
                     }
-                    None => {
-                        // All senders done. No new data will be coming, so quit.
-                        break;
+                    send_msg(data, &app_state).await?;
+
+                    if let Some(rec) = &rec {
+                        match data {
+                            (SendType::CalibrationFlydraXml(_calib), _tdpt) => {}
+                            (SendType::Birth(row), _tdpt) | (SendType::Update(row), _tdpt) => {
+                                let obj_id = format!("{}", row.obj_id);
+                                let position =
+                                    rerun::Vec3D::new(row.x as f32, row.y as f32, row.z as f32);
+                                rec.log(obj_id, &rerun::Points3D::new([position])).unwrap();
+                            }
+                            (SendType::Death(_x), _tdpt) => {}
+                            (SendType::EndOfFrame(_x), _tdpt) => {}
+                        }
                     }
                 }
+                None => {
+                    // All senders done. No new data will be coming, so quit.
+                    break;
+                }
             }
-            Ok::<_, crate::Error>(())
-        };
-
-        // Wait for one of our futures to finish...
-        tokio::select! {
-            result = new_data_processor_future => {result?}
-            _ = http_serve_future => {}
         }
-        // ...then exit.
+        Ok::<_, crate::Error>(())
+    };
 
-        Ok(())
+    // Wait for one of our futures to finish...
+    tokio::select! {
+        result = new_data_processor_future => {result?}
+        _ = http_serve_future => {}
     }
+    // ...then exit.
+
+    Ok(())
 }
 
 fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {

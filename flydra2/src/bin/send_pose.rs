@@ -6,10 +6,13 @@ use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Trigg
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "info");
+    }
     let _tracing_guard = env_tracing_logger::init();
 
     let addr: std::net::SocketAddr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
-    println!("send_pose server at {}", &addr);
+    tracing::info!("starting send_pose server at {addr}");
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 

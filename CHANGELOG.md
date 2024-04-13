@@ -23,9 +23,11 @@
 * Braid can now start saving MP4 files in all cameras with a single button.
   Furthermore, additional support for post-triggering of all cameras can be
   done.
-* Support for [Rerun](https://www.rerun.io) to visualize data. New utility
-  (`braidz-export-rrd`) to combine .braidz files and multi-camera videos into a
-  single .rrd file for viewing with the ['Rerun viewer'](https://www.rerun.io).
+* Support for [Rerun](https://www.rerun.io) to visualize data. If the
+  environment variable `RERUN_VIEWER_ADDR` is set, Braid will attempt to connect
+  to the rerun viewer at this address. A new utility (`braidz-export-rrd`)
+  converts .braidz files (and, if specified, also multi-camera .mp4 videos) into
+  a .rrd file for viewing with the Rerun viewer.
 * Add ability for a single Strand Camera instance to perform 2D tracking in
   multiple mini arenas simultaneously. Inspired by
   [MARGO](https://github.com/de-Bivort-Lab/margo). Trajectories are confined to
