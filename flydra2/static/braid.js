@@ -22,9 +22,9 @@ function update_events(to_listener) {
     var mirror = document.getElementById("current");
     var d = to_listener.msg.Update;
     if (typeof d != "undefined") {
-        var latency_in_flydra_msec = to_listener.latency*1000.0;
-        var show = {obj_id: d.obj_id, frame: d.frame, x: d.x, y: d.y, z: d.z, latency_in_flydra_msec}
-        var buf = JSON.stringify(show);
+        var latency_msec = to_listener.latency * 1000.0;
+        var show = { obj_id: d.obj_id, frame: d.frame, x: d.x, y: d.y, z: d.z, latency_in_flydra_msec: latency_msec }
+        var buf = JSON.stringify(show, null, " ");
         var element = document.createElement("pre");
         var content = document.createTextNode(buf);
         while (mirror.firstChild) {
@@ -58,19 +58,19 @@ var SeverEvents = {
 
         } else {
             var root = document.getElementById("root");
-            root.innerHTML = ('<div>'+
-                '<h4>EventSource not supported in this browser</h4>'+
-                'Read about EventSource (also known as Server-sent events) at <a '+
-                'href="https://html.spec.whatwg.org/multipage/'+
-                'server-sent-events.html#server-sent-events">whatwg.org</a>.'+
-                'See <a href="http://caniuse.com/#feat=eventsource">caniuse.com</a> for '+
-                'information about which browsers are supported.'+
+            root.innerHTML = ('<div>' +
+                '<h4>EventSource not supported in this browser</h4>' +
+                'Read about EventSource (also known as Server-sent events) at <a ' +
+                'href="https://html.spec.whatwg.org/multipage/' +
+                'server-sent-events.html#server-sent-events">whatwg.org</a>.' +
+                'See <a href="http://caniuse.com/#feat=eventsource">caniuse.com</a> for ' +
+                'information about which browsers are supported.' +
                 '</div>');
         }
     }
 };
 
-function start(){
+function start() {
     SeverEvents.init();
 }
 
