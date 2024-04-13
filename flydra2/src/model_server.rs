@@ -53,11 +53,6 @@ async fn events_handler(
     body
 }
 
-async fn info_handler() -> impl axum::response::IntoResponse {
-    tracing::trace!("info_handler");
-    "info_handler"
-}
-
 #[derive(Clone)]
 struct ModelServerAppState {
     current_calibration: Arc<RwLock<Option<(String, TimeDataPassthrough)>>>,
@@ -167,7 +162,6 @@ pub async fn new_model_server(
         // Create axum router.
         let router = axum::Router::new()
             .route(EVENTS_PATH, axum::routing::get(events_handler))
-            .route("/info", axum::routing::get(info_handler))
             .nest_service("/", serve_dir)
             .with_state(app_state.clone());
 
