@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-#[cfg(target_os = "linux")]
+#[cfg(target_family = "unix")]
 use posix_scheduler_build::*;
 
 #[cfg(not(target_family = "unix"))]
@@ -16,7 +16,7 @@ fn main() {}
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("consts.rs");
-    let mut f = File::create(&dest_path).unwrap();
+    let mut f = File::create(dest_path).unwrap();
 
     let line = format!("pub const SCHED_OTHER: libc::c_int = {};", unsafe {
         get_policy_SCHED_OTHER()

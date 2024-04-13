@@ -1,10 +1,12 @@
 extern crate libc;
 
+#[cfg(target_os = "linux")]
 use std::io::{Error, Result};
 
 #[cfg(target_os = "linux")]
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 
+#[cfg(target_os = "linux")]
 macro_rules! syscall {
     ($ex:expr) => {{
         let result = unsafe { $ex };
