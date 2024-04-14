@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use gloo_events::EventListener;
-use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen, UnwrapThrowExt};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{EventSource, MessageEvent};
 
@@ -15,7 +15,7 @@ use flydra_types::{
 };
 use rust_cam_bui_types::RecordingPath;
 
-use yew::{html,Context, Html, Component, Event};
+use yew::{html, Component, Context, Event, Html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};
@@ -49,7 +49,7 @@ struct Model {
     recording_path: Option<RecordingPath>,
     fake_mp4_recording_path: Option<RecordingPath>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
-    _listener: EventListener,
+    _listeners: Vec<EventListener>,
 }
 
 // -----------------------------------------------------------------------------
@@ -62,6 +62,7 @@ enum Msg {
     SendMessageFetchState(FetchState),
     SetPostTriggerBufferSize(usize),
     PostTriggerMp4Recording,
+    RenderView,
 }
 
 // -----------------------------------------------------------------------------
@@ -111,12 +112,22 @@ impl Component for Model {
                 Ok(msg) => Msg::NewServerState(msg),
                 Err(e) => Msg::FailedDecode(e),
             });
-        let listener =
-            EventListener::new(&es, flydra_types::BRAID_EVENT_NAME, move |event: &Event| {
+        let mut _listeners = vec![EventListener::new(
+            &es,
+            flydra_types::BRAID_EVENT_NAME,
+            move |event: &Event| {
                 let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
                 let text = event.data().as_string().unwrap_throw();
                 cb.emit(text);
-            });
+            },
+        )];
+
+        let link = ctx.link().clone();
+        _listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
+            // Trigger a UI redraw on error, because we won't get any state
+            // updates from the server which would otherwise cause a redraw.
+            link.send_message(Msg::RenderView);
+        }));
 
         Self {
             shared: None,
@@ -126,12 +137,13 @@ impl Component for Model {
             recording_path: None,
             fake_mp4_recording_path: None,
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
-            _listener: listener,
+            _listeners,
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::RenderView => {}
             Msg::SendMessageFetchState(_fetch_state) => {
                 return false;
             }
@@ -320,7 +332,7 @@ impl Model {
 
     fn disconnected_dialog(&self) -> Html {
         // 0: connecting, 1: open, 2: closed
-        if self.es.ready_state() != 2 {
+        if self.es.ready_state() == 1 {
             html! {
                <div>
                  { "" }
