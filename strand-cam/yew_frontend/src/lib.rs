@@ -125,6 +125,7 @@ enum Msg {
     PostTriggerMp4Recording,
 
     SendMessageFetchState(FetchState),
+    RenderView,
 }
 
 // -----------------------------------------------------------------------------
@@ -164,8 +165,7 @@ struct Model {
     json_decode_err: Option<String>,
     html_page_title: Option<String>,
     es: EventSource,
-    _data_listener: EventListener,
-    _stream_listener: EventListener,
+    _listeners: Vec<EventListener>,
 
     csv_recording_rate: RecordingFrameRate,
     checkerboard_width: TypedInputStorage<u32>,
@@ -211,7 +211,8 @@ impl Component for Model {
                     }
                 });
 
-        let data_listener = EventListener::new(
+        let mut _listeners = Vec::new();
+        _listeners.push(EventListener::new(
             &es,
             strand_cam_storetype::STRAND_CAM_EVENT_NAME,
             move |event: &Event| {
@@ -219,9 +220,9 @@ impl Component for Model {
                 let text = event.data().as_string().unwrap_throw();
                 data_callback.emit(text);
             },
-        );
+        ));
 
-        let stream_listener = EventListener::new(
+        _listeners.push(EventListener::new(
             &es,
             http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
             move |event: &Event| {
@@ -229,7 +230,14 @@ impl Component for Model {
                 let text = event.data().as_string().unwrap_throw();
                 stream_callback.emit(text);
             },
-        );
+        ));
+
+        let link = ctx.link().clone();
+        _listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
+            // Trigger a UI redraw on error, because we won't get any state
+            // updates from the server which would otherwise cause a redraw.
+            link.send_message(Msg::RenderView);
+        }));
 
         Self {
             video_data: Rc::new(RefCell::new(VideoData::new(None))),
@@ -237,8 +245,7 @@ impl Component for Model {
             json_decode_err: None,
             html_page_title: None,
             es,
-            _data_listener: data_listener,
-            _stream_listener: stream_listener,
+            _listeners,
             csv_recording_rate: RecordingFrameRate::Unlimited,
             checkerboard_width: TypedInputStorage::empty(),
             checkerboard_height: TypedInputStorage::empty(),
@@ -256,6 +263,7 @@ impl Component for Model {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::RenderView => {}
             Msg::SendMessageFetchState(_fetch_state) => {
                 return false;
             }
@@ -628,7 +636,7 @@ impl Model {
 
     fn disconnected_dialog(&self) -> Html {
         // 0: connecting, 1: open, 2: closed
-        if self.es.ready_state() != 2 {
+        if self.es.ready_state() == 1 {
             html! {
                <div>
                  { "" }
