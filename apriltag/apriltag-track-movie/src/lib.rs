@@ -136,12 +136,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let mut frame_store;
 
-    let frame_iter: &mut dyn Iterator<Item=Result<Y4MFrame, anyhow::Error>> = if let Some(max_num_frames) = cli.max_num_frames {
-        frame_store = Some(frames.take(max_num_frames));
-        frame_store.as_mut().unwrap()
-    } else {
-        &mut frames
-    };
+    let frame_iter: &mut dyn Iterator<Item = Result<Y4MFrame, anyhow::Error>> =
+        if let Some(max_num_frames) = cli.max_num_frames {
+            frame_store = Some(frames.take(max_num_frames));
+            frame_store.as_mut().unwrap()
+        } else {
+            &mut frames
+        };
 
     let mut wtr = None;
 
