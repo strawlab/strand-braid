@@ -52,7 +52,7 @@ impl FfmpegFrameIterator {
         let args = [
             "-nostdin",
             "-i", &format!("{}", fname.as_ref().display()),
-            "-fps_mode", "passthrough",
+            "-vsync", "0",
             "-f", "yuv4mpegpipe",
             "pipe:",
         ];
