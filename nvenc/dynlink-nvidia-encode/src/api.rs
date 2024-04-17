@@ -18,6 +18,8 @@ macro_rules! api_call {
         if status != _NVENCSTATUS::NV_ENC_SUCCESS {
             return Err(NvencError::ErrCode {
                 status,
+                fname: file!(),
+                line_num: line!(),
                 message: crate::error::code_to_string(status),
                 #[cfg(feature = "backtrace")]
                 backtrace: Backtrace::capture(),

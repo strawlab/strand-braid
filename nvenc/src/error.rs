@@ -2,13 +2,13 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum NvEncError {
-    #[error("dynlink-cuda returned error `{0}`")]
+    #[error("dynlink-cuda error`")]
     DynlinkCudaError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]
         dynlink_cuda::CudaError,
     ),
-    #[error("dynlink-nvidia-encode returned error `{0}`")]
+    #[error("dynlink-nvidia-encode error")]
     DynlinkNvidiaEncodeError(
         #[from]
         #[cfg_attr(feature = "backtrace", backtrace)]

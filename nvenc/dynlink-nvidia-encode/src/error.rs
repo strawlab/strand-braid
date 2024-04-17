@@ -13,9 +13,11 @@ pub enum NvencError {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
-    #[error("NvEnc returned code `{status}`: {message}")]
+    #[error("NvEnc returned code `{status}`: {message} at {fname}:{line_num}")]
     ErrCode {
         status: NvInt,
+        fname: &'static str,
+        line_num: u32,
         message: &'static str,
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
