@@ -3,7 +3,7 @@ name = "braid"
 description = "multi-camera realtime 3D tracker"
 version =  "0.12.0-alpha.4" # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition="2018"
+edition = "2018"
 homepage = "https://strawlab.org/braid"
 default-run = "braid"
 
@@ -15,11 +15,15 @@ tracing = "0.1.40"
 eyre = "0.6.2"
 color-eyre = "0.6.2"
 dotenv = "0.15"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
 
-env-tracing-logger = {path="../env-tracing-logger"}
-flydra-types = {path="../flydra-types"}
-flydra-feature-detector-types = {path = "../flydra-feature-detector/flydra-feature-detector-types"}
-flydra-pt-detect-cfg = {path = "../flydra-feature-detector/flydra-pt-detect-cfg"}
-braid-config-data = {path = "../braid-config-data"}
+env-tracing-logger = { path = "../env-tracing-logger" }
+flydra-types = { path = "../flydra-types" }
+flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
+flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
+braid-config-data = { path = "../braid-config-data" }
 tracing-subscriber = "0.3.18"
