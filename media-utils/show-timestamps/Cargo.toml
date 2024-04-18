@@ -1,6 +1,6 @@
 [package]
 name = "show-timestamps"
-version =  "0.12.0-alpha.4" # braid release synchronized
+version = "0.12.0-alpha.5" # braid release synchronized
 edition = "2021"
 
 [dependencies]
