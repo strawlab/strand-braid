@@ -204,23 +204,6 @@ impl std::cmp::PartialOrd for SyncedFrameCount {
     }
 }
 
-#[derive(Clone, Debug)]
-struct TimestampSyncSource {
-    stamp: FlydraFloatTimestampLocal<Triggerbox>,
-}
-
-impl std::cmp::PartialEq for TimestampSyncSource {
-    fn eq(&self, other: &TimestampSyncSource) -> bool {
-        self.stamp.as_f64().eq(&other.stamp.as_f64())
-    }
-}
-
-impl std::cmp::PartialOrd for TimestampSyncSource {
-    fn partial_cmp(&self, other: &TimestampSyncSource) -> Option<std::cmp::Ordering> {
-        self.stamp.as_f64().partial_cmp(&other.stamp.as_f64())
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct TimeDataPassthrough {
     frame: SyncFno,

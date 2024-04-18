@@ -30,12 +30,6 @@ pub struct ImData2 {
     pub ck: bui_backend_session_types::ConnectionKey,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-struct LoadedFrame {
-    handle: JsValue,
-    in_msg: ImData2,
-}
-
 pub struct VideoField {
     image: web_sys::HtmlImageElement,
     show_div: bool, // synchronized to whether we are visible

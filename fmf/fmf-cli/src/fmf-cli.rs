@@ -7,9 +7,7 @@ use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use clap::Parser;
 use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
-use machine_vision_formats::{
-    pixel_format, pixel_format::PixFmt, ImageBuffer, ImageBufferRef, ImageData, Stride,
-};
+use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
 use timestamped_frame::ExtraTimeData;
 
@@ -541,45 +539,6 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     debug!("finishing file");
     my_mp4_writer.finish()?;
     Ok(())
-}
-
-/// A view of a source image in which the rightmost pixels may be clipped
-struct ClippedFrame<'a, FMT> {
-    src: &'a basic_frame::BasicFrame<FMT>,
-    width: u32,
-}
-
-impl<'a, FMT> ImageData<FMT> for ClippedFrame<'a, FMT> {
-    fn width(&self) -> u32 {
-        self.width
-    }
-    fn height(&self) -> u32 {
-        self.src.height()
-    }
-    fn buffer_ref(&self) -> ImageBufferRef<'a, FMT> {
-        ImageBufferRef::new(self.src.image_data())
-    }
-    fn buffer(self) -> ImageBuffer<FMT> {
-        ImageBuffer::new(self.buffer_ref().data.to_vec()) // copy data
-    }
-}
-
-impl<'a, FMT> Stride for ClippedFrame<'a, FMT> {
-    fn stride(&self) -> usize {
-        self.src.stride()
-    }
-}
-
-trait ClipFrame<FMT> {
-    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame<FMT>;
-}
-
-impl<FMT> ClipFrame<FMT> for basic_frame::BasicFrame<FMT> {
-    fn clip_to_power_of_2(&self, val: u8) -> ClippedFrame<FMT> {
-        let width = (self.width() / val as u32) * val as u32;
-        debug!("clipping image of width {} to {}", self.width(), width);
-        ClippedFrame { src: self, width }
-    }
 }
 
 fn export_y4m(x: ExportY4m) -> Result<()> {

@@ -521,51 +521,6 @@ impl<'a, FMT1, FMT2> Stride for ReinterpretedImageMut<'a, FMT1, FMT2> {
     }
 }
 
-/// A view of mutable image to have pixel format `FMT2`.
-struct RawRefMutImage<'a, FMT> {
-    buf: &'a mut [u8],
-    width: u32,
-    height: u32,
-    stride: usize,
-    fmt: std::marker::PhantomData<FMT>,
-}
-
-impl<'a, FMT> ImageData<FMT> for RawRefMutImage<'a, FMT> {
-    fn width(&self) -> u32 {
-        self.width
-    }
-    fn height(&self) -> u32 {
-        self.height
-    }
-    fn buffer_ref(&self) -> ImageBufferRef<'_, FMT> {
-        ImageBufferRef {
-            data: self.buf,
-            pixel_format: std::marker::PhantomData,
-        }
-    }
-    fn buffer(self) -> ImageBuffer<FMT> {
-        ImageBuffer {
-            data: self.buf.to_vec(),
-            pixel_format: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'a, FMT> ImageMutData<FMT> for RawRefMutImage<'a, FMT> {
-    fn buffer_mut_ref(&mut self) -> ImageBufferMutRef<'_, FMT> {
-        ImageBufferMutRef {
-            data: self.buf,
-            pixel_format: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'a, FMT> Stride for RawRefMutImage<'a, FMT> {
-    fn stride(&self) -> usize {
-        self.stride
-    }
-}
-
 /// If needed, copy original image data to remove stride.
 fn remove_padding<FMT>(frame: &dyn ImageStride<FMT>) -> Result<CowImage<'_, FMT, FMT>>
 where
