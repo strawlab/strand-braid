@@ -50,14 +50,15 @@ pub enum Msg {
     MouseMove(MouseEvent),
     ToggleCollapsed(bool),
     ViewFit,
-    ViewScale(f64),
+    ViewScale(u8),
     ViewRotateCW,
     ViewRotateCCW,
 }
 
+#[derive(PartialEq)]
 pub enum ZoomMode {
     Fit,
-    Scale(f64),
+    Scale(u8),
 }
 
 #[derive(PartialEq, Properties)]
@@ -228,12 +229,34 @@ impl Component for VideoField {
               <div class={"canvas-wrap"} style={"overflow: hidden;"}>
                 <div class="pre-canvas">
                     {"View: "}
-                    <Button title={"Fit"} onsignal={ctx.link().callback(|_| Msg::ViewFit)}/>
-                    <Button title={"25%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(0.25))}/>
-                    <Button title={"50%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(0.5))}/>
-                    <Button title={"100%"} onsignal={ctx.link().callback(|_| Msg::ViewScale(1.0))}/>
-                    <Button title={"Rotate CW"} onsignal={ctx.link().callback(|_| Msg::ViewRotateCW)}/>
-                    <Button title={"Rotate CCW"} onsignal={ctx.link().callback(|_| Msg::ViewRotateCCW)}/>
+                    <Button
+                        title={"Fit"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewFit)}
+                        is_active={self.zoom_mode==ZoomMode::Fit}
+                        />
+                    <Button
+                        title={"25%"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewScale(25))}
+                        is_active={self.zoom_mode==ZoomMode::Scale(25)}
+                        />
+                    <Button
+                        title={"50%"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewScale(50))}
+                        is_active={self.zoom_mode==ZoomMode::Scale(50)}
+                        />
+                    <Button
+                        title={"100%"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewScale(100))}
+                        is_active={self.zoom_mode==ZoomMode::Scale(100)}
+                        />
+                    <Button
+                        title={"Rotate CW"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewRotateCW)}
+                        />
+                    <Button
+                        title={"Rotate CCW"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewRotateCCW)}
+                        />
                 </div>
                 <div class={"the-canvas-outer"} style={"overflow: hidden"}>
                     <div class="the-canvas" style={cprops.div_style}>
@@ -274,8 +297,8 @@ impl VideoField {
                 format!("transform: rotate({rot_deg}deg); overflow: hidden; position: relative;"),
                 format!(
                     "width: {}px; height: {}px;",
-                    ctx_w as f64 * scale,
-                    ctx_h as f64 * scale,
+                    ctx_w as f64 * (scale as f64 / 100.0),
+                    ctx_h as f64 * (scale as f64 / 100.0),
                 ),
             ),
         };
@@ -289,7 +312,7 @@ impl VideoField {
 
     fn view_text(&self, ctx: &Context<Self>) -> Html {
         let mouse_str =
-            if let (Some(ref mouse_pos), 0) = (self.mouse_xy.as_ref(), self.rotate_quarter_turns) {
+            if let (Some(mouse_pos), 0) = (self.mouse_xy.as_ref(), self.rotate_quarter_turns) {
                 // TODO: when self.rotate_quarter_turns is not 0, correct these numbers.
                 format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
             } else {
