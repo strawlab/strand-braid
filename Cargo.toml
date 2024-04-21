@@ -106,6 +106,7 @@ members = [
     "strand-cam/flytrax-io",
     "strand-cam/strand-cam-offline-checkerboards",
     "strand-cam/strand-cam-pylon",
+    "strand-cam/strand-cam-pylon-gui",
     "strand-cam/strand-cam-vimba",
     "strand-cam/yew_frontend",
     "strand-cam-csv-config-types",

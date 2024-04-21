@@ -64,12 +64,16 @@ pub struct ThreadedAsyncCamera<C> {
 }
 
 fn _test_camera_is_send() {
-    // Compile-time test to ensure WrappedCamera implements Send trait.
+    // Compile-time test to ensure ThreadedAsyncCamera implements Send trait.
     fn implements<T: Send>() {}
     implements::<ThreadedAsyncCamera<i8>>();
 }
 
-pub struct ThreadedAsyncCameraModule<M, C, G> {
+pub struct ThreadedAsyncCameraModule<M, C, G>
+where
+    M: Send,
+    G: Send,
+{
     cam_module: M,
     name: String,
     camera_type: std::marker::PhantomData<C>,
@@ -166,6 +170,7 @@ impl<M, C, G> ThreadedAsyncCameraModule<M, C, G>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
+    G: Send,
 {
     pub fn threaded_async_camera(&mut self, name: &str) -> Result<ThreadedAsyncCamera<C>> {
         let camera = self.cam_module.camera(name)?;
@@ -189,6 +194,7 @@ pub fn into_threaded_async<M, C, G>(cam_module: M, _guard: &G) -> ThreadedAsyncC
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
+    G: Send,
 {
     let name = format!("async-{}", cam_module.name());
 
@@ -427,6 +433,7 @@ impl<M, C, G> ci2::CameraModule for ThreadedAsyncCameraModule<M, C, G>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
+    G: Send,
 {
     type CameraType = C;
     type Guard = G;

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use clap::{Arg, ArgAction};
 
-use crate::{run_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs};
+use crate::{run_strand_cam_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs};
 
 use crate::APP_INFO;
 
@@ -19,6 +19,7 @@ pub fn cli_main<M, C, G>(
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
+    G: Send + 'static,
 {
     std::panic::set_hook(Box::new(tracing_panic::panic_hook));
     dotenv::dotenv().ok();
@@ -32,7 +33,7 @@ where
 
     let args = parse_args(app_name).with_context(|| format!("parsing args"))?;
 
-    run_app(mymod, args, app_name)
+    run_strand_cam_app(mymod, args, app_name)
 }
 
 #[cfg(feature = "posix_sched_fifo")]

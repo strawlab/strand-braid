@@ -45,6 +45,7 @@ use http_video_streaming_types::{DrawableShape, StrokeStyle};
 
 use video_streaming::{AnnotatedFrame, FirehoseCallback};
 
+use std::path::PathBuf;
 use std::{path::Path, result::Result as StdResult};
 
 #[cfg(feature = "flydra_feat_detect")]
@@ -128,6 +129,22 @@ mod flydratrax_handle_msg;
 mod clock_model;
 mod datagram_socket;
 mod post_trigger_buffer;
+
+#[cfg(feature = "eframe-gui")]
+mod gui_app;
+
+#[cfg(feature = "eframe-gui")]
+#[derive(Default)]
+struct GuiShared {
+    ctx: Option<eframe::egui::Context>,
+    url: Option<String>,
+}
+
+#[cfg(feature = "eframe-gui")]
+type ArcMutGuiSingleton = Arc<std::sync::Mutex<GuiShared>>;
+
+#[cfg(not(feature = "eframe-gui"))]
+type ArcMutGuiSingleton = ();
 
 use datagram_socket::DatagramSocket;
 
@@ -2666,7 +2683,7 @@ impl FirstMsgForced {
 // -----------
 
 /// top-level function once args are parsed from CLI.
-pub fn run_app<M, C, G>(
+pub fn run_strand_cam_app<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
@@ -2674,6 +2691,7 @@ pub fn run_app<M, C, G>(
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
+    G: Send + 'static,
 {
     // Initial log file name has process ID in case multiple cameras are
     // launched simultaneously. The (still open) log file gets renamed later to
@@ -2692,11 +2710,19 @@ where
         std::path::PathBuf::from(shellexpand::full(&initial_log_file_name)?.to_string());
     // TODO: delete log files older than, e.g. one week.
 
+    #[cfg(feature = "eframe-gui")]
+    let disable_console = true;
+
+    #[cfg(not(feature = "eframe-gui"))]
+    let disable_console = args.disable_console;
+
+    let initial_log_file_name2 = initial_log_file_name.clone();
+
     let _guard =
-        env_tracing_logger::initiate_logging(Some(&initial_log_file_name), args.disable_console)
+        env_tracing_logger::initiate_logging(Some(&initial_log_file_name2), disable_console)
             .map_err(|e| eyre!("error initiating logging: {e}"))?;
 
-    // Start tokio runtime here.
+    // create tokio runtime
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(4)
@@ -2704,15 +2730,62 @@ where
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
-    let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
-        mymod,
-        args,
-        app_name,
-        &initial_log_file_name,
-    ))?;
+    #[cfg(feature = "eframe-gui")]
+    {
+        let (quit_tx, quit_rx) = tokio::sync::mpsc::channel(1);
 
-    info!("done");
-    Ok(mymod)
+        let gui_singleton = Arc::new(std::sync::Mutex::new(GuiShared::default()));
+        let gui_singleton2 = gui_singleton.clone();
+
+        // Move tokio runtime to new thread to keep GUI event loop on initial thread.
+        let tokio_thread_jh = std::thread::Builder::new()
+            .name("tokio-thread".to_string())
+            .spawn(move || {
+                let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
+                    mymod,
+                    args,
+                    app_name,
+                    initial_log_file_name,
+                    Some(quit_rx),
+                    gui_singleton2,
+                ))?;
+
+                info!("done");
+                Ok(mymod)
+            })
+            .map_err(|e| eyre::anyhow!("runtime failed with error {e}"))?;
+
+        // Block until app closes.
+        let native_options = eframe::NativeOptions::default();
+        eframe::run_native(
+            "Strand Camera",
+            native_options,
+            Box::new(move |cc| {
+                Box::new(gui_app::StrandCamEguiApp::new(quit_tx, cc, gui_singleton))
+            }),
+        )
+        .map_err(|e| eyre::anyhow!("running failed with error {e}"))?;
+
+        // Block until tokio done.
+        tokio_thread_jh.join().unwrap()
+    }
+
+    #[cfg(not(feature = "eframe-gui"))]
+    {
+        let gui_singleton = ();
+
+        let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
+            mymod,
+            args,
+            app_name,
+            initial_log_file_name,
+            None,
+            gui_singleton,
+        ))?;
+
+        info!("done");
+        Ok(mymod)
+    }
 }
 
 /// First, connect to Braid if requested, then run.
@@ -2720,11 +2793,14 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-    initial_log_file_name: &Path,
+    initial_log_file_name: PathBuf,
+    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
     C: 'static + ci2::Camera + Send,
+    G: Send,
 {
     // If connecting to braid, do it here.
     let res_braid: std::result::Result<BraidInfo, StandaloneArgs> = {
@@ -2789,7 +2865,16 @@ where
         }
     };
 
-    select_cam_and_run(mymod, args, app_name, res_braid, initial_log_file_name).await
+    select_cam_and_run(
+        mymod,
+        args,
+        app_name,
+        res_braid,
+        &initial_log_file_name,
+        quit_rx,
+        gui_singleton,
+    )
+    .await
 }
 
 /// Determine the camera name to be used and call `run()`.
@@ -2799,10 +2884,13 @@ async fn select_cam_and_run<M, C, G>(
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     initial_log_file_name: &Path,
+    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
+    G: Send,
 {
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
         StandaloneOrBraid::Braid(braid_args) => {
@@ -2893,6 +2981,8 @@ where
         res_braid,
         strand_cam_bui_http_address_string,
         use_camera_name,
+        quit_rx,
+        gui_singleton,
     )
     .await
 }
@@ -2904,7 +2994,15 @@ where
 /// information.
 ///
 /// This function is way too huge and should be refactored.
-#[tracing::instrument(skip(mymod, args, app_name, res_braid, strand_cam_bui_http_address_string))]
+#[tracing::instrument(skip(
+    mymod,
+    args,
+    app_name,
+    res_braid,
+    strand_cam_bui_http_address_string,
+    quit_rx,
+    gui_singleton
+))]
 async fn run<M, C, G>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
@@ -2912,10 +3010,13 @@ async fn run<M, C, G>(
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     strand_cam_bui_http_address_string: String,
     cam: &str,
+    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
+    G: Send,
 {
     let use_camera_name = cam; // simple arg name important for tracing::instrument
     let frame_info_extractor = mymod.frame_info_extractor();
@@ -3688,6 +3789,33 @@ where
     };
 
     let url = http_camserver_info.build_url();
+
+    #[cfg(feature = "eframe-gui")]
+    {
+        // Loop until GUI from other thread is available.
+        loop {
+            {
+                // scope for holding lock
+                let mut my_guard = gui_singleton.lock().unwrap();
+
+                // http_camserver_info
+                // Set URL
+                my_guard.url = Some(format!("{url}"));
+
+                // Ensure URL is drawn
+                if let Some(ctx_ref) = my_guard.ctx.as_ref() {
+                    ctx_ref.request_repaint();
+                    // We have GUI, exit wait loop.
+                    break;
+                }
+            }
+            // Wait a bit and check if GUI has launched again.
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    #[cfg(not(feature = "eframe-gui"))]
+    let _ = gui_singleton;
 
     // Display where we are listening.
     if is_braid {
@@ -4782,7 +4910,14 @@ where
 
     let (launched_tx, mut launched_rx) = tokio::sync::watch::channel(());
 
-    if !args.no_browser {
+    #[cfg(not(feature = "eframe-gui"))]
+    let no_browser = args.no_browser;
+
+    // Never launch browser automatically in GUI mode.
+    #[cfg(feature = "eframe-gui")]
+    let no_browser = true;
+
+    if !no_browser {
         tokio::spawn(async move {
             // Let the webserver start before opening browser.
             let _ = launched_rx.changed().await.unwrap();
@@ -4990,6 +5125,12 @@ where
             tokio::spawn(heartbeat_task); // todo: keep join handle
         }
     }
+    // _dummy_tx is not dropped until after `select!` below. It will never send.
+    let (_dummy_tx, dummy_rx) = tokio::sync::mpsc::channel(1);
+    let mut quit_rx = match quit_rx {
+        None => dummy_rx,
+        Some(fut) => fut,
+    };
 
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
@@ -5000,7 +5141,8 @@ where
         _ = mainbrain_transmitter_fut => {},
         _ = send_updates_future => {},
         res = frame_process_task_fut => {res?},
-        res = firehose_task_join_handle=> {res?},
+        res = firehose_task_join_handle => {res?},
+        _ = quit_rx.recv() => {},
     }
     info!("Strand Cam ending nicely. :)");
 

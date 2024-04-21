@@ -87,7 +87,7 @@ impl From<String> for Error {
 // CameraModule
 
 /// A module for opening cameras (e.g. pylon).
-pub trait CameraModule {
+pub trait CameraModule: Send {
     type CameraType: Camera;
     type Guard;
 
@@ -129,7 +129,7 @@ pub trait CameraInfo {
 // ---------------------------
 // Camera
 
-pub trait Camera: CameraInfo {
+pub trait Camera: CameraInfo + Send {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> Result<AccessQueryResult>;
