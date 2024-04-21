@@ -312,16 +312,15 @@ impl VideoField {
     fn view_text(&self, ctx: &Context<Self>) -> Html {
         let mouse_str =
             if let (Some(mouse_pos), 0) = (self.mouse_xy.as_ref(), self.rotate_quarter_turns) {
-                // TODO: when self.rotate_quarter_turns is not 0, correct these numbers.
-                format!("{}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
+                format!("mouse: {}, {}", mouse_pos.x as i64, mouse_pos.y as i64)
             } else {
-                "".to_string()
+                "(Rotation disabled mouse position.)".to_string()
             };
         let fno_str = format!("{}", self.rendered_frame_number.unwrap_or(0));
         html! {
             <div class="video-field-text">
                 <div class="video-field-fno">{"frame: "}{ &fno_str }</div>
-                <div class="video-field-mousepos">{"mouse: "}{ &mouse_str }</div>
+                <div class="video-field-mousepos">{ &mouse_str }</div>
                 <div class="video-field-fps">
                     {"frames per second: "}{ format!("{:.1}", ctx.props().measured_fps) }
                 </div>
