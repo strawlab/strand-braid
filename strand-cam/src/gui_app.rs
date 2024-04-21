@@ -49,7 +49,9 @@ impl eframe::App for StrandCamEguiApp {
 
             {
                 if ui.button("Quit").clicked() {
-                    cmd_tx.blocking_send(()).unwrap();
+                    // Ignore only possible error of SendError which we could
+                    // get if the receiver hung up.
+                    let _ = cmd_tx.blocking_send(());
                     frame.close();
                 }
 
