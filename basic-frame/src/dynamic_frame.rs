@@ -94,7 +94,7 @@ pub enum DynamicFrame {
 }
 
 fn _test_dynamic_frame_is_send() {
-    // Compile-time test to ensure PerSender implements Send trait.
+    // Compile-time test to ensure DynamicFrame implements Send trait.
     fn implements<T: Send>() {}
     implements::<DynamicFrame>();
 }

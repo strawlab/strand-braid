@@ -143,16 +143,6 @@ fn _test_basic_frame_is_frame_trait<F>() {
     implements::<BasicFrame<F>, F>();
 }
 
-// fn _test_basic_frame_0<F>() {
-//     fn implements<T: Into<Vec<u8>>>() {}
-//     implements::<BasicFrame<F>>();
-// }
-
-// fn _test_basic_frame_1<F>() {
-//     fn implements<T: ImageStrideTime<F>, F>() {}
-//     implements::<BasicFrame<F>, F>();
-// }
-
 impl<F> BasicFrame<F> {
     pub fn copy_from(frame: &dyn ImageStrideTime<F>) -> BasicFrame<F> {
         let width = frame.width();
