@@ -3,6 +3,7 @@ use eframe::egui;
 pub struct StrandCamEguiApp {
     cmd_tx: tokio::sync::mpsc::Sender<()>,
     gui_singleton: crate::ArcMutGuiSingleton,
+    version_string: String,
 }
 
 impl StrandCamEguiApp {
@@ -17,9 +18,11 @@ impl StrandCamEguiApp {
             my_guard.ctx = Some(cc.egui_ctx.clone());
         }
 
+        let version_string = format!("Strand Camera version: {}", env!("CARGO_PKG_VERSION"));
         Self {
             cmd_tx,
             gui_singleton,
+            version_string,
         }
     }
 }
@@ -35,6 +38,7 @@ impl eframe::App for StrandCamEguiApp {
         let Self {
             cmd_tx,
             gui_singleton,
+            version_string,
         } = self;
 
         let url_string = {
@@ -64,6 +68,8 @@ impl eframe::App for StrandCamEguiApp {
                         ui.label("waiting for GUI");
                     }
                 }
+
+                ui.label(version_string.as_str());
             }
             egui::warn_if_debug_build(ui);
         });
