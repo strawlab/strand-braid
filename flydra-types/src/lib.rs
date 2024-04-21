@@ -515,12 +515,12 @@ impl BuiServerAddrInfo {
     pub fn build_url(&self) -> http::Uri {
         let query = match &self.token {
             AccessToken::NoToken => "".to_string(),
-            AccessToken::PreSharedToken(tok) => format!("token={tok}"),
+            AccessToken::PreSharedToken(tok) => format!("?token={tok}"),
         };
         http::uri::Builder::new()
             .scheme("http")
             .authority(format!("{}:{}", self.addr().ip(), self.addr().port()))
-            .path_and_query(format!("/?{query}"))
+            .path_and_query(format!("/{query}"))
             .build()
             .unwrap()
     }
