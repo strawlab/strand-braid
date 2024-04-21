@@ -290,11 +290,11 @@ impl VideoField {
         let rot_deg = self.rotate_quarter_turns as i32 * 90;
         let (div_style, canv_style) = match self.zoom_mode {
             ZoomMode::Fit => (
-                format!("transform: rotate({rot_deg}deg); overflow: hidden; position: relative;"),
+                format!("transform: rotate({rot_deg}deg)"),
                 "width: 100%; height: auto;".into(),
             ),
             ZoomMode::Scale(scale) => (
-                format!("transform: rotate({rot_deg}deg); overflow: hidden; position: relative;"),
+                format!("transform: rotate({rot_deg}deg)"),
                 format!(
                     "width: {}px; height: {}px;",
                     ctx_w as f64 * (scale as f64 / 100.0),
