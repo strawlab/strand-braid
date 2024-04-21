@@ -2756,7 +2756,11 @@ where
             .map_err(|e| eyre::anyhow!("runtime failed with error {e}"))?;
 
         // Block until app closes.
-        let native_options = eframe::NativeOptions::default();
+        let native_options = eframe::NativeOptions {
+            initial_window_size: Some([320.0, 240.0].into()),
+            ..Default::default()
+        };
+
         eframe::run_native(
             "Strand Camera",
             native_options,
