@@ -35,10 +35,6 @@ where
     run_app(mymod, args, app_name)
 }
 
-fn get_cli_args() -> Vec<String> {
-    std::env::args().collect()
-}
-
 #[cfg(feature = "posix_sched_fifo")]
 fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32, i32)>> {
     let errstr = "Set --sched-policy if and only if --sched-priority also set.";
@@ -74,7 +70,7 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSo
 }
 
 fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
-    let cli_args = get_cli_args();
+    let cli_args: Vec<String> = std::env::args().collect();
 
     let arg_default_box: Box<StrandCamArgs> = Default::default();
     let arg_default: &'static StrandCamArgs = Box::leak(arg_default_box);
