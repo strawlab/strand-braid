@@ -27,7 +27,6 @@ members = [
     "braidz-types",
     "braidz-viewer",
     "bui-backend-session",
-    "bui-backend-session/demo",
     "bui-backend-session/types",
     "build-util",
     "camcal",
