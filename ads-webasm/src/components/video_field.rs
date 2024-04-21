@@ -65,8 +65,8 @@ pub enum ZoomMode {
 pub struct Props {
     pub title: String,
     pub video_data: Rc<RefCell<VideoData>>,
-    pub width: u32,
-    pub height: u32,
+    pub image_width: u32,
+    pub image_height: u32,
     pub measured_fps: f32,
     pub onrendered: Option<Callback<FirehoseCallbackInner>>,
 }
@@ -218,7 +218,7 @@ impl Component for VideoField {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let cprops = self.cprops(ctx.props().width, ctx.props().height);
+        let cprops = self.cprops(ctx.props().image_width, ctx.props().image_height);
         html! {
             <div class="wrap-collapsible">
               <CheckboxLabel
@@ -285,26 +285,25 @@ struct CProps {
 }
 
 impl VideoField {
-    fn cprops(&self, ctx_w: u32, ctx_h: u32) -> CProps {
-        // let myw = if landscape { ctx_w } else { ctx_h };
+    fn cprops(&self, image_width: u32, image_height: u32) -> CProps {
         let rot_deg = self.rotate_quarter_turns as i32 * 90;
         let (div_style, canv_style) = match self.zoom_mode {
             ZoomMode::Fit => (
                 format!("transform: rotate({rot_deg}deg)"),
                 "width: 100%; height: auto;".into(),
             ),
-            ZoomMode::Scale(scale) => (
-                format!("transform: rotate({rot_deg}deg)"),
-                format!(
-                    "width: {}px; height: {}px;",
-                    ctx_w as f64 * (scale as f64 / 100.0),
-                    ctx_h as f64 * (scale as f64 / 100.0),
-                ),
-            ),
+            ZoomMode::Scale(scale) => {
+                let w = image_width as f64 * (scale as f64 / 100.0);
+                let h = image_height as f64 * (scale as f64 / 100.0);
+                (
+                    format!("transform: rotate({rot_deg}deg); width: {w}px; height: {h}px;"),
+                    format!("width: {w}px; height: {h}px;"),
+                )
+            }
         };
         CProps {
-            w: ctx_w,
-            h: ctx_h,
+            w: image_width,
+            h: image_height,
             div_style,
             canv_style,
         }

@@ -617,8 +617,8 @@ impl Model {
             html! {
                 <VideoField title={title}
                     video_data={self.video_data.clone()}
-                    width={shared.image_width}
-                    height={shared.image_height}
+                    image_width={shared.image_width}
+                    image_height={shared.image_height}
                     measured_fps={shared.measured_fps}
                     onrendered={ctx.link().callback(|im_data2| {
                         Msg::RenderedImage(im_data2)
