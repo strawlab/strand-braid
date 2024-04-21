@@ -694,8 +694,6 @@ async fn frame_process_task(
     let mut dirty_flydra = false;
     #[cfg(feature = "flydratrax")]
     let mut current_led_program_config_state: Option<LedProgramConfig> = None;
-    #[cfg(feature = "flydratrax")]
-    let mut dirty_led_program = false;
 
     #[cfg(feature = "flydratrax")]
     let red_style = StrokeStyle::from_rgb(255, 100, 100);
@@ -758,11 +756,6 @@ async fn frame_process_task(
                 dirty_flydra = false;
             }
 
-            if dirty_led_program {
-                current_led_program_config_state = None;
-                dirty_led_program = false;
-            }
-
             let kalman_tracking_enabled = if let Some(ref ssa) = shared_store_arc {
                 let tracker = ssa.read();
                 tracker.as_ref().kalman_tracking_config.enabled
@@ -777,7 +770,7 @@ async fn frame_process_task(
                 let mut new_cam = None;
                 if let Some(ref ssa) = shared_store_arc {
                     let region = {
-                        let tracker = ssa.write();
+                        let tracker = ssa.read();
                         kalman_tracking_config = tracker.as_ref().kalman_tracking_config.clone();
                         led_program_config = tracker.as_ref().led_program_config.clone();
                         tracker.as_ref().im_pt_detect_cfg.valid_region.clone()
@@ -971,7 +964,8 @@ async fn frame_process_task(
                 }
                 if let Some(ref clpcs) = current_led_program_config_state {
                     if &store_cache_ref.led_program_config != clpcs {
-                        dirty_led_program = true;
+                        current_led_program_config_state =
+                            Some(store_cache_ref.led_program_config.clone());
                     }
                 }
             }
