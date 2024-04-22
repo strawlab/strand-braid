@@ -577,8 +577,15 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
                     let cam_id = match cam_id {
                         CameraIdentifier::MovieOnly(m) => {
-                            if Some(braidz_cam_id.cam_id_str.clone()) == m.raw_name() {
-                                CameraIdentifier::Both((m, braidz_cam_id.clone()))
+                            if let Some(raw_name) = m.raw_name().as_ref() {
+                                let ros_camid = crate::braidz_iter::as_ros_camid(&raw_name);
+                                if (&braidz_cam_id.cam_id_str == raw_name)
+                                    || (&braidz_cam_id.cam_id_str == &ros_camid)
+                                {
+                                    CameraIdentifier::Both((m, braidz_cam_id.clone()))
+                                } else {
+                                    CameraIdentifier::MovieOnly(m)
+                                }
                             } else {
                                 CameraIdentifier::MovieOnly(m)
                             }

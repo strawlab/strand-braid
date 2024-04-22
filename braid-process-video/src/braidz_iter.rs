@@ -198,7 +198,7 @@ struct BraidArchivePerCam<'a> {
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
 
-fn as_ros_camid(raw_name: &str) -> String {
+pub(crate) fn as_ros_camid(raw_name: &str) -> String {
     let ros_name: String = raw_name.replace('-', "_");
     let ros_name: String = ros_name.replace(' ', "_");
     let ros_name: String = ros_name.replace('/', "_");

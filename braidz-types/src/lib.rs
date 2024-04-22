@@ -142,7 +142,7 @@ pub fn camera_name_from_filename<P: AsRef<std::path::Path>>(
         .unwrap()
         .to_string();
 
-    const MOVIE_REGEXP: &str = r"^movie\d{8}_\d{6}.?\d*_(.*).mp4$";
+    const MOVIE_REGEXP: &str = r"^movie\d{8}_\d{6}(?:.?\d*)_(.*).(?:mp4|mkv|fmf|fmf\.gz)$";
     let movie_re = regex::Regex::new(MOVIE_REGEXP).unwrap();
     let cam_from_filename = movie_re.captures(&filename).map(|caps| {
         // get the raw camera name
