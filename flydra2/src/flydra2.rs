@@ -684,7 +684,7 @@ pub struct CoordProcessorConfig {
 /// This prevents accidentally keeping the receiver open because there can only
 /// be the one sender.
 ///
-/// (Note that this is not a hard guarantee. A could could be made by upgrading
+/// (Note that this is not a hard guarantee. A clone could be made by upgrading
 /// a `WeakSender` to a full-fledged `Sender`. Potentially new Downgraded and
 /// Upgraded types could be invented which would eliminate this possibility.)
 #[derive(Debug)]
