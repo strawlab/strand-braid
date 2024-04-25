@@ -1199,12 +1199,7 @@ pub(crate) async fn do_run_forever(
         },
     };
 
-    // If these tasks are still running, cancel them.
-    debug!("Runtime ending. Aborting any remaining tasks.");
-    // sync_start_jh.abort();
-    // sync_done_jh.abort();
-
-    debug!("done {}:{}", file!(), line!());
+    debug!("braid-run finishing.");
 
     Ok(())
 }
