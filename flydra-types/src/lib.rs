@@ -196,7 +196,7 @@ pub enum StartSoftwareFrameRateLimit {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RemoteCameraInfoResponse {
     /// The destination for the low-latency tracking (UDP or UDS socket)
-    pub camdata_addr: String,
+    pub advertise_camdata_addr: String,
     pub config: BraidCameraConfig,
     pub force_camera_sync_mode: bool,
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
@@ -477,15 +477,6 @@ pub enum BuiServerInfo {
     Server(BuiServerAddrInfo),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct RemotelyVisibleAddr(SocketAddr);
-
-impl AsRef<SocketAddr> for RemotelyVisibleAddr {
-    fn as_ref(&self) -> &SocketAddr {
-        &self.0
-    }
-}
-
 /// HTTP API server access information
 ///
 /// This contains the address and access token.
@@ -494,18 +485,18 @@ impl AsRef<SocketAddr> for RemotelyVisibleAddr {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BuiServerAddrInfo {
     /// The address of the HTTP server.
-    addr: RemotelyVisibleAddr,
+    addr: SocketAddr,
     /// The token for initial connection to the HTTP server.
     token: AccessToken,
 }
 
 impl BuiServerAddrInfo {
-    pub fn new(addr: RemotelyVisibleAddr, token: AccessToken) -> Self {
+    pub fn new(addr: SocketAddr, token: AccessToken) -> Self {
         Self { addr, token }
     }
 
     pub fn addr(&self) -> &SocketAddr {
-        &self.addr.0
+        &self.addr
     }
 
     pub fn token(&self) -> &AccessToken {
@@ -555,11 +546,11 @@ impl BuiServerAddrInfo {
             // address.
             return Err(FlydraTypesError::UrlParseError);
         }
-        Ok(Self::new(RemotelyVisibleAddr(addr), token))
+        Ok(Self::new(addr, token))
     }
 
     pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr.0)
+        format!("http://{}", self.addr)
     }
 }
 
@@ -579,10 +570,9 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 
 /// Convert potentially unspecific IP address to remotely-visible IP address.
 #[cfg(feature = "build-urls")]
-pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<RemotelyVisibleAddr> {
+pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<SocketAddr> {
     if local_addr.ip().is_loopback() {
-        // If we are localhost, we return localhost...
-        return Ok(RemotelyVisibleAddr(local_addr.clone()));
+        return Err(std::io::Error::from(std::io::ErrorKind::AddrNotAvailable));
     }
 
     let all_addrs = expand_unspecified_addr(local_addr)?;
@@ -592,9 +582,10 @@ pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<Remotely
         .collect();
 
     // Take first non-loopback address if available.
-    Ok(RemotelyVisibleAddr(
-        non_loopback_addrs.first().map(Clone::clone).unwrap(),
-    ))
+    non_loopback_addrs
+        .first()
+        .map(Clone::clone)
+        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::AddrNotAvailable))
 }
 
 #[cfg(feature = "start-listener")]
@@ -607,7 +598,13 @@ pub async fn start_listener(
 
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
     let listener_local_addr = listener.local_addr()?;
-    let remote_addr = get_best_remote_addr(&listener_local_addr)?;
+    let best_addr = match get_best_remote_addr(&listener_local_addr) {
+        Ok(addr) => addr,
+        Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => listener_local_addr,
+        Err(e) => {
+            return Err(e.into());
+        }
+    };
     let token_config = if !listener_local_addr.ip().is_loopback() {
         Some(axum_token_auth::TokenConfig::new_token("token"))
     } else {
@@ -617,7 +614,7 @@ pub async fn start_listener(
         None => bui_backend_session_types::AccessToken::NoToken,
         Some(cfg) => bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
     };
-    let http_camserver_info = BuiServerAddrInfo::new(remote_addr, token);
+    let http_camserver_info = BuiServerAddrInfo::new(best_addr, token);
 
     Ok((listener, http_camserver_info))
 }

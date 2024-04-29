@@ -2841,7 +2841,7 @@ where
 
                 let camdata_addr = {
                     let camdata_addr = config_from_braid
-                        .camdata_addr
+                        .advertise_camdata_addr
                         .parse::<std::net::SocketAddr>()?;
                     let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
 
@@ -3840,7 +3840,15 @@ where
         let csv_save_dir = args.csv_save_dir.clone();
 
         #[cfg(feature = "flydratrax")]
-        let model_server_addr = flydra_types::get_best_remote_addr(&args.model_server_addr)?;
+        let model_server_addr = match flydra_types::get_best_remote_addr(&args.model_server_addr) {
+            Ok(addr) => addr,
+            Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => {
+                args.model_server_addr
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
 
         #[cfg(feature = "flydratrax")]
         let led_box_tx_std = led_box_tx_std.clone();
@@ -3849,10 +3857,9 @@ where
         let led_box_heartbeat_update_arc2 = led_box_heartbeat_update_arc.clone();
         #[cfg(feature = "flydratrax")]
         let (model_server_data_tx, flydratrax_calibration_source) = {
-            info!("send_pose server at {}", model_server_addr.as_ref());
+            info!("send_pose server at {model_server_addr}");
             let (model_server_data_tx, data_rx) = tokio::sync::mpsc::channel(50);
-            let model_server_future =
-                flydra2::new_model_server(data_rx, *model_server_addr.as_ref());
+            let model_server_future = flydra2::new_model_server(data_rx, model_server_addr);
             tokio::spawn(async { model_server_future.await });
             let flydratrax_calibration_source = args.flydratrax_calibration_source;
             (model_server_data_tx, flydratrax_calibration_source)

@@ -94,7 +94,7 @@ pub(crate) type MainbrainResult<T> = std::result::Result<T, MainbrainError>;
 #[derive(Clone)]
 pub(crate) struct BraidAppState {
     pub(crate) shared_store: SharedStore,
-    public_camdata_addr: String,
+    advertise_camdata_addr: SocketAddr,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
     event_broadcaster: EventBroadcaster<usize>,
@@ -177,7 +177,7 @@ async fn remote_camera_info_handler(
         let trig_config = app_state.shared_store.read().as_ref().trigger_type.clone();
 
         let msg = flydra_types::RemoteCameraInfoResponse {
-            camdata_addr: app_state.public_camdata_addr,
+            advertise_camdata_addr: app_state.advertise_camdata_addr.to_string(),
             config: config.clone(),
             force_camera_sync_mode: app_state.force_camera_sync_mode,
             software_limit_framerate,
@@ -665,7 +665,7 @@ pub(crate) async fn do_run_forever(
 
     let per_cam_data_arc = Arc::new(RwLock::new(Default::default()));
 
-    let (public_camdata_addr, camdata_socket) = {
+    let (advertise_camdata_addr, camdata_socket) = {
         // The port of the low latency UDP incoming data socket may be specified
         // as 0 in which case the OS will decide which port will actually be
         // bound. So here we create the socket and get its port.
@@ -684,13 +684,15 @@ pub(crate) async fn do_run_forever(
             };
         let camdata_socket = UdpSocket::bind(&camdata_addr_unspecified_port).await?;
         let camdata_addr = camdata_socket.local_addr()?;
-        let remotely_visible = flydra_types::get_best_remote_addr(&camdata_addr)?;
-        let public_camdata_addr = remotely_visible.as_ref().to_string();
+        let advertise_camdata_addr = match flydra_types::get_best_remote_addr(&camdata_addr) {
+            Ok(addr) => addr,
+            Err(_) => camdata_addr,
+        };
         debug!(
-            "flydra mainbrain camera UDP listener socket: internal: {camdata_addr}, public: {public_camdata_addr}"
+            "flydra mainbrain camera UDP listener socket: internal: {camdata_addr}, public: {advertise_camdata_addr}"
         );
 
-        (public_camdata_addr, camdata_socket)
+        (advertise_camdata_addr, camdata_socket)
     };
 
     if !output_base_dirname.exists() {
@@ -713,7 +715,7 @@ pub(crate) async fn do_run_forever(
     // Create our app state.
     let app_state = BraidAppState {
         shared_store: shared_store.clone(),
-        public_camdata_addr,
+        advertise_camdata_addr,
         force_camera_sync_mode,
         software_limit_framerate,
         event_broadcaster: Default::default(),
@@ -1158,15 +1160,20 @@ pub(crate) async fn do_run_forever(
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
     let model_pose_server_addr =
-        flydra_types::get_best_remote_addr(&mainbrain_config.model_server_addr)?;
-    tokio::spawn(flydra2::new_model_server(
-        data_rx,
-        *model_pose_server_addr.as_ref(),
-    ));
+        match flydra_types::get_best_remote_addr(&mainbrain_config.model_server_addr) {
+            Ok(addr) => addr,
+            Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => {
+                mainbrain_config.model_server_addr
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
+    tokio::spawn(flydra2::new_model_server(data_rx, model_pose_server_addr));
 
     {
         let mut tracker = tracker2.write();
-        tracker.modify(|shared| shared.model_server_addr = Some(*model_pose_server_addr.as_ref()))
+        tracker.modify(|shared| shared.model_server_addr = Some(model_pose_server_addr))
     }
 
     let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
