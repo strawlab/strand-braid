@@ -84,6 +84,13 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("{source}")]
+    JoinError {
+        #[from]
+        source: tokio::task::JoinError,
+        #[cfg(feature = "backtrace")]
+        backtrace: Backtrace,
+    },
 }
 
 fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
@@ -714,10 +721,7 @@ where
 
     let (res_writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
 
-    res_writer_jh?
-        .join()
-        .expect("finish writer task 1")
-        .expect("finish writer task 2");
+    res_writer_jh?.await??;
     r2.expect("finish reader task");
 
     Ok(())

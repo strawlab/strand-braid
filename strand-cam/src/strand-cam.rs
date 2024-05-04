@@ -891,7 +891,7 @@ async fn frame_process_task(
                                         file!(),
                                         line!()
                                     );
-                                    jh.join().unwrap().unwrap();
+                                    jh.await.unwrap().unwrap();
                                     debug!(
                                         "done waiting on flydratrax coord processor {}:{}",
                                         file!(),

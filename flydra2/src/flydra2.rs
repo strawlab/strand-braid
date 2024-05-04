@@ -43,7 +43,6 @@ mod connected_camera_manager;
 pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
 
 mod write_data;
-use write_data::writer_task_main;
 pub use write_data::BraidMetadataBuilder;
 
 mod bundled_data;
@@ -715,7 +714,7 @@ pub struct CoordProcessor {
     pub recon: Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>, // TODO? keep reference
     /// Channel to send messages to the writing thread.
     pub braidz_write_tx: SingletonSender<SaveToDiskMsg>,
-    pub writer_join_handle: std::thread::JoinHandle<Result<()>>,
+    pub writer_join_handle: tokio::task::JoinHandle<Result<()>>,
     model_servers: Vec<tokio::sync::mpsc::Sender<(SendType, TimeDataPassthrough)>>,
     tracking_params: Arc<TrackingParams>,
     /// Images of the "mini arenas" in use.
@@ -765,19 +764,17 @@ impl CoordProcessor {
 
         let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
 
-        let writer_join_handle = std::thread::Builder::new()
-            .name("writer_task_main".to_string())
-            .spawn(move || {
-                writer_task_main(
-                    braidz_write_rx,
-                    cam_manager2,
-                    recon2,
-                    tracking_params2,
-                    save_empty_data2d,
-                    metadata_builder,
-                    ignore_latency,
-                )
-            })?;
+        let writer_join_handle = tokio::task::spawn_blocking(move || {
+            write_data::writer_task_main(
+                braidz_write_rx,
+                cam_manager2,
+                recon2,
+                tracking_params2,
+                save_empty_data2d,
+                metadata_builder,
+                ignore_latency,
+            )
+        });
 
         Ok(Self {
             cam_manager,
@@ -835,7 +832,7 @@ impl CoordProcessor {
         mut self,
         frame_data_rx: S,
         expected_framerate: Option<f32>,
-    ) -> Result<std::thread::JoinHandle<Result<()>>>
+    ) -> Result<tokio::task::JoinHandle<Result<()>>>
     where
         S: 'static + Send + futures::stream::Stream<Item = StreamItem>,
     {

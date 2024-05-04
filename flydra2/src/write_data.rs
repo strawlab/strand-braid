@@ -474,6 +474,11 @@ impl Drop for WritingState {
     }
 }
 
+/// Listen to a Receiver for messages and save the data to disk.
+///
+/// This function only exits upon error or when the Sender counterpart to the
+/// Receiver has closed. It blocks and does not use an async context and thus
+/// should be spawned with `tokio::task::spawn_blocking`.
 #[tracing::instrument(level = "debug", skip_all)]
 pub(crate) fn writer_task_main(
     mut braidz_write_rx: tokio::sync::mpsc::Receiver<SaveToDiskMsg>,
@@ -496,7 +501,9 @@ pub(crate) fn writer_task_main(
 
     while let Some(msg) = braidz_write_rx.blocking_recv() {
         // TODO: improve flushing. Specifically, if we block for a long time
-        // without receiving a message here, we will not flush to disk.
+        // without receiving a message here, we will not flush to disk. To do
+        // that, though, we would have a timeout on `blocking_recv`, which
+        // doesn't seem possible.
         match msg {
             KalmanEstimate(ke) => {
                 let KalmanEstimateRecord {

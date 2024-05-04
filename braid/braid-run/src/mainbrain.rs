@@ -1192,10 +1192,7 @@ pub(crate) async fn do_run_forever(
             info!("Coordinate processor finished.");
             // Allow writer task time to finish writing.
             debug!("Runtime ending. Joining coord_processor.consume_stream future.");
-            res_writer_jh?
-                .join()
-                .expect("join writer task 1")
-                .expect("join writer task 2");
+            res_writer_jh?.await??;
         },
     };
 

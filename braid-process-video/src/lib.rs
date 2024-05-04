@@ -786,9 +786,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     )
                     .await?;
 
-                    // TODO: this is not going to work like this.
-                    let _terrible_jh_jh = tokio::spawn(async { coord_proc_fut.await });
-                    tracing::warn!("Braidz output will not work due to unfinished implementation");
+                    coord_proc_fut.await?.await??;
 
                     Ok(OutputStorage::Braid(braidz_storage))
                 }
