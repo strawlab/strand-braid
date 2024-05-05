@@ -318,6 +318,9 @@ impl ConnectedCamerasManager {
             let mut inner = self.inner.write();
 
             if inner.ccis.contains_key(&raw_cam_name) {
+                tracing::error!(
+                    "Camera \"{raw_cam_name}\" has already connected but is attempting to connect again."
+                );
                 return Err("camera already connected");
             }
 
