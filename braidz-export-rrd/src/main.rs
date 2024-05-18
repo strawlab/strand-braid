@@ -132,8 +132,8 @@ impl OfflineBraidzRerunLogger {
                     rerun::datatypes::Mat3x3::from([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
                 let pinhole =
                     rerun::archetypes::Pinhole::new(rerun::components::PinholeProjection(m));
-                self.rec.log_timeless(base_path, &pinhole)?;
-                self.rec.log_timeless(raw_path.clone(), &pinhole)?;
+                self.rec.log_static(base_path, &pinhole)?;
+                self.rec.log_static(raw_path.clone(), &pinhole)?;
             }
 
             let cam_data = CachedCamData {
@@ -160,7 +160,7 @@ impl OfflineBraidzRerunLogger {
         let camn = self.camid2camn.get(cam_name).unwrap();
         let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
         // convert camera pose to rerun transform3d
-        self.rec.log_timeless(
+        self.rec.log_static(
             base_path.as_str(),
             &cam.extrinsics().as_rerun_transform3d().into(),
         )?;
@@ -170,7 +170,7 @@ impl OfflineBraidzRerunLogger {
         let cam_data = match cam.rr_pinhole_archetype() {
             Ok(pinhole) => {
                 // Raw camera is linear. Life is easy.
-                self.rec.log_timeless(raw_path.clone(), &pinhole)?;
+                self.rec.log_static(raw_path.clone(), &pinhole)?;
                 CachedCamData {
                     image_ent_path: raw_path.clone(),
                     image_is_undistorted: false,
@@ -194,7 +194,7 @@ impl OfflineBraidzRerunLogger {
                     self.did_show_2499_warning = true;
                 }
                 let lin_cam = cam.linearize_to_cam_geom();
-                self.rec.log_timeless(
+                self.rec.log_static(
                     lin_path.clone(),
                     &to_pinhole(&lin_cam, cam.width(), cam.height()),
                 )?;
