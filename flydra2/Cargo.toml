@@ -85,7 +85,7 @@ simple-frame = { path = "../simple-frame" }
 convert-image = { path = "../convert-image" }
 strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
 event-stream-types = { path = "../event-stream-types" }
-rerun = { version = "0.15.1", default-features = false, features = ["sdk"] }
+rerun = { version = "0.16", default-features = false, features = ["sdk"] }
 
 [dev-dependencies]
 tempfile = "3.4.0"
