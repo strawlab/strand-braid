@@ -20,7 +20,7 @@ parking_lot = "0.12"
 lazy_static = "1"
 
 ci2 = { path = "../ci2" }
-pylon-cxx = "0.3.6"
+pylon-cxx = "0.4.0"
 machine-vision-formats = "0.1"
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }

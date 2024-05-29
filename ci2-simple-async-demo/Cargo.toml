@@ -19,15 +19,15 @@ ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
 
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
-pylon-cxx = { version = "0.3.8", optional = true }
+pylon-cxx = { version = "0.4.0", optional = true }
 ci2-vimba = { path = "../ci2-vimba", optional = true }
 
 [features]
 default = []
 
 # Backend choice
-backend_pyloncxx = ["ci2-pyloncxx", "pylon-cxx"]
-backend_vimba = ["ci2-vimba"]
+backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-cxx"]
+backend_vimba = ["dep:ci2-vimba"]
 
 # If you enable backtraces, you probably also want backtrace in the backend,
 # e.g. ci2-vimba/backtrace
