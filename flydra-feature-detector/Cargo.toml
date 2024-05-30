@@ -42,7 +42,6 @@ mvg = { path = "../mvg" }
 flydra-feature-detector-types = { path = "flydra-feature-detector-types", default-features = false }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 datetime-conversion = { path = "../datetime-conversion" }
-posix-scheduler = { path = "../posix-scheduler", optional = true }
 crossbeam-ok = { path = "../crossbeam-ok" }
 channellib = { path = "../channellib" }
 braid-http-session = { path = "../braid-http-session" }
@@ -59,8 +58,6 @@ anyhow = "1"
 
 [features]
 flydra-uds = ["unix_socket"]
-
-linux = ["posix-scheduler", "posix-scheduler/linux"]
 
 backtrace = ["ci2/backtrace", "mvg/backtrace"]
 use_ipp = ["fastimage", "dep:ipp-sys"]

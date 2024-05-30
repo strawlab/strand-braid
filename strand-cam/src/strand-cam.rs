@@ -542,7 +542,6 @@ async fn frame_process_task(
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     #[cfg(feature = "flydratrax")] http_camserver_info: BuiServerAddrInfo,
-    process_frame_priority: Option<(i32, i32)>,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
     camdata_addr: Option<RealtimePointsDestAddr>,
     led_box_heartbeat_update_arc: Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
@@ -563,35 +562,6 @@ async fn frame_process_task(
     let is_braid = camdata_addr.is_some();
 
     let raw_cam_name: RawCamName = cam_name.clone();
-
-    #[cfg(feature = "posix_sched_fifo")]
-    {
-        if let Some((policy, priority)) = process_frame_priority {
-            posix_scheduler::sched_setscheduler(0, policy, priority)?;
-            info!(
-                "Frame processing thread called POSIX sched_setscheduler() \
-                with policy {} priority {}",
-                policy, priority
-            );
-        } else {
-            info!(
-                "Frame processing thread using \
-                default posix scheduler settings."
-            );
-        }
-    }
-
-    #[cfg(not(feature = "posix_sched_fifo"))]
-    {
-        if process_frame_priority.is_some() {
-            panic!(
-                "Cannot set process frame priority because no support
-                was compiled in."
-            );
-        } else {
-            info!("Frame processing thread not configured to set posix scheduler.");
-        }
-    }
 
     #[cfg(feature = "flydratrax")]
     let mut maybe_flydra2_stream = None;
@@ -2386,9 +2356,6 @@ pub struct StrandCamArgs {
     pub ufmf_filename_template: String,
     pub disable_console: bool,
     pub csv_save_dir: String,
-    pub raise_grab_thread_priority: bool,
-    #[cfg(feature = "posix_sched_fifo")]
-    pub process_frame_priority: Option<(i32, i32)>,
     pub led_box_device_path: Option<String>,
     #[cfg(feature = "plugin-process-frame")]
     pub process_frame_callback: Option<ProcessFrameCbData>,
@@ -2430,9 +2397,6 @@ impl Default for StrandCamArgs {
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
             csv_save_dir: "/dev/null".to_string(),
-            raise_grab_thread_priority: false,
-            #[cfg(feature = "posix_sched_fifo")]
-            process_frame_priority: None,
             led_box_device_path: None,
             #[cfg(feature = "plugin-process-frame")]
             process_frame_callback: None,
@@ -3181,14 +3145,6 @@ where
         convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
     });
 
-    #[cfg(feature = "posix_sched_fifo")]
-    let process_frame_priority = args.process_frame_priority;
-
-    #[cfg(not(feature = "posix_sched_fifo"))]
-    let process_frame_priority = None;
-
-    let raise_grab_thread_priority = args.raise_grab_thread_priority;
-
     #[cfg(feature = "flydratrax")]
     let save_empty_data2d = args.save_empty_data2d;
 
@@ -3894,7 +3850,6 @@ where
             led_box_tx_std,
             #[cfg(feature = "flydratrax")]
             http_camserver_info2,
-            process_frame_priority,
             transmit_msg_tx.clone(),
             camdata_addr,
             led_box_heartbeat_update_arc2,
@@ -3923,41 +3878,9 @@ where
 
     debug!("installing frame stream handler");
 
-    #[cfg(feature = "posix_sched_fifo")]
-    fn with_priority() {
-        // This function is run in the camera capture thread as it is started.
-        let pid = 0; // this thread
-        let priority = 99;
-        match posix_scheduler::sched_setscheduler(pid, posix_scheduler::SCHED_FIFO, priority) {
-            Ok(()) => info!("grabbing frames with SCHED_FIFO scheduler policy"),
-            Err(e) => error!(
-                "failed to start frame grabber thread with \
-                            SCHED_FIFO scheduler policy: {}",
-                e,
-            ),
-        };
-    }
-
-    #[cfg(not(feature = "posix_sched_fifo"))]
-    fn with_priority() {
-        // This funciton is run in the camera capture thread as it is started.
-        debug!("starting async capture");
-    }
-
-    fn no_priority() {
-        // This funciton is run in the camera capture thread as it is started.
-        debug!("starting async capture");
-    }
-
-    let async_thread_start = if raise_grab_thread_priority {
-        with_priority
-    } else {
-        no_priority
-    };
-
     // install frame handling
     let n_buffered_frames = 100;
-    let mut frame_stream = cam.frames(n_buffered_frames, async_thread_start)?;
+    let mut frame_stream = cam.frames(n_buffered_frames)?;
     let cam_stream_future = {
         let shared_store_arc = shared_store_arc.clone();
         let frame_processing_error_state = frame_processing_error_state.clone();

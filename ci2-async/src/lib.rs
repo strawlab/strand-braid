@@ -44,13 +44,10 @@ pub enum FrameResult {
 /// Defines a method to return a stream of frames.
 pub trait AsyncCamera {
     /// asynchronous frame acquisition, get an infinite stream of frames
-    fn frames<FN>(
+    fn frames(
         &mut self,
         bufsize: usize,
-        on_start: FN,
-    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>>
-    where
-        FN: Fn() + Send + 'static;
+    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>>;
 }
 
 pub struct ThreadedAsyncCamera<C> {
@@ -95,14 +92,10 @@ impl<C> AsyncCamera for ThreadedAsyncCamera<C>
 where
     C: 'static + ci2::Camera + Send,
 {
-    fn frames<FN>(
+    fn frames(
         &mut self,
         bufsize: usize,
-        on_start: FN,
-    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>>
-    where
-        FN: Fn() + Send + 'static,
-    {
+    ) -> Result<Box<dyn Stream<Item = FrameResult> + Send + Unpin>> {
         if self.control_and_join_handle.is_some() {
             return Err(ci2::Error::from("already launched thread"));
         }
@@ -115,7 +108,6 @@ where
             std::thread::Builder::new().name(format!("ThreadedAsyncCamera-{}", self.name));
         let cam_arc = self.camera.clone();
         let join_handle: std::thread::JoinHandle<()> = thread_builder.spawn(move || {
-            on_start();
             while flag.is_alive() {
                 // We need to release and re-acquire the lock every cycle to
                 // allow other threads the chance to grab the lock.

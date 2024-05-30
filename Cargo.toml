@@ -97,7 +97,6 @@ members = [
     "opencv-calibrate/find-chessboard",
     "parry-geom",
     "plugin-defs",
-    "posix-scheduler",
     "py-strandcam/rust",
     "refraction",
     "simple-frame",

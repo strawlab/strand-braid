@@ -112,7 +112,6 @@ bui-backend-session-types = { path = "../bui-backend-session/types" }
 braid-config-data = { path = "../braid-config-data" }
 opencv-calibrate = { path = "../opencv-calibrate", optional = true }
 camcal = { path = "../camcal", optional = true }
-posix-scheduler = { path = "../posix-scheduler", optional = true }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 mp4-writer = { path = "../media-utils/mp4-writer", features = [
     "openh264-encode",
@@ -154,9 +153,6 @@ checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
 flydra-uds = ["flydra-feature-detector?/flydra-uds"]
-
-# Priority setting, high priority for camera threads, low priority for bg-image thread
-posix_sched_fifo = ["posix-scheduler", "posix-scheduler/linux"]
 
 # Serve style
 ## Bundle files into executable

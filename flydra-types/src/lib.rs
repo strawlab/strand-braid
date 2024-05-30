@@ -289,10 +289,6 @@ impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Local> {
 
 pub const DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC: Option<f64> = Some(5.0);
 
-fn return_false() -> bool {
-    false
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BraidCameraConfig {
@@ -310,15 +306,29 @@ pub struct BraidCameraConfig {
     /// Configuration for detecting points.
     #[serde(default = "flydra_pt_detect_cfg::default_absdiff")]
     pub point_detection_config: flydra_feature_detector_types::ImPtDetectCfg,
-    /// Whether to raise the priority of the grab thread.
-    #[serde(default = "return_false")]
-    pub raise_grab_thread_priority: bool,
     /// Which camera backend to use.
     #[serde(default)]
     pub start_backend: StartCameraBackend,
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
     /// The SocketAddr on which the strand camera BUI server should run.
     pub http_server_addr: Option<String>,
+
+    /// Deprecated, useless old config option (not removed for backwards compatibility)
+    #[serde(
+        default,
+        skip_serializing,
+        rename = "raise_grab_thread_priority",
+        deserialize_with = "raise_grab_thread_priority_deser"
+    )]
+    _raise_grab_thread_priority: bool,
+}
+
+fn raise_grab_thread_priority_deser<'de, D>(de: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    tracing::error!("The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration.");
+    bool::deserialize(de)
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -351,7 +361,7 @@ impl BraidCameraConfig {
             camera_settings_filename: None,
             pixel_format: None,
             point_detection_config: flydra_pt_detect_cfg::default_absdiff(),
-            raise_grab_thread_priority: false,
+            _raise_grab_thread_priority: Default::default(),
             start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
                 DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,

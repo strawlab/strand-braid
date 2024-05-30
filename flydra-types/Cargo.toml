@@ -39,6 +39,7 @@ rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
 flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
 bui-backend-session-types = { path = "../bui-backend-session/types" }
+tracing = { version = "0.1.40", default-features = false }
 
 [features]
 default = ["with-tokio-codec"]

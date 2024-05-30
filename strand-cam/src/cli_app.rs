@@ -36,30 +36,6 @@ where
     run_strand_cam_app(mymod, args, app_name)
 }
 
-#[cfg(feature = "posix_sched_fifo")]
-fn parse_sched_policy_priority(matches: &clap::ArgMatches) -> Result<Option<(i32, i32)>> {
-    let errstr = "Set --sched-policy if and only if --sched-priority also set.";
-    match matches.get_one::<String>("sched_policy") {
-        Some(policy) => match matches.get_one::<String>("sched_priority") {
-            Some(priority) => {
-                let policy = policy.parse()?;
-                let priority = priority.parse()?;
-                Ok(Some((policy, priority)))
-            }
-            None => Err(eyre!(errstr)),
-        },
-        None => match matches.get_one::<String>("sched_priority") {
-            Some(_priority) => Err(eyre!(errstr)),
-            None => Ok(None),
-        },
-    }
-}
-
-#[cfg(not(feature = "posix_sched_fifo"))]
-fn parse_sched_policy_priority(_matches: &clap::ArgMatches) -> Result<Option<(i32, i32)>> {
-    Ok(None)
-}
-
 fn parse_led_box_device(matches: &clap::ArgMatches) -> Option<String> {
     matches.get_one::<String>("led_box_device").map(Into::into)
 }
@@ -163,16 +139,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                 .long("braid-url")
                 .help("Braid HTTP URL address (e.g. 'http://host:port/')"),
         );
-
-        #[cfg(feature = "posix_sched_fifo")]
-        {
-            parser = parser.arg(Arg::new("sched_policy")
-                    .long("sched-policy")
-                    .help("The scheduler policy (integer, e.g. SCHED_FIFO is 1). Requires also sched-priority."))
-            .arg(Arg::new("sched_priority")
-                    .long("sched-priority")
-                    .help("The scheduler priority (integer, e.g. 99). Requires also sched-policy."))
-        }
 
         parser = parser.arg(
             Arg::new("led_box_device")
@@ -284,8 +250,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         .parse()
         .unwrap();
 
-    let process_frame_priority = parse_sched_policy_priority(&matches)?;
-
     let led_box_device_path = parse_led_box_device(&matches);
 
     let braid_url: Option<String> = matches.get_one::<String>("braid_url").map(Into::into);
@@ -349,8 +313,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         })
     };
 
-    let raise_grab_thread_priority = process_frame_priority.is_some();
-
     let no_browser_default = match &standalone_or_braid {
         StandaloneOrBraid::Braid(_) => true,
         StandaloneOrBraid::Standalone(_) => false,
@@ -380,10 +342,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         ufmf_filename_template,
 
         csv_save_dir,
-        raise_grab_thread_priority,
         led_box_device_path,
-        #[cfg(feature = "posix_sched_fifo")]
-        process_frame_priority,
         #[cfg(feature = "flydratrax")]
         flydratrax_calibration_source,
         #[cfg(feature = "flydratrax")]
