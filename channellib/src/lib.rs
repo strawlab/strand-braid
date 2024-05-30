@@ -1,13 +1,10 @@
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;
 
 #[derive(thiserror::Error, Debug)]
-#[error("chanellib receive error")]
+#[error("channellib receive error")]
 pub struct RecvError {
     #[from]
     source: crossbeam_channel::RecvError,
@@ -16,7 +13,7 @@ pub struct RecvError {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("chanellib receive timeout error")]
+#[error("channellib receive timeout error")]
 pub struct RecvTimeoutError {
     #[from]
     source: crossbeam_channel::RecvTimeoutError,
@@ -32,7 +29,7 @@ impl RecvTimeoutError {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("chanellib try receive error")]
+#[error("channellib try receive error")]
 pub struct TryRecvError {
     #[from]
     source: crossbeam_channel::TryRecvError,
@@ -55,7 +52,7 @@ impl TryRecvError {
 }
 
 #[derive(thiserror::Error)]
-#[error("chanellib send error")]
+#[error("channellib send error")]
 pub struct SendError<T> {
     inner: crossbeam_channel::SendError<T>,
     #[cfg(feature = "backtrace")]
