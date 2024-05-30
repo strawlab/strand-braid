@@ -312,6 +312,9 @@ pub struct BraidCameraConfig {
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
     /// The SocketAddr on which the strand camera BUI server should run.
     pub http_server_addr: Option<String>,
+    /// The interval at which the current image should be sent, in milliseconds.
+    #[serde(default = "default_send_current_image_interval_msec")]
+    pub send_current_image_interval_msec: u64,
 
     /// Deprecated, useless old config option (not removed for backwards compatibility)
     #[serde(
@@ -329,6 +332,10 @@ where
 {
     tracing::error!("The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration.");
     bool::deserialize(de)
+}
+
+const fn default_send_current_image_interval_msec() -> u64 {
+    2000
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -366,6 +373,7 @@ impl BraidCameraConfig {
             acquisition_duration_allowed_imprecision_msec:
                 DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
             http_server_addr: None,
+            send_current_image_interval_msec: default_send_current_image_interval_msec(),
         }
     }
 }

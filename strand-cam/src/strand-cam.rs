@@ -602,7 +602,7 @@ async fn frame_process_task(
         Some(0)
     };
 
-    let (transmit_feature_detect_settings_tx, mut transmit_msg_tx) = if is_braid {
+    let transmit_feature_detect_settings_tx = if is_braid {
         let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
             tokio::sync::mpsc::channel::<flydra_feature_detector_types::ImPtDetectCfg>(10);
 
@@ -611,15 +611,12 @@ async fn frame_process_task(
         my_runtime.spawn(convert_stream(
             raw_cam_name.clone(),
             transmit_feature_detect_settings_rx,
-            transmit_msg_tx.clone(),
+            transmit_msg_tx,
         ));
 
-        (
-            Some(transmit_feature_detect_settings_tx),
-            Some(transmit_msg_tx),
-        )
+        Some(transmit_feature_detect_settings_tx)
     } else {
-        (None, None)
+        None
     };
 
     #[cfg(not(feature = "flydra_feat_detect"))]
@@ -698,7 +695,7 @@ async fn frame_process_task(
     #[cfg(feature = "checkercal")]
     let mut checkerboard_loop_dur = std::time::Duration::from_millis(500);
 
-    let current_image_timer_arc = Arc::new(parking_lot::RwLock::new(std::time::Instant::now()));
+    // let current_image_timer_arc = Arc::new(parking_lot::RwLock::new(std::time::Instant::now()));
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
@@ -1772,49 +1769,6 @@ async fn frame_process_task(
                         },
                     )
                     .collect();
-
-                {
-                    // send current image every 2 seconds
-                    let send_msg = {
-                        let mut timer = current_image_timer_arc.write();
-                        let elapsed = timer.elapsed();
-                        let mut send_msg = false;
-                        if elapsed > std::time::Duration::from_millis(2000) {
-                            *timer = std::time::Instant::now();
-                            send_msg = true;
-                        }
-                        send_msg
-                    };
-
-                    if send_msg {
-                        // encode frame to png buf
-
-                        if let Some(cb_sender) = transmit_msg_tx.as_ref() {
-                            let current_image_png = match_all_dynamic_fmts!(&frame, x, {
-                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png)
-                                    .unwrap()
-                            });
-
-                            let raw_cam_name = raw_cam_name.clone();
-
-                            let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
-                                flydra_types::PerCam {
-                                    raw_cam_name,
-                                    inner: flydra_types::UpdateImage {
-                                        current_image_png: current_image_png.into(),
-                                    },
-                                },
-                            );
-                            match cb_sender.send(msg).await {
-                                Ok(()) => {}
-                                Err(e) => {
-                                    tracing::error!("While sending current image: {e}");
-                                    transmit_msg_tx = None;
-                                }
-                            };
-                        }
-                    }
-                }
 
                 // check led_box device heartbeat
                 if let Some(reader) = *led_box_heartbeat_update_arc.read() {
@@ -3013,6 +2967,16 @@ where
         Err(a) => a.pixel_format.clone(),
     };
 
+    let send_current_image_interval = match &res_braid {
+        Ok(bi) => std::time::Duration::from_millis(
+            bi.config_from_braid.config.send_current_image_interval_msec,
+        ),
+        Err(_) => {
+            // We never need to send if we are not using braid, so set to 365 days.
+            std::time::Duration::from_secs(60 * 60 * 24 * 365)
+        }
+    };
+
     let acquisition_duration_allowed_imprecision_msec = match &res_braid {
         Ok(bi) => {
             bi.config_from_braid
@@ -3884,11 +3848,15 @@ where
     let cam_stream_future = {
         let shared_store_arc = shared_store_arc.clone();
         let frame_processing_error_state = frame_processing_error_state.clone();
+        let mut transmit_msg_tx = transmit_msg_tx.clone();
+        let raw_cam_name = raw_cam_name.clone();
         async move {
+            let mut send_current_image_timer =
+                std::time::Instant::now() - send_current_image_interval;
             while let Some(frame_msg) = frame_stream.next().await {
-                match frame_msg {
+                match &frame_msg {
                     ci2_async::FrameResult::Frame(frame) => {
-                        let frame: DynamicFrame = frame;
+                        let frame: &DynamicFrame = frame;
                         trace!(
                             "  got frame {}: {}x{}",
                             frame.extra().host_framenumber(),
@@ -3917,11 +3885,38 @@ where
                             });
                             error!("Channel full sending frame to process thread. Dropping frame data.");
                         } else {
-                            tx_frame.send(Msg::Mframe(frame)).await.map_err(to_eyre)?;
+                            tx_frame
+                                .send(Msg::Mframe(frame.clone()))
+                                .await
+                                .map_err(to_eyre)?;
                         }
                     }
                     ci2_async::FrameResult::SingleFrameError(s) => {
                         error!("SingleFrameError({})", s);
+                    }
+                }
+
+                if let ci2_async::FrameResult::Frame(frame) = &frame_msg {
+                    if send_current_image_timer.elapsed() >= send_current_image_interval {
+                        send_current_image_timer = std::time::Instant::now();
+
+                        if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
+                            // encode frame to png buf
+                            let current_image_png = match_all_dynamic_fmts!(frame, x, {
+                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png)
+                                    .unwrap()
+                            });
+
+                            let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
+                                flydra_types::PerCam {
+                                    raw_cam_name: raw_cam_name.clone(),
+                                    inner: flydra_types::UpdateImage {
+                                        current_image_png: current_image_png.into(),
+                                    },
+                                },
+                            );
+                            transmit_msg_tx.send(msg).await?;
+                        }
                     }
                 }
             }
