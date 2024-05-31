@@ -514,6 +514,7 @@ pub(crate) async fn do_run_forever(
     let lowlatency_camdata_udp_addr = &mainbrain_config.lowlatency_camdata_udp_addr;
 
     let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
+    let write_buffer_size_num_messages = mainbrain_config.write_buffer_size_num_messages;
 
     info!("saving to directory: {}", output_base_dirname.display());
 
@@ -578,6 +579,7 @@ pub(crate) async fn do_run_forever(
             save_empty_data2d,
             ignore_latency,
             mini_arena_debug_image_dir: None,
+            write_buffer_size_num_messages,
         },
         cam_manager.clone(),
         recon.clone(),

@@ -120,6 +120,8 @@ impl BraidStorage {
                 save_empty_data2d,
                 ignore_latency,
                 mini_arena_debug_image_dir: None,
+                write_buffer_size_num_messages:
+                    braid_config_data::default_write_buffer_size_num_messages(),
             },
             cam_manager.clone(),
             recon.clone(),

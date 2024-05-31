@@ -152,6 +152,10 @@ pub struct MainbrainConfig {
     /// at which an error is logged. (The underlying source of such errors
     /// remains unknown.)
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
+    /// The size of the buffer, in number of messages, used by the channel for
+    /// sending data to disk.
+    #[serde(default = "default_write_buffer_size_num_messages")]
+    pub write_buffer_size_num_messages: usize,
 }
 
 impl std::default::Default for MainbrainConfig {
@@ -170,8 +174,13 @@ impl std::default::Default for MainbrainConfig {
             packet_capture_dump_fname: None,
             acquisition_duration_allowed_imprecision_msec:
                 flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
+            write_buffer_size_num_messages: default_write_buffer_size_num_messages(),
         }
     }
+}
+
+pub const fn default_write_buffer_size_num_messages() -> usize {
+    10000
 }
 
 /// The Braid configuration format used in [the Braid configuration `TOML`

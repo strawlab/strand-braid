@@ -347,6 +347,8 @@ pub(crate) async fn frame_process_task(
                                         save_empty_data2d: args.save_empty_data2d,
                                         ignore_latency,
                                         mini_arena_debug_image_dir: None,
+                                        write_buffer_size_num_messages: args
+                                            .write_buffer_size_num_messages,
                                     },
                                     cam_manager,
                                     Some(recon),

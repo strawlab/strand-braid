@@ -676,6 +676,7 @@ pub struct CoordProcessorConfig {
     pub save_empty_data2d: bool,
     pub ignore_latency: bool,
     pub mini_arena_debug_image_dir: Option<std::path::PathBuf>,
+    pub write_buffer_size_num_messages: usize,
 }
 
 /// A [tokio::sync::mpsc::Sender] which cannot be cloned.
@@ -744,6 +745,7 @@ impl CoordProcessor {
             save_empty_data2d,
             ignore_latency,
             mini_arena_debug_image_dir,
+            write_buffer_size_num_messages,
         } = cfg;
 
         trace!("CoordProcessor using {:?}", recon);
@@ -762,7 +764,8 @@ impl CoordProcessor {
         let tracking_params2 = tracking_params.clone();
         let cam_manager2 = cam_manager.clone();
 
-        let (braidz_write_tx, braidz_write_rx) = tokio::sync::mpsc::channel(10);
+        let (braidz_write_tx, braidz_write_rx) =
+            tokio::sync::mpsc::channel(write_buffer_size_num_messages);
 
         let writer_join_handle = tokio::task::spawn_blocking(move || {
             write_data::writer_task_main(

@@ -43,6 +43,7 @@ mp4-writer = { path = "../media-utils/mp4-writer", features = [
 ] }
 ci2-remote-control = { path = "../ci2-remote-control" }
 braidz-parser = { path = "../braidz-parser" }
+braid-config-data = { path = "../braid-config-data" }
 flydra-types = { path = "../flydra-types" }
 convert-image = { path = "../convert-image" }
 datetime-conversion = { path = "../datetime-conversion" }

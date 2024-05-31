@@ -39,6 +39,7 @@ csv-eof = { path = "../csv-eof" }
 flydra2 = { path = "../flydra2", default-features = false, features = [
     "bundle_files",
 ] }
+braid-config-data = { path = "../braid-config-data" }
 flydra-types = { path = "../flydra-types" }
 groupby = { path = "../groupby" }
 zip-or-dir = { path = "../zip-or-dir" }

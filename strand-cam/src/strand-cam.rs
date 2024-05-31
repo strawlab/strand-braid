@@ -703,6 +703,8 @@ pub struct StrandCamArgs {
     pub flydratrax_calibration_source: CalSource,
     #[cfg(feature = "fiducial")]
     pub apriltag_csv_filename_template: String,
+    #[cfg(feature = "flydratrax")]
+    pub write_buffer_size_num_messages: usize,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -742,6 +744,9 @@ impl Default for StrandCamArgs {
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
             model_server_addr: flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
+            #[cfg(feature = "flydratrax")]
+            write_buffer_size_num_messages:
+                braid_config_data::default_write_buffer_size_num_messages(),
         }
     }
 }
