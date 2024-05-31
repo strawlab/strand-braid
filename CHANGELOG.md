@@ -83,6 +83,10 @@
 * When saving MP4 files, the maximum framerate parameter is respected.
 * The `alpha` parameter in the feature detector was inadvertently ignored. This
   has been corrected. Thanks to Antoine Cribellier for noticing this.
+* Increased the default size of the buffer used to save data to disk to 10000
+  from a previous value of 10. Additionally, made this value configurable by
+  creating a new parameter `write_buffer_size_num_messages` in the `[mainbrain]`
+  section of the Braid `.toml` configuration file.
 
 ## 0.11.1 - 2021-12-04
 
