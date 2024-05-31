@@ -76,7 +76,6 @@ http-video-streaming = { path = "../http-video-streaming" }
 semver = { version = "1", features = ["serde"] }
 shellexpand = "2"
 imops = { path = "../imops" }
-led-box = { path = "../led-box" }
 led-box-comms = { path = "../led-box-comms" }
 flydra-types = { path = "../flydra-types", features = [
     "start-listener",

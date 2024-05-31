@@ -1,7 +1,13 @@
-use crate::*;
+use async_change_tracker::ChangeTracker;
+use nalgebra as na;
 use parking_lot::RwLock;
+use std::sync::Arc;
+use tracing::{debug, error, info};
 
+use crate::Result;
 use flydra2::{SendKalmanEstimatesRow, SendType};
+use flydra_types::MyFloat;
+use strand_cam_storetype::{LedProgramConfig, StoreType, ToLedBoxDevice};
 
 // create a long-lived future that will process data from flydra and turn on
 // LEDs with it.
@@ -97,16 +103,16 @@ pub async fn create_message_handler(
             );
 
             let circ_params = match led_program_config.led_on_shape_pixels {
-                video_streaming::Shape::Polygon(ref _points) => {
+                http_video_streaming::Shape::Polygon(ref _points) => {
                     unimplemented!();
                 }
-                video_streaming::Shape::MultipleCircles(ref circles) => {
+                http_video_streaming::Shape::MultipleCircles(ref circles) => {
                     circles.iter().map(|circ| to_circ_params(circ)).collect()
                 }
-                video_streaming::Shape::Circle(ref circ) => {
+                http_video_streaming::Shape::Circle(ref circ) => {
                     vec![to_circ_params(circ)]
                 }
-                video_streaming::Shape::Everything => {
+                http_video_streaming::Shape::Everything => {
                     // actually nothing
                     vec![]
                 }
