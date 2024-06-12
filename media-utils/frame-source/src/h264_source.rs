@@ -66,7 +66,7 @@ pub struct H264Source {
     nal_units: Vec<Vec<u8>>,
     /// timestamps from MP4 files, per NAL unit
     mp4_pts: Option<Vec<std::time::Duration>>,
-    frame_to_nalu_index: Vec<(usize, Option<DateTime<Utc>>, Option<NtpTimestamp>)>,
+    frame_to_nalu_time_info: Vec<NaluTimeInfo>,
     pub h264_metadata: Option<H264Metadata>,
     frame0_precision_time: Option<chrono::DateTime<chrono::FixedOffset>>,
     frame0_frameinfo_recv_ntp: Option<NtpTimestamp>,
@@ -75,6 +75,16 @@ pub struct H264Source {
     do_decode_h264: bool,
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
+}
+
+pub struct NaluTimeInfo {
+    /// The NALU number.
+    ///
+    /// This increments by one for each NALU. In other words, it is NOT the
+    /// position on disk.
+    nalu_index: usize,
+    precise_timestamp: Option<DateTime<Utc>>,
+    frameinfo_recv_ntp: Option<NtpTimestamp>,
 }
 
 impl FrameDataSource for H264Source {
@@ -157,9 +167,9 @@ impl H264Source {
         let mut parsing_ctx = H264ParsingContext::default();
         let mut frame0_precision_time = None;
         let mut frame0_frameinfo_recv_ntp = None;
-        let mut frame_to_nalu_index = Vec::new();
-        let mut last_precision_time = None;
-        let mut last_frameinfo_recv_ntp = None;
+        let mut frame_to_nalu_time_info = Vec::new();
+        let mut precise_timestamp = None;
+        let mut frameinfo_recv_ntp = None;
         let mut next_frame_num = 0;
 
         // Use data from container if present
@@ -237,7 +247,7 @@ impl H264Source {
                                                         .with_context(|| {
                                                             "Parsing precision time stamp"
                                                         })?;
-                                                last_precision_time = Some(precision_time);
+                                                precise_timestamp = Some(precision_time);
                                                 if next_frame_num == 0 {
                                                     frame0_precision_time = Some(precision_time);
                                                 }
@@ -245,11 +255,10 @@ impl H264Source {
                                             b"strawlab.org/89H" => {
                                                 let fi: FrameInfo =
                                                     serde_json::from_slice(udu.payload)?;
-                                                last_frameinfo_recv_ntp =
-                                                    Some(NtpTimestamp(fi.recv));
+                                                frameinfo_recv_ntp = Some(NtpTimestamp(fi.recv));
                                                 if next_frame_num == 0 {
                                                     frame0_frameinfo_recv_ntp =
-                                                        last_frameinfo_recv_ntp.clone();
+                                                        frameinfo_recv_ntp.clone();
                                                 }
                                             }
                                             _uuid => {
@@ -309,13 +318,14 @@ impl H264Source {
                 }
                 UnitType::SliceLayerWithoutPartitioningIdr
                 | UnitType::SliceLayerWithoutPartitioningNonIdr => {
-                    frame_to_nalu_index.push((
+                    frame_to_nalu_time_info.push(NaluTimeInfo {
                         nalu_index,
-                        last_precision_time,
-                        last_frameinfo_recv_ntp,
-                    ));
-                    last_precision_time = None;
-                    last_frameinfo_recv_ntp = None;
+                        precise_timestamp,
+                        frameinfo_recv_ntp,
+                    });
+                    // Reset temporary values.
+                    precise_timestamp = None;
+                    frameinfo_recv_ntp = None;
                     next_frame_num += 1;
                 }
                 _nal_unit_type => {}
@@ -379,7 +389,7 @@ impl H264Source {
         Ok(Self {
             nal_units,
             mp4_pts,
-            frame_to_nalu_index,
+            frame_to_nalu_time_info,
             h264_metadata,
             frame0_precision_time,
             frame0_frameinfo_recv_ntp,
@@ -426,129 +436,121 @@ impl<'a> Iterator for RawH264Iter<'a> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let frame_number = self.frame_idx;
-        let res = self.parent.frame_to_nalu_index.get(self.frame_idx);
+        let res = self.parent.frame_to_nalu_time_info.get(self.frame_idx);
         self.frame_idx += 1;
 
-        match res {
-            None => {
-                // end of frame data
-                None
-            }
-            Some((frame_nalu_index, precise_timestamp, frameinfo_recv_ntp)) => {
-                // create slice of all NAL units up to frame data
-                let nal_units = &self.parent.nal_units[self.next_nal_idx..=(*frame_nalu_index)];
-                let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]);
-                let fraction_done = self.next_nal_idx as f32 / self.parent.nal_units.len() as f32;
+        res.map(|nti| {
+            // create slice of all NAL units up and including NALU for the frame
+            let nal_units = &self.parent.nal_units[self.next_nal_idx..=(nti.nalu_index)];
+            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]);
+            let fraction_done = self.next_nal_idx as f32 / self.parent.nal_units.len() as f32;
 
-                self.next_nal_idx = *frame_nalu_index + 1;
+            self.next_nal_idx = nti.nalu_index + 1;
 
-                let frame_timestamp = match self.parent.timestamp_source {
-                    Some(TimestampSource::BestGuess) => unreachable!(),
-                    Some(TimestampSource::MispMicrosectime) => {
-                        let f0 = self.parent.frame0_precision_time.as_ref().unwrap();
-                        Timestamp::Duration(
-                            precise_timestamp
-                                .unwrap()
-                                .signed_duration_since(*f0)
-                                .to_std()
-                                .unwrap(),
-                        )
-                    }
-                    Some(TimestampSource::FrameInfoRecvTime) => {
-                        let t0 = self.parent.frame0_frameinfo_recv_ntp.as_ref().unwrap();
-                        let t0: chrono::DateTime<chrono::Utc> = (*t0).into();
-                        let this_frame: chrono::DateTime<chrono::Utc> =
-                            frameinfo_recv_ntp.unwrap().into();
-                        Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
-                    }
-                    Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
-                    None => Timestamp::Fraction(fraction_done),
-                };
-
-                if let Some(decoder) = &mut self.openh264_decoder_state {
-                    // copy into Annex B format for OpenH264
-                    let annex_b = copy_nalus_to_annex_b(nal_units);
-
-                    let decode_result = decoder.decode(&annex_b[..]);
-                    match decode_result {
-                        Ok(Some(decoded_yuv)) => {
-                            let dim = decoded_yuv.dimension_rgb();
-
-                            let stride = dim.0 * 3;
-                            let mut image_data = vec![0u8; stride * dim.1];
-                            decoded_yuv.write_rgb8(&mut image_data);
-
-                            let host_timestamp = match precise_timestamp {
-                                Some(ts) => *ts,
-                                None => {
-                                    if let (Some(mp4_pts), Some(md)) =
-                                        (mp4_pts, &self.parent.h264_metadata)
-                                    {
-                                        md.creation_time.with_timezone(&chrono::Utc)
-                                            + chrono::Duration::from_std(mp4_pts).unwrap()
-                                    } else {
-                                        // No possible source of timestamp, use dummy value.
-                                        chrono::TimeZone::timestamp_opt(&chrono::Utc, 0, 0).unwrap()
-                                    }
-                                }
-                            };
-
-                            let extra = Box::new(basic_frame::BasicExtra {
-                                host_timestamp,
-                                host_framenumber: frame_number,
-                            });
-                            let dynamic_frame =
-                                basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
-                                    machine_vision_formats::pixel_format::RGB8,
-                                > {
-                                    width: dim.0.try_into().unwrap(),
-                                    height: dim.1.try_into().unwrap(),
-                                    stride: u32::try_from(stride).unwrap(),
-                                    image_data,
-                                    pixel_format: std::marker::PhantomData,
-                                    extra,
-                                });
-
-                            let buf_len = nal_units.iter().map(|x| x.len()).sum();
-                            // let buf_len = avcc_data.len();
-                            let idx = frame_number;
-                            let image = ImageData::Decoded(dynamic_frame);
-                            Some(Ok(FrameData {
-                                timestamp: frame_timestamp,
-                                image,
-                                buf_len,
-                                idx,
-                            }))
-
-                            // Some(ImageData::Decoded(dynamic_frame))
-                        }
-                        Ok(None) => Some(Err(anyhow::anyhow!(
-                            "decoder unexpectedly did not return image data"
-                        ))),
-                        Err(decode_err) => Some(Err(decode_err.into())),
-                    }
-                } else {
-                    let buf_len = nal_units.iter().map(|x| x.len()).sum();
-                    // let buf_len = avcc_data.len();
-                    let idx = frame_number;
-                    let buf = EncodedH264 {
-                        data: H264EncodingVariant::RawEbsp(nal_units.to_vec()),
-                        has_precision_timestamp: self.parent.frame0_precision_time.is_some(),
-                    };
-                    let image = ImageData::EncodedH264(buf);
-                    Some(Ok(FrameData {
-                        timestamp: frame_timestamp,
-                        image,
-                        buf_len,
-                        idx,
-                    }))
+            let frame_timestamp = match self.parent.timestamp_source {
+                Some(TimestampSource::BestGuess) => unreachable!(),
+                Some(TimestampSource::MispMicrosectime) => {
+                    let f0 = self.parent.frame0_precision_time.as_ref().unwrap();
+                    Timestamp::Duration(
+                        nti.precise_timestamp
+                            .unwrap()
+                            .signed_duration_since(*f0)
+                            .to_std()
+                            .unwrap(),
+                    )
                 }
+                Some(TimestampSource::FrameInfoRecvTime) => {
+                    let t0 = self.parent.frame0_frameinfo_recv_ntp.as_ref().unwrap();
+                    let t0: chrono::DateTime<chrono::Utc> = (*t0).into();
+                    let this_frame: chrono::DateTime<chrono::Utc> =
+                        nti.frameinfo_recv_ntp.unwrap().into();
+                    Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
+                }
+                Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
+                None => Timestamp::Fraction(fraction_done),
+            };
+
+            if let Some(decoder) = &mut self.openh264_decoder_state {
+                // copy into Annex B format for OpenH264
+                let annex_b = copy_nalus_to_annex_b(nal_units);
+
+                let decode_result = decoder.decode(&annex_b[..]);
+                match decode_result {
+                    Ok(Some(decoded_yuv)) => {
+                        let dim = decoded_yuv.dimension_rgb();
+
+                        let stride = dim.0 * 3;
+                        let mut image_data = vec![0u8; stride * dim.1];
+                        decoded_yuv.write_rgb8(&mut image_data);
+
+                        let host_timestamp = match nti.precise_timestamp {
+                            Some(ts) => ts,
+                            None => {
+                                if let (Some(mp4_pts), Some(md)) =
+                                    (mp4_pts, &self.parent.h264_metadata)
+                                {
+                                    md.creation_time.with_timezone(&chrono::Utc)
+                                        + chrono::Duration::from_std(mp4_pts).unwrap()
+                                } else {
+                                    // No possible source of timestamp, use dummy value.
+                                    chrono::TimeZone::timestamp_opt(&chrono::Utc, 0, 0).unwrap()
+                                }
+                            }
+                        };
+
+                        let extra = Box::new(basic_frame::BasicExtra {
+                            host_timestamp,
+                            host_framenumber: frame_number,
+                        });
+                        let dynamic_frame =
+                            basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
+                                machine_vision_formats::pixel_format::RGB8,
+                            > {
+                                width: dim.0.try_into().unwrap(),
+                                height: dim.1.try_into().unwrap(),
+                                stride: u32::try_from(stride).unwrap(),
+                                image_data,
+                                pixel_format: std::marker::PhantomData,
+                                extra,
+                            });
+
+                        let buf_len = nal_units.iter().map(|x| x.len()).sum();
+                        // let buf_len = avcc_data.len();
+                        let idx = frame_number;
+                        let image = ImageData::Decoded(dynamic_frame);
+                        Ok(FrameData {
+                            timestamp: frame_timestamp,
+                            image,
+                            buf_len,
+                            idx,
+                        })
+                    }
+                    Ok(None) => Err(anyhow::anyhow!(
+                        "decoder unexpectedly did not return image data"
+                    )),
+                    Err(decode_err) => Err(decode_err.into()),
+                }
+            } else {
+                let buf_len = nal_units.iter().map(|x| x.len()).sum();
+                // let buf_len = avcc_data.len();
+                let idx = frame_number;
+                let buf = EncodedH264 {
+                    data: H264EncodingVariant::RawEbsp(nal_units.to_vec()),
+                    has_precision_timestamp: self.parent.frame0_precision_time.is_some(),
+                };
+                let image = ImageData::EncodedH264(buf);
+                Ok(FrameData {
+                    timestamp: frame_timestamp,
+                    image,
+                    buf_len,
+                    idx,
+                })
             }
-        }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.parent.frame_to_nalu_index.len() - self.frame_idx;
+        let remaining = self.parent.frame_to_nalu_time_info.len() - self.frame_idx;
         (remaining, Some(remaining))
     }
 }
