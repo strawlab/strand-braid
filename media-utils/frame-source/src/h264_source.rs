@@ -126,7 +126,7 @@ impl FrameDataSource for H264Source {
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         anyhow::bail!("h264 luminance scanning not implemented");
     }
-    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_> {
+    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         let openh264_decoder_state = if self.do_decode_h264 {
             Some(openh264::decoder::Decoder::new().unwrap())
         } else {

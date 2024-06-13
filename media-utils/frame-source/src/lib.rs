@@ -61,7 +61,7 @@ pub trait FrameDataSource {
     /// A string describing the source of the timestamp data
     fn timestamp_source(&self) -> &str;
     /// Get an iterator over all frames.
-    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_>;
+    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a>;
 }
 
 /// A single frame of data, including `image` and `timestamp` fields.

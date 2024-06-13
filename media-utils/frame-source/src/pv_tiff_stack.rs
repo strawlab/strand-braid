@@ -66,7 +66,7 @@ impl FrameDataSource for PvTiffStack {
     fn height(&self) -> u32 {
         self.height
     }
-    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_> {
+    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         Box::new(ImageStackIter::new(self))
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {

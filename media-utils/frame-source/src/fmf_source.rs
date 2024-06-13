@@ -116,7 +116,7 @@ impl FrameDataSource for FmfSource {
         // FMF reader does not support seek because we may read .gz files.
         anyhow::bail!("estimating luminance range not supported for FMF source.");
     }
-    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + '_> {
+    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>>> {
         Box::new(FmfSourceIter::new(self).unwrap())
     }
     fn timestamp_source(&self) -> &str {
