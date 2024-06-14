@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright 2022-2024 Andrew D. Straw.
 use std::{
     io::{BufReader, Read, Seek},
     path::Path,
@@ -19,8 +19,8 @@ use serde::{Deserialize, Serialize};
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
 use crate::{
-    h264_annexb_split, ntp_timestamp::NtpTimestamp, EncodedH264, FrameData, FrameDataSource,
-    H264EncodingVariant, ImageData, MyAsStr, Result, Timestamp, TimestampSource,
+    ntp_timestamp::NtpTimestamp, EncodedH264, FrameData, FrameDataSource, H264EncodingVariant,
+    ImageData, MyAsStr, Result, Timestamp, TimestampSource,
 };
 
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
@@ -38,14 +38,15 @@ use crate::{
 ///
 /// Tracks in MP4 files are composed of samples. Each sample has a presentation
 /// timestamp (PTS), the time elapsed from the start. A sample contains multiple
-/// (0, 1, 2 or more) H264 NAL units. As far as I understand, each sample should
-/// contain exactly one image frame of data. (That said, there exist MP4 files
-/// in which a sample contains zero NAL units and thus zero image frames.)
-/// Samples also carry a duration, which is informational to assist with
-/// playback. The duration of frame N should be the PTS of frame N+1 - the PTS
-/// of frame N. There seems to be a general assumption that samples should be
-/// equi-distant in time and thus that the file has a constant frame rate,
-/// although I have not found this in any specification.
+/// (0, 1, 2 or more) H264 NAL units. A sample can contain zero, one, two or
+/// more image frames of data. (There exist MP4 files in which a sample contains
+/// zero NAL units and thus zero image frames as well as MP4 files in which a
+/// single sample contains many NAL units and many image frames.) Samples also
+/// carry a duration, which is informational to assist with playback. The
+/// duration of frame N should be the PTS of frame N+1 - the PTS of frame N.
+/// There seems to be a general assumption that samples should be equi-distant
+/// in time and thus that the file has a constant frame rate, although I have
+/// not found this in any specification.
 ///
 /// ### Case 2, raw H264
 ///
@@ -62,8 +63,10 @@ use crate::{
 /// information (SEI) which is ignored by decoders but can provide additional
 /// information such as metadata at the start of H264 data and per-frame
 /// timestamps as specified in MISB ST 0604.3.
-pub struct H264Source {
-    nal_units: Vec<Vec<u8>>,
+pub struct H264Source<H: SeekableH264Source> {
+    seekable_h264_source: H,
+    /// For every NAL unit, the coordinates in the source to read it.
+    nal_locations: Vec<H::NalLocation>,
     /// timestamps from MP4 files, per NAL unit
     mp4_pts: Option<Vec<std::time::Duration>>,
     frame_to_nalu_time_info: Vec<NaluTimeInfo>,
@@ -87,7 +90,7 @@ pub struct NaluTimeInfo {
     frameinfo_recv_ntp: Option<NtpTimestamp>,
 }
 
-impl FrameDataSource for H264Source {
+impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     fn width(&self) -> u32 {
         self.width
     }
@@ -152,15 +155,77 @@ pub(crate) struct FromMp4Track {
     pub(crate) picture_parameter_set: Vec<u8>,
 }
 
-impl H264Source {
-    /// `nal_units` are EBSP without Annex B or AVCC headers.
-    pub(crate) fn from_nal_units_with_timestamp_source(
-        nal_units: Vec<Vec<u8>>,
+pub trait SeekRead: Seek + Read {}
+impl<T> SeekRead for T where T: Seek + Read {}
+
+pub trait SeekableH264Source {
+    type NalLocation;
+    fn nal_boundaries(&mut self) -> &[Self::NalLocation];
+    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>>;
+    fn read_nals(&mut self, locations: &[Self::NalLocation]) -> Result<Vec<Vec<u8>>> {
+        let mut result = Vec::with_capacity(locations.len());
+        for seeker in locations.iter() {
+            let nal = self.read_nal(seeker)?;
+            result.push(nal);
+        }
+        Ok(result)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AnnexBLocation {
+    pub(crate) start: u64,
+    pub(crate) sz: usize,
+}
+
+pub struct H264AnnexBSource {
+    inner: Box<dyn SeekRead + Send>,
+    my_nal_boundaries: Vec<AnnexBLocation>,
+}
+
+impl H264AnnexBSource {
+    pub fn from_file(fd: std::fs::File) -> Result<Self> {
+        let inner = Box::new(BufReader::new(fd));
+        Self::from_readseek(inner)
+    }
+    pub fn from_readseek(mut inner: Box<(dyn SeekRead + Send)>) -> Result<Self> {
+        inner.seek(std::io::SeekFrom::Start(0))?;
+        let my_nal_boundaries = crate::h264_annexb_splitter::find_nals(&mut inner)?;
+        inner.seek(std::io::SeekFrom::Start(0))?;
+        Ok(Self {
+            inner,
+            my_nal_boundaries,
+        })
+    }
+}
+
+impl SeekableH264Source for H264AnnexBSource {
+    type NalLocation = AnnexBLocation;
+    fn nal_boundaries(&mut self) -> &[Self::NalLocation] {
+        &self.my_nal_boundaries
+    }
+    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>> {
+        self.inner.seek(std::io::SeekFrom::Start(location.start))?;
+        let mut buf = vec![0u8; location.sz];
+        self.inner.read_exact(&mut buf)?;
+        Ok(buf)
+    }
+}
+
+impl<H> H264Source<H>
+where
+    H: SeekableH264Source,
+    <H as SeekableH264Source>::NalLocation: Clone,
+{
+    pub(crate) fn from_seekable_h264_source_with_timestamp_source(
+        mut seekable_h264_source: H,
         do_decode_h264: bool,
         mp4_pts: Option<Vec<std::time::Duration>>,
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
     ) -> Result<Self> {
+        let nal_locations: Vec<H::NalLocation> = seekable_h264_source.nal_boundaries().to_vec();
+
         let mut tz_offset = None;
         let mut h264_metadata = None;
         let mut scratch = Vec::new();
@@ -205,8 +270,9 @@ impl H264Source {
 
         // iterate through all NAL units.
         tracing::trace!("iterating through all NAL units");
-        for (nalu_index, nal_unit) in nal_units.iter().enumerate() {
-            let nal = RefNal::new(nal_unit, &[], true);
+        for (nalu_index, nal_location) in nal_locations.iter().enumerate() {
+            let nal_unit = seekable_h264_source.read_nal(nal_location)?;
+            let nal = RefNal::new(nal_unit.as_slice(), &[], true);
             let nal_unit_type = nal.header().unwrap().nal_unit_type();
             tracing::trace!("NALU index {nalu_index}, {nal_unit_type:?}");
             match nal_unit_type {
@@ -387,7 +453,8 @@ impl H264Source {
         };
 
         Ok(Self {
-            nal_units,
+            seekable_h264_source,
+            nal_locations,
             mp4_pts,
             frame_to_nalu_time_info,
             h264_metadata,
@@ -400,39 +467,17 @@ impl H264Source {
             has_timestamps,
         })
     }
-
-    /// split Annex B data into NAL units.
-    pub(crate) fn from_annexb_with_timestamp_source<R: Read + Seek>(
-        mut rdr: R,
-        do_decode_h264: bool,
-        timestamp_source: crate::TimestampSource,
-    ) -> Result<Self> {
-        let raw_h264_buf: Vec<u8> = {
-            let mut raw_h264_buf = Vec::new();
-            rdr.read_to_end(&mut raw_h264_buf)?;
-            raw_h264_buf
-        };
-
-        let nal_units: Vec<_> = h264_annexb_split(&raw_h264_buf).collect();
-        Self::from_nal_units_with_timestamp_source(
-            nal_units,
-            do_decode_h264,
-            None,
-            None,
-            timestamp_source,
-        )
-    }
 }
 
-struct RawH264Iter<'a> {
-    parent: &'a mut H264Source,
+struct RawH264Iter<'parent, H: SeekableH264Source> {
+    parent: &'parent mut H264Source<H>,
     /// frame index (not NAL unit index)
     frame_idx: usize,
     next_nal_idx: usize,
     openh264_decoder_state: Option<openh264::decoder::Decoder>,
 }
 
-impl<'a> Iterator for RawH264Iter<'a> {
+impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let frame_number = self.frame_idx;
@@ -441,9 +486,9 @@ impl<'a> Iterator for RawH264Iter<'a> {
 
         res.map(|nti| {
             // create slice of all NAL units up and including NALU for the frame
-            let nal_units = &self.parent.nal_units[self.next_nal_idx..=(nti.nalu_index)];
+            let nal_locations = &self.parent.nal_locations[self.next_nal_idx..=(nti.nalu_index)];
             let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]);
-            let fraction_done = self.next_nal_idx as f32 / self.parent.nal_units.len() as f32;
+            let fraction_done = self.next_nal_idx as f32 / self.parent.nal_locations.len() as f32;
 
             self.next_nal_idx = nti.nalu_index + 1;
 
@@ -470,9 +515,11 @@ impl<'a> Iterator for RawH264Iter<'a> {
                 None => Timestamp::Fraction(fraction_done),
             };
 
+            let nal_units = self.parent.seekable_h264_source.read_nals(nal_locations)?;
+
             if let Some(decoder) = &mut self.openh264_decoder_state {
                 // copy into Annex B format for OpenH264
-                let annex_b = copy_nalus_to_annex_b(nal_units);
+                let annex_b = copy_nalus_to_annex_b(nal_units.as_slice());
 
                 let decode_result = decoder.decode(&annex_b[..]);
                 match decode_result {
@@ -559,20 +606,26 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
-) -> Result<H264Source> {
+) -> Result<H264Source<H264AnnexBSource>> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
-    from_annexb_reader_with_timestamp_source(rdr, do_decode_h264, timestamp_source)
+    let seekable_h264_source = H264AnnexBSource::from_file(rdr)?;
+    from_annexb_reader_with_timestamp_source(seekable_h264_source, do_decode_h264, timestamp_source)
         .with_context(|| format!("Reading H264 file {}", path.as_ref().display()))
 }
 
-fn from_annexb_reader_with_timestamp_source<R: Read + Seek>(
-    rdr: R,
+fn from_annexb_reader_with_timestamp_source(
+    annex_b_source: H264AnnexBSource,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
-) -> Result<H264Source> {
-    let buf_reader = BufReader::new(rdr);
-    H264Source::from_annexb_with_timestamp_source(buf_reader, do_decode_h264, timestamp_source)
+) -> Result<H264Source<H264AnnexBSource>> {
+    H264Source::from_seekable_h264_source_with_timestamp_source(
+        annex_b_source,
+        do_decode_h264,
+        None,
+        None,
+        timestamp_source,
+    )
 }
 
 pub(crate) struct UserDataUnregistered<'a> {
@@ -671,31 +724,38 @@ mod test {
 
     #[test]
     fn parse_h264() -> color_eyre::Result<()> {
-        let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
-        let mut cursor = std::io::Cursor::new(file_buf);
-        let do_decode_h264 = true;
-        let mut h264_src = from_annexb_reader_with_timestamp_source(
-            &mut cursor,
-            do_decode_h264,
-            TimestampSource::BestGuess,
-        )?;
-        assert_eq!(h264_src.width(), 15);
-        assert_eq!(h264_src.height(), 14);
-        let frames: Vec<_> = h264_src.iter().collect();
-        assert_eq!(frames.len(), 1);
+        {
+            let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
+            let cursor = std::io::Cursor::new(file_buf);
+            let seekable_h264_source = H264AnnexBSource::from_readseek(Box::new(cursor))?;
 
-        let file_buf = include_bytes!("test-data/test_less-avc_rgb8_16x16.h264");
-        let mut cursor = std::io::Cursor::new(file_buf);
-        let do_decode_h264 = true;
-        let mut h264_src = from_annexb_reader_with_timestamp_source(
-            &mut cursor,
-            do_decode_h264,
-            TimestampSource::BestGuess,
-        )?;
-        assert_eq!(h264_src.width(), 16);
-        assert_eq!(h264_src.height(), 16);
-        let frames: Vec<_> = h264_src.iter().collect();
-        assert_eq!(frames.len(), 1);
+            let do_decode_h264 = true;
+            let mut h264_src = from_annexb_reader_with_timestamp_source(
+                seekable_h264_source,
+                do_decode_h264,
+                TimestampSource::BestGuess,
+            )?;
+            assert_eq!(h264_src.width(), 15);
+            assert_eq!(h264_src.height(), 14);
+            let frames: Vec<_> = h264_src.iter().collect();
+            assert_eq!(frames.len(), 1);
+        }
+
+        {
+            let file_buf = include_bytes!("test-data/test_less-avc_rgb8_16x16.h264");
+            let cursor = std::io::Cursor::new(file_buf);
+            let seekable_h264_source = H264AnnexBSource::from_readseek(Box::new(cursor))?;
+            let do_decode_h264 = true;
+            let mut h264_src = from_annexb_reader_with_timestamp_source(
+                seekable_h264_source,
+                do_decode_h264,
+                TimestampSource::BestGuess,
+            )?;
+            assert_eq!(h264_src.width(), 16);
+            assert_eq!(h264_src.height(), 16);
+            let frames: Vec<_> = h264_src.iter().collect();
+            assert_eq!(frames.len(), 1);
+        }
         Ok(())
     }
 }

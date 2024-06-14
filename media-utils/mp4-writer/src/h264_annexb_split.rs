@@ -11,7 +11,7 @@ impl h264_reader::push::NalFragmentHandler for MyNalFragmentHandler {
     }
 }
 
-pub fn h264_annexb_split(large_buf: &[u8]) -> impl Iterator<Item = Vec<u8>> {
+pub(crate) fn h264_annexb_split(large_buf: &[u8]) -> impl Iterator<Item = Vec<u8>> {
     let mut rdr = h264_reader::annexb::AnnexBReader::for_fragment_handler(MyNalFragmentHandler {
         nals: Vec::new(),
     });

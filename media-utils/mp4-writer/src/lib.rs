@@ -25,13 +25,15 @@ use convert_image::convert_into;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
-use frame_source::h264_annexb_split;
 use machine_vision_formats::{
     pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
 };
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
+
+mod h264_annexb_split;
+use h264_annexb_split::h264_annexb_split;
 
 // The number of time units that pass in one second.
 // const MOVIE_TIMESCALE: u32 = 1_000_000;

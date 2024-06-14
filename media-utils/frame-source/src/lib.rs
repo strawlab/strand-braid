@@ -11,11 +11,10 @@ use basic_frame::DynamicFrame;
 pub mod pv_tiff_stack;
 use pv_tiff_stack::TiffImage;
 pub mod fmf_source;
+mod h264_annexb_splitter;
 pub mod h264_source;
-mod h264_split;
 pub mod mp4_source;
 pub mod strand_cam_mkv_source;
-pub use h264_split::h264_annexb_split;
 
 mod ntp_timestamp;
 #[cfg(test)]

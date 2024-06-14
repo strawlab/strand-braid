@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright 2022-2024 Andrew D. Straw.
 
 use std::path::Path;
 
@@ -7,16 +7,48 @@ use color_eyre::{
     Result,
 };
 
-use crate::h264_source::H264Source;
+use crate::h264_source::{H264Source, SeekRead, SeekableH264Source};
 use mp4::MediaType;
 
-pub(crate) fn from_reader_with_timestamp_source<R: std::io::Read + std::io::Seek>(
-    rdr: R,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mp4NalLocation {
+    track_id: u32,
+    sample_id: u32,
+    idx: usize,
+}
+
+pub struct Mp4Source {
+    mp4_reader: mp4::Mp4Reader<Box<dyn SeekRead + Send>>,
+    nal_locations: Vec<Mp4NalLocation>,
+}
+
+impl SeekableH264Source for Mp4Source {
+    type NalLocation = Mp4NalLocation;
+    fn nal_boundaries(&mut self) -> &[Self::NalLocation] {
+        &self.nal_locations
+    }
+    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>> {
+        if let Some(sample) = self
+            .mp4_reader
+            .read_sample(location.track_id, location.sample_id)?
+        {
+            if !sample.bytes.is_empty() {
+                let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
+                return Ok(sample_nal_units[location.idx].to_vec());
+            } else {
+                anyhow::bail!("sample is empty");
+            }
+        } else {
+            anyhow::bail!("sample in track disappeared");
+        }
+    }
+}
+
+pub(crate) fn from_reader_with_timestamp_source(
+    mut mp4_reader: mp4::Mp4Reader<Box<dyn SeekRead + Send>>,
     do_decode_h264: bool,
-    size: u64,
     timestamp_source: crate::TimestampSource,
-) -> Result<H264Source> {
-    let mut mp4_reader = mp4::Mp4Reader::read_header(rdr, size)?;
+) -> Result<H264Source<Mp4Source>> {
     let timescale = mp4_reader.timescale();
     let mut video_track = None;
     for (track_id, track) in mp4_reader.tracks().iter() {
@@ -37,9 +69,12 @@ pub(crate) fn from_reader_with_timestamp_source<R: std::io::Read + std::io::Seek
 
     let track_id = *track_id;
 
-    let mut nal_units: Vec<Vec<u8>> = Vec::new();
+    // Iterate over every sample in the track. Typically (always?) one such MP4
+    // sample corresponds to one frame of video (and often multiple NAL units).
+    // Here we assume this 1:1 mapping between MP4 samples and video frames. The
+    // `nal_locations` and `mp4_pts` each are indexed by sample number.
+    let mut nal_locations = Vec::new();
     let mut mp4_pts = Vec::new();
-
     let mut sample_id = 1; // mp4 uses 1 based indexing
     let data_from_mp4_track = crate::h264_source::FromMp4Track {
         sequence_parameter_set: track.sequence_parameter_set()?.to_vec(),
@@ -47,20 +82,27 @@ pub(crate) fn from_reader_with_timestamp_source<R: std::io::Read + std::io::Seek
     };
     while let Some(sample) = mp4_reader.read_sample(track_id, sample_id)? {
         if !sample.bytes.is_empty() {
-            // dbg!((sample_id, mp4_pts, sample.bytes.len()));
             let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
             let n_nal_units = sample_nal_units.len();
             let this_pts = raw2dur(sample.start_time, timescale);
-            for _ in 0..n_nal_units {
+            for idx in 0..n_nal_units {
                 mp4_pts.push(this_pts);
+                nal_locations.push(Mp4NalLocation {
+                    track_id,
+                    sample_id,
+                    idx,
+                });
             }
-            nal_units.extend(sample_nal_units.iter().map(|nal_unit| nal_unit.to_vec()));
         }
         sample_id += 1;
     }
+    let seekable_h264_source = Mp4Source {
+        mp4_reader,
+        nal_locations,
+    };
 
-    let h264_source = H264Source::from_nal_units_with_timestamp_source(
-        nal_units,
+    let h264_source = H264Source::from_seekable_h264_source_with_timestamp_source(
+        seekable_h264_source,
         do_decode_h264,
         Some(mp4_pts),
         Some(data_from_mp4_track),
@@ -73,28 +115,32 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
-) -> Result<H264Source> {
+) -> Result<H264Source<Mp4Source>> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
     let size = rdr.metadata()?.len();
-    let buf_reader = std::io::BufReader::new(rdr);
+    let buf_reader: Box<(dyn SeekRead + Send + 'static)> = Box::new(std::io::BufReader::new(rdr));
+    let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
-    let result =
-        from_reader_with_timestamp_source(buf_reader, do_decode_h264, size, timestamp_source)
-            .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
+    let result = from_reader_with_timestamp_source(mp4_reader, do_decode_h264, timestamp_source)
+        .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
     Ok(result)
 }
 
-/// Parse AVCC buffer to encapsulated bytes.
+/// Parse sample from MP4 as NAL units.
 ///
-/// This is not capable of parsing on non-NALU boundaries and must contain
-/// complete NALUs. For well-formed MP4 files, this should be the case.
-fn avcc_to_nalu_ebsp(buf: &[u8]) -> Result<Vec<&[u8]>> {
+/// In MP4 files, each sample buffer is multiple NAL units consisting of a
+/// 4-byte length header and the data.
+///
+/// This function is not capable of parsing on non-NALU boundaries and must
+/// contain complete NALUs. For well-formed MP4 files, this should be the case.
+fn avcc_to_nalu_ebsp(mp4_sample_buffer: &[u8]) -> Result<Vec<&[u8]>> {
     let mut result = vec![];
-    let mut cur_buf = buf;
+    let mut cur_buf = mp4_sample_buffer;
+    let mut total_nal_sizes = 0;
     while !cur_buf.is_empty() {
         if cur_buf.len() < 4 {
-            anyhow::bail!("AVCC buffer too short");
+            anyhow::bail!("sample buffer is too short for NAL unit header");
         }
         let header = [cur_buf[0], cur_buf[1], cur_buf[2], cur_buf[3]];
         let sz: usize = u32::from_be_bytes(header).try_into().unwrap();
@@ -102,8 +148,16 @@ fn avcc_to_nalu_ebsp(buf: &[u8]) -> Result<Vec<&[u8]>> {
         if cur_buf.len() < used {
             anyhow::bail!("AVCC buffer length: {sz}+4 but buffer {}", cur_buf.len());
         }
+        total_nal_sizes += used;
         result.push(&cur_buf[4..used]);
         cur_buf = &cur_buf[used..];
+    }
+    if total_nal_sizes != mp4_sample_buffer.len() {
+        tracing::warn!(
+            "MP4 sample was {} bytes, but H264 NAL units totaled {} bytes.",
+            mp4_sample_buffer.len(),
+            total_nal_sizes
+        );
     }
     Ok(result)
 }

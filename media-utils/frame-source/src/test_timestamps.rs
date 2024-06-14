@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
 
-use crate::FrameDataSource;
+use crate::{h264_source::SeekRead, FrameDataSource};
 use ci2_remote_control::Mp4RecordingConfig;
 
 #[test]
@@ -42,15 +42,18 @@ fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
     }
 
     let size = mp4_buf.len() as u64;
-    let reader = std::io::Cursor::new(mp4_buf);
+    let rdr = std::io::Cursor::new(mp4_buf);
+
+    let buf_reader: Box<(dyn SeekRead + Send)> = Box::new(std::io::BufReader::new(rdr));
+    let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
     let mut src = crate::mp4_source::from_reader_with_timestamp_source(
-        reader,
+        mp4_reader,
         do_decode_h264,
-        size,
         crate::TimestampSource::BestGuess,
     )?;
+
     assert_eq!(src.width(), W);
     assert_eq!(src.height(), H);
     assert_eq!(src.frame0_time().unwrap(), start);
