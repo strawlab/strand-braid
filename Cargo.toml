@@ -127,5 +127,6 @@ exclude = ["led-box-firmware", "led-box-firmware-pico"]
 [profile.release]
 debug = true
 
-# [replace]
+[replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
+"mp4:0.14.0" = {git="https://github.com/strawlab/mp4-rust", rev="f5744a39e22adfd749ddd61f1a59d0bb60c87349"}
