@@ -617,7 +617,7 @@ where
             AscendingGroupIter::new(sorted_data_iter)
         };
 
-        let pb = if let Some(n_csv_frames) = n_csv_frames {
+        let pb: Option<ProgressBar> = if let Some(n_csv_frames) = n_csv_frames {
             // Custom progress bar with space at right end to prevent obscuring last
             // digit with cursor.
             let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
@@ -693,6 +693,10 @@ where
             Err(e) => {
                 tracing::error!("send error {} at {}:{}", e, file!(), line!())
             }
+        }
+
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
         }
 
         Ok::<(), anyhow::Error>(())
