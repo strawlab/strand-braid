@@ -8,6 +8,7 @@ clap = { version = "4.0.10", features = ["derive"] }
 color-eyre = "0.6.2"
 chrono = { version = "0.4.23", default-features = false }
 path-slash = "0.2.1"
+indicatif = "0.17.1"
 
 frame-source = { path = "../frame-source" }
 env-tracing-logger = { path = "../../env-tracing-logger" }

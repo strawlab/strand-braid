@@ -2,6 +2,7 @@
 
 use clap::{Parser, ValueEnum};
 use color_eyre::Result;
+use indicatif::{ProgressBar, ProgressStyle};
 
 trait DisplayTimestamp {
     fn to_display(&self) -> String;
@@ -43,6 +44,10 @@ struct Cli {
     /// Source of timestamp.
     #[arg(long, value_enum, default_value_t)]
     timestamp_source: TimestampSource,
+
+    /// Show progress
+    #[arg(short, long, default_value_t)]
+    progress: bool,
 }
 
 #[derive(Default, Debug, Clone, ValueEnum)]
@@ -86,8 +91,6 @@ fn main() -> Result<()> {
     env_tracing_logger::init();
     let cli = Cli::parse();
 
-    let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-
     for input in cli.inputs.iter() {
         let mut input_path = std::path::PathBuf::from(input);
         let is_file = std::fs::metadata(&input_path)?.is_file();
@@ -103,11 +106,32 @@ fn main() -> Result<()> {
             }
         }
 
+        if cli.progress {
+            eprintln!("Performing initial open of \"{}\".", input_path.display());
+        }
+
+        let do_decode_h264 = false; // no need to decode h264 to get timestamps.
         let mut src = frame_source::from_path_with_timestamp_source(
             &input_path,
             do_decode_h264,
             cli.timestamp_source.into(),
         )?;
+
+        if cli.progress {
+            eprintln!("Done with initial open.");
+        }
+
+        let mut pb: Option<ProgressBar> = if cli.progress {
+            let (lower_bound, _upper_bound) = src.iter().size_hint();
+
+            // Custom progress bar with space at right end to prevent obscuring last
+            // digit with cursor.
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            Some(ProgressBar::new(lower_bound.try_into().unwrap()).with_style(style))
+        } else {
+            None
+        };
+
         let has_timestamps = src.has_timestamps();
 
         let start_time = src.frame0_time();
@@ -150,6 +174,10 @@ fn main() -> Result<()> {
         let mut count = 0;
         for frame in src.iter() {
             let frame = frame?;
+
+            if let Some(pb) = pb.as_mut() {
+                pb.inc(1);
+            }
 
             match cli.output {
                 OutputFormat::EveryFrame => {
@@ -209,6 +237,9 @@ fn main() -> Result<()> {
                 }
             }
             _ => {}
+        }
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
         }
     }
 
