@@ -14,7 +14,6 @@ use mp4::MediaType;
 pub struct Mp4NalLocation {
     track_id: u32,
     sample_id: u32,
-    idx: usize,
 }
 
 pub struct Mp4Source {
@@ -27,14 +26,14 @@ impl SeekableH264Source for Mp4Source {
     fn nal_boundaries(&mut self) -> &[Self::NalLocation] {
         &self.nal_locations
     }
-    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>> {
+    fn read_nal_units_at_location(&mut self, location: &Self::NalLocation) -> Result<Vec<Vec<u8>>> {
         if let Some(sample) = self
             .mp4_reader
             .read_sample(location.track_id, location.sample_id)?
         {
             if !sample.bytes.is_empty() {
                 let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
-                return Ok(sample_nal_units[location.idx].to_vec());
+                return Ok(sample_nal_units.iter().map(|x| x.to_vec()).collect());
             } else {
                 anyhow::bail!("sample is empty");
             }
@@ -75,27 +74,24 @@ pub(crate) fn from_reader_with_timestamp_source(
     // `nal_locations` and `mp4_pts` each are indexed by sample number.
     let mut nal_locations = Vec::new();
     let mut mp4_pts = Vec::new();
-    let mut sample_id = 1; // mp4 uses 1 based indexing
     let data_from_mp4_track = crate::h264_source::FromMp4Track {
         sequence_parameter_set: track.sequence_parameter_set()?.to_vec(),
         picture_parameter_set: track.picture_parameter_set()?.to_vec(),
     };
-    while let Some(sample) = mp4_reader.read_sample(track_id, sample_id)? {
-        if !sample.bytes.is_empty() {
-            let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
-            let n_nal_units = sample_nal_units.len();
-            let this_pts = raw2dur(sample.start_time, timescale);
-            for idx in 0..n_nal_units {
-                mp4_pts.push(this_pts);
-                nal_locations.push(Mp4NalLocation {
-                    track_id,
-                    sample_id,
-                    idx,
-                });
-            }
-        }
-        sample_id += 1;
+    let num_samples = mp4_reader.sample_count(track_id)?;
+
+    // mp4 uses 1 based indexing
+    for sample_id in 1..=num_samples {
+        let (start_time, _duration) = mp4_reader.sample_time_duration(track_id, sample_id)?;
+        let this_pts = raw2dur(start_time, timescale);
+        mp4_pts.push(this_pts);
+        nal_locations.push(Mp4NalLocation {
+            track_id,
+            sample_id,
+        });
     }
+    assert_eq!(mp4_pts.len(), num_samples as usize);
+
     let seekable_h264_source = Mp4Source {
         mp4_reader,
         nal_locations,

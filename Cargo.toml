@@ -148,4 +148,4 @@ openh264 = "0.6.0"
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
-"mp4:0.14.0" = { git = "https://github.com/strawlab/mp4-rust", rev = "f5744a39e22adfd749ddd61f1a59d0bb60c87349" }
+"mp4:0.14.0" = { git = "https://github.com/strawlab/mp4-rust", rev = "e6a68f68d3f662039ab28b2cc20c4c16134f2a8c" }

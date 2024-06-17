@@ -68,9 +68,9 @@ pub struct H264Source<H: SeekableH264Source> {
     seekable_h264_source: H,
     /// For every NAL unit, the coordinates in the source to read it.
     nal_locations: Vec<H::NalLocation>,
-    /// timestamps from MP4 files, per NAL unit
+    /// timestamps from MP4 files, one per MP4 sample (which we assume to be one per frame)
     mp4_pts: Option<Vec<std::time::Duration>>,
-    frame_to_nalu_time_info: Vec<NaluTimeInfo>,
+    frame_time_info: Vec<FrameTimeInfo>,
     pub h264_metadata: Option<H264Metadata>,
     frame0_precision_time: Option<chrono::DateTime<chrono::FixedOffset>>,
     frame0_frameinfo_recv_ntp: Option<NtpTimestamp>,
@@ -81,12 +81,14 @@ pub struct H264Source<H: SeekableH264Source> {
     has_timestamps: bool,
 }
 
-pub struct NaluTimeInfo {
-    /// The NALU number.
+/// Timing information for a frame of video.
+pub struct FrameTimeInfo {
+    /// The NAL unit location.
     ///
-    /// This increments by one for each NALU. In other words, it is NOT the
-    /// position on disk.
-    nalu_index: usize,
+    /// This is an index into the slice &[SeekableH264Source::NalLocation]
+    /// returned by [SeekableH264Source::nal_boundaries]. In the case of MP4
+    /// files, each index corresponds to multiple NAL units.
+    nal_location_index: usize,
     precise_timestamp: Option<DateTime<Utc>>,
     frameinfo_recv_ntp: Option<NtpTimestamp>,
 }
@@ -162,12 +164,17 @@ impl<T> SeekRead for T where T: Seek + Read {}
 pub trait SeekableH264Source {
     type NalLocation;
     fn nal_boundaries(&mut self) -> &[Self::NalLocation];
-    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>>;
-    fn read_nals(&mut self, locations: &[Self::NalLocation]) -> Result<Vec<Vec<u8>>> {
-        let mut result = Vec::with_capacity(locations.len());
-        for seeker in locations.iter() {
-            let nal = self.read_nal(seeker)?;
-            result.push(nal);
+    /// Read multiple NAL units at the specified location
+    fn read_nal_units_at_location(&mut self, location: &Self::NalLocation) -> Result<Vec<Vec<u8>>>;
+    /// Read multiple NAL units at multiple specified locations
+    fn read_nal_units_at_locations(
+        &mut self,
+        locations: &[Self::NalLocation],
+    ) -> Result<Vec<Vec<u8>>> {
+        let mut result = Vec::with_capacity(locations.len() * 3);
+        for location in locations.iter() {
+            let nal_units = self.read_nal_units_at_location(location)?;
+            result.extend(nal_units);
         }
         Ok(result)
     }
@@ -205,11 +212,11 @@ impl SeekableH264Source for H264AnnexBSource {
     fn nal_boundaries(&mut self) -> &[Self::NalLocation] {
         &self.my_nal_boundaries
     }
-    fn read_nal(&mut self, location: &Self::NalLocation) -> Result<Vec<u8>> {
+    fn read_nal_units_at_location(&mut self, location: &Self::NalLocation) -> Result<Vec<Vec<u8>>> {
         self.inner.seek(std::io::SeekFrom::Start(location.start))?;
         let mut buf = vec![0u8; location.sz];
         self.inner.read_exact(&mut buf)?;
-        Ok(buf)
+        Ok(vec![buf])
     }
 }
 
@@ -233,9 +240,18 @@ where
         let mut parsing_ctx = H264ParsingContext::default();
         let mut frame0_precision_time = None;
         let mut frame0_frameinfo_recv_ntp = None;
-        let mut frame_to_nalu_time_info = Vec::new();
+
+        // One entry per frame. Can refer to multiple multiple NAL units, e.g.
+        // in MP4 files where a frame is an MP4 sample containing multiple NAL
+        // units.
+        let mut frame_time_info = Vec::new();
+
+        // Cached value of MISP time data for the frame whose data is being accumulated.
         let mut precise_timestamp = None;
+        // Cached value of NTP received time data for the frame whose data is
+        // being accumulated.
         let mut frameinfo_recv_ntp = None;
+        // Cached value of frame number as we accumluate data.
         let mut next_frame_num = 0;
 
         // Use data from container if present
@@ -271,131 +287,148 @@ where
 
         // iterate through all NAL units.
         tracing::trace!("iterating through all NAL units");
-        for (nalu_index, nal_location) in nal_locations.iter().enumerate() {
-            let nal_unit = seekable_h264_source.read_nal(nal_location)?;
-            let nal = RefNal::new(nal_unit.as_slice(), &[], true);
-            let nal_unit_type = nal.header().unwrap().nal_unit_type();
-            tracing::trace!("NALU index {nalu_index}, {nal_unit_type:?}");
-            match nal_unit_type {
-                UnitType::SEI => {
-                    let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
-                    loop {
-                        match sei_reader.next() {
-                            Ok(Some(sei_message)) => {
-                                tracing::trace!("SEI payload type: {:?}", sei_message.payload_type);
-                                match &sei_message.payload_type {
-                                    HeaderType::UserDataUnregistered => {
-                                        let udu = UserDataUnregistered::read(&sei_message)?;
-                                        tracing::trace!(
-                                            "SEI UserDataUnregistered uuid: {:?}",
-                                            udu.uuid
-                                        );
-                                        match udu.uuid {
-                                            &H264_METADATA_UUID => {
-                                                let md: H264Metadata =
-                                                    serde_json::from_slice(udu.payload)?;
-                                                if md.version != H264_METADATA_VERSION {
-                                                    anyhow::bail!(
-                                                        "unexpected version in h264 metadata"
-                                                    );
-                                                }
-                                                if h264_metadata.is_some() {
-                                                    anyhow::bail!(
-                                                        "multiple SEI messages, but expected exactly one"
-                                                    );
-                                                }
+        for (nal_location_index, nal_location) in nal_locations.iter().enumerate() {
+            // Read all NAL units from this location. (For MP4 files, this means
+            // read all NAL units from this sample. For H264 AnnexB files, this
+            // will read a single NAL unit.)
+            let nal_units = seekable_h264_source.read_nal_units_at_location(nal_location)?;
+            for nal_unit in nal_units.iter() {
+                // Note, there are multiple NAL units per `nal_location_index`
+                // in MP4 files because in that case, `nal_location_index`
+                // refers to the MP4 sample which has multiple NAL units.
+                let nal = RefNal::new(nal_unit.as_slice(), &[], true);
+                let nal_unit_type = nal.header().unwrap().nal_unit_type();
+                tracing::trace!("NAL unit location index {nal_location_index}, {nal_unit_type:?}");
+                match nal_unit_type {
+                    UnitType::SEI => {
+                        let mut sei_reader =
+                            SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
+                        loop {
+                            match sei_reader.next() {
+                                Ok(Some(sei_message)) => {
+                                    tracing::trace!(
+                                        "SEI payload type: {:?}",
+                                        sei_message.payload_type
+                                    );
+                                    match &sei_message.payload_type {
+                                        HeaderType::UserDataUnregistered => {
+                                            let udu = UserDataUnregistered::read(&sei_message)?;
+                                            tracing::trace!(
+                                                "SEI UserDataUnregistered uuid: {:?}",
+                                                udu.uuid
+                                            );
+                                            match udu.uuid {
+                                                &H264_METADATA_UUID => {
+                                                    let md: H264Metadata =
+                                                        serde_json::from_slice(udu.payload)?;
+                                                    if md.version != H264_METADATA_VERSION {
+                                                        anyhow::bail!(
+                                                            "unexpected version in h264 metadata"
+                                                        );
+                                                    }
+                                                    if h264_metadata.is_some() {
+                                                        anyhow::bail!(
+                                                            "multiple SEI messages, but expected exactly one"
+                                                        );
+                                                    }
 
-                                                tz_offset = Some(*md.creation_time.offset());
-                                                h264_metadata = Some(md);
-                                            }
-                                            b"MISPmicrosectime" => {
-                                                let precision_time =
-                                                    parse_precision_time(udu.payload)
-                                                        .with_context(|| {
-                                                            "Parsing precision time stamp"
-                                                        })?;
-                                                precise_timestamp = Some(precision_time);
-                                                if next_frame_num == 0 {
-                                                    frame0_precision_time = Some(precision_time);
+                                                    tz_offset = Some(*md.creation_time.offset());
+                                                    h264_metadata = Some(md);
                                                 }
-                                            }
-                                            b"strawlab.org/89H" => {
-                                                let fi: FrameInfo =
-                                                    serde_json::from_slice(udu.payload)?;
-                                                frameinfo_recv_ntp = Some(NtpTimestamp(fi.recv));
-                                                if next_frame_num == 0 {
-                                                    frame0_frameinfo_recv_ntp =
-                                                        frameinfo_recv_ntp.clone();
+                                                b"MISPmicrosectime" => {
+                                                    let precision_time =
+                                                        parse_precision_time(udu.payload)
+                                                            .with_context(|| {
+                                                                "Parsing precision time stamp"
+                                                            })?;
+                                                    precise_timestamp = Some(precision_time);
+                                                    if next_frame_num == 0 {
+                                                        frame0_precision_time =
+                                                            Some(precision_time);
+                                                    }
                                                 }
-                                            }
-                                            _uuid => {
-                                                // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                                b"strawlab.org/89H" => {
+                                                    let fi: FrameInfo =
+                                                        serde_json::from_slice(udu.payload)?;
+                                                    frameinfo_recv_ntp =
+                                                        Some(NtpTimestamp(fi.recv));
+                                                    if next_frame_num == 0 {
+                                                        frame0_frameinfo_recv_ntp =
+                                                            frameinfo_recv_ntp.clone();
+                                                    }
+                                                }
+                                                _uuid => {
+                                                    // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                                }
                                             }
                                         }
-                                    }
-                                    _ => {
-                                        // handle other SEI types.
+                                        _ => {
+                                            // handle other SEI types.
+                                        }
                                     }
                                 }
+                                Ok(None) => {
+                                    break;
+                                }
+                                Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
+                                    tracing::error!(
+                                        "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
+                                    );
+                                    // We do not process this NAL unit but nor do we
+                                    // propagate the error further. FFMPEG also
+                                    // skips this error except writing "SEI type 5
+                                    // size X truncated at Y" where Y is less than
+                                    // X.
+                                }
+                                Err(e) => {
+                                    anyhow::bail!(
+                                        "unexpected error reading NAL unit {nal_location_index} SEI: {e:?}"
+                                    );
+                                }
                             }
-                            Ok(None) => {
-                                break;
+                        }
+                    }
+                    UnitType::SeqParameterSet => {
+                        let isps =
+                            h264_reader::nal::sps::SeqParameterSet::from_bits(nal.rbsp_bits())
+                                .unwrap();
+                        parsing_ctx.put_seq_param_set(isps);
+                    }
+                    UnitType::PicParameterSet => {
+                        match h264_reader::nal::pps::PicParameterSet::from_bits(
+                            &parsing_ctx,
+                            nal.rbsp_bits(),
+                        ) {
+                            Ok(ipps) => {
+                                parsing_ctx.put_pic_param_set(ipps);
                             }
-                            Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
-                                tracing::error!(
-                                    "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
-                                );
-                                // We do not process this NAL unit but nor do we
-                                // propagate the error further. FFMPEG also
-                                // skips this error except writing "SEI type 5
-                                // size X truncated at Y" where Y is less than
-                                // X.
+                            Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
+                                h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
+                            )) => {
+                                // While this is open, ignore the error.
+                                // https://github.com/dholroyd/h264-reader/issues/56
                             }
                             Err(e) => {
-                                anyhow::bail!(
-                                    "unexpected error reading NAL unit {nalu_index} SEI: {e:?}"
-                                );
+                                anyhow::bail!("reading PPS: {e:?}");
                             }
                         }
                     }
-                }
-                UnitType::SeqParameterSet => {
-                    let isps =
-                        h264_reader::nal::sps::SeqParameterSet::from_bits(nal.rbsp_bits()).unwrap();
-                    parsing_ctx.put_seq_param_set(isps);
-                }
-                UnitType::PicParameterSet => {
-                    match h264_reader::nal::pps::PicParameterSet::from_bits(
-                        &parsing_ctx,
-                        nal.rbsp_bits(),
-                    ) {
-                        Ok(ipps) => {
-                            parsing_ctx.put_pic_param_set(ipps);
-                        }
-                        Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
-                            h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
-                        )) => {
-                            // While this is open, ignore the error.
-                            // https://github.com/dholroyd/h264-reader/issues/56
-                        }
-                        Err(e) => {
-                            anyhow::bail!("reading PPS: {e:?}");
-                        }
+                    UnitType::SliceLayerWithoutPartitioningIdr
+                    | UnitType::SliceLayerWithoutPartitioningNonIdr => {
+                        // The NAL unit with the video frames comes after the
+                        // timing into NAL unit(s) so we gather them now.
+                        frame_time_info.push(FrameTimeInfo {
+                            nal_location_index,
+                            precise_timestamp,
+                            frameinfo_recv_ntp,
+                        });
+                        // Reset temporary values.
+                        precise_timestamp = None;
+                        frameinfo_recv_ntp = None;
+                        next_frame_num += 1;
                     }
+                    _nal_unit_type => {}
                 }
-                UnitType::SliceLayerWithoutPartitioningIdr
-                | UnitType::SliceLayerWithoutPartitioningNonIdr => {
-                    frame_to_nalu_time_info.push(NaluTimeInfo {
-                        nalu_index,
-                        precise_timestamp,
-                        frameinfo_recv_ntp,
-                    });
-                    // Reset temporary values.
-                    precise_timestamp = None;
-                    frameinfo_recv_ntp = None;
-                    next_frame_num += 1;
-                }
-                _nal_unit_type => {}
             }
         }
 
@@ -453,11 +486,21 @@ where
             }
         };
 
+        if let Some(mp4_pts) = mp4_pts.as_ref() {
+            if mp4_pts.len() != frame_time_info.len() {
+                anyhow::bail!(
+                    "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
+                    mp4_pts.len(),
+                    frame_time_info.len()
+                );
+            }
+        }
+
         Ok(Self {
             seekable_h264_source,
             nal_locations,
             mp4_pts,
-            frame_to_nalu_time_info,
+            frame_time_info,
             h264_metadata,
             frame0_precision_time,
             frame0_frameinfo_recv_ntp,
@@ -482,16 +525,17 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let frame_number = self.frame_idx;
-        let res = self.parent.frame_to_nalu_time_info.get(self.frame_idx);
+        let res = self.parent.frame_time_info.get(self.frame_idx);
         self.frame_idx += 1;
 
         res.map(|nti| {
             // create slice of all NAL units up and including NALU for the frame
-            let nal_locations = &self.parent.nal_locations[self.next_nal_idx..=(nti.nalu_index)];
-            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]);
+            let nal_locations =
+                &self.parent.nal_locations[self.next_nal_idx..=(nti.nal_location_index)];
+            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]); // one per mp4 sample
             let fraction_done = self.next_nal_idx as f32 / self.parent.nal_locations.len() as f32;
 
-            self.next_nal_idx = nti.nalu_index + 1;
+            self.next_nal_idx = nti.nal_location_index + 1;
 
             let frame_timestamp = match self.parent.timestamp_source {
                 Some(TimestampSource::BestGuess) => unreachable!(),
@@ -516,7 +560,10 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
                 None => Timestamp::Fraction(fraction_done),
             };
 
-            let nal_units = self.parent.seekable_h264_source.read_nals(nal_locations)?;
+            let nal_units = self
+                .parent
+                .seekable_h264_source
+                .read_nal_units_at_locations(nal_locations)?;
 
             if let Some(decoder) = &mut self.openh264_decoder_state {
                 // copy into Annex B format for OpenH264
@@ -598,7 +645,7 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.parent.frame_to_nalu_time_info.len() - self.frame_idx;
+        let remaining = self.parent.frame_time_info.len() - self.frame_idx;
         (remaining, Some(remaining))
     }
 }
