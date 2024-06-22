@@ -1,4 +1,8 @@
-use tracing_subscriber::{fmt, layer::SubscriberExt};
+use time::{format_description::well_known::Iso8601, UtcOffset};
+use tracing_subscriber::{
+    fmt::{self, time::OffsetTime},
+    layer::SubscriberExt,
+};
 
 struct Guard {}
 
@@ -15,11 +19,19 @@ pub fn initiate_logging<P: AsRef<std::path::Path>>(
     path: Option<P>,
     disable_console: bool,
 ) -> Result<impl Drop, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    // Create a fixed offset time formatter based on the timezone at the
+    // time this line of code runs.
+    let timer = OffsetTime::new(
+        UtcOffset::from_whole_seconds(chrono::Local::now().offset().local_minus_utc())?,
+        Iso8601::DEFAULT,
+    );
+
     let file_layer = if let Some(path) = &path {
         let file = std::fs::File::create(path)?;
         let file_writer = std::sync::Mutex::new(file);
         Some(
             fmt::layer()
+                .with_timer(timer.clone())
                 .with_writer(file_writer)
                 .with_ansi(false)
                 .with_file(true)
@@ -32,8 +44,14 @@ pub fn initiate_logging<P: AsRef<std::path::Path>>(
     let console_layer = if disable_console {
         None
     } else {
-        let with_ansi = !cfg!(windows) ;
-        Some(fmt::layer().with_ansi(with_ansi).with_file(true).with_line_number(true))
+        let with_ansi = !cfg!(windows);
+        Some(
+            fmt::layer()
+                .with_timer(timer)
+                .with_ansi(with_ansi)
+                .with_file(true)
+                .with_line_number(true),
+        )
     };
 
     let collector = tracing_subscriber::registry()
