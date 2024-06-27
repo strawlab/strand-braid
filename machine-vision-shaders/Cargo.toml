@@ -2,6 +2,7 @@
 name = "machine-vision-shaders"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2015"
 
 [dependencies]
 log = "0.4"

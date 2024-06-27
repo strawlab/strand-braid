@@ -3,3 +3,4 @@ name = "withkey"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 license = "MIT/Apache-2.0"
+edition = "2015"
