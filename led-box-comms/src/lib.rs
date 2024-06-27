@@ -1,11 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
-#[cfg(feature = "collections")]
-extern crate collections;
-
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
