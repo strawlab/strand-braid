@@ -826,6 +826,7 @@ pub(crate) async fn frame_process_task(
 
                                     let mc = ToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
+                                        framenumber: block_id.unwrap().get().try_into()?,
                                         timestamp: save_mp4_fmf_stamp,
                                         timestamp_source,
                                         mu00,
