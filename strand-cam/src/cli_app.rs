@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use clap::{Arg, ArgAction};
+#[cfg(target_os = "linux")]
+use clap::{arg, FromArgMatches};
+
+use clap::{Arg, ArgAction, Args};
 
 use crate::{run_strand_cam_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs};
 
@@ -42,6 +45,18 @@ fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSo
     Ok(tracker_cfg_src)
 }
 
+// We started strand-cam before the `derive` capability of clap and thus we have
+// a bunch of stuff with the builder API. We should convert existing code to the
+// derive API. For now, we just write new code to use the derive API but keep
+// the existing builder API.
+#[derive(Args, Debug)]
+struct DerivedArgs {
+    #[cfg(target_os = "linux")]
+    /// If set, output a copy of the video stream on this v4l2 device (e.g. `/dev/video0`)
+    #[arg(long)]
+    v4l2loopback: Option<PathBuf>,
+}
+
 fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let cli_args: Vec<String> = std::env::args().collect();
 
@@ -52,7 +67,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let app_name: &'static clap::builder::Str = Box::leak(app_name_box);
 
     let matches = {
-        let mut parser = clap::Command::new(app_name)
+        let parser = clap::Command::new(app_name)
             .version(env!("CARGO_PKG_VERSION"))
             .arg(
                 Arg::new("no_browser")
@@ -109,7 +124,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                     .default_value("~/DATA"),
             );
 
-        parser = parser
+        let parser = parser
                 .arg(
                     Arg::new("pixel_format")
                         .long("pixel-format")
@@ -130,21 +145,21 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                         .help("Force the camera to synchronize to external trigger. (incompatible with braid)."),
                 );
 
-        parser = parser.arg(
+        let parser = parser.arg(
             Arg::new("braid_url")
                 .long("braid-url")
                 .help("Braid HTTP URL address (e.g. 'http://host:port/')"),
         );
 
-        parser = parser.arg(
+        let parser = parser.arg(
             Arg::new("led_box_device")
                 .long("led-box")
                 .help("The filename of the LED box device"),
         );
 
         #[cfg(feature = "flydratrax")]
-        {
-            parser = parser
+        let parser = {
+            parser
                 .arg(
                     Arg::new("camera_xml_calibration")
                         .long("camera-xml-calibration")
@@ -166,8 +181,10 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                         .long("model-server-addr")
                         .help("The address of the model server.")
                         .default_value(flydra_types::DEFAULT_MODEL_SERVER_ADDR),
-                );
-        }
+                )
+        };
+
+        let parser = DerivedArgs::augment_args(parser);
 
         parser.get_matches_from(cli_args)
     };
@@ -326,6 +343,13 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
 
+    // Since DerivedArgs implements FromArgMatches, we can extract it from the unstructured ArgMatches.
+    // This is the main benefit of using derived arguments.
+    #[cfg(target_os = "linux")]
+    let derived_matches = DerivedArgs::from_arg_matches(&matches)
+        .map_err(|err| err.exit())
+        .unwrap();
+
     // There are some fields set by `Default::default()` but only when various
     // cargo features are used. So turn off this clippy warning.
     #[allow(clippy::needless_update)]
@@ -347,6 +371,8 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         model_server_addr,
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template,
+        #[cfg(target_os = "linux")]
+        v4l2loopback: derived_matches.v4l2loopback,
         ..Default::default()
     })
 }

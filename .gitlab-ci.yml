@@ -165,6 +165,8 @@ test_flydra2:
 test_crates_rust_1_76:
   image: rust:1.76
   script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
+
     - rustup target add thumbv7em-none-eabihf
     - export RUSTFLAGS="-D warnings"
 
@@ -434,6 +436,7 @@ build-api-docs:
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # build docs for braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
@@ -515,6 +518,7 @@ strand-cam-pylon-ubuntu2004:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -554,6 +558,7 @@ strand-cam-pylon-ubuntu2204:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-22.04-pylon.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -593,6 +598,7 @@ strand-cam-vimba-ubuntu2004:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - _packaging/setup-ubuntu-20.04-vimba.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export VIMBAC_LIBDIR="/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -633,6 +639,7 @@ strand-cam-vimba-ubuntu2204:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - _packaging/setup-ubuntu-22.04-vimba.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export VIMBAC_LIBDIR="/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit"
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -669,6 +676,7 @@ py-strandcam-pylon-linux:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -725,6 +733,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-20.04-pylon.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
@@ -763,6 +772,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-22.04-pylon.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
@@ -1236,6 +1246,7 @@ build_simple:
     - export PATH="$PATH:$CARGO_HOME/bin"
     # Install Pylon
     - _packaging/setup-ubuntu-20.04-pylon.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend

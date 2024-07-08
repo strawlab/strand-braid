@@ -35,7 +35,7 @@ use crate::{
 };
 
 /// Perform image analysis
-pub(crate) async fn frame_process_task(
+pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
         flydra2::SendType,
         flydra2::TimeDataPassthrough,
@@ -72,6 +72,7 @@ pub(crate) async fn frame_process_task(
     device_clock_model: Option<rust_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<(u64, u64)>,
     trigger_type: Option<TriggerType>,
+    #[cfg(target_os = "linux")] mut v4l_out_stream: Option<v4l::io::mmap::stream::Stream<'a>>,
 ) -> Result<()> {
     // As currently implemented, this function has a problem: it does
     // potentially computationally expensive image processing and thus should
@@ -653,6 +654,19 @@ pub(crate) async fn frame_process_task(
                 }
 
                 post_trig_buffer.push(&frame); // If buffer size larger than 0, copies data.
+
+                #[cfg(target_os = "linux")]
+                if let Some(v4l_out_stream) = v4l_out_stream.as_mut() {
+                    let (buf_out, buf_out_meta) =
+                        v4l::io::traits::OutputStream::next(v4l_out_stream)?;
+                    let buf_in = frame.image_data_without_format();
+                    let bytesused = buf_in.len().try_into()?;
+
+                    let buf_out = &mut buf_out[0..buf_in.len()];
+                    buf_out.copy_from_slice(buf_in);
+                    buf_out_meta.field = 0;
+                    buf_out_meta.bytesused = bytesused;
+                }
 
                 #[cfg(feature = "checkercal")]
                 let checkercal_tmp = store_cache.as_ref().and_then(|x| {

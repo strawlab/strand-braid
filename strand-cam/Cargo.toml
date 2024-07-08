@@ -127,6 +127,9 @@ bui-backend-session = { path = "../bui-backend-session" }
 event-stream-types = { path = "../event-stream-types" }
 cookie_store = "0.20.0"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+v4l = "0.14"
+
 [build-dependencies]
 build-util = { path = "../build-util" }
 

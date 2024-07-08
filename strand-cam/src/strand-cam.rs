@@ -706,6 +706,8 @@ pub struct StrandCamArgs {
     pub apriltag_csv_filename_template: String,
     #[cfg(feature = "flydratrax")]
     pub write_buffer_size_num_messages: usize,
+    #[cfg(target_os = "linux")]
+    v4l2loopback: Option<PathBuf>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -748,6 +750,8 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "flydratrax")]
             write_buffer_size_num_messages:
                 braid_config_data::default_write_buffer_size_num_messages(),
+            #[cfg(target_os = "linux")]
+            v4l2loopback: None,
         }
     }
 }
@@ -1464,6 +1468,50 @@ where
         frame.width(),
         frame.height()
     );
+
+    #[cfg(target_os = "linux")]
+    let v4l_out_stream = {
+        use machine_vision_formats::Stride;
+        if let Some(v4l_device) = &args.v4l2loopback {
+            if frame.pixel_format() != PixFmt::Mono8 {
+                eyre::bail!(
+                    "Currently unsupported pixel format for v4l2loopback: {:?}",
+                    frame.pixel_format()
+                );
+            }
+            tracing::info!("Using v4l2loopback device {}", v4l_device.display());
+            let out = v4l::device::Device::with_path(v4l_device)?;
+            let source_fmt = v4l::format::Format {
+                width: frame.width().try_into()?,
+                height: frame.height().try_into()?,
+                stride: frame.stride().try_into()?,
+                field_order: v4l::format::field::FieldOrder::Progressive,
+                flags: 0.into(),
+                size: u32::try_from(frame.stride())? * frame.height(),
+                quantization: v4l::format::quantization::Quantization::FullRange,
+                transfer: v4l::format::transfer::TransferFunction::None,
+                fourcc: v4l::format::fourcc::FourCC::new(b"GREY"),
+                colorspace: v4l::format::colorspace::Colorspace::RAW,
+            };
+            tracing::info!("Setting v4l2loopback format: {:?}", source_fmt);
+            v4l::video::Output::set_format(&out, &source_fmt)?;
+
+            let mut v4l_out_stream =
+                v4l::io::mmap::stream::Stream::new(&out, v4l::buffer::Type::VideoOutput)?;
+
+            let (buf_out, buf_out_meta) = v4l::io::traits::OutputStream::next(&mut v4l_out_stream)?;
+            let buf_in = frame.image_data_without_format();
+            let bytesused = buf_in.len().try_into()?;
+
+            let buf_out = &mut buf_out[0..buf_in.len()];
+            buf_out.copy_from_slice(buf_in);
+            buf_out_meta.field = 0;
+            buf_out_meta.bytesused = bytesused;
+            Some(v4l_out_stream)
+        } else {
+            None
+        }
+    };
 
     #[cfg(feature = "plugin-process-frame")]
     let (plugin_handler_thread_tx, plugin_handler_thread_rx) =
@@ -2211,6 +2259,8 @@ where
             device_clock_model,
             local_and_cam_time0,
             trigger_type,
+            #[cfg(target_os = "linux")]
+            v4l_out_stream,
         )
     };
     debug!("frame_process_task spawned");
