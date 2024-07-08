@@ -1778,6 +1778,7 @@ where
 
     let (listener, http_camserver_info) =
         flydra_types::start_listener(&strand_cam_bui_http_address_string).await?;
+    let listen_addr = listener.local_addr()?;
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
@@ -2168,9 +2169,9 @@ where
 
     // Display where we are listening.
     if is_braid {
-        debug!("Strand Cam predicted URL: {url}");
+        debug!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
     } else {
-        info!("Strand Cam predicted URL: {url}");
+        info!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
         if !flydra_types::is_loopback(&url) {
             println!("QR code for {url}");
             display_qr_url(&format!("{url}"));
