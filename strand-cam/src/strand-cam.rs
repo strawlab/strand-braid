@@ -2172,6 +2172,13 @@ where
         debug!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
     } else {
         info!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
+
+        if listen_addr.ip().is_unspecified() {
+            for addr in flydra_types::expand_unspecified_addr(&listen_addr)?.iter() {
+                info!(" * {addr}");
+            }
+        }
+
         if !flydra_types::is_loopback(&url) {
             println!("QR code for {url}");
             display_qr_url(&format!("{url}"));

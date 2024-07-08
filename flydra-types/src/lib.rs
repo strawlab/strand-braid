@@ -661,7 +661,7 @@ fn expand_unspecified_ip(ip: IpAddr) -> std::io::Result<Vec<IpAddr>> {
 }
 
 #[cfg(feature = "build-urls")]
-fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SocketAddr>> {
+pub fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SocketAddr>> {
     if addr.ip().is_unspecified() {
         Ok(expand_unspecified_ip(addr.ip())?
             .into_iter()
