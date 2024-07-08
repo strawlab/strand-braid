@@ -4,7 +4,9 @@ use libflate::{finish::AutoFinishUnchecked, gzip::Encoder};
 
 #[cfg(feature = "checkercal")]
 use machine_vision_formats as formats;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "fiducial")]
+use serde::Deserialize;
+use serde::Serialize;
 #[cfg(feature = "flydra_feat_detect")]
 use std::io::Write;
 use std::{fs::File, path::Path, sync::Arc};
@@ -1598,6 +1600,7 @@ fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
     }
 }
 
+#[cfg(feature = "fiducial")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct AprilConfig {
     created_at: chrono::DateTime<chrono::Local>,
