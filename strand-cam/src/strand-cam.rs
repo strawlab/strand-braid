@@ -1000,14 +1000,10 @@ where
     // include the camera name. We need to start logging as soon as possible
     // (before we necessarily know the camera name) because we may need to debug
     // connectivity problems to Braid or problems starting the camera.
-    let initial_log_file_name = format!(
-        "~/.strand-cam-{}-{}.log",
-        std::time::SystemTime::UNIX_EPOCH
-            .elapsed()
-            .unwrap()
-            .as_micros(),
-        std::process::id()
-    );
+    let initial_log_file_name = chrono::Local::now()
+        .format("~/.strand-cam-%Y%m%d_%H%M%S.%f")
+        .to_string()
+        + &format!("-{}.log", std::process::id());
     let initial_log_file_name =
         std::path::PathBuf::from(shellexpand::full(&initial_log_file_name)?.to_string());
     // TODO: delete log files older than, e.g. one week.
@@ -1257,14 +1253,10 @@ where
 
     // Rename the log file (which is open and being written to) so that the name
     // includes the camera name.
-    let new_log_file_name = format!(
-        "~/.strand-cam-{}-{}.log",
-        std::time::SystemTime::UNIX_EPOCH
-            .elapsed()
-            .unwrap()
-            .as_micros(),
-        use_camera_name
-    );
+    let new_log_file_name = chrono::Local::now()
+        .format("~/.strand-cam-%Y%m%d_%H%M%S.%f")
+        .to_string()
+        + &format!("-{}.log", use_camera_name);
     let new_log_file_name =
         std::path::PathBuf::from(shellexpand::full(&new_log_file_name)?.to_string());
     tracing::debug!(

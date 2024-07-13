@@ -103,13 +103,10 @@ async fn main() -> Result<()> {
         )
     })?;
 
-    let log_file_name = format!(
-        "~/.braid-{}.log",
-        std::time::SystemTime::UNIX_EPOCH
-            .elapsed()
-            .unwrap()
-            .as_micros(),
-    );
+    let log_file_name = chrono::Local::now()
+        .format("~/.braid-%Y%m%d_%H%M%S.%f.log")
+        .to_string();
+
     let log_file_name = std::path::PathBuf::from(shellexpand::full(&log_file_name)?.to_string());
     // TODO: delete log files older than, e.g. one week.
 
