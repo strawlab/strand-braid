@@ -101,8 +101,14 @@ fn main() -> Result<()> {
         .collect();
 
     let size = camcal::PixelSize::new(image_width as usize, image_height as usize);
-    match camcal::compute_intrinsics::<f64>(size, &goodcorners) {
-        Ok(intrinsics) => {
+    match camcal::compute_intrinsics_with_raw_opencv::<f64>(size, &goodcorners) {
+        Ok(raw_opencv_cal) => {
+            let intrinsics = camcal::convert_to_cam_geom::<f64>(&raw_opencv_cal);
+
+            info!(
+                "Mean reprojection error: {}",
+                raw_opencv_cal.mean_reprojection_error
+            );
             info!("got calibrated intrinsics: {:?}", intrinsics);
 
             let ros_cam_name = dirname.as_os_str().to_str().unwrap().to_string();

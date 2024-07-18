@@ -38,16 +38,11 @@ impl PixelSize {
     }
 }
 
-/// Given some checkerboard corner locations, compute intrinsics
-///
-/// This is based on ROS camera_calibration.calibrator.MonoCalibrator. Note
-/// that unlike ROS, which scales the image so that k and p matrices are
-/// different, the code here does not. ROS does this so that undistorted images
-/// fill the entire image area.
-pub fn compute_intrinsics<R: RealField>(
+/// Given some checkerboard corner locations, compute intrinsics using OpenCV.
+pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
     size: PixelSize,
     data: &[CheckerBoardData],
-) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, opencv_calibrate::Error> {
+) -> Result<opencv_calibrate::CalibrationResult, opencv_calibrate::Error> {
     /*
     cal = camera_calibration.calibrator.MonoCalibrator([])
     cal.size = (width,height)
@@ -76,26 +71,45 @@ pub fn compute_intrinsics<R: RealField>(
         })
         .collect();
 
-    let results = opencv_calibrate::calibrate_camera(&pts, size.width as i32, size.height as i32)?;
+    Ok(opencv_calibrate::calibrate_camera(
+        &pts,
+        size.width as i32,
+        size.height as i32,
+    )?)
+}
 
-    let fx = nalgebra::convert(results.camera_matrix[0]);
-    let skew = nalgebra::convert(results.camera_matrix[1]);
-    let fy = nalgebra::convert(results.camera_matrix[4]);
-    let cx = nalgebra::convert(results.camera_matrix[2]);
-    let cy = nalgebra::convert(results.camera_matrix[5]);
+pub fn convert_to_cam_geom<R: RealField>(
+    opencv_results: &opencv_calibrate::CalibrationResult,
+) -> opencv_ros_camera::RosOpenCvIntrinsics<R> {
+    let fx = nalgebra::convert(opencv_results.camera_matrix[0]);
+    let skew = nalgebra::convert(opencv_results.camera_matrix[1]);
+    let fy = nalgebra::convert(opencv_results.camera_matrix[4]);
+    let cx = nalgebra::convert(opencv_results.camera_matrix[2]);
+    let cy = nalgebra::convert(opencv_results.camera_matrix[5]);
     let dist = nalgebra::Vector5::new(
-        nalgebra::convert(results.distortion_coeffs[0]),
-        nalgebra::convert(results.distortion_coeffs[1]),
-        nalgebra::convert(results.distortion_coeffs[2]),
-        nalgebra::convert(results.distortion_coeffs[3]),
-        nalgebra::convert(results.distortion_coeffs[4]),
+        nalgebra::convert(opencv_results.distortion_coeffs[0]),
+        nalgebra::convert(opencv_results.distortion_coeffs[1]),
+        nalgebra::convert(opencv_results.distortion_coeffs[2]),
+        nalgebra::convert(opencv_results.distortion_coeffs[3]),
+        nalgebra::convert(opencv_results.distortion_coeffs[4]),
     );
     let dist = opencv_ros_camera::Distortion::from_opencv_vec(dist);
 
-    let r = opencv_ros_camera::RosOpenCvIntrinsics::from_params_with_distortion(
-        fx, skew, fy, cx, cy, dist,
-    );
-    Ok(r)
+    opencv_ros_camera::RosOpenCvIntrinsics::from_params_with_distortion(fx, skew, fy, cx, cy, dist)
+}
+
+/// Given some checkerboard corner locations, compute intrinsics
+///
+/// This is based on ROS camera_calibration.calibrator.MonoCalibrator. Note
+/// that unlike ROS, which scales the image so that k and p matrices are
+/// different, the code here does not. ROS does this so that undistorted images
+/// fill the entire image area.
+pub fn compute_intrinsics<R: RealField>(
+    size: PixelSize,
+    data: &[CheckerBoardData],
+) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, opencv_calibrate::Error> {
+    let opencv_results = compute_intrinsics_with_raw_opencv::<R>(size, data)?;
+    Ok(convert_to_cam_geom(&opencv_results))
 }
 
 fn mk_object_points(data: &[CheckerBoardData]) -> Vec<Vec<Coords3D>> {
