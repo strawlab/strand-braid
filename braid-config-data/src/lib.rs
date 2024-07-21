@@ -105,6 +105,8 @@ pub struct MainbrainConfig {
     // sched_policy_priority: Option<(i32, i32)>,
     /// Address of UDP port to send low-latency detection data
     pub lowlatency_camdata_udp_addr: Option<String>,
+    #[serde(default)]
+    pub lowlatency_camdata_udp_port: u16,
     /// Address of HTTP port for control API. This is specified in the format
     /// `IP:PORT` where:
     ///
@@ -167,6 +169,7 @@ impl std::default::Default for MainbrainConfig {
             // Raising the mainbrain thread priority is currently disabled.
             // sched_policy_priority: None,
             lowlatency_camdata_udp_addr: None,
+            lowlatency_camdata_udp_port: Default::default(),
             http_api_server_addr: default_http_api_server_addr(),
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,

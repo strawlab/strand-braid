@@ -9,15 +9,13 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(feature = "flydra_feat_detect")]
 use std::io::Write;
-use std::{fs::File, path::Path, sync::Arc};
+use std::{fs::File, net::SocketAddr, path::Path, sync::Arc};
 use tracing::{debug, error, info, trace};
 
 use async_change_tracker::ChangeTracker;
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use flydra_feature_detector_types::ImPtDetectCfg;
-use flydra_types::{
-    FlydraFloatTimestampLocal, PtpStamp, RawCamName, RealtimePointsDestAddr, TriggerType,
-};
+use flydra_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use fmf::FMFWriter;
 use http_video_streaming::AnnotatedFrame;
 use rust_cam_bui_types::RecordingPath;
@@ -59,7 +57,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<crate::ToLedBoxDevice>,
     #[cfg(feature = "flydratrax")] http_camserver_info: flydra_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
-    camdata_addr: Option<RealtimePointsDestAddr>,
+    camdata_udp_addr: Option<SocketAddr>,
     led_box_heartbeat_update_arc: Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
@@ -81,7 +79,7 @@ pub(crate) async fn frame_process_task<'a>(
     // stuff, there is also a lot of IO which is (and should be) async.
     let my_runtime: tokio::runtime::Handle = tokio::runtime::Handle::current();
 
-    let is_braid = camdata_addr.is_some();
+    let is_braid = camdata_udp_addr.is_some();
 
     let raw_cam_name: RawCamName = cam_name.clone();
 
@@ -147,11 +145,11 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(not(feature = "flydra_feat_detect"))]
     debug!("Not using FlydraFeatureDetector.");
 
-    let coord_socket = if let Some(camdata_addr) = camdata_addr {
-        // If `camdata_addr` is not None, it is used to set open a socket to send
+    let coord_socket = if let Some(camdata_udp_addr) = camdata_udp_addr {
+        // If `camdata_udp_addr` is not None, it is used to set open a socket to send
         // the detected feature information.
-        debug!("sending tracked points to {:?}", camdata_addr);
-        Some(open_braid_destination_addr(&camdata_addr)?)
+        debug!("sending tracked points via UDP to {}", camdata_udp_addr);
+        Some(open_braid_destination_addr(&camdata_udp_addr)?)
     } else {
         debug!("Not sending tracked points to braid.");
         None
@@ -971,6 +969,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 serializer.self_describe().unwrap();
                                 tracker_annotation.serialize(&mut serializer).unwrap();
                             }
+                            use crate::datagram_socket::SendComplete;
                             coord_socket.send_complete(&vec)?;
                         }
                     }
@@ -997,6 +996,7 @@ pub(crate) async fn frame_process_task<'a>(
                                     serializer.self_describe().unwrap();
                                     tracker_annotation.serialize(&mut serializer).unwrap();
                                 }
+                                use crate::datagram_socket::SendComplete;
                                 coord_socket.send_complete(&vec)?;
                             }
                             ufmf_state.get_or_insert(new_ufmf_state);

@@ -94,7 +94,7 @@ pub(crate) type MainbrainResult<T> = std::result::Result<T, MainbrainError>;
 #[derive(Clone)]
 pub(crate) struct BraidAppState {
     pub(crate) shared_store: SharedStore,
-    advertise_camdata_addr: SocketAddr,
+    lowlatency_camdata_udp_addr: SocketAddr,
     force_camera_sync_mode: bool,
     software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
     event_broadcaster: EventBroadcaster<usize>,
@@ -177,7 +177,7 @@ async fn remote_camera_info_handler(
         let trig_config = app_state.shared_store.read().as_ref().trigger_type.clone();
 
         let msg = flydra_types::RemoteCameraInfoResponse {
-            advertise_camdata_addr: app_state.advertise_camdata_addr.to_string(),
+            camdata_udp_port: app_state.lowlatency_camdata_udp_addr.port(),
             config: config.clone(),
             force_camera_sync_mode: app_state.force_camera_sync_mode,
             software_limit_framerate,
@@ -371,11 +371,13 @@ async fn launch_braid_http_backend(
         mainbrain_server_info.addr()
     );
 
-    let url = mainbrain_server_info.build_url();
-    info!("Predicted URL: {url}");
-    if !flydra_types::is_loopback(&url) {
-        println!("QR code for {url}");
-        display_qr_url(&format!("{url}"));
+    let urls = mainbrain_server_info.build_urls()?;
+    for url in urls.iter() {
+        info!("Predicted URL: {url}");
+        if !flydra_types::is_loopback(&url) {
+            println!("QR code for {url}");
+            display_qr_url(&format!("{url}"));
+        }
     }
 
     Ok(http_serve_future)
@@ -511,7 +513,16 @@ pub(crate) async fn do_run_forever(
     let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
     let tracking_params: flydra_types::TrackingParams = mainbrain_config.tracking_params.clone();
 
-    let lowlatency_camdata_udp_addr = &mainbrain_config.lowlatency_camdata_udp_addr;
+    let lowlatency_camdata_udp_port = &mainbrain_config.lowlatency_camdata_udp_port;
+    let mut ensure_camdata_ip = None;
+    if let Some(lowlatency_camdata_udp_addr) = &mainbrain_config.lowlatency_camdata_udp_addr {
+        tracing::warn!("Using deprecated configuration `lowlatency_camdata_udp_addr`. Use `lowlatency_camdata_udp_port` instead.");
+        let lowlatency_camdata_udp_addr = lowlatency_camdata_udp_addr.parse::<SocketAddr>()?;
+        if lowlatency_camdata_udp_addr.port() != *lowlatency_camdata_udp_port {
+            eyre::bail!("camdata UDP port specified two different ways");
+        }
+        ensure_camdata_ip = Some(lowlatency_camdata_udp_addr.ip());
+    }
 
     let save_empty_data2d: bool = mainbrain_config.save_empty_data2d;
     let write_buffer_size_num_messages = mainbrain_config.write_buffer_size_num_messages;
@@ -667,34 +678,32 @@ pub(crate) async fn do_run_forever(
 
     let per_cam_data_arc = Arc::new(RwLock::new(Default::default()));
 
-    let (advertise_camdata_addr, camdata_socket) = {
+    let (lowlatency_camdata_udp_addr, camdata_socket) = {
         // The port of the low latency UDP incoming data socket may be specified
         // as 0 in which case the OS will decide which port will actually be
         // bound. So here we create the socket and get its port.
-        let camdata_addr_unspecified_port =
-            if let Some(lowlatency_camdata_udp_addr) = lowlatency_camdata_udp_addr {
-                lowlatency_camdata_udp_addr.parse::<SocketAddr>().unwrap()
-            } else {
-                // No low latency UDP address specified. Default to the same IP
-                // as the mainbrain HTTP server (which may be unspecified) and
-                // let the OS assign a free port by setting the port as
-                // unspecified.
-                let mainbrain_tcp_addr = listener.local_addr()?;
-                let mut camdata_addr_unspecified_port = mainbrain_tcp_addr;
-                camdata_addr_unspecified_port.set_port(0);
-                camdata_addr_unspecified_port
-            };
+        let camdata_addr_unspecified_port = {
+            // No low latency UDP port specified. Default to the same IP
+            // as the mainbrain HTTP server (which may be unspecified) and
+            // let the OS assign a free port by setting the port as
+            // unspecified.
+            let mainbrain_tcp_addr = listener.local_addr()?;
+            if let Some(ensure_camdata_ip) = ensure_camdata_ip {
+                if mainbrain_tcp_addr.ip() != ensure_camdata_ip {
+                    eyre::bail!(
+                        "requested camdata UDP IP address not equal to mainbrain TCP IP address"
+                    );
+                }
+            }
+            let mut camdata_addr_unspecified_port = mainbrain_tcp_addr;
+            camdata_addr_unspecified_port.set_port(*lowlatency_camdata_udp_port);
+            camdata_addr_unspecified_port
+        };
         let camdata_socket = UdpSocket::bind(&camdata_addr_unspecified_port).await?;
         let camdata_addr = camdata_socket.local_addr()?;
-        let advertise_camdata_addr = match flydra_types::get_best_remote_addr(&camdata_addr) {
-            Ok(addr) => addr,
-            Err(_) => camdata_addr,
-        };
-        debug!(
-            "flydra mainbrain camera UDP listener socket: internal: {camdata_addr}, public: {advertise_camdata_addr}"
-        );
+        debug!("flydra mainbrain camera UDP listener socket: internal: {camdata_addr}");
 
-        (advertise_camdata_addr, camdata_socket)
+        (camdata_addr, camdata_socket)
     };
 
     if !output_base_dirname.exists() {
@@ -717,7 +726,7 @@ pub(crate) async fn do_run_forever(
     // Create our app state.
     let app_state = BraidAppState {
         shared_store: shared_store.clone(),
-        advertise_camdata_addr,
+        lowlatency_camdata_udp_addr,
         force_camera_sync_mode,
         software_limit_framerate,
         event_broadcaster: Default::default(),
@@ -1161,16 +1170,7 @@ pub(crate) async fn do_run_forever(
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
-    let model_pose_server_addr =
-        match flydra_types::get_best_remote_addr(&mainbrain_config.model_server_addr) {
-            Ok(addr) => addr,
-            Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => {
-                mainbrain_config.model_server_addr
-            }
-            Err(e) => {
-                return Err(e.into());
-            }
-        };
+    let model_pose_server_addr = mainbrain_config.model_server_addr;
     tokio::spawn(flydra2::new_model_server(data_rx, model_pose_server_addr));
 
     {

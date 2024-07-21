@@ -36,7 +36,6 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-unix_socket = { version = "0.5", optional = true }
 futures = "0.3"
 mvg = { path = "../mvg" }
 flydra-feature-detector-types = { path = "flydra-feature-detector-types", default-features = false }
@@ -57,8 +56,6 @@ tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 anyhow = "1"
 
 [features]
-flydra-uds = ["unix_socket"]
-
 backtrace = ["ci2/backtrace", "mvg/backtrace"]
 use_ipp = ["fastimage", "dep:ipp-sys"]
 do_not_use_ipp = ["fastfreeimage"]

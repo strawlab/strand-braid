@@ -3,27 +3,15 @@ use tracing::{error, warn};
 
 use eyre::Result;
 
-pub(crate) enum DatagramSocket {
-    Udp(UdpSocket),
-    #[cfg(feature = "flydra-uds")]
-    Uds(unix_socket::UnixDatagram),
+pub(crate) trait SendComplete {
+    fn send_complete(&self, x: &[u8]) -> Result<()>;
 }
 
-impl std::fmt::Debug for DatagramSocket {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            DatagramSocket::Udp(s) => writeln!(fmt, "DatagramSocket::Udp({s:?})"),
-            #[cfg(feature = "flydra-uds")]
-            DatagramSocket::Uds(s) => writeln!(fmt, "DatagramSocket::Uds({:?})", s),
-        }
-    }
-}
-
-macro_rules! do_send {
-    ($sock:expr, $data:expr) => {{
-        match $sock.send(&$data) {
+impl SendComplete for UdpSocket {
+    fn send_complete(&self, x: &[u8]) -> Result<()> {
+        match self.send(&x) {
             Ok(sz) => {
-                if sz != $data.len() {
+                if sz != x.len() {
                     eyre::bail!("incomplete send");
                 }
             }
@@ -39,17 +27,6 @@ macro_rules! do_send {
                     return Err(err.into());
                 }
             },
-        }
-    }};
-}
-
-impl DatagramSocket {
-    pub(crate) fn send_complete(&self, x: &[u8]) -> Result<()> {
-        use DatagramSocket::*;
-        match self {
-            Udp(s) => do_send!(s, x),
-            #[cfg(feature = "flydra-uds")]
-            Uds(s) => do_send!(s, x),
         }
         Ok(())
     }

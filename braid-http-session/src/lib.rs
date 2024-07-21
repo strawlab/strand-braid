@@ -20,11 +20,11 @@ pub enum Error {
 /// Create a `MainbrainSession` which has already made a request
 #[tracing::instrument(level = "info")]
 pub async fn mainbrain_future_session(
-    dest: flydra_types::MainbrainBuiLocation,
+    dest: flydra_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<MainbrainSession, bui_backend_session::Error> {
-    let base_url = dest.0.base_url();
-    let token = dest.0.token();
+    let base_url = dest.base_url();
+    let token = dest.token();
     debug!("requesting session with mainbrain at {}", base_url);
     let inner = future_session(&base_url, token.clone(), jar).await?;
     Ok(MainbrainSession { inner })

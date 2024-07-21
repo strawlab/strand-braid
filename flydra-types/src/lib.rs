@@ -12,7 +12,7 @@ extern crate static_assertions;
 
 use ordered_float::NotNan;
 use rust_cam_bui_types::{ClockModel, RecordingPath};
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -195,8 +195,8 @@ pub enum StartSoftwareFrameRateLimit {
 /// This contains information that Strand Camera needs to start the camera.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RemoteCameraInfoResponse {
-    /// The destination for the low-latency tracking (UDP or UDS socket)
-    pub advertise_camdata_addr: String,
+    /// The destination UDP port to use for low-latency tracking data
+    pub camdata_udp_port: u16,
     pub config: BraidCameraConfig,
     pub force_camera_sync_mode: bool,
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
@@ -502,7 +502,9 @@ pub enum BuiServerInfo {
 /// This is used for both the Strand Camera BUI and the Braid BUI.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BuiServerAddrInfo {
-    /// The address of the HTTP server.
+    /// The listen address of the HTTP server.
+    ///
+    /// Note that this can be unspecified (i.e. `0.0.0.0` for IPv4).
     addr: SocketAddr,
     /// The token for initial connection to the HTTP server.
     token: AccessToken,
@@ -521,17 +523,24 @@ impl BuiServerAddrInfo {
         &self.token
     }
 
-    pub fn build_url(&self) -> http::Uri {
+    #[cfg(feature = "build-urls")]
+    pub fn build_urls(&self) -> std::io::Result<Vec<http::Uri>> {
         let query = match &self.token {
             AccessToken::NoToken => "".to_string(),
             AccessToken::PreSharedToken(tok) => format!("?token={tok}"),
         };
-        http::uri::Builder::new()
-            .scheme("http")
-            .authority(format!("{}:{}", self.addr().ip(), self.addr().port()))
-            .path_and_query(format!("/{query}"))
-            .build()
-            .unwrap()
+        Ok(expand_unspecified_addr(self.addr())?
+            .into_iter()
+            .map(|specified_addr| {
+                let addr = specified_addr.addr();
+                http::uri::Builder::new()
+                    .scheme("http")
+                    .authority(format!("{}:{}", addr.ip(), addr.port()))
+                    .path_and_query(format!("/{query}"))
+                    .build()
+                    .unwrap()
+            })
+            .collect())
     }
 
     pub fn parse_url_with_token(url: &str) -> Result<Self, FlydraTypesError> {
@@ -586,24 +595,43 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 
 // -----
 
-/// Convert potentially unspecific IP address to remotely-visible IP address.
-#[cfg(feature = "build-urls")]
-pub fn get_best_remote_addr(local_addr: &SocketAddr) -> std::io::Result<SocketAddr> {
-    if local_addr.ip().is_loopback() {
-        return Err(std::io::Error::from(std::io::ErrorKind::AddrNotAvailable));
+/// A newtype wrapping a [SocketAddr] which ensures that it is specified.
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(transparent)]
+pub struct SpecifiedSocketAddr(SocketAddr);
+
+impl std::fmt::Display for SpecifiedSocketAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        std::fmt::Display::fmt(&self.0, f)
     }
+}
 
-    let all_addrs = expand_unspecified_addr(local_addr)?;
-    let non_loopback_addrs: Vec<_> = all_addrs
-        .into_iter()
-        .filter(|addr| !addr.ip().is_loopback())
-        .collect();
+impl SpecifiedSocketAddr {
+    fn make_err() -> std::io::Error {
+        std::io::ErrorKind::AddrNotAvailable.into()
+    }
+    pub fn new(addr: SocketAddr) -> std::io::Result<Self> {
+        if addr.ip().is_unspecified() {
+            return Err(Self::make_err());
+        }
+        Ok(Self(addr))
+    }
+    pub fn ip(&self) -> std::net::IpAddr {
+        self.0.ip()
+    }
+    pub fn addr(&self) -> &std::net::SocketAddr {
+        &self.0
+    }
+}
 
-    // Take first non-loopback address if available.
-    non_loopback_addrs
-        .first()
-        .map(Clone::clone)
-        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::AddrNotAvailable))
+impl<'de> serde::Deserialize<'de> for SpecifiedSocketAddr {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<SpecifiedSocketAddr, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let addr: SocketAddr = std::net::SocketAddr::deserialize(deserializer)?;
+        SpecifiedSocketAddr::new(addr).map_err(|_e| serde::de::Error::custom(Self::make_err()))
+    }
 }
 
 #[cfg(feature = "start-listener")]
@@ -616,13 +644,6 @@ pub async fn start_listener(
 
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
     let listener_local_addr = listener.local_addr()?;
-    let best_addr = match get_best_remote_addr(&listener_local_addr) {
-        Ok(addr) => addr,
-        Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => listener_local_addr,
-        Err(e) => {
-            return Err(e.into());
-        }
-    };
     let token_config = if !listener_local_addr.ip().is_loopback() {
         Some(axum_token_auth::TokenConfig::new_token("token"))
     } else {
@@ -632,7 +653,7 @@ pub async fn start_listener(
         None => bui_backend_session_types::AccessToken::NoToken,
         Some(cfg) => bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
     };
-    let http_camserver_info = BuiServerAddrInfo::new(best_addr, token);
+    let http_camserver_info = BuiServerAddrInfo::new(listener_local_addr, token);
 
     Ok((listener, http_camserver_info))
 }
@@ -640,7 +661,7 @@ pub async fn start_listener(
 // -----
 
 #[cfg(feature = "build-urls")]
-fn expand_unspecified_ip(ip: IpAddr) -> std::io::Result<Vec<IpAddr>> {
+fn expand_unspecified_ip(ip: std::net::IpAddr) -> std::io::Result<Vec<std::net::IpAddr>> {
     if ip.is_unspecified() {
         // Get all interfaces if IP is unspecified.
         Ok(if_addrs::get_if_addrs()?
@@ -661,14 +682,14 @@ fn expand_unspecified_ip(ip: IpAddr) -> std::io::Result<Vec<IpAddr>> {
 }
 
 #[cfg(feature = "build-urls")]
-pub fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SocketAddr>> {
+pub fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SpecifiedSocketAddr>> {
     if addr.ip().is_unspecified() {
-        Ok(expand_unspecified_ip(addr.ip())?
+        expand_unspecified_ip(addr.ip())?
             .into_iter()
-            .map(|ip| SocketAddr::new(ip, addr.port()))
-            .collect())
+            .map(|ip| SpecifiedSocketAddr::new(SocketAddr::new(ip, addr.port())))
+            .collect()
     } else {
-        Ok(vec![*addr])
+        Ok(vec![SpecifiedSocketAddr::new(*addr).unwrap()])
     }
 }
 
@@ -1096,49 +1117,6 @@ pub enum FlydraTypesError {
     #[error("URL parse error")]
     UrlParseError,
 }
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct AddrInfoUnixDomainSocket {
-    pub filename: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct AddrInfoIP {
-    inner: SocketAddr,
-}
-
-impl AddrInfoIP {
-    pub fn from_socket_addr(src: &SocketAddr) -> Self {
-        Self { inner: *src }
-    }
-    pub fn to_socket_addr(&self) -> SocketAddr {
-        self.inner
-    }
-    pub fn ip(&self) -> IpAddr {
-        self.inner.ip()
-    }
-    pub fn port(&self) -> u16 {
-        self.inner.port()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum RealtimePointsDestAddr {
-    UnixDomainSocket(AddrInfoUnixDomainSocket),
-    IpAddr(AddrInfoIP),
-}
-
-impl RealtimePointsDestAddr {
-    pub fn into_string(&self) -> String {
-        match self {
-            RealtimePointsDestAddr::UnixDomainSocket(uds) => format!("file://{}", uds.filename),
-            RealtimePointsDestAddr::IpAddr(ip) => format!("udp://{}:{}", ip.ip(), ip.port()),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MainbrainBuiLocation(pub BuiServerAddrInfo);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {

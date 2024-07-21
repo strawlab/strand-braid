@@ -154,7 +154,6 @@ backtrace = [
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
-flydra-uds = ["flydra-feature-detector?/flydra-uds"]
 
 # Serve style
 ## Bundle files into executable

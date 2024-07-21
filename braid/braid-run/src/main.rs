@@ -10,7 +10,7 @@ use tracing::debug;
 use braid::braid_start;
 use braid_config_data::parse_config_file;
 use flydra_types::{
-    BraidCameraConfig, MainbrainBuiLocation, RawCamName, StartCameraBackend, TriggerType,
+    BraidCameraConfig, BuiServerAddrInfo, RawCamName, StartCameraBackend, TriggerType,
 };
 
 mod callback_handling;
@@ -29,9 +29,12 @@ struct BraidRunCliArgs {
 
 fn compute_strand_cam_args(
     camera: &BraidCameraConfig,
-    mainbrain_internal_addr: &MainbrainBuiLocation,
+    mainbrain_internal_addr: &BuiServerAddrInfo,
 ) -> Result<Vec<String>> {
-    let url = mainbrain_internal_addr.0.build_url();
+    let urls = mainbrain_internal_addr.build_urls()?;
+    let url = urls
+        .first()
+        .ok_or_else(|| eyre::eyre!("need at least one URL"))?;
     let url_string = format!("{url}");
     Ok(vec![
         "--camera-name".into(),
@@ -44,7 +47,7 @@ fn compute_strand_cam_args(
 fn launch_strand_cam(
     strand_cam_set: &mut tokio::task::JoinSet<()>,
     camera: &BraidCameraConfig,
-    mainbrain_internal_addr: &MainbrainBuiLocation,
+    mainbrain_internal_addr: &BuiServerAddrInfo,
 ) -> Result<()> {
     // On initial startup strand cam queries for
     // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
@@ -149,7 +152,7 @@ async fn main() -> Result<()> {
 
     let address_string: String = cfg.mainbrain.http_api_server_addr.clone();
     let (listener, mainbrain_server_info) = flydra_types::start_listener(&address_string).await?;
-    let mainbrain_internal_addr = MainbrainBuiLocation(mainbrain_server_info.clone());
+    let mainbrain_internal_addr = mainbrain_server_info.clone();
 
     let cfg_cameras = cfg.cameras;
     let mut strand_cam_set = tokio::task::JoinSet::new();

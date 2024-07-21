@@ -47,9 +47,7 @@ use ci2_remote_control::{
     CamArg, CodecSelection, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options, RecordingFrameRate,
 };
 
-use flydra_types::{
-    BuiServerInfo, RawCamName, RealtimePointsDestAddr, StartSoftwareFrameRateLimit, TriggerType,
-};
+use flydra_types::{BuiServerInfo, RawCamName, StartSoftwareFrameRateLimit, TriggerType};
 
 use flydra_feature_detector_types::ImPtDetectCfg;
 
@@ -67,7 +65,7 @@ use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
 use std::{
     io::Write,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     sync::Arc,
 };
 
@@ -125,8 +123,6 @@ type ArcMutGuiSingleton = Arc<std::sync::Mutex<GuiShared>>;
 
 #[cfg(not(feature = "eframe-gui"))]
 type ArcMutGuiSingleton = ();
-
-use datagram_socket::DatagramSocket;
 
 pub mod cli_app;
 
@@ -360,57 +356,33 @@ async fn convert_stream(
     Ok(())
 }
 
-fn open_braid_destination_addr(dest_addr: &RealtimePointsDestAddr) -> Result<DatagramSocket> {
+fn open_braid_destination_addr(camdata_udp_addr: &SocketAddr) -> Result<UdpSocket> {
     info!(
-        "Sending detected coordinates to: {}",
-        dest_addr.into_string()
+        "Sending detected coordinates via UDP to: {}",
+        camdata_udp_addr
     );
 
     let timeout = std::time::Duration::new(0, 1);
 
-    match dest_addr {
-        #[cfg(feature = "flydra-uds")]
-        &RealtimePointsDestAddr::UnixDomainSocket(ref uds) => {
-            let socket = unix_socket::UnixDatagram::unbound()?;
-            socket.set_write_timeout(Some(timeout))?;
-            info!("UDS connecting to {:?}", uds.filename);
-            socket.connect(&uds.filename)?;
-            Ok(DatagramSocket::Uds(socket))
+    let src_ip = if !camdata_udp_addr.ip().is_loopback() {
+        // Let OS choose what IP to use, but preserve V4 or V6.
+        match camdata_udp_addr {
+            SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         }
-        #[cfg(not(feature = "flydra-uds"))]
-        RealtimePointsDestAddr::UnixDomainSocket(_uds) => {
-            Err(eyre!("unix domain sockets are not supported"))
+    } else {
+        match camdata_udp_addr {
+            SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::LOCALHOST),
+            SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::LOCALHOST),
         }
-        RealtimePointsDestAddr::IpAddr(dest_ip_addr) => {
-            let dest = format!("{}:{}", dest_ip_addr.ip(), dest_ip_addr.port());
-            let mut dest_addrs: Vec<SocketAddr> = dest.to_socket_addrs()?.collect();
+    };
+    // Let OS choose what port to use.
+    let src_addr = SocketAddr::new(src_ip, 0);
 
-            if let Some(dest_sock_addr) = dest_addrs.pop() {
-                // Let OS choose what port to use.
-                let mut src_addr = dest_sock_addr;
-                src_addr.set_port(0);
-                if !dest_sock_addr.ip().is_loopback() {
-                    // Let OS choose what IP to use, but preserve V4 or V6.
-                    match src_addr {
-                        SocketAddr::V4(_) => {
-                            src_addr.set_ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
-                        }
-                        SocketAddr::V6(_) => {
-                            src_addr.set_ip(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)));
-                        }
-                    }
-                }
-
-                let sock = UdpSocket::bind(src_addr)?;
-                sock.set_write_timeout(Some(timeout))?;
-                debug!("UDP connecting to {}", dest);
-                sock.connect(&dest)?;
-                Ok(DatagramSocket::Udp(sock))
-            } else {
-                Err(eyre!("socket address conversion failed"))
-            }
-        }
-    }
+    let sock = UdpSocket::bind(src_addr)?;
+    sock.set_write_timeout(Some(timeout))?;
+    sock.connect(camdata_udp_addr)?;
+    Ok(sock)
 }
 
 #[cfg(feature = "flydra_feat_detect")]
@@ -950,7 +922,8 @@ async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
 #[derive(Debug)]
 struct BraidInfo {
     mainbrain_session: braid_http_session::MainbrainSession,
-    camdata_addr: flydra_types::RealtimePointsDestAddr,
+    /// Neither the IP nor the port are unspecified
+    camdata_udp_addr: SocketAddr,
     tracker_cfg_src: ImPtDetectCfgSource,
     config_from_braid: flydra_types::RemoteCameraInfoResponse,
 }
@@ -1109,9 +1082,8 @@ where
         match &args.standalone_or_braid {
             StandaloneOrBraid::Braid(braid_args) => {
                 info!("Will connect to braid at \"{}\"", braid_args.braid_url);
-                let mainbrain_bui_loc = flydra_types::MainbrainBuiLocation(
-                    flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?,
-                );
+                let mainbrain_bui_loc =
+                    flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
                 let jar: cookie_store::CookieStore =
                     match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
@@ -1127,9 +1099,11 @@ where
                         }
                     };
                 let jar = Arc::new(parking_lot::RwLock::new(jar));
-                let mut mainbrain_session =
-                    braid_http_session::mainbrain_future_session(mainbrain_bui_loc, jar.clone())
-                        .await?;
+                let mut mainbrain_session = braid_http_session::mainbrain_future_session(
+                    mainbrain_bui_loc.clone(),
+                    jar.clone(),
+                )
+                .await?;
                 tracing::debug!("Opened HTTP session with Braid.");
                 {
                     // We have the cookie from braid now, so store it to disk.
@@ -1143,14 +1117,9 @@ where
                 let config_from_braid: flydra_types::RemoteCameraInfoResponse =
                     mainbrain_session.get_remote_info(&camera_name).await?;
 
-                let camdata_addr = {
-                    let camdata_addr = config_from_braid
-                        .advertise_camdata_addr
-                        .parse::<std::net::SocketAddr>()?;
-                    let addr_info_ip = flydra_types::AddrInfoIP::from_socket_addr(&camdata_addr);
-
-                    flydra_types::RealtimePointsDestAddr::IpAddr(addr_info_ip)
-                };
+                let camdata_udp_ip = mainbrain_bui_loc.addr().ip();
+                let camdata_udp_port = config_from_braid.camdata_udp_port;
+                let camdata_udp_addr = SocketAddr::new(camdata_udp_ip, camdata_udp_port);
 
                 let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
                     config_from_braid.config.point_detection_config.clone(),
@@ -1159,7 +1128,7 @@ where
                 Ok(BraidInfo {
                     mainbrain_session,
                     config_from_braid,
-                    camdata_addr,
+                    camdata_udp_addr,
                     tracker_cfg_src,
                 })
             }
@@ -1578,8 +1547,8 @@ where
         Err(a) => a.force_camera_sync_mode,
     };
 
-    let camdata_addr = match &res_braid {
-        Ok(bi) => Some(bi.camdata_addr.clone()),
+    let camdata_udp_addr = match &res_braid {
+        Ok(bi) => Some(bi.camdata_udp_addr.clone()),
         Err(_a) => None,
     };
 
@@ -2130,7 +2099,11 @@ where
         .into_future()
     };
 
-    let url = http_camserver_info.build_url();
+    let url = http_camserver_info
+        .build_urls()?
+        .first()
+        .ok_or_else(|| eyre::eyre!("need at least one URL"))?
+        .clone();
 
     #[cfg(feature = "eframe-gui")]
     {
@@ -2191,15 +2164,7 @@ where
         let csv_save_dir = args.csv_save_dir.clone();
 
         #[cfg(feature = "flydratrax")]
-        let model_server_addr = match flydra_types::get_best_remote_addr(&args.model_server_addr) {
-            Ok(addr) => addr,
-            Err(err) if err.kind() == std::io::ErrorKind::AddrNotAvailable => {
-                args.model_server_addr
-            }
-            Err(e) => {
-                return Err(e.into());
-            }
-        };
+        let model_server_addr = args.model_server_addr.clone();
 
         #[cfg(feature = "flydratrax")]
         let led_box_tx_std = led_box_tx_std.clone();
@@ -2243,7 +2208,7 @@ where
             #[cfg(feature = "flydratrax")]
             http_camserver_info2,
             transmit_msg_tx.clone(),
-            camdata_addr,
+            camdata_udp_addr,
             led_box_heartbeat_update_arc2,
             #[cfg(feature = "plugin-process-frame")]
             do_process_frame_callback,
