@@ -219,7 +219,7 @@ for Braid. Specify the filename of your new XML file as `cal_fname` in the
 ### With the new calibration, perform offline tracking the data used to calibrate.
 
 Now you have a working calibration, which is NOT aligned or scaled to any
-coordinate system, but an (undefined) coordinate system that from MCSC code
+coordinate system, but an (undefined) coordinate system that the MCSC code
 picked. We can use this calibration to do tracking, although in general having
 correct scaling is important for good tracking. The reason correct scaling is
 important for good quality tracking is because Braid tracks using a dynamic
