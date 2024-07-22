@@ -431,6 +431,7 @@ struct StrandCamCallbackSenders {
 
 #[derive(Clone)]
 struct StrandCamAppState {
+    cam_name: String,
     event_broadcaster: EventBroadcaster<ConnectionSessionKey>,
     callback_senders: StrandCamCallbackSenders,
     tx_new_connection: tokio::sync::mpsc::Sender<event_stream_types::ConnectionEvent>,
@@ -839,6 +840,13 @@ async fn events_handler(
             "sending new connection failed",
         )),
     }
+}
+
+async fn cam_name_handler(
+    axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
+    _session_key: axum_token_auth::SessionKey,
+) -> impl axum::response::IntoResponse {
+    app_state.cam_name.clone()
 }
 
 async fn callback_handler(
@@ -2011,6 +2019,7 @@ where
 
     // Create our app state.
     let app_state = StrandCamAppState {
+        cam_name: cam.name().to_string(),
         event_broadcaster: Default::default(),
         callback_senders,
         tx_new_connection,
@@ -2075,6 +2084,7 @@ where
     // Create axum router.
     let router = axum::Router::new()
         .route("/strand-cam-events", axum::routing::get(events_handler))
+        .route("/cam-name", axum::routing::get(cam_name_handler))
         .route("/callback", axum::routing::post(callback_handler))
         .nest_service("/", serve_dir)
         .layer(
