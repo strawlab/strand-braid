@@ -36,13 +36,13 @@ impl StrandCamHttpSessionHandler {
     }
     async fn open_session(&self, cam_name: &RawCamName) -> Result<MaybeSession, MainbrainError> {
         // Create a new session if it doesn't exist.
-        let (base_url, token) = {
+        let (bui_server_addr_info) = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
                 match cam_addr {
                     BuiServerInfo::NoServer => {
                         panic!("cannot connect to camera with no server");
                     }
-                    BuiServerInfo::Server(details) => (details.base_url(), details.token().clone()),
+                    BuiServerInfo::Server(details) => details,
                 }
             } else {
                 return Err(MainbrainError::UnknownCamera {
@@ -56,10 +56,11 @@ impl StrandCamHttpSessionHandler {
         info!(
             "opening session for cam {} to {}",
             cam_name.as_str(),
-            base_url
+            bui_server_addr_info.addr(),
         );
 
-        let result = bui_backend_session::future_session(&base_url, token, self.jar.clone()).await;
+        let result =
+            bui_backend_session::create_session(&bui_server_addr_info, self.jar.clone()).await;
         let session = match result {
             Ok(session) => {
                 let mut name_to_session = self.name_to_session.write();
@@ -68,7 +69,11 @@ impl StrandCamHttpSessionHandler {
                 session
             }
             Err(e) => {
-                error!("could not create session to {}: {}", base_url, e);
+                error!(
+                    "could not create session to {}: {}",
+                    bui_server_addr_info.addr(),
+                    e
+                );
                 return Err(e.into());
             }
         };

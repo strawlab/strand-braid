@@ -27,6 +27,7 @@ thiserror = "1.0.51"
 
 bui-backend-session-types = { path = "../bui-backend-session/types" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
+flydra-types = { path = "../flydra-types" }
 axum = "0.7.4"
 cookie_store = "0.20.0"
 url = "2.5.0"

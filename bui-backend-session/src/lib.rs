@@ -31,14 +31,15 @@ pub struct HttpSession {
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 }
 
-/// Create an `InsecureSession` which has already made a request
-#[tracing::instrument(level = "debug", skip(token, jar))]
-pub async fn future_session(
-    base_uri: &str,
-    token: AccessToken,
+/// Create an `HttpSession` which has already made a request
+#[tracing::instrument(level = "debug", skip(server_info, jar))]
+pub async fn create_session(
+    server_info: &flydra_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<HttpSession, Error> {
-    let mut base = HttpSession::new(base_uri, jar);
+    let base_uri = format!("http://{}/", server_info.addr());
+    let token = server_info.token().clone();
+    let mut base = HttpSession::new(&base_uri, jar);
     base.get_with_token("", token).await?;
     Ok(base)
 }

@@ -1,4 +1,4 @@
-use ::bui_backend_session::{future_session, HttpSession};
+use bui_backend_session::HttpSession;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tracing::{debug, error};
@@ -19,14 +19,12 @@ pub enum Error {
 
 /// Create a `MainbrainSession` which has already made a request
 #[tracing::instrument(level = "info")]
-pub async fn mainbrain_future_session(
+pub async fn create_mainbrain_session(
     dest: flydra_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<MainbrainSession, bui_backend_session::Error> {
-    let base_url = dest.base_url();
-    let token = dest.token();
-    debug!("requesting session with mainbrain at {}", base_url);
-    let inner = future_session(&base_url, token.clone(), jar).await?;
+    debug!("requesting session with mainbrain at {:?}", dest);
+    let inner = bui_backend_session::create_session(&dest, jar).await?;
     Ok(MainbrainSession { inner })
 }
 
