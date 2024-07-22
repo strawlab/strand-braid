@@ -2109,11 +2109,7 @@ where
         .into_future()
     };
 
-    let url = http_camserver_info
-        .build_urls()?
-        .first()
-        .ok_or_else(|| eyre::eyre!("need at least one URL"))?
-        .clone();
+    let urls = http_camserver_info.build_urls()?;
 
     #[cfg(feature = "eframe-gui")]
     {
@@ -2125,7 +2121,7 @@ where
 
                 // http_camserver_info
                 // Set URL
-                my_guard.url = Some(format!("{url}"));
+                my_guard.url = Some(format!("{}", urls[0]));
 
                 // Ensure URL is drawn
                 if let Some(ctx_ref) = my_guard.ctx.as_ref() {
@@ -2144,19 +2140,16 @@ where
 
     // Display where we are listening.
     if is_braid {
-        debug!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
+        debug!("Strand Cam listening at {listen_addr}");
     } else {
-        info!("Strand Cam listening at {listen_addr}, predicted URL: {url}");
+        info!("Strand Cam listening at {listen_addr}");
 
-        if listen_addr.ip().is_unspecified() {
-            for addr in flydra_types::expand_unspecified_addr(&listen_addr)?.iter() {
-                info!(" * {addr}");
+        for url in urls.iter() {
+            info!(" * predicted URL {url}");
+            if !flydra_types::is_loopback(&url) {
+                println!("QR code for {url}");
+                display_qr_url(&format!("{url}"));
             }
-        }
-
-        if !flydra_types::is_loopback(&url) {
-            println!("QR code for {url}");
-            display_qr_url(&format!("{url}"));
         }
     }
 
@@ -3249,7 +3242,7 @@ where
         tokio::spawn(async move {
             // Let the webserver start before opening browser.
             let _ = launched_rx.changed().await.unwrap();
-            open_browser(format!("{url}")).unwrap();
+            open_browser(format!("{}", urls[0])).unwrap();
         });
     }
 
