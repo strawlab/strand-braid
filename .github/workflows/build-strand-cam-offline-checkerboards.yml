@@ -27,7 +27,19 @@ jobs:
       - name: Show shared libraries required
         run: |
           ldd ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards
+      - name: Test executable on sample data
+        run: |
+          curl -O http://strawlab-cdn.com/assets/checkerboard_debug_20240222_164128.zip
+          unzip checkerboard_debug_20240222_164128.zip
+          ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards checkerboard_debug_20240222_164128 18 8
+          cat checkerboard_debug_20240222_164128.yaml
+      - name: Create release directory
+        run: |
+          mkdir ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
+          cp ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
+          cp README.md ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
+          find ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
       - uses: actions/upload-artifact@v4
         with:
           name: strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
-          path: ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards
+          path: ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
