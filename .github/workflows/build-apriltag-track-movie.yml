@@ -13,14 +13,14 @@ jobs:
       run:
         working-directory: apriltag/apriltag-track-movie
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build app
         run: |
           cargo build --release
       - name: Show shared libraries required
         run: |
           ldd ${{ github.workspace }}/target/release/apriltag-track-movie
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: apriltag-track-movie-${{ runner.os }}
           path: ${{ github.workspace }}/target/release/apriltag-track-movie
@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: apriltag/apriltag-track-movie
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install pthread
         uses: lukka/run-vcpkg@v7
         id: vcpkg
@@ -46,7 +46,7 @@ jobs:
           APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\lib\pthreadVC3.lib'
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: apriltag-track-movie-${{ runner.os }}
           path: ${{ github.workspace }}/target/release/apriltag-track-movie.exe
