@@ -63,8 +63,8 @@ impl From<ffi::cv_return_value_slice> for Result<SliceData, Error> {
 
 #[derive(Debug)]
 pub struct CalibrationResult {
-    /// mean reprojection error
-    pub mean_reprojection_error: f64,
+    /// mean reprojection distance, in pixels
+    pub mean_reprojection_distance_pixels: f64,
     /// camera calibration matrix, row major order
     pub camera_matrix: [f64; 9],
     /// non-linear distortion coefficients (k1, k2, p1, p2, k3)
@@ -132,12 +132,12 @@ pub fn calibrate_camera(
         )
     }
     .into();
-    let mean_reprojection_error = r1?;
+    let mean_reprojection_distance_pixels = r1?;
 
     debug_assert!(rotation_matrices.len() == all_pts.len());
     debug_assert!(translation_vectors.len() == all_pts.len());
     Ok(CalibrationResult {
-        mean_reprojection_error,
+        mean_reprojection_distance_pixels,
         camera_matrix,
         distortion_coeffs,
         rotation_matrices,

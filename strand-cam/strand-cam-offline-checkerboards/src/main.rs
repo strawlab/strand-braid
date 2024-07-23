@@ -107,7 +107,7 @@ fn main() -> Result<()> {
 
             info!(
                 "Mean reprojection error: {}",
-                raw_opencv_cal.mean_reprojection_error
+                raw_opencv_cal.mean_reprojection_distance_pixels
             );
             info!("got calibrated intrinsics: {:?}", intrinsics);
 
@@ -141,7 +141,7 @@ fn main() -> Result<()> {
                         # Mean reprojection distance: {:.2}\n",
                         env!["CARGO_PKG_NAME"],
                         local,
-                        raw_opencv_cal.mean_reprojection_error
+                        raw_opencv_cal.mean_reprojection_distance_pixels
                     )
                     .as_bytes(),
                 )?;
