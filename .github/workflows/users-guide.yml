@@ -29,7 +29,7 @@ jobs:
       - name: Generate sitemap
         run: |
           cd strand-braid-user/users-guide/book
-          npx sscli --no-clean --base https://rust-cli-recommendations.sunshowers.io
+          npx sscli --no-clean --base https://strawlab.github.io/strand-braid
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
