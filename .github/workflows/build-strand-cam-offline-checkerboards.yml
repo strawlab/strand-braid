@@ -1,0 +1,33 @@
+name: Build strand-cam-offline-checkerboards app
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  strand-cam-offline-checkerboards-ubuntu:
+    strategy:
+      matrix:
+        runs-on: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
+    runs-on: ${{ matrix.runs-on }}
+    defaults:
+      run:
+        working-directory: strand-cam/strand-cam-offline-checkerboards
+    steps:
+      - uses: actions/checkout@v4
+      - name: install OpenCV
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libopencv-dev
+      - name: Build app
+        run: |
+          cargo build --release
+      - name: Show shared libraries required
+        run: |
+          ldd ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
+          path: ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards
