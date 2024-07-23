@@ -7,8 +7,11 @@ on:
     branches: ["**"]
 
 jobs:
-  apriltag-track-movie-ubuntu-20-04:
-    runs-on: ubuntu-20.04
+  apriltag-track-movie-ubuntu:
+    strategy:
+      matrix:
+        runs-on: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
+    runs-on: ${{ matrix.runs-on }}
     defaults:
       run:
         working-directory: apriltag/apriltag-track-movie
@@ -22,7 +25,7 @@ jobs:
           ldd ${{ github.workspace }}/target/release/apriltag-track-movie
       - uses: actions/upload-artifact@v4
         with:
-          name: apriltag-track-movie-${{ runner.os }}
+          name: apriltag-track-movie-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
           path: ${{ github.workspace }}/target/release/apriltag-track-movie
 
   apriltag-track-movie-windows:
@@ -38,7 +41,7 @@ jobs:
         with:
           vcpkgArguments: 'pthread'
           vcpkgTriplet: 'x64-windows-static'
-          vcpkgDirectory: '${{runner.workspace}}/vcpkg'
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           vcpkgGitCommitId: '57bd7102d9fd880daa1b0958692294c4a125f6d8'
       - name: Build app
         env:
@@ -48,5 +51,5 @@ jobs:
           cargo build --release
       - uses: actions/upload-artifact@v4
         with:
-          name: apriltag-track-movie-${{ runner.os }}
+          name: apriltag-track-movie-${{ runner.os }}-${{ runner.arch }}
           path: ${{ github.workspace }}/target/release/apriltag-track-movie.exe
