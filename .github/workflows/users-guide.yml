@@ -8,16 +8,28 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Install static-sitemap-cli
+        run: npm install static-sitemap-cli
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
           mdbook-version: '0.4.5'
 
-      - run: cd strand-braid-user/users-guide && mdbook build
+      # Sitemap stuff from https://github.com/sunshowers-code/rust-cli-recommendations/blob/main/.github/workflows/docs.yml
+
+      - name: Build book
+        run: |
+          cd strand-braid-user/users-guide && mdbook build
+
+      - name: Generate sitemap
+        run: |
+          cd strand-braid-user/users-guide/book
+          npx sscli --no-clean --base https://rust-cli-recommendations.sunshowers.io
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
