@@ -1,0 +1,473 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Braid: 3D Calibration - User's Guide for Braid and Strand Camera</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="Low latency image processing and tracking">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html" class="active"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">User's Guide for Braid and Strand Camera</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#calibration-in-braid" id="calibration-in-braid">Calibration in Braid</a></h1>
+<h2><a class="header" href="#what-is-a-calibration" id="what-is-a-calibration">What is a calibration?</a></h2>
+<p>In our usage here, we refer to a calibration as a model of a camera which allows
+us to compute the 2D image location of a given 3D point. Braid can use
+calibrations of multiple cameras to calculate the 3D position of a given point
+when viewed in 2D camera images.</p>
+<p>For a given camera, the calibration is divided into two parts. The &quot;extrinsics&quot;,
+or extrinsic parameters, define the pose of the camera. This is the 3D position
+and orientation of the camera. The &quot;intrinsics&quot;, or intrinsic parameters, define
+the projection of 3D coordinates relative to the camera to an image point in
+pixels. In Braid, the camera model is a pinhole model with warping distortion.
+The intrinsic parameters include focal length, the pixel coordinates of the
+optical axis, and the radial and tangential parameters of a &quot;plumb bob&quot;
+distortion model (also called the Brown-Conrady distortion model).</p>
+<h2><a class="header" href="#xml-calibration-files-in-braid" id="xml-calibration-files-in-braid">XML calibration files in Braid</a></h2>
+<p>The XML calibration files used in Braid are backwards-compatible with those from
+Braid's predecessor, Flydra. Several of the steps described here also use tools
+from Flydra.</p>
+<h2><a class="header" href="#step-0-setup-cameras-zoom-focus-aperture-gain-and-lights" id="step-0-setup-cameras-zoom-focus-aperture-gain-and-lights">Step 0: setup cameras (zoom, focus, aperture, gain) and lights</a></h2>
+<p>Setup camera position, zoom, focus (using an object in the tracking volume) and
+aperture (slightly stopped down from wide-open). Exposure times and gains are
+set in Strand Cam for each camera individually. Note that if you intend to run
+at 100 frames per second, exposure times must be less than 10 milliseconds.
+These settings (exposure time and gain) are (unfortunately) currently not saved
+in any file, and can be set only in the camera settings GUI (in the browser).
+The camera keeps these values persistently when it is on, but if it has been
+power cycled, it will reset to new values.</p>
+<p>Try to a luminance distribution which extends across the entire dynamic range of
+your sensor (from intensity values 0 to 255) with very little clipping.</p>
+<h2><a class="header" href="#methods-for-calibration" id="methods-for-calibration">Methods for calibration</a></h2>
+<p>The &quot;traditional&quot; calibration method, inherited from
+<a href="https://github.com/strawlab/flydra">flydra</a>, uses the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal MCSC
+library</a>.</p>
+<p>Other methods of calibration are in development. For example, the <a href="https://strawlab.org/braid-april-cal-webapp/">Braid April
+Tag Calibration Tool</a>. There is
+also <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">a tutorial Jupyter
+notebook</a>
+for a manual approach involving April Tags. These April Tag approaches may be
+particularly interesting in a setting where Braid is used for tracking in a
+Virtual Reality setup where computer displays can be used to show April Tags.</p>
+<h2><a class="header" href="#mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters" id="mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters">MCSC Method, Step 1: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters</a></h2>
+<p>(There is a script to draw checkerboards as SVG files:
+<a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py"><code>draw_checkerboard_svg.py</code></a>.)</p>
+<p>In Strand Cam, there is a region called &quot;Checkerboard Calibration&quot; which allows
+you to calibrate the camera intrinsic parameters. Show a checkerboard to the
+camera. You must enter your the checkerboard parameters into the user interface.
+For example, a standard 8x8 checkerboard would have 7x7 corners. Try to show the
+checkerboard at different distances and angles. Do not forget to show the
+checkerboard corners in the corners of the camera field of view. There is a
+field which shows the number of checkerboard collected - this should increase as
+the system detects checkerboards. When you have gathered a good set of (say, at
+least 10) checkerboards, click the &quot;Perform and Save Calibration&quot; button. The
+results of this calibration are saved to the directory
+<code>$HOME/.config/strand-cam/camera_info</code>.</p>
+<p>As an alternative to running this procedure live with Strand Camera, you may
+operate on a directory of PNG images and <a href="https://github.com/strawlab/strand-braid/tree/main/strand-cam/strand-cam-offline-checkerboards">the <code>strand-cam-offline-checkerboards</code>
+program</a>.</p>
+<p>Repeat this for all cameras before proceeding to the next step.</p>
+<h2><a class="header" href="#mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc" id="mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc">MCSC Method, Step 2: collect calibration data and run MultiCamSelfCal (MCSC)</a></h2>
+<p>To calibrate Braid, we use
+<a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>. This is a
+software package which takes simultaneously captured images of an LED moving
+through a volume to create a single calibration for all cameras.</p>
+<h3><a class="header" href="#acquire-a-dataset-for-multicamselfcal" id="acquire-a-dataset-for-multicamselfcal">Acquire a dataset for MultiCamSelfCal</a></h3>
+<p>Room lights should be off.</p>
+<p>Synchronize your cameras and start saving data and begin to collect data by
+moving a LED in the arena (try move the LED in the whole arena volume, also turn
+it off and on sometimes to validate synchronization). When you are done, stop
+saving.</p>
+<h3><a class="header" href="#convert-braidz-file-to-flydra-mainbrain-h5-file" id="convert-braidz-file-to-flydra-mainbrain-h5-file">Convert <code>.braidz</code> file to flydra mainbrain <code>.h5</code> file</a></h3>
+<blockquote>
+<p>Note: from here in the document, there are many commands used from
+<a href="https://github.com/strawlab/flydra">Flydra</a>. While Braid itself runs without
+needing Flydra in any way, performing calibration and other data analysis
+steps currently requires the use of Flydra. Specifically, the
+<code>flydra_analysis</code> package is required. Please see
+<a href="https://github.com/strawlab/flydra#installation">here</a> for instructions about
+Flydra installation.</p>
+</blockquote>
+<p>By converting from <code>.braidz</code> to a Flydra mainbrain <code>.h5</code> file, you can use the
+wide range of analysis programs from <a href="https://github.com/strawlab/flydra">flydra</a>.</p>
+<p>For example, let's say you have the file <code>20190924_161153.braidz</code> saved by the
+Braid program. We will use the script <code>convert_braidz_to_flydra_h5.py</code>
+to do this conversion:</p>
+<pre><code class="language-ignore">python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
+</code></pre>
+<p>Upon success, there will be a new file saved with the suffix <code>.h5</code>. In this
+case, it will be named <code>20190924_161153.braidz.h5</code>.</p>
+<p>We can do the above but making use of bash variables to save typing later <code>BRAIDZ_FILE</code>.</p>
+<pre><code class="language-ignore">BRAIDZ_FILE=20190924_161153.braidz
+DATAFILE=&quot;$BRAIDZ_FILE.h5&quot;
+python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
+</code></pre>
+<p>Note that this conversion requires the program <code>compute-flydra1-compat</code> (this
+should be installed with Strand Camera and Braid by default and is part of the
+the <code>braid-offline</code> rust crate) to be on your path if you are converting 3D
+trajectories.</p>
+<h3><a class="header" href="#run-multicamselfcal-on-data-collected-with-braid" id="run-multicamselfcal-on-data-collected-with-braid">Run MultiCamSelfCal on data collected with Braid</a></h3>
+<p>You can collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/c9f20d5f8f4feb7e1fe008cf0ee67fbbc70b1ba0/docs/flydra-sphinx-docs/calibrating.md">the description for Flydra</a></p>
+<p>If your mainbrain <code>.h5</code> file is in the location <code>$DATAFILE</code>, you can run the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>
+program on this data to generate a multiple camera calibration.</p>
+<pre><code class="language-ignore">flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
+</code></pre>
+<p>This will print various pieces of information to the console when it runs. First it will print something like this:</p>
+<pre><code class="language-ignore">851 points
+by camera id:
+ Basler_40022057: 802
+ Basler_40025037: 816
+ Basler_40025042: 657
+ Basler_40025383: 846
+by n points:
+ 3: 283
+ 4: 568
+</code></pre>
+<p>This means that 851 frames were acquired in which 3 or more cameras detected exactly one point.
+The contribution from each camera is listed. In this example, all cameras had between 657 and
+846 points. Then, the number of points detected by exactly 3 cameras is shown (283 such frames)
+and exactly 4 cameras (568 frames).</p>
+<p>Important things to watch for are listed here. These may be useful, but are rather
+rough guidelines to provide some orientation:</p>
+<ul>
+<li>
+<p>No camera should have very few points, otherwise this camera will not contribute much to
+the overall calibration and will likely have a bad calibration itself.</p>
+</li>
+<li>
+<p>The number of points used should be somewhere between 300 and 1000. Fewer than 300 points
+often results in poor quality calibrations. More than 1000 points results in the calibration
+procedure being very slow. The <code>--use-nth-observation</code> command line argument can be used
+to change the number of points used.</p>
+</li>
+</ul>
+<p>After running successfully, the console output should look something like this:</p>
+<pre><code class="language-ignore">********** After 0 iteration *******************************************
+RANSAC validation step running with tolerance threshold: 10.00 ...
+RANSAC: 1 samples, 811 inliers out of 811 points
+RANSAC: 2 samples, 811 inliers out of 811 points
+RANSAC: 2 samples, 762 inliers out of 762 points
+RANSAC: 1 samples, 617 inliers out of 617 points
+811 points/frames have survived validations so far
+Filling of missing points is running ...
+Repr. error in proj. space (no fact./fact.) is ...  0.386139 0.379033
+************************************************************
+Number of detected outliers:   0
+About cameras (Id, 2D reprojection error, #inliers):
+CamId    std       mean  #inliers
+  1      0.41      0.41    762
+  2      0.33      0.33    811
+  3      0.49      0.41    617
+  4      0.33      0.37    811
+***************************************************************
+**************************************************************
+Refinement by using Bundle Adjustment
+Repr. error in proj. space (no fact./fact./BA) is ...  0.388949 0.381359 0.358052
+2D reprojection error
+All points: mean  0.36 pixels, std is 0.31
+
+finished: result in  /home/strawlab/20190924_161153.braidz.h5.recal/result
+</code></pre>
+<p>Important things to watch for:</p>
+<ul>
+<li>
+<p>There should only be one iteration (numbered <code>0</code>).</p>
+</li>
+<li>
+<p>The mean reprojection error should be low. Certainly less than
+1 pixel and ideally less than 0.5 pixels as shown here.</p>
+</li>
+<li>
+<p>The reprojection error should be low across all cameras.</p>
+</li>
+</ul>
+<p>The above example calibration is a good one.</p>
+<h3><a class="header" href="#convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid" id="convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid">Convert your new calibration to an XML file which can be used by Braid</a></h3>
+<p>Convert this to XML:</p>
+<pre><code class="language-ignore">flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result &gt; new-calibration-name.xml
+</code></pre>
+<p>You may now use this new calibration, saved as an XML file, as the calibration
+for Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
+<code>[mainbrain]</code> section of your Braid configuration <code>.toml</code> file.</p>
+<h3><a class="header" href="#with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate" id="with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate">With the new calibration, perform offline tracking the data used to calibrate.</a></h3>
+<p>Now you have a working calibration, which is NOT aligned or scaled to any
+coordinate system, but an (undefined) coordinate system that the MCSC code
+picked. We can use this calibration to do tracking, although in general having
+correct scaling is important for good tracking. The reason correct scaling is
+important for good quality tracking is because Braid tracks using a dynamic
+model of movement in which maneuverability is parameterized and tracking
+performance is best when the actual maneuverability statistics match the
+expected statistic.</p>
+<p>So, using the calibration from above, perform 3D tracking of the data with:</p>
+<pre><code class="language-ignore">flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
+</code></pre>
+<p>You can view these results with:</p>
+<pre><code class="language-ignore">DATAFILE_RETRACKED=`python -c &quot;print('${DATAFILE}'[:-3])&quot;`.kalmanized.h5
+flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
+</code></pre>
+<h3><a class="header" href="#align-your-new-calibration-using-a-gui" id="align-your-new-calibration-using-a-gui">Align your new calibration using a GUI</a></h3>
+<p>Now we will take our existing &quot;unaligned&quot; calibration, and despite the scaling
+and alignment issue, track some points so that we have 3D coordinates. We will
+use these 3D coordinates to &quot;align&quot; our calibration -- to adjust its scaling,
+rotation, and translation to arrive at a final calibration which outputs
+coordinates in the desired frame.</p>
+<p>Now, using the unaligned calibration from above, collect a dataset which
+outlines the geometry of your arena or other key 3D points which we serve as
+reference 3D points used to discover the correct alignment. We will use these
+unaligned 3D points output from the unaligned calibration to determine an
+alignment and scaling used to transform these 3D points to the correct,
+&quot;aligned&quot; 3D points. These alignment parameters will be used to update the original unaligned calibration into the final aligned calibration.</p>
+<p>The easiest way to acquire unaligned 3D points is to acquire a new dataset
+directly by running Braid with the new unaligned calibration. Alternatively, one
+can use a pre-existing 2D dataset and re-track it with <code>flydra_kalmanize</code> as
+above. We will call this dataset for alignment <code>${NEW_TRACKED_DATA}</code>.</p>
+<p>With this new dataset for alignment, we render the 3D tracks with a 3D model of
+some pre-specified geometry in the correct coordinate frame. We then adjust the
+alignment parameters by hand in a GUI. Here we align our newly tracked data in
+file <code>${NEW_TRACKED_DATA}</code> against the <code>sample_bowl.xml</code> file from
+<a href="https://github.com/strawlab/flydra/blob/main/flydra_analysis/flydra_analysis/a2/sample_bowl.xml">here</a>.
+In this example, the <code>sample_bowl.xml</code> file outlines a circle with diameter 0.33
+meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
+of diameter 0.33 meters and on the plane which will be Z=0 in our final
+coordinate frame. Here is how to run the GUI program for running the alignment:</p>
+<pre><code class="language-ignore">flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+</code></pre>
+<h3><a class="header" href="#automatic-alignment-of-calibrations" id="automatic-alignment-of-calibrations">Automatic alignment of calibrations</a></h3>
+<p>As an alternative to using the GUI to perform alignment, it is possible to find
+the correct alignment automatically. The flydra program
+<code>flydra_analysis_align_calibration</code> does this. The major mathematical operations
+are performed in the <code>estsimt</code> function in
+<a href="https://github.com/strawlab/flydra/blob/main/flydra_core/flydra_core/align.py"><code>flydra_core.align</code></a>.</p>
+<p>(TODO: Write an example doing this.)</p>
+<h3><a class="header" href="#calibration-with-water" id="calibration-with-water">Calibration with water</a></h3>
+<p>As described
+<a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid
+can track objects in water. To enable this, place the string
+<code>&lt;water&gt;1.333&lt;/water&gt;</code> in the XML camera calibration file.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="parameters_for_object_detection_and_tracking.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="braid_remote_cameras.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="parameters_for_object_detection_and_tracking.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="braid_remote_cameras.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
