@@ -1,0 +1,15 @@
+https://rust-cli-recommendations.sunshowers.io/braid-and-strand-camera.html
+https://rust-cli-recommendations.sunshowers.io/braid_3d_tracking.html
+https://rust-cli-recommendations.sunshowers.io/braid_calibration.html
+https://rust-cli-recommendations.sunshowers.io/braid_configuration_and_launching.html
+https://rust-cli-recommendations.sunshowers.io/braid_remote_cameras.html
+https://rust-cli-recommendations.sunshowers.io/braidz-files.html
+https://rust-cli-recommendations.sunshowers.io/fmf_format.html
+https://rust-cli-recommendations.sunshowers.io/google5e5e4aa3cf367782.html
+https://rust-cli-recommendations.sunshowers.io/hardware-selection.html
+https://rust-cli-recommendations.sunshowers.io/index.html
+https://rust-cli-recommendations.sunshowers.io/installation.html
+https://rust-cli-recommendations.sunshowers.io/parameters_for_object_detection_and_tracking.html
+https://rust-cli-recommendations.sunshowers.io/processing-saved-videos.html
+https://rust-cli-recommendations.sunshowers.io/scripting-with-python.html
+https://rust-cli-recommendations.sunshowers.io/troubleshooting.html
