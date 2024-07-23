@@ -67,6 +67,10 @@ least 10) checkerboards, click the "Perform and Save Calibration" button. The
 results of this calibration are saved to the directory
 `$HOME/.config/strand-cam/camera_info`.
 
+As an alternative to running this procedure live with Strand Camera, you may
+operate on a directory of PNG images and [the `strand-cam-offline-checkerboards`
+program](https://github.com/strawlab/strand-braid/tree/main/strand-cam/strand-cam-offline-checkerboards).
+
 Repeat this for all cameras before proceeding to the next step.
 
 ## MCSC Method, Step 2: collect calibration data and run MultiCamSelfCal (MCSC)
