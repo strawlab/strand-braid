@@ -1,6 +1,7 @@
 name: Publish user's guide
 
 # Update the user's guide at https://strawlab.github.io/strand-braid/.
+# The sitemap is at https://strawlab.github.io/strand-braid/sitemap.xml.
 on:
   push:
     branches:
@@ -9,6 +10,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: strand-braid-user/users-guide
     steps:
       - uses: actions/checkout@v4
 
@@ -24,15 +28,15 @@ jobs:
 
       - name: Build book
         run: |
-          cd strand-braid-user/users-guide && mdbook build
+          mdbook build
 
       - name: Generate sitemap
         run: |
-          cd strand-braid-user/users-guide/book
+          cd book
           npx sscli --no-clean --base https://strawlab.github.io/strand-braid
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./strand-braid-user/users-guide/book
+          publish_dir: book
