@@ -59,13 +59,14 @@ results.
 [2024-07-23T10:21:51Z INFO  strand_cam_offline_checkerboards]     None corners.
 [2024-07-23T10:21:51Z INFO  strand_cam_offline_checkerboards] Mean reprojection error: 0.4362869016964986
 [2024-07-23T10:21:51Z INFO  strand_cam_offline_checkerboards] got calibrated intrinsics: RosOpenCvIntrinsics { is_opencv_compatible: true, p: [[1188.8822710588358, 0.0, 0.0], [0.0, 1188.7505371293905, 0.0], [939.1436018463454, 583.0247938879503, 1.0], [0.0, 0.0, 0.0]], k: [[1188.8822710588358, 0.0, 0.0], [0.0, 1188.7505371293905, 0.0], [939.1436018463454, 583.0247938879503, 1.0]], distortion: Distortion([[-0.23420306276397834, 0.07549873880682875, -7.980337104055248e-6, 6.390067664785299e-5, 0.0]]), rect: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], cache: Cache { pnorm: [[1188.8822710588358, 0.0, 0.0], [0.0, 1188.7505371293905, 0.0], [939.1436018463454, 583.0247938879503, 1.0], [0.0, 0.0, 0.0]], rect_t: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], rti: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] } }
-[strand-cam/strand-cam-offline-checkerboards/src/main.rs:129:13] &cam_info_file_stamped = "checkerboard_debug_20240222_164128.20240723_122151.yaml"
 [2024-07-23T10:21:51Z INFO  strand_cam_offline_checkerboards] Saved camera calibration to file: checkerboard_debug_20240222_164128.yaml
 ```
 
 The file `checkerboard_debug_20240222_164128.yaml` should have contents like this:
 
 ```
+# Saved by strand-cam-offline-checkerboards at 2024-07-23 13:51:24.460886 +02:00
+# Mean reprojection distance: 0.44
 image_width: 1920
 image_height: 1200
 camera_name: checkerboard_debug_20240222_164128

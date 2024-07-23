@@ -126,15 +126,25 @@ fn main() -> Result<()> {
             let format_str = format!("{}.%Y%m%d_%H%M%S.yaml", ros_cam_name.as_str());
             let local = chrono::Local::now();
             let cam_info_file_stamped = local.format(&format_str).to_string();
-            dbg!(&cam_info_file_stamped);
 
             let cam_info_file = format!("{}.yaml", ros_cam_name);
 
             // Save timestamped version first for backup purposes (since below
             // we overwrite the non-timestamped file).
             {
-                let f = std::fs::File::create(&cam_info_file_stamped)
+                let mut f = std::fs::File::create(&cam_info_file_stamped)
                     .with_context(|| format!("Saving file {cam_info_file_stamped}"))?;
+                std::io::Write::write_all(
+                    &mut f,
+                    format!(
+                        "# Saved by {} at {}\n\
+                        # Mean reprojection distance: {:.2}\n",
+                        env!["CARGO_PKG_NAME"],
+                        local,
+                        raw_opencv_cal.mean_reprojection_error
+                    )
+                    .as_bytes(),
+                )?;
                 serde_yaml::to_writer(f, &ci)?;
             }
 
