@@ -21,7 +21,8 @@ impl<F> SimpleFrame<F>
 where
     F: PixelFormat,
 {
-    /// Move a Vec<u8> buffer as the backing store for a SimpleFrame for image.
+    /// Move a `Vec<u8>` buffer as the backing store for a SimpleFrame for
+    /// image.
     ///
     /// Returns None if the buffer is not large enough to store an image of the
     /// desired properties.

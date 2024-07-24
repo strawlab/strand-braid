@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate log;
 
-/// convert a Result<T,E> into Option<T>, dropping the error E
+/// convert a `Result<T,E>` into `Option<T>`, dropping the error E
 ///
-/// The implementation is currently identical to `std::result::Result::ok()`
-/// but could be used in the future to panic or log a warning.
+/// The implementation is currently identical to `std::result::Result::ok()` but
+/// could be used in the future to panic or log a warning.
 pub trait CrossbeamOk<T> {
     fn cb_ok(self) -> Option<T>;
 }

@@ -36,7 +36,7 @@ impl StrandCamHttpSessionHandler {
     }
     async fn open_session(&self, cam_name: &RawCamName) -> Result<MaybeSession, MainbrainError> {
         // Create a new session if it doesn't exist.
-        let (bui_server_addr_info) = {
+        let bui_server_addr_info = {
             if let Some(cam_addr) = self.cam_manager.http_camserver_info(cam_name) {
                 match cam_addr {
                     BuiServerInfo::NoServer => {

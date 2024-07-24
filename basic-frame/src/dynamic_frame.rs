@@ -72,8 +72,8 @@ macro_rules! convert_to_dynamic2 {
 /// in advance. This enum represents the different possible formats as different
 /// variants.
 ///
-/// Note that we do not implement ImageData<FMT> trait because the pixel format
-/// (parameterized by FMT) is not known at compile-time for DynamicFrame.
+/// Note that we do not implement `ImageData<FMT>` trait because the pixel
+/// format (parameterized by FMT) is not known at compile-time for DynamicFrame.
 #[allow(non_camel_case_types)]
 #[derive(Clone, PartialEq)]
 pub enum DynamicFrame {
