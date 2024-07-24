@@ -494,14 +494,14 @@ publish-api-docs:
     - apt-get update && apt-get install -y rsync openssh-client
     - mkdir ~/.ssh
     - chmod 0700 ~/.ssh
-    - echo "|1|TVmVl2hQiIk/4ulpa2dBYJ/e/W4=|vTZrgQJrQr9SIzhO/pHBYI18jdY= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
-    - echo "|1|FvMsl+rOqeqmmsYydYgAnmSEBBM=|AEa3BGJtS84WFATwXAN+G1jOnss= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLauURSCGIiqHsTQQ/gYhSgwceD2EEnSn9cLhhmRCxU4L/2CGmMrb9StqcxF4QRgfD6TGNqjmvKMsHyeTX+ks4U=" >> ~/.ssh/known_hosts
+    - echo "|1|zYmppQbwcvSf9VwRXNIR7kmVjC8=|OQqqxboFIh/377N2Zowb5mf3BlM= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBM7pO/cxdS/WSaaWJ1ZPdnS8F4WC+8LkJVvCZnaKhCZ7EUD+z+Go0Uv3Tc5KomiBDwU5/LyH1dxJDSh7HCaHAj8=" >> ~/.ssh/known_hosts
+    - echo "|1|srFMGIUJYliwLud77x10lZeaP84=|xt2VN57X6KsacGPwa2BeUtnJjSQ= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBM7pO/cxdS/WSaaWJ1ZPdnS8F4WC+8LkJVvCZnaKhCZ7EUD+z+Go0Uv3Tc5KomiBDwU5/LyH1dxJDSh7HCaHAj8=" >> ~/.ssh/known_hosts
     # Because the gitlab UI does not allow multiline inputs, the key was encoded
     # with `cat privatekey_filename | base64 | tr "\n" " "`. Take the gitlab CI variable
     # with key STRAWLAB_ORG_SSH_PRIVATE_KEY, save to private SSH key.
     - echo "$STRAWLAB_ORG_SSH_PRIVATE_KEY" | tr " " "\n" | base64 --decode  > ~/.ssh/id_ed25519
     - chmod go-rx ~/.ssh/id_ed25519
-    - rsync -az --delete build/latest/ dh_3pakh2@disston.dreamhost.com:strawlab.org/strand-braid-api-docs/latest
+    - rsync -az --delete build/latest/ dh_3pakh2@pdx1-shared-a1-23.dreamhost.com:strawlab.org/strand-braid-api-docs/latest
   environment:
     name: strand-braid-api-docs
     url: https://strawlab.org/strand-braid-api-docs/latest
