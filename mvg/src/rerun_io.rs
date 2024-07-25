@@ -83,6 +83,7 @@ impl AsRerunTransform3D for cam_geom::ExtrinsicParameters<f64> {
     fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D> {
         rerun::Transform3D {
             transform: rr_translation_and_mat3(self).into(),
+            axis_length: None,
         }
     }
 }
@@ -180,6 +181,7 @@ pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
         image_from_camera,
         resolution: Some(resolution.into()),
         camera_xyz: None,
+        image_plane_distance: None,
     }
 }
 
@@ -219,6 +221,7 @@ impl<R: RealField + Copy> crate::Camera<R> {
             image_from_camera,
             resolution,
             camera_xyz: None,
+            image_plane_distance: None,
         })
     }
     /// return a [rerun::archetypes::Pinhole]
@@ -232,6 +235,7 @@ impl<R: RealField + Copy> crate::Camera<R> {
             image_from_camera,
             resolution,
             camera_xyz: None,
+            image_plane_distance: None,
         }
     }
 }
