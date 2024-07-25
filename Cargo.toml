@@ -87,6 +87,7 @@ members = [
     "media-utils/show-timestamps",
     "media-utils/strand-convert",
     "media-utils/tiff-decoder",
+    "media-utils/video2rrd",
     "mvg",
     "mvg/mvg-util",
     "nvenc",
