@@ -14,6 +14,7 @@ use h264_reader::{
     rbsp::BitReaderError,
     Context as H264ParsingContext,
 };
+use openh264::formats::YUVSource;
 use serde::{Deserialize, Serialize};
 
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
@@ -524,7 +525,7 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
                 let decode_result = decoder.decode(&annex_b[..]);
                 match decode_result {
                     Ok(Some(decoded_yuv)) => {
-                        let dim = decoded_yuv.dimension_rgb();
+                        let dim = decoded_yuv.dimensions();
 
                         let stride = dim.0 * 3;
                         let mut image_data = vec![0u8; stride * dim.1];

@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::eyre::{self as anyhow, WrapErr};
+use openh264::formats::YUVSource;
 
 use mkv_strand_reader::ParsedStrandCamMkv;
 
@@ -255,7 +256,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                 let has_precision_timestamp = image_data.starts_with(PRECISION_TIME_NALU_START);
                 if let Some(decoder) = self.h264_decoder_state.as_mut() {
                     let dynamic_frame = if let Some(decoded_yuv) = decoder.decode(&image_data)? {
-                        let dim = decoded_yuv.dimension_rgb();
+                        let dim = decoded_yuv.dimensions();
 
                         let stride = dim.0 * 3;
                         let mut image_data = vec![0u8; stride * dim.1];
