@@ -6,9 +6,6 @@ use flydra_feature_detector_types::ImPtDetectCfg;
 use machine_vision_formats::{self as formats, ImageData, Stride};
 use timestamped_frame::ExtraTimeData;
 
-#[cfg(feature = "linux")]
-use ::posix_scheduler;
-
 use basic_frame::DynamicFrame;
 
 use crossbeam_ok::CrossbeamOk;
@@ -78,18 +75,6 @@ impl BackgroundModel {
         std::thread::Builder::new()
             .name("bg-img-proc".to_string())
             .spawn(move || {
-                #[cfg(feature = "linux")]
-                {
-                    let pid = 0; // means this thread
-                    let priority = 0;
-                    posix_scheduler::sched_setscheduler(
-                        pid,
-                        posix_scheduler::SCHED_BATCH,
-                        priority,
-                    )
-                    .unwrap();
-                    info!("bg-img-proc launched with SCHED_BATCH policy");
-                }
                 loop {
                     let x = match rx_from_main.recv() {
                         Ok(x) => x,
