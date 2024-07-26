@@ -1,5 +1,4 @@
 //! Provides fast image analysis operations
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 #![cfg_attr(feature = "portsimd", feature(portable_simd))]
 
 use std::marker::PhantomData;
@@ -21,7 +20,6 @@ pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-// TODO: add backtrace support
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("SizeError")]
