@@ -25,6 +25,16 @@ struct Opt {
     /// Output rrd filename. Defaults to "<INPUT>.rrd"
     #[arg(short, long)]
     output: Option<PathBuf>,
+
+    /// Start time of the video. By default, this will be read from the video itself.
+    #[arg(short, long)]
+    start_time: Option<chrono::DateTime<chrono::FixedOffset>>,
+
+    /// Force the video to be interpreted as having this frame rate (in frames per second).
+    ///
+    /// By default, timestamps in the video itself will be used.
+    #[arg(short, long)]
+    framerate: Option<f64>,
 }
 
 fn to_rr_image(im: ImageData) -> eyre::Result<rerun::Image> {
@@ -97,7 +107,17 @@ fn main() -> eyre::Result<()> {
     };
 
     tracing::info!("Frame size: {}x{}", src.width(), src.height());
-    let start_time = src.frame0_time().unwrap();
+
+    let start_time = if let Some(t) = opt.start_time.as_ref() {
+        t.clone()
+    } else {
+        src.frame0_time().ok_or_else(|| {
+            eyre::eyre!(
+                "video start time could not be determined from the \
+        video, nor was it specified on the command line."
+            )
+        })?
+    };
     // let frametimes = self.frametimes.get(&cam_data.camn).unwrap();
     // let (data2d_fnos, data2d_stamps): (Vec<i64>, Vec<f64>) = frametimes.iter().cloned().unzip();
 
@@ -112,12 +132,20 @@ fn main() -> eyre::Result<()> {
         .save(&output)
         .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
 
-    for frame in src.iter() {
+    for (fno, frame) in src.iter().enumerate() {
         let frame = frame?;
-        let pts = match frame.timestamp() {
-            Timestamp::Duration(pts) => pts,
-            _ => {
-                eyre::bail!("video has no PTS timestamps.");
+        let pts = if let Some(forced_framerate) = opt.framerate.as_ref() {
+            let elapsed_secs = fno as f64 / forced_framerate;
+            std::time::Duration::from_secs_f64(elapsed_secs)
+        } else {
+            match frame.timestamp() {
+                Timestamp::Duration(pts) => pts,
+                _ => {
+                    eyre::bail!(
+                        "video has no PTS timestamps and framerate was not \
+                    specified on the command line."
+                    );
+                }
             }
         };
 
