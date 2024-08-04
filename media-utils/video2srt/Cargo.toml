@@ -1,0 +1,19 @@
+[package]
+name = "video2srt"
+description = "Create a subtitle .srt file from video with Strand Cam timestamps"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.3.4", features = ["derive"] }
+color-eyre = "0.6.2"
+
+tracing = "0.1.40"
+chrono = { version = "0.4.38", features = [
+    "libc",
+    "serde",
+    "std",
+], default-features = false }
+
+env-tracing-logger = { path = "../../env-tracing-logger" }
+frame-source = { path = "../frame-source" }

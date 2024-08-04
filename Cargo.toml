@@ -121,6 +121,7 @@ members = [
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
+    "media-utils/video2srt",
 ]
 
 exclude = ["led-box-firmware", "led-box-firmware-pico"]
