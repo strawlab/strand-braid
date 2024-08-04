@@ -50,7 +50,7 @@ pub mod array_of_arrays {
     where
         R: RealField,
         S: Serializer,
-        DefaultAllocator: Allocator<R, ROWS, COLS>,
+        DefaultAllocator: Allocator<ROWS, COLS>,
         ROWS: DimName,
         COLS: DimName,
     {
@@ -77,7 +77,7 @@ pub mod array_of_arrays {
     ) -> Result<OMatrix<R, ROWS, COLS>, D::Error>
     where
         D: Deserializer<'de>,
-        DefaultAllocator: Allocator<R, ROWS, COLS>,
+        DefaultAllocator: Allocator<ROWS, COLS>,
         ROWS: DimName,
         COLS: DimName,
     {

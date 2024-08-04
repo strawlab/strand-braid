@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn test_mirror()
     where
-        DefaultAllocator: Allocator<f64, U7, U3>,
+        DefaultAllocator: Allocator<U7, U3>,
     {
         use cam_geom::{IntrinsicParameters, Points};
         use nalgebra::{OMatrix, U3, U7};

@@ -10,10 +10,10 @@ env_logger = "0.10.0"
 glob = "0.3.1"
 log = "0.4.17"
 image = { version = "0.24.5", default-features = false, features = ["png"] }
-opencv-ros-camera = "0.14.0"
+opencv-ros-camera = { workspace = true }
 serde_yaml = "0.9.19"
-chrono = {version="0.4.23", default-features=false}
+chrono = { version = "0.4.23", default-features = false }
 
-strand-cam-storetype = {path = "../../strand-cam-storetype"}
-opencv-calibrate = {path="../../opencv-calibrate"}
-camcal = {path="../../camcal"}
+strand-cam-storetype = { path = "../../strand-cam-storetype" }
+opencv-calibrate = { path = "../../opencv-calibrate" }
+camcal = { path = "../../camcal" }

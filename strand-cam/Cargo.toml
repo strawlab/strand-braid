@@ -86,10 +86,9 @@ mvg = { path = "../mvg", optional = true }
 flydra-mvg = { path = "../flydra-mvg", optional = true }
 tokio-serial = { version = "5.4.3" }
 bytes = "1.0"
-nalgebra = "0.32.1"
-lstsq = "0.5.0"
-opencv-ros-camera = "0.14"
-alga = { version = "0.9", optional = true }
+nalgebra = { workspace = true }
+lstsq = { workspace = true }
+opencv-ros-camera = { workspace = true }
 approx = { version = "0.5", optional = true }
 byteorder = "1.4"
 target = "2.0.0"
@@ -169,7 +168,6 @@ flydratrax = [
     "strand-cam-pseudo-cal",
     "flydra-mvg",
     "approx",
-    "alga",
     "flydra2",
     "flydra_feat_detect",
 ]

@@ -148,7 +148,7 @@ where
 impl<R> From<&DistortedPixel<R>> for cam_geom::Pixels<R, U1, na::storage::Owned<R, U1, U2>>
 where
     R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+    na::DefaultAllocator: na::allocator::Allocator<U1, U2>,
 {
     fn from(orig: &DistortedPixel<R>) -> Self {
         Self {
@@ -201,7 +201,7 @@ impl<R> From<&UndistortedPixel<R>>
     for opencv_ros_camera::UndistortedPixels<R, U1, na::storage::Owned<R, U1, U2>>
 where
     R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+    na::DefaultAllocator: na::allocator::Allocator<U1, U2>,
 {
     fn from(orig: &UndistortedPixel<R>) -> Self {
         Self {
@@ -249,7 +249,7 @@ impl<R> From<&PointCameraFrame<R>>
     >
 where
     R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+    na::DefaultAllocator: na::allocator::Allocator<U1, U2>,
 {
     fn from(orig: &PointCameraFrame<R>) -> Self {
         Self::new(na::OMatrix::<R, U1, U3>::new(
@@ -299,7 +299,7 @@ impl<R> From<&PointWorldFrame<R>>
     >
 where
     R: RealField + Copy,
-    na::DefaultAllocator: na::allocator::Allocator<R, U1, U2>,
+    na::DefaultAllocator: na::allocator::Allocator<U1, U2>,
 {
     fn from(orig: &PointWorldFrame<R>) -> Self {
         Self::new(na::OMatrix::<R, U1, U3>::new(

@@ -13,9 +13,9 @@ color-eyre = "0.6.2"
 
 tracing = "0.1.40"
 rerun = "0.17.0"
-opencv-ros-camera = "0.14.1"
-cam-geom = "0.14.1"
-nalgebra = "0.32.4"
+opencv-ros-camera = { workspace = true }
+cam-geom = { workspace = true }
+nalgebra = { workspace = true }
 regex = "1.10.3"
 ndarray = "0.15.6"
 machine-vision-formats = "0.1.1"

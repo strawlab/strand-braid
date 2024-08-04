@@ -31,9 +31,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-ncollide3d = { package = "ncollide3d-updated", version = "0.35.0", features = [
-    "serde-serialize",
-] }
+ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 
 mvg = { path = "../../mvg", features = ["serde-serialize"] }
 enum-iter = { path = "../../enum-iter" }

@@ -1,20 +1,21 @@
 use num_traits::{One, Zero};
 
-use nalgebra::allocator::Allocator;
-use nalgebra::core::dimension::DimMin;
-use nalgebra::core::dimension::{U2, U4};
-use nalgebra::{DefaultAllocator, OMatrix, OVector, RealField};
+use nalgebra::{
+    allocator::Allocator,
+    dimension::{DimMin, U2, U4},
+    DefaultAllocator, OMatrix, OVector, RealField,
+};
 
 use adskalman::ObservationModel;
 
 #[derive(Debug)]
-pub struct ObservationModel2D<R: RealField+Copy> {
+pub struct ObservationModel2D<R: RealField + Copy> {
     observation_matrix: OMatrix<R, U2, U4>,
     observation_matrix_transpose: OMatrix<R, U4, U2>,
     observation_noise_covariance: OMatrix<R, U2, U2>,
 }
 
-impl<R: RealField+Copy> ObservationModel2D<R> {
+impl<R: RealField + Copy> ObservationModel2D<R> {
     pub fn new(observation_noise_covariance: OMatrix<R, U2, U2>) -> Self {
         let zero: R = Zero::zero();
         let one: R = One::one();
@@ -32,15 +33,14 @@ impl<R: RealField+Copy> ObservationModel2D<R> {
     }
 }
 
-impl<R: RealField+Copy> ObservationModel<R, U4, U2> for ObservationModel2D<R>
+impl<R: RealField + Copy> ObservationModel<R, U4, U2> for ObservationModel2D<R>
 where
-    DefaultAllocator: Allocator<R, U4, U4>,
-    DefaultAllocator: Allocator<R, U4>,
-    DefaultAllocator: Allocator<R, U2, U4>,
-    DefaultAllocator: Allocator<R, U4, U2>,
-    DefaultAllocator: Allocator<R, U2, U2>,
-    DefaultAllocator: Allocator<R, U2>,
-    DefaultAllocator: Allocator<(usize, usize), U2>,
+    DefaultAllocator: Allocator<U4, U4>,
+    DefaultAllocator: Allocator<U4>,
+    DefaultAllocator: Allocator<U2, U4>,
+    DefaultAllocator: Allocator<U4, U2>,
+    DefaultAllocator: Allocator<U2, U2>,
+    DefaultAllocator: Allocator<U2>,
     U2: DimMin<U2, Output = U2>,
 {
     fn H(&self) -> &OMatrix<R, U2, U4> {

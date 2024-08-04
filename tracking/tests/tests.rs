@@ -1,7 +1,7 @@
 extern crate nalgebra as na;
 use approx::assert_relative_eq;
 
-use nalgebra::core::{Matrix6, Vector6};
+use nalgebra::{Matrix6, Vector6};
 
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 

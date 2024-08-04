@@ -1,7 +1,5 @@
 use nalgebra as na;
-use nalgebra::allocator::Allocator;
-use nalgebra::core::dimension::U6;
-use nalgebra::{DefaultAllocator, OMatrix, RealField};
+use nalgebra::{allocator::Allocator, dimension::U6, DefaultAllocator, OMatrix, RealField};
 
 use adskalman::TransitionModelLinearNoControl;
 
@@ -11,8 +9,8 @@ use adskalman::TransitionModelLinearNoControl;
 #[derive(Debug, Clone)]
 pub struct MotionModel3DFixedDt<R: RealField + Copy>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
 {
     pub transition_model: OMatrix<R, U6, U6>,
     pub transition_model_transpose: OMatrix<R, U6, U6>,
@@ -21,8 +19,8 @@ where
 
 impl<R: RealField + Copy> TransitionModelLinearNoControl<R, U6> for MotionModel3DFixedDt<R>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
 {
     fn F(&self) -> &OMatrix<R, U6, U6> {
         &self.transition_model

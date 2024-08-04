@@ -7,14 +7,13 @@ rust-version = "1.76"
 
 [dependencies]
 log = "0.4"
-num-traits = "0.2"
-nalgebra = { version = "0.32", features = ["serde-serialize"] }
-parry3d-f64 = "0.13.5"
-alga = "0.9"
+num-traits = { workspace = true }
+nalgebra = { workspace = true, features = ["serde-serialize"] }
+parry3d-f64 = { workspace = true, features = ["default"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-xml-rs = "0.5"                                                     # TODO: switch to https://crates.io/crates/quick-xml
-cam-geom = { version = "0.14", features = ["serde-serialize"] }
-opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
+cam-geom = { workspace = true, features = ["serde-serialize"] }
+opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
 mvg = { path = "../mvg" }
 refraction = { path = "../refraction" }

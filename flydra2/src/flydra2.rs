@@ -20,12 +20,11 @@ use hdrhistogram::{
 use libflate::finish::AutoFinishUnchecked;
 use libflate::gzip::Encoder;
 
-use nalgebra::core::dimension::{U1, U2, U3, U6};
-use nalgebra::{OMatrix, OVector, Point3, Vector6};
-
-use nalgebra::allocator::Allocator;
-use nalgebra::core::dimension::DimMin;
-use nalgebra::{DefaultAllocator, RealField};
+use nalgebra::{
+    allocator::Allocator,
+    dimension::{DimMin, U1, U2, U3, U6},
+    DefaultAllocator, OMatrix, OVector, Point3, RealField, Vector6,
+};
 
 #[allow(unused_imports)]
 use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
@@ -137,13 +136,12 @@ where
 
 impl<R> adskalman::ObservationModel<R, U6, U2> for CameraObservationModel<R>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
-    DefaultAllocator: Allocator<R, U2, U6>,
-    DefaultAllocator: Allocator<R, U6, U2>,
-    DefaultAllocator: Allocator<R, U2, U2>,
-    DefaultAllocator: Allocator<R, U2>,
-    DefaultAllocator: Allocator<(usize, usize), U2>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
+    DefaultAllocator: Allocator<U2, U6>,
+    DefaultAllocator: Allocator<U6, U2>,
+    DefaultAllocator: Allocator<U2, U2>,
+    DefaultAllocator: Allocator<U2>,
     U2: DimMin<U2, Output = U2>,
     R: RealField + Copy + Default + serde::Serialize,
 {

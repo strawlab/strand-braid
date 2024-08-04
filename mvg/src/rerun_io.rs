@@ -15,7 +15,7 @@ where
 {
     #[inline]
     fn f32(&self) -> f32 {
-        self.to_subset().unwrap() as f32
+        <R as simba::scalar::SupersetOf<f32>>::to_subset(self).unwrap()
     }
 }
 

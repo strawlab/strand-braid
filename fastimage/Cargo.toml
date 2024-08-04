@@ -8,7 +8,7 @@ rust-version = "1.76"
 [dependencies]
 ipp-sys = "0.4.4"
 thiserror = "1.0"
-num-traits = "0.2"
+num-traits = { workspace = true }
 
 [dev-dependencies]
 itertools = "0.8"

@@ -20,8 +20,7 @@ serde_derive = "1.0.79"
 serde_json = "1.0.29"
 serde_yaml = "0.9"
 toml = "0.5"
-nalgebra = { version = "0.32", features = ["serde-serialize"] }
-alga = "0.9"
+nalgebra = { workspace = true, features = ["serde-serialize"] }
 configure = "0.1.1"
 itertools = "0.8"
 lazy_static = "1.4.0"
@@ -33,7 +32,7 @@ image = { version = "0.24.2", default-features = false, features = [
     "jpeg",
     "png",
 ] }
-opencv-ros-camera = { version = "0.14", features = ["serde-serialize"] }
+opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
 datetime-conversion = { path = "../datetime-conversion" }
 env-tracing-logger = { path = "../env-tracing-logger" }

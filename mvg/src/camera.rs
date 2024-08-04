@@ -426,8 +426,8 @@ impl<R: RealField + Copy> Camera<R> {
         dist: R,
     ) -> PointWorldFrame<R>
     where
-        DefaultAllocator: Allocator<R, U1, U2>,
-        DefaultAllocator: Allocator<R, U1, U3>,
+        DefaultAllocator: Allocator<U1, U2>,
+        DefaultAllocator: Allocator<U1, U3>,
     {
         let ray_cam = self.intrinsics().undistorted_pixel_to_camera(&pt2d.into());
         let pt_cam = ray_cam.point_on_ray_at_distance(dist);

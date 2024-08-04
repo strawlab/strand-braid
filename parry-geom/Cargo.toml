@@ -6,6 +6,6 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-parry2d-f64 = "0.13.5"
-delaunator = "0.2.0"
-nalgebra = "0.32"
+parry2d-f64 = { workspace = true, features = ["default"] }
+delaunator = { workspace = true }
+nalgebra = { workspace = true }

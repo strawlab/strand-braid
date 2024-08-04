@@ -1,8 +1,6 @@
 use num_traits::{One, Zero};
 
-use nalgebra::allocator::Allocator;
-use nalgebra::core::dimension::U6;
-use nalgebra::{DefaultAllocator, OMatrix, RealField};
+use nalgebra::{allocator::Allocator, dimension::U6, DefaultAllocator, OMatrix, RealField};
 
 use crate::motion_model_3d_fixed_dt::MotionModel3D;
 use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
@@ -16,16 +14,16 @@ use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;
 #[derive(Debug, Clone)]
 pub struct ConstantVelocity3DModel<R: RealField + Copy>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
 {
     motion_noise_scale: R,
 }
 
 impl<R: RealField + Copy> ConstantVelocity3DModel<R>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
 {
     pub fn new(motion_noise_scale: R) -> Self {
         Self { motion_noise_scale }
@@ -34,8 +32,8 @@ where
 
 impl<R: RealField + Copy> MotionModel3D<R> for ConstantVelocity3DModel<R>
 where
-    DefaultAllocator: Allocator<R, U6, U6>,
-    DefaultAllocator: Allocator<R, U6>,
+    DefaultAllocator: Allocator<U6, U6>,
+    DefaultAllocator: Allocator<U6>,
 {
     fn calc_for_dt(&self, dt: R) -> MotionModel3DFixedDt<R> {
         let zero: R = Zero::zero();

@@ -332,7 +332,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
 
     pub fn project_3d_to_distorted_pixel(&self, pt3d: &PointWorldFrame<R>) -> DistortedPixel<R>
     where
-        DefaultAllocator: Allocator<R, U1, U2>,
+        DefaultAllocator: Allocator<U1, U2>,
     {
         let undistorted = self.project_3d_to_pixel(pt3d);
         let u2: opencv_ros_camera::UndistortedPixels<R, U1, _> = (&undistorted).into();

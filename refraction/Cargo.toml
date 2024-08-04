@@ -6,5 +6,5 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-simba = { version = "0.8", default-features = false, features = ["libm"] }
+simba = { workspace = true, default-features = false, features = ["libm"] }
 bisection-search = { path = "../bisection-search" }
