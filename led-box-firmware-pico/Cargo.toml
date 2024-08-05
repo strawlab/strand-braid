@@ -13,7 +13,7 @@ embedded-hal = { version = "0.2.5", features = ["unproven"] }
 defmt = "0.3.1"
 defmt-rtt = "0.4.0"
 
-serde = {version = "1.0", default-features = false, features = ["derive"]}
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-json-core = "0.5"
 heapless = { version = "0.8.0", features = ["defmt-03"] }
 
@@ -22,10 +22,17 @@ usb-device = "0.2.8"
 usbd-serial = "0.1.1"
 
 rp-pico = "0.8.0"
-rp2040-hal = { version = "0.9.0", features = ["rtic-monotonic"] }
+rp2040-hal = { version = "0.9.0", features = [
+    "rtic-monotonic",
+    "critical-section-impl",
+] }
 
 json-lines = { version = "0.1.0", default-features = false }
-led-box-comms = {path="../led-box-comms", features=["print-defmt"]}
+led-box-comms = { path = "../led-box-comms", features = ["print-defmt"] }
+static_cell = "2.1.0"
+portable-atomic = { version = "1.5.1", default-features = false, features = [
+    "critical-section",
+] }
 
 # cargo build/run
 [profile.dev]

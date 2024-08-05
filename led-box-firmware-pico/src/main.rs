@@ -32,6 +32,7 @@ const LED_PWM_FREQ_HZ: f64 = 500.0;
 mod app {
     use super::*;
     use rp_pico::XOSC_CRYSTAL_FREQ;
+    use static_cell::StaticCell;
 
     use heapless::spsc::{Consumer, Producer, Queue};
     use usb_device::{class_prelude::*, prelude::*};
@@ -174,10 +175,10 @@ mod app {
         pwms.pwm4_slice.channel_b.output_to(pins.gpio9);
         pwms.pwm4_slice.enable();
 
-        let rx_queue: &'static mut Queue<UsbFrame, NUM_FRAMES> = {
-            static mut Q: Queue<UsbFrame, NUM_FRAMES> = Queue::new();
-            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
-        };
+        // Statically allocate memory for a `Queue<UsbFrame, NUM_FRAMES>`.
+        static RX_Q: StaticCell<Queue<UsbFrame, NUM_FRAMES>> = StaticCell::new();
+        let rx_queue: &'static mut Queue<UsbFrame, NUM_FRAMES> = RX_Q.init(Queue::new());
+
         let (rx_prod, rx_cons) = rx_queue.split();
 
         let alarm = timer.alarm_0().unwrap();

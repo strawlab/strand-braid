@@ -25,6 +25,7 @@ json-lines = { version = "0.1.0", default-features = false }
 void = { version = "1.0.2", default-features = false }
 embedded-hal = "0.2.5"
 embedded-time = "0.12.1"
+static_cell = "2.1.0"
 
 [profile.release]
 lto = true

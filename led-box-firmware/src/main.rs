@@ -48,6 +48,7 @@ const LED_PWM_FREQ: Hertz = Hertz(500);
 #[rtic::app(device = stm32f3xx_hal::pac, peripherals = true)]
 mod app {
     use super::*;
+    use static_cell::StaticCell;
 
     use heapless::spsc::{Consumer, Producer, Queue};
     type SerialType = Serial<pac::USART2, (gpio::PA2<AF7<PushPull>>, gpio::PA3<AF7<PushPull>>)>;
@@ -189,16 +190,14 @@ mod app {
             extra_ir_led.set_high().unwrap();
         }
 
-        let rx_queue: &'static mut Queue<u8, RX_Q_SZ> = {
-            static mut Q: Queue<u8, RX_Q_SZ> = Queue::new();
-            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
-        };
+        // Statically allocate memory for a `Queue<u8, RX_Q_SZ>`.
+        static RX_Q: StaticCell<Queue<u8, RX_Q_SZ>> = StaticCell::new();
+        let rx_queue: &'static mut Queue<u8, RX_Q_SZ> = RX_Q.init(Queue::new());
         let (rx_prod, rx_cons) = rx_queue.split();
 
-        let tx_queue: &'static mut Queue<u8, TX_Q_SZ> = {
-            static mut Q: Queue<u8, TX_Q_SZ> = Queue::new();
-            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
-        };
+        // Statically allocate memory for a `Queue<u8, TX_Q_SZ>`.
+        static TX_Q: StaticCell<Queue<u8, TX_Q_SZ>> = StaticCell::new();
+        let tx_queue: &'static mut Queue<u8, TX_Q_SZ> = TX_Q.init(Queue::new());
         let (tx_prod, tx_cons) = tx_queue.split();
 
         // initialization of late resources
