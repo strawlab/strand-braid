@@ -209,25 +209,24 @@ fn open_h264_dump<P: AsRef<Path>>(path: P) -> Result<()> {
         anyhow::bail!("could not decode single frame with openh264");
     };
 
-    let width = decoded_yuv.width();
-    let height = decoded_yuv.height();
+    let (width, height) = decoded_yuv.dimensions();
     println!("openh264 YUV420 size: {width}x{height}");
-    let (oys, ous, ovs) = decoded_yuv.strides_yuv();
+    let (oys, ous, ovs) = decoded_yuv.strides();
 
     println!("luma (Y) ------");
-    for decoded_y_row in decoded_yuv.y_with_stride().chunks_exact(oys) {
+    for decoded_y_row in decoded_yuv.y().chunks_exact(oys) {
         dump_row(&decoded_y_row[..width as usize], "  ");
     }
 
     let chroma_width = (width / 2) as usize;
 
     println!("chroma Cb (U) ------");
-    for decoded_u_row in decoded_yuv.u_with_stride().chunks_exact(ous) {
+    for decoded_u_row in decoded_yuv.u().chunks_exact(ous) {
         dump_row(&decoded_u_row[..chroma_width], "  ");
     }
 
     println!("chroma Cr (V) ------");
-    for decoded_v_row in decoded_yuv.v_with_stride().chunks_exact(ovs) {
+    for decoded_v_row in decoded_yuv.v().chunks_exact(ovs) {
         dump_row(&decoded_v_row[..chroma_width], "  ");
     }
     Ok(())

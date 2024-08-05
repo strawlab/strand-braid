@@ -144,6 +144,7 @@ parry3d-f64 = "0.17"
 delaunator = "1.0"
 ncollide2d = { package = "ncollide2d-updated", version = "0.36.3" }
 ncollide3d = { package = "ncollide3d-updated", version = "0.36.3" }
+openh264 = "0.6.0"
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}

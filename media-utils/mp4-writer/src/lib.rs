@@ -491,7 +491,7 @@ where
                     ci2_remote_control::Mp4Codec::H264OpenH264(opts) => {
                         #[cfg(feature = "openh264")]
                         {
-                            let cfg = openh264::encoder::EncoderConfig::new(width, height)
+                            let cfg = openh264::encoder::EncoderConfig::new()
                                 .debug(opts.debug())
                                 .enable_skip_frame(opts.enable_skip_frame())
                                 .rate_control_mode(convert_openh264_rc_mode(
@@ -500,7 +500,10 @@ where
                                 .set_bitrate_bps(opts.bitrate_bps());
 
                             MyEncoder::OpenH264(OpenH264Encoder {
-                                encoder: openh264::encoder::Encoder::with_config(cfg)?,
+                                encoder: openh264::encoder::Encoder::with_api_config(
+                                    openh264::OpenH264API::from_source(),
+                                    cfg,
+                                )?,
                                 h264_parser,
                                 first_timestamp: timestamp,
                             })
@@ -1324,11 +1327,8 @@ impl YUVData {
 
 #[cfg(feature = "openh264")]
 impl openh264::formats::YUVSource for YUVData {
-    fn width(&self) -> i32 {
-        self.width.try_into().unwrap()
-    }
-    fn height(&self) -> i32 {
-        self.height.try_into().unwrap()
+    fn dimensions(&self) -> (usize, usize) {
+        (self.width, self.height)
     }
     fn y(&self) -> &[u8] {
         &self.data[0..self.u_start()]
@@ -1339,14 +1339,8 @@ impl openh264::formats::YUVSource for YUVData {
     fn v(&self) -> &[u8] {
         &self.data[self.v_start()..self.v_end()]
     }
-    fn y_stride(&self) -> i32 {
-        self.y_stride.try_into().unwrap()
-    }
-    fn u_stride(&self) -> i32 {
-        self.u_stride.try_into().unwrap()
-    }
-    fn v_stride(&self) -> i32 {
-        self.v_stride.try_into().unwrap()
+    fn strides(&self) -> (usize, usize, usize) {
+        (self.y_stride, self.u_stride, self.v_stride)
     }
 }
 
