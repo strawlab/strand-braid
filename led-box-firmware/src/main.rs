@@ -191,13 +191,13 @@ mod app {
 
         let rx_queue: &'static mut Queue<u8, RX_Q_SZ> = {
             static mut Q: Queue<u8, RX_Q_SZ> = Queue::new();
-            unsafe { &mut Q }
+            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
         };
         let (rx_prod, rx_cons) = rx_queue.split();
 
         let tx_queue: &'static mut Queue<u8, TX_Q_SZ> = {
             static mut Q: Queue<u8, TX_Q_SZ> = Queue::new();
-            unsafe { &mut Q }
+            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
         };
         let (tx_prod, tx_cons) = tx_queue.split();
 

@@ -176,7 +176,7 @@ mod app {
 
         let rx_queue: &'static mut Queue<UsbFrame, NUM_FRAMES> = {
             static mut Q: Queue<UsbFrame, NUM_FRAMES> = Queue::new();
-            unsafe { &mut Q }
+            unsafe { core::ptr::addr_of_mut!(Q).as_mut().unwrap() }
         };
         let (rx_prod, rx_cons) = rx_queue.split();
 
