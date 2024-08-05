@@ -6,4 +6,4 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-simba = { workspace = true, default-features = false, features = ["libm"] }
+simba = { workspace = true, features = ["libm"] }
