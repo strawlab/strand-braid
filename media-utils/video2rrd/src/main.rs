@@ -114,7 +114,7 @@ fn main() -> eyre::Result<()> {
     tracing::info!("Frame size: {}x{}", src.width(), src.height());
 
     let start_time = if let Some(t) = opt.start_time.as_ref() {
-        t.clone()
+        *t
     } else {
         src.frame0_time().ok_or_else(|| {
             eyre::eyre!(
