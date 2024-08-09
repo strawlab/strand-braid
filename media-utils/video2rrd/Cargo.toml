@@ -30,3 +30,4 @@ frame-source = { path = "../frame-source" }
 basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
 mp4-writer = { path = "../mp4-writer" }
 flydra-types = { path = "../../flydra-types" }
+indicatif = "0.17.8"

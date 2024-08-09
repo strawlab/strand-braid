@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
+use indicatif::{ProgressBar, ProgressStyle};
 use machine_vision_formats::{pixel_format, PixFmt};
 use ndarray::Array;
 use std::path::PathBuf;
@@ -35,6 +36,10 @@ struct Opt {
     /// By default, timestamps in the video itself will be used.
     #[arg(short, long)]
     framerate: Option<f64>,
+
+    /// Disable display of progress indicator
+    #[arg(long)]
+    no_progress: bool,
 }
 
 fn to_rr_image(im: ImageData) -> eyre::Result<rerun::Image> {
@@ -132,7 +137,23 @@ fn main() -> eyre::Result<()> {
         .save(&output)
         .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
 
-    for (fno, frame) in src.iter().enumerate() {
+    let src_iter = src.iter();
+
+    let pb = if !opt.no_progress {
+        let (_, max_size) = src_iter.size_hint();
+        if let Some(max_size) = max_size {
+            // Custom progress bar with space at right end to prevent obscuring last
+            // digit with cursor.
+            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            Some(ProgressBar::new(max_size.try_into().unwrap()).with_style(style))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    for (fno, frame) in src_iter.enumerate() {
         let frame = frame?;
         let pts = if let Some(forced_framerate) = opt.framerate.as_ref() {
             let elapsed_secs = fno as f64 / forced_framerate;
@@ -157,6 +178,13 @@ fn main() -> eyre::Result<()> {
         let image = to_rr_image(frame.into_image())?;
 
         rec.log(entity_path.as_str(), &image)?;
+        if let Some(pb) = &pb {
+            // Increment the counter.
+            pb.inc(1);
+        }
+    }
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
     }
     Ok(())
 }
