@@ -354,7 +354,7 @@ where
                                                         Some(NtpTimestamp(fi.recv));
                                                     if next_frame_num == 0 {
                                                         frame0_frameinfo_recv_ntp =
-                                                            frameinfo_recv_ntp.clone();
+                                                            frameinfo_recv_ntp;
                                                     }
                                                 }
                                                 _uuid => {

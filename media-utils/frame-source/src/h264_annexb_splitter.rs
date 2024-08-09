@@ -20,16 +20,7 @@ pub(crate) fn find_nals<R: Read>(mut rdr: R) -> Result<Vec<AnnexBLocation>> {
         }
         buf.extend_from_slice(&read_buf[..bufsz]);
 
-        loop {
-            // The inner loop looks for the start code.
-            let idx = match finder.find(&buf) {
-                Some(idx) => idx,
-                None => {
-                    // No start code, so fill buffer further (or end).
-                    break;
-                }
-            };
-
+        while let Some(idx) = finder.find(&buf) {
             if let Some(prev_nal_start) = cur_nal_start.take() {
                 let prev_nal_end = if idx >= 1 && buf[idx - 1] == 0x00 {
                     // 4 byte start code
@@ -85,14 +76,14 @@ mod test {
                 let sz = inbuf.len();
                 if outbuf.len() >= sz {
                     // output is large enough
-                    (&mut outbuf[..sz]).copy_from_slice(&inbuf);
+                    outbuf[..sz].copy_from_slice(&inbuf);
                     Ok(sz)
                 } else {
                     // need to break up input
                     let sz = outbuf.len();
                     let sendbuf = inbuf[..sz].to_vec();
                     let keepbuf = inbuf[sz..].to_vec();
-                    (&mut outbuf[..sz]).copy_from_slice(&sendbuf);
+                    outbuf[..sz].copy_from_slice(&sendbuf);
                     self.bufs.push_front(keepbuf);
                     Ok(sz)
                 }
