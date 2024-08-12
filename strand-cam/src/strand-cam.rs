@@ -584,7 +584,7 @@ const MOMENT_CENTROID_SCHEMA_VERSION: u8 = 2;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct MomentCentroid {
     pub schema_version: u8,
-    pub framenumber: u32,
+    pub framenumber: u64,
     pub timestamp_source: TimestampSource,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub mu00: f32,
@@ -597,7 +597,7 @@ pub struct MomentCentroid {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-enum ToDevice {
+enum CentroidToDevice {
     Centroid(MomentCentroid),
 }
 

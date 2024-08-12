@@ -28,8 +28,8 @@ use ads_apriltag as apriltag;
 
 use crate::{
     convert_stream, open_braid_destination_addr, post_trigger_buffer, video_streaming,
-    FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc, MomentCentroid, Msg, TimestampSource, ToDevice,
-    LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION,
+    CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc, MomentCentroid, Msg,
+    TimestampSource, LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION,
 };
 
 /// Perform image analysis
@@ -838,9 +838,9 @@ pub(crate) async fn frame_process_task<'a>(
 
                                     // If mu00 is 0.0, these will be NaN. CBOR explicitly can represent NaNs.
 
-                                    let mc = ToDevice::Centroid(MomentCentroid {
+                                    let mc = CentroidToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        framenumber: block_id.unwrap().get().try_into()?,
+                                        framenumber: block_id.unwrap().get(),
                                         timestamp: save_mp4_fmf_stamp,
                                         timestamp_source,
                                         mu00,
