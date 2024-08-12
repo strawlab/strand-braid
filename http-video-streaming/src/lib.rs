@@ -112,7 +112,6 @@ impl PerSender {
                     let mut annotations = most_recent_frame_data.annotations.clone();
                     // Convert found points into normal annotations. (This should perhaps be done earlier.)
                     for found_point in most_recent_frame_data.found_points.iter() {
-                        dbg!(&found_point);
                         let line_width = 5.0;
                         let shape = Shape::Circle(CircleParams {
                             center_x: found_point.x.round() as i16,
