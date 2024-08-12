@@ -22,7 +22,6 @@ use yew::prelude::*;
 
 use ads_webasm::components::{EnumToggle, VecToggle};
 
-use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::ToClient as FirehoseImageData;
 
 use ci2_remote_control::{BitrateSelection, CodecSelection};
@@ -54,8 +53,9 @@ const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
 enum Msg {
     NewImageFrame(FirehoseImageData),
-    RenderedImage(FirehoseCallbackInner),
+    RenderedImage(bui_backend_session_types::ConnectionKey),
 
+    NewConnKey(String),
     NewServerState(Box<ServerState>),
 
     FailedCallbackJsonDecode(String),
@@ -126,6 +126,7 @@ enum Msg {
 
     SendMessageFetchState(FetchState),
     RenderView,
+    SetFullWindow(bool),
 }
 
 // -----------------------------------------------------------------------------
@@ -159,6 +160,9 @@ impl From<JsValue> for FetchError {
 // -----------------------------------------------------------------------------
 
 struct Model {
+    full_window: bool,
+    conn_key: String,
+
     video_data: Rc<RefCell<VideoData>>,
 
     server_state: Option<Box<ServerState>>,
@@ -181,6 +185,14 @@ struct Model {
     ignore_all_future_frame_processing_errors: bool,
 }
 
+fn log_warn(msg: &str) {
+    web_sys::console::warn_1(&JsValue::from_str(msg))
+}
+
+fn log_error(msg: &str) {
+    web_sys::console::error_1(&JsValue::from_str(msg))
+}
+
 impl Component for Model {
     type Message = Msg;
     type Properties = ();
@@ -192,26 +204,37 @@ impl Component for Model {
                 err
             })
             .unwrap_throw();
+        let key_callback = ctx.link().callback(|ck: String| Msg::NewConnKey(ck));
         let data_callback =
             ctx.link()
                 .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
                     Ok(msg) => Msg::NewServerState(msg),
                     Err(e) => {
-                        log::error!("in data callback: {}", e);
+                        log_error(&format!("in data callback: {}", e));
                         Msg::FailedCallbackJsonDecode(format!("{}", e))
                     }
                 });
-        let stream_callback =
-            ctx.link()
-                .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
-                    Ok(image_result) => Msg::NewImageFrame(image_result),
-                    Err(e) => {
-                        log::error!("in stream callback: {}", e);
-                        Msg::FailedCallbackJsonDecode(format!("{}", e))
-                    }
-                });
+        let stream_callback = ctx.link().callback(|bufstr: String| {
+            match serde_json::from_str::<FirehoseImageData>(&bufstr) {
+                Ok(image_result) => Msg::NewImageFrame(image_result),
+                Err(e) => {
+                    log_error(&format!("in stream callback: {}", e));
+                    Msg::FailedCallbackJsonDecode(format!("{}", e))
+                }
+            }
+        });
 
         let mut _listeners = Vec::new();
+        _listeners.push(EventListener::new(
+            &es,
+            strand_cam_storetype::CONN_KEY_EVENT_NAME,
+            move |event: &Event| {
+                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
+                let text = event.data().as_string().unwrap_throw();
+                key_callback.emit(text);
+            },
+        ));
+
         _listeners.push(EventListener::new(
             &es,
             strand_cam_storetype::STRAND_CAM_EVENT_NAME,
@@ -240,6 +263,8 @@ impl Component for Model {
         }));
 
         Self {
+            full_window: false,
+            conn_key: "".to_string(), // placeholder
             video_data: Rc::new(RefCell::new(VideoData::new(None))),
             server_state: None,
             json_decode_err: None,
@@ -264,6 +289,9 @@ impl Component for Model {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::RenderView => {}
+            Msg::SetFullWindow(val) => {
+                self.full_window = val;
+            }
             Msg::SendMessageFetchState(_fetch_state) => {
                 return false;
             }
@@ -272,6 +300,9 @@ impl Component for Model {
             }
             Msg::RenderedImage(fci) => {
                 self.send_message(CallbackType::FirehoseNotify(fci), ctx);
+            }
+            Msg::NewConnKey(conn_key) => {
+                self.conn_key = conn_key;
             }
             Msg::NewServerState(response) => {
                 // Set the html page title once.
@@ -521,6 +552,10 @@ impl Component for Model {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        if self.full_window {
+            // alternate top-level view where only the video field is shown
+            return self.view_video(ctx);
+        }
         let strand_cam_name = get_strand_cam_name(self.server_state.as_ref().map(AsRef::as_ref));
         html! {
             <div>
@@ -616,12 +651,17 @@ impl Model {
             let title = format!("Live view - {}", shared.camera_name);
             html! {
                 <VideoField title={title}
+                    conn_key={self.conn_key.clone()}
                     video_data={self.video_data.clone()}
                     image_width={shared.image_width}
                     image_height={shared.image_height}
                     measured_fps={shared.measured_fps}
-                    onrendered={ctx.link().callback(|im_data2| {
+                    full_window={self.full_window}
+                    on_rendered={ctx.link().callback(|im_data2| {
                         Msg::RenderedImage(im_data2)
+                    })}
+                    on_full_window={ctx.link().callback(|val| {
+                        Msg::SetFullWindow(val)
                     })}
                 />
             }
@@ -711,11 +751,10 @@ impl Model {
                 if let Some(codec) = match_avail(&available_codecs, &shared.mp4_codec) {
                     format!("{codec}")
                 } else {
-                    log::warn!(
+                    log_warn(&format!(
                         "Could not find codec {:?} among available {:?}",
-                        shared.mp4_codec,
-                        available_codecs
-                    );
+                        shared.mp4_codec, available_codecs,
+                    ));
                     "".to_string()
                 };
 

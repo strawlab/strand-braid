@@ -10,6 +10,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 
+bui-backend-session-types = { path = "../bui-backend-session/types" }
 led-box-comms = { path = "../led-box-comms" }
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control" }

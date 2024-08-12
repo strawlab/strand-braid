@@ -9,9 +9,7 @@ use basic_frame::DynamicFrame;
 use bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
 
-pub use http_video_streaming_types::{
-    CircleParams, DrawableShape, FirehoseCallbackInner, Point, Shape, ToClient,
-};
+pub use http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -41,12 +39,6 @@ fn _test_annotated_frame_is_send() {
     // Compile-time test to ensure AnnotatedFrame implements Send trait.
     fn implements<T: Send>() {}
     implements::<AnnotatedFrame>();
-}
-
-#[derive(Debug)]
-pub struct FirehoseCallback {
-    pub arrival_time: chrono::DateTime<chrono::Utc>,
-    pub inner: FirehoseCallbackInner,
 }
 
 struct PerSender {
@@ -88,17 +80,7 @@ impl PerSender {
         self.fno += 1;
         self.frame_lifo = Some(frame);
     }
-    fn got_callback(&mut self, msg: FirehoseCallback) {
-        match chrono::DateTime::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
-            // match chrono::DateTime<chrono::FixedOffset>::parse_from_rfc3339(&msg.inner.ts_rfc3339) {
-            Ok(sent_time) => {
-                let latency = msg.arrival_time.signed_duration_since(sent_time);
-                tracing::trace!("latency: {:?}", latency);
-            }
-            Err(e) => {
-                tracing::error!("failed to parse timestamp in callback: {:?}", e);
-            }
-        }
+    fn got_callback(&mut self, _msg: ConnectionKey) {
         self.ready_to_send = true;
     }
     async fn service(&mut self) -> Result<()> {
@@ -204,11 +186,11 @@ impl TaskState {
         }
         Ok(())
     }
-    fn handle_callback(&mut self, callback: FirehoseCallback) -> Result<()> {
-        if let Some(ps) = self.per_sender_map.get_mut(&callback.inner.ck) {
-            ps.got_callback(callback)
+    fn handle_callback(&mut self, ck: ConnectionKey) -> Result<()> {
+        if let Some(ps) = self.per_sender_map.get_mut(&ck) {
+            ps.got_callback(ck)
         } else {
-            tracing::warn!(
+            tracing::debug!(
                 "Got firehose_callback for non-existant connection key. \
                             Did connection disconnect?"
             );
@@ -220,7 +202,7 @@ impl TaskState {
 pub async fn firehose_task(
     connection_callback_rx: tokio::sync::mpsc::Receiver<ConnectionEvent>,
     mut firehose_rx: tokio::sync::mpsc::Receiver<AnnotatedFrame>,
-    firehose_callback_rx: tokio::sync::mpsc::Receiver<FirehoseCallback>,
+    firehose_callback_rx: tokio::sync::mpsc::Receiver<ConnectionKey>,
 ) -> Result<()> {
     // Wait for the first frame so we don't need to deal with an Option<>.
     let first_frame = firehose_rx.recv().await.unwrap();
@@ -235,6 +217,7 @@ pub async fn firehose_task(
         tokio_stream::wrappers::ReceiverStream::new(connection_callback_rx);
     let mut firehose_callback_rx =
         tokio_stream::wrappers::ReceiverStream::new(firehose_callback_rx);
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
     loop {
         tokio::select! {
             opt_new_connection = connection_callback_rx.next() => {
@@ -273,8 +256,10 @@ pub async fn firehose_task(
                     }
                 }
             },
+            _ = interval.tick() => {
+                task_state.service().await?;
+            }
         }
-        task_state.service().await?; // should use a timer for this??
     }
     tracing::debug!("firehose task done.");
     Ok(())

@@ -1,16 +1,15 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;
-use gloo::timers::callback::Timeout;
+use bui_backend_session_types::ConnectionKey;
+use gloo::timers::callback::{Interval, Timeout};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
 use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Properties};
 
 use yew_tincture::components::{Button, CheckboxLabel};
 
-use http_video_streaming_types::{
-    CanvasDrawableShape, CircleParams, FirehoseCallbackInner, Point, StrokeStyle,
-};
+use http_video_streaming_types::{CanvasDrawableShape, CircleParams, Point, StrokeStyle};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -27,7 +26,6 @@ pub struct ImData2 {
     pub draw_shapes: Vec<CanvasDrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
-    pub ck: bui_backend_session_types::ConnectionKey,
 }
 
 pub struct VideoField {
@@ -42,17 +40,22 @@ pub struct VideoField {
     timeout: Option<Timeout>,
     zoom_mode: ZoomMode,
     rotate_quarter_turns: i8,
+    ck: ConnectionKey,
+    last_recv: f64,
+    _clock_handle: Interval,
 }
 
 pub enum Msg {
     FrameLoaded(ImData2),
-    NotifySender(FirehoseCallbackInner),
+    NotifySender,
     MouseMove(MouseEvent),
     ToggleCollapsed(bool),
     ViewFit,
     ViewScale(u8),
     ViewRotateCW,
     ViewRotateCCW,
+    ViewFullWindow(bool),
+    CheckForUpdate,
 }
 
 #[derive(PartialEq)]
@@ -63,19 +66,27 @@ pub enum ZoomMode {
 
 #[derive(PartialEq, Properties)]
 pub struct Props {
+    pub conn_key: String,
     pub title: String,
     pub video_data: Rc<RefCell<VideoData>>,
     pub image_width: u32,
     pub image_height: u32,
     pub measured_fps: f32,
-    pub onrendered: Option<Callback<FirehoseCallbackInner>>,
+    pub on_rendered: Option<Callback<ConnectionKey>>,
+    pub on_full_window: Option<Callback<bool>>,
+    pub full_window: bool,
 }
 
 impl Component for VideoField {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
+        let _clock_handle = {
+            let link = ctx.link().clone();
+            Interval::new(100, move || link.send_message(Msg::CheckForUpdate))
+        };
+        let ck = str2ck(&ctx.props().conn_key);
         Self {
             image: web_sys::HtmlImageElement::new().unwrap_throw(),
             css_id: uuid::Uuid::new_v4().to_string(),
@@ -88,11 +99,24 @@ impl Component for VideoField {
             timeout: None,
             zoom_mode: ZoomMode::Fit,
             rotate_quarter_turns: 0,
+            ck,
+            last_recv: 0.0,
+            _clock_handle,
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::CheckForUpdate => {
+                let now = js_sys::Date::now(); // in milliseconds
+                let dur_msec = now - self.last_recv;
+                let dt_sec = 1.0 / self.fps();
+                if dur_msec > (dt_sec * 1000.0) {
+                    // If we have not received an update in this long, request one.
+                    self.last_recv = now; // Reset timout to limit requests.
+                    ctx.link().send_message(Msg::NotifySender);
+                }
+            }
             Msg::MouseMove(mminfo) => {
                 let client_x = mminfo.client_x() as f64;
                 let client_y = mminfo.client_y() as f64;
@@ -124,10 +148,8 @@ impl Component for VideoField {
                 // Wait before returning request for new frame to throttle view.
                 let wait_msecs = {
                     let now = js_sys::Date::now(); // in milliseconds
-                    let max_framerate = match self.show_div {
-                        true => PLAYING_FPS,
-                        false => PAUSED_FPS,
-                    };
+                    self.last_recv = now;
+                    let max_framerate = self.fps();
                     let desired_dt = 1.0 / max_framerate * 1000.0; // convert to msec
                     let desired_now = self.last_frame_render + desired_dt;
                     let wait = desired_now - now;
@@ -136,30 +158,26 @@ impl Component for VideoField {
                 };
 
                 let fno = im_data.fno;
-                let fci = FirehoseCallbackInner {
-                    ck: im_data.ck,
-                    fno: im_data.fno as usize,
-                    ts_rfc3339: im_data.ts_rfc3339,
-                };
 
                 if wait_msecs > 0 {
                     let millis = wait_msecs as u32;
                     let handle = {
                         let link = ctx.link().clone();
-                        Timeout::new(millis, move || link.send_message(Msg::NotifySender(fci)))
+                        Timeout::new(millis, move || link.send_message(Msg::NotifySender))
                     };
                     self.timeout = Some(handle);
                 } else {
                     self.timeout = None;
-                    ctx.link().send_message(Msg::NotifySender(fci));
+                    ctx.link().send_message(Msg::NotifySender);
                 }
 
                 self.rendered_frame_number = Some(fno);
             }
-            Msg::NotifySender(fci) => {
+            Msg::NotifySender => {
                 self.timeout = None;
-                if let Some(ref callback) = ctx.props().onrendered {
-                    callback.emit(fci);
+                if let Some(ref callback) = ctx.props().on_rendered {
+                    let ck = self.ck.clone();
+                    callback.emit(ck);
                 }
             }
             Msg::ViewFit => {
@@ -174,15 +192,30 @@ impl Component for VideoField {
             Msg::ViewRotateCCW => {
                 self.rotate_quarter_turns = (self.rotate_quarter_turns - 1) % 4;
             }
+            Msg::ViewFullWindow(val) => {
+                // Initially try fullscreen mode...
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
+                let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
+                canvas.request_fullscreen().unwrap_or_else(|_e| {
+                    // ... if fail (e.g. iPhone Safari), go full window.
+                    // log::error!("Failed fullscreen request: {e:?}");
+                    if let Some(ref callback) = ctx.props().on_full_window {
+                        callback.emit(val);
+                    }
+                });
+            }
         }
         true
     }
 
-    fn changed(&mut self, ctx: &Context<Self>, props: &Self::Properties) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
+        let props = ctx.props();
+        let ck = str2ck(&props.conn_key);
+        self.ck = ck;
         let mut video_data = props.video_data.borrow_mut();
         if let Some(in_msg) = video_data.take() {
-            // Here we copy the image data. Todo: can we avoid this?
-            let data_url = in_msg.firehose_frame_data_url.clone();
+            let data_url = in_msg.firehose_frame_data_url.as_str();
             let mut draw_shapes = in_msg.annotations.clone();
             if let Some(ref valid_display) = in_msg.valid_display {
                 let line_width = 5.0;
@@ -194,22 +227,24 @@ impl Component for VideoField {
                 draw_shapes.push(green_shape);
             }
             let in_msg2 = ImData2 {
-                ck: in_msg.ck,
                 fno: in_msg.fno,
-                found_points: in_msg.found_points.clone(),
+                found_points: in_msg.found_points,
                 ts_rfc3339: in_msg.ts_rfc3339,
                 draw_shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
             };
 
+            // It seems that in some circumstances with yew 0.21.0, this
+            // callback never gets received. Namely: reconfiguring the UI.
+            // Perhaps because VideoField gets re-created?
             let callback = ctx
                 .link()
                 .callback(move |_| Msg::FrameLoaded(in_msg2.clone()));
 
             let on_load_closure = Closure::wrap(Box::new(move || {
-                callback.emit(0u8); // dummy arg for callback
+                callback.emit(()); // dummy arg for callback
             }) as Box<dyn FnMut()>);
 
-            self.image.set_src(&data_url);
+            self.image.set_src(data_url);
             self.image
                 .set_onload(Some(on_load_closure.as_ref().unchecked_ref()));
             on_load_closure.forget();
@@ -218,7 +253,22 @@ impl Component for VideoField {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let cprops = self.cprops(ctx.props().image_width, ctx.props().image_height);
+        if ctx.props().full_window {
+            self.view_full_window(ctx)
+        } else {
+            self.view_normal(ctx)
+        }
+    }
+}
+
+impl VideoField {
+    fn fps(&self) -> f64 {
+        match self.show_div {
+            true => PLAYING_FPS,
+            false => PAUSED_FPS,
+        }
+    }
+    fn view_normal(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
               <CheckboxLabel
@@ -257,21 +307,42 @@ impl Component for VideoField {
                         title={"Rotate CCW"}
                         onsignal={ctx.link().callback(|_| Msg::ViewRotateCCW)}
                         />
+                    <Button
+                        title={"Fullscreen"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewFullWindow(true))}
+                        />
                 </div>
-                <div class={"the-canvas-outer"} style={"overflow: hidden"}>
-                    <div class="the-canvas" style={cprops.div_style}>
-                        <canvas
-                            width={format!("{}",cprops.w)}
-                            height={format!("{}",cprops.h)}
-                            id={self.css_id.clone()}
-                            class={classes!("video-field-canvas")}
-                            style={cprops.canv_style}
-                            onmousemove={ctx.link().callback(Msg::MouseMove)}
-                            />
-                    </div>
-                </div>
+                { self.view_canvas(ctx) }
                 { self.view_text(ctx) }
               </div>
+            </div>
+        }
+    }
+    fn view_full_window(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <div>
+                <Button
+                    title={"Exit Fullscreen"}
+                    onsignal={ctx.link().callback(|_| Msg::ViewFullWindow(false))}
+                    />
+                { self.view_canvas(ctx) }
+            </div>
+        }
+    }
+    fn view_canvas(&self, ctx: &Context<Self>) -> Html {
+        let cprops = self.cprops(ctx.props().image_width, ctx.props().image_height);
+        html! {
+            <div class={"the-canvas-outer"} style={"overflow: hidden"}>
+                <div class="the-canvas" style={cprops.div_style}>
+                    <canvas
+                        width={format!("{}",cprops.w)}
+                        height={format!("{}",cprops.h)}
+                        id={self.css_id.clone()}
+                        class={classes!("video-field-canvas")}
+                        style={cprops.canv_style}
+                        onmousemove={ctx.link().callback(Msg::MouseMove)}
+                        />
+                </div>
             </div>
         }
     }
@@ -417,4 +488,9 @@ fn draw_circle(ctx: &web_sys::CanvasRenderingContext2d, circle: &CircleParams) {
     .unwrap_throw();
     ctx.close_path();
     ctx.stroke();
+}
+
+fn str2ck(s: &str) -> ConnectionKey {
+    let addr = s.parse().unwrap();
+    ConnectionKey { addr }
 }

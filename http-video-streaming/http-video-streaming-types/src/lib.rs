@@ -18,6 +18,7 @@ pub struct Point {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ToClient {
+    pub fno: u64,
     pub firehose_frame_data_url: String,
     pub found_points: Vec<Point>,
     /// Indicates which region of the entire image is "valid".
@@ -28,7 +29,6 @@ pub struct ToClient {
     pub valid_display: Option<Shape>,
     /// Annotations associated with this particular image, e.g. from tracking.
     pub annotations: Vec<DrawableShape>,
-    pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
     pub ck: ConnectionKey,
 }
@@ -70,14 +70,6 @@ pub enum Shape {
     Polygon(PolygonParams),
     /// multiple individual circles
     MultipleCircles(Vec<CircleParams>),
-}
-
-// from client to server
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FirehoseCallbackInner {
-    pub ck: ConnectionKey,
-    pub fno: usize,
-    pub ts_rfc3339: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

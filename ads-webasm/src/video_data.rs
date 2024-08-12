@@ -10,7 +10,6 @@ impl VideoData {
 
     pub fn frame_number(&self) -> Option<u64> {
         let result = self.inner.as_ref().map(|x| x.fno);
-        log::info!("frame_number {:?}", result);
         result
     }
 
