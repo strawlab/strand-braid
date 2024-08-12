@@ -37,17 +37,16 @@ use ci2_types::AutoMode;
 use flydra_feature_detector_types::ImPtDetectCfg;
 use yew_tincture::components::{TypedInput, TypedInputStorage};
 
-use ads_webasm::video_data::VideoData;
-
 mod components;
 use crate::components::AutoModeSelect;
 
-use ads_webasm::components::{
-    ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle, VideoField,
-};
+use ads_webasm::components::{ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle};
 use yew_tincture::components::Button;
 
-use components::LedBoxControl;
+use components::{LedBoxControl, VideoField};
+
+mod video_data;
+use video_data::VideoData;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 

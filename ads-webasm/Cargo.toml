@@ -8,7 +8,6 @@ rust-version = "1.76"
 [dependencies]
 yew = { version = "0.21.0", features = ["csr"] }
 js-sys = "0.3"
-gloo = "0.8.0"
 gloo-file = "0.2"
 wasm-bindgen = "0.2.92"
 serde = "1.0"
@@ -19,10 +18,6 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-uuid = { version = "1.2.2", default-features = false, features = [
-    "js",
-    "v4",
-] } # add feature flag required for uuid crate
 csv = { version = "1.1", optional = true }
 
 yew-tincture = "0.2.2"
