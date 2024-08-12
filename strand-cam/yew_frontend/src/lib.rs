@@ -125,7 +125,7 @@ enum Msg {
 
     SendMessageFetchState(FetchState),
     RenderView,
-    SetFullWindow(bool),
+    SetVideoFieldFullWindow(bool),
 }
 
 // -----------------------------------------------------------------------------
@@ -159,7 +159,7 @@ impl From<JsValue> for FetchError {
 // -----------------------------------------------------------------------------
 
 struct Model {
-    full_window: bool,
+    video_field_full_window: bool,
     conn_key: String,
 
     video_data: Rc<RefCell<VideoData>>,
@@ -262,7 +262,7 @@ impl Component for Model {
         }));
 
         Self {
-            full_window: false,
+            video_field_full_window: false,
             conn_key: "".to_string(), // placeholder
             video_data: Rc::new(RefCell::new(VideoData::new(None))),
             server_state: None,
@@ -288,8 +288,8 @@ impl Component for Model {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::RenderView => {}
-            Msg::SetFullWindow(val) => {
-                self.full_window = val;
+            Msg::SetVideoFieldFullWindow(val) => {
+                self.video_field_full_window = val;
             }
             Msg::SendMessageFetchState(_fetch_state) => {
                 return false;
@@ -551,7 +551,7 @@ impl Component for Model {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        if self.full_window {
+        if self.video_field_full_window {
             // alternate top-level view where only the video field is shown
             return self.view_video(ctx);
         }
@@ -655,12 +655,12 @@ impl Model {
                     image_width={shared.image_width}
                     image_height={shared.image_height}
                     measured_fps={shared.measured_fps}
-                    full_window={self.full_window}
+                    full_window={self.video_field_full_window}
                     on_rendered={ctx.link().callback(|im_data2| {
                         Msg::RenderedImage(im_data2)
                     })}
                     on_full_window={ctx.link().callback(|val| {
-                        Msg::SetFullWindow(val)
+                        Msg::SetVideoFieldFullWindow(val)
                     })}
                 />
             }
