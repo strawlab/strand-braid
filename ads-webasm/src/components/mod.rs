@@ -1,6 +1,3 @@
-mod video_field;
-pub use self::video_field::VideoField;
-
 mod ranged_value;
 pub use self::ranged_value::RangedValue;
 

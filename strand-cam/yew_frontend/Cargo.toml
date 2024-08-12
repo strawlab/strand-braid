@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0"
-log = "0.4"
 wasm-logger = "0.2.0"
 wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4"
@@ -22,9 +21,11 @@ serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
 serde_yaml = "0.9"
 http = "0.2"
-backtrace = "0.3.40"                                  # here only to require this high version number, not used directly
 yew-tincture = "0.2.2"
+gloo-timers = "0.3.0"
+uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] }
 
+bui-backend-session-types = { path = "../../bui-backend-session/types" }
 strand-cam-storetype = { path = "../../strand-cam-storetype", default-features = false }
 flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
 http-video-streaming-types = { path = "../../http-video-streaming/http-video-streaming-types" }

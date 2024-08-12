@@ -31,7 +31,7 @@ use fmf::FMFWriter;
 use formats::PixFmt;
 use timestamped_frame::ExtraTimeData;
 
-use video_streaming::{AnnotatedFrame, FirehoseCallback};
+use video_streaming::AnnotatedFrame;
 
 use std::{
     path::{Path, PathBuf},
@@ -422,7 +422,7 @@ impl<T: std::fmt::Debug> IgnoreSendError for StdResult<(), tokio::sync::mpsc::er
 
 #[derive(Clone)]
 struct StrandCamCallbackSenders {
-    firehose_callback_tx: tokio::sync::mpsc::Sender<FirehoseCallback>,
+    firehose_callback_tx: tokio::sync::mpsc::Sender<ConnectionKey>,
     cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
     #[allow(dead_code)]
@@ -802,6 +802,25 @@ async fn events_handler(
     let key = ConnectionSessionKey::new(session_key.0, addr);
     let (tx, body) = app_state.event_broadcaster.new_connection(key);
 
+    // Send the connection key
+    {
+        let frame_string = format!(
+            "event: {}\ndata: {}\n\n",
+            strand_cam_storetype::CONN_KEY_EVENT_NAME,
+            addr
+        );
+        match tx
+            .send(Ok(http_body::Frame::data(frame_string.into())))
+            .await
+        {
+            Ok(()) => {}
+            Err(tokio::sync::mpsc::error::SendError(_)) => {
+                // The receiver was dropped because the connection closed. Should probably do more here.
+                tracing::debug!("initial send error");
+            }
+        }
+    }
+
     // Send an initial copy of our state.
     let shared_store = app_state.shared_store_arc.read().as_ref().clone();
     let frame_string = to_event_frame(&shared_store);
@@ -865,16 +884,11 @@ async fn callback_handler(
                 .await
                 .ignore_send_error();
         }
-        CallbackType::FirehoseNotify(inner) => {
-            let arrival_time = chrono::Utc::now();
-            let fc = FirehoseCallback {
-                arrival_time,
-                inner,
-            };
+        CallbackType::FirehoseNotify(ck) => {
             app_state
                 .callback_senders
                 .firehose_callback_tx
-                .send(fc)
+                .send(ck)
                 .await
                 .ignore_send_error();
         }

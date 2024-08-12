@@ -3,7 +3,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use rust_cam_bui_types::RecordingPath;
 use serde::{Deserialize, Serialize};
 
-use http_video_streaming_types::FirehoseCallbackInner;
 use http_video_streaming_types::{CircleParams, Shape};
 
 use ci2_remote_control::{BitrateSelection, CodecSelection, RecordingFrameRate, TagFamily};
@@ -29,6 +28,7 @@ pub use led_box_comms::ToDevice as ToLedBoxDevice;
 // `http://strand-cam/strand-cam-events`.
 pub const STRAND_CAM_EVENTS_URL_PATH: &str = "strand-cam-events";
 pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
+pub const CONN_KEY_EVENT_NAME: &str = "connection-key";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -213,7 +213,7 @@ impl Default for CheckerboardCalState {
 #[serde(deny_unknown_fields)]
 pub enum CallbackType {
     ToCamera(ci2_remote_control::CamArg),
-    FirehoseNotify(FirehoseCallbackInner),
+    FirehoseNotify(bui_backend_session_types::ConnectionKey),
     // used only with image-tracker crate
     TakeCurrentImageAsBackground,
     // used only with image-tracker crate
