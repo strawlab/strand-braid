@@ -51,7 +51,7 @@ pub enum Msg {
     NotifySender,
     MouseMove(MouseEvent),
     ToggleCollapsed(bool),
-    ViewFit,
+    ViewFitWidth,
     ViewScale(u8),
     ViewRotateCW,
     ViewRotateCCW,
@@ -61,7 +61,7 @@ pub enum Msg {
 
 #[derive(PartialEq)]
 pub enum ZoomMode {
-    Fit,
+    FitWidth,
     Scale(u8),
 }
 
@@ -99,7 +99,7 @@ impl Component for VideoField {
             green: JsValue::from("7fff7f"),
             rendered_frame_number: None,
             timeout: None,
-            zoom_mode: ZoomMode::Fit,
+            zoom_mode: ZoomMode::FitWidth,
             rotate_quarter_turns: 0,
             ck,
             last_recv: 0.0,
@@ -184,8 +184,8 @@ impl Component for VideoField {
                     callback.emit(ck);
                 }
             }
-            Msg::ViewFit => {
-                self.zoom_mode = ZoomMode::Fit;
+            Msg::ViewFitWidth => {
+                self.zoom_mode = ZoomMode::FitWidth;
             }
             Msg::ViewScale(val) => {
                 self.zoom_mode = ZoomMode::Scale(val);
@@ -284,9 +284,9 @@ impl VideoField {
                 <div class="pre-canvas">
                     {"View: "}
                     <Button
-                        title={"Fit"}
-                        onsignal={ctx.link().callback(|_| Msg::ViewFit)}
-                        is_active={self.zoom_mode==ZoomMode::Fit}
+                        title={"Fit Width"}
+                        onsignal={ctx.link().callback(|_| Msg::ViewFitWidth)}
+                        is_active={self.zoom_mode==ZoomMode::FitWidth}
                         />
                     <Button
                         title={"25%"}
@@ -363,7 +363,7 @@ impl VideoField {
     fn cprops(&self, image_width: u32, image_height: u32) -> CProps {
         let rot_deg = self.rotate_quarter_turns as i32 * 90;
         let (div_style, canv_style) = match self.zoom_mode {
-            ZoomMode::Fit => (
+            ZoomMode::FitWidth => (
                 format!("transform: rotate({rot_deg}deg)"),
                 "width: 100%; height: auto;".into(),
             ),
