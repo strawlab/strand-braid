@@ -31,7 +31,8 @@ pub struct ImData2 {
 pub struct VideoField {
     image: web_sys::HtmlImageElement,
     show_div: bool, // synchronized to whether we are visible
-    css_id: String,
+    div_css_id: String,
+    canvas_css_id: String,
     last_frame_render: f64,
     mouse_xy: Option<MouseCoords>,
     green_stroke: StrokeStyle,
@@ -89,7 +90,8 @@ impl Component for VideoField {
         let ck = str2ck(&ctx.props().conn_key);
         Self {
             image: web_sys::HtmlImageElement::new().unwrap_throw(),
-            css_id: uuid::Uuid::new_v4().to_string(),
+            canvas_css_id: uuid::Uuid::new_v4().to_string(),
+            div_css_id: uuid::Uuid::new_v4().to_string(),
             last_frame_render: 0.0,
             mouse_xy: None,
             show_div: true,
@@ -122,7 +124,9 @@ impl Component for VideoField {
                 let client_y = mminfo.client_y() as f64;
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
-                let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
+                let canvas = document
+                    .get_element_by_id(&self.canvas_css_id)
+                    .unwrap_throw();
                 let canvas: web_sys::HtmlCanvasElement = canvas
                     .dyn_into::<web_sys::HtmlCanvasElement>()
                     .map_err(|_| ())
@@ -196,7 +200,7 @@ impl Component for VideoField {
                 // Initially try fullscreen mode...
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
-                let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
+                let canvas = document.get_element_by_id(&self.div_css_id).unwrap_throw();
                 canvas.request_fullscreen().unwrap_or_else(|_e| {
                     // ... if fail (e.g. iPhone Safari), go full window.
                     // log::error!("Failed fullscreen request: {e:?}");
@@ -254,7 +258,7 @@ impl Component for VideoField {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         if ctx.props().full_window {
-            self.view_full_window(ctx)
+            self.view_video_div(ctx)
         } else {
             self.view_normal(ctx)
         }
@@ -312,32 +316,32 @@ impl VideoField {
                         onsignal={ctx.link().callback(|_| Msg::ViewFullWindow(true))}
                         />
                 </div>
-                { self.view_canvas(ctx) }
+                { self.view_video_div(ctx) }
                 { self.view_text(ctx) }
               </div>
             </div>
         }
     }
-    fn view_full_window(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <div>
+    fn view_video_div(&self, ctx: &Context<Self>) -> Html {
+        let cprops = self.cprops(ctx.props().image_width, ctx.props().image_height);
+        let full_window_skin = if ctx.props().full_window {
+            html! {
                 <Button
                     title={"Exit Fullscreen"}
                     onsignal={ctx.link().callback(|_| Msg::ViewFullWindow(false))}
                     />
-                { self.view_canvas(ctx) }
-            </div>
-        }
-    }
-    fn view_canvas(&self, ctx: &Context<Self>) -> Html {
-        let cprops = self.cprops(ctx.props().image_width, ctx.props().image_height);
+            }
+        } else {
+            html! {}
+        };
         html! {
-            <div class={"the-canvas-outer"} style={"overflow: hidden"}>
+            <div class={"the-canvas-outer"} style={"overflow: hidden"} id={self.div_css_id.clone()}>
+                { full_window_skin }
                 <div class="the-canvas" style={cprops.div_style}>
                     <canvas
                         width={format!("{}",cprops.w)}
                         height={format!("{}",cprops.h)}
-                        id={self.css_id.clone()}
+                        id={self.canvas_css_id.clone()}
                         class={classes!("video-field-canvas")}
                         style={cprops.canv_style}
                         onmousemove={ctx.link().callback(Msg::MouseMove)}
@@ -402,7 +406,9 @@ impl VideoField {
     fn draw_frame_canvas(&self, in_msg: &ImData2) {
         let window = web_sys::window().unwrap();
         let document = window.document().unwrap();
-        let canvas = document.get_element_by_id(&self.css_id).unwrap_throw();
+        let canvas = document
+            .get_element_by_id(&self.canvas_css_id)
+            .unwrap_throw();
         let canvas: web_sys::HtmlCanvasElement = canvas
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .map_err(|_| ())
