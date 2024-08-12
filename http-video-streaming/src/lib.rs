@@ -1,5 +1,6 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
+use http_video_streaming_types::StrokeStyle;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
@@ -47,6 +48,7 @@ struct PerSender {
     ready_to_send: bool,
     conn_key: ConnectionKey,
     fno: u64,
+    green_stroke: StrokeStyle,
 }
 
 fn _test_per_sender_is_send() {
@@ -74,6 +76,7 @@ impl PerSender {
             ready_to_send: true,
             conn_key,
             fno: 0,
+            green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
         }
     }
     fn push(&mut self, frame: Arc<Mutex<AnnotatedFrame>>) {
@@ -106,12 +109,27 @@ impl PerSender {
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
                     // most_recent_frame_data.data_url = Some(data_url.clone()); // todo: cache like this
-                    let found_points = most_recent_frame_data.found_points.clone();
+                    let mut annotations = most_recent_frame_data.annotations.clone();
+                    // Convert found points into normal annotations. (This should perhaps be done earlier.)
+                    for found_point in most_recent_frame_data.found_points.iter() {
+                        dbg!(&found_point);
+                        let line_width = 5.0;
+                        let shape = Shape::Circle(CircleParams {
+                            center_x: found_point.x.round() as i16,
+                            center_y: found_point.y.round() as i16,
+                            radius: 10,
+                        });
+                        let green_shape = http_video_streaming_types::DrawableShape::from_shape(
+                            &shape,
+                            &self.green_stroke,
+                            line_width,
+                        );
+                        annotations.push(green_shape);
+                    }
                     ToClient {
                         firehose_frame_data_url: data_url,
-                        found_points,
                         valid_display: most_recent_frame_data.valid_display.clone(),
-                        annotations: most_recent_frame_data.annotations.clone(),
+                        annotations,
                         fno: self.fno,
                         ts_rfc3339: sent_time.to_rfc3339(),
                         ck: self.conn_key,

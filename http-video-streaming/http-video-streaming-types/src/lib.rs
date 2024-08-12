@@ -20,7 +20,6 @@ pub struct Point {
 pub struct ToClient {
     pub fno: u64,
     pub firehose_frame_data_url: String,
-    pub found_points: Vec<Point>,
     /// Indicates which region of the entire image is "valid".
     ///
     /// For example, when tracking, there can be image regions in which tracking

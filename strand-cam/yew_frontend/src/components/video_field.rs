@@ -9,7 +9,7 @@ use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Propert
 
 use yew_tincture::components::{Button, CheckboxLabel};
 
-use http_video_streaming_types::{CanvasDrawableShape, CircleParams, Point, StrokeStyle};
+use http_video_streaming_types::{CanvasDrawableShape, CircleParams, StrokeStyle};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -22,7 +22,6 @@ struct MouseCoords {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ImData2 {
-    pub found_points: Vec<Point>,
     pub draw_shapes: Vec<CanvasDrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
@@ -230,11 +229,12 @@ impl Component for VideoField {
                 );
                 draw_shapes.push(green_shape);
             }
+
+            let draw_shapes = draw_shapes.into_iter().map(|s| s.into()).collect();
             let in_msg2 = ImData2 {
                 fno: in_msg.fno,
-                found_points: in_msg.found_points,
                 ts_rfc3339: in_msg.ts_rfc3339,
-                draw_shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
+                draw_shapes,
             };
 
             // It seems that in some circumstances with yew 0.21.0, this
@@ -422,31 +422,6 @@ impl VideoField {
 
         ctx.set_stroke_style(&self.green);
         ctx.set_line_width(1.0);
-
-        for pt in in_msg.found_points.iter() {
-            ctx.begin_path();
-            ctx.arc(
-                // circle
-                pt.x as f64,
-                pt.y as f64,
-                30.0,
-                0.0,
-                std::f64::consts::PI * 2.0,
-            )
-            .unwrap_throw();
-
-            let r: f64 = 30.0;
-            if let Some(theta) = pt.theta {
-                let theta = theta as f64;
-                let dx = r * theta.cos();
-                let dy = r * theta.sin();
-                ctx.move_to(pt.x as f64 - dx, pt.y as f64 - dy);
-                ctx.line_to(pt.x as f64 + dx, pt.y as f64 + dy);
-            }
-
-            ctx.close_path();
-            ctx.stroke();
-        }
 
         for drawable_shape in in_msg.draw_shapes.iter() {
             ctx.set_stroke_style(&drawable_shape.stroke_style.clone().into());
