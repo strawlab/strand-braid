@@ -5,7 +5,7 @@ extern crate log;
 use std::{
     collections::BTreeMap,
     io::{BufRead, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use braid_offline::KalmanizeOptions;
@@ -22,6 +22,61 @@ use anyhow::{Context, Result};
 enum CalibrationType {
     SimpleCal(PseudoCalParams),
     FullCal(Box<FlydraMultiCameraSystem<f64>>),
+}
+
+#[cfg(not(feature = "with_apriltags"))]
+fn load_yaml_calibration(
+    _: Option<ExtrinsicsArgs>,
+    _calibration_params_buf: &str,
+    _output_braidz: &Path,
+) -> Result<CalibrationType> {
+    anyhow::bail!("Cannot use YAML calibration without apriltags support.");
+}
+
+#[cfg(feature = "with_apriltags")]
+fn load_yaml_calibration(
+    eargs: Option<ExtrinsicsArgs>,
+    calibration_params_buf: &str,
+    output_braidz: &Path,
+) -> Result<CalibrationType> {
+    let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
+        serde_yaml::from_str(&calibration_params_buf)?;
+    log::info!("loaded YAML intrinsics calibration");
+
+    let eargs = eargs.ok_or_else(|| {
+        anyhow::anyhow!("when loading YAML calibration, need apriltags_3d_fiducial_coords")
+    })?;
+
+    let args: flytrax_apriltags_calibration::ComputeExtrinsicsArgs =
+        flytrax_apriltags_calibration::ComputeExtrinsicsArgs {
+            apriltags_3d_fiducial_coords: eargs.apriltags_3d_fiducial_coords,
+            flytrax_csv: eargs.flytrax_csv,
+            image_filename: eargs.image_filename,
+            intrinsics,
+        };
+    let single_cam_result = flytrax_apriltags_calibration::compute_extrinsics(&args)?;
+
+    if let Some(dest_dir) = output_braidz.parent() {
+        std::fs::create_dir_all(dest_dir)?;
+    }
+
+    let mut out_svg_fname = std::path::PathBuf::from(output_braidz);
+    out_svg_fname.set_extension("braidz.svg");
+    flytrax_apriltags_calibration::save_cal_svg_and_png_images(out_svg_fname, &single_cam_result)?;
+
+    let system = single_cam_result.cal_result().cam_system.clone();
+
+    for camera_name in system.cams_by_name().keys() {
+        log::info!(
+            "Calibration result for {}: {:.2} pixel mean reprojection distance",
+            camera_name,
+            single_cam_result.cal_result().mean_reproj_dist[camera_name]
+        );
+    }
+
+    let full_cal = flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(system, None);
+
+    Ok(CalibrationType::FullCal(Box::new(full_cal)))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -57,46 +112,7 @@ where
 
         CalibrationType::SimpleCal(pseudo)
     } else if cal_file_name.ends_with(".yaml") {
-        let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
-            serde_yaml::from_str(&calibration_params_buf)?;
-        log::info!("loaded YAML intrinsics calibration");
-
-        let eargs = eargs.ok_or_else(|| {
-            anyhow::anyhow!("when loading YAML calibration, need apriltags_3d_fiducial_coords")
-        })?;
-
-        let args = flytrax_apriltags_calibration::ComputeExtrinsicsArgs {
-            apriltags_3d_fiducial_coords: eargs.apriltags_3d_fiducial_coords,
-            flytrax_csv: eargs.flytrax_csv,
-            image_filename: eargs.image_filename,
-            intrinsics,
-        };
-        let single_cam_result = flytrax_apriltags_calibration::compute_extrinsics(&args)?;
-
-        if let Some(dest_dir) = output_braidz.parent() {
-            std::fs::create_dir_all(dest_dir)?;
-        }
-
-        let mut out_svg_fname = std::path::PathBuf::from(output_braidz);
-        out_svg_fname.set_extension("braidz.svg");
-        flytrax_apriltags_calibration::save_cal_svg_and_png_images(
-            out_svg_fname,
-            &single_cam_result,
-        )?;
-
-        let system = single_cam_result.cal_result().cam_system.clone();
-
-        for camera_name in system.cams_by_name().keys() {
-            log::info!(
-                "Calibration result for {}: {:.2} pixel mean reprojection distance",
-                camera_name,
-                single_cam_result.cal_result().mean_reproj_dist[camera_name]
-            );
-        }
-
-        let full_cal = flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(system, None);
-
-        CalibrationType::FullCal(Box::new(full_cal))
+        load_yaml_calibration(eargs, &calibration_params_buf, output_braidz)?
     } else {
         anyhow::bail!("unrecognized file extension for calibration: \"{cal_file_name}\"");
     };

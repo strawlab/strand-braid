@@ -48,7 +48,7 @@ braidz-types = { path = "../braidz-types" }
 braidz-parser = { path = "../braidz-parser" }
 zip-or-dir = { path = "../zip-or-dir" }
 braid-offline = { path = "../braid-offline", default-features = false }
-flytrax-apriltags-calibration = { path = "../braid-april-cal/flytrax-apriltags-calibration" }
+flytrax-apriltags-calibration = { path = "../braid-april-cal/flytrax-apriltags-calibration", optional = true }
 flytrax-io = { path = "../strand-cam/flytrax-io" }
 
 [dev-dependencies]
@@ -57,4 +57,5 @@ test-log = "0.2.12"
 download-verify = { path = "../download-verify" }
 
 [features]
+with_apriltags = ["flytrax-apriltags-calibration"]
 backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]
