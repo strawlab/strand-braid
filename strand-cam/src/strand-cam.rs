@@ -1463,7 +1463,9 @@ where
                 );
             }
             tracing::info!("Using v4l2loopback device {}", v4l_device.display());
-            let out = v4l::device::Device::with_path(v4l_device)?;
+            let out = v4l::device::Device::with_path(v4l_device).with_context(|| {
+                format!("opening V4L2 loopback device {}", v4l_device.display())
+            })?;
             let source_fmt = v4l::format::Format {
                 width: frame.width().try_into()?,
                 height: frame.height().try_into()?,
