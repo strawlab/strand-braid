@@ -4,6 +4,7 @@
 
 * Support PTP synchronized cameras without external triggering hardware. Tested
   with Basler Ace2 GigE cameras.
+* Provide binaries for Ubuntu 24.04 LTS Noble Numbat.
 * Save video to .mp4 files in Strand Camera (instead of .mkv files). Update
   Braid, `braid-process-video`, `strand-convert`, and other utilities to use
   MP4. Video is encoded with the H.264 codec and metadata, including precise
