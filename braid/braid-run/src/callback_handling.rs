@@ -21,9 +21,10 @@ fn start_saving_mp4s_all_cams(app_state: &BraidAppState, start_saving: bool) {
 
 pub(crate) async fn callback_handler(
     axum::extract::State(app_state): axum::extract::State<crate::mainbrain::BraidAppState>,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
     TolerantJson(payload): TolerantJson<BraidHttpApiCallback>,
 ) -> impl IntoResponse {
+    session_key.is_present();
     let fut = async {
         use BraidHttpApiCallback::*;
         match payload {

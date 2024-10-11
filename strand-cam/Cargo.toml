@@ -98,7 +98,7 @@ tower = "0.4.13"
 axum = "0.7.4"
 tracing = "0.1.40"
 tracing-panic = "0.1.1"
-axum-token-auth = "0.1.0"
+axum-token-auth = { workspace = true }
 tower-http = { version = "0.5.1", features = ["trace", "fs"] }
 tower-serve-static = { version = "0.1", optional = true }
 include_dir = { version = "0.7.3", optional = true }

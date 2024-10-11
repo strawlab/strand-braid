@@ -796,6 +796,7 @@ async fn events_handler(
     _: AcceptsEventStream,
     req: axum::extract::Request,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     tracing::trace!("events");
     // Connection wants to subscribe to event stream.
 
@@ -863,16 +864,18 @@ async fn events_handler(
 
 async fn cam_name_handler(
     axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     app_state.cam_name.clone()
 }
 
 async fn callback_handler(
     axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
     TolerantJson(payload): TolerantJson<CallbackType>,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     tracing::trace!("callback");
     match payload {
         CallbackType::ToCamera(cam_arg) => {

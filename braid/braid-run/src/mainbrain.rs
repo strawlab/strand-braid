@@ -110,9 +110,10 @@ pub(crate) struct BraidAppState {
 
 async fn events_handler(
     State(app_state): State<BraidAppState>,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
     _: AcceptsEventStream,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     let key = {
         let mut next_connection_id = app_state.next_connection_id.write();
         let key = *next_connection_id;
@@ -164,9 +165,10 @@ async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
 /// [flydra_types::BraidHttpApiCallback::NewCamera].
 async fn remote_camera_info_handler(
     State(app_state): State<BraidAppState>,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
     Path(raw_cam_name): Path<String>,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     let cam_cfg = app_state
         .camera_configs
         .get(&RawCamName::new(raw_cam_name.clone()));
@@ -195,11 +197,12 @@ async fn remote_camera_info_handler(
 
 async fn cam_proxy_handler_inner(
     app_state: BraidAppState,
-    _session_key: axum_token_auth::SessionKey,
+    session_key: axum_token_auth::SessionKey,
     raw_cam_name: String,
     cam_path: String,
     req: axum::extract::Request,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     tracing::debug!("raw_cam_name: {raw_cam_name}, cam_path: \"{cam_path}\", req: {req:?}");
     let accepts: Vec<HeaderValue> = req
         .headers()
@@ -254,6 +257,7 @@ async fn cam_proxy_handler_root(
     Path(raw_cam_name): Path<String>,
     req: axum::extract::Request,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     cam_proxy_handler_inner(app_state, session_key, raw_cam_name, "".into(), req).await
 }
 
@@ -263,6 +267,7 @@ async fn cam_proxy_handler(
     Path((raw_cam_name, cam_path)): Path<(String, String)>,
     req: axum::extract::Request,
 ) -> impl axum::response::IntoResponse {
+    session_key.is_present();
     cam_proxy_handler_inner(app_state, session_key, raw_cam_name, cam_path, req).await
 }
 
