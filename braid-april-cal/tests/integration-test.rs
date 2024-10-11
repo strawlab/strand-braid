@@ -146,8 +146,7 @@ fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
         include_str!("data-single-cam/Basler_22149788.20230613_155639.yaml").as_bytes();
     let intrinsics: RosCameraInfo<f64> = serde_yaml::from_reader(intrinsics_yaml)?;
 
-    let mut named_intrinsics: NamedIntrinsicParameters<f64> =
-        intrinsics.try_into().unwrap();
+    let mut named_intrinsics: NamedIntrinsicParameters<f64> = intrinsics.try_into().unwrap();
     // Would like to use name in .yaml file, but this has been converted to "ROS form".
     named_intrinsics.name = cam_name.clone();
 

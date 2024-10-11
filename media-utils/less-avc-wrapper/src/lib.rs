@@ -1,9 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 #![deny(unsafe_code)]
-#![cfg_attr(
-    feature = "backtrace",
-    feature(error_generic_member_access)
-)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 #[cfg(feature = "backtrace")]
 use std::backtrace::Backtrace;

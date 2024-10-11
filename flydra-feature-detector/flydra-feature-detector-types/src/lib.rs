@@ -5,7 +5,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use http_video_streaming_types::Shape;
 

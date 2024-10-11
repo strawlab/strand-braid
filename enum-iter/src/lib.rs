@@ -5,7 +5,8 @@
 /// See also the IntoEnumIterator trait of the `strum` crate for a
 /// version which can be automatically derived.
 pub trait EnumIter
-    where Self: Sized,
+where
+    Self: Sized,
 {
     fn variants() -> &'static [Self];
 }

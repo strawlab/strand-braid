@@ -6,7 +6,7 @@
     non_upper_case_globals,
     non_camel_case_types,
     non_snake_case,
-    unused_imports,
+    unused_imports
 )]
 
 pub const _VCRT_COMPILER_PREPROCESSOR: u32 = 1;

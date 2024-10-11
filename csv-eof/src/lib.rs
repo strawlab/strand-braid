@@ -45,12 +45,10 @@ where
         match self.inner.next() {
             Some(Ok(item)) => Some(Ok(item)),
             None => None,
-            Some(Err(e)) => {
-                match is_early_eof(&e) {
-                    true => None,
-                    false => Some(Err(e)),
-                }
-            }
+            Some(Err(e)) => match is_early_eof(&e) {
+                true => None,
+                false => Some(Err(e)),
+            },
         }
     }
 }
@@ -66,18 +64,18 @@ fn is_early_eof(e: &csv::Error) -> bool {
 }
 
 /// A trait to wrap an Iterator and terminate without error on UnexpectedEof
-pub trait EarlyEofOk<I,T>
-    where
-        I: Iterator<Item = std::result::Result<T, csv::Error>>,
+pub trait EarlyEofOk<I, T>
+where
+    I: Iterator<Item = std::result::Result<T, csv::Error>>,
 {
-    fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I,T>;
+    fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I, T>;
 }
 
-impl<I,T> EarlyEofOk<I,T> for I
-    where
-        I: Iterator<Item = std::result::Result<T, csv::Error>>,
+impl<I, T> EarlyEofOk<I, T> for I
+where
+    I: Iterator<Item = std::result::Result<T, csv::Error>>,
 {
-    fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I,T> {
+    fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I, T> {
         TerminateEarlyOnUnexpectedEof::new(self)
     }
 }

@@ -119,10 +119,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    let cal_file_name = cli
-        .calibration_params
-        .to_str()
-        .unwrap();
+    let cal_file_name = cli.calibration_params.to_str().unwrap();
 
     let tracking_params_buf = match cli.tracking_params {
         Some(ref fname) => {
