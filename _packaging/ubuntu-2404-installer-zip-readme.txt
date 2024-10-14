@@ -12,14 +12,15 @@ To install, you must first install the package
 `pylon_7.3.0.27189_linux-x86_64_debs.tar.gz` available at
 https://www.baslerweb.com/en/sales-support/downloads/software-downloads/
 
-### Vimba (Allied Vision Technology cameras)
+### Vimba X (Allied Vision Technology cameras)
 
-You must install  `Vimba64_v6.0_Linux.tgz`. Download from
-https://www.alliedvision.com/en/products/vimba-sdk/. Install like this:
+You must install `VimbaX_Setup-2024-1-Linux64.tar.gz`. Download from
+https://www.alliedvision.com/en/products/software/vimba-x-sdk. Install like
+this:
 
-    sudo tar xzf Vimba64_v6.0_Linux.tgz -C /opt
+    sudo tar xzf VimbaX_Setup-2024-1-Linux64.tar.gz -C /opt
 
-This will install the following file, among others: `/opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so`.
+This will install the following file, among others: `/opt/VimbaX_2024-1/bin/libVmbC.so`.
 
 ## Installation
 

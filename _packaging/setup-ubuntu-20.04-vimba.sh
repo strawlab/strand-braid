@@ -4,14 +4,14 @@ set -o errexit
 ORIG_DIR=`pwd`
 echo $ORIG_DIR
 
-# Download and install vimba
-# When updating this, also update the file ubuntu-2004-installer-zip-readme.txt
-curl --show-error --fail --silent https://internal-static.strawlab.org/software/vimba/Vimba64_v6.0_Linux.tgz > /tmp/Vimba64_v6.0_Linux.tgz
-echo "48892d6657c07fe410e627f96ea6ea22c2aeab4f08010a1de25a25a1a19e275c /tmp/Vimba64_v6.0_Linux.tgz" | sha256sum -c
+# Download and install vimba When updating this, also update the file
+# ubuntu-*-installer-zip-readme.txt and vimba/src/lib.rs
+curl --show-error --fail --silent https://internal-static.strawlab.org/software/vimba/VimbaX_Setup-2024-1-Linux64.tar.gz > /tmp/VimbaX_Setup-2024-1-Linux64.tar.gz
+echo "4a77aa2dc0873d0e033b29e71208e6c0603c09a2cc7915c3f2c8c24e54647564 /tmp/VimbaX_Setup-2024-1-Linux64.tar.gz" | sha256sum -c
 
-tar xzf /tmp/Vimba64_v6.0_Linux.tgz -C /opt
+tar xzf /tmp/VimbaX_Setup-2024-1-Linux64.tar.gz -C /opt
 
 # Now check .so is in the expected location:
-ls -l /opt/Vimba_6_0/VimbaC/DynamicLib/x86_64bit/libVimbaC.so
+ls -l /opt/VimbaX_2024-1/bin/libVmbC.so
 
 cd $ORIG_DIR

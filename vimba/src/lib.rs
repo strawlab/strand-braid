@@ -174,8 +174,11 @@ impl VimbaLibrary {
                     "VmbC.dll"
                 };
 
+                // Important note when updating this: also update the files in
+                // `_packaging/ubuntu-*-installer-zip-readme.txt` and
+                // `_packaging/setup-ubuntu-*-vimba.sh` to match this.
                 #[cfg(target_os = "linux")]
-                let vmbc_path = "/opt/VimbaX_2023-4/api/lib/libVmbC.so";
+                let vmbc_path = "/opt/VimbaX_2024-1/api/lib/libVmbC.so";
 
                 #[cfg(target_os = "macos")]
                 let vmbc_path = "/Library/Frameworks/VmbC.framework/Versions/A/VmbC";

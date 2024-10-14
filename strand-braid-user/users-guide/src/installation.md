@@ -30,7 +30,7 @@ in _packaging/ubuntu-2404-installer-zip-readme.txt
 Currently Basler cameras are best supported. We use Basler's Pylon library to
 access the cameras.
 
-Allied Vision Cameras using the Vimba library is planned for Strand Camera and
+Allied Vision Cameras using the Vimba X library is planned for Strand Camera and
 Braid version 0.12.
 
 ### Trigger box
