@@ -177,7 +177,3 @@ flydra_feat_detect = ["flydra-feature-detector"]
 
 use_ipp = ["flydra-feature-detector?/use_ipp"]
 do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]
-
-# TODO:
-# fix so this is not needed in linux: `export LD_LIBRARY_PATH=/opt/Vimba_6_0/Tools/Viewer/Bin/x86_64bit`
-# Also this reduces warnings in linux: sudo adduser strawlab video
