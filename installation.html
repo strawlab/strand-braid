@@ -170,12 +170,29 @@
                         <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
 <h2><a class="header" href="#software-installation" id="software-installation">Software installation</a></h2>
 <p>Download releases from <a href="https://github.com/strawlab/strand-braid/releases">our releases
-page</a></p>
+page</a>.</p>
+<p>Choosing the correct installer for your operating system. We build releases of
+Strand Camera and Braid for recent Ubuntu Linux Long Term Support (LTS)
+releases. Each Ubuntu release has a version number (e.g. &quot;24.04&quot;) and a code
+name (e.g. &quot;Noble Numbat&quot;). The installers at the releases page hosted on Github
+are available in the &quot;Assets&quot; section with names like:
+<code>strand-braid-ubuntu-&lt;UBUNTU_VERSION&gt;-&lt;STRAND_BRAID_VERSION&gt;.zip</code>. Here
+<code>UBUNTU_VERSION</code> could be something like <code>2404</code> which would correspond to Ubuntu
+24.04. Download and expand this <code>.zip</code> file. It contains a <code>README.txt</code> file
+with further instructions and a <code>.deb</code> file which can be installed by the Ubuntu
+operating system by double-clicking in the file manager.</p>
+<!--
+
+Note: the source for the README.txt files included in the installler .zip are
+in _packaging/ubuntu-2404-installer-zip-readme.txt
+
+-->
 <h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
 <h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
-<p>Currently only Basler cameras are supported. We use Basler's Pylon library to
+<p>Currently Basler cameras are best supported. We use Basler's Pylon library to
 access the cameras.</p>
-<p>Support for other cameras is planned.</p>
+<p>Allied Vision Cameras using the Vimba X library is planned for Strand Camera and
+Braid version 0.12.</p>
 <h3><a class="header" href="#trigger-box" id="trigger-box">Trigger box</a></h3>
 <p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
 hardware to synchronize the cameras. This is based on an Arduino
