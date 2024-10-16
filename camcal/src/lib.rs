@@ -38,6 +38,38 @@ impl PixelSize {
     }
 }
 
+pub fn save_yaml<P: AsRef<std::path::Path>>(
+    cam_info_file_stamped: P,
+    pkg_name: &str,
+    local: chrono::DateTime<chrono::Local>,
+    raw_opencv_cal: &opencv_calibrate::CalibrationResult,
+    raw_cam_name: &str,
+) -> eyre::Result<()> {
+    let intrinsics = convert_to_cam_geom::<f64>(&raw_opencv_cal);
+
+    // Convert from mvg to ROS format.
+    let ci: opencv_ros_camera::RosCameraInfo<_> = opencv_ros_camera::NamedIntrinsicParameters {
+        intrinsics,
+        width: raw_opencv_cal.image_width as usize,
+        height: raw_opencv_cal.image_height as usize,
+        name: raw_cam_name.into(),
+    }
+    .into();
+
+    let mut f = std::fs::File::create(&cam_info_file_stamped)?;
+    std::io::Write::write_all(
+        &mut f,
+        format!(
+            "# Saved by {} at {}\n\
+                        # Mean reprojection distance: {:.2}\n",
+            pkg_name, local, raw_opencv_cal.mean_reprojection_distance_pixels
+        )
+        .as_bytes(),
+    )?;
+    serde_yaml::to_writer(f, &ci)?;
+    Ok(())
+}
+
 /// Given some checkerboard corner locations, compute intrinsics using OpenCV.
 pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
     size: PixelSize,

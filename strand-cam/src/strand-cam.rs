@@ -3147,20 +3147,12 @@ where
 
                             let size =
                                 camcal::PixelSize::new(image_width as usize, image_height as usize);
-                            match camcal::compute_intrinsics::<f64>(size, &goodcorners) {
-                                Ok(intrinsics) => {
-                                    info!("got calibrated intrinsics: {:?}", intrinsics);
 
-                                    // Convert from mvg to ROS format.
-                                    let ci: opencv_ros_camera::RosCameraInfo<_> =
-                                        opencv_ros_camera::NamedIntrinsicParameters {
-                                            intrinsics,
-                                            width: image_width as usize,
-                                            height: image_height as usize,
-                                            name: raw_cam_name.as_str().to_string(),
-                                        }
-                                        .into();
-
+                            match camcal::compute_intrinsics_with_raw_opencv::<f64>(
+                                size,
+                                &goodcorners,
+                            ) {
+                                Ok(raw_opencv_cal) => {
                                     let cal_dir = directories::BaseDirs::new()
                                         .as_ref()
                                         .map(|bd| {
@@ -3186,15 +3178,15 @@ where
                                     cam_info_file.push(raw_cam_name.as_str());
                                     cam_info_file.set_extension("yaml");
 
-                                    // Save timestamped version first for backup
-                                    // purposes (since below we overwrite the
-                                    // non-timestamped file).
-                                    {
-                                        let f = File::create(&cam_info_file_stamped)
-                                            .expect("create file");
-                                        serde_yaml::to_writer(f, &ci)
-                                            .expect("serde_yaml::to_writer");
-                                    }
+                                    // Save timestamped version first for backup purposes (since below
+                                    // we overwrite the non-timestamped file).
+                                    camcal::save_yaml(
+                                        &cam_info_file_stamped,
+                                        env!["CARGO_PKG_NAME"],
+                                        local,
+                                        &raw_opencv_cal,
+                                        raw_cam_name.as_str(),
+                                    )?;
 
                                     // Now copy the successfully saved file into
                                     // the non-timestamped name. This will

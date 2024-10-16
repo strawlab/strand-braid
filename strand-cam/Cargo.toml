@@ -18,9 +18,9 @@ csv = { version = "1.1", optional = true }
 libflate = { version = "1.0", optional = true }
 env-tracing-logger = { path = "../env-tracing-logger" }
 
-serde = { version = "1.0.79", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0.29"
-serde_yaml = "0.9"
+serde_yaml = { workspace = true }
 serde_cbor = "0.11"
 webbrowser = "0.8.3"
 tempfile = "3.4.0"
@@ -28,7 +28,7 @@ clap = { version = "4", features = ["string", "env"] }
 preferences-serde1 = "2.0.0"
 base64 = "0.12"
 directories = "4.0.1"
-eyre = "0.6.12"
+eyre = { workspace = true }
 parking_lot = "0.12"
 thread-control = { version = "0.1.2", optional = true }
 ipp-sys = { version = "0.4.4", optional = true }
@@ -41,12 +41,7 @@ timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame", features = ["convert-image"] }
 fmf = { path = "../fmf" }
 ufmf = { path = "../ufmf" }
-chrono = { version = "0.4.35", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono = { workspace = true, features = ["serde", "clock", "std", "wasmbind"] }
 convert-image = { path = "../convert-image" }
 hyper = { version = "1.1", features = ["client", "http1"] }
 hyper-tls = "0.6"

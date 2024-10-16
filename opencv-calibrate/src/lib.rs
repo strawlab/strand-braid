@@ -73,6 +73,8 @@ pub struct CalibrationResult {
     pub rotation_matrices: Vec<[f64; 9]>,
     /// rotation vectors
     pub translation_vectors: Vec<[f64; 3]>,
+    pub image_width: u32,
+    pub image_height: u32,
 }
 
 /// A point with a view in image (2D) and world (3D)
@@ -142,6 +144,8 @@ pub fn calibrate_camera(
         distortion_coeffs,
         rotation_matrices,
         translation_vectors,
+        image_width: width.try_into().unwrap(),
+        image_height: height.try_into().unwrap(),
     })
 }
 

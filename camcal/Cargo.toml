@@ -9,6 +9,9 @@ rust-version = "1.76"
 [dependencies]
 nalgebra = { workspace = true }
 opencv-ros-camera = { workspace = true }
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = { workspace = true }
+chrono = { workspace = true, features = ["serde", "clock", "std", "wasmbind"] }
+eyre = { workspace = true }
 
 opencv-calibrate = { path = "../opencv-calibrate" }
