@@ -9,7 +9,7 @@ rust-version = "1.76"
 
 [dependencies]
 opencv-calibrate = { path = ".." }
-image = "0.24.2"
+image = { workspace = true, features = ["jpeg", "png"] }
 serde_yaml = "0.9"
 clap = { version = "4.3.4", features = ["derive"] }
 anyhow = "1.0"

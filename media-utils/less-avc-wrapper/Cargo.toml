@@ -18,7 +18,7 @@ env_logger = "0.10"
 h264-reader = "0.7.0"
 rusttype = "0.9.2"
 ttf-firacode = "0.1"
-image = { version = "0.24.2", default-features = false, features = [
+image = {workspace = true, features = [
     "jpeg",
     "tiff",
     "png",
