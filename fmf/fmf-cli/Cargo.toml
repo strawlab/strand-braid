@@ -23,7 +23,7 @@ chrono = { version = "0.4.35", default-features = false, features = [
 ] }
 anyhow = "1.0"
 glob = "0.3"
-image = { version = "0.24.2", default-features = false, features = [
+image = { workspace = true, features = [
     "jpeg",
     "png",
     "bmp",

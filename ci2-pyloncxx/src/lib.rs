@@ -1105,7 +1105,8 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
             let fno: usize = match self.framecounting_method {
                 FramecoutingMethod::BaslerGigE(ref mut i) => {
-                    // Basler GigE cameras wrap after 65535 block
+                    // Basler GigE cameras wrap after 65535 block. TODO: support
+                    // "Extended ID" mode which does not have this wraparound.
                     if block_id < 30000 && i.previous_block_id > 30000 {
                         // check nothing crazy is going on
                         if (i.store_fno - i.last_rollover) < 30000 {

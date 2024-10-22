@@ -164,7 +164,7 @@ fn main() -> Result<(), anyhow::Error> {
             let opts = convert_image::ImageOptions::Png;
             use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
             let png_buf =
-                match_all_dynamic_fmts!(&image, x, convert_image::frame_to_image(x, opts))?;
+                match_all_dynamic_fmts!(&image, x, convert_image::frame_to_encoded_buffer(x, opts))?;
             let mut fd = std::fs::File::create(png_fname)?;
             use std::io::Write;
             fd.write_all(&png_buf)?;

@@ -25,7 +25,7 @@ resvg = "0.19"
 tagger = "4.0"
 tiny-skia = "0.6.1"
 usvg = { version = "0.19.0", default-features = false }
-image = { version = "0.24.2", default-features = false, features = ["png"] }
+image = { workspace = true, features = ["png"] }
 base64 = "0.6"
 ordered-float = "1"
 regex = "1"

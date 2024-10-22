@@ -356,8 +356,6 @@ impl<'a> Read for MaybeGzReader<'a> {
 #[derive(Debug)]
 pub struct FileReader<'a> {
     inner: FileReaderInner<'a>,
-    size: u64,
-    position: u64,
 }
 
 enum FileReaderInner<'a> {
@@ -375,32 +373,15 @@ impl<'a> std::fmt::Debug for FileReaderInner<'a> {
 }
 
 impl<'a> FileReader<'a> {
-    fn from_inner(inner: FileReaderInner<'a>, size: u64) -> Result<FileReader<'a>> {
-        Ok(FileReader {
-            inner,
-            size,
-            position: 0,
-        })
+    fn from_inner(inner: FileReaderInner<'a>) -> Result<FileReader<'a>> {
+        Ok(FileReader { inner })
     }
     fn open_file<P: AsRef<std::path::Path>>(path: P) -> Result<FileReader<'a>> {
         let f = File::open(path)?;
-        let size = f.metadata()?.len();
-        Self::from_inner(FileReaderInner::File(BufReader::new(f)), size)
+        Self::from_inner(FileReaderInner::File(BufReader::new(f)))
     }
     fn from_zip(zipfile: zip::read::ZipFile<'a>) -> Result<FileReader<'a>> {
-        let size = zipfile.size();
-        Self::from_inner(
-            FileReaderInner::ZipFile(Box::new(BufReader::new(zipfile))),
-            size,
-        )
-    }
-
-    pub fn size(&self) -> u64 {
-        self.size
-    }
-
-    pub fn position(&self) -> u64 {
-        self.position
+        Self::from_inner(FileReaderInner::ZipFile(Box::new(BufReader::new(zipfile))))
     }
 }
 
@@ -410,7 +391,6 @@ impl<'a> Read for FileReader<'a> {
             FileReaderInner::File(f) => f.read(buf)?,
             FileReaderInner::ZipFile(zf) => zf.read(buf)?,
         };
-        self.position += n_bytes as u64;
         Ok(n_bytes)
     }
 }

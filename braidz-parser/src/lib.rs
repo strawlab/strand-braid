@@ -557,22 +557,6 @@ pub enum MaybeGzippedReader<'a> {
     Gzipped(libflate::gzip::Decoder<zip_or_dir::FileReader<'a>>),
 }
 
-impl<'a> MaybeGzippedReader<'a> {
-    pub fn size(&self) -> u64 {
-        match self {
-            Self::Raw(f) => f.size(),
-            Self::Gzipped(gz) => gz.as_inner_ref().size(),
-        }
-    }
-
-    pub fn position(&self) -> u64 {
-        match self {
-            Self::Raw(f) => f.position(),
-            Self::Gzipped(gz) => gz.as_inner_ref().position(),
-        }
-    }
-}
-
 impl<'a> Read for MaybeGzippedReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         match self {

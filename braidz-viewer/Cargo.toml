@@ -17,7 +17,7 @@ gloo = "0.8.0"
 gloo-file = "0.2"
 yew = { version = "0.21.0", features = ["csr"] }
 
-wasm-bindgen = "0.2.92"
+wasm-bindgen = { workspace = true }
 js-sys = "0.3.28"
 plotters = { version = "0.3.4", default-features = false, features = [
     "bitmap_encoder",
@@ -40,7 +40,7 @@ braidz-parser = { path = "../braidz-parser" }
 wasm-bindgen-futures = { version = "0.4.37" }
 
 [dependencies.web-sys]
-version = "0.3.64"
+workspace = true
 features = [
     "Blob",
     "DateTimeValue",

@@ -11,7 +11,7 @@ log = { version = "0.4", features = ["release_max_level_debug"] }
 env_logger = "0.10"
 clap = { version = "4.3.4", features = ["derive"] }
 crossbeam-channel = "0.5"
-image = "0.24.2"
+image = { workspace = true, features = ["jpeg", "png"] }
 glium = "0.32.1"
 winit = "0.27.5"
 imagefmt = "4.0.0"

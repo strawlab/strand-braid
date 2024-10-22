@@ -703,7 +703,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 );
                                 let stamped = debug_image_stamp.format(&format_str).to_string();
                                 let png_buf = match_all_dynamic_fmts!(&frame, x, {
-                                    convert_image::frame_to_image(
+                                    convert_image::frame_to_encoded_buffer(
                                         x,
                                         convert_image::ImageOptions::Png,
                                     )?
@@ -1091,7 +1091,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         image_path.set_extension("jpg");
 
                                         let bytes = match_all_dynamic_fmts!(&frame, x, {
-                                            convert_image::frame_to_image(
+                                            convert_image::frame_to_encoded_buffer(
                                                 x,
                                                 convert_image::ImageOptions::Jpeg(99),
                                             )?

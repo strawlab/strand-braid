@@ -495,8 +495,11 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             for cam_id in basics.cam_info.camid2camn.keys() {
                 let relname = format!("{}/{cam_id}.png", flydra_types::IMAGES_DIRNAME);
                 match self.archive.open(relname) {
-                    Ok(rdr) => {
-                        let decoder = image::codecs::png::PngDecoder::new(rdr)?;
+                    Ok(mut rdr) => {
+                        let mut buf = Vec::new();
+                        rdr.read_to_end(&mut buf)?;
+                        let cur = std::io::Cursor::new(buf);
+                        let decoder = image::codecs::png::PngDecoder::new(cur)?;
                         let (w, h) = image::ImageDecoder::dimensions(&decoder);
                         result.insert(cam_id.clone(), (w as usize, h as usize));
                     }

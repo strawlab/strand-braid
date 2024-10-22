@@ -18,7 +18,7 @@ serde-xml-rs = "0.5.1"
 hdrhistogram = "7.1"
 base64 = "0.12"
 ordered-float = "1"
-image = {version = "0.24", default-features = false, features=["png"]}
+image = { workspace = true, features=["png"]}
 regex = "1.8.4"
 
 csv-eof = {path="../csv-eof"}

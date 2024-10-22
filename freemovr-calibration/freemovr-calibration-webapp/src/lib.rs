@@ -419,11 +419,10 @@ fn download_file(orig_buf: &[u8], filename: &str) {
     let array = js_sys::Array::new();
     array.push(&b.buffer());
 
-    let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(
-        &array,
-        web_sys::BlobPropertyBag::new().type_(mime_type),
-    )
-    .unwrap_throw();
+    let options = web_sys::BlobPropertyBag::new();
+    options.set_type(mime_type);
+    let blob =
+        web_sys::Blob::new_with_u8_array_sequence_and_options(&array, &options).unwrap_throw();
     let data_url = web_sys::Url::create_object_url_with_blob(&blob).unwrap_throw();
     let document = web_sys::window().unwrap_throw().document().unwrap_throw();
     let anchor = document

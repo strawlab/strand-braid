@@ -14,7 +14,7 @@ chrono = { version = "0.4.35", default-features = false, features = [
 ] }
 mp4 = "0.14.0"
 
-openh264 = {workspace = true, optional = true }
+openh264 = { workspace = true, optional = true }
 thiserror = "1.0.33"
 machine-vision-formats = "0.1"
 bitvec = "1.0.1"
@@ -39,11 +39,7 @@ env_logger = "0.10"
 anyhow = "1"
 ci2-remote-control = { path = "../../ci2-remote-control" }
 rusttype = "0.8.1"
-image = { version = "0.24.2", default-features = false, features = [
-    "jpeg",
-    "tiff",
-    "png",
-] }
+image = { workspace = true, features = ["jpeg", "tiff", "png"] }
 ttf-firacode = "0.1"
 simple-frame = { path = "../../simple-frame" }
 tempfile = "3.4.0"

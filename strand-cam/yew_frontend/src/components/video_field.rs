@@ -35,7 +35,7 @@ pub struct VideoField {
     last_frame_render: f64,
     mouse_xy: Option<MouseCoords>,
     green_stroke: StrokeStyle,
-    green: JsValue,
+    green: &'static str,
     rendered_frame_number: Option<u64>,
     timeout: Option<Timeout>,
     zoom_mode: ZoomMode,
@@ -95,7 +95,7 @@ impl Component for VideoField {
             mouse_xy: None,
             show_div: true,
             green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
-            green: JsValue::from("7fff7f"),
+            green: "7fff7f",
             rendered_frame_number: None,
             timeout: None,
             zoom_mode: ZoomMode::FitWidth,
@@ -420,11 +420,11 @@ impl VideoField {
         ctx.draw_image_with_html_image_element(&self.image, 0.0, 0.0)
             .unwrap_throw();
 
-        ctx.set_stroke_style(&self.green);
+        ctx.set_stroke_style_str(self.green);
         ctx.set_line_width(1.0);
 
         for drawable_shape in in_msg.draw_shapes.iter() {
-            ctx.set_stroke_style(&drawable_shape.stroke_style.clone().into());
+            ctx.set_stroke_style_str(&drawable_shape.stroke_style);
             ctx.set_line_width(drawable_shape.line_width as f64);
             use http_video_streaming_types::Shape;
             match &drawable_shape.shape {

@@ -311,7 +311,7 @@ impl<'lib> VideoStorage<'lib> {
 
             // Write rasterized image to disk as PNG.
             let png_buf =
-                convert_image::frame_to_image(&rasterized, convert_image::ImageOptions::Png)?;
+                convert_image::frame_to_encoded_buffer(&rasterized, convert_image::ImageOptions::Png)?;
             std::fs::write(format!("frame{:05}.png", out_fno), png_buf)?;
         }
 
