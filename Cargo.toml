@@ -152,6 +152,7 @@ chrono = { version = "0.4.35", default-features = false }
 eyre = "0.6.12"
 image = { version = "0.25", default-features = false }
 rerun = { version = "0.19", default-features = false, features = ["sdk"] }
+wasm-bindgen = { version = "0.2.95" }
 web-sys = { version = "0.3.72" }
 
 [replace]
