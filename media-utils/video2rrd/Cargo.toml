@@ -10,7 +10,7 @@ serde_yaml = "0.9"
 color-eyre = "0.6.2"
 
 tracing = "0.1.40"
-rerun = "0.17.0"
+rerun = { workspace = true, default-features = true }
 opencv-ros-camera = { workspace = true }
 cam-geom = { workspace = true }
 nalgebra = { workspace = true }

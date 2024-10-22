@@ -15,8 +15,8 @@ serde_json = "1.0"
 thiserror = "1.0.33"
 cam-geom = { workspace = true, features = ["serde-serialize"] }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
-rerun = { version = "0.17", optional = true }
-glam = { version = "0.22", optional = true }
+rerun = { workspace = true, optional = true, default-features = true }
+glam = { workspace = true, optional = true }
 
 [dev-dependencies]
 num-iter = "0.1"

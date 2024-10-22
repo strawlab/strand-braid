@@ -150,6 +150,8 @@ serde = "1.0"
 serde_yaml = "0.9"
 chrono = { version = "0.4.35", default-features = false }
 eyre = "0.6.12"
+glam = { version = "0.22" }
+rerun = { version = "0.17", default-features = false }
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
