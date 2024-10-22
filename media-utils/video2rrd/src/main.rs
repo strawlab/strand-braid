@@ -46,7 +46,7 @@ fn to_rr_image(im: ImageData) -> eyre::Result<rerun::EncodedImage> {
         _ => eyre::bail!("image not decoded"),
     };
 
-    // jpeg compression TODO: give open to save uncompressed?
+    // jpeg compression TODO: give option to save uncompressed?
     let contents = basic_frame::match_all_dynamic_fmts!(
         &decoded,
         x,
