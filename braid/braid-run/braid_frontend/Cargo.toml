@@ -33,7 +33,7 @@ rust-cam-bui-types = { path = "../../../rust-cam-bui-types" }
 ads-webasm = { path = "../../../ads-webasm" }
 
 [dependencies.web-sys]
-version = "0.3"
+workspace = true
 features = [
   "Event",
   "EventSource",

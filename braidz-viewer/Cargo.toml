@@ -40,7 +40,7 @@ braidz-parser = { path = "../braidz-parser" }
 wasm-bindgen-futures = { version = "0.4.37" }
 
 [dependencies.web-sys]
-version = "0.3.64"
+workspace = true
 features = [
     "Blob",
     "DateTimeValue",

@@ -37,7 +37,7 @@ enum-iter = { path = "../../enum-iter" }
 ads-webasm = { path = "../../ads-webasm" }
 
 [dependencies.web-sys]
-version = "0.3"
+workspace = true
 features = [
     "DomRect",
     "DomTokenList",

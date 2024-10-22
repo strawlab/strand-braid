@@ -1348,16 +1348,16 @@ fn to_rate(rate_enum: &RecordingFrameRate) -> Option<f32> {
 
 async fn post_message(msg: &CallbackType) -> Result<(), FetchError> {
     use web_sys::{Request, RequestInit, Response};
-    let mut opts = RequestInit::new();
-    opts.method("POST");
-    opts.cache(web_sys::RequestCache::NoStore);
+    let opts = RequestInit::new();
+    opts.set_method("POST");
+    opts.set_cache(web_sys::RequestCache::NoStore);
     let buf = serde_json::to_string(&msg).unwrap_throw();
-    opts.body(Some(&JsValue::from_str(&buf)));
+    opts.set_body(&JsValue::from_str(&buf));
     let headers = web_sys::Headers::new().unwrap_throw();
     headers
         .append("Content-Type", "application/json")
         .unwrap_throw();
-    opts.headers(&headers);
+    opts.set_headers(&headers);
 
     let url = "callback";
     let request = Request::new_with_str_and_init(url, &opts)?;
