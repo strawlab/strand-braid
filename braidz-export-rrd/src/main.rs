@@ -509,7 +509,7 @@ fn to_rr_image(
             x,
             convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
         )?;
-        let format = Some(rerun::external::image::ImageFormat::Jpeg);
+        let format = Some(image::ImageFormat::Jpeg);
         Ok((
             rerun::Image::from_file_contents(contents, format).unwrap(),
             decoded,
