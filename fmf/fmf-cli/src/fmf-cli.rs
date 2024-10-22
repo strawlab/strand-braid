@@ -356,7 +356,7 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
         let frame = frame?;
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
-        let buf = match_all_dynamic_fmts!(frame, x, convert_image::frame_to_image(&x, opts))?;
+        let buf = match_all_dynamic_fmts!(frame, x, convert_image::frame_to_encoded_buffer(&x, opts))?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
     }

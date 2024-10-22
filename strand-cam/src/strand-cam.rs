@@ -1528,7 +1528,7 @@ where
     let image_height = frame.height();
 
     let current_image_png = match_all_dynamic_fmts!(&frame, x, {
-        convert_image::frame_to_image(x, convert_image::ImageOptions::Png)?
+        convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Png)?
     });
 
     #[cfg(feature = "flydra_feat_detect")]
@@ -2320,8 +2320,11 @@ where
                         if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
                             // encode frame to png buf
                             let current_image_png = match_all_dynamic_fmts!(frame, x, {
-                                convert_image::frame_to_image(x, convert_image::ImageOptions::Png)
-                                    .unwrap()
+                                convert_image::frame_to_encoded_buffer(
+                                    x,
+                                    convert_image::ImageOptions::Png,
+                                )
+                                .unwrap()
                             });
 
                             let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(

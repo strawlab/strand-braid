@@ -153,7 +153,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         if false {
             // This block for debugging ffmpeg video decoding.
             let png_buf =
-                convert_image::frame_to_image(&decoded_mono8, convert_image::ImageOptions::Png)?;
+                convert_image::frame_to_encoded_buffer(&decoded_mono8, convert_image::ImageOptions::Png)?;
             let fname = format!("frame{frame:09}.png");
             println!("saving png {fname}");
             let mut file = std::fs::File::create(&fname)?;

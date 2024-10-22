@@ -104,7 +104,7 @@ impl PerSender {
                     let bytes = basic_frame::match_all_dynamic_fmts!(
                         &most_recent_frame_data.frame,
                         x,
-                        convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
+                        convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Jpeg(80),)
                     )?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);

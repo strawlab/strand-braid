@@ -164,12 +164,12 @@ fn main() -> anyhow::Result<()> {
                     match *format_str {
                         "mono8" => {
                             // if png_buf.is_none() {
-                            //     png_buf = Some(convert_image::frame_to_image(&frame, opts)?);
+                            //     png_buf = Some(convert_image::frame_to_encoded_buffer(&frame, opts)?);
                             // }
                             // convert to farget format, keeping full size
                             let mono = convert_image::convert::<_, Mono8>(&frame)?;
                             // if png_buf.is_none() {
-                            //     png_buf = Some(convert_image::frame_to_image(&mono, opts)?);
+                            //     png_buf = Some(convert_image::frame_to_encoded_buffer(&mono, opts)?);
                             // }
 
                             let out_size_bytes = mono.stride() * final_height as usize;
@@ -181,14 +181,15 @@ fn main() -> anyhow::Result<()> {
                             )
                             .unwrap();
                             if png_buf.is_none() {
-                                png_buf = Some(convert_image::frame_to_image(&trimmed, opts)?);
+                                png_buf =
+                                    Some(convert_image::frame_to_encoded_buffer(&trimmed, opts)?);
                             }
 
                             my_h264_writer.write(&trimmed)?;
                         }
                         "rgb8" => {
                             // if png_buf.is_none() {
-                            //     png_buf = Some(convert_image::frame_to_image(&frame, opts)?);
+                            //     png_buf = Some(convert_image::frame_to_encoded_buffer(&frame, opts)?);
                             // }
 
                             let out_size_bytes = frame.stride() * final_height as usize;
@@ -200,7 +201,8 @@ fn main() -> anyhow::Result<()> {
                             )
                             .unwrap();
                             if png_buf.is_none() {
-                                png_buf = Some(convert_image::frame_to_image(&trimmed, opts)?);
+                                png_buf =
+                                    Some(convert_image::frame_to_encoded_buffer(&trimmed, opts)?);
                             }
 
                             my_h264_writer.write(&trimmed)?;

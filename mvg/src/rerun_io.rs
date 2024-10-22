@@ -55,9 +55,9 @@ impl<T: RealField> ToR<T> for f64 {
 
 fn rr_translation_and_mat3<R: RealField>(
     extrinsics: &cam_geom::ExtrinsicParameters<R>,
-) -> rerun::TranslationAndMat3x3 {
+) -> rerun::Transform3D {
     let t = extrinsics.camcenter();
-    let translation = Some(rerun::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]));
+    let translation = rerun::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]);
     let rot = extrinsics.rotation();
     let rot = rot.matrix();
     let mut col_major = [0.0; 9];
@@ -67,12 +67,8 @@ fn rr_translation_and_mat3<R: RealField>(
             col_major[idx] = rot[(col, row)].f32();
         }
     }
-    let mat3x3 = Some(rerun::Mat3x3(col_major));
-    rerun::TranslationAndMat3x3 {
-        translation,
-        mat3x3,
-        from_parent: false,
-    }
+    let mat3x3 = rerun::Mat3x3(col_major);
+    rerun::Transform3D::from_translation_mat3x3(translation, mat3x3)
 }
 
 pub trait AsRerunTransform3D {
@@ -81,10 +77,7 @@ pub trait AsRerunTransform3D {
 
 impl AsRerunTransform3D for cam_geom::ExtrinsicParameters<f64> {
     fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D> {
-        rerun::Transform3D {
-            transform: rr_translation_and_mat3(self).into(),
-            axis_length: None,
-        }
+        rr_translation_and_mat3(self)
     }
 }
 
@@ -280,7 +273,8 @@ fn test_intrinsics_rerun() {
     let pixels_orig = orig_intrinsics.camera_to_undistorted_pixel(&pts);
 
     for (pt3d, px_orig) in pts.data.row_iter().zip(pixels_orig.data.row_iter()) {
-        let pt3d_v2 = glam::Vec3::new(pt3d[0] as f32, pt3d[1] as f32, pt3d[2] as f32);
+        let pt3d_v2 =
+            rerun::external::glam::Vec3::new(pt3d[0] as f32, pt3d[1] as f32, pt3d[2] as f32);
         let pix_rr = rr.project(pt3d_v2);
         approx::assert_relative_eq!(pix_rr.x, px_orig[0] as f32, epsilon = 1e-10);
         approx::assert_relative_eq!(pix_rr.y, px_orig[1] as f32, epsilon = 1e-10);

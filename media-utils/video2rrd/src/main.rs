@@ -1,8 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
-use machine_vision_formats::{pixel_format, PixFmt};
-use ndarray::Array;
 use std::path::PathBuf;
 
 use basic_frame::DynamicFrame;
@@ -42,40 +40,19 @@ struct Opt {
     no_progress: bool,
 }
 
-fn to_rr_image(im: ImageData) -> eyre::Result<rerun::Image> {
+fn to_rr_image(im: ImageData) -> eyre::Result<rerun::EncodedImage> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => eyre::bail!("image not decoded"),
     };
 
-    if true {
-        // jpeg compression
-        let contents = basic_frame::match_all_dynamic_fmts!(
-            &decoded,
-            x,
-            convert_image::frame_to_image(x, convert_image::ImageOptions::Jpeg(80),)
-        )?;
-        let format = Some(image::ImageFormat::Jpeg);
-        Ok(rerun::Image::from_file_contents(contents, format).unwrap())
-    } else {
-        // Much larger file size but higher quality.
-        let w = decoded.width() as usize;
-        let h = decoded.height() as usize;
-
-        let image = match decoded.pixel_format() {
-            PixFmt::Mono8 => {
-                let mono8 = decoded.clone().into_pixel_format::<pixel_format::Mono8>()?;
-                Array::from_vec(mono8.into()).into_shape((h, w, 1)).unwrap()
-            }
-            _ => {
-                let rgb8 = decoded
-                    .clone()
-                    .into_pixel_format::<machine_vision_formats::pixel_format::RGB8>()?;
-                Array::from_vec(rgb8.into()).into_shape((h, w, 3)).unwrap()
-            }
-        };
-        Ok(rerun::Image::try_from(image)?)
-    }
+    // jpeg compression TODO: give open to save uncompressed?
+    let contents = basic_frame::match_all_dynamic_fmts!(
+        &decoded,
+        x,
+        convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Jpeg(80),)
+    )?;
+    Ok(rerun::EncodedImage::from_file_contents(contents))
 }
 
 fn main() -> eyre::Result<()> {

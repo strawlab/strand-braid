@@ -991,8 +991,63 @@ pub enum ImageOptions {
     Png,
 }
 
-/// Convert any type implementing `ImageStride<FMT>` to a Jpeg or Png buffer.
-pub fn frame_to_image<FMT>(frame: &dyn ImageStride<FMT>, opts: ImageOptions) -> Result<Vec<u8>>
+/// Convert any type implementing [ImageStride] to an [image::DynamicImage].
+pub fn frame_to_image<FMT>(frame: &dyn ImageStride<FMT>) -> Result<image::DynamicImage>
+where
+    FMT: PixelFormat,
+{
+    let frame = to_rgb8_or_mono8(frame)?;
+
+    let (coding, bytes_per_pixel) = match &frame {
+        SupportedEncoding::Mono(_) => (image::ColorType::L8, 1),
+        SupportedEncoding::Rgb(_) => (image::ColorType::Rgb8, 3),
+    };
+
+    // The encoders in the `image` crate only handle packed inputs. We check if
+    // our data is packed and if not, make a packed copy.
+
+    let mut packed = None;
+    let packed_stride = frame.width() as usize * bytes_per_pixel as usize;
+    if frame.stride() != packed_stride {
+        let mut dest = Vec::with_capacity(packed_stride * frame.height() as usize);
+        let src = frame.image_data();
+        let chunk_iter = src.chunks_exact(frame.stride());
+        if !chunk_iter.remainder().is_empty() {
+            return Err(invalid_buf_size_err());
+        }
+        for src_row in chunk_iter {
+            dest.extend_from_slice(&src_row[..packed_stride]);
+        }
+        packed = Some(dest);
+    }
+
+    let packed = match packed {
+        None => frame.image_data().to_vec(),
+        Some(p) => p,
+    };
+
+    match coding {
+        image::ColorType::L8 => {
+            let imbuf: image::ImageBuffer<image::Luma<_>, _> =
+                image::ImageBuffer::from_raw(frame.width(), frame.height(), packed).unwrap();
+            Ok(imbuf.into())
+        }
+        image::ColorType::Rgb8 => {
+            let imbuf: image::ImageBuffer<image::Rgb<_>, _> =
+                image::ImageBuffer::from_raw(frame.width(), frame.height(), packed).unwrap();
+            Ok(imbuf.into())
+        }
+        _ => {
+            unreachable!()
+        }
+    }
+}
+
+/// Convert any type implementing [ImageStride] to a Jpeg or Png buffer.
+pub fn frame_to_encoded_buffer<FMT>(
+    frame: &dyn ImageStride<FMT>,
+    opts: ImageOptions,
+) -> Result<Vec<u8>>
 where
     FMT: PixelFormat,
 {
@@ -1032,12 +1087,12 @@ where
         ImageOptions::Jpeg(quality) => {
             let mut encoder =
                 image::codecs::jpeg::JpegEncoder::new_with_quality(&mut result, quality);
-            encoder.encode(use_frame, frame.width(), frame.height(), coding)?;
+            encoder.encode(use_frame, frame.width(), frame.height(), coding.into())?;
         }
         ImageOptions::Png => {
             use image::ImageEncoder;
             let encoder = image::codecs::png::PngEncoder::new(&mut result);
-            encoder.write_image(use_frame, frame.width(), frame.height(), coding)?;
+            encoder.write_image(use_frame, frame.width(), frame.height(), coding.into())?;
         }
     }
     Ok(result)
@@ -1151,7 +1206,7 @@ mod tests {
         }
         let frame: SimpleFrame<formats::pixel_format::Mono8> =
             SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
-        let buf = frame_to_image(&frame, ImageOptions::Png).unwrap();
+        let buf = frame_to_encoded_buffer(&frame, ImageOptions::Png).unwrap();
 
         // Decode the BMP data into an image.
         let im2 = image::load_from_memory_with_format(&buf, image::ImageFormat::Png).unwrap();
@@ -1184,7 +1239,7 @@ mod tests {
         }
         let frame: SimpleFrame<formats::pixel_format::BayerRG8> =
             SimpleFrame::new(W, H, STRIDE as u32, image_data).unwrap();
-        frame_to_image(&frame, ImageOptions::Jpeg(240)).unwrap();
+        frame_to_encoded_buffer(&frame, ImageOptions::Jpeg(240)).unwrap();
     }
 
     #[test]

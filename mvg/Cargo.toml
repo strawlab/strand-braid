@@ -16,7 +16,6 @@ thiserror = "1.0.33"
 cam-geom = { workspace = true, features = ["serde-serialize"] }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 rerun = { workspace = true, optional = true }
-glam = { workspace = true, optional = true }
 
 [dev-dependencies]
 num-iter = "0.1"
@@ -24,8 +23,10 @@ approx = "0.5"
 dlt = { workspace = true }
 color-eyre = "0.6.2"
 
+rerun = { workspace = true, features = ["glam"] }
+
 [features]
 serde-serialize = []
 backtrace = []
 
-rerun-io = ["rerun", "glam", "simba"]
+rerun-io = ["rerun", "simba"]

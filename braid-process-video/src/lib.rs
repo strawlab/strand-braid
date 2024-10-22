@@ -250,7 +250,7 @@ impl PerCamRender {
         let (frame0_png_buf, width, height) = match frame_ref {
             DynamicFrame::Mono8(frame_mono8) => {
                 let frame0_png_buf =
-                    convert_image::frame_to_image(frame_mono8, convert_image::ImageOptions::Png)
+                    convert_image::frame_to_encoded_buffer(frame_mono8, convert_image::ImageOptions::Png)
                         .unwrap()
                         .into();
                 (
@@ -261,7 +261,7 @@ impl PerCamRender {
             }
             DynamicFrame::RGB8(frame_rgb8) => {
                 let frame0_png_buf =
-                    convert_image::frame_to_image(frame_rgb8, convert_image::ImageOptions::Png)
+                    convert_image::frame_to_encoded_buffer(frame_rgb8, convert_image::ImageOptions::Png)
                         .unwrap()
                         .into();
                 (
@@ -303,7 +303,7 @@ impl PerCamRender {
         )
         .unwrap();
         let frame0_png_buf =
-            convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png)
+            convert_image::frame_to_encoded_buffer(&frame, convert_image::ImageOptions::Png)
                 .unwrap()
                 .into();
 
@@ -339,10 +339,10 @@ impl<'a> PerCamRenderFrame<'a> {
     pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
         let png_buf = match frame {
             basic_frame::DynamicFrame::Mono8(frame_mono8) => {
-                convert_image::frame_to_image(frame_mono8, convert_image::ImageOptions::Png)?
+                convert_image::frame_to_encoded_buffer(frame_mono8, convert_image::ImageOptions::Png)?
             }
             basic_frame::DynamicFrame::RGB8(frame_rgb8) => {
-                convert_image::frame_to_image(frame_rgb8, convert_image::ImageOptions::Png)?
+                convert_image::frame_to_encoded_buffer(frame_rgb8, convert_image::ImageOptions::Png)?
             }
             _ => {
                 panic!("only rgb8 and mono8 supported");

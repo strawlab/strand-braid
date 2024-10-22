@@ -117,7 +117,7 @@ pub(crate) fn build_mini_arena_images(
                     )
                     .unwrap();
                     let png_buf =
-                        convert_image::frame_to_image(&frame, convert_image::ImageOptions::Png)
+                        convert_image::frame_to_encoded_buffer(&frame, convert_image::ImageOptions::Png)
                             .unwrap();
 
                     let dest_path =
