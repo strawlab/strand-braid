@@ -1,7 +1,7 @@
 [package]
 name = "braid-run"
 description = "run Braid, the multi-camera realtime 3D tracker"
-version = "0.12.0-alpha.8"                                      # braid release synchronized
+version = "0.12.0-alpha.9"                                      # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 homepage = "https://strawlab.org/braid"
 edition = "2021"

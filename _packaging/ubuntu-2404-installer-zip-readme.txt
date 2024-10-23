@@ -27,7 +27,7 @@ This will install the following file, among others: `/opt/VimbaX_2024-1/bin/libV
 You should be able to install the .deb file by double clicking on it in a file
 navigator. Alternatively, you can install it from the command line:
 
-    sudo apt install ./strand-braid_0.12.0-alpha.8-1_amd64.deb
+    sudo apt install ./strand-braid_0.12.0-alpha.9-1_amd64.deb
 
 ## Running
 
