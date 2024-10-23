@@ -5,6 +5,9 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib"]
 
