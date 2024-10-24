@@ -29,6 +29,10 @@ Example export to mkv via RGB (should be lossless for image data). Will loose ti
 
     fmf export-bgr24 test_rgb8.fmf -o - | ffmpeg -i - -f rawvideo -pix_fmt bgr0 -s 332x332 -r 30 -vcodec ffv1 test_bgr.mkv
 
+Example export to mp4 with hardware h264 encoding using VAAPI. Will loose timestamps:
+
+    fmf export-y4m test_rgb8.fmf -o - | ffmpeg -vaapi_device /dev/dri/renderD128 -i - -vf format=nv12,hwupload -c:v h264_vaapi -b:v 5M from-fmf.mp4
+
 Note that MKV's `DateUTC` metadata creation time can be set when creating an MKV
 video in ffmpeg with the option `-metadata creation_time="2012-02-07 12:15:27"`.
 However, as of the time of writing, ffmpeg only parses the command line date to
@@ -356,7 +360,8 @@ fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
         let frame = frame?;
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
-        let buf = match_all_dynamic_fmts!(frame, x, convert_image::frame_to_encoded_buffer(&x, opts))?;
+        let buf =
+            match_all_dynamic_fmts!(frame, x, convert_image::frame_to_encoded_buffer(&x, opts))?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
     }
