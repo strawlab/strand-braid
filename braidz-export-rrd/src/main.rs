@@ -29,7 +29,7 @@ enum Encoder {
 }
 
 #[derive(Debug, Parser)]
-#[command(author, version)]
+#[command(author)]
 struct Opt {
     /// Output rrd filename. Defaults to "<INPUT>.rrd"
     #[arg(short, long)]
@@ -47,6 +47,10 @@ struct Opt {
     /// If exporting MP4 files, which MP4 encoder should be be used?
     #[arg(long, default_value = "less-avc")]
     encoder: Encoder,
+
+    /// Print version
+    #[arg(short, long)]
+    version: bool,
 }
 
 #[cfg(feature = "undistort-images")]
@@ -516,6 +520,16 @@ fn main() -> anyhow::Result<()> {
     }
     env_tracing_logger::init();
     let opt = Opt::parse();
+
+    if opt.version {
+        println!(
+            "{name} {version} (rerun {rrvers})",
+            name = env!("CARGO_PKG_NAME"),
+            version = env!("CARGO_PKG_VERSION"),
+            rrvers = rerun::build_info().version,
+        );
+        return Ok(());
+    }
 
     let output = opt.output;
     let inputs = opt.inputs;
