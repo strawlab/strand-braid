@@ -88,6 +88,7 @@ members = [
     "media-utils/strand-convert",
     "media-utils/tiff-decoder",
     "media-utils/video2rrd",
+    "media-utils/video2srt",
     "mvg",
     "mvg/mvg-util",
     "nvenc",
@@ -121,7 +122,6 @@ members = [
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
-    "media-utils/video2srt",
 ]
 
 exclude = ["led-box-firmware", "led-box-firmware-pico"]

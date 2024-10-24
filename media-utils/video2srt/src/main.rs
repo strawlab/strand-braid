@@ -31,10 +31,10 @@ impl Srt for std::time::Duration {
         let hours = total_secs / (60 * 60);
         let minutes = (total_secs % (60 * 60)) / 60;
         let seconds = total_secs % 60;
-        dbg!(total_secs);
-        dbg!(hours);
-        dbg!(minutes);
-        dbg!(seconds);
+        // dbg!(total_secs);
+        // dbg!(hours);
+        // dbg!(minutes);
+        // dbg!(seconds);
         debug_assert_eq!(total_secs, hours * 60 * 60 + minutes * 60 + seconds);
         let millis = self.subsec_millis();
         format!("{hours:02}:{minutes:02}:{seconds:02},{millis:03}")
@@ -74,10 +74,7 @@ fn main() -> eyre::Result<()> {
         let pts = match frame.timestamp() {
             Timestamp::Duration(pts) => pts,
             _ => {
-                eyre::bail!(
-                    "video has no PTS timestamps and framerate was not \
-                    specified on the command line."
-                );
+                eyre::bail!("video has no PTS timestamps.");
             }
         };
         let frame_stamp = start_time + pts;
