@@ -9,4 +9,4 @@ rust-version = "1.76"
 log = "0.4"
 futures = "0.3"
 
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true

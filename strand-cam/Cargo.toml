@@ -36,7 +36,7 @@ ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }
 ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame", features = ["convert-image"] }
 fmf = { path = "../fmf" }

@@ -7,7 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 log = "0.4"
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 anyhow = "1.0"
 
 timestamped-frame = { path = "../timestamped-frame" }

@@ -24,7 +24,7 @@ chrono = { version = "0.4.35", default-features = false, features = [
 anyhow = "1.0"
 glob = "0.3"
 image = { workspace = true, features = ["jpeg", "png", "bmp", "pnm"] }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 
 timestamped-frame = { path = "../../timestamped-frame" }
 fmf = { path = ".." }

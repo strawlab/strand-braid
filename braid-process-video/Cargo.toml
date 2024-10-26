@@ -19,7 +19,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.5"
-machine-vision-formats = "0.1.1"
+machine-vision-formats.workspace = true
 clap = { version = "4", features = ["derive"] }
 resvg = "0.19"
 tagger = "4.0"

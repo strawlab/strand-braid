@@ -48,7 +48,7 @@ tokio = { version = "1.0.1", default-features = false, features = [
 tokio-stream = { version = "0.1.8" }
 libflate = "0.1"
 zip = { version = "0.6.3", default-features = false, features = ["time"] }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 tracing = "0.1.37"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 hyper-util = { version = "0.1.1", features = [

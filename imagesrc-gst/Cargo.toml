@@ -16,7 +16,7 @@ thread-control = "0.1.2"
 parking_lot = "0.12"
 
 imagesrc = { path = "../imagesrc" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 
 [dev-dependencies]
 byte-slice-cast = "0.3"

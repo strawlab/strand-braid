@@ -16,7 +16,7 @@ mp4 = "0.14.0"
 
 openh264 = { workspace = true, optional = true }
 thiserror = "1.0.33"
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 bitvec = "1.0.1"
 h264-reader = "0.7.0"
 

@@ -13,7 +13,7 @@ anyhow = "1.0"
 lazy_static = "1.0"
 
 basic-frame = { path = "../basic-frame" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
 ci2-async = { path = "../ci2-async" }

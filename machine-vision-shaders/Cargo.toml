@@ -7,4 +7,4 @@ edition = "2015"
 [dependencies]
 log = "0.4"
 
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true

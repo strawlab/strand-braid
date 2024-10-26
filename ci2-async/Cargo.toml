@@ -12,6 +12,6 @@ parking_lot = "0.12"
 thread-control = "0.1.2"
 
 ci2 = { path = "../ci2" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }

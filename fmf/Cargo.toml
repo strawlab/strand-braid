@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.56"
 
 [dependencies]
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 basic-frame = { path = "../basic-frame" }
 byteorder = "1.1"
 chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}

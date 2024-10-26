@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-machine-vision-formats = "0.1.1"
+machine-vision-formats.workspace = true
 image = { workspace = true, features = ["jpeg", "png"] }
 thiserror = "1.0.33"
 bayer = { version = "0.1", default-features = false }

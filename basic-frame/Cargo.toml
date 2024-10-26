@@ -11,7 +11,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 
 timestamped-frame = { path = "../timestamped-frame" }
 convert-image = { path = "../convert-image", optional = true }

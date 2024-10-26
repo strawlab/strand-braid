@@ -14,7 +14,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "wasmbind",
 ] }
 
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 ci2-types = { path = "ci2-types" }
 basic-frame = { path = "../basic-frame" }
 timestamped-frame = { path = "../timestamped-frame" }

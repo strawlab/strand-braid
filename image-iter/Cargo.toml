@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-machine-vision-formats = { version = "0.1.1", default-features = false }
+machine-vision-formats.workspace = true
 
 [features]
 default=["std"]

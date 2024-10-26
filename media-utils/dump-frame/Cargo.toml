@@ -5,13 +5,20 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-clap = {version="4.0.10", features=["derive"]}
-machine-vision-formats = "0.1"
-chrono = {version="0.4.23", default-features=false}
+clap = { version = "4.0.10", features = ["derive"] }
+machine-vision-formats.workspace = true
+chrono = { version = "0.4.23", default-features = false }
 matroska = "0.19.0"
-openh264 = {workspace = true}
+openh264 = { workspace = true }
 tempfile = "3.4.0"
-image = {workspace = true, features=["jpeg","png", "tiff", "bmp", "pnm", "gif"]}
+image = { workspace = true, features = [
+    "jpeg",
+    "png",
+    "tiff",
+    "bmp",
+    "pnm",
+    "gif",
+] }
 y4m = "0.8.0"
 tiff = "0.9.0"
 

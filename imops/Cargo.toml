@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-machine-vision-formats = { version = "0.1", default-features = false }
+machine-vision-formats.workspace = true
 image-iter = { path = "../image-iter", default-features = false }
 
 [dev-dependencies]

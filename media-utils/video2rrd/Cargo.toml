@@ -16,7 +16,7 @@ opencv-ros-camera = { workspace = true }
 cam-geom = { workspace = true }
 nalgebra = { workspace = true }
 regex = "1.10.3"
-machine-vision-formats = "0.1.1"
+machine-vision-formats.workspace = true
 opencv = { version = "0.88.8", optional = true }
 chrono = { version = "0.4.38", features = [
     "libc",

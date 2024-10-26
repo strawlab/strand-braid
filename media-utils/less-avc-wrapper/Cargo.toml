@@ -7,7 +7,7 @@ edition = "2021"
 less-avc = "0.1.4"
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 chrono = { version = "0.4.34", default-features = false }
 thiserror = "1"
 

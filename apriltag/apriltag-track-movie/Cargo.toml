@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 clap = { version = "4.4.3", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 csv = "1.2.2"

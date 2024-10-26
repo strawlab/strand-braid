@@ -17,7 +17,7 @@ structure = "0.1.2"
 cast = "0.2.2"
 
 basic-frame = { path = "../basic-frame" }
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 datetime-conversion = { path = "../datetime-conversion" }
 

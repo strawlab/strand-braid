@@ -155,6 +155,7 @@ image = { version = "0.25", default-features = false }
 rerun = { version = "0.19", default-features = false, features = ["sdk"] }
 wasm-bindgen = { version = "0.2.95" }
 web-sys = { version = "0.3.72" }
+machine-vision-formats = { version = "0.1.2", default-features = false }
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}

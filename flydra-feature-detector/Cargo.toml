@@ -9,7 +9,7 @@ license = "MIT/Apache-2.0"
 [dependencies]
 tracing = "0.1"
 thiserror = "1.0.33"
-machine-vision-formats = "0.1"
+machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }
 num-traits = { workspace = true }
