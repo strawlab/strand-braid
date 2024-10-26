@@ -49,7 +49,7 @@ flytrax-apriltags-calibration = { path = "../braid-april-cal/flytrax-apriltags-c
 flytrax-io = { path = "../strand-cam/flytrax-io" }
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger = { workspace = true }
 test-log = "0.2.12"
 download-verify = { path = "../download-verify" }
 

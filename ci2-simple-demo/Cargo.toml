@@ -12,7 +12,7 @@ anyhow = "1.0"
 
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }
-env_logger = "0.10"
+env_logger = { workspace = true }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 ci2-vimba = { path = "../ci2-vimba", optional = true }
 lazy_static = "1.4.0"

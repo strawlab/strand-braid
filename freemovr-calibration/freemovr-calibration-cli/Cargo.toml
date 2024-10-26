@@ -13,7 +13,7 @@ doc = false
 [dependencies]
 anyhow = "1"
 log = "0.4"
-env_logger = "0.10"
+env_logger = { workspace = true }
 clap = { version = "4.3.4", features = ["derive"] }
 nalgebra = { workspace = true }
 ncollide2d = { workspace = true, features = ["default"] }

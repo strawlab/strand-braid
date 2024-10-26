@@ -50,7 +50,7 @@ parry-geom = { path = "../parry-geom" }
 [dev-dependencies]
 fmf = { path = "../fmf" }
 download-verify = { path = "../download-verify" }
-env_logger = "0.10"
+env_logger = { workspace = true }
 flydra-pt-detect-cfg = { path = "flydra-pt-detect-cfg" }
 tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 anyhow = "1"

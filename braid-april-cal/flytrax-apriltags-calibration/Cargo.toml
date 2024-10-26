@@ -26,7 +26,7 @@ flydra-types = { path = "../../flydra-types" }
 flytrax-io = { path = "../../strand-cam/flytrax-io" }
 mvg = { path = "../../mvg" }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
-env_logger = "0.10.0"
+env_logger = { workspace = true }
 
 [dev-dependencies]
 download-verify = { path = "../../download-verify" }

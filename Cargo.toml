@@ -149,6 +149,7 @@ axum-token-auth = "0.1.2"
 serde = "1.0"
 serde_yaml = "0.9"
 chrono = { version = "0.4.35", default-features = false }
+env_logger = "0.11"
 eyre = "0.6.12"
 image = { version = "0.25", default-features = false }
 rerun = { version = "0.19", default-features = false, features = ["sdk"] }
