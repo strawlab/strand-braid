@@ -1,6 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use anyhow::{Context, Result};
+use eyre::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use ci2_remote_control::Mp4RecordingConfig;
@@ -278,7 +278,7 @@ fn ffmpeg_to_frame(
         .with_context(|| format!("When running: ffmpeg {:?}", args))?;
 
     if !output.status.success() {
-        anyhow::bail!(
+        eyre::bail!(
             "'ffmpeg {}' failed. stdout: {}, stderr: {}",
             args.join(" "),
             String::from_utf8_lossy(&output.stdout),

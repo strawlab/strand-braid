@@ -12,7 +12,7 @@ chrono = { version = "0.4.34", default-features = false }
 thiserror = "1"
 
 [dev-dependencies]
-anyhow = "1"
+eyre.workspace = true
 log = "0.4"
 env_logger = { workspace = true }
 h264-reader = "0.7.0"
@@ -21,10 +21,7 @@ ttf-firacode = "0.1"
 image = { workspace = true, features = ["jpeg", "tiff", "png"] }
 
 simple-frame = { path = "../../simple-frame" }
+font-drawing = { path = "../font-drawing" }
 
 [features]
-backtrace = [
-    "less-avc/backtrace",
-    "convert-image/backtrace",
-    "anyhow/backtrace",
-]
+backtrace = ["less-avc/backtrace", "convert-image/backtrace"]

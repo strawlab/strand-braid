@@ -19,6 +19,7 @@ thiserror = "1.0.33"
 machine-vision-formats.workspace = true
 bitvec = "1.0.1"
 h264-reader = "0.7.0"
+less-avc = "0.1.4"
 
 nvenc = { path = "../../nvenc" }
 dynlink-cuda = { path = "../../nvenc/dynlink-cuda" }
@@ -27,7 +28,6 @@ dynlink-nvidia-encode = { path = "../../nvenc/dynlink-nvidia-encode" }
 ci2-remote-control = { path = "../../ci2-remote-control" }
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
-less-avc = "0.1.4"
 less-avc-wrapper = { path = "../less-avc-wrapper" }
 frame-source = { path = "../frame-source" }
 image-iter = { path = "../../image-iter" }
@@ -36,14 +36,16 @@ serde_json = "1.0.89"
 
 [dev-dependencies]
 env_logger = { workspace = true }
-anyhow = "1"
-ci2-remote-control = { path = "../../ci2-remote-control" }
-rusttype = "0.8.1"
+eyre.workspace = true
 image = { workspace = true, features = ["jpeg", "tiff", "png"] }
 ttf-firacode = "0.1"
-simple-frame = { path = "../../simple-frame" }
+rusttype = "0.9.2"
 tempfile = "3.4.0"
 clap = { version = "4.0.10", features = ["derive"] }
+
+ci2-remote-control = { path = "../../ci2-remote-control" }
+simple-frame = { path = "../../simple-frame" }
+font-drawing = { path = "../font-drawing" }
 
 [features]
 openh264-encode = ["openh264"]

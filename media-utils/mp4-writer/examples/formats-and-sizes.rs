@@ -13,7 +13,7 @@ fn next16(x: IType) -> IType {
     div_ceil(x, v) * 16
 }
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() -> eyre::Result<()> {
     let n_frames = 1;
 
     let start = chrono::DateTime::from_timestamp(61, 0).unwrap();

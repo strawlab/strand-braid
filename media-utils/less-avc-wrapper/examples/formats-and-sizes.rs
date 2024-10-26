@@ -1,6 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     let n_frames = 1;
 
     let start = chrono::DateTime::from_timestamp(61, 0).unwrap();
@@ -104,8 +104,11 @@ fn main() -> anyhow::Result<()> {
             let png_fname = format!("frame-{}-{}x{}.png", pixfmt_str, width, height);
             let opts = convert_image::ImageOptions::Png;
             use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
-            let png_buf =
-                match_all_dynamic_fmts!(&image, x, convert_image::frame_to_encoded_buffer(x, opts))?;
+            let png_buf = match_all_dynamic_fmts!(
+                &image,
+                x,
+                convert_image::frame_to_encoded_buffer(x, opts)
+            )?;
             let mut fd = std::fs::File::create(png_fname)?;
             use std::io::Write;
             fd.write_all(&png_buf)?;
