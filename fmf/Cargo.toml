@@ -9,8 +9,12 @@ rust-version = "1.56"
 machine-vision-formats.workspace = true
 basic-frame = { path = "../basic-frame" }
 byteorder = "1.1"
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
-datetime-conversion = {path="../datetime-conversion"}
+chrono = { version = "0.4.23", default-features = false, features = [
+    "clock",
+    "std",
+    "wasmbind",
+] }
+datetime-conversion = { path = "../datetime-conversion" }
 timestamped-frame = { path = "../timestamped-frame" }
 thiserror = "1.0.33"
 libflate = "0.1"

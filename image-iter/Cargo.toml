@@ -7,6 +7,6 @@ edition = "2021"
 machine-vision-formats.workspace = true
 
 [features]
-default=["std"]
+default = ["std"]
 
-std=["machine-vision-formats/std"]
+std = ["machine-vision-formats/std"]
