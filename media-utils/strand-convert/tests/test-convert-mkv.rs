@@ -1,4 +1,5 @@
 use std::path::Path;
+use tracing_test::traced_test;
 
 use ci2_remote_control::H264Metadata;
 use color_eyre::Result;
@@ -139,12 +140,12 @@ fn do_convert<P: AsRef<Path>>(
     Ok(outdir)
 }
 
+#[traced_test]
 #[test]
 fn mkv_color_nvenc_h264() -> Result<()> {
     const FNAME: &str = "movie20221123_115306.150434017_DEV_1AB22C003E00.mkv";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "7f7cd84fb8b5934e34e03c875e6a1da0d1ef3737f125de0f3b586a0451e58885";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -156,12 +157,12 @@ fn mkv_color_nvenc_h264() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn mkv_mono_nvenc_h264() -> Result<()> {
     const FNAME: &str = "movie20221123_115306.150434017_DEV_1AB22C00E48D.mkv";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "9137122026736c719b897260c426d2e4337092aacc218ebe16d79470b0be3729";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -173,12 +174,12 @@ fn mkv_mono_nvenc_h264() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn mkv_mono_uncompressed() -> Result<()> {
     const FNAME: &str = "movie20221123_115611.593125675_DEV_1AB22C00E48D.mkv";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/uncompressed";
     const SHA256SUM: &str = "0cbe7a9c7a7be151dc8c401eb59e3fcd7d3589636bc70d0968f21673f8c95e45";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -190,13 +191,13 @@ fn mkv_mono_uncompressed() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn mp4_color_nvenc_h264() -> Result<()> {
     // first convert mkv -> mp4
     const FNAME: &str = "movie20221123_115306.150434017_DEV_1AB22C003E00.mkv";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "7f7cd84fb8b5934e34e03c875e6a1da0d1ef3737f125de0f3b586a0451e58885";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -214,6 +215,7 @@ fn mp4_color_nvenc_h264() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn mp4_mono_nvenc_h264() -> Result<()> {
     // We test mp4 by first making an mp4 from mkv. This also tests that the mp4
@@ -224,7 +226,6 @@ fn mp4_mono_nvenc_h264() -> Result<()> {
     const FNAME: &str = "movie20221123_115306.150434017_DEV_1AB22C00E48D.mkv";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "9137122026736c719b897260c426d2e4337092aacc218ebe16d79470b0be3729";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -242,12 +243,12 @@ fn mp4_mono_nvenc_h264() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn tiff_12bit_mono() -> Result<()> {
     const FNAME: &str = "20221103_test.zip";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/photometrics-samples";
     const SHA256SUM: &str = "41bc89f2735250e02e308ff65009ad110888a57781a89de5b40b0033b20be483";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
@@ -265,6 +266,7 @@ fn tiff_12bit_mono() -> Result<()> {
     Ok(())
 }
 
+#[traced_test]
 #[test]
 fn fmf_gz_mono() -> Result<()> {
     // first convert fmf -> mp4
@@ -272,7 +274,6 @@ fn fmf_gz_mono() -> Result<()> {
     const URL_BASE: &str =
         "https://strawlab-cdn.com/assets/flycube6-videos/fc6-led-4fps-5-cams-bright";
     const SHA256SUM: &str = "fa1ef64b4ab967fd081ab3f026805662212e6b7696a52d1ccc06b61703c3c467";
-    let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),

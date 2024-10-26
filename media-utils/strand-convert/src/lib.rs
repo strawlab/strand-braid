@@ -282,19 +282,6 @@ fn append_extension<P: AsRef<Path>>(input: P, extension: &str) -> PathBuf {
     str.into()
 }
 
-fn init_logger() {
-    use std::io::Write;
-    // Set default level to info and change template not to show date/time or
-    // level.
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format(|buf, record| {
-            let style = buf.style();
-            writeln!(buf, "{}", style.value(record.args()))
-        })
-        .write_style(env_logger::WriteStyle::Auto)
-        .init();
-}
-
 /// Deletes a file being written in case of error.
 ///
 /// Call [Self::no_error] to keep the file. Otherwise, dropping this will cause
@@ -380,7 +367,7 @@ fn is_needed_now(
     {
         let diff = abs_diff(next_dest_pts, next_src_pts);
         let result = diff < *desired_precision;
-        log::debug!(
+        tracing::debug!(
             "is_needed_now(next_dest_pts: {}, next_src_pts: {}, prev_dest_pts: {}, {}) -> next_src_pts: {} -> diff: {} -> result: {result}",
             next_dest_pts.to_display(),next_src_pts.to_display(),prev_dest_pts.to_display(),desired_precision.to_display(),next_src_pts.to_display(),diff.to_display(),
         );
@@ -409,8 +396,7 @@ pub fn main() -> Result<()> {
         std::env::set_var("RUST_LOG", "info");
     }
 
-    // env_logger::init();
-    init_logger();
+    env_tracing_logger::init();
     let cli = Cli::parse();
     run_cli(cli)
 }
@@ -451,7 +437,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let writing_app = format!("{}-{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    log::info!("input: {}", input_path.display());
+    tracing::info!("input: {}", input_path.display());
 
     if is_file {
         output_basename = input_path.as_path().with_extension(""); // removes extension but keeps leading directory.
@@ -481,7 +467,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 } else {
                     Encoder::NoneCopyExistingH264
                 };
-                log::debug!("  MKV video");
+                tracing::debug!("  MKV video");
                 src = Box::new(mkv_video);
                 default_encoder = encoder;
             }
@@ -496,13 +482,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     gamma = metadata.gamma;
                     h264_already_has_metadata = true;
                 }
-                log::debug!("  MP4 video");
+                tracing::debug!("  MP4 video");
                 src = Box::new(mp4_video);
                 default_encoder = Encoder::NoneCopyExistingH264;
             }
             Some("fmf") | Some("fmf.gz") => {
                 let fmf_video = fmf_source::from_path(&input_path)?;
-                log::debug!("  FMF video");
+                tracing::debug!("  FMF video");
                 src = Box::new(fmf_video);
                 default_encoder = Encoder::LessAvc;
             }
@@ -527,7 +513,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         }
         let pattern = dirname.join("*.tif");
         let stack = pv_tiff_stack::from_path_pattern(pattern.to_str().unwrap())?;
-        log::debug!("  TIFF stack with {} files", stack.len());
+        tracing::debug!("  TIFF stack with {} files", stack.len());
         src = Box::new(stack);
         default_encoder = Encoder::LessAvc;
     }
@@ -537,7 +523,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     // If we need to skip some initial frames, do it before we compute FPS
     if let Some(skip) = cli.skip {
-        log::info!("skipping {} initial input images", skip);
+        tracing::info!("skipping {} initial input images", skip);
         src.skip_n_frames(skip)?;
     };
 
@@ -592,9 +578,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     Duration::from_secs_f64(deltas[0].into_inner())
                 } else {
                     if cli.show_timestamps {
-                        log::info!("While calculating inverval:");
+                        tracing::info!("While calculating inverval:");
                         for (fno, (delta, ts)) in deltas.iter().zip(timestamps).enumerate() {
-                            log::info!(
+                            tracing::info!(
                                 "Frame {fno} for time: {} (interval to next: {}).",
                                 ts.to_display(),
                                 Duration::from_secs_f64(delta.into_inner()).to_display(),
@@ -609,7 +595,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     }
                     let sum_delta = deltas.iter().sum::<NotNan<f64>>().into_inner();
                     let avg_delta = Duration::from_secs_f64(sum_delta / deltas.len() as f64);
-                    log::debug!(
+                    tracing::debug!(
                         "Average interval over first frames: {} ({} fps).",
                         avg_delta.to_display(),
                         1.0 / avg_delta.as_secs_f64()
@@ -657,7 +643,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     let mut hdr_lum_range = if cli.hdr_autodetect_range {
         let (min, max) = src.estimate_luminance_range()?;
-        log::info!("  estimated luminance range in input: {min}-{max}");
+        tracing::info!("  estimated luminance range in input: {min}-{max}");
         Some((min, max))
     } else {
         None
@@ -665,7 +651,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     if let Some(minmax) = cli.hdr_range {
         let MinMax { min, max } = minmax;
-        log::info!("  input range specified: {min}-{max}");
+        tracing::info!("  input range specified: {min}-{max}");
         hdr_lum_range = Some((min, max));
     }
 
@@ -707,7 +693,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     };
 
     if let Some(take) = cli.take {
-        log::info!("  limiting to {} input images", take);
+        tracing::info!("  limiting to {} input images", take);
         stack_iter = Box::new(stack_iter.take(take)) as Box<dyn Iterator<Item = Result<FrameData>>>;
     };
 
@@ -720,13 +706,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             desired_interval,
             desired_precision: _,
         } =>
-            log::info!(
+            tracing::info!(
         "size: {width}x{height}, start time: {frame0_time}, desired_interval: {} ({:.1} fps), num frames: {}",
         desired_interval.to_display(),
         1.0 / desired_interval.as_secs_f64(), n_src_frames_expected,
     ),
         TimingInfo::Ignore =>
-            log::info!("size: {width}x{height}, start time: {frame0_time}, num frames: {}",n_src_frames_expected),
+            tracing::info!("size: {width}x{height}, start time: {frame0_time}, num frames: {}",n_src_frames_expected),
 
     }
 
@@ -774,7 +760,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             index: 0,
         })
     } else {
-        log::debug!(
+        tracing::debug!(
             "Saving metadata: {}",
             serde_json::to_string(&serde_json::to_value(&h264_metadata)?)?
         );
@@ -860,7 +846,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             )
         })? {
             if cli.show_timestamps {
-                log::info!(
+                tracing::info!(
                     "Output frame {out_fno} for time: {} (source frame: {}, source time: {}).",
                     next_dest_pts.to_display(),
                     peek_source_data.idx(),
@@ -876,7 +862,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 pb.inc(1);
             }
 
-            log::debug!(
+            tracing::debug!(
                 "Output frame {out_fno} from source frame {} at {}",
                 src_count,
                 this_data.timestamp().to_display(),
@@ -888,7 +874,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             (&prev_frame, frame_elapsed.unwrap_duration())
         } else {
             if cli.show_timestamps {
-                log::warn!(
+                tracing::warn!(
                     "Output frame {out_fno} missing for time: {}. (Next source idx: {}, time: {})",
                     next_dest_pts.to_display(),
                     peek_source_data.idx(),
@@ -896,7 +882,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 );
             }
 
-            log::debug!("Output frame {out_fno} missing from source");
+            tracing::debug!("Output frame {out_fno} missing from source");
             n_missing_frames += 1;
 
             // frame is missing in input data
@@ -975,7 +961,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             "".to_string()
         };
 
-        log::info!(
+        tracing::info!(
             "Processing statistics: read {} images, {} in {} ({} per second). {n_missing_frames} missing frames. {minmaxstr}",
             src_count,
             HumanBytes(bytes_read as u64),
@@ -995,7 +981,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let out_bytes_per_second = out_bytes as f64 / next_dest_pts.as_secs_f64();
         let fps = out_fno as f64 / prev_dest_pts.unwrap_duration().as_secs_f64();
 
-        log::info!(
+        tracing::info!(
             "Saved movie statistics: {out_fno} frames, codec: H264, encoder: {encoder}, size: {}, duration: {}, fps: {:.1}, byterate: {}, filename: {}",
             HumanBytes(out_bytes),
             HumanDuration(prev_dest_pts.unwrap_duration()),
