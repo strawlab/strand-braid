@@ -1,35 +1,47 @@
 #!/usr/bin/env python
 
-# This script listens to the HTTP JSON Event Stream of flydra2 and transmits
+# This script listens to the HTTP JSON Event Stream of braid and transmits
 # pose information over UDP in a simple text format.
 
-# This is an example of listening for the live stream of flydra2. In version 1
-# of the flydra2 pose api, in addition to the `Update` events, flydra2 also has
-# `Birth` and `Death` events. The `Birth` event returns the same data as an
-# `Update` event, whereas the `Death` event sends just `obj_id`.
+# This is an example of listening for the live stream of braid. There are 3
+# event types. In addition to the `Update` events, there are also `Birth` and
+# `Death` events. The `Birth` event returns the same data as an `Update` event,
+# whereas the `Death` event sends just `obj_id`.
 
-from __future__ import print_function
 import argparse
 import requests
 import json
-import time
 import socket
+import os
 
 DATA_PREFIX = "data: "
+COOKIE_JAR_FNAME = "braid-cookies.json"
 
-
-class Flydra2Proxy:
-    def __init__(self, flydra2_url):
-        self.flydra2_url = flydra2_url
+class BraidProxy:
+    def __init__(self, braid_url):
+        self.braid_url = braid_url
         self.session = requests.session()
-        r = self.session.get(self.flydra2_url)
-        assert r.status_code == requests.codes.ok
+
+        # If we have a cookie jar, load the cookies before initial request. This
+        # allows using a URL without a token.
+        if os.path.isfile(COOKIE_JAR_FNAME):
+            with open(COOKIE_JAR_FNAME, 'r') as f:
+                cookies = requests.utils.cookiejar_from_dict(json.load(f))
+                self.session.cookies.update(cookies)
+
+        r = self.session.get(self.braid_url)
+        r.raise_for_status()
+
+        # Store cookies
+        with open(COOKIE_JAR_FNAME, 'w') as f:
+            json.dump(requests.utils.dict_from_cookiejar(self.session.cookies), f)
+
 
     def run(self, udp_host, udp_port):
         addr = (udp_host, udp_port)
         print("sending flydra data to UDP %s" % (addr,))
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        events_url = self.flydra2_url + "events"
+        events_url = self.braid_url + "events"
         r = self.session.get(
             events_url, stream=True, headers={"Accept": "text/event-stream"},
         )
@@ -37,7 +49,7 @@ class Flydra2Proxy:
             data = parse_chunk(chunk)
             # print('chunk value: %r'%data)
             version = data.get("v", 1)  # default because missing in first release
-            assert version == 2  # check the data version
+            assert version in (2, 3)  # check the data version
 
             try:
                 update_dict = data["msg"]["Update"]
@@ -63,7 +75,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--flydra2-url", default="http://127.0.0.1:8397/", help="URL of flydra2 server"
+        "--braid-url", default="http://127.0.0.1:8397/", help="URL of braid server"
     )
 
     parser.add_argument(
@@ -76,8 +88,8 @@ def main():
         help="UDP host to send pose information",
     )
     args = parser.parse_args()
-    flydra2 = Flydra2Proxy(args.flydra2_url)
-    flydra2.run(udp_host=args.udp_host, udp_port=args.udp_port)
+    braid = BraidProxy(args.braid_url)
+    braid.run(udp_host=args.udp_host, udp_port=args.udp_port)
 
 
 if __name__ == "__main__":

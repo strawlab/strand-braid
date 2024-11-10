@@ -15,6 +15,16 @@ demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scrip
 TODO: describe how to use and modify the [`record-mp4-video-braid-all-cams.py`
 demo](strand-braid-user/scripts/record-mp4-video-braid-all-cams.py).
 
+## Demo: save preview images to disk from Strand Camera using Python
+
+TODO: describe how to use and modify the [`strand_cam_subscriber.py`
+demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/strand_cam_subscriber.py).
+
+## Demo: listen to realtime 3D tracking data using Python
+
+TODO: describe how to use and modify the [`braid_retransmit_udp.py`
+demo](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/braid_retransmit_udp.py).
+
 ## Advanced: automating manual actions
 
 TODO: describe how to use the developer tools to watch the network requests from

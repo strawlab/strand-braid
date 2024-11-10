@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import argparse
+import os
 import json
 import time
 import threading
-import sys
+import urllib
 import requests  # https://docs.python-requests.org/en/latest/user/install
 
+COOKIE_JAR_FNAME = "strand-cam-cookies.json"
 
 def maintain_state_copy(event_iterator, shared_state):
     for chunk in event_iterator:
@@ -31,21 +32,30 @@ def parse_chunk(chunk):
 
 class StrandCamProxy:
     def __init__(self, strand_cam_url):
-        if not strand_cam_url.endswith("/"):
-            strand_cam_url = strand_cam_url + "/"
-        self.callback_url = strand_cam_url + "callback"
+        self.callback_url = urllib.parse.urljoin(strand_cam_url, "callback")
 
-        # Setup initial session
         self.session = requests.session()
+        # If we have a cookie jar, load the cookies before initial request. This
+        # allows using a URL without a token.
+        if os.path.isfile(COOKIE_JAR_FNAME):
+            with open(COOKIE_JAR_FNAME, 'r') as f:
+                cookies = requests.utils.cookiejar_from_dict(json.load(f))
+                self.session.cookies.update(cookies)
+
+        # Pass any token given and setup cookies.
         r = self.session.get(strand_cam_url)
-        assert r.status_code == requests.codes.ok
+        r.raise_for_status()
+
+        # Store cookies
+        with open(COOKIE_JAR_FNAME, 'w') as f:
+            json.dump(requests.utils.dict_from_cookiejar(self.session.cookies), f)
 
         # Create iterator which is updated with each new event
-        events_url = strand_cam_url + "strand-cam-events"
+        events_url = urllib.parse.urljoin(strand_cam_url, "strand-cam-events")
         r = self.session.get(
             events_url, stream=True, headers={"Accept": "text/event-stream"},
         )
-        assert r.status_code == requests.codes.ok
+        r.raise_for_status()
         event_iterator = r.iter_content(chunk_size=None)
 
         # Send this iterator to a new thread
@@ -65,14 +75,8 @@ class StrandCamProxy:
 
     def send_to_camera(self, cmd_dict):
         params = {"ToCamera": cmd_dict}
-        body = json.dumps(params)
-        r = self.session.post(self.callback_url, data=body)
-        if r.status_code != requests.codes.ok:
-            print(
-                "error making request, status code {}".format(r.status_code),
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        r = self.session.post(self.callback_url, json=params)
+        r.raise_for_status()
 
 
 def main():
