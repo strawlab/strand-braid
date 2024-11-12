@@ -11,12 +11,7 @@ tracing = "0.1"
 tokio = { version = "1.17", features = ["macros", "rt", "tracing"] }
 tokio-stream = "0.1.8"
 color-eyre = "0.6.2"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 serde = { version = "1", features = ["derive"] }
 toml = "0.5"
 machine-vision-formats.workspace = true

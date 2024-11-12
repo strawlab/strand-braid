@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.20", features = ["extension-module", "abi3-py37"] }
 numpy = "0.20"
 csv = "1.1"
-chrono = "0.4.31"
+chrono.workspace = true
 
 csv-eof = { path = "../../../csv-eof" }
 flydra-types = { path = "../../../flydra-types" }

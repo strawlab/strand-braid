@@ -16,11 +16,7 @@ zip = { version = "0.6.3", default-features = false, features = [
     "deflate",
     "time",
 ] }
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 serde-xml-rs = "0.5.1"
 hdrhistogram = "7.1"
 base64 = "0.12"

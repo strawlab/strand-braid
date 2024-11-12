@@ -11,7 +11,7 @@ nalgebra = { workspace = true }
 opencv-ros-camera = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
-chrono = { workspace = true, features = ["serde", "clock", "std", "wasmbind"] }
+chrono.workspace = true
 eyre = { workspace = true }
 
 opencv-calibrate = { path = "../opencv-calibrate" }

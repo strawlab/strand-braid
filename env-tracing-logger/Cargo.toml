@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-chrono = { version = "0.4.38", default-features = false, features = ["clock"] }
+chrono.workspace = true
 time = { version = "0.3.36", default-features = false, features = [
     "formatting",
 ] }

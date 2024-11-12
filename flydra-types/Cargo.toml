@@ -9,12 +9,7 @@ license = "MIT/Apache-2.0"
 [dependencies]
 libc = "0.2"
 byteorder = "1"
-chrono = { version = "0.4.35", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 thiserror.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = { version = "0.11.2", optional = true }

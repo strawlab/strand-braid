@@ -12,12 +12,7 @@ itertools = "0.10.5"
 nalgebra = { workspace = true }
 cam-geom = { workspace = true }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
-chrono = { version = "0.4.23", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 dlt = { workspace = true, features = ["default", "serde-serialize"] }
 argmin = { version = "0.8.1", features = [
     "wasm-bindgen",

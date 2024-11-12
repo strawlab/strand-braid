@@ -10,11 +10,7 @@ log = { version = "0.4.5", features = ["release_max_level_debug"] }
 clap = { version = "4.0.10", features = ["derive"] }
 parking_lot = "0.12"
 csv = "1.1"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 serde = { version = "^1.0", features = ["derive"] }
 serde_derive = "1.0.79"
 serde_json = "1.0.29"

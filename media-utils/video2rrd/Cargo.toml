@@ -18,11 +18,7 @@ nalgebra = { workspace = true }
 regex = "1.10.3"
 machine-vision-formats.workspace = true
 opencv = { version = "0.88.8", optional = true }
-chrono = { version = "0.4.38", features = [
-    "libc",
-    "serde",
-    "std",
-], default-features = false }
+chrono.workspace = true
 
 env-tracing-logger = { path = "../../env-tracing-logger" }
 convert-image.workspace = true

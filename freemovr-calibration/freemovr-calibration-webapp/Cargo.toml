@@ -25,12 +25,7 @@ serde_json = "1.0"
 serde_yaml = "0.9"
 http = "0.2"
 itertools = "0.7.8"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 
 mvg = { path = "../../mvg", features = ["serde-serialize"] }

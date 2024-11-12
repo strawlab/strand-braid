@@ -7,11 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 log = "0.4.5"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 thiserror.workspace = true
 
 mp4-writer = { path = "../media-utils/mp4-writer", features = [

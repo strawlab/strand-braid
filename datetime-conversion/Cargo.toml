@@ -7,4 +7,4 @@ rust-version = "1.56"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-chrono = {version="0.4.23", default-features=false, features=["clock", "std", "wasmbind"]}
+chrono.workspace = true

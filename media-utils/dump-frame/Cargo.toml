@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0"
 clap = { version = "4.0.10", features = ["derive"] }
 machine-vision-formats.workspace = true
-chrono = { version = "0.4.23", default-features = false }
+chrono.workspace = true
 matroska = "0.19.0"
 openh264 = { workspace = true }
 tempfile = "3.4.0"

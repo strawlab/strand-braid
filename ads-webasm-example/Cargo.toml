@@ -11,11 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 wasm-bindgen = { workspace = true }
 js-sys = "0.3"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 yew = { version = "0.21.0", features = ["csr"] }
 serde = { version = "1.0", default-features = false }
 serde_yaml = "0.9"

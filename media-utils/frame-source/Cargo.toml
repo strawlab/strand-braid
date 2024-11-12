@@ -9,11 +9,7 @@ eyre.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.85"
 tracing = "0.1"
-chrono = { version = "0.4.35", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 machine-vision-formats.workspace = true
 glob = "0.3.0"
 tiff = "0.9.0"

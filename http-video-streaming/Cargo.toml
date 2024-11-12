@@ -7,12 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 thiserror.workspace = true
-chrono = { version = "0.4.23", default-features = false, features = [
-    "serde",
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 base64 = "0.6"
 tokio = { version = "1", features = ["sync", "time", "macros"] }
 tokio-stream = "0.1.8"

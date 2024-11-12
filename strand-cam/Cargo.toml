@@ -42,7 +42,7 @@ timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }
 fmf = { path = "../fmf" }
 ufmf = { path = "../ufmf" }
-chrono = { workspace = true, features = ["serde", "clock", "std", "wasmbind"] }
+chrono.workspace = true
 convert-image.workspace = true
 hyper = { version = "1.1", features = ["client", "http1"] }
 hyper-tls = "0.6"

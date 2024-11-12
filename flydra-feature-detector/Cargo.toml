@@ -31,11 +31,7 @@ rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 flydra-types = { path = "../flydra-types" }
 ufmf = { path = "../ufmf" }
 byteorder = "1.1"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 futures = "0.3"
 mvg = { path = "../mvg" }
 flydra-feature-detector-types = { path = "flydra-feature-detector-types", default-features = false }

@@ -12,7 +12,7 @@ log = "0.4.17"
 image = { workspace = true, features = ["png"] }
 opencv-ros-camera = { workspace = true }
 serde_yaml = { workspace = true }
-chrono = { workspace = true }
+chrono.workspace = true
 
 strand-cam-storetype = { path = "../../strand-cam-storetype" }
 opencv-calibrate = { path = "../../opencv-calibrate" }

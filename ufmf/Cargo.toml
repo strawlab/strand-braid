@@ -7,11 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 byteorder = "1.1"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 thiserror.workspace = true
 structure = "0.1.2"
 cast = "0.2.2"

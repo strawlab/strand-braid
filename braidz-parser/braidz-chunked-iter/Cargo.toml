@@ -8,7 +8,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 [dependencies]
 anyhow = "1"
 csv = "1.1"
-chrono = "0.4.31"
+chrono.workspace = true
 
 flydra-types = { path = "../../flydra-types" }
 

@@ -20,11 +20,7 @@ parking_lot = "0.12"
 futures = "0.3"
 pin-project = "1.0.11"
 csv = "1.1"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 serde = { version = "^1.0", features = ["derive"] }
 serde_json = "1.0.29"
 serde_yaml = "0.9"

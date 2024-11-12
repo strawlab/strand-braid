@@ -15,11 +15,7 @@ tracing = "0.1.40"
 eyre = "0.6.2"
 color-eyre = "0.6.2"
 dotenv = "0.15"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 
 env-tracing-logger = { path = "../env-tracing-logger" }
 flydra-types = { path = "../flydra-types" }

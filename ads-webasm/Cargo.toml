@@ -13,11 +13,7 @@ wasm-bindgen = { workspace = true }
 serde = "1.0"
 serde_yaml = "0.9"
 serde_derive = "1.0"
-chrono = { version = "0.4.23", default-features = false, features = [
-    "clock",
-    "std",
-    "wasmbind",
-] }
+chrono.workspace = true
 csv = { version = "1.1", optional = true }
 
 yew-tincture = "0.2.2"
