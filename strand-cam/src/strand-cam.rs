@@ -3689,13 +3689,8 @@ impl FinalMp4RecordingConfig {
             _ => None,
         };
         let final_cfg = if let Some(codec) = mp4_codec {
-            // See https://github.com/chronotope/chrono/issues/576
-            let fixed = chrono::DateTime::<chrono::FixedOffset>::from_naive_utc_and_offset(
-                creation_time.naive_utc(),
-                *creation_time.offset(),
-            );
-
-            let mut h264_metadata = ci2_remote_control::H264Metadata::new("strand-cam", fixed);
+            let mut h264_metadata =
+                ci2_remote_control::H264Metadata::new("strand-cam", creation_time.into());
             h264_metadata.camera_name = Some(shared.camera_name.clone());
             h264_metadata.gamma = shared.camera_gamma;
             let final_cfg = Mp4RecordingConfig {
