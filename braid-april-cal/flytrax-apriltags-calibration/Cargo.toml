@@ -8,7 +8,7 @@ anyhow = "1.0.71"
 apriltag-sys = "0.3"
 base64 = "0.6"
 clap = { version = "4.3.4", features = ["derive"] }
-image = { workspace = true, features = ["png", "jpeg"] }
+image.workspace = true
 machine-vision-formats.workspace = true
 nalgebra.workspace = true
 resvg = "0.19"

@@ -153,7 +153,11 @@ chrono = { version = "0.4.38", features = ["serde"] }
 home = "0.5.9"
 env_logger = "0.11"
 eyre = "0.6.12"
-image = { version = "0.25", default-features = false }
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+    "tiff",
+] }
 rerun = { version = "0.19", default-features = false, features = ["sdk"] }
 thiserror = "1.0.51"
 wasm-bindgen = { version = "0.2.95" }

@@ -19,7 +19,7 @@ clap = { version = "4.3.4", features = ["derive"] }
 chrono.workspace = true
 anyhow = "1.0"
 glob = "0.3"
-image = { workspace = true, features = ["jpeg", "png", "bmp", "pnm"] }
+image.workspace = true
 machine-vision-formats.workspace = true
 y4m.workspace = true
 

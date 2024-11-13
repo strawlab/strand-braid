@@ -24,7 +24,7 @@ futures = "0.3"
 tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 tempfile = "3.4.0"
 anyhow = "1.0"
-image = { workspace = true, features = ["jpeg", "png"] }
+image.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
 datetime-conversion = { path = "../datetime-conversion" }

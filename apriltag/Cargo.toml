@@ -12,4 +12,4 @@ machine-vision-formats.workspace = true
 
 [dev-dependencies]
 convert-image.workspace = true
-image = { workspace = true, features = ["jpeg"] }
+image.workspace = true

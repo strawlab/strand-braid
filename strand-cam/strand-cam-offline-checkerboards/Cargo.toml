@@ -9,7 +9,7 @@ clap = { version = "4.1.8", features = ["derive"] }
 env_logger.workspace = true
 glob = "0.3.1"
 log = "0.4.17"
-image = { workspace = true, features = ["png"] }
+image.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 chrono.workspace = true

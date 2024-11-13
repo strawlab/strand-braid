@@ -21,7 +21,7 @@ opencv-ros-camera.workspace = true
 genmesh = "0.6"
 obj = { version = "0.10", features = ["genmesh"] }
 byteorder = "1.2.2"
-image = { workspace = true, features = ["jpeg", "png"] }
+image.workspace = true
 csv = "1.1"
 chrono.workspace = true
 
