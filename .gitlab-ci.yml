@@ -259,6 +259,11 @@ test_crates_rust_1_80:
     - cargo test
     - cd ../..
 
+    # Test media-utils/dump-frame
+    - cd media-utils/dump-frame
+    - cargo test
+    - cd ../..
+
     # Test media-utils/strand-convert
     - cd media-utils/strand-convert
     - cargo test -- --test-threads 1
