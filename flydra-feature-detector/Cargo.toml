@@ -12,14 +12,14 @@ thiserror.workspace = true
 machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
 basic-frame = { path = "../basic-frame" }
-num-traits = { workspace = true }
+num-traits.workspace = true
 thread-control = "0.1"
 cast = "0.2.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 tokio = { version = "1.0.1", default-features = false, features = ["rt"] }
 stream-cancel = "0.8"
-nalgebra = { workspace = true }
+nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
 ipp-sys = { version = "0.4.4", optional = true }
 
@@ -46,7 +46,7 @@ parry-geom = { path = "../parry-geom" }
 [dev-dependencies]
 fmf = { path = "../fmf" }
 download-verify = { path = "../download-verify" }
-env_logger = { workspace = true }
+env_logger.workspace = true
 flydra-pt-detect-cfg = { path = "flydra-pt-detect-cfg" }
 tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
 anyhow = "1"

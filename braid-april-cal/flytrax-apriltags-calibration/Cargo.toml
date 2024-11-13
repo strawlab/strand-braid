@@ -10,7 +10,7 @@ base64 = "0.6"
 clap = { version = "4.3.4", features = ["derive"] }
 image = { workspace = true, features = ["png", "jpeg"] }
 machine-vision-formats.workspace = true
-nalgebra = { workspace = true }
+nalgebra.workspace = true
 resvg = "0.19"
 serde_yaml = "0.9.21"
 tagger = "4.0"
@@ -26,7 +26,7 @@ flydra-types = { path = "../../flydra-types" }
 flytrax-io = { path = "../../strand-cam/flytrax-io" }
 mvg = { path = "../../mvg" }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
-env_logger = { workspace = true }
+env_logger.workspace = true
 
 [dev-dependencies]
 download-verify = { path = "../../download-verify" }

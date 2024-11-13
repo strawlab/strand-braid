@@ -32,7 +32,7 @@ y4m-writer = { path = "../y4m-writer" }
 serde_json = "1.0.89"
 
 [dev-dependencies]
-env_logger = { workspace = true }
+env_logger.workspace = true
 eyre.workspace = true
 image = { workspace = true, features = ["jpeg", "tiff", "png"] }
 ttf-firacode = "0.1"

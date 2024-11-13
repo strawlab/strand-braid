@@ -6,9 +6,9 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-adskalman = { workspace = true }
-nalgebra = { workspace = true }
-num-traits = { workspace = true }
+adskalman.workspace = true
+nalgebra.workspace = true
+num-traits.workspace = true
 
 [dev-dependencies]
 approx = "0.5"

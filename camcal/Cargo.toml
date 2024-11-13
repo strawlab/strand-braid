@@ -7,11 +7,11 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-nalgebra = { workspace = true }
-opencv-ros-camera = { workspace = true }
+nalgebra.workspace = true
+opencv-ros-camera.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_yaml = { workspace = true }
+serde_yaml.workspace = true
 chrono.workspace = true
-eyre = { workspace = true }
+eyre.workspace = true
 
 opencv-calibrate = { path = "../opencv-calibrate" }

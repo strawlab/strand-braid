@@ -9,8 +9,8 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 itertools = "0.10.5"
-nalgebra = { workspace = true }
-cam-geom = { workspace = true }
+nalgebra.workspace = true
+cam-geom.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 chrono.workspace = true
 dlt = { workspace = true, features = ["default", "serde-serialize"] }

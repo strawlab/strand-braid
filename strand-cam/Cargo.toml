@@ -21,7 +21,7 @@ home.workspace = true
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0.29"
-serde_yaml = { workspace = true }
+serde_yaml.workspace = true
 serde_cbor = "0.11"
 webbrowser = "0.8.3"
 tempfile = "3.4.0"
@@ -29,7 +29,7 @@ clap = { version = "4", features = ["string", "env"] }
 preferences-serde1 = "2.0.0"
 base64 = "0.12"
 directories = "4.0.1"
-eyre = { workspace = true }
+eyre.workspace = true
 parking_lot = "0.12"
 thread-control = { version = "0.1.2", optional = true }
 ipp-sys = { version = "0.4.4", optional = true }
@@ -82,9 +82,9 @@ mvg = { path = "../mvg", optional = true }
 flydra-mvg = { path = "../flydra-mvg", optional = true }
 tokio-serial = { version = "5.4.3" }
 bytes = "1.0"
-nalgebra = { workspace = true }
-lstsq = { workspace = true }
-opencv-ros-camera = { workspace = true }
+nalgebra.workspace = true
+lstsq.workspace = true
+opencv-ros-camera.workspace = true
 approx = { version = "0.5", optional = true }
 byteorder = "1.4"
 target = "2.0.0"
@@ -94,7 +94,7 @@ tower = "0.4.13"
 axum = "0.7.4"
 tracing = "0.1.40"
 tracing-panic = "0.1.1"
-axum-token-auth = { workspace = true }
+axum-token-auth.workspace = true
 tower-http = { version = "0.5.1", features = ["trace", "fs"] }
 tower-serve-static = { version = "0.1", optional = true }
 include_dir = { version = "0.7.3", optional = true }

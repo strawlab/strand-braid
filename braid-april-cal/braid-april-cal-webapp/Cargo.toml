@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 yew = { version = "0.21.0", features = ["csr"] }
 yew-tincture = "0.2.2"
 js-sys = "0.3"
-wasm-bindgen = { workspace = true }
+wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [
     "CssStyleDeclaration",
     "HtmlAnchorElement",

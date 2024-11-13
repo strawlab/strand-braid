@@ -6,6 +6,6 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-ncollide2d = { workspace = true, features = ["default"]}
-delaunator = { workspace = true }
-nalgebra = { workspace = true }
+ncollide2d = { workspace = true, features = ["default"] }
+delaunator.workspace = true
+nalgebra.workspace = true

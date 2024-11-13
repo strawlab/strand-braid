@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-nalgebra = { workspace = true }
+nalgebra.workspace = true
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 textured-tri-mesh = { path = "../textured-tri-mesh" }
 genmesh = "0.6"

@@ -8,4 +8,4 @@ edition = "2021"
 # [dev-dependencies]
 # eyre.workspace = true
 # log.workspace = true
-# env_logger = { workspace = true }
+# env_logger.workspace = true

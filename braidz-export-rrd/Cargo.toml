@@ -14,9 +14,9 @@ color-eyre = "0.6.2"
 tracing = "0.1.40"
 rerun = { workspace = true, features = ["image"] }
 image = { workspace = true, features = ["jpeg"] }
-opencv-ros-camera = { workspace = true }
-cam-geom = { workspace = true }
-nalgebra = { workspace = true }
+opencv-ros-camera.workspace = true
+cam-geom.workspace = true
+nalgebra.workspace = true
 regex = "1.10.3"
 machine-vision-formats.workspace = true
 rayon = "1.9.0"

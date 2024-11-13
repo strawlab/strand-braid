@@ -27,7 +27,7 @@ regex = "1"
 futures = "0.3"
 csv = "1.1"
 tracing-panic = "0.1.1"
-nalgebra = { workspace = true }
+nalgebra.workspace = true
 indicatif = "0.17"
 
 channellib = { path = "../channellib" }

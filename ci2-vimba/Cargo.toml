@@ -25,7 +25,7 @@ timestamped-frame = { path = "../timestamped-frame" }
 channellib = { path = "../channellib" }
 
 [dev-dependencies]
-env_logger = { workspace = true }
+env_logger.workspace = true
 anyhow = "1"
 timestamped-frame = { path = "../timestamped-frame" }
 

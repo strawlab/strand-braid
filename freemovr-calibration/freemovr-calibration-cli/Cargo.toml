@@ -13,12 +13,12 @@ doc = false
 [dependencies]
 anyhow = "1"
 log = "0.4"
-env_logger = { workspace = true }
+env_logger.workspace = true
 clap = { version = "4.3.4", features = ["derive"] }
-nalgebra = { workspace = true }
+nalgebra.workspace = true
 ncollide2d = { workspace = true, features = ["default"] }
-cam-geom = { workspace = true }
-opencv-ros-camera = { workspace = true }
+cam-geom.workspace = true
+opencv-ros-camera.workspace = true
 chrono.workspace = true
 
 freemovr-calibration = { path = ".." }

@@ -9,7 +9,7 @@ rust-version = "1.76"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-wasm-bindgen = { workspace = true }
+wasm-bindgen.workspace = true
 js-sys = "0.3"
 chrono.workspace = true
 yew = { version = "0.21.0", features = ["csr"] }

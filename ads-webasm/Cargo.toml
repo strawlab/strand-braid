@@ -9,7 +9,7 @@ rust-version = "1.76"
 yew = { version = "0.21.0", features = ["csr"] }
 js-sys = "0.3"
 gloo-file = "0.2"
-wasm-bindgen = { workspace = true }
+wasm-bindgen.workspace = true
 serde = "1.0"
 serde_yaml = "0.9"
 serde_derive = "1.0"

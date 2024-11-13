@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eyre = { workspace = true }
+eyre.workspace = true
 clap = { version = "4.1.8", features = ["derive"] }
-env_logger = { workspace = true }
+env_logger.workspace = true
 glob = "0.3.1"
 log = "0.4.17"
 image = { workspace = true, features = ["png"] }
-opencv-ros-camera = { workspace = true }
-serde_yaml = { workspace = true }
+opencv-ros-camera.workspace = true
+serde_yaml.workspace = true
 chrono.workspace = true
 
 strand-cam-storetype = { path = "../../strand-cam-storetype" }
