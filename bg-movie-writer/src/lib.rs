@@ -165,7 +165,9 @@ impl MyFfmpegWriter {
                 Some(ffmpeg_writer::FfmpegEncoderOptions::H264VideoToolbox)
             }
             FfmpegCodec::H264Vaapi => Some(ffmpeg_writer::FfmpegEncoderOptions::H264Vaapi),
-            FfmpegCodec::X264 => Some(ffmpeg_writer::FfmpegEncoderOptions::X264),
+            FfmpegCodec::X264 => {
+                Some(ffmpeg_writer::FfmpegEncoderOptions::X264(Default::default()))
+            }
         };
         let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, opts)?;
         let out_fd = std::fs::File::create(&srt_filename)?;
