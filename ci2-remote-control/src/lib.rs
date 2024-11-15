@@ -66,7 +66,6 @@ impl RecordingFrameRate {
     }
 }
 
-// use Debug to impl Display
 impl std::fmt::Display for RecordingFrameRate {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         use RecordingFrameRate::*;
@@ -89,9 +88,9 @@ impl std::fmt::Display for RecordingFrameRate {
 }
 
 impl EnumIter for RecordingFrameRate {
-    fn variants() -> &'static [Self] {
+    fn variants() -> Vec<Self> {
         use RecordingFrameRate::*;
-        &[
+        vec![
             Fps1, Fps2, Fps5, Fps10, Fps20, Fps25, Fps30, Fps40, Fps50, Fps60, Fps100, Unlimited,
         ]
     }
@@ -107,15 +106,6 @@ pub enum Mp4Codec {
     H264LessAvc,
     /// Data is already encoded as a raw H264 stream.
     H264RawStream,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum FfmpegCodec {
-    H264VideoToolbox,
-    H264Nvenc,
-    H264Vaapi,
-    BareFfmpeg,
-    X264,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
@@ -202,7 +192,7 @@ pub struct Mp4RecordingConfig {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FfmpegRecordingConfig {
-    pub codec: FfmpegCodec,
+    pub codec_args: FfmpegCodecArgs,
     /// Limits the recording to a maximum frame rate.
     pub max_framerate: RecordingFrameRate,
 }
@@ -288,9 +278,9 @@ pub enum TagFamily {
 }
 
 impl EnumIter for TagFamily {
-    fn variants() -> &'static [Self] {
+    fn variants() -> Vec<Self> {
         use TagFamily::*;
-        &[
+        vec![
             Family36h11,
             FamilyStandard41h12,
             Family16h5,
@@ -351,8 +341,8 @@ impl std::fmt::Display for BitrateSelection {
 }
 
 impl enum_iter::EnumIter for BitrateSelection {
-    fn variants() -> &'static [Self] {
-        &[
+    fn variants() -> Vec<Self> {
+        vec![
             BitrateSelection::Bitrate500,
             BitrateSelection::Bitrate1000,
             BitrateSelection::Bitrate2000,
@@ -365,23 +355,59 @@ impl enum_iter::EnumIter for BitrateSelection {
     }
 }
 
+type FfmpegCodecArgList = Option<Vec<(String, String)>>;
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
+pub struct FfmpegCodecArgs {
+    pub device_args: FfmpegCodecArgList,
+    pub pre_codec_args: FfmpegCodecArgList,
+    pub codec: Option<String>,
+    pub post_codec_args: FfmpegCodecArgList,
+}
+
+impl std::fmt::Display for FfmpegCodecArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn arg_fmt(args: Option<&Vec<(String, String)>>) -> String {
+            if let Some(args) = args {
+                args.iter()
+                    .map(|(a1, a2)| format!("{a1} {a2}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            } else {
+                "".into()
+            }
+        }
+        let pre = arg_fmt(self.pre_codec_args.as_ref());
+        let codec = self
+            .codec
+            .as_ref()
+            .map(|c| format!("-c:v {c}"))
+            .unwrap_or_else(|| "".to_string());
+        let post = arg_fmt(self.post_codec_args.as_ref());
+        write!(f, "ffmpeg {pre} {codec} {post}")
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CodecSelection {
     H264Nvenc,
     H264OpenH264,
-    FfmpegDefault,
-    FfmpegH264Videotoolbox,
-    FfmpegH264Nvenc,
-    FfmpegH264Vaapi,
-    FfmpegX264,
+    Ffmpeg(FfmpegCodecArgs),
 }
 
 impl CodecSelection {
-    pub fn requires_nvenc(&self) -> bool {
+    pub fn requires(&self, what: &str) -> bool {
         use CodecSelection::*;
         match self {
-            H264Nvenc | FfmpegH264Nvenc => true,
-            _ => false,
+            H264Nvenc => true,
+            H264OpenH264 => false,
+            Ffmpeg(args) => {
+                if let Some(codec) = &args.codec {
+                    codec.contains(what)
+                } else {
+                    false
+                }
+            }
         }
     }
 }
@@ -392,27 +418,53 @@ impl std::fmt::Display for CodecSelection {
         let x = match self {
             H264Nvenc => "H264 NVENC",
             H264OpenH264 => "OpenH264",
-            FfmpegDefault => "Ffmpeg default",
-            FfmpegH264Videotoolbox => "Ffmpeg H264 Videotoolbox",
-            FfmpegH264Nvenc => "Ffmpeg H264 NVENC",
-            FfmpegH264Vaapi => "Ffmpeg H264 VAAPI",
-            FfmpegX264 => "Ffmpeg libx264",
+            Ffmpeg(args) => {
+                return std::fmt::Display::fmt(args, f);
+            }
         };
         write!(f, "{}", x)
     }
 }
 
 impl enum_iter::EnumIter for CodecSelection {
-    fn variants() -> &'static [Self] {
+    fn variants() -> Vec<Self> {
         use CodecSelection::*;
-        &[
+        vec![
             H264Nvenc,
             H264OpenH264,
-            FfmpegDefault,
-            FfmpegH264Videotoolbox,
-            FfmpegH264Nvenc,
-            FfmpegH264Vaapi,
-            FfmpegX264,
+            // Don't give bare option as it seems less useful than specifying a codec.
+            Ffmpeg(FfmpegCodecArgs {
+                codec: Some("h264_videotoolbox".to_string()),
+                ..Default::default()
+            }),
+            Ffmpeg(FfmpegCodecArgs {
+                codec: Some("h264_nvenc".to_string()),
+                ..Default::default()
+            }),
+            Ffmpeg(FfmpegCodecArgs {
+                codec: Some("h264_nvmpi".to_string()),
+                ..Default::default()
+            }),
+            Ffmpeg(FfmpegCodecArgs {
+                device_args: Some(vec![("-vaapi_device".into(), "/dev/dri/renderD128".into())]),
+                pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
+                codec: Some("h264_vaapi".to_string()),
+                ..Default::default()
+            }),
+            // x264 with defaults
+            Ffmpeg(FfmpegCodecArgs {
+                codec: Some("libx264".to_string()),
+                ..Default::default()
+            }),
+            // x264 with -crf and -preset
+            Ffmpeg(FfmpegCodecArgs {
+                codec: Some("libx264".to_string()),
+                post_codec_args: Some(vec![
+                    ("-crf".into(), "22".into()),
+                    ("-preset".into(), "medium".into()),
+                ]),
+                ..Default::default()
+            }),
         ]
     }
 }

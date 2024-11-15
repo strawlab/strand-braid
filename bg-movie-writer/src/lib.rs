@@ -4,7 +4,7 @@ use std::{
 };
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
-use ci2_remote_control::{FfmpegCodec, FfmpegRecordingConfig};
+use ci2_remote_control::FfmpegRecordingConfig;
 use machine_vision_formats::{ImageStride, PixelFormat};
 use mp4_writer::Mp4Writer;
 
@@ -158,16 +158,12 @@ impl MyFfmpegWriter {
         }
         let mut srt_filename = mp4_filename[..mp4_filename.len() - 4].to_string();
         srt_filename.push_str(".srt");
-        let encoder_cfg = match cfg.codec {
-            FfmpegCodec::BareFfmpeg => None,
-            FfmpegCodec::H264Nvenc => Some(ffmpeg_writer::FfmpegEncoderOptions::H264Nvenc),
-            FfmpegCodec::H264VideoToolbox => {
-                Some(ffmpeg_writer::FfmpegEncoderOptions::H264VideoToolbox)
-            }
-            FfmpegCodec::H264Vaapi => Some(ffmpeg_writer::FfmpegEncoderOptions::H264Vaapi),
-            FfmpegCodec::X264 => {
-                Some(ffmpeg_writer::FfmpegEncoderOptions::X264(Default::default()))
-            }
+        let args = &cfg.codec_args;
+        let ffmpeg_codec_args = ffmpeg_writer::FfmpegCodecArgs {
+            device_args: args.device_args.clone(),
+            codec: args.codec.clone(),
+            pre_codec_args: args.pre_codec_args.clone(),
+            post_codec_args: args.post_codec_args.clone(),
         };
         use ci2_remote_control::RecordingFrameRate::*;
         let rate = match cfg.max_framerate {
@@ -184,7 +180,7 @@ impl MyFfmpegWriter {
             Fps100 => Some((100, 1)),
             Unlimited => None,
         };
-        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, encoder_cfg, rate)?;
+        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, Some(ffmpeg_codec_args), rate)?;
         let out_fd = std::fs::File::create(&srt_filename)?;
         let swtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(out_fd));
         Ok(Self {

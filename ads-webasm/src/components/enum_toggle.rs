@@ -51,9 +51,9 @@ where
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let all_rendered = T::variants().iter().map(|variant| {
+        let all_rendered = T::variants().into_iter().map(|variant| {
             let name = format!("{}", variant);
-            let is_active = &ctx.props().value == variant;
+            let is_active = ctx.props().value == variant;
             let disabled = is_active; // do not allow clicking currently active state
             html! {
                 <Button

@@ -1,7 +1,6 @@
 use machine_vision_formats as formats;
 use std::{
     collections::VecDeque,
-    fmt::Display,
     process::{Child, Command, Stdio},
 };
 
@@ -29,50 +28,14 @@ pub struct FfmpegWriter {
     rated: usize,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum FfmpegEncoderOptions {
-    H264VideoToolbox,
-    H264Nvenc,
-    H264Vaapi,
-    BareFfmpeg,
-    X264(X264Opts),
-}
+type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
-#[derive(Default, Debug, PartialEq)]
-pub struct X264Opts {
-    pub crf: Option<u8>,
-    pub preset: Option<X264Preset>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum X264Preset {
-    Ultrafast,
-    Superfast,
-    Veryfast,
-    Faster,
-    Fast,
-    Medium,
-    Slow,
-    Slower,
-    Veryslow,
-}
-
-impl Display for X264Preset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use X264Preset::*;
-        let s = match self {
-            Ultrafast => "ultrafast",
-            Superfast => "superfast",
-            Veryfast => "veryfast",
-            Faster => "faster",
-            Fast => "fast",
-            Medium => "medium",
-            Slow => "slow",
-            Slower => "slower",
-            Veryslow => "veryslow",
-        };
-        write!(f, "{}", s)
-    }
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct FfmpegCodecArgs {
+    pub device_args: FfmpegCodecArgList,
+    pub pre_codec_args: FfmpegCodecArgList,
+    pub codec: Option<String>,
+    pub post_codec_args: FfmpegCodecArgList,
 }
 
 fn prefix() -> Vec<String> {
@@ -87,29 +50,37 @@ fn zq(x: &[&str]) -> Vec<String> {
     x.into_iter().map(|x| (*x).into()).collect()
 }
 
-impl FfmpegEncoderOptions {
+fn zq2(opt_x: Option<&Vec<(String, String)>>) -> Vec<String> {
+    if let Some(x) = opt_x {
+        x.into_iter()
+            .map(|(x1, x2)| [x1.clone(), x2.clone()])
+            .flatten()
+            .collect()
+    } else {
+        vec![]
+    }
+}
+
+impl FfmpegCodecArgs {
     fn to_args(&self) -> Vec<String> {
         const VIDEO_CODEC: &str = "-c:v";
-        use FfmpegEncoderOptions::*;
-        match &self {
-            H264Vaapi => vec![
-                prefix(),
-                zq(&["-vaapi_device", "/dev/dri/renderD128"]),
-                middle(),
-                zq(&["-vf", "format=nv12,hwupload", VIDEO_CODEC, "h264_vaapi"]),
-            ],
-            H264Nvenc => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_nvenc"])],
-            H264VideoToolbox => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_videotoolbox"])],
-            BareFfmpeg => vec![prefix(), middle()],
-            X264(opts) => {
-                let mut v = vec![prefix(), middle(), zq(&[VIDEO_CODEC, "libx264"])];
-                if let Some(crf) = opts.crf {
-                    v.push(vec!["-crf".to_string(), format!("{crf}")]);
+        {
+            {
+                if let Some(codec) = &self.codec {
+                    vec![
+                        prefix(),
+                        zq2(self.device_args.as_ref()),
+                        middle(),
+                        zq2(self.pre_codec_args.as_ref()),
+                        zq(&[VIDEO_CODEC, &codec]),
+                        zq2(self.post_codec_args.as_ref()),
+                    ]
+                } else {
+                    assert_eq!(self.device_args, None);
+                    assert_eq!(self.pre_codec_args, None);
+                    assert_eq!(self.post_codec_args, None);
+                    vec![prefix(), middle()]
                 }
-                if let Some(preset) = &opts.preset {
-                    v.push(vec!["-preset".to_string(), format!("{preset}")]);
-                }
-                v
             }
         }
         .into_iter()
@@ -118,16 +89,15 @@ impl FfmpegEncoderOptions {
     }
 
     fn from_str(s: &str) -> Option<Self> {
-        use FfmpegEncoderOptions::*;
         match s {
-            "vaapi" => Some(H264Vaapi),
-            "videotoolbox" => Some(H264VideoToolbox),
+            "vaapi" => todo!(),
+            "videotoolbox" => todo!(),
             _ => None,
         }
     }
 }
 
-pub fn platform_hardware_encoder() -> Result<FfmpegEncoderOptions> {
+pub fn platform_hardware_encoder() -> Result<FfmpegCodecArgs> {
     let args = ["-hide_banner", "-nostdin", "-hwaccels"];
     let ffmpeg_child = Command::new("ffmpeg")
         .args(args)
@@ -143,17 +113,19 @@ pub fn platform_hardware_encoder() -> Result<FfmpegEncoderOptions> {
         return Err(Error::UnexpectedFfmpegOutput(line0.into()));
     }
     for line in lines.into_iter() {
-        if let Some(opt) = FfmpegEncoderOptions::from_str(line) {
+        if let Some(opt) = FfmpegCodecArgs::from_str(line) {
             return Ok(opt);
         }
     }
-    Ok(FfmpegEncoderOptions::BareFfmpeg)
+    Ok(FfmpegCodecArgs {
+        ..Default::default()
+    })
 }
 
 impl FfmpegWriter {
     pub fn new(
         fname: &str,
-        opts: Option<FfmpegEncoderOptions>,
+        ffmpeg_codec_args: Option<FfmpegCodecArgs>,
         rate: Option<(usize, usize)>,
     ) -> Result<Self> {
         let (raten, rated) = rate.unwrap_or((25, 1));
@@ -163,8 +135,8 @@ impl FfmpegWriter {
             aspectn: 1,
             aspectd: 1,
         };
-        let (wtr, ffmpeg_child) = if let Some(opts) = opts {
-            let mut args = opts.to_args();
+        let (wtr, ffmpeg_child) = if let Some(ffmpeg_codec_args) = ffmpeg_codec_args {
+            let mut args = ffmpeg_codec_args.to_args();
             args.push(fname.into());
             let mut ffmpeg_child = Command::new("ffmpeg")
                 .args(args)

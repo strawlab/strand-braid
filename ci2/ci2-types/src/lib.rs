@@ -1,6 +1,3 @@
-#![no_std]
-extern crate core as std;
-
 #[macro_use]
 extern crate serde_derive;
 extern crate enum_iter;
@@ -23,8 +20,8 @@ impl std::fmt::Display for AutoMode {
 }
 
 impl EnumIter for AutoMode {
-    fn variants() -> &'static [Self] {
-        &[AutoMode::Off, AutoMode::Once, AutoMode::Continuous]
+    fn variants() -> Vec<Self> {
+        vec![AutoMode::Off, AutoMode::Once, AutoMode::Continuous]
     }
 }
 

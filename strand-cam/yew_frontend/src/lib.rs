@@ -1416,7 +1416,10 @@ impl HasAvail for ServerState {
 
         // Remove nvenc codecs if we do not have nvenc available.
         let result = if !have_nvenc {
-            result.into_iter().filter(|x| !x.requires_nvenc()).collect()
+            result
+                .into_iter()
+                .filter(|x| !x.requires("nvenc"))
+                .collect()
         } else {
             result
         };
@@ -1425,7 +1428,7 @@ impl HasAvail for ServerState {
         let result = if !self.is_videotoolbox_functioning {
             result
                 .into_iter()
-                .filter(|x| x != &CodecSelection::FfmpegH264Videotoolbox)
+                .filter(|x| !x.requires("videotoolbox"))
                 .collect()
         } else {
             result
