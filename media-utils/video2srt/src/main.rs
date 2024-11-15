@@ -1,6 +1,7 @@
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
-use std::{io::Write, path::PathBuf};
+use srt_writer::BufferingSrtFrameWriter;
+use std::path::PathBuf;
 
 use frame_source::Timestamp;
 
@@ -14,31 +15,6 @@ struct Opt {
     /// Output srt filename. Defaults to "<INPUT>.srt"
     #[arg(short, long)]
     output: Option<PathBuf>,
-}
-
-trait Srt {
-    fn srt(&self) -> String;
-}
-
-impl Srt for std::time::Duration {
-    fn srt(&self) -> String {
-        // from https://en.wikipedia.org/wiki/SubRip :
-        // "hours:minutes:seconds,milliseconds with time units fixed to two
-        // zero-padded digits and fractions fixed to three zero-padded digits
-        // (00:00:00,000). The fractional separator used is the comma, since the
-        // program was written in France."
-        let total_secs = self.as_secs();
-        let hours = total_secs / (60 * 60);
-        let minutes = (total_secs % (60 * 60)) / 60;
-        let seconds = total_secs % 60;
-        // dbg!(total_secs);
-        // dbg!(hours);
-        // dbg!(minutes);
-        // dbg!(seconds);
-        debug_assert_eq!(total_secs, hours * 60 * 60 + minutes * 60 + seconds);
-        let millis = self.subsec_millis();
-        format!("{hours:02}:{minutes:02}:{seconds:02},{millis:03}")
-    }
 }
 
 fn main() -> eyre::Result<()> {
@@ -64,12 +40,10 @@ fn main() -> eyre::Result<()> {
         .frame0_time()
         .ok_or_else(|| eyre::eyre!("no start time found"))?;
 
-    let mut out_fd = std::fs::File::create(&output)?;
+    let out_fd = std::fs::File::create(&output)?;
+    let mut wtr = BufferingSrtFrameWriter::new(Box::new(out_fd));
 
-    let mut prev_data: Option<(std::time::Duration, _)> = None;
-
-    let mut count = 1;
-    for (_fno, frame) in src.iter().enumerate() {
+    for frame in src.iter() {
         let frame = frame?;
         let pts = match frame.timestamp() {
             Timestamp::Duration(pts) => pts,
@@ -78,34 +52,7 @@ fn main() -> eyre::Result<()> {
             }
         };
         let frame_stamp = start_time + pts;
-        if let Some((prev_pts, prev_stamp)) = prev_data.take() {
-            out_fd.write_all(
-                format!(
-                    "{}\n{} --> {}\n{}\n\n",
-                    count,
-                    prev_pts.srt(),
-                    pts.srt(),
-                    prev_stamp
-                )
-                .as_bytes(),
-            )?;
-            count += 1;
-        }
-        prev_data = Some((pts, frame_stamp));
-    }
-
-    if let Some((prev_pts, prev_stamp)) = prev_data.take() {
-        let pts = prev_pts + std::time::Duration::from_secs(1);
-        out_fd.write_all(
-            format!(
-                "{}\n{} --> {}\n{}\n\n",
-                count,
-                prev_pts.srt(),
-                pts.srt(),
-                prev_stamp
-            )
-            .as_bytes(),
-        )?;
+        wtr.add_frame(pts, format!("{frame_stamp}"))?;
     }
 
     Ok(())

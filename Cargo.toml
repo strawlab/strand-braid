@@ -85,6 +85,7 @@ members = [
     "media-utils/mkv-strand-reader",
     "media-utils/mp4-writer",
     "media-utils/show-timestamps",
+    "media-utils/srt-writer",
     "media-utils/strand-convert",
     "media-utils/tiff-decoder",
     "media-utils/video2rrd",
