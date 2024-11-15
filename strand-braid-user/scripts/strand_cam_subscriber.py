@@ -83,6 +83,7 @@ def main():
         # We are only interested in image events here.
         if event_type == image_event:
             # Extract the data URL into its raw binary bytes
+            assert data["firehose_frame_data_url"].startswith(jpeg_prefix)
             response = urllib.request.urlopen(data["firehose_frame_data_url"])
             bytes = response.file.read()
 
@@ -95,7 +96,6 @@ def main():
 
             # Send "we received the image and are thus ready for a new one".
             strand_cam.post({"FirehoseNotify": data["ck"]})
-            assert data["firehose_frame_data_url"].startswith(jpeg_prefix)
 
 if __name__ == "__main__":
     main()
