@@ -109,6 +109,15 @@ pub enum Mp4Codec {
     H264RawStream,
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum FfmpegCodec {
+    H264VideoToolbox,
+    H264Nvenc,
+    H264Vaapi,
+    BareFfmpeg,
+    X264,
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct OpenH264Options {
     /// Whether OpenH264 should emit debug messages
@@ -189,6 +198,29 @@ pub struct Mp4RecordingConfig {
     /// Limits the recording to a maximum frame rate.
     pub max_framerate: RecordingFrameRate,
     pub h264_metadata: Option<H264Metadata>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct FfmpegRecordingConfig {
+    pub codec: FfmpegCodec,
+    /// Limits the recording to a maximum frame rate.
+    pub max_framerate: RecordingFrameRate,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum RecordingConfig {
+    Mp4(Mp4RecordingConfig),
+    Ffmpeg(FfmpegRecordingConfig),
+}
+
+impl RecordingConfig {
+    pub fn max_framerate(&self) -> &RecordingFrameRate {
+        use RecordingConfig::*;
+        match self {
+            Mp4(c) => &c.max_framerate,
+            Ffmpeg(c) => &c.max_framerate,
+        }
+    }
 }
 
 /// Universal identifier for our H264 metadata.
@@ -337,13 +369,34 @@ impl enum_iter::EnumIter for BitrateSelection {
 pub enum CodecSelection {
     H264Nvenc,
     H264OpenH264,
+    FfmpegDefault,
+    FfmpegH264Videotoolbox,
+    FfmpegH264Nvenc,
+    FfmpegH264Vaapi,
+    FfmpegX264,
+}
+
+impl CodecSelection {
+    pub fn requires_nvenc(&self) -> bool {
+        use CodecSelection::*;
+        match self {
+            H264Nvenc | FfmpegH264Nvenc => true,
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for CodecSelection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use CodecSelection::*;
         let x = match self {
-            CodecSelection::H264Nvenc => "H264Nvenc",
-            CodecSelection::H264OpenH264 => "H264OpenH264",
+            H264Nvenc => "H264 NVENC",
+            H264OpenH264 => "OpenH264",
+            FfmpegDefault => "Ffmpeg default",
+            FfmpegH264Videotoolbox => "Ffmpeg H264 Videotoolbox",
+            FfmpegH264Nvenc => "Ffmpeg H264 NVENC",
+            FfmpegH264Vaapi => "Ffmpeg H264 VAAPI",
+            FfmpegX264 => "Ffmpeg libx264",
         };
         write!(f, "{}", x)
     }
@@ -351,7 +404,16 @@ impl std::fmt::Display for CodecSelection {
 
 impl enum_iter::EnumIter for CodecSelection {
     fn variants() -> &'static [Self] {
-        &[CodecSelection::H264Nvenc, CodecSelection::H264OpenH264]
+        use CodecSelection::*;
+        &[
+            H264Nvenc,
+            H264OpenH264,
+            FfmpegDefault,
+            FfmpegH264Videotoolbox,
+            FfmpegH264Nvenc,
+            FfmpegH264Vaapi,
+            FfmpegX264,
+        ]
     }
 }
 

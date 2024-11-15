@@ -520,7 +520,7 @@ pub(crate) async fn frame_process_task<'a>(
                 let filename = creation_time.format(format_str_mp4.as_str()).to_string();
                 let is_recording_mp4 = Some(RecordingPath::new(filename.clone()));
 
-                let mut raw = bg_movie_writer::BgMovieWriter::new_mp4_writer(
+                let mut raw = bg_movie_writer::BgMovieWriter::new(
                     format_str_mp4,
                     mp4_recording_config.final_cfg,
                     frames.len() + 100,

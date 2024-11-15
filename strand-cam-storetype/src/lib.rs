@@ -37,6 +37,8 @@ pub struct StoreType {
     pub is_braid: bool,
     /// Whether we have Nvidia NvEnc encoder available.
     pub is_nvenc_functioning: bool,
+    /// Whether we have VideoToolbox
+    pub is_videotoolbox_functioning: bool,
     /// is saving MP4 file
     pub is_recording_mp4: Option<RecordingPath>,
     /// is saving FMF file

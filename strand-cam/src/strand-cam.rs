@@ -44,7 +44,8 @@ use std::fs::File;
 #[cfg(feature = "flydra_feat_detect")]
 use ci2_remote_control::CsvSaveConfig;
 use ci2_remote_control::{
-    CamArg, CodecSelection, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options, RecordingFrameRate,
+    CamArg, CodecSelection, FfmpegRecordingConfig, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options,
+    RecordingFrameRate,
 };
 
 use flydra_types::{BuiServerInfo, RawCamName, StartSoftwareFrameRateLimit, TriggerType};
@@ -1934,6 +1935,12 @@ where
         false => CodecSelection::H264OpenH264,
     };
 
+    #[cfg(target_os = "macos")]
+    let is_videotoolbox_functioning = true;
+
+    #[cfg(not(target_os = "macos"))]
+    let is_videotoolbox_functioning = false;
+
     // -----------------------------------------------
 
     let mp4_filename_template = args
@@ -1963,6 +1970,7 @@ where
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
         is_nvenc_functioning,
+        is_videotoolbox_functioning,
         is_recording_mp4: None,
         is_recording_fmf: None,
         is_recording_ufmf: None,
@@ -3612,46 +3620,71 @@ fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
 }
 
 struct FinalMp4RecordingConfig {
-    final_cfg: Mp4RecordingConfig,
+    final_cfg: ci2_remote_control::RecordingConfig,
 }
 
 impl FinalMp4RecordingConfig {
     fn new(shared: &StoreType, creation_time: chrono::DateTime<chrono::Local>) -> Self {
-        let cuda_device = shared
-            .cuda_devices
-            .iter()
-            .position(|x| x == &shared.mp4_cuda_device)
-            .unwrap_or(0);
-        let cuda_device = cuda_device.try_into().unwrap();
-        let codec = match shared.mp4_codec {
-            CodecSelection::H264Nvenc => Mp4Codec::H264NvEnc(NvidiaH264Options {
-                bitrate: bitrate_to_u32(&shared.mp4_bitrate),
-                cuda_device,
-            }),
+        let mp4_codec = match shared.mp4_codec {
+            CodecSelection::H264Nvenc => {
+                let cuda_device = shared
+                    .cuda_devices
+                    .iter()
+                    .position(|x| x == &shared.mp4_cuda_device)
+                    .unwrap_or(0);
+                let cuda_device = cuda_device.try_into().unwrap();
+                Some(Mp4Codec::H264NvEnc(NvidiaH264Options {
+                    bitrate: bitrate_to_u32(&shared.mp4_bitrate),
+                    cuda_device,
+                }))
+            }
             CodecSelection::H264OpenH264 => {
                 let preset = ci2_remote_control::OpenH264Preset::AllFrames;
                 if shared.mp4_bitrate != ci2_remote_control::BitrateSelection::BitrateUnlimited {
                     warn!("ignoring mp4 bitrate with OpenH264 codec");
                 }
-                Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
-                    debug: false,
-                    preset,
-                })
+                Some(Mp4Codec::H264OpenH264(
+                    ci2_remote_control::OpenH264Options {
+                        debug: false,
+                        preset,
+                    },
+                ))
             }
+            _ => None,
         };
-        // See https://github.com/chronotope/chrono/issues/576
-        let fixed = chrono::DateTime::<chrono::FixedOffset>::from_naive_utc_and_offset(
-            creation_time.naive_utc(),
-            *creation_time.offset(),
-        );
+        let final_cfg = if let Some(codec) = mp4_codec {
+            // See https://github.com/chronotope/chrono/issues/576
+            let fixed = chrono::DateTime::<chrono::FixedOffset>::from_naive_utc_and_offset(
+                creation_time.naive_utc(),
+                *creation_time.offset(),
+            );
 
-        let mut h264_metadata = ci2_remote_control::H264Metadata::new("strand-cam", fixed);
-        h264_metadata.camera_name = Some(shared.camera_name.clone());
-        h264_metadata.gamma = shared.camera_gamma;
-        let final_cfg = Mp4RecordingConfig {
-            codec,
-            max_framerate: shared.mp4_max_framerate.clone(),
-            h264_metadata: Some(h264_metadata),
+            let mut h264_metadata = ci2_remote_control::H264Metadata::new("strand-cam", fixed);
+            h264_metadata.camera_name = Some(shared.camera_name.clone());
+            h264_metadata.gamma = shared.camera_gamma;
+            let final_cfg = Mp4RecordingConfig {
+                codec,
+                max_framerate: shared.mp4_max_framerate.clone(),
+                h264_metadata: Some(h264_metadata),
+            };
+            ci2_remote_control::RecordingConfig::Mp4(final_cfg)
+        } else {
+            use ci2_remote_control::FfmpegCodec;
+            use CodecSelection::*;
+            let codec = match &shared.mp4_codec {
+                H264Nvenc | H264OpenH264 => {
+                    unreachable!();
+                }
+                FfmpegDefault => FfmpegCodec::BareFfmpeg,
+                FfmpegH264Videotoolbox => FfmpegCodec::H264VideoToolbox,
+                FfmpegH264Vaapi => FfmpegCodec::H264Vaapi,
+                FfmpegH264Nvenc => FfmpegCodec::H264Nvenc,
+                FfmpegX264 => FfmpegCodec::X264,
+            };
+            ci2_remote_control::RecordingConfig::Ffmpeg(FfmpegRecordingConfig {
+                codec,
+                max_framerate: shared.mp4_max_framerate.clone(),
+            })
         };
         FinalMp4RecordingConfig { final_cfg }
     }

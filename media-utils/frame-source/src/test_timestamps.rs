@@ -5,7 +5,7 @@ use crate::{h264_source::SeekRead, FrameDataSource};
 use ci2_remote_control::Mp4RecordingConfig;
 
 #[test]
-fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
+fn test_h264_precision_timestamps() -> eyre::Result<()> {
     let start: DateTime<Utc> = DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let dt_msec = 5;

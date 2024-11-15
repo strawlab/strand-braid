@@ -136,7 +136,6 @@ fiducial = ["ads-apriltag", "csv", "libflate"]
 backtrace = [
     "ci2/backtrace",
     "mp4-writer/backtrace",
-    "bg-movie-writer/backtrace",
     "http-video-streaming/backtrace",
     "flydra-feature-detector?/backtrace",
     "mvg?/backtrace",

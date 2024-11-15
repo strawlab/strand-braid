@@ -10,6 +10,7 @@ use std::{
 
 use ci2_remote_control::CamArg;
 
+use enum_iter::EnumIter;
 use led_box_comms::ToDevice as ToLedBoxDevice;
 
 use gloo_events::EventListener;
@@ -778,6 +779,28 @@ impl Model {
 
             // TODO: select cuda device
 
+            let bitrate_selection = match &shared.mp4_codec {
+                CodecSelection::H264Nvenc => {
+                    html! {
+                        <div>
+                        <h5>{"MP4 Bitrate"}</h5>
+                        <EnumToggle<BitrateSelection>
+                            value={shared.mp4_bitrate.clone()}
+                            onsignal={ctx.link().callback(Msg::ToggleMp4Bitrate)}
+                        />
+                    </div>
+                        }
+                }
+                _ => {
+                    html! {
+                        <div>
+                            <h5>{"MP4 Bitrate"}</h5>
+                            {"Bitrate selection not implemented with this codec."}
+                        </div>
+                    }
+                }
+            };
+
             html! {
                 <div class="wrap-collapsible">
                     <CheckboxLabel label="MP4 Recording Options" initially_checked=true />
@@ -810,13 +833,7 @@ impl Model {
                             />
                         </div>
 
-                        <div>
-                            <h5>{"MP4 Bitrate"}</h5>
-                            <EnumToggle<BitrateSelection>
-                                value={shared.mp4_bitrate.clone()}
-                                onsignal={ctx.link().callback(Msg::ToggleMp4Bitrate)}
-                            />
-                        </div>
+                        {bitrate_selection}
 
                         { cuda_select_div }
 
@@ -1389,11 +1406,32 @@ trait HasAvail {
 
 impl HasAvail for ServerState {
     fn available_codecs(&self) -> Vec<CodecSelection> {
-        if !self.cuda_devices.is_empty() && self.is_nvenc_functioning {
-            vec![CodecSelection::H264Nvenc, CodecSelection::H264OpenH264]
+        let have_nvenc = if !self.cuda_devices.is_empty() && self.is_nvenc_functioning {
+            true
         } else {
-            vec![CodecSelection::H264OpenH264]
-        }
+            false
+        };
+
+        let result = CodecSelection::variants().to_vec();
+
+        // Remove nvenc codecs if we do not have nvenc available.
+        let result = if !have_nvenc {
+            result.into_iter().filter(|x| !x.requires_nvenc()).collect()
+        } else {
+            result
+        };
+
+        // Remove videotoolbox codec if we do not have videotoolbox available.
+        let result = if !self.is_videotoolbox_functioning {
+            result
+                .into_iter()
+                .filter(|x| x != &CodecSelection::FfmpegH264Videotoolbox)
+                .collect()
+        } else {
+            result
+        };
+
+        result
     }
 }
 

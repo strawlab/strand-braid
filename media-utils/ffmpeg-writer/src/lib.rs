@@ -23,6 +23,9 @@ type Result<T> = std::result::Result<T, Error>;
 pub struct FfmpegWriter {
     wtr: y4m_writer::Y4MWriter,
     ffmpeg_child: Option<Child>,
+    count: usize,
+    raten: usize,
+    rated: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,6 +34,7 @@ pub enum FfmpegEncoderOptions {
     H264Nvenc,
     H264Vaapi,
     BareFfmpeg,
+    X264,
 }
 
 fn prefix() -> Vec<String> {
@@ -59,6 +63,7 @@ impl FfmpegEncoderOptions {
             H264Nvenc => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_nvenc"])],
             H264VideoToolbox => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_videotoolbox"])],
             BareFfmpeg => vec![prefix(), middle()],
+            X264 => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "libx264"])],
         }
         .into_iter()
         .flatten()
@@ -100,9 +105,11 @@ pub fn platform_hardware_encoder() -> Result<FfmpegEncoderOptions> {
 
 impl FfmpegWriter {
     pub fn new(fname: &str, opts: Option<FfmpegEncoderOptions>) -> Result<Self> {
+        let raten = 25;
+        let rated = 1;
         let y4m_opts = y4m_writer::Y4MOptions {
-            raten: 25,
-            rated: 1,
+            raten,
+            rated,
             aspectn: 1,
             aspectd: 1,
         };
@@ -127,10 +134,20 @@ impl FfmpegWriter {
             (wtr, None)
         };
 
-        Ok(Self { wtr, ffmpeg_child })
+        Ok(Self {
+            wtr,
+            ffmpeg_child,
+            count: 0,
+            raten,
+            rated,
+        })
     }
 
-    pub fn write_frame<F>(&mut self, frame: &dyn formats::iter::HasRowChunksExact<F>) -> Result<()>
+    /// Write a frame. Return the presentation timestamp (PTS).
+    pub fn write_frame<F>(
+        &mut self,
+        frame: &dyn formats::iter::HasRowChunksExact<F>,
+    ) -> Result<std::time::Duration>
     where
         F: formats::pixel_format::PixelFormat,
     {
@@ -166,7 +183,11 @@ impl FfmpegWriter {
             }
         }
         self.wtr.flush()?;
-        Ok(())
+        let num = self.rated * self.count;
+        let dur_sec = num as f64 / self.raten as f64;
+        let pts = std::time::Duration::from_secs_f64(dur_sec);
+        self.count += 1;
+        Ok(pts)
     }
 
     pub fn close(self) -> Result<()> {

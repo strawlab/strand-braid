@@ -771,7 +771,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn parse_h264() -> color_eyre::Result<()> {
+    fn parse_h264() -> eyre::Result<()> {
         {
             let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
             let cursor = std::io::Cursor::new(file_buf);
