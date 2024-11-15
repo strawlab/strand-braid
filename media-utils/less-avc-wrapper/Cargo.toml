@@ -7,6 +7,8 @@ edition = "2021"
 less-avc = "0.1.4"
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
+y4m-writer = { path = "../y4m-writer" }
+
 machine-vision-formats.workspace = true
 chrono = { version = "0.4.34", default-features = false }
 thiserror.workspace = true
@@ -20,8 +22,7 @@ rusttype = "0.9.2"
 ttf-firacode = "0.1"
 image = { workspace = true, features = ["jpeg", "tiff", "png"] }
 
-simple-frame = { path = "../../simple-frame" }
 font-drawing = { path = "../font-drawing" }
 
 [features]
-backtrace = ["less-avc/backtrace", "convert-image/backtrace"]
+backtrace = ["less-avc/backtrace"]

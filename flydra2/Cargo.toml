@@ -80,7 +80,6 @@ flydra-types = { path = "../flydra-types" }
 tracking = { path = "../tracking" }
 groupby = { path = "../groupby" }
 withkey = { path = "../withkey" }
-simple-frame = { path = "../simple-frame" }
 convert-image = { path = "../convert-image" }
 strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
 event-stream-types = { path = "../event-stream-types" }

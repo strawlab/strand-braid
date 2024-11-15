@@ -509,7 +509,7 @@ fn to_rr_image(
     let contents = basic_frame::match_all_dynamic_fmts!(
         &decoded,
         x,
-        convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Jpeg(80),)
+        convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)
     )?;
     Ok((rerun::EncodedImage::from_file_contents(contents), decoded))
 }

@@ -47,8 +47,7 @@ braid-config-data = { path = "../braid-config-data" }
 flydra-types = { path = "../flydra-types" }
 convert-image = { path = "../convert-image" }
 datetime-conversion = { path = "../datetime-conversion" }
-basic-frame = { path = "../basic-frame", features = ["convert-image"] }
-simple-frame = { path = "../simple-frame" }
+basic-frame = { path = "../basic-frame" }
 fmf = { path = "../fmf" }
 timestamped-frame = { path = "../timestamped-frame" }
 flydra2 = { path = "../flydra2" }
@@ -57,12 +56,7 @@ mvg = { path = "../mvg" }
 frame-source = { path = "../media-utils/frame-source" }
 
 [features]
-backtrace = [
-    "mp4-writer/backtrace",
-    "convert-image/backtrace",
-    "braidz-parser/backtrace",
-    "fmf/backtrace",
-]
+backtrace = ["mp4-writer/backtrace", "braidz-parser/backtrace", "fmf/backtrace"]
 
 [dev-dependencies]
 download-verify = { path = "../download-verify" }

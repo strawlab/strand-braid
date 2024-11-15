@@ -28,9 +28,13 @@ fn test_h264_precision_timestamps() -> color_eyre::Result<()> {
         const STRIDE: usize = W as usize * 3;
         let image_data = vec![0u8; STRIDE * H as usize];
 
-        let frame =
-            simple_frame::SimpleFrame::<RGB8>::new(W, H, STRIDE.try_into().unwrap(), image_data)
-                .unwrap();
+        let frame = machine_vision_formats::owned::OImage::<RGB8>::new(
+            W,
+            H,
+            STRIDE.try_into().unwrap(),
+            image_data,
+        )
+        .unwrap();
 
         for fno in 0..=1000 {
             let pts = Duration::try_milliseconds(fno * dt_msec).unwrap();

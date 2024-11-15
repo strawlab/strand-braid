@@ -16,9 +16,9 @@ fn test_detect_standard_41h12() {
 
     let file_buf = include_bytes!("frame1.jpg");
     let image = image::load_from_memory(file_buf).unwrap();
-    let rgb = convert_image::piston_to_frame(image).unwrap();
+    let rgb = convert_image::image_to_rgb8(image).unwrap();
 
-    let dest = convert_image::convert::<_, Mono8>(&rgb).unwrap();
+    let dest = convert_image::convert_ref::<_, Mono8>(&rgb).unwrap();
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
 
@@ -53,9 +53,9 @@ fn test_detect_standard_36h11() {
 
     let file_buf = include_bytes!("frame1.jpg");
     let image = image::load_from_memory(file_buf).unwrap();
-    let rgb = convert_image::piston_to_frame(image).unwrap();
+    let rgb = convert_image::image_to_rgb8(image).unwrap();
 
-    let dest = convert_image::convert::<_, Mono8>(&rgb).unwrap();
+    let dest = convert_image::convert_ref::<_, Mono8>(&rgb).unwrap();
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
     assert!(detections.is_empty());

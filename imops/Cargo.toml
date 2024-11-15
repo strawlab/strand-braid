@@ -7,10 +7,8 @@ rust-version = "1.76"
 
 [dependencies]
 machine-vision-formats.workspace = true
-image-iter = { path = "../image-iter", default-features = false }
 
 [dev-dependencies]
-simple-frame = { path = "../simple-frame" }
 criterion = "0.5"
 
 [features]
@@ -18,7 +16,7 @@ criterion = "0.5"
 # Test that this remains true by building for a target without std:
 #     cargo build --no-default-features --target thumbv7em-none-eabihf
 default = ["std"]
-std = ["machine-vision-formats/std", "image-iter/std"]
+std = ["machine-vision-formats/std"]
 
 # This feature currently requires nightly but gives 5x-10x speedups.
 simd = []

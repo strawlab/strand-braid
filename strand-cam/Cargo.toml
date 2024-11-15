@@ -38,7 +38,7 @@ ci2-types = { path = "../ci2/ci2-types" }
 ci2-remote-control = { path = "../ci2-remote-control" }
 machine-vision-formats.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }
-basic-frame = { path = "../basic-frame", features = ["convert-image"] }
+basic-frame = { path = "../basic-frame" }
 fmf = { path = "../fmf" }
 ufmf = { path = "../ufmf" }
 chrono = { workspace = true, features = ["serde", "clock", "std", "wasmbind"] }
@@ -137,7 +137,6 @@ backtrace = [
     "ci2/backtrace",
     "mp4-writer/backtrace",
     "bg-movie-writer/backtrace",
-    "convert-image/backtrace",
     "http-video-streaming/backtrace",
     "flydra-feature-detector?/backtrace",
     "mvg?/backtrace",

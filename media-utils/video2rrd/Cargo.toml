@@ -27,7 +27,7 @@ chrono = { version = "0.4.38", features = [
 env-tracing-logger = { path = "../../env-tracing-logger" }
 convert-image = { path = "../../convert-image" }
 frame-source = { path = "../frame-source" }
-basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
+basic-frame = { path = "../../basic-frame" }
 mp4-writer = { path = "../mp4-writer" }
 flydra-types = { path = "../../flydra-types" }
 indicatif = "0.17.8"

@@ -37,9 +37,9 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
     let image = image::load_from_memory_with_format(&jpeg_buf, image::ImageFormat::Jpeg)
         .with_context(|| format!("parsing {}", fname.as_ref().display()))?;
 
-    let rgb = convert_image::piston_to_frame(image)?;
+    let rgb = convert_image::image_to_rgb8(image)?;
 
-    let dest = convert_image::convert::<_, Mono8>(&rgb)?;
+    let dest = convert_image::convert_ref::<_, Mono8>(&rgb)?;
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
 

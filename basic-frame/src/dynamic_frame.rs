@@ -211,13 +211,13 @@ impl DynamicFrame {
             let mut dest_buf = vec![0u8; dest_size];
 
             {
-                let mut dest = image_iter::ReinterpretedImageMut {
-                    orig: &mut dest_buf,
+                let mut dest = formats::image_ref::ImageRefMut::<FMT>::new(
                     width,
                     height,
-                    stride: dest_stride,
-                    fmt: std::marker::PhantomData::<FMT>,
-                };
+                    dest_stride,
+                    &mut dest_buf,
+                )
+                .unwrap();
 
                 match_all_dynamic_fmts!(&self, x, convert_image::convert_into(x, &mut dest)?);
             }

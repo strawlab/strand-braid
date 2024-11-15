@@ -102,7 +102,7 @@ fn main() -> eyre::Result<()> {
         {
             // Save .png to verify input image is OK.
             let png_fname = format!("frame-{}-{}x{}.png", pixfmt_str, width, height);
-            let opts = convert_image::ImageOptions::Png;
+            let opts = convert_image::EncoderOptions::Png;
             use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
             let png_buf = match_all_dynamic_fmts!(
                 &image,

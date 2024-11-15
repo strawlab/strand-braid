@@ -1,12 +1,10 @@
 [package]
-name = "image-iter"
+name = "y4m-writer"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 machine-vision-formats.workspace = true
+thiserror.workspace = true
 
-[features]
-default = ["std"]
-
-std = ["machine-vision-formats/std"]
+convert-image = { path = "../../convert-image" }

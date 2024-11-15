@@ -161,7 +161,7 @@ fn main() -> eyre::Result<()> {
                 "frame-{}-{}-{}x{}.png",
                 pixfmt_str, codec_str, width, height
             );
-            let opts = convert_image::ImageOptions::Png;
+            let opts = convert_image::EncoderOptions::Png;
             use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
             let png_buf =
                 match_all_dynamic_fmts!(&image, x, convert_image::frame_to_encoded_buffer(x, opts))?;

@@ -26,7 +26,8 @@ use convert_image::convert_into;
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 use machine_vision_formats::{
-    pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
+    image_ref::ImageRefMut, pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride,
+    PixelFormat, Stride,
 };
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
@@ -111,6 +112,8 @@ pub enum Error {
         #[cfg_attr(feature = "backtrace", backtrace)]
         inner: less_avc_wrapper::Error,
     },
+    #[error("y4m-writer error {0}")]
+    Y4mWriterError(#[from] y4m_writer::Error),
 }
 
 impl From<dynlink_nvidia_encode::NvencError> for Error {
@@ -734,9 +737,9 @@ where
         (MyEncoder::OpenH264(encoder), Some(state_inner)) => {
             // todo: bitrate, keyframes, timestamp check and duration finding.
 
-            let y4m = convert_image::encode_y4m_frame(
+            let y4m = y4m_writer::encode_y4m_frame(
                 raw_frame,
-                convert_image::Y4MColorspace::C420paldv,
+                y4m_writer::Y4MColorspace::C420paldv,
                 None,
             )?;
 
@@ -798,13 +801,13 @@ where
                 let mut inbuf = vram_buf.in_buf.lock()?;
                 let dest_stride = inbuf.pitch();
 
-                let mut dest = image_iter::ReinterpretedImageMut {
-                    orig: inbuf.mem_mut(),
-                    width: raw_frame.width(),
-                    height: raw_frame.height(),
-                    stride: dest_stride,
-                    fmt: std::marker::PhantomData::<pixel_format::NV12>,
-                };
+                let mut dest = ImageRefMut::<pixel_format::NV12>::new(
+                    raw_frame.width(),
+                    raw_frame.height(),
+                    dest_stride,
+                    inbuf.mem_mut(),
+                )
+                .unwrap();
 
                 convert_into(raw_frame, &mut dest)?;
                 // Now vram_buf.in_buf has the nv12 encoded data.
@@ -1291,8 +1294,8 @@ struct YUVData {
 // }
 
 #[cfg(feature = "openh264")]
-impl From<convert_image::Y4MFrame> for YUVData {
-    fn from(orig: convert_image::Y4MFrame) -> YUVData {
+impl From<y4m_writer::Y4MFrame> for YUVData {
+    fn from(orig: y4m_writer::Y4MFrame) -> YUVData {
         let width = orig.width.try_into().unwrap();
         let height = orig.height.try_into().unwrap();
         let y_stride = orig.y_stride.try_into().unwrap();

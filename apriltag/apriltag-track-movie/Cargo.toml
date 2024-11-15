@@ -13,7 +13,7 @@ y4m = "0.8.0"
 
 ads-apriltag = { path = ".." }
 convert-image = { path = "../../convert-image" }
-simple-frame = { path = "../../simple-frame" }
+y4m-writer = { path = "../../media-utils/y4m-writer" }
 
 [dev-dependencies]
 download-verify = { path = "../../download-verify" }

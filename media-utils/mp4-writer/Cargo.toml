@@ -27,10 +27,10 @@ dynlink-nvidia-encode = { path = "../../nvenc/dynlink-nvidia-encode" }
 
 ci2-remote-control = { path = "../../ci2-remote-control" }
 convert-image = { path = "../../convert-image" }
-basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
+basic-frame = { path = "../../basic-frame" }
 less-avc-wrapper = { path = "../less-avc-wrapper" }
 frame-source = { path = "../frame-source" }
-image-iter = { path = "../../image-iter" }
+y4m-writer = { path = "../y4m-writer" }
 
 serde_json = "1.0.89"
 
@@ -44,8 +44,8 @@ tempfile = "3.4.0"
 clap = { version = "4.0.10", features = ["derive"] }
 
 ci2-remote-control = { path = "../../ci2-remote-control" }
-simple-frame = { path = "../../simple-frame" }
 font-drawing = { path = "../font-drawing" }
+basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
 
 [features]
 openh264-encode = ["openh264"]
@@ -53,7 +53,6 @@ backtrace = [
     "nvenc/backtrace",
     "dynlink-cuda/backtrace",
     "dynlink-nvidia-encode/backtrace",
-    "convert-image/backtrace",
     "openh264?/backtrace",
     "less-avc-wrapper/backtrace",
 ]

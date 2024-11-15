@@ -6,13 +6,11 @@ use anyhow::Result;
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use clap::Parser;
-use convert_image::{encode_y4m_frame, ImageOptions, Y4MColorspace};
+use convert_image::EncoderOptions;
 use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
 use timestamped_frame::ExtraTimeData;
-
-const Y4M_MAGIC: &str = "YUV4MPEG2";
-const Y4M_FRAME_MAGIC: &str = "FRAME";
+use y4m_writer::Y4MColorspace;
 
 /*
 
@@ -71,7 +69,7 @@ macro_rules! convert_and_write_fmf {
 /// For a specified runtime specified pixel format, convert and save to FMF file.
 macro_rules! write_converted {
     ($pixfmt:ty, $writer:expr, $x:expr, $timestamp:expr) => {{
-        let converted_frame = convert_image::convert::<_, $pixfmt>($x)?;
+        let converted_frame = convert_image::convert_ref::<_, $pixfmt>($x)?;
         $writer.write(&converted_frame, $timestamp)?;
     }};
 }
@@ -325,21 +323,21 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
 
     for path in paths {
         let piston_image = image::open(&path?)?;
-        let converted_frame = convert_image::piston_to_frame(piston_image)?;
+        let converted_frame = convert_image::image_to_rgb8(piston_image)?;
         writer.write(&converted_frame, chrono::Utc::now())?;
     }
     Ok(())
 }
 
-fn export_images(path: PathBuf, opts: ImageOptions) -> Result<()> {
+fn export_images(path: PathBuf, opts: EncoderOptions) -> Result<()> {
     use std::io::Write;
 
     let stem = path.file_stem().unwrap().to_os_string(); // strip extension
     let dirname = path.with_file_name(&stem);
 
     let ext = match opts {
-        ImageOptions::Jpeg(_) => "jpg",
-        ImageOptions::Png => "png",
+        EncoderOptions::Jpeg(_) => "jpg",
+        EncoderOptions::Png => "png",
     };
 
     info!("saving {} images to {}", ext, dirname.display());
@@ -557,54 +555,27 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
         display_filename(&output_fname, "<stdout>").display()
     );
 
-    let mut out_fd: Box<dyn Write> = match output_fname {
+    let out_fd: Box<dyn Write> = match output_fname {
         None => Box::new(std::io::stdout()),
         Some(path) => Box::new(std::fs::File::create(&path)?),
     };
 
-    let reader = fmf::FMFReader::new(&x.input)?;
-    let mut buffer_width = reader.width();
-    let buffer_height = reader.height();
-
-    if reader.format() == PixFmt::RGB8 {
-        buffer_width *= 3;
-    }
-
-    let final_width = match reader.format() {
-        PixFmt::RGB8 => buffer_width / 3,
-        _ => buffer_width,
+    let opts = y4m_writer::Y4MOptions {
+        aspectn: x.aspect_numerator.try_into().unwrap(),
+        aspectd: x.aspect_denominator.try_into().unwrap(),
+        raten: x.fps_numerator.try_into().unwrap(),
+        rated: x.fps_denominator.try_into().unwrap(),
     };
-    let final_height = buffer_height;
+    let mut y4m_writer = y4m_writer::Y4MWriter::from_writer(out_fd, opts);
 
-    let inter = "Ip"; // progressive
-
-    let buf = format!(
-        "{magic} W{width} H{height} \
-                    F{raten}:{rated} {inter} A{aspectn}:{aspectd} \
-                    C{colorspace} XCOLORRANGE=FULL Xconverted_by-fmf-cli\n",
-        magic = Y4M_MAGIC,
-        width = final_width,
-        height = final_height,
-        raten = x.fps_numerator,
-        rated = x.fps_denominator,
-        inter = inter,
-        aspectn = x.aspect_numerator,
-        aspectd = x.aspect_denominator,
-        colorspace = x.colorspace
-    );
-    out_fd.write_all(buf.as_bytes())?;
+    let reader = fmf::FMFReader::new(&x.input)?;
 
     for frame in reader {
         let frame = frame?;
-        let buf = format!("{magic}\n", magic = Y4M_FRAME_MAGIC);
-        out_fd.write_all(buf.as_bytes())?;
-
         basic_frame::match_all_dynamic_fmts!(frame, f, {
-            let buf = encode_y4m_frame(&f, x.colorspace, None)?;
-            out_fd.write_all(&buf.data)?;
+            y4m_writer.write_frame(&f)?;
         });
     }
-    out_fd.flush()?;
     Ok(())
 }
 
@@ -629,10 +600,10 @@ fn main() -> Result<()> {
             info(input)?;
         }
         Opt::ExportJpeg { input, quality } => {
-            export_images(input, ImageOptions::Jpeg(quality))?;
+            export_images(input, EncoderOptions::Jpeg(quality))?;
         }
         Opt::ExportPng { input } => {
-            export_images(input, ImageOptions::Png)?;
+            export_images(input, EncoderOptions::Png)?;
         }
         Opt::ExportY4m(x) => {
             export_y4m(x)?;
@@ -689,7 +660,7 @@ fn test_y4m() -> anyhow::Result<()> {
                     host_framenumber: 0,
                 }),
             };
-            let orig_rgb8 = convert_image::convert::<_, RGB8>(&frame)?;
+            let orig_rgb8 = convert_image::convert_ref::<_, RGB8>(&frame)?;
 
             let fmf_fname = base_path.join("test.fmf");
             let y4m_fname = base_path.join("test.y4m");
@@ -699,11 +670,11 @@ fn test_y4m() -> anyhow::Result<()> {
 
                 match input_colorspace {
                     PixFmt::Mono8 => {
-                        let converted_frame = convert_image::convert::<_, Mono8>(&frame)?;
+                        let converted_frame = convert_image::convert_ref::<_, Mono8>(&frame)?;
                         writer.write(&converted_frame, start)?;
                     }
                     PixFmt::RGB8 => {
-                        let converted_frame = convert_image::convert::<_, RGB8>(&frame)?;
+                        let converted_frame = convert_image::convert_ref::<_, RGB8>(&frame)?;
                         writer.write(&converted_frame, start)?;
                     }
                     _ => {
@@ -776,7 +747,9 @@ where
 fn ffmpeg_to_frame(
     fname: &std::path::Path,
     base_path: &std::path::Path,
-) -> anyhow::Result<simple_frame::SimpleFrame<machine_vision_formats::pixel_format::RGB8>> {
+) -> anyhow::Result<
+    impl machine_vision_formats::OwnedImageStride<machine_vision_formats::pixel_format::RGB8>,
+> {
     use anyhow::Context;
 
     let png_fname = base_path.join("frame1.png");
@@ -800,6 +773,6 @@ fn ffmpeg_to_frame(
     }
     let piston_image =
         image::open(&png_fname).with_context(|| format!("Opening {}", png_fname.display()))?;
-    let decoded = convert_image::piston_to_frame(piston_image)?;
+    let decoded = convert_image::image_to_rgb8(piston_image)?;
     Ok(decoded)
 }

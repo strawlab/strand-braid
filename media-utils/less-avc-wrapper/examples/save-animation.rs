@@ -3,12 +3,13 @@
 extern crate log;
 
 use machine_vision_formats::{
+    image_ref::ImageRef,
+    owned::OImage,
     pixel_format::{Mono8, RGB8},
     ImageMutStride, Stride,
 };
 
 use font_drawing::stamp_frame;
-use simple_frame::SimpleFrame;
 
 use rusttype::Font;
 
@@ -16,7 +17,8 @@ fn main() -> eyre::Result<()> {
     env_logger::init();
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
-    let rgb = convert_image::piston_to_frame(image)?;
+    let rgb = convert_image::image_to_rgb8(image)?;
+    let rgb = OImage::from_owned(rgb);
 
     for width_pad in [0, 2] {
         for height_pad in [0, 2] {
@@ -62,7 +64,7 @@ fn main() -> eyre::Result<()> {
                     stamp_frame(&mut frame as &mut dyn ImageMutStride<_>, &font, &text)?;
                     count += 1;
 
-                    let opts = convert_image::ImageOptions::Png;
+                    let opts = convert_image::EncoderOptions::Png;
 
                     match *format_str {
                         "mono8" => {
@@ -70,13 +72,13 @@ fn main() -> eyre::Result<()> {
                             //     png_buf = Some(convert_image::frame_to_encoded_buffer(&frame, opts)?);
                             // }
                             // convert to farget format, keeping full size
-                            let mono = convert_image::convert::<_, Mono8>(&frame)?;
+                            let mono = convert_image::convert_ref::<_, Mono8>(&frame)?;
                             // if png_buf.is_none() {
                             //     png_buf = Some(convert_image::frame_to_encoded_buffer(&mono, opts)?);
                             // }
 
                             let out_size_bytes = mono.stride() * final_height as usize;
-                            let trimmed = SimpleFrame::<Mono8>::new(
+                            let trimmed = OImage::<Mono8>::new(
                                 final_width,
                                 final_height,
                                 mono.stride().try_into().unwrap(),
@@ -91,16 +93,12 @@ fn main() -> eyre::Result<()> {
                             my_h264_writer.write(&trimmed)?;
                         }
                         "rgb8" => {
-                            // if png_buf.is_none() {
-                            //     png_buf = Some(convert_image::frame_to_encoded_buffer(&frame, opts)?);
-                            // }
-
                             let out_size_bytes = frame.stride() * final_height as usize;
-                            let trimmed = SimpleFrame::<RGB8>::new(
+                            let trimmed = ImageRef::<RGB8>::new(
                                 final_width,
                                 final_height,
-                                frame.stride().try_into().unwrap(),
-                                frame.image_data()[..out_size_bytes].to_vec(),
+                                frame.stride(),
+                                &frame.image_data()[..out_size_bytes],
                             )
                             .unwrap();
                             if png_buf.is_none() {

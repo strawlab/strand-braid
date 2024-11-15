@@ -10,8 +10,7 @@ use std::simd::{
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.
 
-use image_iter::ImageStride;
-use machine_vision_formats::{pixel_format::Mono8, ImageMutData};
+use machine_vision_formats::{iter::HasRowChunksExact, pixel_format::Mono8, ImageMutData};
 
 #[cfg(feature = "simd")]
 pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
@@ -50,7 +49,7 @@ impl From<u8> for Power {
 
 fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
 where
-    IM: ImageStride<Mono8>,
+    IM: HasRowChunksExact<Mono8>,
 {
     let mut accum: f32 = 0.0;
 
@@ -71,7 +70,7 @@ where
 #[inline]
 pub fn spatial_moment_00<IM>(im: &IM) -> f32
 where
-    IM: ImageStride<Mono8>,
+    IM: HasRowChunksExact<Mono8>,
 {
     #[cfg(feature = "simd")]
     {
@@ -120,7 +119,7 @@ where
 #[inline]
 pub fn spatial_moment_01<IM>(im: &IM) -> f32
 where
-    IM: ImageStride<Mono8>,
+    IM: HasRowChunksExact<Mono8>,
 {
     #[cfg(feature = "simd")]
     {
@@ -169,7 +168,7 @@ where
 #[inline]
 pub fn spatial_moment_10<IM>(im: &IM) -> f32
 where
-    IM: ImageStride<Mono8>,
+    IM: HasRowChunksExact<Mono8>,
 {
     #[cfg(feature = "simd")]
     {
@@ -231,7 +230,7 @@ pub struct Moments {
 
 pub fn calculate_moments<IM>(im: &IM) -> Moments
 where
-    IM: ImageStride<Mono8>,
+    IM: HasRowChunksExact<Mono8>,
 {
     let m00 = spatial_moment_00(im);
     let m01 = spatial_moment_01(im);
@@ -271,7 +270,7 @@ where
 #[inline]
 pub fn clip_low<IM>(mut im: IM, low: u8) -> IM
 where
-    IM: ImageStride<Mono8> + ImageMutData<Mono8>,
+    IM: HasRowChunksExact<Mono8> + ImageMutData<Mono8>,
 {
     let stride = im.stride();
     let width = im.width() as usize;
@@ -339,7 +338,7 @@ pub enum CmpOp {
 #[inline]
 pub fn threshold<IM>(mut im: IM, op: CmpOp, thresh: u8, a: u8, b: u8) -> IM
 where
-    IM: ImageStride<Mono8> + ImageMutData<Mono8>,
+    IM: HasRowChunksExact<Mono8> + ImageMutData<Mono8>,
 {
     let stride = im.stride();
     let width = im.width() as usize;
@@ -437,8 +436,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 1;
         image_data[(H + 1) * STRIDE + 6] = 1;
 
-        let im =
-            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
 
         let im = clip_low(im, 42);
 
@@ -458,8 +457,8 @@ mod tests {
             fn $name() {
                 const W: usize = 33; // wider than u8x32
 
-                let im =
-                    simple_frame::SimpleFrame::new(W as u32, 1, W as u32, vec![$orig; W]).unwrap();
+                let im = machine_vision_formats::owned::OImage::new(W as u32, 1, W, vec![$orig; W])
+                    .unwrap();
 
                 let im = threshold(im, $op, $thresh, 0, 255);
                 let image_data: Vec<u8> = im.into();
@@ -510,8 +509,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 1;
         image_data[(H + 1) * STRIDE + 6] = 1;
 
-        let im =
-            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
 
         let im = threshold(im, CmpOp::LessThan, 42, 0, 255);
 
@@ -541,8 +540,8 @@ mod tests {
         image_data[5 * STRIDE + 4] = 1;
         image_data[6 * STRIDE + 4] = 1;
 
-        let im =
-            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
 
         let mr = calculate_moments(&im);
         assert_eq!(mr.u11, 1.0);
@@ -569,8 +568,8 @@ mod tests {
         image_data[H * STRIDE + 4] = 255;
         image_data[(H + 1) * STRIDE + 6] = 255;
 
-        let im =
-            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
 
         assert_eq!(spatial_moment_00(&im), 4.0);
         assert_eq!(spatial_moment_10(&im), 14.0);
@@ -601,8 +600,8 @@ mod tests {
         image_data[4 * STRIDE + 23] = 255;
         image_data[5 * STRIDE + 23] = 255;
 
-        let im =
-            simple_frame::SimpleFrame::new(W as u32, H as u32, STRIDE as u32, image_data).unwrap();
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
 
         assert_eq!(spatial_moment_00(&im), 89.0);
         assert_eq!(spatial_moment_01(&im), 448.0);

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use eyre::{Context, Result};
 use chrono::{DateTime, Utc};
+use eyre::{Context, Result};
 
 use ci2_remote_control::Mp4RecordingConfig;
 use machine_vision_formats::{pixel_format::Mono8, ImageData};
@@ -114,7 +114,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         // Do image comparison only with monochrome data because YUV420 chroma
         // downsampling is something we expect. (Alternative: convert original
         // to yuv420 and compare that?)
-        let decoded_mono8 = convert_image::convert::<_, Mono8>(&decoded)?;
+        let decoded_mono8 = convert_image::convert_ref::<_, Mono8>(&decoded)?;
         let orig_mono8 = frame.into_pixel_format()?;
         if !are_images_similar(&orig_mono8, &decoded_mono8, max_diff) {
             if save_output {
@@ -263,7 +263,7 @@ fn next16(x: IType) -> IType {
 
 fn ffmpeg_to_frame(
     fname: &std::path::Path,
-) -> Result<simple_frame::SimpleFrame<machine_vision_formats::pixel_format::RGB8>> {
+) -> Result<machine_vision_formats::owned::OImage<machine_vision_formats::pixel_format::RGB8>> {
     let tmpdir = tempfile::tempdir()?;
 
     let png_fname = tmpdir.path().join("frame1.png");
@@ -287,6 +287,7 @@ fn ffmpeg_to_frame(
     }
     let piston_image =
         image::open(&png_fname).with_context(|| format!("Opening {}", png_fname.display()))?;
-    let decoded = convert_image::piston_to_frame(piston_image)?;
+    let decoded = convert_image::image_to_rgb8(piston_image)?;
+    let decoded = machine_vision_formats::owned::OImage::from_owned(decoded);
     Ok(decoded)
 }

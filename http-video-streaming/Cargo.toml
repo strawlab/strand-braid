@@ -32,4 +32,4 @@ event-stream-types = { path = "../event-stream-types" }
 bui-backend-session-types = { path = "../bui-backend-session/types" }
 
 [features]
-backtrace = ["convert-image/backtrace"]
+backtrace = []

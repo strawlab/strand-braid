@@ -6,12 +6,12 @@ extern crate log;
 use clap::{Parser, ValueEnum};
 
 use machine_vision_formats::{
+    image_ref::ImageRef,
     pixel_format::{Mono8, RGB8},
     Stride,
 };
 
 use ci2_remote_control::Mp4RecordingConfig;
-use simple_frame::SimpleFrame;
 
 use rusttype::Font;
 
@@ -38,7 +38,8 @@ fn main() -> eyre::Result<()> {
     let start = chrono::DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;
-    let rgb = convert_image::piston_to_frame(image)?;
+    let rgb = convert_image::image_to_rgb8(image)?;
+    let rgb = machine_vision_formats::owned::OImage::from_owned(rgb);
 
     for width_pad in [0, 2] {
         for height_pad in [0, 2] {
@@ -99,7 +100,8 @@ fn main() -> eyre::Result<()> {
                 // let font_data = include_bytes!("../Roboto-Regular.ttf");
                 let font_data = ttf_firacode::REGULAR;
                 // This only succeeds if collection consists of one font
-                let font = Font::try_from_bytes(font_data as &[u8]).expect("Error constructing Font");
+                let font =
+                    Font::try_from_bytes(font_data as &[u8]).expect("Error constructing Font");
 
                 let mut count = 0;
                 let mut istart = std::time::Instant::now();
@@ -131,14 +133,14 @@ fn main() -> eyre::Result<()> {
 
                     match *format_str {
                         "mono8" => {
-                            let mono = convert_image::convert::<_, Mono8>(&frame)?;
+                            let mono = convert_image::convert_ref::<_, Mono8>(&frame)?;
 
                             let out_size_bytes = mono.stride() * final_height as usize;
-                            let trimmed = SimpleFrame::<Mono8>::new(
+                            let trimmed = ImageRef::<Mono8>::new(
                                 final_width,
                                 final_height,
                                 mono.stride().try_into().unwrap(),
-                                mono.image_data()[..out_size_bytes].to_vec(),
+                                &mono.image_data()[..out_size_bytes],
                             )
                             .unwrap();
 
@@ -146,11 +148,11 @@ fn main() -> eyre::Result<()> {
                         }
                         "rgb8" => {
                             let out_size_bytes = frame.stride() * final_height as usize;
-                            let trimmed = SimpleFrame::<RGB8>::new(
+                            let trimmed = ImageRef::<RGB8>::new(
                                 final_width,
                                 final_height,
                                 frame.stride().try_into().unwrap(),
-                                frame.image_data()[..out_size_bytes].to_vec(),
+                                &frame.image_data()[..out_size_bytes],
                             )
                             .unwrap();
 

@@ -29,22 +29,24 @@ pub enum Error {
         #[cfg(feature = "backtrace")]
         backtrace: Backtrace,
     },
+    #[error("y4m writer error: {0}")]
+    Y4mError(#[from] y4m_writer::Error),
 }
 
 type Result<T> = std::result::Result<T, Error>;
 
-fn convert_to_y4m<FRAME, FMT>(frame: &FRAME) -> Result<convert_image::Y4MFrame>
+fn convert_to_y4m<FRAME, FMT>(frame: &FRAME) -> Result<y4m_writer::Y4MFrame>
 where
     FRAME: ImageStride<FMT>,
     FMT: PixelFormat,
 {
-    let out_colorspace = convert_image::Y4MColorspace::C420paldv;
+    let out_colorspace = y4m_writer::Y4MColorspace::C420paldv;
     let forced_block_size = Some(16);
-    let y4m = convert_image::encode_y4m_frame(frame, out_colorspace, forced_block_size)?;
+    let y4m = y4m_writer::encode_y4m_frame(frame, out_colorspace, forced_block_size)?;
     Ok(y4m)
 }
 
-fn gen_y4m_ref(y4m: &convert_image::Y4MFrame) -> Result<YCbCrImage<'_>> {
+fn gen_y4m_ref(y4m: &y4m_writer::Y4MFrame) -> Result<YCbCrImage<'_>> {
     let width = y4m.width.try_into().unwrap();
     let height = y4m.height.try_into().unwrap();
 

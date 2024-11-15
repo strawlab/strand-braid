@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use imops::*;
 use machine_vision_formats::pixel_format::Mono8;
 
-fn get_im() -> simple_frame::SimpleFrame<Mono8> {
+fn get_im() -> machine_vision_formats::owned::OImage<Mono8> {
     const W: usize = 1024;
     const H: usize = 1024;
     let mut image_data = vec![0u8; W * H];
@@ -11,7 +11,7 @@ fn get_im() -> simple_frame::SimpleFrame<Mono8> {
     image_data[5 * W + 4] = 1;
     image_data[6 * W + 4] = 1;
 
-    simple_frame::SimpleFrame::new(W as u32, H as u32, W as u32, image_data).unwrap()
+    machine_vision_formats::owned::OImage::new(W as u32, H as u32, W, image_data).unwrap()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

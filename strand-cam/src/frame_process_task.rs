@@ -705,7 +705,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 let png_buf = match_all_dynamic_fmts!(&frame, x, {
                                     convert_image::frame_to_encoded_buffer(
                                         x,
-                                        convert_image::ImageOptions::Png,
+                                        convert_image::EncoderOptions::Png,
                                     )?
                                 });
 
@@ -726,7 +726,7 @@ pub(crate) async fn frame_process_task<'a>(
                             let corners = basic_frame::match_all_dynamic_fmts!(&frame, x, {
                                 let rgb: Box<
                                     dyn formats::ImageStride<formats::pixel_format::RGB8>,
-                                > = Box::new(convert_image::convert::<
+                                > = Box::new(convert_image::convert_ref::<
                                     _,
                                     formats::pixel_format::RGB8,
                                 >(x)?);
@@ -1093,7 +1093,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         let bytes = match_all_dynamic_fmts!(&frame, x, {
                                             convert_image::frame_to_encoded_buffer(
                                                 x,
-                                                convert_image::ImageOptions::Jpeg(99),
+                                                convert_image::EncoderOptions::Jpeg(99),
                                             )?
                                         });
                                         File::create(image_path)?.write_all(&bytes)?;

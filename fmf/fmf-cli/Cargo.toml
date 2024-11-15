@@ -30,11 +30,11 @@ timestamped-frame = { path = "../../timestamped-frame" }
 fmf = { path = ".." }
 convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
-simple-frame = { path = "../../simple-frame" }
 
 mp4-writer = { path = "../../media-utils/mp4-writer", features = [
     "openh264-encode",
 ] }
+y4m-writer = { path = "../../media-utils/y4m-writer" }
 ci2-remote-control = { path = "../../ci2-remote-control" }
 
 nvenc = { path = "../../nvenc" }
@@ -43,9 +43,4 @@ nvenc = { path = "../../nvenc" }
 tempfile = "3.4.0"
 
 [features]
-backtrace = [
-    "anyhow/backtrace",
-    "mp4-writer/backtrace",
-    "convert-image/backtrace",
-    "fmf/backtrace",
-]
+backtrace = ["anyhow/backtrace", "mp4-writer/backtrace", "fmf/backtrace"]

@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use machine_vision_formats::{pixel_format::pixfmt, ImageStride, PixelFormat};
+use machine_vision_formats::{pixel_format::pixfmt, ImageStride, OwnedImageStride, PixelFormat};
 use openh264::formats::YUVSource;
 
 #[derive(Parser, Debug)]
@@ -163,10 +163,10 @@ fn y4m_dump<P: AsRef<Path>>(path: P) -> Result<()> {
 
 fn image_to_frame(
     fname: &std::path::Path,
-) -> Result<simple_frame::SimpleFrame<machine_vision_formats::pixel_format::RGB8>> {
+) -> Result<impl OwnedImageStride<machine_vision_formats::pixel_format::RGB8>> {
     let piston_image =
         image::open(&fname).with_context(|| format!("Opening {}", fname.display()))?;
-    let decoded = convert_image::piston_to_frame(piston_image)?;
+    let decoded = convert_image::image_to_rgb8(piston_image)?;
     Ok(decoded)
 }
 

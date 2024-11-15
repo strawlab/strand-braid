@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use channellib::unbounded;
 use crossbeam_ok::CrossbeamOk;
 
-use formats::{pixel_format::RGB8, ImageData};
+use formats::{pixel_format::RGB8, ImageData, Stride};
 
 /// run fly eye on image file
 #[derive(Debug, Parser)]
@@ -22,15 +22,15 @@ fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
 
     let (firehose_tx, firehose_rx) = unbounded();
 
-    let frame = convert_image::piston_to_frame(piston_image)?;
+    let frame = convert_image::image_to_rgb8(piston_image)?;
     let extra = Box::new(BasicExtra {
         host_timestamp: chrono::Utc::now(),
         host_framenumber: 0,
     });
     let frame: basic_frame::BasicFrame<RGB8> = basic_frame::BasicFrame {
-        width: frame.width,
-        height: frame.height,
-        stride: frame.stride,
+        width: frame.width(),
+        height: frame.height(),
+        stride: frame.stride().try_into().unwrap(),
         image_data: frame.buffer().data,
         pixel_format: std::marker::PhantomData,
         extra,

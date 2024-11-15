@@ -33,7 +33,6 @@ timestamped-frame = { path = "../../timestamped-frame" }
 
 [dev-dependencies]
 mp4-writer = { path = "../mp4-writer" }
-simple-frame = { path = "../../simple-frame" }
 
 [features]
 backtrace = ["mkv-strand-reader/backtrace"]

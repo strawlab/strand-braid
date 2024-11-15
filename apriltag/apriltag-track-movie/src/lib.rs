@@ -10,7 +10,7 @@ use machine_vision_formats::pixel_format::Mono8;
 use serde::{Deserialize, Serialize};
 
 use ads_apriltag as apriltag;
-use convert_image::Y4MFrame;
+use y4m_writer::Y4MFrame;
 
 #[derive(Parser)]
 #[command(version)]
@@ -152,8 +152,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let decoded_mono8 = y4m_frame.convert::<Mono8>()?;
         if false {
             // This block for debugging ffmpeg video decoding.
-            let png_buf =
-                convert_image::frame_to_encoded_buffer(&decoded_mono8, convert_image::ImageOptions::Png)?;
+            let png_buf = convert_image::frame_to_encoded_buffer(
+                &decoded_mono8,
+                convert_image::EncoderOptions::Png,
+            )?;
             let fname = format!("frame{frame:09}.png");
             println!("saving png {fname}");
             let mut file = std::fs::File::create(&fname)?;

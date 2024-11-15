@@ -6,14 +6,8 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-machine-vision-formats.workspace = true
+machine-vision-formats = { workspace = true, features = ["std"] }
 image = { workspace = true, features = ["jpeg", "png"] }
 thiserror.workspace = true
 bayer = { version = "0.1", default-features = false }
 itertools = "0.10.3"
-
-image-iter = { path = "../image-iter" }
-simple-frame = { path = "../simple-frame" }
-
-[features]
-backtrace = []

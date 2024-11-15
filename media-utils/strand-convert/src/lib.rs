@@ -163,7 +163,7 @@ impl ImageSequenceWriter {
         let buf = match_all_dynamic_fmts!(
             frame,
             x,
-            convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Png)
+            convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)
         )?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
@@ -733,9 +733,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         anyhow::bail!("Failed expectation that timestamp of first frame is 0");
     }
     // let black_frame =
-    //     SimpleFrame::new(width, height, width, vec![0; (width * height) as usize]).unwrap();
+    //     OwnedImage::new(width, height, width, vec![0; (width * height) as usize]).unwrap();
     // let white_frame =
-    //     SimpleFrame::new(width, height, width, vec![255; (width * height) as usize]).unwrap();
+    //     OwnedImage::new(width, height, width, vec![255; (width * height) as usize]).unwrap();
     // let zebra_frame = {
     //     let mut image_data = vec![0; (width * height) as usize];
     //     let stripe_width = width.min(height) as usize / 20;
@@ -749,7 +749,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     //             row[j] = val;
     //         }
     //     }
-    //     SimpleFrame::new(width, height, width, image_data).unwrap()
+    //     OwnedImage::new(width, height, width, image_data).unwrap()
     // };
 
     // ---------

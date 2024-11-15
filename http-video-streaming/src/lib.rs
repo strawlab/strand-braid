@@ -106,7 +106,7 @@ impl PerSender {
                         x,
                         convert_image::frame_to_encoded_buffer(
                             x,
-                            convert_image::ImageOptions::Jpeg(80),
+                            convert_image::EncoderOptions::Jpeg(80),
                         )
                     )?;
                     let firehose_frame_base64 = base64::encode(&bytes);

@@ -1528,7 +1528,7 @@ where
     let image_height = frame.height();
 
     let current_image_png = match_all_dynamic_fmts!(&frame, x, {
-        convert_image::frame_to_encoded_buffer(x, convert_image::ImageOptions::Png)?
+        convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)?
     });
 
     #[cfg(feature = "flydra_feat_detect")]
@@ -2322,7 +2322,7 @@ where
                             let current_image_png = match_all_dynamic_fmts!(frame, x, {
                                 convert_image::frame_to_encoded_buffer(
                                     x,
-                                    convert_image::ImageOptions::Png,
+                                    convert_image::EncoderOptions::Png,
                                 )
                                 .unwrap()
                             });

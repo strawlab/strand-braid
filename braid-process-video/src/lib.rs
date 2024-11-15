@@ -11,7 +11,7 @@ use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
-use machine_vision_formats::ImageData;
+use machine_vision_formats::{owned::OImage, pixel_format::Mono8, ImageData};
 use timestamped_frame::ExtraTimeData;
 
 use flydra_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
@@ -249,10 +249,12 @@ impl PerCamRender {
 
         let (frame0_png_buf, width, height) = match frame_ref {
             DynamicFrame::Mono8(frame_mono8) => {
-                let frame0_png_buf =
-                    convert_image::frame_to_encoded_buffer(frame_mono8, convert_image::ImageOptions::Png)
-                        .unwrap()
-                        .into();
+                let frame0_png_buf = convert_image::frame_to_encoded_buffer(
+                    frame_mono8,
+                    convert_image::EncoderOptions::Png,
+                )
+                .unwrap()
+                .into();
                 (
                     frame0_png_buf,
                     frame_mono8.width().try_into().unwrap(),
@@ -260,10 +262,12 @@ impl PerCamRender {
                 )
             }
             DynamicFrame::RGB8(frame_rgb8) => {
-                let frame0_png_buf =
-                    convert_image::frame_to_encoded_buffer(frame_rgb8, convert_image::ImageOptions::Png)
-                        .unwrap()
-                        .into();
+                let frame0_png_buf = convert_image::frame_to_encoded_buffer(
+                    frame_rgb8,
+                    convert_image::EncoderOptions::Png,
+                )
+                .unwrap()
+                .into();
                 (
                     frame0_png_buf,
                     frame_rgb8.width().try_into().unwrap(),
@@ -295,15 +299,15 @@ impl PerCamRender {
 
         // generate blank first image of the correct size.
         let image_data: Vec<u8> = vec![0; *width * *height];
-        let frame = simple_frame::SimpleFrame::<machine_vision_formats::pixel_format::Mono8>::new(
-            (*width).try_into().unwrap(),
+        let frame = OImage::<Mono8>::new(
             (*width).try_into().unwrap(),
             (*height).try_into().unwrap(),
+            *width,
             image_data,
         )
         .unwrap();
         let frame0_png_buf =
-            convert_image::frame_to_encoded_buffer(&frame, convert_image::ImageOptions::Png)
+            convert_image::frame_to_encoded_buffer(&frame, convert_image::EncoderOptions::Png)
                 .unwrap()
                 .into();
 
@@ -339,11 +343,15 @@ impl<'a> PerCamRenderFrame<'a> {
     pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
         let png_buf = match frame {
             basic_frame::DynamicFrame::Mono8(frame_mono8) => {
-                convert_image::frame_to_encoded_buffer(frame_mono8, convert_image::ImageOptions::Png)?
+                convert_image::frame_to_encoded_buffer(
+                    frame_mono8,
+                    convert_image::EncoderOptions::Png,
+                )?
             }
-            basic_frame::DynamicFrame::RGB8(frame_rgb8) => {
-                convert_image::frame_to_encoded_buffer(frame_rgb8, convert_image::ImageOptions::Png)?
-            }
+            basic_frame::DynamicFrame::RGB8(frame_rgb8) => convert_image::frame_to_encoded_buffer(
+                frame_rgb8,
+                convert_image::EncoderOptions::Png,
+            )?,
             _ => {
                 panic!("only rgb8 and mono8 supported");
             }
