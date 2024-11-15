@@ -2,14 +2,16 @@
 name = "led-box-comms"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2015"
+edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", default-features = false }
 serde_derive = "1.0"
-enum-iter = { path="../enum-iter", default-features = false }
-defmt = {version="0.3", optional=true }
+enum-iter = { path = "../enum-iter", default-features = false, optional = true }
+defmt = { version = "0.3", optional = true }
 
 [features]
-std = []
+std = ["enum-iter"]
 print-defmt = ["defmt"]
+
+default = ["std"]

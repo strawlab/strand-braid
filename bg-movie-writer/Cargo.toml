@@ -23,5 +23,5 @@ nvenc = { path = "../nvenc" }
 basic-frame = { path = "../basic-frame" }
 channellib = { path = "../channellib" }
 
-[features]
-backtrace = ["mp4-writer/backtrace", "channellib/backtrace"]
+ffmpeg-writer.workspace = true
+srt-writer.workspace = true

@@ -1,8 +1,5 @@
 use crate::{FrameData, FrameDataSource, ImageData, Timestamp};
-use color_eyre::{
-    eyre::{self as anyhow, WrapErr},
-    Result,
-};
+use eyre::{self as anyhow, Result, WrapErr};
 use fmf::reader::FMFReader;
 use std::path::Path;
 use timestamped_frame::ExtraTimeData;

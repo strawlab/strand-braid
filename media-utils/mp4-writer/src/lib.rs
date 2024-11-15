@@ -205,15 +205,22 @@ where
     /// Low-level writer which saves a buffer which is already h264 encoded.
     ///
     /// This skips the automatic encoding which would normally be done.
-    pub fn write_h264_buf(
+    pub fn write_h264_buf<TS1, TS2>(
         &mut self,
         data: &frame_source::H264EncodingVariant,
         width: u32,
         height: u32,
-        timestamp: chrono::DateTime<chrono::Utc>,
-        frame0_time: chrono::DateTime<chrono::Utc>,
+        timestamp: TS1,
+        frame0_time: TS2,
         insert_precision_timestamp: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        TS1: Into<chrono::DateTime<chrono::Local>>,
+        TS2: Into<chrono::DateTime<chrono::Local>>,
+    {
+        let timestamp: chrono::DateTime<chrono::Local> = timestamp.into();
+        let frame0_time: chrono::DateTime<chrono::Local> = frame0_time.into();
+
         let inner = self.inner.take();
 
         let is_keyframe = parse_h264_is_idr_frame(data)?;
@@ -338,26 +345,23 @@ where
         Ok(())
     }
 
-    pub fn write_dynamic(
-        &mut self,
-        frame: &DynamicFrame,
-        timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> Result<()> {
+    pub fn write_dynamic<TS>(&mut self, frame: &DynamicFrame, timestamp: TS) -> Result<()>
+    where
+        TS: Into<chrono::DateTime<chrono::Local>>,
+    {
         match_all_dynamic_fmts!(frame, x, {
             self.write(x, timestamp)?;
         });
         Ok(())
     }
 
-    pub fn write<'a, IM, FMT>(
-        &'a mut self,
-        frame: &IM,
-        timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> Result<()>
+    pub fn write<'a, IM, FMT, TS>(&'a mut self, frame: &IM, timestamp: TS) -> Result<()>
     where
         IM: ImageStride<FMT>,
         FMT: PixelFormat,
+        TS: Into<chrono::DateTime<chrono::Local>>,
     {
+        let timestamp: chrono::DateTime<chrono::Local> = timestamp.into();
         let inner = self.inner.take();
 
         match inner {
@@ -697,7 +701,7 @@ where
 fn write_frame<T, FRAME, FMT>(
     state: &mut RecordingState<'_, T>,
     raw_frame: &FRAME,
-    timestamp: chrono::DateTime<chrono::Utc>,
+    timestamp: chrono::DateTime<chrono::Local>,
 ) -> Result<()>
 where
     T: std::io::Write + std::io::Seek,
@@ -843,8 +847,8 @@ where
 }
 
 struct RecordingStateInner {
-    first_timestamp: chrono::DateTime<chrono::Utc>,
-    previous_timestamp: chrono::DateTime<chrono::Utc>,
+    first_timestamp: chrono::DateTime<chrono::Local>,
+    previous_timestamp: chrono::DateTime<chrono::Local>,
     /// limits the maximum framerate
     interval_for_limiting_fps: chrono::Duration,
     trim_width: u32,
@@ -854,11 +858,11 @@ struct RecordingStateInner {
 struct LessEncoderWrapper {
     encoder: less_avc_wrapper::WrappedLessEncoder,
     h264_parser: H264Parser,
-    first_timestamp: chrono::DateTime<chrono::Utc>,
+    first_timestamp: chrono::DateTime<chrono::Local>,
 }
 
 impl LessEncoderWrapper {
-    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
+    fn compute_local_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Local> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
@@ -871,8 +875,8 @@ impl LessEncoderWrapper {
     where
         T: std::io::Write + std::io::Seek,
     {
-        let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(utc_timestamp));
+        let local_timestamp = self.compute_local_timestamp(&sample);
+        self.h264_parser.push_nals(sample, Some(local_timestamp));
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -899,11 +903,11 @@ struct NvEncoder<'lib> {
     encoder: Rc<nvenc::Encoder<'lib>>,
     h264_parser: H264Parser,
     vram_queue: nvenc::Queue<IOBuffer<InputBuffer<'lib>, OutputBuffer<'lib>>>,
-    first_timestamp: chrono::DateTime<chrono::Utc>,
+    first_timestamp: chrono::DateTime<chrono::Local>,
 }
 
 impl<'lib> NvEncoder<'lib> {
-    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
+    fn compute_local_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Local> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
@@ -916,8 +920,8 @@ impl<'lib> NvEncoder<'lib> {
     where
         T: std::io::Write + std::io::Seek,
     {
-        let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(utc_timestamp));
+        let local_timestamp = self.compute_local_timestamp(&sample);
+        self.h264_parser.push_nals(sample, Some(local_timestamp));
         let mut mp4_writer = match std::mem::replace(mp4_segment, MaybeMp4Writer::Nothing) {
             MaybeMp4Writer::Mp4Writer(mp4_writer) => mp4_writer,
             MaybeMp4Writer::Starting(fd) => {
@@ -982,12 +986,12 @@ where
 struct OpenH264Encoder {
     encoder: openh264::encoder::Encoder,
     h264_parser: H264Parser,
-    first_timestamp: chrono::DateTime<chrono::Utc>,
+    first_timestamp: chrono::DateTime<chrono::Local>,
 }
 
 #[cfg(feature = "openh264")]
 impl OpenH264Encoder {
-    fn compute_utc_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Utc> {
+    fn compute_local_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Local> {
         self.first_timestamp + sample.pts
     }
     fn inner_save_data<T>(
@@ -1000,8 +1004,8 @@ impl OpenH264Encoder {
     where
         T: std::io::Write + std::io::Seek,
     {
-        let utc_timestamp = self.compute_utc_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(utc_timestamp));
+        let local_timestamp = self.compute_local_timestamp(&sample);
+        self.h264_parser.push_nals(sample, Some(local_timestamp));
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -1071,7 +1075,7 @@ impl H264Parser {
     fn push_nals(
         &mut self,
         nals: EbspNals,
-        mut precision_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+        mut precision_timestamp: Option<chrono::DateTime<chrono::Local>>,
     ) {
         // We assume that sample contains one or more compete NAL units and
         // starts with a NAL unit. Furthermore, we assume the start bytes can
@@ -1088,9 +1092,7 @@ impl H264Parser {
                 // Update the `creation_time` field of the metadata with the
                 // timestamp of the first frame.
                 let h264_metadata_updated = if let Some(ts) = precision_timestamp {
-                    // Keep the timezone from the existing metadata.
-                    let tz = h264_metadata.creation_time.offset();
-                    let creation_time = ts.with_timezone(tz);
+                    let creation_time = ts.into();
                     H264Metadata {
                         creation_time,
                         ..h264_metadata.clone()
@@ -1147,7 +1149,7 @@ impl H264Parser {
                         rbsp_msg[0] = 0x06; // code 6 - SEI
                         rbsp_msg[1] = 0x05; // header type: UserDataUnregistered
                         rbsp_msg[2] = 28; // size
-                        timestamp_to_sei_payload(ts, &mut rbsp_msg[3..31]);
+                        timestamp_to_sei_payload(ts.into(), &mut rbsp_msg[3..31]);
                         rbsp_msg[31] = 0x80; // rbsp_trailing_bits
 
                         // Create new NAL unit for precision timestamp. In

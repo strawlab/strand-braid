@@ -112,6 +112,7 @@ mp4-writer = { path = "../media-utils/mp4-writer", features = [
 strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
 plugin-defs = { path = "../plugin-defs", optional = true }
 bg-movie-writer = { path = "../bg-movie-writer" }
+ffmpeg-writer = { path = "../media-utils/ffmpeg-writer" }
 strand-cam-pseudo-cal = { path = "../strand-cam-pseudo-cal", optional = true }
 nvenc = { path = "../nvenc" }
 ads-apriltag = { path = "../apriltag", optional = true }
@@ -136,7 +137,6 @@ fiducial = ["ads-apriltag", "csv", "libflate"]
 backtrace = [
     "ci2/backtrace",
     "mp4-writer/backtrace",
-    "bg-movie-writer/backtrace",
     "http-video-streaming/backtrace",
     "flydra-feature-detector?/backtrace",
     "mvg?/backtrace",

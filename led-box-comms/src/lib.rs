@@ -4,12 +4,8 @@
 extern crate serde_derive;
 extern crate serde;
 
-extern crate enum_iter;
-
 #[cfg(not(feature = "std"))]
 extern crate core as std;
-
-use enum_iter::EnumIter;
 
 pub const MAX_INTENSITY: u16 = 16000;
 pub const COMM_VERSION: u16 = 3;
@@ -111,14 +107,9 @@ impl std::fmt::Display for OnState {
     }
 }
 
-// I found this necessary to avoid lifetime error in led-box-firmware. Not
-// sure why this needs to be allocated as with const to be 'static in this
-// case (but not in standard linux target).
-const ON_STATE_VARIANTS: [OnState; 2] = [OnState::Off, OnState::ConstantOn];
-const ON_STATE_VARIANTS_REF: &[OnState] = &ON_STATE_VARIANTS;
-
-impl EnumIter for OnState {
-    fn variants() -> &'static [Self] {
-        ON_STATE_VARIANTS_REF
+#[cfg(feature = "std")]
+impl enum_iter::EnumIter for OnState {
+    fn variants() -> Vec<Self> {
+        vec![OnState::Off, OnState::ConstantOn]
     }
 }
