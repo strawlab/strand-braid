@@ -12,7 +12,7 @@ csv = "1.2.2"
 y4m = "0.8.0"
 
 ads-apriltag = { path = ".." }
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 y4m-writer = { path = "../../media-utils/y4m-writer" }
 
 [dev-dependencies]

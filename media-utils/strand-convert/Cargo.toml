@@ -15,7 +15,7 @@ chrono = { version = "0.4.23", default-features = false }
 ordered-float = "3.4.0"
 
 basic-frame = { path = "../../basic-frame" }
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 frame-source = { path = "../frame-source" }
 tiff-decoder = { path = "../tiff-decoder" }
 mp4-writer = { path = "../mp4-writer", features = ["openh264-encode"] }

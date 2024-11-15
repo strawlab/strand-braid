@@ -11,5 +11,5 @@ apriltag-sys = "0.3"
 machine-vision-formats.workspace = true
 
 [dev-dependencies]
-convert-image = { path = "../convert-image" }
+convert-image.workspace = true
 image = { workspace = true, features = ["jpeg"] }

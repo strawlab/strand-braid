@@ -21,7 +21,7 @@ log = "0.4.19"
 ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
 ads-apriltag = { path = "../../apriltag" }
 braid-april-cal = { path = ".." }
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 flydra-types = { path = "../../flydra-types" }
 flytrax-io = { path = "../../strand-cam/flytrax-io" }
 mvg = { path = "../../mvg" }

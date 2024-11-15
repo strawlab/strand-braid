@@ -22,4 +22,4 @@ image = { workspace = true, features = [
 y4m = "0.8.0"
 tiff = "0.9.0"
 
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true

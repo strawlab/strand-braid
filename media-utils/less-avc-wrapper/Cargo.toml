@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 less-avc = "0.1.4"
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 basic-frame = { path = "../../basic-frame" }
 y4m-writer = { path = "../y4m-writer" }
 

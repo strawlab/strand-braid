@@ -28,7 +28,7 @@ machine-vision-formats.workspace = true
 
 timestamped-frame = { path = "../../timestamped-frame" }
 fmf = { path = ".." }
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 basic-frame = { path = "../../basic-frame" }
 
 mp4-writer = { path = "../../media-utils/mp4-writer", features = [

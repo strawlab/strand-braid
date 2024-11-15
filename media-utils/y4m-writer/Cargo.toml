@@ -7,4 +7,4 @@ edition = "2021"
 machine-vision-formats.workspace = true
 thiserror.workspace = true
 
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true

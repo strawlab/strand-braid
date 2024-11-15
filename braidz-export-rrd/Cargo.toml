@@ -27,7 +27,7 @@ env-tracing-logger = { path = "../env-tracing-logger" }
 mvg = { path = "../mvg", features = ["rerun-io"] }
 braidz-types = { path = "../braidz-types" }
 flydra-types = { path = "../flydra-types" }
-convert-image = { path = "../convert-image" }
+convert-image.workspace = true
 frame-source = { path = "../media-utils/frame-source" }
 basic-frame = { path = "../basic-frame" }
 ci2-remote-control = { path = "../ci2-remote-control" }

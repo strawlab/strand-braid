@@ -14,4 +14,4 @@ chrono = { version = "0.4.23", default-features = false, features = [
 machine-vision-formats = { workspace = true, features = ["std"] }
 
 timestamped-frame = { path = "../timestamped-frame" }
-convert-image = { path = "../convert-image", optional = true }
+convert-image = { workspace = true, optional = true }

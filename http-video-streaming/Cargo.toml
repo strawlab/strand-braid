@@ -24,7 +24,7 @@ bytes = "1.5.0"
 http-body = "1.0.0"
 tracing = "0.1.40"
 
-convert-image = { path = "../convert-image" }
+convert-image.workspace = true
 http-video-streaming-types = { path = "http-video-streaming-types" }
 basic-frame = { path = "../basic-frame" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }

@@ -45,7 +45,7 @@ ci2-remote-control = { path = "../ci2-remote-control" }
 braidz-parser = { path = "../braidz-parser" }
 braid-config-data = { path = "../braid-config-data" }
 flydra-types = { path = "../flydra-types" }
-convert-image = { path = "../convert-image" }
+convert-image.workspace = true
 datetime-conversion = { path = "../datetime-conversion" }
 basic-frame = { path = "../basic-frame" }
 fmf = { path = "../fmf" }

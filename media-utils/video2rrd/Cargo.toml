@@ -25,7 +25,7 @@ chrono = { version = "0.4.38", features = [
 ], default-features = false }
 
 env-tracing-logger = { path = "../../env-tracing-logger" }
-convert-image = { path = "../../convert-image" }
+convert-image.workspace = true
 frame-source = { path = "../frame-source" }
 basic-frame = { path = "../../basic-frame" }
 mp4-writer = { path = "../mp4-writer" }
