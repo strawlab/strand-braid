@@ -24,6 +24,11 @@ test_crates:
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev ffmpeg
     - rustup target add thumbv7em-none-eabihf
 
+    # Test ffmpeg-writer
+    - cd media-utils/ffmpeg-writer
+    - cargo test --release
+    - cd ../..
+
     # Test fmf-cli
     - cd fmf/fmf-cli
     - cargo test --release
