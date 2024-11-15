@@ -16,7 +16,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
 ] }
 datetime-conversion = { path = "../datetime-conversion" }
 timestamped-frame = { path = "../timestamped-frame" }
-thiserror = "1.0.33"
+thiserror.workspace = true
 libflate = "0.1"
 
 [features]

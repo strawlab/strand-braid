@@ -9,7 +9,7 @@ convert-image = { path = "../../convert-image" }
 basic-frame = { path = "../../basic-frame" }
 machine-vision-formats.workspace = true
 chrono = { version = "0.4.34", default-features = false }
-thiserror = "1"
+thiserror.workspace = true
 
 [dev-dependencies]
 eyre.workspace = true

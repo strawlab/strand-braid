@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-thiserror = "1.0.33"
+thiserror.workspace = true
 anyhow = "1"
 log = "0.4"
 serde = "1.0"

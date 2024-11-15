@@ -15,7 +15,7 @@ chrono = { version = "0.4.35", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-thiserror = "1.0"
+thiserror.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = { version = "0.11.2", optional = true }
 tokio-util = { version = "0.7.3", features = ["codec"], optional = true }

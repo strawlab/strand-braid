@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-mkv-parser-kit = {path="../mkv-parser-kit"}
-chrono = {version="0.4.23", default-features=false, features=['alloc']}
-thiserror = "1"
+mkv-parser-kit = { path = "../mkv-parser-kit" }
+chrono = { version = "0.4.23", default-features = false, features = ['alloc'] }
+thiserror.workspace = true
 
 [dev-dependencies]
 anyhow = "1"
-clap = {version="4.0.10", features=["derive"]}
+clap = { version = "4.0.10", features = ["derive"] }
 
 [features]
 backtrace = ["mkv-parser-kit/backtrace", "anyhow/backtrace"]

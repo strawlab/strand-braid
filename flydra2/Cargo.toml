@@ -12,7 +12,7 @@ path = "src/flydra2.rs"
 build-util = { path = "../build-util" }
 
 [dependencies]
-thiserror = "1.0.33"
+thiserror.workspace = true
 hdrhistogram = { version = "7.5.2", default-features = false, features = [
     "serialization",
 ] }

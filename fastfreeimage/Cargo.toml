@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-thiserror = "1.0.33"
+thiserror.workspace = true
 imops = { path = "../imops" }
 machine-vision-formats.workspace = true
 

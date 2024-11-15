@@ -7,7 +7,7 @@ rust-version = "1.76"
 [dependencies]
 vmbc-sys = "0.1"
 libloading = "0.8.3"
-thiserror = "1.0.33"
+thiserror.workspace = true
 machine-vision-formats.workspace = true
 log = "0.4"
 

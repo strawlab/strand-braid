@@ -12,7 +12,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "std",
     "wasmbind",
 ] }
-thiserror = "1.0.33"
+thiserror.workspace = true
 structure = "0.1.2"
 cast = "0.2.2"
 

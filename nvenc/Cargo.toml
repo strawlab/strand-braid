@@ -10,7 +10,7 @@ rust-version = "1.76"
 [dependencies]
 dynlink-cuda = { path = "dynlink-cuda" }
 dynlink-nvidia-encode = { path = "dynlink-nvidia-encode" }
-thiserror = "1.0.33"
+thiserror.workspace = true
 
 [features]
 backtrace = ["dynlink-cuda/backtrace", "dynlink-nvidia-encode/backtrace"]

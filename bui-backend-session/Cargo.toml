@@ -23,7 +23,7 @@ hyper-util = { version = "0.1.1", features = [
     "http1",
 ] }
 http-body-util = "0.1.0"
-thiserror = "1.0.51"
+thiserror.workspace = true
 
 bui-backend-session-types = { path = "../bui-backend-session/types" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }

@@ -154,6 +154,7 @@ env_logger = "0.11"
 eyre = "0.6.12"
 image = { version = "0.25", default-features = false }
 rerun = { version = "0.19", default-features = false, features = ["sdk"] }
+thiserror = "1.0.51"
 wasm-bindgen = { version = "0.2.95" }
 web-sys = { version = "0.3.72" }
 machine-vision-formats = { version = "0.1.2", default-features = false }

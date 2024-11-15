@@ -13,7 +13,7 @@ build-util = { path = "../../build-util" }
 [dependencies]
 
 configure = "0.1.1"
-thiserror = "1.0.33"
+thiserror.workspace = true
 color-eyre = "0.6.2"
 parking_lot = "0.12"
 serde = "1.0"

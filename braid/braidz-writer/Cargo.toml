@@ -7,7 +7,7 @@ edition = "2021"
 walkdir = "2.2"
 libflate = "0.1"
 zip = { version = "0.6.3", default-features = false, features = ["time"] }
-thiserror = "1.0.43"
+thiserror.workspace = true
 
 flydra-types = { path = "../../flydra-types" }
 

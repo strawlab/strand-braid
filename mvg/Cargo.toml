@@ -12,7 +12,7 @@ num-traits = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1.0"
-thiserror = "1.0.33"
+thiserror.workspace = true
 cam-geom = { workspace = true, features = ["serde-serialize"] }
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 rerun = { workspace = true, optional = true }

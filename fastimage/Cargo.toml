@@ -7,7 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 ipp-sys = "0.4.4"
-thiserror = "1.0"
+thiserror.workspace = true
 num-traits = { workspace = true }
 
 [dev-dependencies]
