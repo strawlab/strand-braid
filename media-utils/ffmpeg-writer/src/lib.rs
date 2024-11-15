@@ -151,9 +151,12 @@ pub fn platform_hardware_encoder() -> Result<FfmpegEncoderOptions> {
 }
 
 impl FfmpegWriter {
-    pub fn new(fname: &str, opts: Option<FfmpegEncoderOptions>) -> Result<Self> {
-        let raten = 25;
-        let rated = 1;
+    pub fn new(
+        fname: &str,
+        opts: Option<FfmpegEncoderOptions>,
+        rate: Option<(usize, usize)>,
+    ) -> Result<Self> {
+        let (raten, rated) = rate.unwrap_or((25, 1));
         let y4m_opts = y4m_writer::Y4MOptions {
             raten,
             rated,

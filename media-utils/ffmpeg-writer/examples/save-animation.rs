@@ -38,12 +38,8 @@ fn main() -> eyre::Result<()> {
 
                 info!("exporting {output_fname} with {encoder_opts:?}");
 
-                let mut my_ffmpeg_writer = ffmpeg_writer::FfmpegWriter::new(
-                    &output_fname,
-                    // None,
-                    // ffmpeg_writer::FfmpegEncoderOptions::Default,
-                    encoder_opts,
-                )?;
+                let mut my_ffmpeg_writer =
+                    ffmpeg_writer::FfmpegWriter::new(&output_fname, encoder_opts, None)?;
 
                 // Load the font
                 // let font_data = include_bytes!("../Roboto-Regular.ttf");

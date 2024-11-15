@@ -152,13 +152,13 @@ impl MyFfmpegWriter {
     /// Save using ffmpeg to filename given.
     ///
     /// It is expected that the filename ends with '.mp4'.
-    fn new(mp4_filename: &str, cfg: FfmpegRecordingConfig) -> Result<Self> {
+    fn new(mp4_filename: &str, cfg: &FfmpegRecordingConfig) -> Result<Self> {
         if !mp4_filename.ends_with(".mp4") {
             return Err(Error::FilenameDoesNotEndWithMp4);
         }
         let mut srt_filename = mp4_filename[..mp4_filename.len() - 4].to_string();
         srt_filename.push_str(".srt");
-        let opts = match cfg.codec {
+        let encoder_cfg = match cfg.codec {
             FfmpegCodec::BareFfmpeg => None,
             FfmpegCodec::H264Nvenc => Some(ffmpeg_writer::FfmpegEncoderOptions::H264Nvenc),
             FfmpegCodec::H264VideoToolbox => {
@@ -169,7 +169,22 @@ impl MyFfmpegWriter {
                 Some(ffmpeg_writer::FfmpegEncoderOptions::X264(Default::default()))
             }
         };
-        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, opts)?;
+        use ci2_remote_control::RecordingFrameRate::*;
+        let rate = match cfg.max_framerate {
+            Fps1 => Some((1, 1)),
+            Fps2 => Some((2, 1)),
+            Fps5 => Some((5, 1)),
+            Fps10 => Some((10, 1)),
+            Fps20 => Some((20, 1)),
+            Fps25 => Some((25, 1)),
+            Fps30 => Some((30, 1)),
+            Fps40 => Some((40, 1)),
+            Fps50 => Some((50, 1)),
+            Fps60 => Some((60, 1)),
+            Fps100 => Some((100, 1)),
+            Unlimited => None,
+        };
+        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, encoder_cfg, rate)?;
         let out_fd = std::fs::File::create(&srt_filename)?;
         let swtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(out_fd));
         Ok(Self {
@@ -280,7 +295,7 @@ fn launch_runner<'lib>(
                             Ffmpeg(c) => {
                                 raw = RawWriter::FfmpegWriter(thread_try!(
                                     err_tx,
-                                    MyFfmpegWriter::new(&mp4_filename, c.clone(),)
+                                    MyFfmpegWriter::new(&mp4_filename, &c)
                                 ));
                             }
                         };
