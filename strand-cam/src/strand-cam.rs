@@ -769,7 +769,7 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
     };
 
     let mut mp4_writer = mp4_writer::Mp4Writer::new(&mut buf, nv_cfg_test, Some(nv_enc))?;
-    match mp4_writer.write_dynamic(&frame, chrono::Utc::now()) {
+    match mp4_writer.write_dynamic(&frame, chrono::Local::now()) {
         Ok(()) => {}
         Err(e) => {
             debug!("nvidia NvEnc could not be initialized: {:?}", e);

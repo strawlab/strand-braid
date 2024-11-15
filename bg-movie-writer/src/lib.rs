@@ -78,11 +78,11 @@ impl BgMovieWriter {
         }
     }
 
-    pub fn write(
-        &mut self,
-        frame: DynamicFrame,
-        timestamp: chrono::DateTime<chrono::Utc>,
-    ) -> Result<()> {
+    pub fn write<TS>(&mut self, frame: DynamicFrame, timestamp: TS) -> Result<()>
+    where
+        TS: Into<chrono::DateTime<chrono::Local>>,
+    {
+        let timestamp = timestamp.into();
         async_err!(self.err_rx);
         if self.is_done {
             return Err(Error::AlreadyDone);
@@ -104,7 +104,7 @@ impl BgMovieWriter {
 }
 
 enum Msg {
-    Write((DynamicFrame, chrono::DateTime<chrono::Utc>)),
+    Write((DynamicFrame, chrono::DateTime<chrono::Local>)),
     Finish,
 }
 
@@ -181,7 +181,7 @@ impl MyFfmpegWriter {
     fn write<'a, IM, FMT>(
         &'a mut self,
         frame: &IM,
-        timestamp: chrono::DateTime<chrono::Utc>,
+        timestamp: chrono::DateTime<chrono::Local>,
     ) -> Result<()>
     where
         IM: ImageStride<FMT>,
@@ -215,7 +215,7 @@ fn launch_runner<'lib>(
 
         let mut raw: RawWriter<'_, File> = RawWriter::None;
 
-        let mut last_saved_stamp: Option<chrono::DateTime<chrono::Utc>> = None;
+        let mut last_saved_stamp: Option<chrono::DateTime<chrono::Local>> = None;
 
         loop {
             let msg = thread_try!(err_tx, rx.recv());

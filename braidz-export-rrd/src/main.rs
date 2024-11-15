@@ -322,7 +322,7 @@ impl OfflineBraidzRerunLogger {
             let (image, decoded) = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
             if let Some(my_mp4_writer) = my_mp4_writer.as_mut() {
-                my_mp4_writer.write_dynamic(&decoded, stamp_chrono.into())?;
+                my_mp4_writer.write_dynamic(&decoded, stamp_chrono)?;
             }
         }
         Ok(())

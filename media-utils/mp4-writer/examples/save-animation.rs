@@ -34,7 +34,7 @@ fn main() -> eyre::Result<()> {
     env_logger::init();
     let cli = Cli::parse();
 
-    // let start = Utc::now();
+    // 1970-01-01 01:00:00 UTC
     let start = chrono::DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let image = image::load_from_memory(&include_bytes!("bee.jpg")[..])?;

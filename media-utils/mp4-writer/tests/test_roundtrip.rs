@@ -213,7 +213,7 @@ fn generate_image(
                     stride.try_into().unwrap(),
                     Box::new(basic_frame::BasicExtra {
                         host_framenumber: 0,
-                        host_timestamp: start,
+                        host_timestamp: start.into(),
                     }),
                     image_data,
                     machine_vision_formats::PixFmt::Mono8,
@@ -247,7 +247,7 @@ fn generate_image(
                     stride.try_into().unwrap(),
                     Box::new(basic_frame::BasicExtra {
                         host_framenumber: 0,
-                        host_timestamp: start,
+                        host_timestamp: start.into(),
                     }),
                     image_data,
                     machine_vision_formats::PixFmt::RGB8,
