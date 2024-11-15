@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use color_eyre::eyre::{self as anyhow, WrapErr};
+use eyre::{self as anyhow, WrapErr};
 use openh264::formats::YUVSource;
 
 use mkv_strand_reader::ParsedStrandCamMkv;
