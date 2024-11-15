@@ -3669,8 +3669,7 @@ impl FinalMp4RecordingConfig {
             };
             ci2_remote_control::RecordingConfig::Mp4(final_cfg)
         } else {
-            use ci2_remote_control::FfmpegCodec;
-            use CodecSelection::*;
+            use ci2_remote_control::{CodecSelection::*, FfmpegCodec};
             let codec = match &shared.mp4_codec {
                 H264Nvenc | H264OpenH264 => {
                     unreachable!();
