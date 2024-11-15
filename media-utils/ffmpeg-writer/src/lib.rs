@@ -1,6 +1,7 @@
 use machine_vision_formats as formats;
 use std::{
     collections::VecDeque,
+    fmt::Display,
     process::{Child, Command, Stdio},
 };
 
@@ -34,7 +35,44 @@ pub enum FfmpegEncoderOptions {
     H264Nvenc,
     H264Vaapi,
     BareFfmpeg,
-    X264,
+    X264(X264Opts),
+}
+
+#[derive(Default, Debug, PartialEq)]
+pub struct X264Opts {
+    pub crf: Option<u8>,
+    pub preset: Option<X264Preset>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum X264Preset {
+    Ultrafast,
+    Superfast,
+    Veryfast,
+    Faster,
+    Fast,
+    Medium,
+    Slow,
+    Slower,
+    Veryslow,
+}
+
+impl Display for X264Preset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use X264Preset::*;
+        let s = match self {
+            Ultrafast => "ultrafast",
+            Superfast => "superfast",
+            Veryfast => "veryfast",
+            Faster => "faster",
+            Fast => "fast",
+            Medium => "medium",
+            Slow => "slow",
+            Slower => "slower",
+            Veryslow => "veryslow",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 fn prefix() -> Vec<String> {
@@ -46,7 +84,7 @@ fn middle() -> Vec<String> {
 }
 
 fn zq(x: &[&str]) -> Vec<String> {
-    x.into_iter().map(|x| String::from(*x)).collect()
+    x.into_iter().map(|x| (*x).into()).collect()
 }
 
 impl FfmpegEncoderOptions {
@@ -63,7 +101,16 @@ impl FfmpegEncoderOptions {
             H264Nvenc => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_nvenc"])],
             H264VideoToolbox => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "h264_videotoolbox"])],
             BareFfmpeg => vec![prefix(), middle()],
-            X264 => vec![prefix(), middle(), zq(&[VIDEO_CODEC, "libx264"])],
+            X264(opts) => {
+                let mut v = vec![prefix(), middle(), zq(&[VIDEO_CODEC, "libx264"])];
+                if let Some(crf) = opts.crf {
+                    v.push(vec!["-crf".to_string(), format!("{crf}")]);
+                }
+                if let Some(preset) = &opts.preset {
+                    v.push(vec!["-preset".to_string(), format!("{preset}")]);
+                }
+                v
+            }
         }
         .into_iter()
         .flatten()
