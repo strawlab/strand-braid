@@ -40,7 +40,7 @@ where
     FRAME: ImageStride<FMT>,
     FMT: PixelFormat,
 {
-    let out_colorspace = y4m_writer::Y4MColorspace::C420paldv;
+    let out_colorspace = y4m::Colorspace::C420paldv;
     let forced_block_size = Some(16);
     let y4m = y4m_writer::encode_y4m_frame(frame, out_colorspace, forced_block_size)?;
     Ok(y4m)

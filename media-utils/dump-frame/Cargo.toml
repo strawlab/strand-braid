@@ -19,7 +19,7 @@ image = { workspace = true, features = [
     "pnm",
     "gif",
 ] }
-y4m = "0.8.0"
+y4m.workspace = true
 tiff = "0.9.0"
 
 convert-image.workspace = true

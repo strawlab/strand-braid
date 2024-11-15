@@ -11,30 +11,24 @@ use formats::{
 
 use convert_image::{convert_owned, convert_ref};
 
-const Y4M_MAGIC: &str = "YUV4MPEG2";
-const Y4M_FRAME_MAGIC: &str = "FRAME";
 const EMPTY_BYTE: u8 = 128;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("io error: {source}")]
-    IoError {
-        #[from]
-        source: std::io::Error,
-    },
-    #[error("convert-image error: {source}")]
-    ConvertImageError {
-        #[from]
-        source: convert_image::Error,
-    },
+    #[error("convert-image error: {0}")]
+    ConvertImageError(#[from] convert_image::Error),
     #[error("format or size changed")]
     FormatOrSizeChanged,
     #[error("unknown pixel format: {0}")]
     UnknownPixelFormat(String),
     #[error("unsupported pixel format: {0}")]
     UnsupportedPixelFormat(formats::pixel_format::PixFmt),
+    #[error("unsupported colorspace: {0:?}")]
+    UnsupportedColorspace(y4m::Colorspace),
     #[error("invalid allocated buffer size")]
     InvalidAllocatedBufferSize,
+    #[error("{0}")]
+    Y4mError(#[from] y4m::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -51,34 +45,50 @@ struct YUV444 {
 #[derive(Debug)]
 pub struct Y4MOptions {
     /// Frame rate (numerator)
-    pub raten: i32,
+    pub raten: usize,
     /// Frame rate (denominator)
-    pub rated: i32,
+    pub rated: usize,
     /// Aspect ratio (numerator)
-    pub aspectn: i32,
+    pub aspectn: usize,
     /// Aspect ratio (denominator)
-    pub aspectd: i32,
+    pub aspectd: usize,
+}
+
+enum Writer {
+    NotStarted(Box<dyn Write>),
+    Started(y4m::Encoder<Box<dyn Write>>),
+    /// Placeholder value for internal use
+    Undefined,
+}
+
+impl Writer {
+    fn encoder(&mut self) -> Option<&mut y4m::Encoder<Box<dyn Write>>> {
+        match self {
+            Self::Started(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 /// An opinionated Y4M writer.
 ///
 /// Saves only progressive video with full color range.
 pub struct Y4MWriter {
-    wtr: Box<dyn Write>,
+    wtr: Writer,
     opts: Y4MOptions,
     info: Option<Y4MInfo>,
 }
 
 struct Y4MInfo {
-    width: u32,
-    height: u32,
+    width: usize,
+    height: usize,
     fmt: formats::pixel_format::PixFmt,
 }
 
 impl Y4MWriter {
     pub fn from_writer(wtr: Box<dyn Write>, opts: Y4MOptions) -> Self {
         Self {
-            wtr,
+            wtr: Writer::NotStarted(wtr),
             opts,
             info: None,
         }
@@ -89,57 +99,78 @@ impl Y4MWriter {
     {
         let this_fmt: formats::pixel_format::PixFmt = formats::pixel_format::pixfmt::<F>()
             .map_err(|estr| Error::UnknownPixelFormat(estr.to_string()))?;
-        let this_width = frame.width();
-        let this_height = frame.height();
-        let mut is_start = false;
-        let info = self.info.get_or_insert_with(|| {
-            is_start = true;
-            Y4MInfo {
-                width: this_width,
-                height: this_height,
-                fmt: this_fmt,
-            }
+        let this_width: usize = frame.width().try_into().unwrap();
+        let this_height: usize = frame.height().try_into().unwrap();
+
+        let info = self.info.get_or_insert_with(|| Y4MInfo {
+            width: this_width,
+            height: this_height,
+            fmt: this_fmt,
         });
         if this_width != info.width || this_height != info.height || this_fmt != info.fmt {
             return Err(Error::FormatOrSizeChanged);
         }
 
         let colorspace = match this_fmt {
-            formats::pixel_format::PixFmt::Mono8 => Y4MColorspace::CMono,
-            formats::pixel_format::PixFmt::RGB8 => Y4MColorspace::C420paldv,
-            formats::pixel_format::PixFmt::YUV422 => Y4MColorspace::C420paldv,
+            formats::pixel_format::PixFmt::Mono8 => y4m::Colorspace::Cmono,
+            formats::pixel_format::PixFmt::RGB8 => y4m::Colorspace::C420paldv,
+            formats::pixel_format::PixFmt::YUV422 => y4m::Colorspace::C420paldv,
             _ => {
                 return Err(Error::UnsupportedPixelFormat(this_fmt));
             }
         };
 
-        if is_start {
-            let inter = "Ip"; // progressive
+        let wtr = std::mem::replace(&mut self.wtr, Writer::Undefined);
 
-            let buf = format!(
-                "{magic} W{width} H{height} \
-                            F{raten}:{rated} {inter} A{aspectn}:{aspectd} \
-                            C{colorspace} XCOLORRANGE=FULL\n",
-                magic = Y4M_MAGIC,
-                width = info.width,
-                height = info.height,
-                raten = self.opts.raten,
-                rated = self.opts.rated,
-                inter = inter,
-                aspectn = self.opts.aspectn,
-                aspectd = self.opts.aspectd,
-                colorspace = colorspace,
-            );
-            self.wtr.write_all(buf.as_bytes())?;
-        }
+        match wtr {
+            Writer::NotStarted(wtr) => {
+                let builder = y4m::EncoderBuilder::new(
+                    info.width,
+                    info.height,
+                    y4m::Ratio::new(self.opts.raten, self.opts.rated),
+                )
+                .with_pixel_aspect(y4m::Ratio::new(self.opts.aspectn, self.opts.aspectd))
+                .with_colorspace(colorspace.into())
+                .append_vendor_extension(y4m::VendorExtensionString::new(
+                    b"COLORRANGE=FULL".into(),
+                )?);
+                let encoder = builder.write_header(wtr)?;
+                self.wtr = Writer::Started(encoder);
+            }
+            Writer::Started(encoder) => {
+                self.wtr = Writer::Started(encoder);
+            }
+            Writer::Undefined => {
+                unreachable!();
+            }
+        };
 
-        let buf = format!("{magic}\n", magic = Y4M_FRAME_MAGIC);
-        self.wtr.write_all(buf.as_bytes())?;
+        let encoder = self.wtr.encoder().unwrap();
 
-        let buf = encode_y4m_frame(frame, colorspace, None)?;
-        self.wtr.write_all(&buf.data)?;
-        self.wtr.flush()?;
+        let encoded = encode_y4m_frame(frame, colorspace, None)?;
+        let frame = (&encoded).into();
+        encoder.write_frame(&frame)?;
+
         Ok(())
+    }
+
+    // flush to disk.
+    pub fn flush(&mut self) -> Result<()> {
+        // Only if we started the writer is there anything to flush.
+        if let Writer::Started(encoder) = &mut self.wtr {
+            encoder.flush()?;
+        }
+        Ok(())
+    }
+
+    pub fn into_inner(self) -> Box<dyn Write> {
+        match self.wtr {
+            Writer::NotStarted(w) => w,
+            Writer::Started(e) => e.into_inner(),
+            _ => {
+                unreachable!();
+            }
+        }
     }
 }
 
@@ -188,41 +219,6 @@ fn test_div_ceil() {
     assert_eq!(div_ceil(18, 3), 6);
 }
 
-/// Defines the colorspace used by the [encode_y4m_frame] function.
-#[derive(Debug, Clone, Copy)]
-pub enum Y4MColorspace {
-    /// luminance
-    ///
-    /// WARNING: Not compatible with much software, not in spec.
-    CMono,
-    /// 4:2:0 with vertically-displaced chroma planes
-    C420paldv,
-    // /// 4:4:4
-    // C444,
-}
-
-impl std::str::FromStr for Y4MColorspace {
-    type Err = &'static str;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "Mono" | "mono" => Ok(Y4MColorspace::CMono),
-            "C420paldv" | "420paldv" => Ok(Y4MColorspace::C420paldv),
-            // "C444" | "444" => Ok(Y4MColorspace::C444),
-            _ => Err("unknown colorspace"),
-        }
-    }
-}
-
-impl std::fmt::Display for Y4MColorspace {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
-        match self {
-            Y4MColorspace::CMono => write!(f, "mono"),
-            Y4MColorspace::C420paldv => write!(f, "420paldv"),
-            // &Y4MColorspace::C444 => write!(f, "444"),
-        }
-    }
-}
-
 /// Contains information to output y4m data.
 ///
 /// The y4m format is described at
@@ -232,13 +228,26 @@ pub struct Y4MFrame {
     pub width: i32,
     pub height: i32,
     pub y_stride: i32,
-    colorspace: Y4MColorspace,
+    colorspace: y4m::Colorspace,
     chroma_stride: usize,
     alloc_rows: i32,
     alloc_chroma_rows: i32,
     /// True if the U and V planes are known to contain no data.
     is_known_mono_only: bool,
     forced_block_size: Option<u32>,
+}
+
+impl<'a> Into<y4m::Frame<'a>> for &'a Y4MFrame {
+    fn into(self) -> y4m::Frame<'a> {
+        y4m::Frame::new(
+            [
+                self.y_plane_data(),
+                self.u_plane_data(),
+                self.v_plane_data(),
+            ],
+            None,
+        )
+    }
 }
 
 impl std::fmt::Debug for Y4MFrame {
@@ -260,7 +269,7 @@ impl Y4MFrame {
         alloc_chroma_rows: i32,
         is_known_mono_only: bool,
         forced_block_size: Option<u32>,
-        colorspace: Y4MColorspace,
+        colorspace: y4m::Colorspace,
     ) -> Self {
         let width: i32 = width.try_into().unwrap();
         let height: i32 = height.try_into().unwrap();
@@ -292,7 +301,7 @@ impl Y4MFrame {
         let y_data = self.y_plane_data();
 
         match &self.colorspace {
-            Y4MColorspace::C420paldv => {
+            y4m::Colorspace::C420paldv => {
                 // // Convert from color data RGB8.
 
                 // // TODO: implement shortcut when DEST is Mono8.
@@ -358,7 +367,7 @@ impl Y4MFrame {
                 // Ok(out)
                 todo!();
             }
-            Y4MColorspace::CMono => {
+            y4m::Colorspace::Cmono => {
                 let mono8 = OImage::<Mono8>::new(
                     self.width.try_into().unwrap(),
                     self.height.try_into().unwrap(),
@@ -371,6 +380,7 @@ impl Y4MFrame {
                 let out = convert_owned::<_, Mono8, DEST>(mono8)?;
                 Ok(out)
             }
+            cs => Err(Error::UnsupportedColorspace(*cs)),
         }
     }
 
@@ -409,7 +419,7 @@ impl Y4MFrame {
             width,
             height,
             y_stride,
-            colorspace: Y4MColorspace::CMono,
+            colorspace: y4m::Colorspace::Cmono,
             chroma_stride,
             alloc_rows: height,
             alloc_chroma_rows,
@@ -454,7 +464,7 @@ impl Y4MFrame {
     pub fn v_stride(&self) -> usize {
         self.chroma_stride
     }
-    pub fn colorspace(&self) -> Y4MColorspace {
+    pub fn colorspace(&self) -> y4m::Colorspace {
         self.colorspace
     }
 }
@@ -582,7 +592,7 @@ where
         num_dest_allow_rows_chroma.try_into().unwrap(),
         false,
         Some(block_size),
-        Y4MColorspace::C420paldv,
+        y4m::Colorspace::C420paldv,
     );
 
     debug_assert_eq!(result.y_stride(), fullstride);
@@ -662,7 +672,7 @@ where
         (h / 2).try_into().unwrap(),
         false,
         None,
-        Y4MColorspace::C420paldv,
+        y4m::Colorspace::C420paldv,
     ))
 }
 
@@ -670,14 +680,14 @@ where
 /// [`HasRowChunksExact<FMT>`], into a [Y4MFrame].
 pub fn encode_y4m_frame<FMT>(
     frame: &dyn HasRowChunksExact<FMT>,
-    out_colorspace: Y4MColorspace,
+    out_colorspace: y4m::Colorspace,
     forced_block_size: Option<u32>,
 ) -> Result<Y4MFrame>
 where
     FMT: PixelFormat,
 {
     match out_colorspace {
-        Y4MColorspace::CMono => {
+        y4m::Colorspace::Cmono => {
             if let Some(block_size) = forced_block_size {
                 if !((frame.width() % block_size == 0) && (frame.height() % block_size == 0)) {
                     unimplemented!("conversion to mono with forced block size");
@@ -702,7 +712,7 @@ where
                 )?)
             }
         }
-        Y4MColorspace::C420paldv => {
+        y4m::Colorspace::C420paldv => {
             let input_pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
             match input_pixfmt {
                 PixFmt::Mono8 => {
@@ -717,6 +727,9 @@ where
                     }
                 }
             }
+        }
+        cs => {
+            return Err(Error::UnsupportedColorspace(cs));
         }
     }
 }
@@ -787,6 +800,6 @@ where
         num_chroma_alloc_rows.try_into().unwrap(),
         true,
         forced_block_size,
-        Y4MColorspace::C420paldv,
+        y4m::Colorspace::C420paldv,
     )
 }

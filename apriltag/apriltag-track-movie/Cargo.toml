@@ -9,7 +9,7 @@ machine-vision-formats.workspace = true
 clap = { version = "4.4.3", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 csv = "1.2.2"
-y4m = "0.8.0"
+y4m.workspace = true
 
 ads-apriltag = { path = ".." }
 convert-image.workspace = true

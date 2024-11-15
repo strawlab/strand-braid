@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 machine-vision-formats.workspace = true
 thiserror.workspace = true
-
 convert-image.workspace = true
+y4m.workspace = true

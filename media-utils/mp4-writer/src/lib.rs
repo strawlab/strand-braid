@@ -737,11 +737,7 @@ where
         (MyEncoder::OpenH264(encoder), Some(state_inner)) => {
             // todo: bitrate, keyframes, timestamp check and duration finding.
 
-            let y4m = y4m_writer::encode_y4m_frame(
-                raw_frame,
-                y4m_writer::Y4MColorspace::C420paldv,
-                None,
-            )?;
+            let y4m = y4m_writer::encode_y4m_frame(raw_frame, y4m::Colorspace::C420paldv, None)?;
 
             let encoded = encoder.encoder.encode(&YUVData::from(y4m)).unwrap();
 

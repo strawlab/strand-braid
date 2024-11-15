@@ -10,7 +10,7 @@ use convert_image::EncoderOptions;
 use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
 use timestamped_frame::ExtraTimeData;
-use y4m_writer::Y4MColorspace;
+use y4m::Colorspace;
 
 /*
 
@@ -144,8 +144,8 @@ struct ExportY4m {
     output: Option<PathBuf>,
 
     /// colorspace (e.g. 420paldv, mono)
-    #[arg(short, long, default_value = "420paldv")]
-    colorspace: Y4MColorspace,
+    #[arg(short, long, default_value = "420paldv", value_parser = str_to_colorspace)]
+    colorspace: Colorspace,
 
     /// frames per second numerator
     #[arg(long, default_value = "25")]
@@ -162,6 +162,14 @@ struct ExportY4m {
     /// aspect ratio denominator
     #[arg(long, default_value = "1")]
     aspect_denominator: u32,
+}
+
+fn str_to_colorspace(s: &str) -> anyhow::Result<Colorspace> {
+    match s {
+        "420paldv" => Ok(Colorspace::C420paldv),
+        "mono" => Ok(Colorspace::Cmono),
+        s => anyhow::bail!("Unknown colorspace string: {s}"),
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -626,7 +634,7 @@ fn test_y4m() -> anyhow::Result<()> {
     use machine_vision_formats::pixel_format::{Mono8, RGB8};
 
     let start = chrono::DateTime::from_timestamp(61, 0).unwrap();
-    for output_colorspace in [Y4MColorspace::CMono, Y4MColorspace::C420paldv] {
+    for output_colorspace in [Colorspace::Cmono, Colorspace::C420paldv] {
         for input_colorspace in [PixFmt::Mono8, PixFmt::RGB8] {
             let tmpdir = tempfile::tempdir()?;
             let base_path = tmpdir.path().to_path_buf();

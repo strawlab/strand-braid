@@ -12,6 +12,7 @@ y4m-writer = { path = "../y4m-writer" }
 machine-vision-formats.workspace = true
 chrono = { version = "0.4.34", default-features = false }
 thiserror.workspace = true
+y4m.workspace = true
 
 [dev-dependencies]
 eyre.workspace = true
