@@ -4,6 +4,8 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
+const FFMPEG: &str = "ffmpeg";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("IO error: {0}")]
@@ -97,9 +99,31 @@ impl FfmpegCodecArgs {
     }
 }
 
+pub fn ffmpeg_version() -> Result<String> {
+    let args = ["-hide_banner", "-nostdin", "-version"];
+    let ffmpeg_child = Command::new(FFMPEG)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let out = ffmpeg_child.wait_with_output()?;
+    let lines = String::from_utf8(out.stdout)?;
+
+    let mut ffmpeg_stderr_iter = lines.split_ascii_whitespace();
+    assert_eq!(ffmpeg_stderr_iter.next(), Some("ffmpeg"));
+    assert_eq!(ffmpeg_stderr_iter.next(), Some("version"));
+
+    if let Some(version_str) = ffmpeg_stderr_iter.next() {
+        Ok(version_str.into())
+    } else {
+        Err(Error::UnexpectedFfmpegOutput(lines))
+    }
+}
+
 pub fn platform_hardware_encoder() -> Result<FfmpegCodecArgs> {
     let args = ["-hide_banner", "-nostdin", "-hwaccels"];
-    let ffmpeg_child = Command::new("ffmpeg")
+    let ffmpeg_child = Command::new(FFMPEG)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -138,7 +162,7 @@ impl FfmpegWriter {
         let (wtr, ffmpeg_child) = if let Some(ffmpeg_codec_args) = ffmpeg_codec_args {
             let mut args = ffmpeg_codec_args.to_args();
             args.push(fname.into());
-            let mut ffmpeg_child = Command::new("ffmpeg")
+            let mut ffmpeg_child = Command::new(FFMPEG)
                 .args(args)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())

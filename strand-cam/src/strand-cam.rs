@@ -1928,6 +1928,15 @@ where
 
     // -----------------------------------------------
     // Check if we can use nv h264 and, if so, set that as default.
+
+    let ffmpeg_version = match ffmpeg_writer::ffmpeg_version() {
+        Ok(ffmpeg_version) => Some(ffmpeg_version),
+        Err(err) => {
+            tracing::warn!("Could not identify ffmpeg version. {err}");
+            None
+        }
+    };
+
     let is_nvenc_functioning = test_nvenc_save(frame)?;
 
     let mp4_codec = match is_nvenc_functioning {
@@ -1969,6 +1978,7 @@ where
 
     let shared_store = ChangeTracker::new(StoreType {
         is_braid,
+        ffmpeg_version,
         is_nvenc_functioning,
         is_videotoolbox_functioning,
         is_recording_mp4: None,

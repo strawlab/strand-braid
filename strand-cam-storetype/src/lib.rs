@@ -35,6 +35,8 @@ pub const CONN_KEY_EVENT_NAME: &str = "connection-key";
 pub struct StoreType {
     /// Whether we are running inside Braid.
     pub is_braid: bool,
+    /// What version of ffmpeg is available to Strand Camera
+    pub ffmpeg_version: Option<String>,
     /// Whether we have Nvidia NvEnc encoder available.
     pub is_nvenc_functioning: bool,
     /// Whether we have VideoToolbox
