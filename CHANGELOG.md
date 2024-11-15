@@ -2,6 +2,8 @@
 
 ### Added
 
+* Support encoding mp4 movies via ffmpeg. This allows using hardware encoding on
+  a variety of platforms.
 * Support PTP synchronized cameras without external triggering hardware. Tested
   with Basler Ace2 GigE cameras.
 * Provide binaries for Ubuntu 24.04 LTS Noble Numbat.
