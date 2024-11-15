@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{Seek, Write},
+    path::PathBuf,
 };
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
@@ -68,9 +69,16 @@ impl BgMovieWriter {
         format_str_mp4: String,
         recording_config: ci2_remote_control::RecordingConfig,
         queue_size: usize,
+        data_dir: Option<PathBuf>,
     ) -> Self {
         let (err_tx, err_rx) = channellib::unbounded();
-        let tx = launch_runner(format_str_mp4, recording_config, queue_size, err_tx);
+        let tx = launch_runner(
+            format_str_mp4,
+            recording_config,
+            queue_size,
+            err_tx,
+            data_dir,
+        );
         Self {
             tx,
             is_done: false,
@@ -217,6 +225,7 @@ fn launch_runner<'lib>(
     recording_config: ci2_remote_control::RecordingConfig,
     size: usize,
     err_tx: channellib::Sender<Error>,
+    data_dir: Option<PathBuf>,
 ) -> channellib::Sender<Msg> {
     let (tx, rx) = channellib::bounded::<Msg>(size);
     std::thread::spawn(move || {
@@ -235,7 +244,16 @@ fn launch_runner<'lib>(
                     if raw.is_none() {
                         let local: chrono::DateTime<chrono::Local> =
                             stamp.with_timezone(&chrono::Local);
-                        let mp4_filename = local.format(&format_str_mp4).to_string();
+                        let formatted_filename = local.format(&format_str_mp4).to_string();
+                        let mp4_filename = if let Some(data_dir) = &data_dir {
+                            data_dir
+                                .join(formatted_filename)
+                                .into_os_string()
+                                .into_string()
+                                .unwrap()
+                        } else {
+                            formatted_filename
+                        };
 
                         use ci2_remote_control::RecordingConfig::*;
                         match &recording_config {

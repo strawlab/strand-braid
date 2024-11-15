@@ -9,7 +9,12 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(feature = "flydra_feat_detect")]
 use std::io::Write;
-use std::{fs::File, net::SocketAddr, path::Path, sync::Arc};
+use std::{
+    fs::File,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tracing::{debug, error, info, trace};
 
 use async_change_tracker::ChangeTracker;
@@ -71,6 +76,7 @@ pub(crate) async fn frame_process_task<'a>(
     local_and_cam_time0: Option<(u64, u64)>,
     trigger_type: Option<TriggerType>,
     #[cfg(target_os = "linux")] mut v4l_out_stream: Option<v4l::io::mmap::stream::Stream<'a>>,
+    data_dir: PathBuf,
 ) -> Result<()> {
     // As currently implemented, this function has a problem: it does
     // potentially computationally expensive image processing and thus should
@@ -524,6 +530,7 @@ pub(crate) async fn frame_process_task<'a>(
                     format_str_mp4,
                     mp4_recording_config.final_cfg,
                     frames.len() + 100,
+                    Some(data_dir.clone()),
                 );
                 for mut frame in frames.into_iter() {
                     // Force frame width to be power of 2.

@@ -33,10 +33,7 @@ use timestamped_frame::ExtraTimeData;
 
 use video_streaming::AnnotatedFrame;
 
-use std::{
-    path::{Path, PathBuf},
-    result::Result as StdResult,
-};
+use std::{path::PathBuf, result::Result as StdResult};
 
 #[cfg(feature = "checkercal")]
 use std::fs::File;
@@ -682,6 +679,7 @@ pub struct StrandCamArgs {
     pub write_buffer_size_num_messages: usize,
     #[cfg(target_os = "linux")]
     v4l2loopback: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -726,6 +724,7 @@ impl Default for StrandCamArgs {
                 braid_config_data::default_write_buffer_size_num_messages(),
             #[cfg(target_os = "linux")]
             v4l2loopback: None,
+            data_dir: Default::default(),
         }
     }
 }
@@ -994,17 +993,25 @@ where
     C: 'static + ci2::Camera + Send,
     G: Send + 'static,
 {
+    let data_dir = if let Some(data_dir) = &args.data_dir {
+        data_dir.clone()
+    } else {
+        home::home_dir().ok_or_else(|| {
+            eyre::eyre!("Could not determine home directory and data directory not set.")
+        })?
+    };
+
     // Initial log file name has process ID in case multiple cameras are
     // launched simultaneously. The (still open) log file gets renamed later to
     // include the camera name. We need to start logging as soon as possible
     // (before we necessarily know the camera name) because we may need to debug
     // connectivity problems to Braid or problems starting the camera.
-    let initial_log_file_name = chrono::Local::now()
-        .format("~/.strand-cam-%Y%m%d_%H%M%S.%f")
+    let log_file_time = chrono::Local::now();
+    let initial_log_file_name = log_file_time
+        .format(".strand-cam-%Y%m%d_%H%M%S.%f")
         .to_string()
         + &format!("-{}.log", std::process::id());
-    let initial_log_file_name =
-        std::path::PathBuf::from(shellexpand::full(&initial_log_file_name)?.to_string());
+    let initial_log_file_name = data_dir.join(&initial_log_file_name);
     // TODO: delete log files older than, e.g. one week.
 
     #[cfg(feature = "eframe-gui")]
@@ -1027,6 +1034,12 @@ where
         .thread_stack_size(3 * 1024 * 1024)
         .build()?;
 
+    let log_file_info = LogFileInfo {
+        initial_log_file_name,
+        data_dir,
+        log_file_time,
+    };
+
     #[cfg(feature = "eframe-gui")]
     {
         let (quit_tx, quit_rx) = tokio::sync::mpsc::channel(1);
@@ -1042,7 +1055,7 @@ where
                     mymod,
                     args,
                     app_name,
-                    initial_log_file_name,
+                    log_file_info,
                     Some(quit_rx),
                     gui_singleton2,
                 ))?;
@@ -1079,7 +1092,7 @@ where
             mymod,
             args,
             app_name,
-            initial_log_file_name,
+            log_file_info,
             None,
             gui_singleton,
         ))?;
@@ -1094,7 +1107,7 @@ async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-    initial_log_file_name: PathBuf,
+    log_file_info: LogFileInfo,
     quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
     gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
@@ -1167,11 +1180,17 @@ where
         args,
         app_name,
         res_braid,
-        &initial_log_file_name,
+        log_file_info,
         quit_rx,
         gui_singleton,
     )
     .await
+}
+
+struct LogFileInfo {
+    initial_log_file_name: PathBuf,
+    data_dir: PathBuf,
+    log_file_time: chrono::DateTime<chrono::Local>,
 }
 
 /// Determine the camera name to be used and call `run()`.
@@ -1180,7 +1199,7 @@ async fn select_cam_and_run<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
-    initial_log_file_name: &Path,
+    log_file_info: LogFileInfo,
     quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
     gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
@@ -1248,24 +1267,27 @@ where
 
     // Rename the log file (which is open and being written to) so that the name
     // includes the camera name.
-    let new_log_file_name = chrono::Local::now()
-        .format("~/.strand-cam-%Y%m%d_%H%M%S.%f")
+    let new_log_file_name = log_file_info
+        .log_file_time
+        .format(".strand-cam-%Y%m%d_%H%M%S.%f")
         .to_string()
         + &format!("-{}.log", use_camera_name);
-    let new_log_file_name =
-        std::path::PathBuf::from(shellexpand::full(&new_log_file_name)?.to_string());
+    let new_log_file_name = log_file_info.data_dir.join(&new_log_file_name);
+
     tracing::debug!(
         "Renaming log file \"{}\" -> \"{}\"",
-        initial_log_file_name.display(),
+        log_file_info.initial_log_file_name.display(),
         new_log_file_name.display()
     );
-    std::fs::rename(initial_log_file_name, &new_log_file_name).with_context(|| {
-        format!(
-            "Renaming log file \"{}\" -> \"{}\"",
-            initial_log_file_name.display(),
-            new_log_file_name.display()
-        )
-    })?;
+    std::fs::rename(&log_file_info.initial_log_file_name, &new_log_file_name).with_context(
+        || {
+            format!(
+                "Renaming log file \"{}\" -> \"{}\"",
+                log_file_info.initial_log_file_name.display(),
+                new_log_file_name.display()
+            )
+        },
+    )?;
 
     run(
         mymod,
@@ -1276,6 +1298,7 @@ where
         use_camera_name,
         quit_rx,
         gui_singleton,
+        log_file_info.data_dir,
     )
     .await
 }
@@ -1294,7 +1317,8 @@ where
     res_braid,
     strand_cam_bui_http_address_string,
     quit_rx,
-    gui_singleton
+    gui_singleton,
+    data_dir
 ))]
 async fn run<M, C, G>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
@@ -1305,6 +1329,7 @@ async fn run<M, C, G>(
     cam: &str,
     quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
     gui_singleton: ArcMutGuiSingleton,
+    data_dir: PathBuf,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -2266,6 +2291,7 @@ where
             trigger_type,
             #[cfg(target_os = "linux")]
             v4l_out_stream,
+            data_dir,
         )
     };
     debug!("frame_process_task spawned");

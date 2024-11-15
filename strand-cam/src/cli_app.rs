@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-#[cfg(target_os = "linux")]
 use clap::{arg, FromArgMatches};
 
 use clap::{Arg, ArgAction, Args};
@@ -55,6 +54,10 @@ struct DerivedArgs {
     /// If set, output a copy of the video stream on this v4l2 device (e.g. `/dev/video0`)
     #[arg(long)]
     v4l2loopback: Option<PathBuf>,
+
+    /// If set, .mp4 videos and log files are saved to this directory.
+    #[arg(long)]
+    data_dir: Option<PathBuf>,
 }
 
 fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
@@ -345,7 +348,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
 
     // Since DerivedArgs implements FromArgMatches, we can extract it from the unstructured ArgMatches.
     // This is the main benefit of using derived arguments.
-    #[cfg(target_os = "linux")]
     let derived_matches = DerivedArgs::from_arg_matches(&matches)
         .map_err(|err| err.exit())
         .unwrap();
@@ -373,6 +375,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         apriltag_csv_filename_template,
         #[cfg(target_os = "linux")]
         v4l2loopback: derived_matches.v4l2loopback,
+        data_dir: derived_matches.data_dir,
         ..Default::default()
     })
 }
