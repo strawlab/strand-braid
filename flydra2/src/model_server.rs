@@ -192,7 +192,7 @@ pub async fn new_model_server(
                 .unwrap();
             tracing::info!("Streaming data to rerun at {socket_addr}");
             let rec = rerun::RecordingStreamBuilder::new("braid")
-                .connect_opts(socket_addr, None)
+                .connect_tcp_opts(socket_addr, None)
                 .unwrap();
             rec
         });
