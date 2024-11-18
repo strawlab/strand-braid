@@ -5,12 +5,20 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use numpy::PyArray;
+use numpy::convert::IntoPyArray;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
 
 use braidz_chunked_iter::{ChunkSize, DurationChunk, ToChunkIter};
 use csv_eof::EarlyEofOk;
 use zip_or_dir::{MaybeGzReader, ZipDirArchive};
+
+macro_rules! dict_set_item_array {
+    ($dict:expr, $name:expr, $obj:expr, $py: expr) => {
+        if $dict.set_item($name, $obj.into_pyarray_bound($py)).is_err() {
+            panic!("error while setting '{}' key on data_dict", $name);
+        }
+    };
+}
 
 #[pyclass(unsendable)]
 struct KalmanEstimatesChunker {
@@ -74,84 +82,59 @@ impl KalmanEstimatesChunker {
     }
 
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyObject> {
-        match slf.chunker.next() {
-            Some(chunk) => {
-                let n_rows = chunk.rows.len();
-                let result_dict = PyDict::new(slf.py());
-                if result_dict.set_item("n_rows", n_rows).is_err() {
-                    panic!("error while setting 'n_rows' key on result_dict");
-                }
-                let data_dict = PyDict::new(slf.py());
-
-                // obj_id
-                let obj_id = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.obj_id));
-                if data_dict.set_item("obj_id", obj_id).is_err() {
-                    panic!("error while setting 'obj_id' key on data_dict");
-                }
-
-                // frame
-                let frame = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.frame.0));
-                if data_dict.set_item("frame", frame).is_err() {
-                    panic!("error while setting 'frame' key on data_dict");
-                }
-
-                // timestamp
-                let timestamp = PyArray::from_iter(
-                    slf.py(),
-                    chunk.rows.iter().map(|row| match row.timestamp {
-                        Some(ref tl) => tl.as_f64(),
-                        None => std::f64::NAN,
-                    }),
-                );
-                if data_dict.set_item("timestamp", timestamp).is_err() {
-                    panic!("error while setting 'timestamp' key on data_dict");
-                }
-
-                // x
-                let x = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.x));
-                if data_dict.set_item("x", x).is_err() {
-                    panic!("error while setting 'x' key on data_dict");
-                }
-
-                // y
-                let y = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.y));
-                if data_dict.set_item("y", y).is_err() {
-                    panic!("error while setting 'y' key on data_dict");
-                }
-
-                // z
-                let z = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.z));
-                if data_dict.set_item("z", z).is_err() {
-                    panic!("error while setting 'z' key on data_dict");
-                }
-
-                // xvel
-                let xvel = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.xvel));
-                if data_dict.set_item("xvel", xvel).is_err() {
-                    panic!("error while setting 'xvel' key on data_dict");
-                }
-
-                // yvel
-                let yvel = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.yvel));
-                if data_dict.set_item("yvel", yvel).is_err() {
-                    panic!("error while setting 'yvel' key on data_dict");
-                }
-
-                // zvel
-                let zvel = PyArray::from_iter(slf.py(), chunk.rows.iter().map(|row| row.zvel));
-                if data_dict.set_item("zvel", zvel).is_err() {
-                    panic!("error while setting 'zvel' key on data_dict");
-                }
-
-                if result_dict.set_item("data", data_dict).is_err() {
-                    panic!("error while setting 'data_dict' key on result_dict");
-                }
-
-                Some(result_dict.into())
-                // Some(chunk.rows.len())
+        let chunk = match slf.chunker.next() {
+            Some(chunk) => chunk,
+            None => {
+                return None;
             }
-            None => None,
+        };
+        let n_rows = chunk.rows.len();
+        let result_dict = PyDict::new_bound(slf.py());
+        if result_dict.set_item("n_rows", n_rows).is_err() {
+            panic!("error while setting 'n_rows' key on result_dict");
         }
+        let data_dict = PyDict::new_bound(slf.py());
+
+        let mut obj_id = Vec::with_capacity(n_rows);
+        let mut frame = Vec::with_capacity(n_rows);
+        let mut timestamp = Vec::with_capacity(n_rows);
+        let mut x = Vec::with_capacity(n_rows);
+        let mut y = Vec::with_capacity(n_rows);
+        let mut z = Vec::with_capacity(n_rows);
+        let mut xvel = Vec::with_capacity(n_rows);
+        let mut yvel = Vec::with_capacity(n_rows);
+        let mut zvel = Vec::with_capacity(n_rows);
+        for row in chunk.rows.into_iter() {
+            let ts = match row.timestamp {
+                Some(ref tl) => tl.as_f64(),
+                None => f64::NAN,
+            };
+            obj_id.push(row.obj_id);
+            frame.push(row.frame.0);
+            timestamp.push(ts);
+            x.push(row.x);
+            y.push(row.y);
+            z.push(row.z);
+            xvel.push(row.xvel);
+            yvel.push(row.yvel);
+            zvel.push(row.zvel);
+        }
+
+        dict_set_item_array!(data_dict, "obj_id", obj_id, slf.py());
+        dict_set_item_array!(data_dict, "frame", frame, slf.py());
+        dict_set_item_array!(data_dict, "timestamp", timestamp, slf.py());
+        dict_set_item_array!(data_dict, "x", x, slf.py());
+        dict_set_item_array!(data_dict, "y", y, slf.py());
+        dict_set_item_array!(data_dict, "z", z, slf.py());
+        dict_set_item_array!(data_dict, "xvel", xvel, slf.py());
+        dict_set_item_array!(data_dict, "yvel", yvel, slf.py());
+        dict_set_item_array!(data_dict, "zvel", zvel, slf.py());
+
+        if result_dict.set_item("data", data_dict).is_err() {
+            panic!("error while setting 'data_dict' key on result_dict");
+        }
+
+        Some(result_dict.into())
     }
 }
 
@@ -186,7 +169,7 @@ fn chunk_on_num_frames(path: &str, num_frames: usize) -> PyResult<KalmanEstimate
 
 /// Chunked iteration over tables in `.braidz` files.
 #[pymodule]
-fn pybraidz_chunked_iter(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pybraidz_chunked_iter(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<KalmanEstimatesChunker>()?;
     m.add_function(wrap_pyfunction!(chunk_on_duration, m)?)?;
     m.add_function(wrap_pyfunction!(chunk_on_num_frames, m)?)?;
