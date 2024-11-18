@@ -1020,7 +1020,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         })
                                         .enumerate()
                                         .map(|(i, pt)| {
-                                            assert!(i <= u8::max_value() as usize);
+                                            assert!(i <= u8::MAX as usize);
                                             let idx = i as u8;
                                             flydra2::NumberedRawUdpPoint {
                                                 idx,

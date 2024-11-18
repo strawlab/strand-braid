@@ -859,8 +859,8 @@ impl Sorted {
         Sorted(vals)
     }
     fn dist_and_argmin(&self, x: f64) -> (f64, usize) {
-        let mut best_dist = std::f64::INFINITY;
-        let mut prev_dist = std::f64::INFINITY;
+        let mut best_dist = f64::INFINITY;
+        let mut prev_dist = f64::INFINITY;
         let mut best_idx = 0;
         for (i, selfi) in self.0.iter().enumerate() {
             let dist = (selfi - x).abs();
@@ -1358,7 +1358,7 @@ where
         // TODO: should match on DeserializeError with empty field only,
         // otherwise, return error. The way this is written, anything
         // will return a nan.
-        Ok(std::f64::NAN),
+        Ok(f64::NAN),
     )
 }
 

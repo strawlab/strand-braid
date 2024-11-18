@@ -112,13 +112,15 @@ pub(crate) fn build_mini_arena_images(
                     let frame = machine_vision_formats::owned::OImage::<Mono8>::new(
                         cam.width().try_into().unwrap(),
                         cam.height().try_into().unwrap(),
-                        cam.width().try_into().unwrap(),
+                        cam.width(),
                         mini_arena_image.clone(),
                     )
                     .unwrap();
-                    let png_buf =
-                        convert_image::frame_to_encoded_buffer(&frame, convert_image::EncoderOptions::Png)
-                            .unwrap();
+                    let png_buf = convert_image::frame_to_encoded_buffer(
+                        &frame,
+                        convert_image::EncoderOptions::Png,
+                    )
+                    .unwrap();
 
                     let dest_path =
                         PathBuf::from(dest_dir).join(format!("mini_arenas_{}.png", cam.name()));

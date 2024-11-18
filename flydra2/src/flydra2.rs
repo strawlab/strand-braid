@@ -355,13 +355,13 @@ impl FrameDataAndPoints {
 }
 
 fn safe_u8(val: usize) -> u8 {
-    assert!(val <= u8::max_value() as usize, "value out of range");
+    assert!(val <= u8::MAX as usize, "value out of range");
     val as u8
 }
 
 fn convert_to_save(frame_data: &FrameData, input: &NumberedRawUdpPoint) -> Data2dDistortedRowF32 {
     let (slope, eccentricity) = match input.pt.maybe_slope_eccentricty {
-        None => (std::f32::NAN, std::f32::NAN),
+        None => (f32::NAN, f32::NAN),
         Some((s, e)) => (s as f32, e as f32),
     };
 
@@ -392,15 +392,15 @@ fn convert_empty_to_save(frame_data: &FrameData) -> Data2dDistortedRowF32 {
         cam_received_timestamp: frame_data.cam_received_timestamp.clone(),
         device_timestamp: frame_data.device_timestamp,
         block_id: frame_data.block_id,
-        x: std::f32::NAN,
-        y: std::f32::NAN,
-        area: std::f32::NAN,
-        slope: std::f32::NAN,
-        eccentricity: std::f32::NAN,
+        x: f32::NAN,
+        y: f32::NAN,
+        area: f32::NAN,
+        slope: f32::NAN,
+        eccentricity: f32::NAN,
         frame_pt_idx: 0,
         cur_val: 0,
-        mean_val: std::f32::NAN,
-        sumsqf_val: std::f32::NAN,
+        mean_val: f32::NAN,
+        sumsqf_val: f32::NAN,
     }
 }
 
@@ -1041,8 +1041,8 @@ fn test_csv_nan() {
         cam_received_timestamp: FlydraFloatTimestampLocal::from_dt(&chrono::Local::now()),
         device_timestamp: None,
         block_id: None,
-        x: std::f32::NAN,
-        y: std::f32::NAN,
+        x: f32::NAN,
+        y: f32::NAN,
         area: 1.0,
         slope: 2.0,
         eccentricity: 3.0,

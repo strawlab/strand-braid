@@ -49,7 +49,7 @@ where
                 ));
             }
             ChunkStartAndDuration::Frame(start_frame, n_frames_in_chunk) => {
-                let next_u64: u64 = next.try_into().unwrap();
+                let next_u64: u64 = next.into();
                 let n_frames_in_chunk_u64: u64 = (*n_frames_in_chunk).try_into().unwrap();
                 let stop_dur = n_frames_in_chunk_u64 * next_u64;
                 stop_frame = Some(*start_frame + stop_dur);

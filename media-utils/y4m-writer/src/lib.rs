@@ -102,7 +102,7 @@ impl Y4MWriter {
         let this_width: usize = frame.width().try_into().unwrap();
         let this_height: usize = frame.height().try_into().unwrap();
 
-        let info = self.info.get_or_insert_with(|| Y4MInfo {
+        let info = self.info.get_or_insert(Y4MInfo {
             width: this_width,
             height: this_height,
             fmt: this_fmt,
@@ -130,7 +130,7 @@ impl Y4MWriter {
                     y4m::Ratio::new(self.opts.raten, self.opts.rated),
                 )
                 .with_pixel_aspect(y4m::Ratio::new(self.opts.aspectn, self.opts.aspectd))
-                .with_colorspace(colorspace.into())
+                .with_colorspace(colorspace)
                 .append_vendor_extension(y4m::VendorExtensionString::new(
                     b"COLORRANGE=FULL".into(),
                 )?);
@@ -237,14 +237,10 @@ pub struct Y4MFrame {
     forced_block_size: Option<u32>,
 }
 
-impl<'a> Into<y4m::Frame<'a>> for &'a Y4MFrame {
-    fn into(self) -> y4m::Frame<'a> {
-        y4m::Frame::new(
-            [
-                self.y_plane_data(),
-                self.u_plane_data(),
-                self.v_plane_data(),
-            ],
+impl<'a> From<&'a Y4MFrame> for y4m::Frame<'a> {
+    fn from(val: &'a Y4MFrame) -> Self {
+        Self::new(
+            [val.y_plane_data(), val.u_plane_data(), val.v_plane_data()],
             None,
         )
     }
@@ -728,9 +724,7 @@ where
                 }
             }
         }
-        cs => {
-            return Err(Error::UnsupportedColorspace(cs));
-        }
+        cs => Err(Error::UnsupportedColorspace(cs)),
     }
 }
 

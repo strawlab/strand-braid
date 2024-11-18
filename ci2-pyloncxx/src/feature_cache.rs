@@ -50,7 +50,7 @@ impl PfsCache {
             strict,
         })
     }
-    pub(crate) fn to_string(&self) -> String {
+    pub(crate) fn to_header_string(&self) -> String {
         // Again, I could not find any documentation about the PFS (Pylon
         // Feature System) format, so this is all a guess.
         let mut out_lines = self.headers.clone();
@@ -62,7 +62,7 @@ impl PfsCache {
     pub(crate) fn update(&mut self, key: &str, value: String) {
         let mut found = false;
         for node in self.nodes.iter_mut() {
-            if &node.0 == key {
+            if node.0 == key {
                 if found && self.strict {
                     panic!("Key \"{}\" exists more than once in PFS.", key);
                 }
@@ -87,7 +87,7 @@ pub(crate) trait PfsTrackedIntegerNode {
 impl PfsTrackedIntegerNode for pylon_cxx::IntegerNode {
     fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: i64) -> pylon_cxx::PylonResult<()> {
         self.set_value(new_value)?;
-        pfs.update(self.name(), format!("{}", new_value));
+        pfs.update(self.name(), new_value.to_string());
         Ok(())
     }
 }
@@ -99,7 +99,7 @@ pub(crate) trait PfsTrackedEnumNode {
 impl PfsTrackedEnumNode for pylon_cxx::EnumNode {
     fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: &str) -> pylon_cxx::PylonResult<()> {
         self.set_value(new_value)?;
-        pfs.update(self.name(), format!("{}", new_value));
+        pfs.update(self.name(), new_value.to_string());
         Ok(())
     }
 }

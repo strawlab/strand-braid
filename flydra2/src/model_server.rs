@@ -191,10 +191,9 @@ pub async fn new_model_server(
                 .next()
                 .unwrap();
             tracing::info!("Streaming data to rerun at {socket_addr}");
-            let rec = rerun::RecordingStreamBuilder::new("braid")
+            rerun::RecordingStreamBuilder::new("braid")
                 .connect_tcp_opts(socket_addr, None)
-                .unwrap();
-            rec
+                .unwrap()
         });
 
         if rec.is_none() {
@@ -256,7 +255,7 @@ fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {
         let now_f64 = datetime_conversion::datetime_to_f64(&chrono::Local::now());
         now_f64 - tt.as_f64()
     } else {
-        std::f64::NAN
+        f64::NAN
     };
 
     // Send updates after each observation for lowest-possible latency.

@@ -382,7 +382,7 @@ impl std::fmt::Display for FfmpegCodecArgs {
             .codec
             .as_ref()
             .map(|c| format!("-c:v {c}"))
-            .unwrap_or_else(|| "".to_string());
+            .unwrap_or_default();
         let post = arg_fmt(self.post_codec_args.as_ref());
         write!(f, "ffmpeg {pre} {codec} {post}")
     }

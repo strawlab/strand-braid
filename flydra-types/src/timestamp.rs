@@ -124,7 +124,7 @@ pub fn triggerbox_time(
 #[test]
 #[should_panic]
 fn test_nan_handling() {
-    let _ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(std::f64::NAN);
+    let _ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(f64::NAN);
 }
 
 /// Ensure that conversion with particular floating point representation remains

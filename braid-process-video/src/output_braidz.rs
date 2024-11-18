@@ -188,11 +188,11 @@ impl BraidStorage {
                     let pt = flydra_types::FlydraRawUdpPoint {
                         x0_abs: *xy.0,
                         y0_abs: *xy.1,
-                        area: std::f64::NAN,
+                        area: f64::NAN,
                         maybe_slope_eccentricty: None,
                         cur_val: 0,
-                        mean_val: std::f64::NAN,
-                        sumsqf_val: std::f64::NAN,
+                        mean_val: f64::NAN,
+                        sumsqf_val: f64::NAN,
                     };
                     flydra2::NumberedRawUdpPoint {
                         idx: idx.try_into().unwrap(),

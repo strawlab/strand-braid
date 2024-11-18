@@ -347,7 +347,7 @@ impl ConnectedCamerasManager {
             inner.ccis.insert(
                 raw_cam_name.clone(),
                 ConnectedCameraInfo {
-                    cam_num: cam_num.clone(),
+                    cam_num,
                     raw_cam_name: raw_cam_name.clone(),
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
@@ -389,13 +389,7 @@ impl ConnectedCamerasManager {
             TriggerType::FakeSync(_) => {
                 self.got_new_frame_live_triggerbox(packet, sync_pulse_pause_started_arc, 0)
             }
-            TriggerType::PtpSync(ptpcfg) => {
-                if let Some(sync_data) = self.got_new_frame_live_ptp(packet, ptpcfg) {
-                    sync_data
-                } else {
-                    return None;
-                }
-            }
+            TriggerType::PtpSync(ptpcfg) => self.got_new_frame_live_ptp(packet, ptpcfg)?,
             TriggerType::DeviceTimestamp => {
                 todo!();
             }

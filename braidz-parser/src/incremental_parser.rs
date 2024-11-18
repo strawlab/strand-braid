@@ -133,7 +133,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                 .unwrap();
 
         // Parse fps and tracking parameters from textlog.
-        let mut expected_fps = std::f64::NAN;
+        let mut expected_fps = f64::NAN;
         let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(flydra_types::TEXTLOG_CSV_FNAME);

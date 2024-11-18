@@ -9,7 +9,7 @@ pub(crate) trait SendComplete {
 
 impl SendComplete for UdpSocket {
     fn send_complete(&self, x: &[u8]) -> Result<()> {
-        match self.send(&x) {
+        match self.send(x) {
             Ok(sz) => {
                 if sz != x.len() {
                     eyre::bail!("incomplete send");

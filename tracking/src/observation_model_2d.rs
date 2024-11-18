@@ -53,6 +53,6 @@ where
         &self.observation_noise_covariance
     }
     fn predict_observation(&self, state: &OVector<R, U4>) -> OVector<R, U2> {
-        &self.observation_matrix * state
+        self.observation_matrix * state
     }
 }

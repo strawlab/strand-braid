@@ -452,11 +452,11 @@ fn convert_row(
 ) -> Data2dDistortedRow {
     let (eccentricity, slope) = match strand_cam_row.orientation_radians_mod_pi {
         Some(angle) => (1.1, angle.tan()),
-        None => (std::f64::NAN, std::f64::NAN),
+        None => (f64::NAN, f64::NAN),
     };
     let frame_pt_idx = row_state.update(strand_cam_row.frame);
     Data2dDistortedRow {
-        area: strand_cam_row.central_moment.unwrap_or(std::f64::NAN),
+        area: strand_cam_row.central_moment.unwrap_or(f64::NAN),
         cam_received_timestamp: get_timestamp(&strand_cam_row, ts0),
         device_timestamp: None,
         block_id: None,
@@ -465,9 +465,9 @@ fn convert_row(
         frame: strand_cam_row.frame,
         eccentricity,
         frame_pt_idx,
-        mean_val: std::f64::NAN,
+        mean_val: f64::NAN,
         slope,
-        sumsqf_val: std::f64::NAN,
+        sumsqf_val: f64::NAN,
         timestamp: None, //flydra_types::FlydraFloatTimestampLocal::from_dt(&dt),
         x: strand_cam_row.x_px,
         y: strand_cam_row.y_px,

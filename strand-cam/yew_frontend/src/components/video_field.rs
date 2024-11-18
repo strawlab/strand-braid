@@ -179,8 +179,7 @@ impl Component for VideoField {
             Msg::NotifySender => {
                 self.timeout = None;
                 if let Some(ref callback) = ctx.props().on_rendered {
-                    let ck = self.ck.clone();
-                    callback.emit(ck);
+                    callback.emit(self.ck);
                 }
             }
             Msg::ViewFitWidth => {

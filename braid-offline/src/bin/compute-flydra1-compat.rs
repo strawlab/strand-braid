@@ -37,7 +37,7 @@ pub struct FilteredObservations {
 }
 
 fn no_data_row(obj_id: u32, frame: SyncFno) -> KalmanEstimatesRow {
-    let nan: f64 = std::f64::NAN;
+    let nan: f64 = f64::NAN;
 
     KalmanEstimatesRow {
         obj_id,
@@ -158,7 +158,7 @@ fn save_data_association_ascending<R1: Read, R2: Read>(
     let mut kalman_estimates_iter =
         kalman_estimates_reader.into_deserialize::<KalmanEstimatesRow>();
     let kest_frame_iter = AscendingGroupIter::new(&mut kalman_estimates_iter).early_eof_ok();
-    let nan: f32 = std::f32::NAN;
+    let nan: f32 = f32::NAN;
 
     let opt_next_da_row = da_row_frame_iter.next();
     if opt_next_da_row.is_none() {

@@ -379,7 +379,7 @@ async fn launch_braid_http_backend(
     let urls = mainbrain_server_info.build_urls()?;
     for url in urls.iter() {
         info!("Predicted URL: {url}");
-        if !flydra_types::is_loopback(&url) {
+        if !flydra_types::is_loopback(url) {
             println!("QR code for {url}");
             display_qr_url(&format!("{url}"));
         }
@@ -1153,7 +1153,7 @@ pub(crate) async fn do_run_forever(
                 packet.block_id,
             );
 
-            assert!(packet.points.len() < u8::max_value() as usize);
+            assert!(packet.points.len() < u8::MAX as usize);
             let points = packet
                 .points
                 .into_iter()

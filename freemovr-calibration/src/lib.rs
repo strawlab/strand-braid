@@ -471,13 +471,13 @@ pub trait DisplayGeometry {
                         //     Some(tc) => Computed::TexCoords((tc[0],tc[1])),
                         //     None => {
                         //         panic!("no intersection but TOI: {:?}", surface_pt);
-                        //         // Computed::TexCoords((std::f64::NAN,std::f64::NAN))
+                        //         // Computed::TexCoords((f64::NAN,f64::NAN))
                         //     },
                         // }
                         let tc = ray_intersect.uvs.unwrap(); // we know we have uvs for our shapes, so unwrap() is ok
                         Computed::TexCoords((tc[0], tc[1]))
                     }
-                    None => Computed::TexCoords((std::f64::NAN, std::f64::NAN)),
+                    None => Computed::TexCoords((f64::NAN, f64::NAN)),
                 }
             }
         }
@@ -508,7 +508,7 @@ pub fn compute_image_for_camera_view(
         Computable::TexCoords => 2, // U, V
     };
 
-    let mut result = vec![std::f64::NAN; cam.width() * cam.height() * nchan];
+    let mut result = vec![f64::NAN; cam.width() * cam.height() * nchan];
 
     // println!("-------- CAMERA");
     // println!("pmat {}", pretty_print_nalgebra::pretty_print!(cam.as_pmat().unwrap()));

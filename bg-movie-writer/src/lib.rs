@@ -135,7 +135,7 @@ where
 {
     None,
     Mp4Writer(Mp4Writer<'lib, T>),
-    FfmpegWriter(MyFfmpegWriter),
+    FfmpegWriter(Box<MyFfmpegWriter>),
 }
 
 impl<'lib, T> RawWriter<'lib, T>
@@ -143,10 +143,7 @@ where
     T: Write + Seek,
 {
     fn is_none(&self) -> bool {
-        match self {
-            Self::None => true,
-            _ => false,
-        }
+        matches!(self, Self::None)
     }
 }
 
@@ -197,8 +194,8 @@ impl MyFfmpegWriter {
             count: 0,
         })
     }
-    fn write<'a, IM, FMT>(
-        &'a mut self,
+    fn write<IM, FMT>(
+        &mut self,
         frame: &IM,
         timestamp: chrono::DateTime<chrono::Local>,
     ) -> Result<()>
@@ -220,7 +217,7 @@ impl MyFfmpegWriter {
     }
 }
 
-fn launch_runner<'lib>(
+fn launch_runner(
     format_str_mp4: String,
     recording_config: ci2_remote_control::RecordingConfig,
     size: usize,
@@ -307,10 +304,10 @@ fn launch_runner<'lib>(
                                 ));
                             }
                             Ffmpeg(c) => {
-                                raw = RawWriter::FfmpegWriter(thread_try!(
+                                raw = RawWriter::FfmpegWriter(Box::new(thread_try!(
                                     err_tx,
-                                    MyFfmpegWriter::new(&mp4_filename, &c)
-                                ));
+                                    MyFfmpegWriter::new(&mp4_filename, c)
+                                )));
                             }
                         };
                     }

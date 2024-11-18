@@ -251,17 +251,12 @@ impl std::fmt::Debug for Msg {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub enum FrameProcessingErrorState {
+    #[default]
     NotifyAll,
     IgnoreUntil(chrono::DateTime<chrono::Utc>),
     IgnoreAll,
-}
-
-impl Default for FrameProcessingErrorState {
-    fn default() -> Self {
-        FrameProcessingErrorState::NotifyAll
-    }
 }
 
 #[cfg(feature = "flydra_feat_detect")]
@@ -1564,11 +1559,8 @@ where
     };
 
     #[cfg(not(feature = "flydra_feat_detect"))]
-    match &res_braid {
-        Ok(bi) => {
-            let _ = bi.tracker_cfg_src.clone(); // silence unused field warning.
-        }
-        Err(_) => {}
+    if let Ok(bi) = &res_braid {
+        let _ = bi.tracker_cfg_src.clone(); // silence unused field warning.
     };
 
     // Here we just create some default, it does not matter what, because it
@@ -1601,7 +1593,7 @@ where
     };
 
     let camdata_udp_addr = match &res_braid {
-        Ok(bi) => Some(bi.camdata_udp_addr.clone()),
+        Ok(bi) => Some(bi.camdata_udp_addr),
         Err(_a) => None,
     };
 
@@ -2198,6 +2190,7 @@ where
     }
 
     #[cfg(not(feature = "eframe-gui"))]
+    #[allow(clippy::let_unit_value)]
     let _ = gui_singleton;
 
     // Display where we are listening.
@@ -2208,7 +2201,7 @@ where
 
         for url in urls.iter() {
             info!(" * predicted URL {url}");
-            if !flydra_types::is_loopback(&url) {
+            if !flydra_types::is_loopback(url) {
                 println!("QR code for {url}");
                 display_qr_url(&format!("{url}"));
             }
@@ -3299,7 +3292,7 @@ where
     if !no_browser {
         tokio::spawn(async move {
             // Let the webserver start before opening browser.
-            let _ = launched_rx.changed().await.unwrap();
+            launched_rx.changed().await.unwrap();
             open_browser(format!("{}", urls[0])).unwrap();
         });
     }
@@ -3651,7 +3644,7 @@ fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
         Bitrate4000 => 4000,
         Bitrate5000 => 5000,
         Bitrate10000 => 10000,
-        BitrateUnlimited => std::u32::MAX,
+        BitrateUnlimited => u32::MAX,
     }
 }
 

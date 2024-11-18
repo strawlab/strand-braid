@@ -96,11 +96,8 @@ impl Drop for PylonTerminateGuard {
     }
 }
 
-pub fn make_singleton_guard<'a>(
-    _pylon_module: &dyn ci2::CameraModule<
-        CameraType = WrappedCamera<'a>,
-        Guard = PylonTerminateGuard,
-    >,
+pub fn make_singleton_guard(
+    _pylon_module: &dyn ci2::CameraModule<CameraType = WrappedCamera, Guard = PylonTerminateGuard>,
 ) -> ci2::Result<PylonTerminateGuard> {
     Ok(PylonTerminateGuard {
         already_dropped: false,
@@ -331,14 +328,12 @@ impl<'a> WrappedCamera<'a> {
                         store_fno: 0,
                         last_rollover: 0,
                     })
+                } else if model == "Emulation" {
+                    // As of Pylon 6.2.0, emulation with PYLON_CAMEMU does
+                    // not set frame number.
+                    FramecoutingMethod::IgnoreDevice(0)
                 } else {
-                    if model == "Emulation" {
-                        // As of Pylon 6.2.0, emulation with PYLON_CAMEMU does
-                        // not set frame number.
-                        FramecoutingMethod::IgnoreDevice(0)
-                    } else {
-                        FramecoutingMethod::TrustDevice
-                    }
+                    FramecoutingMethod::TrustDevice
                 };
 
                 let cam = tl_factory
@@ -457,12 +452,12 @@ impl<'a> WrappedCamera<'a> {
                 });
             }
         }
-        return Err(Error::OtherError {
+        Err(Error::OtherError {
             msg: format!("requested camera '{}' was not found", name),
             #[cfg(feature = "backtrace")]
             backtrace: std::backtrace::Backtrace::capture(),
         }
-        .into());
+        .into())
     }
 
     fn exposure_time_param_name(&self) -> &'static str {
@@ -623,7 +618,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         // Ideally we would simply call camera.node_map().map_pylon_err()?.save_to_string() here,
         // but this requires stopping the camera. Instead we cache the node
         // values.
-        Ok(self.pfs_cache.lock().to_string())
+        Ok(self.pfs_cache.lock().to_header_string())
     }
 
     /// Return the sensor width in pixels
@@ -912,12 +907,10 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         match val.as_ref() {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
-            s => {
-                return Err(ci2::Error::from(format!(
-                    "unexpected TriggerMode enum string: {}",
-                    s
-                )));
-            }
+            s => Err(ci2::Error::from(format!(
+                "unexpected TriggerMode enum string: {}",
+                s
+            ))),
         }
     }
     fn set_trigger_mode(&mut self, value: TriggerMode) -> ci2::Result<()> {
@@ -1002,12 +995,10 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             "FrameBurstStart" => Ok(ci2::TriggerSelector::FrameBurstStart),
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
-            s => {
-                return Err(ci2::Error::from(format!(
-                    "unexpected TriggerSelector enum string: {}",
-                    s
-                )));
-            }
+            s => Err(ci2::Error::from(format!(
+                "unexpected TriggerSelector enum string: {}",
+                s
+            ))),
         }
     }
     fn set_trigger_selector(&mut self, value: TriggerSelector) -> ci2::Result<()> {
@@ -1093,7 +1084,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         let cam = self.inner.lock();
 
         // Wait for an image and then retrieve it. A timeout of 99999 ms is used.
-        cam.retrieve_result(99999, &mut *gr, pylon_cxx::TimeoutHandling::ThrowException)
+        cam.retrieve_result(99999, &mut gr, pylon_cxx::TimeoutHandling::ThrowException)
             .map_pylon_err()?;
 
         let now = chrono::Utc::now(); // earliest possible timestamp
@@ -1246,12 +1237,10 @@ fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
         "Off" => Ok(ci2::AutoMode::Off),
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
-        s => {
-            return Err(ci2::Error::from(format!(
-                "unexpected AutoMode enum string: {}",
-                s
-            )));
-        }
+        s => Err(ci2::Error::from(format!(
+            "unexpected AutoMode enum string: {}",
+            s
+        ))),
     }
 }
 

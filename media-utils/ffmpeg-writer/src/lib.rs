@@ -49,14 +49,13 @@ fn middle() -> Vec<String> {
 }
 
 fn zq(x: &[&str]) -> Vec<String> {
-    x.into_iter().map(|x| (*x).into()).collect()
+    x.iter().map(|x| (*x).into()).collect()
 }
 
 fn zq2(opt_x: Option<&Vec<(String, String)>>) -> Vec<String> {
     if let Some(x) = opt_x {
-        x.into_iter()
-            .map(|(x1, x2)| [x1.clone(), x2.clone()])
-            .flatten()
+        x.iter()
+            .flat_map(|(x1, x2)| [x1.clone(), x2.clone()])
             .collect()
     } else {
         vec![]
@@ -74,7 +73,7 @@ impl FfmpegCodecArgs {
                         zq2(self.device_args.as_ref()),
                         middle(),
                         zq2(self.pre_codec_args.as_ref()),
-                        zq(&[VIDEO_CODEC, &codec]),
+                        zq(&[VIDEO_CODEC, codec]),
                         zq2(self.post_codec_args.as_ref()),
                     ]
                 } else {

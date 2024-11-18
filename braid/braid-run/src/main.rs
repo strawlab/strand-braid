@@ -71,7 +71,7 @@ fn launch_strand_cam(
     let cam_name = camera.name.clone();
 
     let mut exec = std::process::Command::new(&exe);
-    let args = compute_strand_cam_args(&camera, mainbrain_internal_addr)?;
+    let args = compute_strand_cam_args(camera, mainbrain_internal_addr)?;
     exec.args(&args);
     debug!("exec: {:?}", exec);
     let mut obj = exec.spawn().context(format!(

@@ -1406,11 +1406,7 @@ trait HasAvail {
 
 impl HasAvail for ServerState {
     fn available_codecs(&self) -> Vec<CodecSelection> {
-        let have_nvenc = if !self.cuda_devices.is_empty() && self.is_nvenc_functioning {
-            true
-        } else {
-            false
-        };
+        let have_nvenc = !self.cuda_devices.is_empty() && self.is_nvenc_functioning;
 
         let result = CodecSelection::variants().to_vec();
 
@@ -1425,16 +1421,14 @@ impl HasAvail for ServerState {
         };
 
         // Remove videotoolbox codec if we do not have videotoolbox available.
-        let result = if !self.is_videotoolbox_functioning {
+        if !self.is_videotoolbox_functioning {
             result
                 .into_iter()
                 .filter(|x| !x.requires("videotoolbox"))
                 .collect()
         } else {
             result
-        };
-
-        result
+        }
     }
 }
 

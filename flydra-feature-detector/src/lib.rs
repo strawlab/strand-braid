@@ -648,7 +648,7 @@ impl FlydraFeatureDetector {
                 // the camera driver.
                 acquire_stamp.as_f64() - trigger_stamp.as_f64()
             }
-            None => std::f64::NAN,
+            None => f64::NAN,
         };
 
         self.acquisition_histogram

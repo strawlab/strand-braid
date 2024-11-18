@@ -29,7 +29,7 @@ where
         );
     }
 
-    let args = parse_args(app_name).with_context(|| format!("parsing args"))?;
+    let args = parse_args(app_name).with_context(|| "parsing args".to_string())?;
 
     run_strand_cam_app(mymod, args, app_name)
 }
