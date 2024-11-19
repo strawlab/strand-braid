@@ -27,9 +27,9 @@ fn main() -> eyre::Result<()> {
     let output = opt.output;
 
     let output = output.unwrap_or_else(|| {
-        let mut output = opt.input.as_os_str().to_owned();
-        output.push(".srt");
-        output.into()
+        let mut output = opt.input.clone();
+        output.set_extension(".srt");
+        output
     });
 
     let do_decode_h264 = false;
