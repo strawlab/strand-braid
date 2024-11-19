@@ -44,6 +44,7 @@ pub(crate) fn from_reader_with_timestamp_source(
     mut mp4_reader: mp4::Mp4Reader<Box<dyn SeekRead + Send>>,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
+    srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<Mp4Source>> {
     let timescale = mp4_reader.timescale();
     let mut video_track = None;
@@ -100,6 +101,7 @@ pub(crate) fn from_reader_with_timestamp_source(
         Some(mp4_pts),
         Some(data_from_mp4_track),
         timestamp_source,
+        srt_file_path,
     )?;
     Ok(h264_source)
 }
@@ -108,6 +110,7 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
+    srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<Mp4Source>> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
@@ -115,8 +118,13 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     let buf_reader: Box<(dyn SeekRead + Send + 'static)> = Box::new(std::io::BufReader::new(rdr));
     let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
-    let result = from_reader_with_timestamp_source(mp4_reader, do_decode_h264, timestamp_source)
-        .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
+    let result = from_reader_with_timestamp_source(
+        mp4_reader,
+        do_decode_h264,
+        timestamp_source,
+        srt_file_path,
+    )
+    .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
     Ok(result)
 }
 

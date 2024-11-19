@@ -56,6 +56,7 @@ fn test_h264_precision_timestamps() -> eyre::Result<()> {
         mp4_reader,
         do_decode_h264,
         crate::TimestampSource::BestGuess,
+        None,
     )?;
 
     assert_eq!(src.width(), W);

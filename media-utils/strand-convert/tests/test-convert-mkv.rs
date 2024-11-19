@@ -78,10 +78,12 @@ fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
             })
         }
         Some("mp4") => {
+            let srt_file_path = None;
             let mp4_video = frame_source::mp4_source::from_path_with_timestamp_source(
                 &fname,
                 false,
                 frame_source::TimestampSource::BestGuess,
+                srt_file_path,
             )?;
             Ok(mp4_video.h264_metadata.unwrap())
         }

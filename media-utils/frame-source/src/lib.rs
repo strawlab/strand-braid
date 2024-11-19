@@ -11,6 +11,7 @@ pub mod fmf_source;
 mod h264_annexb_splitter;
 pub mod h264_source;
 pub mod mp4_source;
+mod srt_reader;
 pub mod strand_cam_mkv_source;
 
 mod ntp_timestamp;
@@ -193,6 +194,7 @@ pub enum TimestampSource {
     FrameInfoRecvTime,
     Mp4Pts,
     MispMicrosectime,
+    SrtFile,
 }
 
 trait MyAsStr {
@@ -207,6 +209,7 @@ impl MyAsStr for Option<TimestampSource> {
             Some(FrameInfoRecvTime) => "FrameInfo receive time",
             Some(Mp4Pts) => "MP4 PTS",
             Some(MispMicrosectime) => "MISPmicrosectime",
+            Some(SrtFile) => "SRT file",
             None => "(no timestamps)",
         }
     }
@@ -220,7 +223,7 @@ pub fn from_path<P: AsRef<std::path::Path>>(
     input: P,
     do_decode_h264: bool,
 ) -> Result<Box<dyn FrameDataSource>> {
-    from_path_with_timestamp_source(input, do_decode_h264, TimestampSource::BestGuess)
+    from_path_with_srt_timestamp_source(input, do_decode_h264, TimestampSource::BestGuess, None)
 }
 
 /// Create a [FrameDataSource] from a path with defined timestamp source
@@ -232,12 +235,28 @@ pub fn from_path_with_timestamp_source<P: AsRef<std::path::Path>>(
     do_decode_h264: bool,
     timestamp_source: TimestampSource,
 ) -> Result<Box<dyn FrameDataSource>> {
+    from_path_with_srt_timestamp_source(input, do_decode_h264, timestamp_source, None)
+}
+
+/// Create a [FrameDataSource] from a path with defined timestamp source
+///
+/// The `do_decode_h264` argument specifies that an H264 source will be decoded
+/// (e.g. to extract individual images).
+pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
+    input: P,
+    do_decode_h264: bool,
+    timestamp_source: TimestampSource,
+    srt_file_path: Option<PathBuf>,
+) -> Result<Box<dyn FrameDataSource>> {
     let input_path = PathBuf::from(input.as_ref());
     let is_file = std::fs::metadata(input.as_ref())?.is_file();
     if is_file {
         if let Some(extension) = input_path.extension() {
             match extension.to_str() {
                 Some("mkv") => {
+                    if srt_file_path.is_some() {
+                        eyre::bail!("srt file given, but not supported for mkv files");
+                    }
                     let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
                         &input,
                         do_decode_h264,
@@ -250,14 +269,19 @@ pub fn from_path_with_timestamp_source<P: AsRef<std::path::Path>>(
                         &input,
                         do_decode_h264,
                         timestamp_source,
+                        srt_file_path,
                     )?;
                     return Ok(Box::new(mp4_video));
                 }
                 Some("h264") => {
+                    if srt_file_path.is_some() {
+                        eyre::bail!("srt file given, but not supported for h264 files");
+                    }
                     let h264_video = h264_source::from_annexb_path_with_timestamp_source(
                         &input,
                         do_decode_h264,
                         timestamp_source,
+                        None,
                     )?;
                     return Ok(Box::new(h264_video));
                 }
@@ -280,6 +304,9 @@ pub fn from_path_with_timestamp_source<P: AsRef<std::path::Path>>(
             anyhow::bail!("Attempting to open \"{}\" as directory with TIFF stack failed because it is not a directory.", dirname.display());
         }
         let pattern = dirname.join("*.tif");
+        if srt_file_path.is_some() {
+            eyre::bail!("srt file given, but not supported for tiff stack");
+        }
         let stack = pv_tiff_stack::from_path_pattern(pattern.to_str().unwrap())?;
         Ok(Box::new(stack))
     }

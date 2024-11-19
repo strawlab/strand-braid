@@ -26,6 +26,7 @@ ci2-remote-control = { path = "../../ci2-remote-control" }
 fmf = { path = "../../fmf" }
 mkv-strand-reader = { version = "0.1.0", path = "../mkv-strand-reader" }
 timestamped-frame = { path = "../../timestamped-frame" }
+winnow = "0.6.20"
 
 [dev-dependencies]
 mp4-writer = { path = "../mp4-writer" }

@@ -472,10 +472,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = encoder;
             }
             Some("mp4") => {
+                let srt_file_path = None;
                 let mp4_video = mp4_source::from_path_with_timestamp_source(
                     &input_path,
                     do_decode_h264,
                     frame_source::TimestampSource::BestGuess,
+                    srt_file_path,
                 )?;
                 if let Some(metadata) = &mp4_video.h264_metadata {
                     camera_name = metadata.camera_name.clone();

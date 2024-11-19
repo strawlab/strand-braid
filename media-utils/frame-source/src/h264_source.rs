@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
 use crate::{
-    ntp_timestamp::NtpTimestamp, EncodedH264, FrameData, FrameDataSource, H264EncodingVariant,
-    ImageData, MyAsStr, Result, Timestamp, TimestampSource,
+    ntp_timestamp::NtpTimestamp, srt_reader::SrtReader, EncodedH264, FrameData, FrameDataSource,
+    H264EncodingVariant, ImageData, MyAsStr, Result, Timestamp, TimestampSource,
 };
 
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
@@ -79,6 +79,7 @@ pub struct H264Source<H: SeekableH264Source> {
     do_decode_h264: bool,
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
+    srt_reader: Option<SrtReader>,
 }
 
 /// Timing information for a frame of video.
@@ -116,6 +117,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
                 Some(self.frame0_frameinfo_recv_ntp.unwrap().into())
             }
             Some(TimestampSource::Mp4Pts) | None => None,
+            Some(TimestampSource::SrtFile) => self.srt_reader.as_ref().map(|x| x.frame0_time()),
         }
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
@@ -231,6 +233,7 @@ where
         mp4_pts: Option<Vec<std::time::Duration>>,
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
+        srt_file_path: Option<std::path::PathBuf>,
     ) -> Result<Self> {
         let nal_locations: Vec<H::NalLocation> = seekable_h264_source.nal_boundaries().to_vec();
 
@@ -240,6 +243,17 @@ where
         let mut parsing_ctx = H264ParsingContext::default();
         let mut frame0_precision_time = None;
         let mut frame0_frameinfo_recv_ntp = None;
+
+        // open SRT file
+        if timestamp_source == crate::TimestampSource::SrtFile && srt_file_path.is_none() {
+            eyre::bail!("Requested SRT file as timestamp source, but no .srt file path given.");
+        }
+
+        let srt_reader = if let Some(srt_file_path) = srt_file_path {
+            Some(SrtReader::open(&srt_file_path)?)
+        } else {
+            None
+        };
 
         // One entry per frame. Can refer to multiple multiple NAL units, e.g.
         // in MP4 files where a frame is an MP4 sample containing multiple NAL
@@ -484,6 +498,7 @@ where
                 }
                 (Some(timestamp_source), true)
             }
+            crate::TimestampSource::SrtFile => (Some(timestamp_source), true),
         };
 
         if let Some(mp4_pts) = mp4_pts.as_ref() {
@@ -509,6 +524,7 @@ where
             do_decode_h264,
             timestamp_source,
             has_timestamps,
+            srt_reader,
         })
     }
 }
@@ -557,6 +573,9 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
                     Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
                 }
                 Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
+                Some(TimestampSource::SrtFile) => {
+                    self.parent.srt_reader.as_mut().unwrap().next_ts()
+                }
                 None => Timestamp::Fraction(fraction_done),
             };
 
@@ -654,18 +673,25 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
+    srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<H264AnnexBSource>> {
     let rdr = std::fs::File::open(path.as_ref())
         .with_context(|| format!("Opening {}", path.as_ref().display()))?;
     let seekable_h264_source = H264AnnexBSource::from_file(rdr)?;
-    from_annexb_reader_with_timestamp_source(seekable_h264_source, do_decode_h264, timestamp_source)
-        .with_context(|| format!("Reading H264 file {}", path.as_ref().display()))
+    from_annexb_reader_with_timestamp_source(
+        seekable_h264_source,
+        do_decode_h264,
+        timestamp_source,
+        srt_file_path,
+    )
+    .with_context(|| format!("Reading H264 file {}", path.as_ref().display()))
 }
 
 fn from_annexb_reader_with_timestamp_source(
     annex_b_source: H264AnnexBSource,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
+    srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<H264AnnexBSource>> {
     H264Source::from_seekable_h264_source_with_timestamp_source(
         annex_b_source,
@@ -673,6 +699,7 @@ fn from_annexb_reader_with_timestamp_source(
         None,
         None,
         timestamp_source,
+        srt_file_path,
     )
 }
 
@@ -782,6 +809,7 @@ mod test {
                 seekable_h264_source,
                 do_decode_h264,
                 TimestampSource::BestGuess,
+                None,
             )?;
             assert_eq!(h264_src.width(), 15);
             assert_eq!(h264_src.height(), 14);
@@ -798,6 +826,7 @@ mod test {
                 seekable_h264_source,
                 do_decode_h264,
                 TimestampSource::BestGuess,
+                None,
             )?;
             assert_eq!(h264_src.width(), 16);
             assert_eq!(h264_src.height(), 16);
