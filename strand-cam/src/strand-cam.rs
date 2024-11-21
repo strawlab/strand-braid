@@ -988,12 +988,17 @@ where
     C: 'static + ci2::Camera + Send,
     G: Send + 'static,
 {
-    let data_dir = if let Some(data_dir) = &args.data_dir {
-        data_dir.clone()
+    let (log_dir, data_dir) = if let Some(data_dir) = &args.data_dir {
+        (data_dir.clone(), data_dir.clone())
     } else {
-        home::home_dir().ok_or_else(|| {
-            eyre::eyre!("Could not determine home directory and data directory not set.")
-        })?
+        (
+            // default log_dir is home.
+            home::home_dir().ok_or_else(|| {
+                eyre::eyre!("Could not determine home directory and data directory not set.")
+            })?,
+            // default data_dir is pwd.
+            PathBuf::from("."),
+        )
     };
 
     // Initial log file name has process ID in case multiple cameras are
@@ -1006,7 +1011,7 @@ where
         .format(".strand-cam-%Y%m%d_%H%M%S.%f")
         .to_string()
         + &format!("-{}.log", std::process::id());
-    let initial_log_file_name = data_dir.join(&initial_log_file_name);
+    let initial_log_file_name = log_dir.join(&initial_log_file_name);
     // TODO: delete log files older than, e.g. one week.
 
     #[cfg(feature = "eframe-gui")]
@@ -1031,6 +1036,7 @@ where
 
     let log_file_info = LogFileInfo {
         initial_log_file_name,
+        log_dir,
         data_dir,
         log_file_time,
     };
@@ -1184,6 +1190,9 @@ where
 
 struct LogFileInfo {
     initial_log_file_name: PathBuf,
+    /// where log files are saved
+    log_dir: PathBuf,
+    /// where movies are saved
     data_dir: PathBuf,
     log_file_time: chrono::DateTime<chrono::Local>,
 }
@@ -1267,7 +1276,7 @@ where
         .format(".strand-cam-%Y%m%d_%H%M%S.%f")
         .to_string()
         + &format!("-{}.log", use_camera_name);
-    let new_log_file_name = log_file_info.data_dir.join(&new_log_file_name);
+    let new_log_file_name = log_file_info.log_dir.join(&new_log_file_name);
 
     tracing::debug!(
         "Renaming log file \"{}\" -> \"{}\"",
