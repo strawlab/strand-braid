@@ -2,10 +2,3 @@
 name = "srt-writer"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
-
-# [dev-dependencies]
-# eyre.workspace = true
-# log.workspace = true
-# env_logger.workspace = true

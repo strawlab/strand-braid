@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use eyre::{self as anyhow, WrapErr};
 use h264_reader::{
     nal::{
@@ -20,9 +20,38 @@ use serde::{Deserialize, Serialize};
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
 use crate::{
-    ntp_timestamp::NtpTimestamp, srt_reader::SrtReader, EncodedH264, FrameData, FrameDataSource,
-    H264EncodingVariant, ImageData, MyAsStr, Result, Timestamp, TimestampSource,
+    ntp_timestamp::NtpTimestamp,
+    srt_reader::{self, Stanza},
+    EncodedH264, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr, Result,
+    Timestamp, TimestampSource,
 };
+
+struct SrtData {
+    stanzas: Vec<Stanza>,
+    frame0_time: DateTime<FixedOffset>,
+    idx: usize,
+}
+
+#[derive(serde::Deserialize)]
+struct SrtMsg {
+    timestamp: DateTime<chrono::FixedOffset>,
+}
+
+impl SrtData {
+    fn parse_time(stanza: &Stanza) -> DateTime<FixedOffset> {
+        let msg: SrtMsg = serde_json::from_str(&stanza.lines).unwrap();
+        msg.timestamp
+    }
+    fn next_pts(&mut self) -> Result<std::time::Duration> {
+        let stanza = &self.stanzas[self.idx];
+        self.idx += 1;
+        let tnow = Self::parse_time(stanza);
+        Ok(tnow.signed_duration_since(self.frame0_time).to_std()?)
+    }
+    fn frame0_time(&self) -> DateTime<FixedOffset> {
+        self.frame0_time
+    }
+}
 
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
 /// from an MP4 file.
@@ -79,7 +108,7 @@ pub struct H264Source<H: SeekableH264Source> {
     do_decode_h264: bool,
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
-    srt_reader: Option<SrtReader>,
+    srt_data: Option<SrtData>,
 }
 
 /// Timing information for a frame of video.
@@ -117,7 +146,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
                 Some(self.frame0_frameinfo_recv_ntp.unwrap().into())
             }
             Some(TimestampSource::Mp4Pts) | None => None,
-            Some(TimestampSource::SrtFile) => self.srt_reader.as_ref().map(|x| x.frame0_time()),
+            Some(TimestampSource::SrtFile) => self.srt_data.as_ref().map(|x| x.frame0_time()),
         }
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
@@ -249,8 +278,14 @@ where
             eyre::bail!("Requested SRT file as timestamp source, but no .srt file path given.");
         }
 
-        let srt_reader = if let Some(srt_file_path) = srt_file_path {
-            Some(SrtReader::open(&srt_file_path)?)
+        let srt_data = if let Some(srt_file_path) = srt_file_path {
+            let stanzas = srt_reader::read_srt_file(&srt_file_path)?;
+            let frame0_time = SrtData::parse_time(&stanzas[0]);
+            Some(SrtData {
+                stanzas,
+                idx: 0,
+                frame0_time,
+            })
         } else {
             None
         };
@@ -524,7 +559,7 @@ where
             do_decode_h264,
             timestamp_source,
             has_timestamps,
-            srt_reader,
+            srt_data,
         })
     }
 }
@@ -574,7 +609,9 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
                 }
                 Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
                 Some(TimestampSource::SrtFile) => {
-                    self.parent.srt_reader.as_mut().unwrap().next_ts()
+                    let srt_data = self.parent.srt_data.as_mut().unwrap();
+                    let pts = srt_data.next_pts().unwrap();
+                    Timestamp::Duration(pts)
                 }
                 None => Timestamp::Fraction(fraction_done),
             };

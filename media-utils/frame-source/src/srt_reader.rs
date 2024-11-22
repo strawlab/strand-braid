@@ -4,7 +4,7 @@ use eyre::{Context, Result};
 
 use winnow::{
     ascii::{dec_uint, digit1, line_ending},
-    combinator::{eof, opt, separated, seq, terminated, trace},
+    combinator::{eof, opt, seq, terminated, trace},
     error::{ContextError, ErrMode, InputError},
     prelude::*,
     token::{take, take_until, take_while},
@@ -47,20 +47,13 @@ fn parse_duration(input: &mut &BStr) -> PResult<Duration> {
     .parse_next(input)
 }
 
-pub(crate) struct SrtReader {
-    stanzas: Vec<Stanza>,
-    loc: usize,
-    frame0_time: chrono::DateTime<chrono::FixedOffset>,
-}
-
 #[rustfmt::skip]
 #[derive(Debug)]
-#[allow(dead_code)]
-struct Stanza {
-    count: usize,
-    start: std::time::Duration,
-    stop: std::time::Duration,
-    lines: String,
+pub(crate) struct Stanza {
+    pub(crate) _count: usize,
+    pub(crate) _start: std::time::Duration,
+    pub(crate) _stop: std::time::Duration,
+    pub(crate) lines: String,
 }
 
 fn parse_stanza(input: &mut &BStr) -> PResult<Stanza> {
@@ -91,9 +84,9 @@ fn parse_stanza(input: &mut &BStr) -> PResult<Stanza> {
         let lines = String::from_utf8(lines0.to_vec()).unwrap();
 
         Ok(Stanza {
-            count,
-            start,
-            stop,
+            _count: count,
+            _start: start,
+            _stop: stop,
             lines,
         })
     })
@@ -102,40 +95,37 @@ fn parse_stanza(input: &mut &BStr) -> PResult<Stanza> {
 
 fn parse_stanzas(input: &mut &BStr) -> PResult<Vec<Stanza>> {
     trace("parse_stanzas", move |input: &mut &BStr| {
-        if let Some(_) = opt(eof).parse_next(input)? {
-            Ok(vec![])
-        } else {
-            separated(0.., parse_stanza, line_ending).parse_next(input)
+        let mut result = vec![];
+        loop {
+            if opt(eof).parse_next(input)?.is_some() {
+                break;
+            } else {
+                let x = parse_stanza.parse_next(input)?;
+                result.push(x);
+                if opt(eof).parse_next(input)?.is_some() {
+                    break;
+                } else {
+                    line_ending.parse_next(input)?;
+                }
+            }
         }
+        Ok(result)
     })
     .parse_next(input)
 }
 
-impl SrtReader {
-    pub(crate) fn open(p: &std::path::Path) -> Result<SrtReader> {
-        let mut fd = std::fs::File::open(p)
-            .with_context(|| format!("while reading SRT file {}", p.display()))?;
-        let mut buf = Vec::new();
-        fd.read_to_end(&mut buf)?;
-        let mut buf_bstr: &BStr = buf.as_slice().into();
+pub(crate) fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
+    let mut fd = std::fs::File::open(p)
+        .with_context(|| format!("while reading SRT file {}", p.display()))?;
+    let mut buf = Vec::new();
+    fd.read_to_end(&mut buf)?;
+    let mut buf_bstr: &BStr = buf.as_slice().into();
 
-        let stanzas: Vec<Stanza> = parse_stanzas
-            .parse_next(&mut buf_bstr)
-            .map_err(|e| eyre::eyre!(e))?;
+    let stanzas: Vec<Stanza> = parse_stanzas
+        .parse_next(&mut buf_bstr)
+        .map_err(|e| eyre::eyre!(e))?;
 
-        Ok(Self {
-            stanzas,
-            loc: 0,
-            frame0_time: todo!(),
-        })
-    }
-    pub(crate) fn frame0_time(&self) -> chrono::DateTime<chrono::FixedOffset> {
-        self.frame0_time
-    }
-
-    pub(crate) fn next_ts(&mut self) -> crate::Timestamp {
-        todo!();
-    }
+    Ok(stanzas)
 }
 
 #[cfg(test)]
@@ -144,51 +134,53 @@ mod test {
 
     const B0: &[u8] = b"";
 
-    const B1: &[u8] = b"1
-00:00:00,000 --> 00:00:00,100
-2024-07-16 12:43:18.743389 +02:00
-";
+    const B1: &[u8] = br#"1
+00:00:00,000 --> 00:00:00,040
+{"frame_cnt":1,"timestamp":"2024-11-21T21:04:19.534412+01:00"}
+"#;
 
-    const B2A: &[u8] = b"1
-00:00:00,000 --> 00:00:00,100
-2024-07-16 12:43:18.743389 +02:00
-
-2
-00:00:00,100 --> 00:00:00,210
-2024-07-16 12:43:18.843526 +02:00";
-
-    const B2B: &[u8] = b"1
-00:00:00,000 --> 00:00:00,100
-2024-07-16 12:43:18.743389 +02:00
+    const B2A: &[u8] = br#"1
+00:00:00,000 --> 00:00:00,040
+{"frame_cnt":1,"timestamp":"2024-11-21T21:04:19.534412+01:00"}
 
 2
-00:00:00,100 --> 00:00:00,210
-2024-07-16 12:43:18.843526 +02:00
-";
+00:00:00,040 --> 00:00:00,080
+{"frame_cnt":2,"timestamp":"2024-11-21T21:04:19.552417+01:00"}"#;
 
-    const B3A: &[u8] = b"1
-00:00:00,000 --> 00:00:00,100
-2024-07-16 12:43:18.743389 +02:00
+    const B2B: &[u8] = br#"1
+00:00:00,000 --> 00:00:00,040
+{"frame_cnt":1,"timestamp":"2024-11-21T21:04:19.534412+01:00"}
 
 2
-00:00:00,100 --> 00:00:00,210
-2024-07-16 12:43:18.843526 +02:00
+00:00:00,040 --> 00:00:00,080
+{"frame_cnt":2,"timestamp":"2024-11-21T21:04:19.552417+01:00"}
+
+"#;
+
+    const B3A: &[u8] = br#"1
+00:00:00,000 --> 00:00:00,040
+{"frame_cnt":1,"timestamp":"2024-11-21T21:04:19.534412+01:00"}
+
+2
+00:00:00,040 --> 00:00:00,080
+{"frame_cnt":2,"timestamp":"2024-11-21T21:04:19.552417+01:00"}
 
 3
-00:00:00,210 --> 00:00:00,320
-2024-07-16 12:43:18.953476 +02:00";
+00:00:00,080 --> 00:00:00,120
+{"frame_cnt":3,"timestamp":"2024-11-21T21:04:19.563575+01:00"}"#;
 
-    const B3B: &[u8] = b"1
-00:00:00,000 --> 00:00:00,100
-a
+    const B3B: &[u8] = br#"1
+00:00:00,000 --> 00:00:00,040
+{"frame_cnt":1,"timestamp":"2024-11-21T21:04:19.534412+01:00"}
 
 2
-00:00:00,100 --> 00:00:00,210
-b
+00:00:00,040 --> 00:00:00,080
+{"frame_cnt":2,"timestamp":"2024-11-21T21:04:19.552417+01:00"}
 
 3
-00:00:00,210 --> 00:00:00,320
-c";
+00:00:00,080 --> 00:00:00,120
+{"frame_cnt":3,"timestamp":"2024-11-21T21:04:19.563575+01:00"}
+"#;
 
     #[test]
     fn test_parse() {

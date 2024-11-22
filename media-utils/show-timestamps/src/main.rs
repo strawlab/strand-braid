@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
 use clap::{Parser, ValueEnum};
-use color_eyre::Result;
+use color_eyre::eyre::{self, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
 trait DisplayTimestamp {
@@ -58,14 +58,17 @@ enum OutputFormat {
     /// Print a line for every frame in human-readable format.
     EveryFrame,
     /// Print as comma-separated values with a row for every frame.
-    CSV,
+    Csv,
 }
 
-#[derive(Default, Debug, Clone, Copy, ValueEnum)]
+#[derive(Default, Debug, Clone, Copy, ValueEnum, PartialEq)]
 enum TimestampSource {
     #[default]
     BestGuess,
     FrameInfoRecvTime,
+    Mp4Pts,
+    MispMicrosectime,
+    SrtFile,
 }
 
 impl From<TimestampSource> for frame_source::TimestampSource {
@@ -73,6 +76,9 @@ impl From<TimestampSource> for frame_source::TimestampSource {
         match orig {
             TimestampSource::BestGuess => frame_source::TimestampSource::BestGuess,
             TimestampSource::FrameInfoRecvTime => frame_source::TimestampSource::FrameInfoRecvTime,
+            TimestampSource::SrtFile => frame_source::TimestampSource::SrtFile,
+            TimestampSource::Mp4Pts => frame_source::TimestampSource::Mp4Pts,
+            TimestampSource::MispMicrosectime => frame_source::TimestampSource::MispMicrosectime,
         }
     }
 }
@@ -82,7 +88,7 @@ impl std::fmt::Display for OutputFormat {
         match self {
             Self::EveryFrame => write!(f, "every frame (human-readable)"),
             Self::Summary => write!(f, "summary (human-readable)"),
-            Self::CSV => write!(f, "CSV (Comma Separated Values)"),
+            Self::Csv => write!(f, "CSV (Comma Separated Values)"),
         }
     }
 }
@@ -93,16 +99,29 @@ fn main() -> Result<()> {
 
     for input in cli.inputs.iter() {
         let mut input_path = std::path::PathBuf::from(input);
+        let mut srt_file_path = None;
         let is_file = std::fs::metadata(&input_path)?.is_file();
         if is_file {
             let file_ext = input_path
                 .extension()
-                .map(|x| x.to_str())
-                .flatten()
+                .and_then(|x| x.to_str())
                 .map(|x| x.to_lowercase());
             if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
                 // tif file - assume this is image sequence and use directory.
                 input_path.pop();
+            }
+
+            if file_ext == Some("mp4".into()) {
+                let mut srt_path = input_path.clone();
+                srt_path.set_extension("srt");
+                if srt_path.exists() && std::fs::metadata(&srt_path)?.is_file() {
+                    srt_file_path = Some(srt_path);
+                } else if cli.timestamp_source == TimestampSource::SrtFile {
+                    eyre::bail!(
+                        "Source specified as SRT file, but {} is not a file.",
+                        srt_path.display()
+                    );
+                }
             }
         }
 
@@ -111,10 +130,11 @@ fn main() -> Result<()> {
         }
 
         let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-        let mut src = frame_source::from_path_with_timestamp_source(
+        let mut src = frame_source::from_path_with_srt_timestamp_source(
             &input_path,
             do_decode_h264,
             cli.timestamp_source.into(),
+            srt_file_path,
         )?;
 
         if cli.progress {
@@ -151,7 +171,7 @@ fn main() -> Result<()> {
                     src.timestamp_source(),
                 );
             }
-            OutputFormat::CSV => {
+            OutputFormat::Csv => {
                 println!(
                     "# Path:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
                     input_path.display(),
@@ -207,7 +227,7 @@ fn main() -> Result<()> {
                         delta,
                     );
                 }
-                OutputFormat::CSV => {
+                OutputFormat::Csv => {
                     let time_val = match frame.timestamp() {
                         frame_source::Timestamp::Duration(dur) => {
                             format!("{}", dur.as_secs_f64() * 1000.0)

@@ -5,6 +5,7 @@ use std::{
 };
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use chrono::DateTime;
 use ci2_remote_control::FfmpegRecordingConfig;
 use machine_vision_formats::{ImageStride, PixelFormat};
 use mp4_writer::Mp4Writer;
@@ -205,16 +206,20 @@ impl MyFfmpegWriter {
     {
         let mp4_pts = self.fwtr.write_frame(frame)?;
 
-        let msg = format!(
-            "<font size=\"28\">FrameCnt: {frame_cnt}\n{timestamp}\n</font>",
-            frame_cnt = self.count + 1
-        );
+        let msg = SrtMsg { timestamp };
+        let msg = serde_json::to_string(&msg).unwrap();
+
         self.count += 1;
 
         self.swtr.add_frame(mp4_pts, msg)?;
         self.swtr.flush()?;
         Ok(())
     }
+}
+
+#[derive(serde::Serialize)]
+struct SrtMsg {
+    timestamp: DateTime<chrono::Local>,
 }
 
 fn launch_runner(
