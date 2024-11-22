@@ -7,7 +7,7 @@ use log::{error, info};
 
 #[derive(Parser, Debug)]
 struct Cli {
-    /// Input directory name (with .png files)
+    /// Input directory name (with .png or .jpg files)
     input_dirname: std::path::PathBuf,
     /// Width of checkerboard pattern, in number of corners (e.g. 8x8 checks
     /// would be 7x7 corners)
@@ -19,16 +19,21 @@ struct Cli {
     pattern_height: usize,
 }
 
-fn get_png_files(dirname: &std::path::Path) -> Result<Vec<PathBuf>> {
+fn get_image_files(dirname: &std::path::Path) -> Result<Vec<PathBuf>> {
     if !std::fs::metadata(&dirname)?.is_dir() {
-        anyhow::bail!("Attempting to open \"{}\" as directory with PNG stack failed because it is not a directory.", dirname.display());
+        anyhow::bail!("Attempting to open \"{}\" as directory with PNG or JPG stack failed because it is not a directory.", dirname.display());
     }
-    let joined = dirname.join("*.png");
-    let pattern = joined.to_str().unwrap();
+    let png_joined = dirname.join("*.png");
+    let png_pattern = png_joined.to_str().unwrap();
 
+    let jpg_joined = dirname.join("*.jpg");
+    let jpg_pattern = jpg_joined.to_str().unwrap();
+
+    // First prefer PNG, then if none are found, look for JPG files. (Probably the logic
+    // here could be improved.)
     let mut paths = vec![];
     for path in glob::glob_with(
-        pattern,
+        png_pattern,
         glob::MatchOptions {
             case_sensitive: false,
             require_literal_separator: true,
@@ -37,9 +42,24 @@ fn get_png_files(dirname: &std::path::Path) -> Result<Vec<PathBuf>> {
     )? {
         paths.push(path?);
     }
+
     if paths.is_empty() {
-        anyhow::bail!("no files in \"{}\"", pattern);
+        for path in glob::glob_with(
+            jpg_pattern,
+            glob::MatchOptions {
+                case_sensitive: false,
+                require_literal_separator: true,
+                require_literal_leading_dot: true,
+            },
+        )? {
+            paths.push(path?);
+        }
     }
+
+    if paths.is_empty() {
+        anyhow::bail!("no PNG or JPG files in \"{}\"", png_pattern);
+    }
+
     paths.sort();
     Ok(paths)
 }
@@ -53,7 +73,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let dirname = cli.input_dirname;
-    let fnames = get_png_files(&dirname)?;
+    let fnames = get_image_files(&dirname)?;
 
     let mut checkerboard_data = strand_cam_storetype::CheckerboardCalState::default();
     checkerboard_data.width = cli.pattern_width.try_into().unwrap();
