@@ -91,8 +91,16 @@ impl FfmpegCodecArgs {
 
     fn from_str(s: &str) -> Option<Self> {
         match s {
-            "vaapi" => todo!(),
-            "videotoolbox" => todo!(),
+            "vaapi" => Some(Self {
+                device_args: Some(vec![("-vaapi_device".into(), "/dev/dri/renderD128".into())]),
+                pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
+                codec: Some("h264_vaapi".to_string()),
+                ..Default::default()
+            }),
+            "videotoolbox" => Some(Self {
+                codec: Some("h264_videotoolbox".into()),
+                ..Default::default()
+            }),
             _ => None,
         }
     }
