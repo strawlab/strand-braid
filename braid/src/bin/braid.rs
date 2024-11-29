@@ -1,10 +1,10 @@
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use color_eyre::{eyre::WrapErr, Result};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 struct BraidLauncherCliArgs {
-    /// Command to execute (e.g. run, show-config, default-config)
+    /// Command to execute (e.g. run, show-config, default-config, help)
     command: String,
     /// Options specific to the command
     options: Vec<String>,
@@ -19,6 +19,12 @@ fn main() -> Result<()> {
 
     let args = BraidLauncherCliArgs::parse();
     tracing::debug!("{:?}", args);
+
+    if args.command == "help" {
+        let help = BraidLauncherCliArgs::command().render_long_help();
+        println!("{}", help.ansi());
+        return Ok(());
+    }
 
     let cmd_name = format!("braid-{}", args.command);
 
