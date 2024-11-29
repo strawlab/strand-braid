@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 #[derive(Debug, Parser)]
 #[command(author, version)]
 struct BraidShowConfigCliArgs {
-    /// Input directory
+    /// Input configuration file
     config_file: std::path::PathBuf,
 }
 
