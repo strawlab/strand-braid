@@ -36,9 +36,12 @@ mod test {
 
     #[test]
     fn test_from_dynlink_nvidia_encode_error() {
+        let status = 2;
         let orig = dynlink_nvidia_encode::NvencError::ErrCode {
-            status: 2,
-            message: "error",
+            status,
+            line_num: line!(),
+            fname: file!(),
+            message: dynlink_nvidia_encode::error::code_to_string(status),
             #[cfg(feature = "backtrace")]
             backtrace: Backtrace::capture(),
         };

@@ -7,7 +7,7 @@
 #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 pub mod api;
-mod error;
+pub mod error;
 #[allow(clippy::all)]
 mod ffi;
 pub mod guids;
