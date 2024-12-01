@@ -1,6 +1,7 @@
 # Strand-Braid
 
 [![User's Guide](https://img.shields.io/badge/docs-User's%20Guide-blue.svg?logo=Gitbook)](https://strawlab.github.io/strand-braid/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fstrawlab%2Fstrand-braid.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fstrawlab%2Fstrand-braid?ref=badge_shield)
 
 ## Description
 
@@ -137,6 +138,9 @@ Freiburg, Germany.
 This open-source software is distributable under the terms of the Affero General
 Public License v1.0 only. See [COPYRIGHT](COPYRIGHT) and
 [LICENSE.txt](LICENSE.txt) for more details.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fstrawlab%2Fstrand-braid.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fstrawlab%2Fstrand-braid?ref=badge_large)
 
 ## Future license plans
 
