@@ -20,5 +20,5 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo +nightly doc --features "ipp-sys/2019 braid-run/serve_files"
+cargo doc --features "ipp-sys/2019 braid-run/serve_files"
 @REM cargo build --no-default-features --features bundle_files,backend_pyloncxx,ipp-sys/2019 --release

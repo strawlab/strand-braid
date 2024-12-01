@@ -14,12 +14,9 @@ jobs:
         working-directory: fmf/fmf-cli
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        run: |
-          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
-          cargo +nightly build --release
+          cargo build --release
       - uses: actions/upload-artifact@v4
         with:
           name: fmf-ubuntu
@@ -32,12 +29,9 @@ jobs:
         working-directory: fmf/fmf-cli
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        run: |
-          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
-          cargo +nightly build --release
+          cargo build --release
       - uses: actions/upload-artifact@v4
         with:
           name: fmf-windows
@@ -50,12 +44,9 @@ jobs:
         working-directory: fmf/fmf-cli
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        run: |
-          rustup toolchain install nightly --profile minimal --no-self-update
       - name: Build FMF CLI app
         run: |
-          cargo +nightly build --release
+          cargo build --release
       - uses: actions/upload-artifact@v4
         with:
           name: fmf-mac
