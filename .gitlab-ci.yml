@@ -91,6 +91,10 @@ test_crates:
     - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
     - cd ..
 
+    - cd ci2-simple-async-demo
+    - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
+    - cd ..
+
     - cd ci2-cli
     - cargo test --features backend_pyloncxx
     - cd ..

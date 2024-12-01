@@ -48,7 +48,7 @@ async fn do_capture<C>(cam: &mut ci2_async::ThreadedAsyncCamera<C>) -> Result<()
 where
     C: 'static + ci2::Camera + Send,
 {
-    let mut stream = cam.frames(10, || {})?.take(10);
+    let mut stream = cam.frames(10)?.take(10);
     while let Some(frame) = stream.next().await {
         match frame {
             ci2_async::FrameResult::Frame(frame) => {
