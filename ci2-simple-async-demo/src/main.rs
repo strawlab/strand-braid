@@ -4,8 +4,6 @@ use ci2::{Camera, CameraModule};
 use ci2_async::AsyncCamera;
 use timestamped_frame::{ExtraTimeData, HostTimeData};
 
-#[cfg(feature = "backend_aravis")]
-use ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
 #[cfg(feature = "backend_vimba")]

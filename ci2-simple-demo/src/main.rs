@@ -2,8 +2,6 @@ extern crate env_logger;
 extern crate log;
 
 extern crate ci2;
-#[cfg(feature = "backend_aravis")]
-extern crate ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 #[cfg(feature = "backend_vimba")]

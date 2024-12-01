@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
 
-#[cfg(feature = "backend_aravis")]
-extern crate ci2_aravis as backend;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
