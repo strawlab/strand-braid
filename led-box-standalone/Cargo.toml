@@ -24,6 +24,5 @@ eframe = { version = "0.22.0", default-features = false, features = [
 ] }
 json-lines = { version = "0.1.0", features = ["codec"] }
 
-led-box = { path = "../led-box" }
 led-box-comms = { path = "../led-box-comms" }
 env-tracing-logger = { path = "../env-tracing-logger" }
