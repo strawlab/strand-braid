@@ -24,6 +24,3 @@ ttf-firacode = "0.1"
 image.workspace = true
 
 font-drawing = { path = "../font-drawing" }
-
-[features]
-backtrace = ["less-avc/backtrace"]

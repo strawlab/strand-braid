@@ -113,8 +113,6 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         source: Box::new(e),
                         filename: flydra_types::BRAID_METADATA_YML_FNAME.into(),
                         what: "opening metadata file",
-                        #[cfg(feature = "backtrace")]
-                        backtrace: Backtrace::capture(),
                     })
                 }
             }
@@ -232,10 +230,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let metadata = if let Some(metadata) = metadata {
             metadata
         } else {
-            return Err(Error::MissingMetadata {
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
-            });
+            return Err(Error::MissingMetadata {});
         };
 
         let calibration_info = {
@@ -257,8 +252,6 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         source: Box::new(e),
                         filename: flydra_types::CALIBRATION_XML_FNAME.into(),
                         what: "opening calibration file",
-                        #[cfg(feature = "backtrace")]
-                        backtrace: Backtrace::capture(),
                     })
                 }
             }
@@ -469,8 +462,6 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                     match e {
                         Error::ZipOrDir {
                             source: zip_or_dir::Error::FileNotFound,
-                            #[cfg(feature = "backtrace")]
-                            backtrace,
                         } => (None, None),
                         _ => {
                             return Err(e);

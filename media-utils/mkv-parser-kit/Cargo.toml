@@ -12,6 +12,3 @@ chrono.workspace = true
 
 [dev-dependencies]
 anyhow = "1"
-
-[features]
-backtrace = ["anyhow/backtrace"]

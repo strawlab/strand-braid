@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use parking_lot::Mutex;
 use std::{
     convert::TryInto,

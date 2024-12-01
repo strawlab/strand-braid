@@ -33,6 +33,3 @@ enum-iter = { path = "../../enum-iter" }
 ads-webasm = { path = "../../ads-webasm", features = ["obj", "csv-widget"] }
 
 freemovr-calibration = { path = ".." }
-
-[features]
-backtrace = ["mvg/backtrace", "freemovr-calibration/backtrace"]

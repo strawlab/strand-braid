@@ -9,6 +9,3 @@ rust-version = "1.76"
 [dependencies]
 crossbeam-channel = "0.5"
 thiserror.workspace = true
-
-[features]
-backtrace = []

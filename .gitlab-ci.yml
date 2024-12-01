@@ -540,7 +540,7 @@ strand-cam-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -580,7 +580,7 @@ strand-cam-pylon-ubuntu2404:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -620,7 +620,7 @@ strand-cam-pylon-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -661,7 +661,7 @@ strand-cam-vimba-ubuntu2404:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -700,7 +700,7 @@ strand-cam-vimba-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -740,7 +740,7 @@ strand-cam-vimba-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff" --release
 
     - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - mkdir -p $CI_PROJECT_DIR/build
@@ -831,7 +831,7 @@ strand-cam-flydratrax-pylon-ubuntu2404:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -869,7 +869,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -908,7 +908,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial backtrace imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp" --release
 
     # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
     - mkdir -p $CI_PROJECT_DIR/build
@@ -1263,7 +1263,7 @@ braid-ubuntu2404:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
@@ -1299,7 +1299,7 @@ braid-ubuntu2004:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
@@ -1336,7 +1336,7 @@ braid-ubuntu2204:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features "bundle_files backtrace" --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files --release
     - ldd ../../target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 

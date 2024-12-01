@@ -14,4 +14,3 @@ flydra-types = { path = "../flydra-types" }
 serde = { version = "1.0.79", features = ["derive"] }
 
 [features]
-backtrace = []

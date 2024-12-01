@@ -10,6 +10,3 @@ flydra-mvg = { path = "../../flydra-mvg" }
 clap = { version = "4.3.4", features = ["derive"] }
 nalgebra.workspace = true
 pretty-print-nalgebra = "0.1.0"
-
-[features]
-backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

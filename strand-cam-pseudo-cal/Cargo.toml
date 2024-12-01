@@ -18,6 +18,3 @@ flydra-types = { path = "../flydra-types" }
 
 [dev-dependencies]
 approx = "0.5"
-
-[features]
-backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

@@ -11,6 +11,3 @@ thiserror.workspace = true
 [dev-dependencies]
 anyhow = "1"
 clap = { version = "4.0.10", features = ["derive"] }
-
-[features]
-backtrace = ["mkv-parser-kit/backtrace", "anyhow/backtrace"]

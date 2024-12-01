@@ -26,5 +26,3 @@ default = []
 
 # Backend choice
 backend_pyloncxx = ["ci2-pyloncxx"]
-
-backtrace = ["ci2/backtrace"]

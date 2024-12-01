@@ -73,8 +73,7 @@ impl FMFReader {
             let gz_fd = open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
+
             })?;
             let decoder = libflate::gzip::Decoder::new(gz_fd)?;
             Box::new(decoder)
@@ -82,8 +81,7 @@ impl FMFReader {
             Box::new(open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
+
             })?)
         };
 

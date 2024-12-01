@@ -2,9 +2,6 @@ use std::path::{Path, PathBuf};
 
 use crate::NvencError;
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 // The dynamic loading aspects here were inspired by clang-sys.
 
 // Due to the thread local stuff here, it is somewhat complex to abstract this
@@ -34,8 +31,7 @@ pub fn load_manually() -> Result<SharedLibrary, NvencError> {
         NvencError::DynLibLoadError {
             dynlib: path.display().to_string(),
             source,
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
+
         }
     })?;
 

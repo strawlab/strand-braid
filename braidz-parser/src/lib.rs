@@ -1,8 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -28,51 +23,36 @@ pub mod incremental_parser;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Did not find metadata in YAML file or textlog")]
-    MissingMetadata {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    MissingMetadata {},
     #[error("{source}")]
     Mvg {
         #[from]
         source: mvg::MvgError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Io {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Zip {
         #[from]
         source: zip::result::ZipError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Yaml {
         #[from]
         source: serde_yaml::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Json {
         #[from]
         source: serde_json::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Csv {
         #[from]
         source: csv::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("XML error")]
     Xml,
@@ -80,22 +60,16 @@ pub enum Error {
     ZipOrDir {
         #[from]
         source: zip_or_dir::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     ParseFloat {
         #[from]
         source: std::num::ParseFloatError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     ImageError {
         #[from]
         source: image::ImageError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("Compressed and uncompressed data copies exist simultaneously")]
     DualData,
@@ -110,8 +84,6 @@ pub enum Error {
         what: &'static str,
         filename: String,
         source: Box<dyn std::error::Error + Sync + Send>,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
 }
 

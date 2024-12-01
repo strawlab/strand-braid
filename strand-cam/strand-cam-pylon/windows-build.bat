@@ -15,6 +15,6 @@ REM Now build the binary
 set PYLON_VERSION=6
 
 REM Could/should install april tag stuff and use `fiducial` feature. See https://github.com/jerry73204/apriltag-sys
-cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff ipp-sys/2019 strand-cam/checkercal backtrace imops/simd strand-cam/use_ipp" --release
+cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff ipp-sys/2019 strand-cam/checkercal imops/simd strand-cam/use_ipp" --release
 
 copy %HomeDrive%%HomePath%\Downloads\opencv\build\x64\vc14\bin\opencv_world455.dll ..\..\target\release\

@@ -1,6 +1,4 @@
 #![recursion_limit = "128"]
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use tracing::{debug, error, info, warn};
 
 #[cfg(not(any(feature = "do_not_use_ipp", feature = "use_ipp")))]
@@ -14,9 +12,6 @@ use fastfreeimage as fastim_mod;
 
 #[cfg(feature = "use_ipp")]
 use fastimage as fastim_mod;
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 
 use borrow_fastimage::BorrowedFrame;
 use tokio::sync::mpsc;
@@ -58,10 +53,7 @@ const NUM_BG_START_IMAGES: usize = 20;
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(Error::DivideByZero(
-            #[cfg(feature = "backtrace")]
-            Backtrace::capture(),
-        ));
+        return Err(Error::DivideByZero());
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -697,10 +689,7 @@ impl FlydraFeatureDetector {
         )?;
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(Error::ImageSizeChanged(
-                #[cfg(feature = "backtrace")]
-                Backtrace::capture(),
-            ));
+            return Err(Error::ImageSizeChanged());
         }
 
         // move state into local variable so we can move it into next state

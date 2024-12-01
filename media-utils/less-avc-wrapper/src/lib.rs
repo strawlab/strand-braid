@@ -1,9 +1,5 @@
 // Copyright 2022-2023 Andrew D. Straw.
 #![deny(unsafe_code)]
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 use std::io::Write;
 
 use machine_vision_formats::{ImageStride, PixelFormat};
@@ -19,15 +15,13 @@ pub enum Error {
     LessAvcError {
         #[from]
         source: less_avc::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("convert image error: {source}")]
     ConvertImageError {
         #[from]
         source: convert_image::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("y4m writer error: {0}")]
     Y4mError(#[from] y4m_writer::Error),

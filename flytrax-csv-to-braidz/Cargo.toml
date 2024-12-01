@@ -51,4 +51,3 @@ download-verify = { path = "../download-verify" }
 
 [features]
 with_apriltags = ["flytrax-apriltags-calibration"]
-backtrace = ["flydra2/backtrace", "flydra-mvg/backtrace"]

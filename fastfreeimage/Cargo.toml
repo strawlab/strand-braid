@@ -20,8 +20,6 @@ anyhow = "1.0.70"
 # Use portable_simd from rust nightly
 portsimd = ["imops/simd"]
 
-# TODO: add backtrace support
-
 [[bench]]
 name = "bench"
 harness = false

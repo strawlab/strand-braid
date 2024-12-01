@@ -94,5 +94,3 @@ bundle_files = ["tower-serve-static", "include_dir"]
 serve_files = ["tower-http"]
 
 braid = []
-
-backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

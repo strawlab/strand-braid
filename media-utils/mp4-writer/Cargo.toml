@@ -46,10 +46,3 @@ basic-frame = { path = "../../basic-frame", features = ["convert-image"] }
 
 [features]
 openh264-encode = ["openh264"]
-backtrace = [
-    "nvenc/backtrace",
-    "dynlink-cuda/backtrace",
-    "dynlink-nvidia-encode/backtrace",
-    "openh264?/backtrace",
-    "less-avc-wrapper/backtrace",
-]

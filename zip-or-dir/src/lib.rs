@@ -5,8 +5,6 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 //! An archive of "files", either in a filesystem directory or zip archive.
 //!
 //! The primary object of interest in this crate is the struct
@@ -49,9 +47,6 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 /// A type alias to wrap return types.
 pub type Result<M> = std::result::Result<M, Error>;
 
@@ -61,14 +56,12 @@ pub enum Error {
     #[error("{source}")]
     Io {
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("{source}")]
     Zip {
         source: zip::result::ZipError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("file not found")]
     FileNotFound,
@@ -88,8 +81,7 @@ impl From<zip::result::ZipError> for Error {
             zip::result::ZipError::FileNotFound => Error::FileNotFound,
             source => Error::Zip {
                 source,
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             },
         }
     }
@@ -101,8 +93,7 @@ impl From<std::io::Error> for Error {
             std::io::ErrorKind::NotFound => Error::FileNotFound,
             _ => Error::Io {
                 source,
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             },
         }
     }

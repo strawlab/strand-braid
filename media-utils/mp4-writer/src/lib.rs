@@ -13,8 +13,6 @@
 // initial frame. (Although, to specify the timezone, the creation time may be
 // in a timezone other than UTC.)
 
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use std::rc::Rc;
 
 #[macro_use]
@@ -52,64 +50,34 @@ pub enum Error {
     IoError {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[error("required h264 data (SPS or PPS) not found")]
-    RequiredH264DataNotFound {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    RequiredH264DataNotFound {},
     #[error("file already closed")]
-    FileAlreadyClosed {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    FileAlreadyClosed {},
     #[error("cannot encode frame when copying h264 stream")]
-    RawH264CopyCannotEncodeFrame {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    RawH264CopyCannotEncodeFrame {},
     #[error("bad input data")]
-    BadInputData {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    BadInputData {},
     #[error("inconsistent state")]
-    InconsistentState {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    InconsistentState {},
     #[error("timestamp too large")]
-    TimestampTooLarge {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
-    },
+    TimestampTooLarge {},
     #[error("convert image error")]
-    ConvertImageError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        convert_image::Error,
-    ),
+    ConvertImageError(#[from] convert_image::Error),
     #[cfg(feature = "openh264")]
     #[error("openhs264 error {}", inner)]
     OpenH264Error {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         inner: openh264::Error,
     },
     #[error("nvenc error")]
-    NvencError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        nvenc::NvEncError,
-    ),
+    NvencError(#[from] nvenc::NvEncError),
     #[error("nvenc libraries not loaded")]
     NvencLibsNotLoaded,
     #[error("less-avc error {}", inner)]
     LessAvcWrapperError {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         inner: less_avc_wrapper::Error,
     },
     #[error("y4m-writer error {0}")]
@@ -273,17 +241,11 @@ where
                     h264_parser
                         .sps
                         .as_ref()
-                        .ok_or(Error::RequiredH264DataNotFound {
-                            #[cfg(feature = "backtrace")]
-                            backtrace: std::backtrace::Backtrace::capture(),
-                        })?,
+                        .ok_or(Error::RequiredH264DataNotFound {})?,
                     h264_parser
                         .pps
                         .as_ref()
-                        .ok_or(Error::RequiredH264DataNotFound {
-                            #[cfg(feature = "backtrace")]
-                            backtrace: std::backtrace::Backtrace::capture(),
-                        })?,
+                        .ok_or(Error::RequiredH264DataNotFound {})?,
                     width,
                     height,
                 )?;
@@ -579,16 +541,10 @@ where
             }
             Some(WriteState::Finished) => {
                 self.inner = Some(WriteState::Finished);
-                Err(Error::FileAlreadyClosed {
-                    #[cfg(feature = "backtrace")]
-                    backtrace: std::backtrace::Backtrace::capture(),
-                })
+                Err(Error::FileAlreadyClosed {})
             }
 
-            None => Err(Error::InconsistentState {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }),
+            None => Err(Error::InconsistentState {}),
         }
     }
 
@@ -631,10 +587,7 @@ where
                                     state_inner.trim_height,
                                 )?;
                             } else {
-                                return Err(Error::InconsistentState {
-                                    #[cfg(feature = "backtrace")]
-                                    backtrace: std::backtrace::Backtrace::capture(),
-                                });
+                                return Err(Error::InconsistentState {});
                             }
                         }
                     }
@@ -650,15 +603,9 @@ where
             }
             Some(WriteState::Finished) => {
                 self.inner = Some(WriteState::Finished);
-                Err(Error::FileAlreadyClosed {
-                    #[cfg(feature = "backtrace")]
-                    backtrace: std::backtrace::Backtrace::capture(),
-                })
+                Err(Error::FileAlreadyClosed {})
             }
-            None => Err(Error::InconsistentState {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }),
+            None => Err(Error::InconsistentState {}),
         }
     }
 }
@@ -710,10 +657,7 @@ where
 {
     match (&mut state.my_encoder, &state.inner) {
         (MyEncoder::CopyRawH264 { h264_parser: _ }, _) => {
-            return Err(Error::RawH264CopyCannotEncodeFrame {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            });
+            return Err(Error::RawH264CopyCannotEncodeFrame {});
         }
         (MyEncoder::LessH264(encoder), Some(state_inner)) => {
             let nals = encoder.encoder.encode_to_nal_units(raw_frame)?;
@@ -1397,19 +1341,13 @@ impl<'a> Iterator for NalAvccBufIter<'a> {
             return None;
         }
         if self.cur_buf.len() < 4 {
-            return Some(Err(Error::BadInputData {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }));
+            return Some(Err(Error::BadInputData {}));
         }
         let bytes: [u8; 4] = self.cur_buf[0..4].try_into().unwrap();
         let nal_unit_payload_len = usize::try_from(u32::from_be_bytes(bytes)).unwrap();
         let nal_ebsp_bytes = &self.cur_buf[4..4 + nal_unit_payload_len];
         if nal_ebsp_bytes.len() != nal_unit_payload_len {
-            return Some(Err(Error::BadInputData {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }));
+            return Some(Err(Error::BadInputData {}));
         }
         self.cur_buf = &self.cur_buf[4 + nal_unit_payload_len..];
         Some(Ok(nal_ebsp_bytes))
@@ -1461,20 +1399,14 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
             UnitType::SliceLayerWithoutPartitioningIdr => {
                 if is_keyframe.is_some() {
                     // cannot have multiple frames
-                    return Err(Error::BadInputData {
-                        #[cfg(feature = "backtrace")]
-                        backtrace: std::backtrace::Backtrace::capture(),
-                    });
+                    return Err(Error::BadInputData {});
                 };
                 is_keyframe = Some(true);
             }
             UnitType::SliceLayerWithoutPartitioningNonIdr => {
                 if is_keyframe.is_some() {
                     // cannot have multiple frames
-                    return Err(Error::BadInputData {
-                        #[cfg(feature = "backtrace")]
-                        backtrace: std::backtrace::Backtrace::capture(),
-                    });
+                    return Err(Error::BadInputData {});
                 };
                 is_keyframe = Some(false);
             }
@@ -1482,15 +1414,9 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
         }
     }
     #[allow(clippy::unnecessary_lazy_evaluations)]
-    is_keyframe.ok_or_else(|| Error::BadInputData {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace::capture(),
-    })
+    is_keyframe.ok_or_else(|| Error::BadInputData {})
 }
 
 fn inconsistent_state_err<T>() -> Result<T> {
-    Err(Error::InconsistentState {
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace::capture(),
-    })
+    Err(Error::InconsistentState {})
 }

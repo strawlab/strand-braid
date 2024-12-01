@@ -2,7 +2,7 @@ REM Prerequisite: ../yew_frontend/pkg is built. Do this by "build-imops.bat" in 
 
 set PYLON_VERSION=6
 
-cargo build --no-default-features --features strand-cam/bundle_files,backtrace,imops/simd --release || goto :error
+cargo build --no-default-features --features strand-cam/bundle_files,imops/simd --release || goto :error
 
 goto :EOF
 

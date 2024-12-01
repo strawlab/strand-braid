@@ -1,17 +1,11 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("mvg error: {0}")]
-    Mvg(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        mvg::MvgError,
-    ),
+    Mvg(#[from] mvg::MvgError),
     #[error("{source}")]
     IoError {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[error("failed parse 1: {0}")]
     FailedParse1(serde_yaml::Error),
@@ -28,30 +22,22 @@ pub enum Error {
     SerdeYaml {
         #[from]
         source: serde_yaml::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[error("{source}")]
     SerdeJson {
         #[from]
         source: serde_json::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[cfg(feature = "opencv")]
     #[error("{source}")]
     OpenCvCalibrate {
         #[from]
         source: opencv_calibrate::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[error("{source}")]
     ImageError {
         #[from]
         source: image::ImageError,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
     },
     #[error("required tri mesh")]
     RequiredTriMesh,
@@ -70,9 +56,5 @@ pub enum Error {
     #[error("svd error: {0}")]
     SvdError(&'static str),
     #[error(transparent)]
-    Other(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        anyhow::Error,
-    ),
+    Other(#[from] anyhow::Error),
 }

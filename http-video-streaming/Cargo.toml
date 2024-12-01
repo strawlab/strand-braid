@@ -25,6 +25,3 @@ basic-frame = { path = "../basic-frame" }
 rust-cam-bui-types = { path = "../rust-cam-bui-types" }
 event-stream-types = { path = "../event-stream-types" }
 bui-backend-session-types = { path = "../bui-backend-session/types" }
-
-[features]
-backtrace = []

@@ -1,8 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use basic_frame::DynamicFrame;
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
@@ -21,39 +16,25 @@ pub enum Error {
     #[error("Timeout")]
     Timeout,
     #[error("CI2Error({msg})")]
-    CI2Error {
-        msg: String,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    CI2Error { msg: String },
     #[error("feature not present")]
-    FeatureNotPresent(#[cfg(feature = "backtrace")] Backtrace),
+    FeatureNotPresent(),
     #[error("BackendError({0})")]
-    BackendError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        anyhow::Error,
-    ),
+    BackendError(#[from] anyhow::Error),
     #[error("io error: {source}")]
     IoError {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("utf8 error: {source}")]
     Utf8Error {
         #[from]
         source: std::str::Utf8Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("try from int error: {source}")]
     TryFromIntError {
         #[from]
         source: std::num::TryFromIntError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
 }
 
@@ -67,19 +48,13 @@ impl<'a> From<&'a str> for Error {
     fn from(orig: &'a str) -> Error {
         Error::CI2Error {
             msg: orig.to_string(),
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
         }
     }
 }
 
 impl From<String> for Error {
     fn from(msg: String) -> Error {
-        Error::CI2Error {
-            msg,
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
-        }
+        Error::CI2Error { msg }
     }
 }
 

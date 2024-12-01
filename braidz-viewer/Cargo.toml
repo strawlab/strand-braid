@@ -56,6 +56,3 @@ features = [
     "DataTransfer",
     "DragEvent",
 ]
-
-[features]
-backtrace = ["mvg/backtrace"]

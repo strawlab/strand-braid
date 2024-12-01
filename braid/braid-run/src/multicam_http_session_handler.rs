@@ -47,8 +47,6 @@ impl StrandCamHttpSessionHandler {
             } else {
                 return Err(MainbrainError::UnknownCamera {
                     cam_name: cam_name.clone(),
-                    #[cfg(feature = "backtrace")]
-                    backtrace: std::backtrace::Backtrace::capture(),
                 });
             }
         };

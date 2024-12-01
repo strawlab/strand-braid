@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use http_video_streaming_types::StrokeStyle;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -17,13 +15,9 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("unknown path")]
-    UnknownPath(#[cfg(feature = "backtrace")] std::backtrace::Backtrace),
+    UnknownPath(),
     #[error(transparent)]
-    ConvertImageError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        convert_image::Error,
-    ),
+    ConvertImageError(#[from] convert_image::Error),
 }
 
 // future: use MediaSource API? https://w3c.github.io/media-source

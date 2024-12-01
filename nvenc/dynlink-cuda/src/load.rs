@@ -1,6 +1,3 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::path::{Path, PathBuf};
 
 use crate::error::CudaError;
@@ -31,8 +28,7 @@ pub fn load_manually() -> Result<SharedLibrary, CudaError> {
         CudaError::DynLibLoadError {
             lib: path.display().to_string(),
             source,
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
+
         }
     })?;
     let library = SharedLibrary::new(library, path);

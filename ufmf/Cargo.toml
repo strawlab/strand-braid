@@ -19,6 +19,3 @@ datetime-conversion = { path = "../datetime-conversion" }
 
 [dev-dependencies]
 basic-frame = { path = "../basic-frame" }
-
-[features]
-backtrace = []

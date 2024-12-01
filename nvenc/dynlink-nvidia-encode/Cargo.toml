@@ -9,6 +9,3 @@ rust-version = "1.76"
 libloading = "0.7.3"
 dynlink-cuda = { path = "../dynlink-cuda" }
 thiserror.workspace = true
-
-[features]
-backtrace = ["dynlink-cuda/backtrace"]

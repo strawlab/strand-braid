@@ -28,6 +28,3 @@ channellib = { path = "../channellib" }
 env_logger.workspace = true
 anyhow = "1"
 timestamped-frame = { path = "../timestamped-frame" }
-
-[features]
-backtrace = ["ci2/backtrace", "vimba/backtrace"]

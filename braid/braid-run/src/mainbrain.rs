@@ -63,28 +63,24 @@ pub(crate) enum MainbrainError {
     HyperError {
         #[from]
         source: hyper::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("{source}")]
     BuiBackendSessionError {
         #[from]
         source: bui_backend_session::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("{source}")]
     PreferencesError {
         #[from]
         source: preferences_serde1::PreferencesError,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("unknown camera \"{cam_name}\"")]
     UnknownCamera {
         cam_name: RawCamName,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
 }
 

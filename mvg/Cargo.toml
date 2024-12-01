@@ -27,6 +27,5 @@ rerun = { workspace = true, features = ["glam"] }
 
 [features]
 serde-serialize = []
-backtrace = []
 
 rerun-io = ["rerun", "simba"]

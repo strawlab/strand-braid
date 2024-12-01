@@ -8,6 +8,3 @@ rust-version = "1.76"
 [dependencies]
 libloading = "0.7.3"
 thiserror.workspace = true
-
-[features]
-backtrace = []

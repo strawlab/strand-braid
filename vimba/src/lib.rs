@@ -1,8 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::{convert::TryInto, pin::Pin};
 
 use machine_vision_formats as formats;
@@ -82,7 +77,6 @@ impl From<i32> for VimbaError {
 pub enum Error {
     #[error("Loading library at {vimbac_path}")]
     LibLoading {
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: libloading::Error,
         vimbac_path: std::path::PathBuf,
     },
@@ -90,40 +84,23 @@ pub enum Error {
     Vimba {
         #[from]
         source: VimbaError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     NulError {
         #[from]
         source: std::ffi::NulError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Utf8Error {
         #[from]
         source: std::str::Utf8Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("unknown pixel format {fmt}")]
-    UnknownPixelFormat {
-        fmt: String,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    UnknownPixelFormat { fmt: String },
     #[error("unknown pixel format code 0x{code:X}")]
-    UnknownPixelFormatCode {
-        code: u32,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    UnknownPixelFormatCode { code: u32 },
     #[error("invalid call")]
-    InvalidCall {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    InvalidCall {},
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -600,10 +577,7 @@ impl<'lib> Camera<'lib> {
 
     pub fn frame_announce(&self, frame: &mut Frame) -> Result<()> {
         if frame.already_announced {
-            return Err(Error::InvalidCall {
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
-            });
+            return Err(Error::InvalidCall {});
         }
 
         log::debug!("camera {:?} announcing frame {:?}", self, frame);
@@ -839,11 +813,7 @@ pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
         // VmbPixelFormatMono12p => Mono12p,
         // VmbPixelFormatMono16 => Mono16,
         _code_signed => {
-            return Err(Error::UnknownPixelFormatCode {
-                code,
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
-            });
+            return Err(Error::UnknownPixelFormatCode { code });
         }
     };
     Ok(fmt)
@@ -863,8 +833,6 @@ pub fn str_to_pixel_format(pixel_format: &str) -> Result<formats::pixel_format::
         fmt => {
             return Err(Error::UnknownPixelFormat {
                 fmt: fmt.to_string(),
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
             });
         }
     })
@@ -883,8 +851,6 @@ pub fn pixel_format_to_str(pixfmt: formats::pixel_format::PixFmt) -> Result<&'st
         _ => {
             return Err(Error::UnknownPixelFormat {
                 fmt: format!("pixfmt {:?}", pixfmt),
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
             });
         }
     })

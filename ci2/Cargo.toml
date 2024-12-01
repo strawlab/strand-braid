@@ -14,6 +14,3 @@ machine-vision-formats.workspace = true
 ci2-types = { path = "ci2-types" }
 basic-frame = { path = "../basic-frame" }
 timestamped-frame = { path = "../timestamped-frame" }
-
-[features]
-backtrace = ["anyhow/backtrace"]

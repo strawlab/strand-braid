@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 #[macro_use]
 extern crate structure;
 
@@ -31,8 +29,7 @@ pub enum UFMFError {
     Io {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("{0}")]
     Cast(#[from] cast::Error),

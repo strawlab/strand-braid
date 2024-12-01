@@ -30,6 +30,3 @@ zip = { version = "0.6.2", default-features = false, features = [
     "time",
 ] }
 tracing-test = "0.2.5"
-
-[features]
-backtrace = ["mp4-writer/backtrace", "frame-source/backtrace"]

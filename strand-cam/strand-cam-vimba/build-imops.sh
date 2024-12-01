@@ -5,4 +5,4 @@ set -o errexit
 
 export PKG_CONFIG_PATH=/opt/opencv-4.5.5-static/lib/pkgconfig
 
-cargo +nightly build --features backtrace,ci2-vimba/backtrace,imops/simd --release
+cargo +nightly build --features imops/simd --release

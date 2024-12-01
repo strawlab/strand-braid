@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use serde::{Deserialize, Serialize};
 
 use flydra_types::{BraidCameraConfig, FakeSyncConfig, TriggerType, TriggerboxConfig};
@@ -11,22 +9,19 @@ pub enum Error {
     ShellExpandLookupVarError {
         #[from]
         source: shellexpand::LookupError<std::env::VarError>,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("IO error: {source}")]
     IoError {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("TOML deserialization error: {source}")]
     TomlDeError {
         #[from]
         source: toml::de::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
 }
 

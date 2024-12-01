@@ -2,4 +2,4 @@ REM Prerequisite: ../yew_frontend/pkg is built. Do this by "build-plain.bat" in 
 
 set PYLON_VERSION=6
 
-cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/imtrack-absdiff backtrace" --release
+cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/imtrack-absdiff" --release

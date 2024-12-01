@@ -21,5 +21,3 @@ strand-cam = { path = "..", default-features = false, features = [
 
 [features]
 default = ["strand-cam/bundle_files"]
-
-backtrace = ["strand-cam/backtrace", "ci2-pyloncxx/backtrace"]

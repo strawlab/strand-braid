@@ -23,6 +23,3 @@ basic-frame = { path = "../basic-frame" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rlimit = "0.6"
-
-[features]
-backtrace = ["ci2/backtrace", "pylon-cxx/backtrace"]

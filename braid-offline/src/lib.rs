@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -24,72 +22,48 @@ use flydra_types::{
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{source}")]
     Io {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Flydra2 {
         #[from]
         source: flydra2::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     BraidzParser {
         #[from]
         source: braidz_parser::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("output filename must end with '.braidz'")]
-    OutputFilenameMustEndInBraidz {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    OutputFilenameMustEndInBraidz {},
     #[error("No calibration found")]
     NoCalibrationFound,
     #[error("{source}")]
     ZipDir {
         #[from]
         source: zip_or_dir::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     FuturesSendError {
         #[from]
         source: futures::channel::mpsc::SendError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Csv {
         #[from]
         source: csv::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("error registering camera: {msg}")]
-    RegisterCameraError {
-        msg: &'static str,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
-    },
+    RegisterCameraError { msg: &'static str },
     #[error("{source}")]
     JoinError {
         #[from]
         source: tokio::task::JoinError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
 }
 
@@ -249,10 +223,7 @@ where
         output_dirname.set_extension("braid");
         output_dirname
     } else {
-        return Err(Error::OutputFilenameMustEndInBraidz {
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
-        });
+        return Err(Error::OutputFilenameMustEndInBraidz {});
     };
 
     info!(
@@ -506,11 +477,7 @@ where
 
         cam_manager
             .register_new_camera(&orig_cam_name, &no_server, None)
-            .map_err(|msg| Error::RegisterCameraError {
-                msg,
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            })?;
+            .map_err(|msg| Error::RegisterCameraError { msg })?;
     }
 
     {

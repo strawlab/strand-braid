@@ -86,5 +86,3 @@ deadlock_detection = ["parking_lot/deadlock_detection"]
 # BUI frontend. must pick one of the following two:
 bundle_files = ["flydra2/bundle_files", "tower-serve-static", "include_dir"]
 serve_files = ["flydra2/serve_files"]
-
-backtrace = ["flydra2/backtrace", "mvg/backtrace", "flydra-mvg/backtrace"]

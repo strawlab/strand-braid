@@ -1,15 +1,8 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 #[derive(thiserror::Error, Debug)]
 #[error("channellib receive error")]
 pub struct RecvError {
     #[from]
     source: crossbeam_channel::RecvError,
-    #[cfg(feature = "backtrace")]
-    pub backtrace: Backtrace,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -17,8 +10,6 @@ pub struct RecvError {
 pub struct RecvTimeoutError {
     #[from]
     source: crossbeam_channel::RecvTimeoutError,
-    #[cfg(feature = "backtrace")]
-    pub backtrace: Backtrace,
 }
 
 impl RecvTimeoutError {
@@ -33,8 +24,6 @@ impl RecvTimeoutError {
 pub struct TryRecvError {
     #[from]
     source: crossbeam_channel::TryRecvError,
-    #[cfg(feature = "backtrace")]
-    pub backtrace: Backtrace,
 }
 
 impl TryRecvError {
@@ -55,8 +44,6 @@ impl TryRecvError {
 #[error("channellib send error")]
 pub struct SendError<T> {
     inner: crossbeam_channel::SendError<T>,
-    #[cfg(feature = "backtrace")]
-    pub backtrace: Backtrace,
 }
 
 impl<T> std::fmt::Debug for SendError<T> {
@@ -99,11 +86,7 @@ impl<T> Sender<T> {
 
     #[inline(always)]
     pub fn send(&self, msg: T) -> Result<(), SendError<T>> {
-        self.0.send(msg).map_err(|e| SendError {
-            inner: e,
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
-        })
+        self.0.send(msg).map_err(|e| SendError { inner: e })
     }
 
     #[inline(always)]

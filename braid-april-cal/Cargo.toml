@@ -30,5 +30,4 @@ ads-webasm = { path = "../ads-webasm", features = ["csv-widget"] }
 [features]
 default = ["solve-pnp"]
 
-backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]
 solve-pnp = ["opencv-calibrate"]

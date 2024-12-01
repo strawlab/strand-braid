@@ -1,6 +1,3 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use crate::NvInt;
 use thiserror::Error;
 
@@ -10,8 +7,7 @@ pub enum NvencError {
     DynLibLoadError {
         dynlib: String,
         source: libloading::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("NvEnc returned code `{status}`: {message} at {fname}:{line_num}")]
     ErrCode {
@@ -19,31 +15,26 @@ pub enum NvencError {
         fname: &'static str,
         line_num: u32,
         message: &'static str,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("Name `{name}` could not be opened")]
     NameFFIError {
         name: String,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("Name `{name}` could not be opened: `{source}`")]
     NameFFIError2 {
         name: String,
         source: libloading::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("Unable to compute image size")]
     UnableToComputeSize {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("Encode configuration required")]
     EncodeConfigRequired {
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
 }
 

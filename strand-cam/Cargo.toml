@@ -135,16 +135,6 @@ default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 eframe-gui = ["eframe"]
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
-backtrace = [
-    "ci2/backtrace",
-    "mp4-writer/backtrace",
-    "http-video-streaming/backtrace",
-    "flydra-feature-detector?/backtrace",
-    "mvg?/backtrace",
-    "flydra-mvg?/backtrace",
-    "flydra2?/backtrace",
-]
-
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
 plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]

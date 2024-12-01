@@ -1,6 +1,3 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
@@ -667,8 +664,7 @@ where
             .map_err(|_e| {
             MvgError::FailedFlydraXmlConversion {
                 msg: "XML parsing error",
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             }
         })?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
@@ -678,8 +674,6 @@ where
         let recon = self.to_flydra_reconstructor()?;
         let buf = flydra_xml_support::serialize_recon(&recon).map_err(|_e| MvgError::Io {
             source: std::io::ErrorKind::Other.into(),
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
         })?;
         writer.write_all(buf.as_bytes())?;
         Ok(())
@@ -721,8 +715,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
             return Err(MvgError::FailedFlydraXmlConversion {
                 msg: "3rd term of radial distortion not supported",
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             });
         }
         let k = self.intrinsics().k;
@@ -806,8 +799,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
             return Err(MvgError::FailedFlydraXmlConversion {
                 msg: "skew not supported",
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             });
         }
 

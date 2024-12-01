@@ -1,9 +1,4 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 extern crate machine_vision_formats as formats;
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -39,21 +34,18 @@ pub enum Error {
     PylonError {
         #[from]
         source: pylon_cxx::PylonError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("int parse error: {source}")]
     IntParseError {
         #[from]
         source: std::num::ParseIntError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("other error: {msg}")]
     OtherError {
         msg: String,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
 }
 
@@ -454,8 +446,7 @@ impl<'a> WrappedCamera<'a> {
         }
         Err(Error::OtherError {
             msg: format!("requested camera '{}' was not found", name),
-            #[cfg(feature = "backtrace")]
-            backtrace: std::backtrace::Backtrace::capture(),
+
         }
         .into())
     }

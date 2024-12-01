@@ -30,6 +30,3 @@ winnow = "0.6.20"
 
 [dev-dependencies]
 mp4-writer = { path = "../mp4-writer" }
-
-[features]
-backtrace = ["mkv-strand-reader/backtrace"]

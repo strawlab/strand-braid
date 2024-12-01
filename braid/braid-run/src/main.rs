@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
 use clap::Parser;
 use color_eyre::{
     eyre::{self, WrapErr},

@@ -54,10 +54,3 @@ serde_yaml = "0.9"
 
 download-verify = { path = "../download-verify" }
 braidz-types = { path = "../braidz-types" }
-
-[features]
-backtrace = [
-    "zip-or-dir/backtrace",
-    "flydra2/backtrace",
-    "braidz-parser/backtrace",
-]

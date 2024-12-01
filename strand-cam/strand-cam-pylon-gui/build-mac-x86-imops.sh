@@ -2,7 +2,7 @@
 set -o errexit
 
 # It seems the Basler drivers are not compiled for aarch64-apple-darwin, so build for x86:
-cargo build --no-default-features --features strand-cam/bundle_files,backtrace,imops/simd --release --target x86_64-apple-darwin
+cargo build --no-default-features --features strand-cam/bundle_files,imops/simd --release --target x86_64-apple-darwin
 
 # To run, set the DYLD_LIBRARY_PATH environment variable
 #

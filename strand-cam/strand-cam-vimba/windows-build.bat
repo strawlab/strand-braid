@@ -8,4 +8,4 @@ set OPENCV_INCLUDE_DIR=%HomeDrive%%HomePath%\Downloads\opencv\build\include
 @REM Set IPPROOT environment variable: run this script in a shell opened with:
 @REM cmd /k "c:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019\windows\ipp\bin\ippvars.bat" intel64
 
-cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff ipp-sys/2019 strand-cam/checkercal backtrace imops/simd strand-cam/use_ipp" --release
+cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff ipp-sys/2019 strand-cam/checkercal imops/simd strand-cam/use_ipp" --release

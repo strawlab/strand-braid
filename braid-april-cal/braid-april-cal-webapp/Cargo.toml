@@ -29,4 +29,3 @@ ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
 braid-april-cal = { path = "..", default-features = false }
 
 [features]
-backtrace = ["braid-april-cal/backtrace"]

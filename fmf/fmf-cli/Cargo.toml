@@ -38,6 +38,3 @@ nvenc = { path = "../../nvenc" }
 
 [dev-dependencies]
 tempfile = "3.4.0"
-
-[features]
-backtrace = ["anyhow/backtrace", "mp4-writer/backtrace", "fmf/backtrace"]

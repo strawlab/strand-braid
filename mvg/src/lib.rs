@@ -1,9 +1,4 @@
 #![deny(rust_2018_idioms)]
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
-
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use thiserror::Error;
 
 use nalgebra as na;
@@ -45,29 +40,25 @@ pub enum MvgError {
     #[error("cannot convert to or from flydra xml: {msg}")]
     FailedFlydraXmlConversion {
         msg: &'static str,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
+
     },
     #[error("IO error: {source}")]
     Io {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("serde_yaml error: {source}")]
     SerdeYaml {
         #[from]
         source: serde_yaml::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("serde_json error: {source}")]
     SerdeJson {
         #[from]
         source: serde_json::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("SvgError: {}", error)]
     SvgError { error: &'static str },
@@ -77,15 +68,13 @@ pub enum MvgError {
     CamGeomError {
         #[from]
         source: cam_geom::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
     #[error("opencv_ros_camera::Error: {source}")]
     OpencvRosError {
         #[from]
         source: opencv_ros_camera::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: std::backtrace::Backtrace,
+
     },
 }
 

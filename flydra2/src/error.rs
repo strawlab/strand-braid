@@ -1,6 +1,3 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{source}")]
@@ -11,88 +8,56 @@ pub enum Error {
     #[error("{source}")]
     Mvg {
         #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
         source: mvg::MvgError,
     },
     #[error("{source}")]
     Io {
         #[from]
         source: std::io::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     Csv {
         #[from]
         source: csv::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     GetTimezone {
         #[from]
         source: iana_time_zone::GetTimezoneError,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     SerdeJson {
         #[from]
         source: serde_json::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     SerdeYaml {
         #[from]
         source: serde_yaml::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
-    // #[error("{source}")]
-    // HyperError {
-    //     #[from]
-    //     source: hyper::Error,
-    //     #[cfg(feature = "backtrace")]
-    //     backtrace: Backtrace,
-    // },
     #[error("{source}")]
     TomlSerError {
         #[from]
         source: toml::ser::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     TomlDeError {
         #[from]
         source: toml::de::Error,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("{source}")]
     SendToDiskError {
         #[from]
         source: tokio::sync::mpsc::error::SendError<crate::SaveToDiskMsg>,
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
     #[error("invalid hypothesis testing parameters")]
     InvalidHypothesisTestingParameters,
     #[error("insufficient data to calculate FPS")]
     InsufficientDataToCalculateFps,
     #[error(transparent)]
-    FileError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        FileErrorInner,
-    ),
+    FileError(#[from] FileErrorInner),
     #[error(transparent)]
-    WrappedError(
-        #[from]
-        #[cfg_attr(feature = "backtrace", backtrace)]
-        WrappedErrorInner,
-    ),
+    WrappedError(#[from] WrappedErrorInner),
 }
 
 #[derive(Debug)]
@@ -112,12 +77,7 @@ impl std::fmt::Display for FileErrorInner {
     }
 }
 
-impl std::error::Error for FileErrorInner {
-    #[cfg(feature = "backtrace")]
-    fn provide<'a>(&'a self, req: &mut std::error::Request<'a>) {
-        self.source.provide(req)
-    }
-}
+impl std::error::Error for FileErrorInner {}
 
 #[derive(Debug)]
 pub struct WrappedErrorInner {
@@ -130,12 +90,7 @@ impl std::fmt::Display for WrappedErrorInner {
     }
 }
 
-impl std::error::Error for WrappedErrorInner {
-    #[cfg(feature = "backtrace")]
-    fn provide<'a>(&'a self, req: &mut std::error::Request<'a>) {
-        self.source.provide(req)
-    }
-}
+impl std::error::Error for WrappedErrorInner {}
 
 pub fn file_error<E>(what: &'static str, filename: String, source: E) -> Error
 where

@@ -36,6 +36,3 @@ zip-or-dir = { path = "../zip-or-dir" }
 [dev-dependencies]
 env_logger.workspace = true
 download-verify = { path = "../download-verify" }
-
-[features]
-backtrace = ["mvg/backtrace", "flydra-mvg/backtrace"]

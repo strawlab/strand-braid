@@ -136,8 +136,6 @@ impl BackgroundModel {
                 pixel_format => {
                     return Err(Error::OtherError {
                         msg: format!("unimplemented pixel_format {}", pixel_format),
-                        #[cfg(feature = "backtrace")]
-                        backtrace: std::backtrace::Backtrace::capture(),
                     });
                 }
             }

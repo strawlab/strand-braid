@@ -1,6 +1,3 @@
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
-
 use std::mem::MaybeUninit;
 
 use crate::error::CudaError;
@@ -13,8 +10,7 @@ macro_rules! api_call {
         if status != cudaError_enum::CUDA_SUCCESS {
             return Err(CudaError::ErrCode {
                 status,
-                #[cfg(feature = "backtrace")]
-                backtrace: Backtrace::capture(),
+
             });
         }
     }};
@@ -112,8 +108,7 @@ macro_rules! get_func {
         unsafe { $lib.library.get($name) }.map_err(|source| CudaError::NameFFIError {
             name: String::from_utf8_lossy($name).to_string(),
             source,
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
+
         })?
     }};
 }

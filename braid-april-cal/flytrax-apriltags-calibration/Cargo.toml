@@ -32,4 +32,3 @@ env_logger.workspace = true
 download-verify = { path = "../../download-verify" }
 
 [features]
-backtrace = ["braid-april-cal/backtrace", "anyhow/backtrace"]
