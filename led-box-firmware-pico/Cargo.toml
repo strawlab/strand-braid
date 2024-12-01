@@ -87,7 +87,3 @@ debug-assertions = false
 incremental = false
 lto = 'fat'
 opt-level = 3
-
-# The crate `rpipico-pantilt` should not be in a workspace because we set our
-# profile above and also have a `.cargo/config` file.
-[workspace]
