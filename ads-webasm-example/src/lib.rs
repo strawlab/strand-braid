@@ -69,8 +69,8 @@ impl std::fmt::Display for MySelection {
 }
 
 impl enum_iter::EnumIter for MySelection {
-    fn variants() -> &'static [Self] {
-        &[
+    fn variants() -> Vec<Self> {
+        vec![
             MySelection::SelOne,
             MySelection::SelTwo,
             MySelection::SelThree,
