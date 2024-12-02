@@ -20,7 +20,7 @@ nalgebra.workspace = true
 regex = "1.10.3"
 machine-vision-formats.workspace = true
 rayon = "1.9.0"
-opencv = { version = "0.88.8", optional = true }
+opencv = { version = "0.90", optional = true, features = ["clang-runtime"] }
 
 braidz-parser = { path = "../braidz-parser" }
 env-tracing-logger = { path = "../env-tracing-logger" }
