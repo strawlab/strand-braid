@@ -153,16 +153,14 @@ fn tag_family_get_type() -> glib::Type {
         ];
 
         let name = ffi::CString::new("GstApriltagTagFamily").unwrap();
+        #[allow(static_mut_refs)]
         unsafe {
             let type_ = gobject_sys::g_enum_register_static(name.as_ptr(), VALUES.as_ptr());
             TYPE = glib::translate::from_glib(type_);
         }
     });
 
-    unsafe {
-        assert_ne!(TYPE, glib::Type::Invalid);
-        TYPE
-    }
+    unsafe { TYPE }
 }
 
 gst_plugin_define!(
