@@ -128,23 +128,14 @@ test_flydra2:
     - _packaging/setup-ubuntu-20.04.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
-    - ls -l _submodules
     # Install python and pip, but let pip install everything from there.
     - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python-is-python3 libcairo2-dev
 
     - pip3 install --upgrade pip
 
     # # Install flydra from pip
-    # - pip install flydra_core
-    # - pip install flydra_analysis
-
-    # Install flydra from git submodule
-    - cd _submodules/flydra/flydra_core/
-    - python -m pip install -e .
-    - cd ../../..
-    - cd _submodules/flydra/flydra_analysis/
-    - python -m pip install -e .
-    - cd ../../..
+    - python -m pip install flydra_core
+    - python -m pip install flydra_analysis
 
     # Install required python packages
     - python -m pip install imageio

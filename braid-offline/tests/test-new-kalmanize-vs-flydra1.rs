@@ -379,17 +379,20 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
-    // let _ = env_logger::builder().is_test(true).try_init();
-    // let _tracing_guard: Box<dyn Drop> = match env_tracing_logger::init_result() {
-    //     Ok(g) => Box::new(g),
-    //     Err((g, _err)) => Box::new(g),
-    // };
+    const FNAME: &str = "sample_datafile-v0.4.28.h5";
+    const URL_BASE: &str = "https://strawlab-cdn.com/assets";
+    const SHA256SUM: &str = "badef11e30d2fd24b6727a4dab384741cdef317e3dd038debf0f1f8eb6f2e2b0";
 
-    let src = "../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28.h5";
+    download_verify::download_verify(
+        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        FNAME,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )
+    .unwrap();
 
     let untracked_dir = tempfile::tempdir()?.into_path(); // must manually cleanup
 
-    run_test(src, untracked_dir.clone()).await?;
+    run_test(FNAME, untracked_dir.clone()).await?;
 
     // TODO: check that results are similar to original.
 

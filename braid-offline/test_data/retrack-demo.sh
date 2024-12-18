@@ -1,7 +1,8 @@
 #!/bin/bash -x
 set -o errexit
 
-BASE=../_submodules/flydra/flydra_analysis/flydra_analysis/a2/sample_datafile-v0.4.28
+curl -O https://strawlab-cdn.com/assets/sample_datafile-v0.4.28.h5
+BASE=sample_datafile-v0.4.28
 RETRACKED=`mktemp -d -t retrackedXXXXXXX`
 
 NGCU=../strand-braid-user
