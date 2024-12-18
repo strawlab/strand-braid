@@ -501,6 +501,10 @@ fn braiz_mcsc(opt: Cli) -> Result<PathBuf> {
         (id_mat, points)
     };
 
+    if id_mat.cols == 0 {
+        eyre::bail!("No points detected.");
+    }
+
     let undo_radial = radfiles.len() == num_cameras;
 
     let cfg = McscCfg {
