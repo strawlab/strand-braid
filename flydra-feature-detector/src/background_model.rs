@@ -8,7 +8,6 @@ use timestamped_frame::ExtraTimeData;
 
 use basic_frame::DynamicFrame;
 
-use crossbeam_ok::CrossbeamOk;
 use fastim_mod::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
@@ -31,8 +30,8 @@ pub(crate) struct BackgroundModel {
     pub(crate) cmp_im: FastImageData<Chan1, u8>,
     pub(crate) current_roi: FastImageRegion,
     pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
-    tx_to_worker: channellib::Sender<ToWorker>,
-    rx_from_worker: channellib::Receiver<FromWorker>,
+    tx_to_worker: std::sync::mpsc::SyncSender<ToWorker>,
+    rx_from_worker: std::sync::mpsc::Receiver<FromWorker>,
 }
 
 impl BackgroundModel {
@@ -69,8 +68,8 @@ impl BackgroundModel {
         let mean_im = FastImageData::copy_from_8u_c1(&worker.mean_im)?;
         let cmp_im = FastImageData::copy_from_8u_c1(&worker.cmp_im)?;
 
-        let (tx_to_worker, rx_from_main) = channellib::bounded::<ToWorker>(10);
-        let (tx_to_main, rx_from_worker) = channellib::bounded::<FromWorker>(10);
+        let (tx_to_worker, rx_from_main) = std::sync::mpsc::sync_channel::<ToWorker>(10);
+        let (tx_to_main, rx_from_worker) = std::sync::mpsc::sync_channel::<FromWorker>(10);
 
         std::thread::Builder::new()
             .name("bg-img-proc".to_string())
@@ -116,10 +115,12 @@ impl BackgroundModel {
                     let ts = frame.extra().host_timestamp();
                     let fno = frame.extra().host_framenumber();
                     let msg = (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts, fno);
-                    if tx_to_main.is_full() {
-                        error!("updated background image dropped because pipe full");
-                    } else {
-                        tx_to_main.send(msg).cb_ok();
+                    match tx_to_main.try_send(msg) {
+                        Ok(()) => {}
+                        Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
+                            error!("updated background image dropped because pipe full");
+                        }
+                        Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => break,
                     }
                 }
             })?;
@@ -160,18 +161,20 @@ impl BackgroundModel {
         frame: &DynamicFrame,
         cfg: &ImPtDetectCfg,
     ) -> Result<()> {
-        if self.tx_to_worker.is_full() {
-            error!("not updating background image because pipe full");
-        } else {
-            // let frame = fi_to_frame(raw_im_full)?;
-            let frame_copy = frame.clone();
-            let cfg = cfg.clone();
-            self.tx_to_worker.send((frame_copy, cfg)).cb_ok();
+        match self.tx_to_worker.try_send((frame.clone(), cfg.clone())) {
+            Ok(()) => {}
+            Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
+                error!("not updating background image because pipe full");
+            }
+            Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => {
+                return Err(Error::BackgroundProcessingThreadDisconnected);
+            }
         }
         Ok(())
     }
 
-    pub(crate) fn poll_complete_updates(&mut self) -> bool {
+    /// returns if we got new data
+    pub(crate) fn poll_complete_updates(&mut self) -> Result<bool> {
         match self.rx_from_worker.try_recv() {
             Ok(msg) => {
                 let (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts, fno) = msg;
@@ -181,15 +184,11 @@ impl BackgroundModel {
                 self.cmp_im = cmp_im;
                 self.current_roi = roi;
                 self.complete_stamp = (ts, fno);
-                true
+                Ok(true)
             }
-            Err(e) => {
-                if e.is_empty() {
-                    false
-                } else {
-                    error!("sender disconnected ({}:{})", file!(), line!());
-                    false
-                }
+            Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                return Err(Error::BackgroundProcessingThreadDisconnected);
             }
         }
     }

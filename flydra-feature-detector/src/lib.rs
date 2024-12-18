@@ -807,7 +807,7 @@ impl FlydraFeatureDetector {
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }
             BackgroundAcquisitionState::NormalUpdates(mut state) => {
-                let got_new_bg_data = state.background.poll_complete_updates();
+                let got_new_bg_data = state.background.poll_complete_updates()?;
 
                 if state.frames_since_background_update >= self.cfg.bg_update_interval {
                     if self.cfg.do_update_background_model {

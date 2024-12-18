@@ -37,8 +37,6 @@ mvg.workspace = true
 flydra-feature-detector-types.workspace = true
 http-video-streaming-types.workspace = true
 datetime-conversion.workspace = true
-crossbeam-ok.workspace = true
-channellib.workspace = true
 braid-http-session.workspace = true
 
 parry-geom.workspace = true

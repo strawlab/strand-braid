@@ -18,6 +18,8 @@ pub enum Error {
     FlydraTypeError(),
     #[error("MainbrainQuit")]
     MainbrainQuit(),
+    #[error("BackgroundProcessingThreadDisconnected")]
+    BackgroundProcessingThreadDisconnected,
 
     #[error("CastError({})", _0)]
     CastError(#[from] cast::Error),
