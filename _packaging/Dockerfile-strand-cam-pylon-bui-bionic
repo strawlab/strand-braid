@@ -1,0 +1,34 @@
+# This is a Dockerfile to build strand-cam-pylon-gui in Ubuntu Bionic
+# Run with:
+#    docker build -f _packaging/Dockerfile-strand-cam-pylon-bui-bionic .
+# From the top level of the repository
+FROM docker.io/library/ubuntu:bionic as builder
+
+ENV CARGO_HOME=/usr
+
+RUN apt-get update && \
+   DEBIAN_FRONTEND=noninteractive apt-get install -y curl llvm-dev libclang-dev clang git pkg-config libssl-dev && \
+   curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y && \
+   cargo install wasm-bindgen-cli && \
+   cargo install wasm-pack && \
+   cargo install grass
+
+WORKDIR /usr/src/strand-braid
+COPY . .
+
+RUN _packaging/install-pylon-linux.sh
+
+WORKDIR /usr/src/strand-braid/strand-cam/yew_frontend
+RUN ./build.sh
+
+WORKDIR /usr/src/strand-braid/strand-cam/strand-cam-pylon-gui
+RUN cargo build --release
+
+FROM docker.io/library/ubuntu:bionic
+COPY --from=0 /usr/src/strand-braid/target/release/strand-cam-pylon-gui /usr/bin/strand-cam-pylon-gui
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssl curl
+COPY _packaging/install-pylon-linux.sh /usr/bin/install-pylon-linux.sh
+RUN /usr/bin/install-pylon-linux.sh && rm /usr/bin/install-pylon-linux.sh
+ENV LD_LIBRARY_PATH=/opt/pylon/lib
+CMD ["strand-cam-pylon-gui"]
+
