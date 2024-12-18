@@ -221,6 +221,7 @@ rerun = { version = "0.20", default-features = false, features = [
     "image",
 ] }
 resvg = "0.19"
+rusttype = "0.9.2"
 serde = { version = "1.0", features = ["derive"] }
 serde-xml-rs = "0.5" # TODO: switch to https://crates.io/crates/quick-xml
 serde_cbor = { version = "0.11.2" }
@@ -249,6 +250,7 @@ tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 tracing-panic = "0.1.1"
 tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
+ttf-firacode = "0.1"
 usvg = { version = "0.19.0", default-features = false }
 uuid = { version = "1.7", default-features = false, features = ["serde"] }
 url = "2.5.0"

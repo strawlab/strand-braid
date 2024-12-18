@@ -19,8 +19,8 @@ eyre.workspace = true
 tracing.workspace = true
 env_logger.workspace = true
 h264-reader.workspace = true
-rusttype = "0.9.2"
-ttf-firacode = "0.1"
+rusttype.workspace = true
+ttf-firacode.workspace = true
 image.workspace = true
 
 font-drawing.workspace = true

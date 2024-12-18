@@ -22,6 +22,9 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// Saves video frames to a video file using ffmpeg.
+///
+/// This spawns an ffmpeg process and pipes the frames as y4m.
 pub struct FfmpegWriter {
     wtr: y4m_writer::Y4MWriter,
     ffmpeg_child: Option<Child>,

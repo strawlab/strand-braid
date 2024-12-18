@@ -30,13 +30,13 @@ fn main() -> eyre::Result<()> {
                 // let output_fname = format!("bee-{final_width}x{final_height}-{format_str}.y4m");
                 let output_fname = format!("bee-{final_width}x{final_height}-{format_str}.mp4");
 
-                let encoder_opts = Some(ffmpeg_writer::platform_hardware_encoder()?);
+                let ffmpeg_codec_args = Some(ffmpeg_writer::platform_hardware_encoder()?);
                 // let encoder_opts = Some(ffmpeg_writer::FfmpegEncoderOptions::Y4mNoFfmpeg);
 
-                info!("exporting {output_fname} with {encoder_opts:?}");
+                info!("exporting {output_fname} with {ffmpeg_codec_args:?}");
 
                 let mut my_ffmpeg_writer =
-                    ffmpeg_writer::FfmpegWriter::new(&output_fname, encoder_opts, None)?;
+                    ffmpeg_writer::FfmpegWriter::new(&output_fname, ffmpeg_codec_args, None)?;
 
                 // Load the font
                 // let font_data = include_bytes!("../Roboto-Regular.ttf");
