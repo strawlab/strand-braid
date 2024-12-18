@@ -30,8 +30,8 @@ pub enum Error {
     Disconnected,
     #[error("filename does not end with '.mp4'")]
     FilenameDoesNotEndWithMp4,
-    #[error("ffmpeg writer error {0}")]
-    FfmpegWriterError(#[from] ffmpeg_writer::Error),
+    #[error("ffmpeg rewriter error {0}")]
+    FfmpegReWriterError(#[from] ffmpeg_rewriter::Error),
 }
 
 type Result<T> = std::result::Result<T, Error>;

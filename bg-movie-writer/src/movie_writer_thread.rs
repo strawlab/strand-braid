@@ -32,25 +32,16 @@ macro_rules! thread_try {
     }};
 }
 
-#[derive(serde::Serialize)]
-struct SrtMsg {
-    timestamp: DateTime<chrono::Local>,
-}
-
 enum RawWriter<'lib, T>
 where
     T: Write + Seek,
 {
     Mp4Writer(Mp4Writer<'lib, T>),
-    FfmpegWriter(Box<MyFfmpegWriter>),
+    FfmpegReWriter(Box<MyFfmpegWriter>),
 }
 
 struct MyFfmpegWriter {
-    wtrs: Option<(
-        ffmpeg_writer::FfmpegWriter,
-        srt_writer::BufferingSrtFrameWriter,
-    )>,
-    count: usize,
+    inner: Option<ffmpeg_rewriter::FfmpegReWriter>,
 }
 
 impl MyFfmpegWriter {
@@ -85,16 +76,13 @@ impl MyFfmpegWriter {
             Fps100 => Some((100, 1)),
             Unlimited => None,
         };
-        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, ffmpeg_codec_args, rate)?;
-        let out_fd = std::fs::File::create(&srt_filename)?;
-        let swtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(out_fd));
-        let wtrs = Some((fwtr, swtr));
-        Ok(Self { wtrs, count: 0 })
+        let fwtr =
+            ffmpeg_rewriter::FfmpegReWriter::new(mp4_filename, ffmpeg_codec_args, rate, None)?;
+        Ok(Self { inner: Some(fwtr) })
     }
     fn finish(&mut self) -> Result<()> {
-        if let Some((fwtr, swtr)) = self.wtrs.take() {
+        if let Some(fwtr) = self.inner.take() {
             fwtr.close()?;
-            swtr.close()?;
         }
         Ok(())
     }
@@ -107,20 +95,11 @@ impl MyFfmpegWriter {
         IM: ImageStride<FMT>,
         FMT: PixelFormat,
     {
-        let (fwtr, swtr) = if let Some(wtrs) = self.wtrs.as_mut() {
-            wtrs
+        if let Some(fwtr) = self.inner.as_mut() {
+            fwtr.write_frame(frame, timestamp)?;
         } else {
             return Err(Error::AlreadyClosed);
         };
-        let mp4_pts = fwtr.write_frame(frame)?;
-
-        let msg = SrtMsg { timestamp };
-        let msg = serde_json::to_string(&msg).unwrap();
-
-        self.count += 1;
-
-        swtr.add_frame(mp4_pts, msg)?;
-        swtr.flush()?;
 
         Ok(())
     }
@@ -192,7 +171,7 @@ fn create_writer<'a>(
             )?);
         }
         Ffmpeg(c) => {
-            raw = RawWriter::FfmpegWriter(Box::new(MyFfmpegWriter::new(&mp4_filename, c)?));
+            raw = RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_filename, c)?));
         }
     };
     tracing::info!("Saving MP4 to \"{mp4_filename}\"");
@@ -212,7 +191,7 @@ fn save_frame(
             match_all_dynamic_fmts!(&frame, x, r.write(x, stamp))?;
             *last_saved_stamp = Some(stamp);
         }
-        RawWriter::FfmpegWriter(ref mut r) => {
+        RawWriter::FfmpegReWriter(ref mut r) => {
             match_all_dynamic_fmts!(&frame, x, r.write(x, stamp))?;
             *last_saved_stamp = Some(stamp);
         }
@@ -226,7 +205,7 @@ fn finish_writer(raw: &mut RawWriter<'_, File>) -> Result<()> {
         RawWriter::Mp4Writer(ref mut mp4_writer) => {
             mp4_writer.finish()?;
         }
-        RawWriter::FfmpegWriter(ffmpeg_wtr) => {
+        RawWriter::FfmpegReWriter(ffmpeg_wtr) => {
             ffmpeg_wtr.finish()?;
         }
     }

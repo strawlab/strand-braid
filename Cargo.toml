@@ -298,6 +298,7 @@ enum-iter = { path = "enum-iter" }
 env-tracing-logger = { path = "env-tracing-logger" }
 event-stream-types = { path = "event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
+ffmpeg-rewriter = { path = "media-utils/ffmpeg-rewriter" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
 flydra-feature-detector = { path = "flydra-feature-detector" }
 flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }
