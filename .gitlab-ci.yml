@@ -91,7 +91,7 @@ test_crates:
     - cd ../..
 
     # Test Pylon stuff
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - cd ci2-simple-demo
     - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
     - cd ..
@@ -450,7 +450,7 @@ build-api-docs:
     - NUM_JOBS=2 cargo doc --no-default-features --features serve_files
     - cd $CI_PROJECT_DIR
 
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - cd $CI_PROJECT_DIR/strand-cam
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
@@ -523,7 +523,7 @@ strand-cam-pylon-ubuntu2004:
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -563,7 +563,7 @@ strand-cam-pylon-ubuntu2404:
   script:
     - _packaging/setup-ubuntu-24.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-24.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-24.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -603,7 +603,7 @@ strand-cam-pylon-ubuntu2204:
   script:
     - _packaging/setup-ubuntu-22.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-22.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -759,7 +759,7 @@ py-strandcam-pylon-linux:
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -817,7 +817,7 @@ strand-cam-flydratrax-pylon-ubuntu2404:
   script:
     - _packaging/setup-ubuntu-24.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-24.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-24.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -855,7 +855,7 @@ strand-cam-flydratrax-pylon-ubuntu2004:
   script:
     - _packaging/setup-ubuntu-20.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-20.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -894,7 +894,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
   script:
     - _packaging/setup-ubuntu-22.04.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-22.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-22.04-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -1438,7 +1438,7 @@ strand-braid-ubuntu-2404:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
 
     # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-24.04-pylon.sh
+    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-24.04-vimba.sh
 
@@ -1491,7 +1491,7 @@ strand-braid-ubuntu-2004:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
     # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-pylon.sh
+    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-vimba.sh
 
@@ -1545,7 +1545,7 @@ strand-braid-ubuntu-2204:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
 
     # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-22.04-pylon.sh
+    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-22.04-vimba.sh
 
@@ -1597,7 +1597,7 @@ build_simple:
     # Put them on the path
     - export PATH="$PATH:$CARGO_HOME/bin"
     # Install Pylon
-    - _packaging/setup-ubuntu-20.04-pylon.sh
+    - _packaging/install-pylon-linux.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # Build strand-cam-pylon with simplest build configuration possible
