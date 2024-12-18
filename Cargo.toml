@@ -76,6 +76,7 @@ members = [
     "machine-vision-shaders",
     "media-utils/dump-frame",
     "media-utils/ffmpeg-writer",
+    "media-utils/ffmpeg-rewriter",
     "media-utils/font-drawing",
     "media-utils/frame-source",
     "media-utils/less-avc-wrapper",

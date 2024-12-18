@@ -29,6 +29,11 @@ test_crates:
     - cargo test --release
     - cd ../..
 
+    # Test ffmpeg-rewriter
+    - cd media-utils/ffmpeg-rewriter
+    - cargo test --release
+    - cd ../..
+
     # Test fmf-cli
     - cd fmf/fmf-cli
     - cargo test --release

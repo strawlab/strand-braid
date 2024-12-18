@@ -1,0 +1,31 @@
+[package]
+name = "ffmpeg-rewriter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+machine-vision-formats.workspace = true
+ci2-remote-control.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+ffmpeg-writer.workspace = true
+mp4-writer.workspace = true
+frame-source.workspace = true
+srt-writer.workspace = true
+
+[dev-dependencies]
+ttf-firacode.workspace = true
+rusttype.workspace = true
+convert-image.workspace = true
+env-tracing-logger.workspace = true
+eyre.workspace = true
+font-drawing.workspace = true
+image.workspace = true
+tempfile.workspace = true
+test-log = { version = "0.2.16", default-features = false, features = [
+    "trace",
+] }
