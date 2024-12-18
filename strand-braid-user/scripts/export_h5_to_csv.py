@@ -13,6 +13,9 @@ import pandas
 import imageio
 from collections import defaultdict
 import flydra_analysis.a2.calibration_to_xml as calibration_to_xml
+import numpy as np
+
+np.set_printoptions(legacy='1.25')
 
 fname = sys.argv[1]
 outdir, ext = os.path.splitext(fname)
