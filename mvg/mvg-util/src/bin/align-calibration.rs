@@ -6,7 +6,7 @@ use nalgebra::{Dyn, OMatrix, U1, U3};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Default)]
 #[command(name = "cal-to-xml", version)]
 struct Opt {
     /// Filename of .csv file containing reference (ground truth) 3D positions
@@ -55,7 +55,15 @@ fn to_arr(vals: &[Xyz]) -> Result<OMatrix<f64, U3, Dyn>> {
 
 fn main() -> Result<()> {
     let opt = Opt::parse();
+    let output_aligned_cal = align_cal(opt)?;
+    println!(
+        "Saved aligned XML calibration: {}",
+        output_aligned_cal.display()
+    );
+    Ok(())
+}
 
+fn align_cal(opt: Opt) -> Result<PathBuf> {
     let ground_truth_3d_fd = std::fs::File::open(&opt.ground_truth_3d)
         .with_context(|| format!("While opening {}", opt.ground_truth_3d.display()))?;
 
@@ -75,7 +83,9 @@ fn main() -> Result<()> {
     } else {
         let mut path = opt.unaligned_cal.clone();
         path.set_extension("");
-        PathBuf::from(format!("{}-aligned.xml", path.display()))
+        let path_str = path.as_os_str().to_str().unwrap();
+        let path_str = path_str.strip_suffix("-unaligned").unwrap_or(path_str);
+        PathBuf::from(format!("{path_str}-aligned.xml"))
     };
 
     let ground_truth_3d_rdr = csv::ReaderBuilder::new()
@@ -140,7 +150,7 @@ fn main() -> Result<()> {
     })?;
     aligned.to_flydra_xml(&mut out_fd)?;
 
-    Ok(())
+    Ok(output_aligned_cal)
 }
 
 fn bcast(m: &OMatrix<f64, U3, U1>, n: usize) -> OMatrix<f64, U3, Dyn> {
@@ -152,4 +162,26 @@ fn bcast(m: &OMatrix<f64, U3, U1>, n: usize) -> OMatrix<f64, U3, Dyn> {
         }
     }
     result
+}
+
+#[test]
+fn test_align_calibration() -> Result<()> {
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("alignment-test-data");
+    let ground_truth_3d = data.join("ground_truth.csv");
+    let unaligned_3d = data.join("unaligned.csv");
+    let unaligned_cal = data.join("20241017_164418-unaligned.xml");
+
+    let out_root = tempfile::tempdir()?; // will be deleted on drop
+    let output_aligned_cal = Some(PathBuf::from(out_root.path()).join("aligned.xml"));
+
+    let opt = Opt {
+        ground_truth_3d,
+        unaligned_3d,
+        unaligned_cal,
+        output_aligned_cal,
+        ..Default::default()
+    };
+    let _output_aligned_cal = align_cal(opt)?;
+    // TODO: check the actual output...
+    Ok(())
 }

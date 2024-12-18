@@ -13,3 +13,6 @@ pretty-print-nalgebra.workspace = true
 eyre.workspace = true
 csv.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

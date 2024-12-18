@@ -239,6 +239,10 @@ test_crates_rust_stable:
     - cargo test
     - cd ..
 
+    - cd mvg/mvg-util
+    - cargo test
+    - cd ../..
+
     # Test flydra-mvg
     - cd flydra-mvg
     - cargo test
