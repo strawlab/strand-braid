@@ -1048,6 +1048,15 @@ where
         let gui_singleton = Arc::new(std::sync::Mutex::new(GuiShared::default()));
         let gui_singleton2 = gui_singleton.clone();
 
+        let (frame_tx, frame_rx) = std::sync::mpsc::sync_channel(5);
+        let (egui_ctx_tx, egui_ctx_rx) = std::sync::mpsc::channel();
+
+        let gui_app_stuff = Some(GuiAppStuff {
+            quit_rx,
+            frame_tx,
+            egui_ctx_rx,
+        });
+
         // Move tokio runtime to new thread to keep GUI event loop on initial thread.
         let tokio_thread_jh = std::thread::Builder::new()
             .name("tokio-thread".to_string())
@@ -1057,7 +1066,7 @@ where
                     args,
                     app_name,
                     log_file_info,
-                    Some(quit_rx),
+                    gui_app_stuff,
                     gui_singleton2,
                 ))?;
 
@@ -1066,9 +1075,11 @@ where
             })
             .map_err(|e| eyre::anyhow!("runtime failed with error {e}"))?;
 
-        // Block until app closes.
         let native_options = eframe::NativeOptions {
-            initial_window_size: Some([320.0, 240.0].into()),
+            window_builder: Some(Box::new(move |mut vb| {
+                vb.fullscreen = None;
+                vb
+            })),
             ..Default::default()
         };
 
@@ -1076,7 +1087,13 @@ where
             "Strand Camera",
             native_options,
             Box::new(move |cc| {
-                Box::new(gui_app::StrandCamEguiApp::new(quit_tx, cc, gui_singleton))
+                Ok(Box::new(gui_app::StrandCamEguiApp::new(
+                    quit_tx,
+                    cc,
+                    gui_singleton,
+                    frame_rx,
+                    egui_ctx_tx,
+                )))
             }),
         )
         .map_err(|e| eyre::anyhow!("running failed with error {e}"))?;
@@ -1103,13 +1120,21 @@ where
     }
 }
 
+struct GuiAppStuff {
+    quit_rx: tokio::sync::mpsc::Receiver<()>,
+    #[cfg(feature = "eframe-gui")]
+    frame_tx: std::sync::mpsc::SyncSender<gui_app::ImType>,
+    #[cfg(feature = "eframe-gui")]
+    egui_ctx_rx: std::sync::mpsc::Receiver<eframe::egui::Context>,
+}
+
 /// First, connect to Braid if requested, then run.
 async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
     log_file_info: LogFileInfo,
-    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_app_stuff: Option<GuiAppStuff>,
     gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1182,7 +1207,7 @@ where
         app_name,
         res_braid,
         log_file_info,
-        quit_rx,
+        gui_app_stuff,
         gui_singleton,
     )
     .await
@@ -1204,7 +1229,7 @@ async fn select_cam_and_run<M, C, G>(
     app_name: &'static str,
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     log_file_info: LogFileInfo,
-    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_app_stuff: Option<GuiAppStuff>,
     gui_singleton: ArcMutGuiSingleton,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1300,7 +1325,7 @@ where
         res_braid,
         strand_cam_bui_http_address_string,
         use_camera_name,
-        quit_rx,
+        gui_app_stuff,
         gui_singleton,
         log_file_info.data_dir,
     )
@@ -1320,7 +1345,7 @@ where
     app_name,
     res_braid,
     strand_cam_bui_http_address_string,
-    quit_rx,
+    gui_app_stuff,
     gui_singleton,
     data_dir
 ))]
@@ -1331,7 +1356,7 @@ async fn run<M, C, G>(
     res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     strand_cam_bui_http_address_string: String,
     cam: &str,
-    quit_rx: Option<tokio::sync::mpsc::Receiver<()>>,
+    gui_app_stuff: Option<GuiAppStuff>,
     gui_singleton: ArcMutGuiSingleton,
     data_dir: PathBuf,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
@@ -1343,6 +1368,28 @@ where
     let use_camera_name = cam; // simple arg name important for tracing::instrument
     let frame_info_extractor = mymod.frame_info_extractor();
     let settings_file_ext = mymod.settings_file_extension().to_string();
+
+    let (quit_rx, gui_stuff2) = if let Some(gas) = gui_app_stuff {
+        let quit_rx = gas.quit_rx;
+
+        #[cfg(feature = "eframe-gui")]
+        let gui_stuff2 = {
+            let frame_tx = gas.frame_tx;
+            let egui_ctx_rx = gas.egui_ctx_rx;
+
+            // Wait for egui context.
+            let egui_ctx: eframe::egui::Context = egui_ctx_rx.recv().unwrap();
+            let gui_stuff2 = Some((frame_tx, egui_ctx));
+            gui_stuff2
+        };
+
+        #[cfg(not(feature = "eframe-gui"))]
+        let gui_stuff2: Option<()> = None;
+
+        (Some(quit_rx), gui_stuff2)
+    } else {
+        (None, None)
+    };
 
     let mut cam = match mymod.threaded_async_camera(use_camera_name) {
         Ok(cam) => cam,
@@ -2326,6 +2373,31 @@ where
                             frame.width(),
                             frame.height()
                         );
+
+                        #[cfg(not(feature = "eframe-gui"))]
+                        let _ = gui_stuff2.as_ref();
+
+                        #[cfg(feature = "eframe-gui")]
+                        {
+                            if let Some((gui_frame_tx, egui_ctx)) = gui_stuff2.as_ref() {
+                                if let DynamicFrame::Mono8(mono8_frame) = frame {
+                                    match gui_frame_tx.try_send(mono8_frame.clone()) {
+                                        Ok(()) => {
+                                            egui_ctx.request_repaint();
+                                        }
+                                        Err(std::sync::mpsc::TrySendError::Full(_)) => {
+                                            tracing::warn!("channel full sending frame to GUI");
+                                        }
+                                        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => {
+                                            eyre::bail!("GUI disconnected");
+                                        }
+                                    }
+                                } else {
+                                    tracing::warn!("only MONO8 supported to send to GUI");
+                                }
+                            }
+                        }
+
                         if tx_frame.capacity() == 0 {
                             let mut tracker = shared_store_arc.write();
                             tracker.modify(|tracker| {
