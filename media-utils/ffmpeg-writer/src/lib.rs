@@ -159,7 +159,7 @@ pub fn platform_hardware_encoder() -> Result<FfmpegCodecArgs> {
 impl FfmpegWriter {
     pub fn new(
         fname: &str,
-        ffmpeg_codec_args: Option<FfmpegCodecArgs>,
+        ffmpeg_codec_args: FfmpegCodecArgs,
         rate: Option<(usize, usize)>,
     ) -> Result<Self> {
         let (raten, rated) = rate.unwrap_or((25, 1));
@@ -169,25 +169,30 @@ impl FfmpegWriter {
             aspectn: 1,
             aspectd: 1,
         };
-        let (wtr, ffmpeg_child) = if let Some(ffmpeg_codec_args) = ffmpeg_codec_args {
+        let (wtr, ffmpeg_child) = {
             let mut args = ffmpeg_codec_args.to_args();
             args.push(fname.into());
-            let mut ffmpeg_child = Command::new(FFMPEG)
-                .args(args)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()?;
+
+            let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
+                Some(v) => &v != "0",
+                None => false,
+            };
+
+            let mut cmd0 = Command::new(FFMPEG);
+            let cmd = cmd0.args(args).stdin(Stdio::piped());
+
+            let cmd = if show_ffmpeg {
+                cmd
+            } else {
+                cmd.stdout(Stdio::piped()).stderr(Stdio::piped())
+            };
+
+            let mut ffmpeg_child = cmd.spawn()?;
 
             let stdin = ffmpeg_child.stdin.take().expect("failed to get stdin");
 
             let wtr = y4m_writer::Y4MWriter::from_writer(Box::new(stdin), y4m_opts);
             (wtr, Some(ffmpeg_child))
-        } else {
-            // No ffmpeg, just raw y4m file
-            let fd = std::fs::File::create(fname)?;
-            let wtr = y4m_writer::Y4MWriter::from_writer(Box::new(fd), y4m_opts);
-            (wtr, None)
         };
 
         Ok(Self {

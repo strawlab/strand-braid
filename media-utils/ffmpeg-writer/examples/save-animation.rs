@@ -27,11 +27,9 @@ fn main() -> eyre::Result<()> {
 
                 let final_width = rgb.width() - width_pad;
                 let final_height = rgb.height() - height_pad;
-                // let output_fname = format!("bee-{final_width}x{final_height}-{format_str}.y4m");
                 let output_fname = format!("bee-{final_width}x{final_height}-{format_str}.mp4");
 
-                let ffmpeg_codec_args = Some(ffmpeg_writer::platform_hardware_encoder()?);
-                // let encoder_opts = Some(ffmpeg_writer::FfmpegEncoderOptions::Y4mNoFfmpeg);
+                let ffmpeg_codec_args = ffmpeg_writer::platform_hardware_encoder()?;
 
                 info!("exporting {output_fname} with {ffmpeg_codec_args:?}");
 

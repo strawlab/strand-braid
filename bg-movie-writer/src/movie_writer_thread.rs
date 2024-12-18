@@ -85,7 +85,7 @@ impl MyFfmpegWriter {
             Fps100 => Some((100, 1)),
             Unlimited => None,
         };
-        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, Some(ffmpeg_codec_args), rate)?;
+        let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, ffmpeg_codec_args, rate)?;
         let out_fd = std::fs::File::create(&srt_filename)?;
         let swtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(out_fd));
         let wtrs = Some((fwtr, swtr));
