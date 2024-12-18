@@ -1,11 +1,11 @@
-extern crate serde;
 extern crate ci2_types;
 extern crate enum_iter;
 extern crate rust_cam_bui_types;
+extern crate serde;
 
 use enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
-use serde::{Serialize,Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum RecordingFrameRate {
@@ -448,6 +448,7 @@ impl enum_iter::EnumIter for CodecSelection {
                 device_args: Some(vec![("-vaapi_device".into(), "/dev/dri/renderD128".into())]),
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
+                post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
                 ..Default::default()
             }),
             // x264 with defaults
