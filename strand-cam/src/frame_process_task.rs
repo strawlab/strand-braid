@@ -52,10 +52,10 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
-    #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: channellib::Sender<
+    #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: std::sync::mpsc::SyncSender<
         DynamicFrame,
     >,
-    #[cfg(feature = "plugin-process-frame")] plugin_result_rx: channellib::Receiver<
+    #[cfg(feature = "plugin-process-frame")] plugin_result_rx: std::sync::mpsc::Receiver<
         Vec<http_video_streaming_types::Point>,
     >,
     #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
@@ -1291,23 +1291,24 @@ pub(crate) async fn frame_process_task<'a>(
                 {
                     // Do FFI image processing with lowest latency possible
                     if do_process_frame_callback {
-                        if plugin_handler_thread_tx.is_full() {
-                            error!("cannot transmit frame to plugin: channel full");
-                        } else {
-                            plugin_handler_thread_tx.send(frame.clone()).unwrap();
-                            match plugin_result_rx.recv_timeout(plugin_wait_dur) {
+                        match plugin_handler_thread_tx.try_send(frame.clone()) {
+                            Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => {
+                                eyre::bail!("The plugin receiver hung up");
+                            }
+                            Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
+                                error!("cannot transmit frame to plugin: channel full");
+                            }
+                            Ok(()) => match plugin_result_rx.recv_timeout(plugin_wait_dur) {
                                 Ok(results) => {
                                     found_points.extend(results);
                                 }
-                                Err(e) => {
-                                    if e.is_timeout() {
-                                        error!("Not displaying annotation because the plugin took too long.");
-                                    } else {
-                                        error!("The plugin disconnected.");
-                                        eyre::bail!("The plugin disconnected.");
-                                    }
+                                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                                    error!("Not displaying annotation because the plugin took too long.");
                                 }
-                            }
+                                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                                    eyre::bail!("The plugin sender disconnected.");
+                                }
+                            },
                         }
                     }
                 }

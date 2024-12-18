@@ -1533,9 +1533,9 @@ where
 
     #[cfg(feature = "plugin-process-frame")]
     let (plugin_handler_thread_tx, plugin_handler_thread_rx) =
-        channellib::bounded::<DynamicFrame>(500);
+        std::sync::mpsc::sync_channel::<DynamicFrame>(500);
     #[cfg(feature = "plugin-process-frame")]
-    let (plugin_result_tx, plugin_result_rx) = channellib::bounded::<_>(500);
+    let (plugin_result_tx, plugin_result_rx) = std::sync::mpsc::sync_channel::<_>(500);
 
     #[cfg(feature = "plugin-process-frame")]
     let plugin_wait_dur = args.plugin_wait_dur;

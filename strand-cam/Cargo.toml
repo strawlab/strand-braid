@@ -107,7 +107,6 @@ ffmpeg-writer.workspace = true
 strand-cam-pseudo-cal = { workspace = true, optional = true }
 nvenc.workspace = true
 ads-apriltag = { workspace = true, optional = true }
-channellib = { workspace = true, optional = true }
 braid-http-session.workspace = true
 bui-backend-session.workspace = true
 event-stream-types.workspace = true
@@ -127,7 +126,7 @@ fiducial = ["ads-apriltag", "csv", "libflate"]
 
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
-plugin-process-frame = ["plugin-defs", "thread-control", "channellib"]
+plugin-process-frame = ["plugin-defs", "thread-control"]
 
 # Serve style
 ## Bundle files into executable
