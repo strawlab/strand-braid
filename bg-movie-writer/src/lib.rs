@@ -306,11 +306,6 @@ fn launch_runner(
                                     _ => None,
                                 };
 
-                                tracing::info!(
-                                    "saving MP4 to {}",
-                                    std::fs::canonicalize(mp4_path).unwrap().display()
-                                );
-
                                 raw = RawWriter::Mp4Writer(thread_try!(
                                     err_tx,
                                     mp4_writer::Mp4Writer::new(
@@ -327,6 +322,7 @@ fn launch_runner(
                                 )));
                             }
                         };
+                        tracing::info!("Saving MP4 to \"{mp4_filename}\"");
                     }
                     let max_framerate = recording_config.max_framerate();
                     let do_save = match last_saved_stamp {
