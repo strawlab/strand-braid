@@ -53,7 +53,7 @@ const NUM_BG_START_IMAGES: usize = 20;
 
 fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)> {
     if c == 0.0 {
-        return Err(Error::DivideByZero());
+        return Err(Error::DivideByZero);
     }
     let inside = a * a + 4.0 * b * c - 2.0 * a * d + d * d;
     let inside = f64::sqrt(inside);
@@ -689,7 +689,7 @@ impl FlydraFeatureDetector {
         )?;
 
         if *raw_im_full.size() != self.roi_sz {
-            return Err(Error::ImageSizeChanged());
+            return Err(Error::ImageSizeChanged);
         }
 
         // move state into local variable so we can move it into next state
