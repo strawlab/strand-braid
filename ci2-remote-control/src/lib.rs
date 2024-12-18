@@ -432,6 +432,7 @@ impl enum_iter::EnumIter for CodecSelection {
             H264Nvenc,
             H264OpenH264,
             // Don't give bare option as it seems less useful than specifying a codec.
+            // Keep these in sync with the list in ffmpeg-writer.
             Ffmpeg(FfmpegCodecArgs {
                 codec: Some("h264_videotoolbox".to_string()),
                 ..Default::default()
