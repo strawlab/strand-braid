@@ -3,8 +3,8 @@ use std::sync::{
     Mutex,
 };
 
-use channellib::Sender;
 use lazy_static::lazy_static;
+use std::sync::mpsc::SyncSender;
 
 const N_BUFFER_FRAMES: usize = 3;
 const N_CHANNEL_FRAMES: usize = 10;
@@ -12,7 +12,7 @@ const N_CHANNEL_FRAMES: usize = 10;
 lazy_static! {
     static ref VIMBA: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
     static ref IS_DONE: AtomicBool = AtomicBool::new(false);
-    static ref SENDER: Mutex<Option<Sender<Frame>>> = Mutex::new(None);
+    static ref SENDER: Mutex<Option<SyncSender<Frame>>> = Mutex::new(None);
 }
 
 struct Frame {
@@ -88,7 +88,7 @@ fn main() -> anyhow::Result<()> {
         version_info.major, version_info.minor, version_info.patch
     );
 
-    let (tx, rx) = channellib::bounded(N_CHANNEL_FRAMES);
+    let (tx, rx) = std::sync::mpsc::sync_channel(N_CHANNEL_FRAMES);
     {
         let mut sender_ref = SENDER.lock().unwrap();
         *sender_ref = Some(tx);
