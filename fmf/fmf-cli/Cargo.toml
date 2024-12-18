@@ -13,11 +13,11 @@ path = "src/fmf-cli.rs"
 doc = false
 
 [dependencies]
-log = "0.4"
+log.workspace = true
 env_logger.workspace = true
-clap = { version = "4.3.4", features = ["derive"] }
+clap.workspace = true
 chrono.workspace = true
-anyhow = "1.0"
+anyhow.workspace = true
 glob = "0.3"
 image.workspace = true
 machine-vision-formats.workspace = true
@@ -37,4 +37,4 @@ ci2-remote-control = { path = "../../ci2-remote-control" }
 nvenc = { path = "../../nvenc" }
 
 [dev-dependencies]
-tempfile = "3.4.0"
+tempfile.workspace = true

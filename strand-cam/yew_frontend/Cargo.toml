@@ -12,23 +12,23 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0"
-wasm-logger = "0.2.0"
+anyhow.workspace = true
+wasm-logger.workspace = true
 wasm-bindgen.workspace = true
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-gloo-events = "0.1.1"
-gloo-utils = "0.1"
-yew = { version = "0.21.0", features = ["csr"] }
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+gloo-events.workspace = true
+gloo-utils.workspace = true
+yew.workspace = true
 serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 http = "0.2"
-yew-tincture = "0.2.2"
+yew-tincture.workspace = true
 gloo-timers = "0.3.0"
 uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] }
 
-bui-backend-session-types = { path = "../../bui-backend-session/types" }
+bui-backend-session-types.workspace = true
 strand-cam-storetype = { path = "../../strand-cam-storetype", default-features = false }
 flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
 http-video-streaming-types = { path = "../../http-video-streaming/http-video-streaming-types" }
@@ -37,7 +37,7 @@ ci2-remote-control = { path = "../../ci2-remote-control" }
 
 led-box-comms = { path = "../../led-box-comms" }
 enum-iter = { path = "../../enum-iter" }
-ads-webasm = { path = "../../ads-webasm" }
+ads-webasm.workspace = true
 
 [dependencies.web-sys]
 workspace = true

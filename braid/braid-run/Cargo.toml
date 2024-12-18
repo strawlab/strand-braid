@@ -8,75 +8,69 @@ edition = "2021"
 rust-version = "1.76"
 
 [build-dependencies]
-build-util = { path = "../../build-util" }
+build-util.workspace = true
 
 [dependencies]
-
-configure = "0.1.1"
+configure.workspace = true
 thiserror.workspace = true
-color-eyre = "0.6.2"
-parking_lot = "0.12"
-serde = "1.0"
-serde_json = "1.0"
-toml = "0.5"
-regex = "1.0"
+color-eyre.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+regex.workspace = true
 braid-triggerbox = "0.4.1"
 chrono.workspace = true
-futures = "0.3"
-tokio = { version = "1.0.1", default-features = false, features = [
-    "sync",
-    "rt",
-    "net",
-] }
-tokio-util = { version = "0.7.3", features = ["codec", "net"] }
-tokio-stream = "0.1.9"
-stream-cancel = "0.8"
-bytes = "1.0"
-clap = { version = "4.3.4", features = ["derive"] }
-preferences-serde1 = "2.0.0"
-qrcodegen = "1.4"
-hyper = "1.1"
-lazy_static = "1.4"
-csv = "1.1"
-http-body-util = "0.1.0"
-http = "1.0.0"
-async-change-tracker = "0.3.4"
-tracing = { version = "0.1.40", features = ["release_max_level_debug"] }
-tracing-panic = "0.1.1"
-axum = "0.7.4"
-tower = "0.4.13"
-tower-http = { version = "0.5.1", features = ["fs", "trace"] }
-tower-serve-static = { version = "0.1", optional = true }
-include_dir = { version = "0.7.3", optional = true }
+futures.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tokio-stream.workspace = true
+stream-cancel.workspace = true
+bytes.workspace = true
+clap.workspace = true
+preferences-serde1.workspace = true
+qrcodegen.workspace = true
+hyper.workspace = true
+lazy_static.workspace = true
+csv.workspace = true
+http-body-util.workspace = true
+http.workspace = true
+async-change-tracker.workspace = true
+tracing.workspace = true
+tracing-panic.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tower-serve-static = { workspace = true, optional = true }
+include_dir = { workspace = true, optional = true }
 axum-token-auth.workspace = true
-http-body = "1.0.0"
-base64 = "0.12"
-cookie_store = "0.20.0"
-cookie = "0.18.0"
-tracing-subscriber = "0.3.18"
-shellexpand = "2.0"
+http-body.workspace = true
+base64.workspace = true
+cookie_store.workspace = true
+cookie.workspace = true
+tracing-subscriber.workspace = true
+shellexpand.workspace = true
 
-braid = { path = ".." }
-braid-config-data = { path = "../../braid-config-data" }
-bui-backend-session-types = { path = "../../bui-backend-session/types" }
-bui-backend-session = { path = "../../bui-backend-session" }
-ci2-remote-control = { path = "../../ci2-remote-control" }
-datetime-conversion = { path = "../../datetime-conversion" }
-env-tracing-logger = { path = "../../env-tracing-logger" }
-event-stream-types = { path = "../../event-stream-types" }
-flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
-flydra-mvg = { path = "../../flydra-mvg" }
-flydra-pt-detect-cfg = { path = "../../flydra-feature-detector/flydra-pt-detect-cfg" }
-flydra-types = { path = "../../flydra-types", features = [
-    "start-listener",
+braid.workspace = true
+braid-config-data.workspace = true
+bui-backend-session-types.workspace = true
+bui-backend-session.workspace = true
+ci2-remote-control.workspace = true
+datetime-conversion.workspace = true
+env-tracing-logger.workspace = true
+event-stream-types.workspace = true
+flydra-feature-detector-types.workspace = true
+flydra-mvg.workspace = true
+flydra-pt-detect-cfg.workspace = true
+flydra-types = { workspace = true, features = [
     "build-urls",
+    "start-listener",
+    "with-tokio-codec",
 ] }
-flydra2 = { path = "../../flydra2", default-features = false, features = [
-    "braid",
-] }
-mvg = { path = "../../mvg" }
-rust-cam-bui-types = { path = "../../rust-cam-bui-types" }
-strand-cam-storetype = { path = "../../strand-cam-storetype" }
+flydra2 = { workspace = true, features = ["braid"] }
+mvg.workspace = true
+rust-cam-bui-types.workspace = true
+strand-cam-storetype.workspace = true
 
 [features]
 default = ["bundle_files"]

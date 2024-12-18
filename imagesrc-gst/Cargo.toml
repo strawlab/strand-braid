@@ -11,9 +11,9 @@ gstreamer = "0.16"
 gstreamer-app = "0.16"
 gstreamer-video = "0.16"
 futures = "0.3"
-log = "0.4"
+log.workspace = true
 thread-control = "0.1.2"
-parking_lot = "0.12"
+parking_lot.workspace = true
 
 imagesrc = { path = "../imagesrc" }
 machine-vision-formats.workspace = true

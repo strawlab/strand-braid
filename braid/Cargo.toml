@@ -8,18 +8,18 @@ homepage = "https://strawlab.org/braid"
 default-run = "braid"
 
 [dependencies]
-configure = "0.1.1"
-toml = "0.5"
-clap = { version = "4.3.4", features = ["derive"] }
-tracing = "0.1.40"
-eyre = "0.6.2"
-color-eyre = "0.6.2"
-dotenv = "0.15"
+configure.workspace = true
+toml.workspace = true
+clap.workspace = true
+tracing.workspace = true
+eyre.workspace = true
+color-eyre.workspace = true
+dotenv.workspace = true
 chrono.workspace = true
+tracing-subscriber.workspace = true
 
-env-tracing-logger = { path = "../env-tracing-logger" }
-flydra-types = { path = "../flydra-types" }
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
-flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
-braid-config-data = { path = "../braid-config-data" }
-tracing-subscriber = "0.3.18"
+env-tracing-logger.workspace = true
+flydra-types.workspace = true
+flydra-feature-detector-types.workspace = true
+flydra-pt-detect-cfg.workspace = true
+braid-config-data.workspace = true

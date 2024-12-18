@@ -12,28 +12,25 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0"
-log = "0.4"
-wasm-logger = "0.2.0"
-gloo-events = "0.1.1"
-gloo-utils = "0.1"
+anyhow.workspace = true
+log.workspace = true
+wasm-logger.workspace = true
+gloo-events.workspace = true
+gloo-utils.workspace = true
 wasm-bindgen.workspace = true
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-yew = { version = "0.21.0", features = ["csr"] }
-serde = { version = "1.0.85", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.9"
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+yew.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
 
-uuid = { version = "1.7", default-features = false, features = [
-  "js",
-] } # add feature flag required for uuid crate
+uuid = { workspace = true, features = ["js"] }
+yew-tincture.workspace = true
 
-yew-tincture = "0.2.2"
-
-flydra-types = { path = "../../../flydra-types", default-features = false }
-rust-cam-bui-types = { path = "../../../rust-cam-bui-types" }
-ads-webasm = { path = "../../../ads-webasm" }
+flydra-types.workspace = true
+rust-cam-bui-types.workspace = true
+ads-webasm.workspace = true
 
 [dependencies.web-sys]
 workspace = true

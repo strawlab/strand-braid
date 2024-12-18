@@ -4,9 +4,9 @@ version = "0.1.2"
 edition = "2021"
 
 [dependencies]
-anyhow = "1"
+anyhow.workspace = true
 machine-vision-formats.workspace = true
-clap = { version = "4.4.3", features = ["derive"] }
+clap.workspace = true
 serde = { version = "1.0.188", features = ["derive"] }
 csv = "1.2.2"
 y4m.workspace = true

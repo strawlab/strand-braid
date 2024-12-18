@@ -7,12 +7,12 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-clap = { version = "4.3.4", features = ["derive"] }
-serde_yaml = "0.9"
-color-eyre = "0.6.2"
+clap.workspace = true
+serde_yaml.workspace = true
+color-eyre.workspace = true
 
-tracing = "0.1.40"
-rerun = { workspace = true, features = ["image"] }
+tracing.workspace = true
+rerun.workspace = true
 image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
@@ -22,16 +22,16 @@ machine-vision-formats.workspace = true
 rayon = "1.9.0"
 opencv = { version = "0.90", optional = true }
 
-braidz-parser = { path = "../braidz-parser" }
-env-tracing-logger = { path = "../env-tracing-logger" }
-mvg = { path = "../mvg", features = ["rerun-io"] }
-braidz-types = { path = "../braidz-types" }
-flydra-types = { path = "../flydra-types" }
+braidz-parser.workspace = true
+env-tracing-logger.workspace = true
+mvg = { workspace = true, features = ["rerun-io"] }
+braidz-types.workspace = true
+flydra-types.workspace = true
 convert-image.workspace = true
-frame-source = { path = "../media-utils/frame-source" }
-basic-frame = { path = "../basic-frame" }
-ci2-remote-control = { path = "../ci2-remote-control" }
-mp4-writer = { path = "../media-utils/mp4-writer" }
+frame-source.workspace = true
+basic-frame.workspace = true
+ci2-remote-control.workspace = true
+mp4-writer.workspace = true
 
 [features]
 default = ["undistort-images", "openh264-encode"]

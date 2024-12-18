@@ -7,6 +7,6 @@ rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-anyhow = "1"
+anyhow.workspace = true
 
-zip-or-dir = { path = ".." }
+zip-or-dir.workspace = true

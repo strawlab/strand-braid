@@ -5,28 +5,25 @@ edition = "2021"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
 [dependencies]
-clap = { version = "4.0.10", features = ["derive"] }
-env-tracing-logger = { path = "../../env-tracing-logger" }
-color-eyre = "0.6.2"
-serde_json = "1.0.85"
-tracing = "0.1.40"
-indicatif = "0.17.1"
+clap.workspace = true
+env-tracing-logger.workspace = true
+color-eyre.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+indicatif.workspace = true
 chrono.workspace = true
-ordered-float = "3.4.0"
+ordered-float.workspace = true
 
-basic-frame = { path = "../../basic-frame" }
+basic-frame.workspace = true
 convert-image.workspace = true
-frame-source = { path = "../frame-source" }
-tiff-decoder = { path = "../tiff-decoder" }
-mp4-writer = { path = "../mp4-writer", features = ["openh264-encode"] }
-ci2-remote-control = { path = "../../ci2-remote-control" }
-nvenc = { path = "../../nvenc" }
+frame-source.workspace = true
+tiff-decoder.workspace = true
+mp4-writer = { workspace = true, features = ["openh264-encode"] }
+ci2-remote-control.workspace = true
+nvenc.workspace = true
 
 [dev-dependencies]
-download-verify = { path = "../../download-verify" }
-tempfile = "3.4.0"
-zip = { version = "0.6.2", default-features = false, features = [
-    "deflate",
-    "time",
-] }
-tracing-test = "0.2.5"
+download-verify.workspace = true
+tempfile.workspace = true
+zip.workspace = true
+tracing-test.workspace = true

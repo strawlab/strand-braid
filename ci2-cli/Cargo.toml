@@ -11,11 +11,11 @@ path = "src/ci2-cli.rs"
 doc = false
 
 [dependencies]
-log = "0.4"
+log.workspace = true
 env_logger.workspace = true
-clap = { version = "4.3.4", features = ["derive"] }
+clap.workspace = true
 chrono.workspace = true
-anyhow = "1"
+anyhow.workspace = true
 
 ci2 = { path = "../ci2" }
 

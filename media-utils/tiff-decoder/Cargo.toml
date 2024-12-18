@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-color-eyre = "0.6.2"
-tiff = "0.9.0"
-clap = { version = "4.0.10", features = ["derive"] }
+color-eyre.workspace = true
+tiff.workspace = true
+clap.workspace = true
 chrono.workspace = true
 machine-vision-formats.workspace = true
-itertools = "0.11.0"
+itertools.workspace = true
 
-frame-source = { path = "../frame-source" }
-basic-frame = { path = "../../basic-frame" }
+frame-source.workspace = true
+basic-frame.workspace = true

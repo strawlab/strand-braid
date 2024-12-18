@@ -6,10 +6,10 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-log = "0.4"
+log.workspace = true
 env_logger.workspace = true
 futures = "0.3"
-anyhow = "1.0"
+anyhow.workspace = true
 lazy_static = "1.0"
 
 basic-frame = { path = "../basic-frame" }

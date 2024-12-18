@@ -181,7 +181,7 @@ test_crates_rust_stable:
 
     # Test zip-or-dir
     - cd zip-or-dir
-    - cargo test --features with-gz
+    - cargo test
     - cd ..
 
     # Test fastfreeimage

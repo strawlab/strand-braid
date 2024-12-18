@@ -9,20 +9,20 @@ rust-version = "1.76"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = { version = "0.21.0", features = ["csr"] }
+yew.workspace = true
 yew-agent = "0.2.0"
-yew-tincture = "0.2.2"
-js-sys = "0.3"
+yew-tincture.workspace = true
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [
     "CssStyleDeclaration",
     "HtmlAnchorElement",
 ] }
-log = "0.4"
-wasm-logger = "0.2.0"
+log.workspace = true
+wasm-logger.workspace = true
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 http = "0.2"
 itertools = "0.7.8"
 chrono.workspace = true
@@ -30,6 +30,6 @@ ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 
 mvg = { path = "../../mvg", features = ["serde-serialize"] }
 enum-iter = { path = "../../enum-iter" }
-ads-webasm = { path = "../../ads-webasm", features = ["obj", "csv-widget"] }
+ads-webasm.workspace = true
 
 freemovr-calibration = { path = ".." }

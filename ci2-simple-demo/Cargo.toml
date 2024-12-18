@@ -6,9 +6,9 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-log = "0.4"
+log.workspace = true
 machine-vision-formats.workspace = true
-anyhow = "1.0"
+anyhow.workspace = true
 
 timestamped-frame = { path = "../timestamped-frame" }
 ci2 = { path = "../ci2" }

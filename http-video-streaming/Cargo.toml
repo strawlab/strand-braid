@@ -8,20 +8,20 @@ rust-version = "1.76"
 [dependencies]
 thiserror.workspace = true
 chrono.workspace = true
-base64 = "0.6"
-tokio = { version = "1", features = ["sync", "time", "macros"] }
-tokio-stream = "0.1.8"
-parking_lot = "0.12"
-serde_json = "1.0"
-futures = "0.3"
+base64.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+parking_lot.workspace = true
+serde_json.workspace = true
+futures.workspace = true
 machine-vision-formats.workspace = true
-bytes = "1.5.0"
-http-body = "1.0.0"
-tracing = "0.1.40"
+bytes.workspace = true
+http-body.workspace = true
+tracing.workspace = true
 
 convert-image.workspace = true
-http-video-streaming-types = { path = "http-video-streaming-types" }
-basic-frame = { path = "../basic-frame" }
-rust-cam-bui-types = { path = "../rust-cam-bui-types" }
-event-stream-types = { path = "../event-stream-types" }
-bui-backend-session-types = { path = "../bui-backend-session/types" }
+http-video-streaming-types.workspace = true
+basic-frame.workspace = true
+rust-cam-bui-types.workspace = true
+event-stream-types.workspace = true
+bui-backend-session-types.workspace = true

@@ -5,11 +5,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.3.4", features = ["derive"] }
-serde_yaml = "0.9"
-color-eyre = "0.6.2"
+clap.workspace = true
+serde_yaml.workspace = true
+color-eyre.workspace = true
 
-tracing = "0.1.40"
+tracing.workspace = true
 rerun = { workspace = true, features = ["image"] }
 image.workspace = true
 opencv-ros-camera.workspace = true
@@ -25,5 +25,5 @@ convert-image.workspace = true
 frame-source = { path = "../frame-source" }
 basic-frame = { path = "../../basic-frame" }
 mp4-writer = { path = "../mp4-writer" }
-flydra-types = { path = "../../flydra-types" }
+flydra-types.workspace = true
 indicatif = "0.17.8"

@@ -11,6 +11,7 @@ use crate::{
 };
 use nalgebra::geometry::{Point2, Point3};
 use ncollide_geom::{mask_from_points, Mask};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::trimesh_ext::FaceIndices;

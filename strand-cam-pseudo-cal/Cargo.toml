@@ -14,7 +14,7 @@ cam-geom.workspace = true
 mvg = { path = "../mvg" }
 flydra-mvg = { path = "../flydra-mvg" }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
-flydra-types = { path = "../flydra-types" }
+flydra-types.workspace = true
 
 [dev-dependencies]
-approx = "0.5"
+approx.workspace = true

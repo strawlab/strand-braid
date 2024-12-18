@@ -6,26 +6,26 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-anyhow = "1.0.57"
-log = { version = "0.4", features = ["release_max_level_debug"] }
+anyhow.workspace = true
+log.workspace = true
 env_logger.workspace = true
-clap = { version = "4.3.4", features = ["derive"] }
-crossbeam-channel = "0.5"
+clap.workspace = true
+crossbeam-channel.workspace = true
 image.workspace = true
 glium = "0.32.1"
 winit = "0.27.5"
 imagefmt = "4.0.0"
-time = "0.3.9"
+time.workspace = true
 chrono.workspace = true
 
-basic-frame = { path = "../basic-frame" }
+basic-frame.workspace = true
 convert-image.workspace = true
 machine-vision-formats.workspace = true
-machine-vision-shaders = { path = "../machine-vision-shaders" }
-crossbeam-ok = { path = "../crossbeam-ok" }
-ci2 = { path = "../ci2" }
-channellib = { path = "../channellib" }
-ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
+machine-vision-shaders.workspace = true
+crossbeam-ok.workspace = true
+ci2.workspace = true
+channellib.workspace = true
+ci2-pyloncxx = { workspace = true, optional = true }
 
 [features]
 default = ["fly-eye"]

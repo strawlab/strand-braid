@@ -131,46 +131,217 @@ exclude = ["led-box-firmware", "led-box-firmware-pico"]
 debug = true
 
 [workspace.dependencies]
-num-traits = "0.2"
-simba = { version = "0.9", default-features = false }
-nalgebra = "0.33"
-nalgebra-mvn = "0.15"
 adskalman = "0.16"
-cam-geom = "0.15"
-opencv-ros-camera = "0.15"
-dlt = "0.13"
-lstsq = "0.6.0"
-parry2d-f64 = "0.17"
-parry3d-f64 = "0.17"
-delaunator = "1.0"
-ncollide2d = { package = "ncollide2d-updated", version = "0.36.3" }
-ncollide3d = { package = "ncollide3d-updated", version = "0.36.3" }
-openh264 = "0.6.0"
+anyhow = "1"
+approx = "0.5"
+apriltag-sys = "0.3"
+async-change-tracker = "0.3.4"
+axum = "0.7.4"
 axum-token-auth = "0.1.2"
-serde = "1.0"
-serde_yaml = "0.9"
-serde_json = "1.0"
+base64 = "0.12"
+byteorder = "1"
+bytes = "1.6"
+cam-geom = { version = "0.15", features = ["serde-serialize"] }
 chrono = { version = "0.4.38", features = ["serde"] }
-home = "0.5.9"
+clap = { version = "4.4.3", features = ["derive", "env", "string"] }
+color-eyre = "0.6.2"
+configure = "0.1.1"
+cookie = "0.18.0"
+cookie_store = "0.20.0"
+crossbeam-channel = "0.5"
+csv = "1.1"
+convert-image = "0.1.0"
+delaunator = "1.0"
+dlt = "0.13"
+dotenv = "0.15.0"
+dyn-clone = "1.0.11"
 env_logger = "0.11"
 eyre = "0.6.12"
+fs_extra = "1.1"
+futures = "0.3.30"
+glob = "0.3.1"
+gloo-events = "0.1.1"
+gloo-utils = "0.1"
+h264-reader = "0.7.0"
+hdrhistogram = { version = "7.5.2", default-features = false, features = [
+    "serialization",
+] }
+home = "0.5.9"
+http = "1.0"
+http-body = "1.0.0"
+http-body-util = "0.1.0"
+hyper = { version = "1.1", features = ["client", "http1"] }
+hyper-util = { version = "0.1.1", features = [
+    "client",
+    "client-legacy",
+    "http1",
+    "server",
+    "server-auto",
+    "tokio",
+] }
+iana-time-zone = "0.1"
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
     "png",
     "tiff",
 ] }
-rerun = { version = "0.20", default-features = false, features = ["sdk"] }
-thiserror = "1.0.51"
-wasm-bindgen = { version = "0.2.99" }
-web-sys = { version = "0.3.72" }
+include_dir = "0.7.3"
+indicatif = "0.17.1"
+ipp-sys = "0.4.4"
+itertools = "0.8"
+js-sys = "0.3"
+json-lines = { version = "0.1.0", features = ["codec"] }
+lazy_static = "1.4"
+less-avc = "0.1.4"
+libc = "0.2"
+libflate = "0.1"
+log = "0.4"
+lstsq = "0.6.0"
 machine-vision-formats = { version = "0.1.3", default-features = false }
-convert-image = "0.1.0"
+memchr = "2.7.2"
+mime = "0.3.17"
+mp4 = { git = "https://github.com/strawlab/mp4-rust", rev = "e6a68f68d3f662039ab28b2cc20c4c16134f2a8c" }
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+nalgebra-mvn = "0.15"
+ncollide2d = { package = "ncollide2d-updated", version = "0.36.3" }
+ncollide3d = { package = "ncollide3d-updated", version = "0.36.3" }
+num-iter = "0.1"
+num-traits = "0.2"
+opencv-ros-camera = { version = "0.15.0", features = ["serde-serialize"] }
+openh264 = "0.6.0"
+ordered-float = { version = "3.4", features = ["serde"] }
+parking_lot = "0.12"
+parry2d-f64 = "0.17"
+parry3d-f64 = "0.17"
+pin-project = "1.0.11"
+preferences-serde1 = "2.0.0"
+pretty-print-nalgebra = "0.1.0"
+qrcodegen = "1.4"
+regex = "1.10.3"
+rerun = { version = "0.20", default-features = false, features = [
+    "glam",
+    "sdk",
+    "image",
+] }
+resvg = "0.19"
+serde = { version = "1.0", features = ["derive"] }
+serde-xml-rs = "0.5" # TODO: switch to https://crates.io/crates/quick-xml
+serde_cbor = { version = "0.11.2" }
+serde_json = "1.0"
+serde_yaml = "0.9"
+shellexpand = "2.0"
+simba = { version = "0.9", default-features = false }
+stream-cancel = "0.8"
+tagger = "4.0"
+tempfile = "3.4.0"
+thiserror = "1.0.51"
+thread-control = "0.1"
+tiff = "0.9.0"
+time = "0.3.9"
+tiny-skia = "0.6.1"
+tokio = { version = "1", features = ["full"] }
+tokio-serial = { version = "5.4.3" }
+tokio-stream = { version = "0.1.9", features = ["time"] }
+tokio-util = { version = "0.7.3", features = ["codec", "net"] }
+toml = "0.5"
+tower = "0.4.13"
+tower-http = { version = "0.5.0", features = ["fs", "trace"] }
+tower-serve-static = "0.1"
+tracing = "0.1.41"
+tracing-futures = { version = "0.2.5", features = ["futures-03"] }
+tracing-panic = "0.1.1"
+tracing-subscriber = "0.3.18"
+tracing-test = "0.2.5"
+usvg = { version = "0.19.0", default-features = false }
+uuid = { version = "1.7", default-features = false, features = ["serde"] }
+url = "2.5.0"
+wasm-bindgen = "0.2.99"
+web-sys = "0.3.72"
+wasm-bindgen-futures = "0.4"
+wasm-logger = "0.2.0"
 y4m = { git = "https://github.com/astraw/y4m", rev = "6992473b73838c84cb659387b21d2ab2ebe94766" }
+yew = { version = "0.21.0", features = ["csr"] }
+yew-tincture = "0.2.2"
+zip = { version = "0.6.6", default-features = false, features = [
+    "deflate",
+    "time",
+] }
 
-y4m-writer = { path = "media-utils/y4m-writer" }
+ads-apriltag = { path = "apriltag" }
+ads-webasm = { path = "ads-webasm", features = ["obj", "csv-widget"] }
+basic-frame = { path = "basic-frame" }
+bg-movie-writer = { path = "bg-movie-writer" }
+braid = { path = "braid" }
+braid-april-cal = { path = "braid-april-cal" }
+braid-config-data = { path = "braid-config-data" }
+braid-http-session = { path = "braid-http-session" }
+braid-offline = { path = "braid-offline" }
+braidz-parser = { path = "braidz-parser" }
+braidz-types = { path = "braidz-types" }
+braidz-writer = { path = "braid/braidz-writer" }
+bui-backend-session = { path = "bui-backend-session" }
+bui-backend-session-types = { path = "bui-backend-session/types" }
+build-util = { path = "build-util" }
+camcal = { path = "camcal" }
+channellib = { path = "channellib" }
+ci2 = { path = "ci2" }
+ci2-async = { path = "ci2-async" }
+ci2-pyloncxx = { path = "ci2-pyloncxx" }
+ci2-remote-control = { path = "ci2-remote-control" }
+ci2-types = { path = "ci2/ci2-types" }
+ci2-vimba = { path = "ci2-vimba" }
+crossbeam-ok = { path = "crossbeam-ok" }
+csv-eof = { path = "csv-eof" }
+datetime-conversion = { path = "datetime-conversion" }
+download-verify = { path = "download-verify" }
+dynlink-cuda = { path = "nvenc/dynlink-cuda" }
+dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
+enum-iter = { path = "enum-iter" }
+env-tracing-logger = { path = "env-tracing-logger" }
+event-stream-types = { path = "event-stream-types" }
+fastfreeimage = { path = "fastfreeimage" }
+fastimage = { path = "fastimage" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
+flydra-feature-detector = { path = "flydra-feature-detector" }
+flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }
+flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
+flydra-types = { path = "flydra-types", default-features = false }
+flydra-mvg = { path = "flydra-mvg" }
+flydra2 = { path = "flydra2", default-features = false }
+flytrax-apriltags-calibration = { path = "braid-april-cal/flytrax-apriltags-calibration" }
+flytrax-io = { path = "strand-cam/flytrax-io" }
+fmf = { path = "fmf" }
+font-drawing = { path = "media-utils/font-drawing" }
+frame-source = { path = "media-utils/frame-source" }
+groupby = { path = "groupby" }
+http-video-streaming = { path = "http-video-streaming" }
+http-video-streaming-types = { path = "http-video-streaming/http-video-streaming-types" }
+imops = { path = "imops" }
+led-box-comms = { path = "led-box-comms" }
+less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
+machine-vision-shaders = { path = "machine-vision-shaders" }
+mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
+mp4-writer = { path = "media-utils/mp4-writer" }
+mvg = { path = "mvg", features = ["serde-serialize"] }
+ncollide-geom = { path = "freemovr-calibration/ncollide-geom" }
+nvenc = { path = "nvenc" }
+opencv-calibrate = { path = "opencv-calibrate" }
+parry-geom = { path = "parry-geom" }
+plugin-defs = { path = "plugin-defs" }
+refraction = { path = "refraction" }
+rust-cam-bui-types = { path = "rust-cam-bui-types" }
 srt-writer = { path = "media-utils/srt-writer" }
+strand-cam = { path = "strand-cam", default-features = false }
+strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
+strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
+strand-cam-storetype = { path = "strand-cam-storetype" }
+tiff-decoder = { path = "media-utils/tiff-decoder" }
+timestamped-frame = { path = "timestamped-frame" }
+tracking = { path = "tracking" }
+ufmf = { path = "ufmf" }
+withkey = { path = "withkey" }
+y4m-writer = { path = "media-utils/y4m-writer" }
+zip-or-dir = { path = "zip-or-dir" }
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
-"mp4:0.14.0" = { git = "https://github.com/strawlab/mp4-rust", rev = "e6a68f68d3f662039ab28b2cc20c4c16134f2a8c" }

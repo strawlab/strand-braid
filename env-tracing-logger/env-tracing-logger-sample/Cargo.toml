@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 env-tracing-logger = { path = ".." }
 log = "0.4.19"
-tracing = "0.1.37"
+tracing.workspace = true

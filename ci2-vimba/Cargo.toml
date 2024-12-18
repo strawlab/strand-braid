@@ -8,14 +8,14 @@ rust-version = "1.76"
 
 [dependencies]
 vimba = { path = "../vimba" }
-log = "0.4"
+log.workspace = true
 thiserror.workspace = true
-anyhow = "1"
+anyhow.workspace = true
 machine-vision-formats.workspace = true
 chrono.workspace = true
 parking_lot = "0.12.1"
-lazy_static = "1"
-tempfile = "3.4.0"
+lazy_static.workspace = true
+tempfile.workspace = true
 
 vmbc-sys = "0.1"
 
@@ -26,5 +26,5 @@ channellib = { path = "../channellib" }
 
 [dev-dependencies]
 env_logger.workspace = true
-anyhow = "1"
+anyhow.workspace = true
 timestamped-frame = { path = "../timestamped-frame" }

@@ -8,15 +8,9 @@ license = "MIT/Apache-2.0"
 categories = ["compression", "filesystem"]
 
 [dependencies]
-zip = { version = "0.6.2", default-features = false, features = [
-    "deflate",
-    "time",
-] }
+zip.workspace = true
 thiserror.workspace = true
-libflate = { version = "1.2.0", optional = true }
+libflate.workspace = true
 
 [dev-dependencies]
-tempfile = "3.4"
-
-[features]
-with-gz = ["libflate"]
+tempfile.workspace = true

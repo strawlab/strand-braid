@@ -12,20 +12,20 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-yew = { version = "0.21.0", features = ["csr"] }
-yew-tincture = "0.2.2"
-js-sys = "0.3"
+yew.workspace = true
+yew-tincture.workspace = true
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [
     "CssStyleDeclaration",
     "HtmlAnchorElement",
     "Url",
 ] }
-log = "0.4"
-wasm-logger = "0.2.0"
+log.workspace = true
+wasm-logger.workspace = true
 chrono.workspace = true
 
-ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
+ads-webasm.workspace = true
 braid-april-cal = { path = "..", default-features = false }
 
 [features]

@@ -4,31 +4,29 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.71"
-apriltag-sys = "0.3"
-base64 = "0.6"
-clap = { version = "4.3.4", features = ["derive"] }
+anyhow.workspace = true
+apriltag-sys.workspace = true
+base64.workspace = true
+clap.workspace = true
 image.workspace = true
 machine-vision-formats.workspace = true
 nalgebra.workspace = true
-resvg = "0.19"
-serde_yaml = "0.9.21"
-tagger = "4.0"
-tiny-skia = "0.6.1"
-usvg = { version = "0.19.0", default-features = false }
-log = "0.4.19"
+resvg.workspace = true
+serde_yaml.workspace = true
+tagger.workspace = true
+tiny-skia.workspace = true
+usvg.workspace = true
+log.workspace = true
 
-ads-webasm = { path = "../../ads-webasm", features = ["csv-widget"] }
-ads-apriltag = { path = "../../apriltag" }
-braid-april-cal = { path = ".." }
+ads-webasm.workspace = true
+ads-apriltag.workspace = true
+braid-april-cal.workspace = true
 convert-image.workspace = true
-flydra-types = { path = "../../flydra-types" }
-flytrax-io = { path = "../../strand-cam/flytrax-io" }
-mvg = { path = "../../mvg" }
-opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
+flydra-types.workspace = true
+flytrax-io.workspace = true
+mvg.workspace = true
+opencv-ros-camera.workspace = true
 env_logger.workspace = true
 
 [dev-dependencies]
-download-verify = { path = "../../download-verify" }
-
-[features]
+download-verify.workspace = true

@@ -5,15 +5,15 @@ edition = "2021"
 
 [dependencies]
 eyre.workspace = true
-clap = { version = "4.1.8", features = ["derive"] }
+clap.workspace = true
 env_logger.workspace = true
-glob = "0.3.1"
-log = "0.4.17"
+glob.workspace = true
+log.workspace = true
 image.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 chrono.workspace = true
 
-strand-cam-storetype = { path = "../../strand-cam-storetype" }
-opencv-calibrate = { path = "../../opencv-calibrate" }
-camcal = { path = "../../camcal" }
+strand-cam-storetype.workspace = true
+opencv-calibrate.workspace = true
+camcal.workspace = true

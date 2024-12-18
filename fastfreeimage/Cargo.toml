@@ -13,8 +13,8 @@ machine-vision-formats.workspace = true
 [dev-dependencies]
 itertools = "0.8"
 criterion = "0.5"
-approx = "0.5"
-anyhow = "1.0.70"
+approx.workspace = true
+anyhow.workspace = true
 
 [features]
 # Use portable_simd from rust nightly

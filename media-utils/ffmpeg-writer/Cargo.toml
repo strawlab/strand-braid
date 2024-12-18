@@ -12,7 +12,7 @@ y4m.workspace = true
 
 [dev-dependencies]
 eyre.workspace = true
-log = "0.4"
+log.workspace = true
 env_logger.workspace = true
 rusttype = "0.9.2"
 ttf-firacode = "0.1"

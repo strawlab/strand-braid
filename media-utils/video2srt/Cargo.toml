@@ -5,10 +5,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.3.4", features = ["derive"] }
-color-eyre = "0.6.2"
+clap.workspace = true
+color-eyre.workspace = true
 
-tracing = "0.1.40"
+tracing.workspace = true
 chrono.workspace = true
 
 env-tracing-logger = { path = "../../env-tracing-logger" }

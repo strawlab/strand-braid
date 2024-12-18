@@ -5,17 +5,17 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-color-eyre = "0.6.2"
-lazy_static = "1"
-tracing = { version = "0.1", features = ["release_max_level_debug"] }
+color-eyre.workspace = true
+lazy_static.workspace = true
+tracing.workspace = true
 
-ipp-sys = { version = "0.4.4", optional = true }
+ipp-sys = { workspace = true, optional = true }
 
-imops = { path = "../../imops", optional = true }
-ci2-async = { path = "../../ci2-async" }
-ci2-vimba = { path = "../../ci2-vimba" }
+imops = { workspace = true, optional = true }
+ci2-async.workspace = true
+ci2-vimba.workspace = true
 
-strand-cam = { path = "..", default-features = false }
+strand-cam.workspace = true
 
 [features]
 default = ["strand-cam/bundle_files"]

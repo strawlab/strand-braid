@@ -6,28 +6,20 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-tracing = "0.1.40"
-futures = "0.3"
-hyper = { version = "1.1", default-features = false, features = [
-    "client",
-    "http1",
-] }
-parking_lot = "0.12"
-http = "1.0"
-bytes = "1.0"
-serde = "1"
-hyper-util = { version = "0.1.1", features = [
-    "client-legacy",
-    "tokio",
-    "client",
-    "http1",
-] }
-http-body-util = "0.1.0"
+tracing.workspace = true
+futures.workspace = true
+hyper.workspace = true
+parking_lot.workspace = true
+http.workspace = true
+bytes.workspace = true
+serde.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
 thiserror.workspace = true
 
-bui-backend-session-types = { path = "../bui-backend-session/types" }
-rust-cam-bui-types = { path = "../rust-cam-bui-types" }
-flydra-types = { path = "../flydra-types" }
-axum = "0.7.4"
-cookie_store = "0.20.0"
-url = "2.5.0"
+bui-backend-session-types.workspace = true
+rust-cam-bui-types.workspace = true
+flydra-types.workspace = true
+axum.workspace = true
+cookie_store.workspace = true
+url.workspace = true

@@ -7,10 +7,10 @@ rust-version = "1.56"
 
 [dependencies]
 machine-vision-formats.workspace = true
-basic-frame = { path = "../basic-frame" }
-byteorder = "1.1"
+basic-frame.workspace = true
+byteorder.workspace = true
 chrono.workspace = true
-datetime-conversion = { path = "../datetime-conversion" }
-timestamped-frame = { path = "../timestamped-frame" }
+datetime-conversion.workspace = true
+timestamped-frame.workspace = true
 thiserror.workspace = true
-libflate = "0.1"
+libflate.workspace = true

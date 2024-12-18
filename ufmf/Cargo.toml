@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-byteorder = "1.1"
+byteorder.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 structure = "0.1.2"

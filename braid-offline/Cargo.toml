@@ -5,52 +5,44 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-clap = { version = "4.3.4", features = ["derive"] }
+clap.workspace = true
 thiserror.workspace = true
-color-eyre = "0.6.2"
-csv = "1.1"
-serde = { version = "^1.0", features = ["derive"] }
-toml = "0.5"
+color-eyre.workspace = true
+csv.workspace = true
+serde.workspace = true
+toml.workspace = true
 itertools = "0.10.3"
 chrono.workspace = true
-tokio = { version = "1.0.1", default-features = false, features = [
-    "rt-multi-thread",
-    "macros",
-    "tracing",
-] }
-tokio-stream = "0.1.8"
-futures = "0.3"
-stream-cancel = "0.8"
+tokio.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+stream-cancel.workspace = true
 libflate = "1.2.0"
-indicatif = "0.17.1"
-tracing = "0.1.37"
-tracing-futures = { version = "0.2.5" }
-ordered-float = "1"
+indicatif.workspace = true
+tracing.workspace = true
+tracing-futures.workspace = true
+ordered-float.workspace = true
 
-env-tracing-logger = { path = "../env-tracing-logger" }
-csv-eof = { path = "../csv-eof" }
-flydra2 = { path = "../flydra2", default-features = false, features = [
-    "bundle_files",
-] }
-braid-config-data = { path = "../braid-config-data" }
-flydra-types = { path = "../flydra-types" }
-groupby = { path = "../groupby" }
-zip-or-dir = { path = "../zip-or-dir" }
-flydra-mvg = { path = "../flydra-mvg" }
-braidz-parser = { path = "../braidz-parser" }
-flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
-mvg = { path = "../mvg" }
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
+env-tracing-logger.workspace = true
+csv-eof.workspace = true
+flydra2 = { workspace = true, features = ["bundle_files"] }
+braid-config-data.workspace = true
+flydra-types.workspace = true
+groupby.workspace = true
+zip-or-dir.workspace = true
+flydra-mvg.workspace = true
+braidz-parser.workspace = true
+flydra-pt-detect-cfg.workspace = true
+mvg.workspace = true
+flydra-feature-detector-types.workspace = true
 
 [dev-dependencies]
-tempfile = "3.4.0"
-zip = { version = "0.6.2", default-features = false, features = ["time"] }
-approx = "0.5"
-fs_extra = "1.1"
-serde_yaml = "0.9"
+tempfile.workspace = true
+zip.workspace = true
+approx.workspace = true
+fs_extra.workspace = true
+serde_yaml.workspace = true
 
-download-verify = { path = "../download-verify" }
-braidz-types = { path = "../braidz-types" }
+download-verify.workspace = true
+braidz-types.workspace = true

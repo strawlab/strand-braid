@@ -16,11 +16,11 @@ pyo3 = { version = "0.22", features = [
     "gil-refs",
 ] }
 numpy = "0.22"
-csv = "1.1"
+csv.workspace = true
 chrono.workspace = true
 
-csv-eof = { path = "../../../csv-eof" }
-flydra-types = { path = "../../../flydra-types" }
-zip-or-dir = { path = "../../../zip-or-dir", features = ["with-gz"] }
+csv-eof.workspace = true
+flydra-types.workspace = true
+zip-or-dir.workspace = true
 
 braidz-chunked-iter = { path = ".." }

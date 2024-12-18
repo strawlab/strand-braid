@@ -6,48 +6,45 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-log = { version = "0.4.5", features = ["release_max_level_debug"] }
-clap = { version = "4.0.10", features = ["derive"] }
-parking_lot = "0.12"
-csv = "1.1"
+log.workspace = true
+clap.workspace = true
+parking_lot.workspace = true
+csv.workspace = true
 chrono.workspace = true
-serde = { version = "^1.0", features = ["derive"] }
-serde_derive = "1.0.79"
-serde_json = "1.0.29"
-serde_yaml = "0.9"
-toml = "0.5"
-nalgebra = { workspace = true, features = ["serde-serialize"] }
-configure = "0.1.1"
-itertools = "0.8"
-lazy_static = "1.4.0"
-futures = "0.3"
-tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
-tempfile = "3.4.0"
-anyhow = "1.0"
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+toml.workspace = true
+nalgebra.workspace = true
+configure.workspace = true
+itertools.workspace = true
+lazy_static.workspace = true
+futures.workspace = true
+tokio.workspace = true
+tempfile.workspace = true
+anyhow.workspace = true
 image.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
-datetime-conversion = { path = "../datetime-conversion" }
-env-tracing-logger = { path = "../env-tracing-logger" }
-flydra-mvg = { path = "../flydra-mvg" }
-http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
-flydra-types = { path = "../flydra-types" }
-strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
-strand-cam-pseudo-cal = { path = "../strand-cam-pseudo-cal" }
-flydra2 = { path = "../flydra2", default-features = false, features = [
-    "bundle_files",
-] }
-braidz-types = { path = "../braidz-types" }
-braidz-parser = { path = "../braidz-parser" }
-zip-or-dir = { path = "../zip-or-dir" }
-braid-offline = { path = "../braid-offline", default-features = false }
-flytrax-apriltags-calibration = { path = "../braid-april-cal/flytrax-apriltags-calibration", optional = true }
-flytrax-io = { path = "../strand-cam/flytrax-io" }
+datetime-conversion.workspace = true
+env-tracing-logger.workspace = true
+flydra-mvg.workspace = true
+http-video-streaming-types.workspace = true
+flydra-types.workspace = true
+strand-cam-csv-config-types.workspace = true
+strand-cam-pseudo-cal.workspace = true
+flydra2 = { workspace = true, features = ["bundle_files"] }
+braidz-types.workspace = true
+braidz-parser.workspace = true
+zip-or-dir.workspace = true
+braid-offline.workspace = true
+flytrax-apriltags-calibration = { workspace = true, optional = true }
+flytrax-io.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true
 test-log = "0.2.12"
-download-verify = { path = "../download-verify" }
+download-verify.workspace = true
 
 [features]
 with_apriltags = ["flytrax-apriltags-calibration"]

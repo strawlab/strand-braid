@@ -6,9 +6,9 @@ edition = "2021"
 rust-version = "1.60"
 
 [dependencies]
-clap = { version = "4.3.4", features = ["derive"] }
-env-tracing-logger = { path = "../../env-tracing-logger" }
-serde_yaml = "0.9"
-anyhow = "1.0"
+clap.workspace = true
+env-tracing-logger.workspace = true
+serde_yaml.workspace = true
+anyhow.workspace = true
 
-braidz-parser = { path = ".." }
+braidz-parser.workspace = true

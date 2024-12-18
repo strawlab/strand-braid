@@ -7,4 +7,4 @@ rust-version = "1.76"
 
 [dependencies]
 channellib = { path = "../channellib" }
-log = "0.4"
+log.workspace = true

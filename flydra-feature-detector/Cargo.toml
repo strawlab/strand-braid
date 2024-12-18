@@ -7,49 +7,48 @@ rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-tracing = "0.1"
+tracing.workspace = true
 thiserror.workspace = true
 machine-vision-formats.workspace = true
-timestamped-frame = { path = "../timestamped-frame" }
-basic-frame = { path = "../basic-frame" }
+timestamped-frame.workspace = true
+basic-frame.workspace = true
 num-traits.workspace = true
-thread-control = "0.1"
+thread-control.workspace = true
 cast = "0.2.2"
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
-tokio = { version = "1.0.1", default-features = false, features = ["rt"] }
-stream-cancel = "0.8"
+serde.workspace = true
+serde_yaml.workspace = true
+tokio.workspace = true
+stream-cancel.workspace = true
 nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
-ipp-sys = { version = "0.4.4", optional = true }
+ipp-sys = { workspace = true, optional = true }
 
-fastimage = { path = "../fastimage", optional = true }
-fastfreeimage = { path = "../fastfreeimage", optional = true }
-ci2 = { path = "../ci2" }
-ci2-remote-control = { path = "../ci2-remote-control" }
-rust-cam-bui-types = { path = "../rust-cam-bui-types" }
-flydra-types = { path = "../flydra-types" }
-ufmf = { path = "../ufmf" }
-byteorder = "1.1"
+fastimage = { workspace = true, optional = true }
+fastfreeimage = { workspace = true, optional = true }
+ci2.workspace = true
+ci2-remote-control.workspace = true
+rust-cam-bui-types.workspace = true
+flydra-types.workspace = true
+ufmf.workspace = true
+byteorder.workspace = true
 chrono.workspace = true
-futures = "0.3"
-mvg = { path = "../mvg" }
-flydra-feature-detector-types = { path = "flydra-feature-detector-types", default-features = false }
-http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
-datetime-conversion = { path = "../datetime-conversion" }
-crossbeam-ok = { path = "../crossbeam-ok" }
-channellib = { path = "../channellib" }
-braid-http-session = { path = "../braid-http-session" }
+futures.workspace = true
+mvg.workspace = true
+flydra-feature-detector-types.workspace = true
+http-video-streaming-types.workspace = true
+datetime-conversion.workspace = true
+crossbeam-ok.workspace = true
+channellib.workspace = true
+braid-http-session.workspace = true
 
-parry-geom = { path = "../parry-geom" }
+parry-geom.workspace = true
 
 [dev-dependencies]
-fmf = { path = "../fmf" }
-download-verify = { path = "../download-verify" }
+fmf.workspace = true
+download-verify.workspace = true
 env_logger.workspace = true
-flydra-pt-detect-cfg = { path = "flydra-pt-detect-cfg" }
-tokio = { version = "1.0.1", default-features = false, features = ["macros"] }
-anyhow = "1"
+flydra-pt-detect-cfg.workspace = true
+anyhow.workspace = true
 
 [features]
 use_ipp = ["fastimage", "dep:ipp-sys"]

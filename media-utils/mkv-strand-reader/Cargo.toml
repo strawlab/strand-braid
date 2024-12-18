@@ -9,5 +9,5 @@ chrono.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-anyhow = "1"
-clap = { version = "4.0.10", features = ["derive"] }
+anyhow.workspace = true
+clap.workspace = true

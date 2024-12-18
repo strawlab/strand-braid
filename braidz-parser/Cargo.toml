@@ -7,32 +7,29 @@ rust-version = "1.56"
 
 [dependencies]
 thiserror.workspace = true
-log = "0.4"
-serde_json = "1.0"
-serde_yaml = "0.9"
-csv = "1.1"
-libflate = "0.1"
-zip = { version = "0.6.3", default-features = false, features = [
-    "deflate",
-    "time",
-] }
+log.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+csv.workspace = true
+libflate.workspace = true
+zip.workspace = true
 chrono.workspace = true
-serde-xml-rs = "0.5.1"
-hdrhistogram = "7.1"
-base64 = "0.12"
-ordered-float = "1"
+serde-xml-rs.workspace = true
+hdrhistogram.workspace = true
+base64.workspace = true
+ordered-float.workspace = true
 image.workspace = true
-regex = "1.8.4"
+regex.workspace = true
 
-csv-eof = { path = "../csv-eof" }
-groupby = { path = "../groupby" }
-braidz-types = { path = "../braidz-types" }
-datetime-conversion = { path = "../datetime-conversion" }
-flydra-types = { path = "../flydra-types" }
-mvg = { path = "../mvg" }
-flydra-mvg = { path = "../flydra-mvg" }
-zip-or-dir = { path = "../zip-or-dir" }
+csv-eof.workspace = true
+groupby.workspace = true
+braidz-types.workspace = true
+datetime-conversion.workspace = true
+flydra-types.workspace = true
+mvg.workspace = true
+flydra-mvg.workspace = true
+zip-or-dir.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true
-download-verify = { path = "../download-verify" }
+download-verify.workspace = true

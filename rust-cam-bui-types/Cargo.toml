@@ -6,8 +6,7 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 chrono.workspace = true
-tokio = "1"
 
-bui-backend-session-types = { path = "../bui-backend-session/types" }
+bui-backend-session-types.workspace = true

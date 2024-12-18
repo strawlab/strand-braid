@@ -11,10 +11,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 thiserror.workspace = true
-eyre = "0.6.2"
-lazy_static = "1"
+eyre.workspace = true
+lazy_static.workspace = true
 
-strand-cam = { path = "../../strand-cam", default-features = false, features = [
+strand-cam = { workspace = true, features = [
     "flydra_feat_detect",
     "bundle_files",
     "plugin-process-frame",
@@ -22,12 +22,12 @@ strand-cam = { path = "../../strand-cam", default-features = false, features = [
     "imtrack-absdiff",
     "use_ipp",
 ] }
-plugin-defs = { path = "../../plugin-defs" }
-ipp-sys = "0.4.4" # Just so we can specify features
+plugin-defs.workspace = true
+ipp-sys.workspace = true # Just so we can specify features
 
-ci2-async = { path = "../../ci2-async" }
-ci2-pyloncxx = { path = "../../ci2-pyloncxx" }
+ci2-async.workspace = true
+ci2-pyloncxx.workspace = true
 
 [build-dependencies]
 cbindgen = { version = "0.25", default-features = false }
-plugin-defs = { path = "../../plugin-defs" }
+plugin-defs.workspace = true

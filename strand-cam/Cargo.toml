@@ -12,122 +12,112 @@ path = "src/strand-cam.rs"
 
 [dependencies]
 jemallocator = { version = "0.3", optional = true }
-async-change-tracker = "0.3.4"
-qrcodegen = "1.4"
-csv = { version = "1.1", optional = true }
-libflate = { version = "1.0", optional = true }
-env-tracing-logger = { path = "../env-tracing-logger" }
+async-change-tracker.workspace = true
+qrcodegen.workspace = true
+csv = { workspace = true, optional = true }
+libflate = { workspace = true, optional = true }
+env-tracing-logger.workspace = true
 home.workspace = true
 
-serde = { workspace = true, features = ["derive"] }
-serde_json = "1.0.29"
+serde.workspace = true
+serde_json.workspace = true
 serde_yaml.workspace = true
-serde_cbor = "0.11"
+serde_cbor.workspace = true
 webbrowser = "0.8.3"
-tempfile = "3.4.0"
-clap = { version = "4", features = ["string", "env"] }
-preferences-serde1 = "2.0.0"
-base64 = "0.12"
+tempfile.workspace = true
+clap.workspace = true
+preferences-serde1.workspace = true
+base64.workspace = true
 directories = "4.0.1"
 eyre.workspace = true
-parking_lot = "0.12"
-thread-control = { version = "0.1.2", optional = true }
-ipp-sys = { version = "0.4.4", optional = true }
-ci2 = { path = "../ci2" }
-ci2-async = { path = "../ci2-async" }
-ci2-types = { path = "../ci2/ci2-types" }
-ci2-remote-control = { path = "../ci2-remote-control" }
+parking_lot.workspace = true
+thread-control = { workspace = true, optional = true }
+ipp-sys = { workspace = true, optional = true }
+ci2.workspace = true
+ci2-async.workspace = true
+ci2-types.workspace = true
+ci2-remote-control.workspace = true
 machine-vision-formats.workspace = true
-timestamped-frame = { path = "../timestamped-frame" }
-basic-frame = { path = "../basic-frame" }
-fmf = { path = "../fmf" }
-ufmf = { path = "../ufmf" }
+timestamped-frame.workspace = true
+basic-frame.workspace = true
+fmf.workspace = true
+ufmf.workspace = true
 chrono.workspace = true
 convert-image.workspace = true
-hyper = { version = "1.1", features = ["client", "http1"] }
+hyper.workspace = true
 hyper-tls = "0.6"
-futures = "0.3"
-tokio = { version = "1.0.1", default-features = false, features = [
-    "rt",
-    "rt-multi-thread",
-    "time",
-    "sync",
-] }
-tokio-util = { version = "0.7.3", features = ["codec"] }
-tokio-stream = { version = "0.1.6", features = ["time"] }
+futures.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tokio-stream.workspace = true
 eframe = { version = "0.22.0", default-features = false, features = [
     "default_fonts",
     "glow",
 ], optional = true }
-dotenv = "0.15.0"
-json-lines = { version = "0.1.0", features = ["codec"] }
+dotenv.workspace = true
+json-lines.workspace = true
 
-strand-cam-storetype = { path = "../strand-cam-storetype" }
-flydra-feature-detector = { path = "../flydra-feature-detector", default-features = false, optional = true }
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
-flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
-datetime-conversion = { path = "../datetime-conversion" }
-http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
-http-video-streaming = { path = "../http-video-streaming" }
+strand-cam-storetype.workspace = true
+flydra-feature-detector = { workspace = true, optional = true }
+flydra-feature-detector-types.workspace = true
+flydra-pt-detect-cfg.workspace = true
+datetime-conversion.workspace = true
+http-video-streaming-types.workspace = true
+http-video-streaming.workspace = true
 semver = { version = "1", features = ["serde"] }
-shellexpand = "2"
-imops = { path = "../imops" }
-led-box-comms = { path = "../led-box-comms" }
-flydra-types = { path = "../flydra-types", features = [
-    "start-listener",
-    "build-urls",
-] }
-flydra2 = { path = "../flydra2", default-features = false, optional = true }
-mvg = { path = "../mvg", optional = true }
-flydra-mvg = { path = "../flydra-mvg", optional = true }
-tokio-serial = { version = "5.4.3" }
-bytes = "1.0"
+shellexpand.workspace = true
+imops.workspace = true
+led-box-comms.workspace = true
+flydra-types = { workspace = true, features = ["start-listener", "build-urls"] }
+flydra2 = { workspace = true, optional = true }
+mvg = { workspace = true, optional = true }
+flydra-mvg = { workspace = true, optional = true }
+tokio-serial.workspace = true
+bytes.workspace = true
 nalgebra.workspace = true
 lstsq.workspace = true
 opencv-ros-camera.workspace = true
-approx = { version = "0.5", optional = true }
-byteorder = "1.4"
+approx = { workspace = true, optional = true }
+byteorder.workspace = true
 target = "2.0.0"
-hyper-util = { version = "0.1.1", features = ["full"] }
-http-body-util = "0.1.0"
-tower = "0.4.13"
-axum = "0.7.4"
-tracing = "0.1.40"
-tracing-panic = "0.1.1"
+hyper-util.workspace = true
+http-body-util.workspace = true
+tower.workspace = true
+axum.workspace = true
+tracing.workspace = true
+tracing-panic.workspace = true
 axum-token-auth.workspace = true
-tower-http = { version = "0.5.1", features = ["trace", "fs"] }
-tower-serve-static = { version = "0.1", optional = true }
-include_dir = { version = "0.7.3", optional = true }
-http-body = "1.0.0"
-http = "1.0.0"
-cookie = "0.18.0"
+tower-http.workspace = true
+tower-serve-static = { workspace = true, optional = true }
+include_dir = { workspace = true, optional = true }
+http-body.workspace = true
+http.workspace = true
+cookie.workspace = true
 
-bui-backend-session-types = { path = "../bui-backend-session/types" }
-braid-config-data = { path = "../braid-config-data" }
-opencv-calibrate = { path = "../opencv-calibrate", optional = true }
-camcal = { path = "../camcal", optional = true }
-rust-cam-bui-types = { path = "../rust-cam-bui-types" }
-mp4-writer = { path = "../media-utils/mp4-writer", features = [
-    "openh264-encode",
-] }
-strand-cam-csv-config-types = { path = "../strand-cam-csv-config-types" }
-plugin-defs = { path = "../plugin-defs", optional = true }
-bg-movie-writer = { path = "../bg-movie-writer" }
-ffmpeg-writer = { path = "../media-utils/ffmpeg-writer" }
-strand-cam-pseudo-cal = { path = "../strand-cam-pseudo-cal", optional = true }
-nvenc = { path = "../nvenc" }
-ads-apriltag = { path = "../apriltag", optional = true }
-channellib = { path = "../channellib", optional = true }
-braid-http-session = { path = "../braid-http-session" }
-bui-backend-session = { path = "../bui-backend-session" }
-event-stream-types = { path = "../event-stream-types" }
-cookie_store = "0.20.0"
+bui-backend-session-types.workspace = true
+braid-config-data.workspace = true
+opencv-calibrate = { workspace = true, optional = true }
+camcal = { workspace = true, optional = true }
+rust-cam-bui-types.workspace = true
+mp4-writer = { workspace = true, features = ["openh264-encode"] }
+strand-cam-csv-config-types.workspace = true
+plugin-defs = { workspace = true, optional = true }
+bg-movie-writer.workspace = true
+ffmpeg-writer.workspace = true
+strand-cam-pseudo-cal = { workspace = true, optional = true }
+nvenc.workspace = true
+ads-apriltag = { workspace = true, optional = true }
+channellib = { workspace = true, optional = true }
+braid-http-session.workspace = true
+bui-backend-session.workspace = true
+event-stream-types.workspace = true
+cookie_store.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 v4l = "0.14"
 
 [build-dependencies]
-build-util = { path = "../build-util" }
+build-util.workspace = true
 
 [features]
 default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]

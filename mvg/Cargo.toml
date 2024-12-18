@@ -6,26 +6,26 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-nalgebra = { workspace = true, features = ["serde-serialize"] }
-simba = { workspace = true, optional = true }
+nalgebra.workspace = true
+simba.workspace = true
 num-traits.workspace = true
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
-serde_json = "1.0"
+serde.workspace = true
+serde_yaml.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
-cam-geom = { workspace = true, features = ["serde-serialize"] }
-opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
+cam-geom.workspace = true
+opencv-ros-camera.workspace = true
 rerun = { workspace = true, optional = true }
 
 [dev-dependencies]
-num-iter = "0.1"
-approx = "0.5"
+num-iter.workspace = true
+approx.workspace = true
 dlt.workspace = true
-color-eyre = "0.6.2"
+color-eyre.workspace = true
 
-rerun = { workspace = true, features = ["glam"] }
+rerun.workspace = true
 
 [features]
 serde-serialize = []
 
-rerun-io = ["rerun", "simba"]
+rerun-io = ["rerun"]

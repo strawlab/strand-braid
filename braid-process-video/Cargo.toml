@@ -7,49 +7,47 @@ description = "process videos within the Braid multi-camera framework"
 
 [dependencies]
 # apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
-tracing = "0.1"
-tokio = { version = "1.17", features = ["macros", "rt", "tracing"] }
-tokio-stream = "0.1.8"
-color-eyre = "0.6.2"
+tracing.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+color-eyre.workspace = true
 chrono.workspace = true
-serde = { version = "1", features = ["derive"] }
-toml = "0.5"
+serde.workspace = true
+toml.workspace = true
 machine-vision-formats.workspace = true
-clap = { version = "4", features = ["derive"] }
-resvg = "0.19"
-tagger = "4.0"
-tiny-skia = "0.6.1"
-usvg = { version = "0.19.0", default-features = false }
+clap.workspace = true
+resvg.workspace = true
+tagger.workspace = true
+tiny-skia.workspace = true
+usvg.workspace = true
 image.workspace = true
-base64 = "0.6"
-ordered-float = "1"
-regex = "1"
-futures = "0.3"
-csv = "1.1"
-tracing-panic = "0.1.1"
+base64.workspace = true
+ordered-float.workspace = true
+regex.workspace = true
+futures.workspace = true
+csv.workspace = true
+tracing-panic.workspace = true
 nalgebra.workspace = true
-indicatif = "0.17"
+indicatif.workspace = true
 
-channellib = { path = "../channellib" }
-braidz-types = { path = "../braidz-types" }
-env-tracing-logger = { path = "../env-tracing-logger" }
-mp4-writer = { path = "../media-utils/mp4-writer", features = [
-    "openh264-encode",
-] }
-ci2-remote-control = { path = "../ci2-remote-control" }
-braidz-parser = { path = "../braidz-parser" }
-braid-config-data = { path = "../braid-config-data" }
-flydra-types = { path = "../flydra-types" }
+braidz-parser.workspace = true
+braidz-types.workspace = true
+channellib.workspace = true
+ci2-remote-control.workspace = true
+env-tracing-logger.workspace = true
+mp4-writer = { workspace = true, features = ["openh264-encode"] }
+braid-config-data.workspace = true
+flydra-types.workspace = true
 convert-image.workspace = true
-datetime-conversion = { path = "../datetime-conversion" }
-basic-frame = { path = "../basic-frame" }
-fmf = { path = "../fmf" }
-timestamped-frame = { path = "../timestamped-frame" }
-flydra2 = { path = "../flydra2" }
-flydra-mvg = { path = "../flydra-mvg" }
-mvg = { path = "../mvg" }
-frame-source = { path = "../media-utils/frame-source" }
+datetime-conversion.workspace = true
+basic-frame.workspace = true
+fmf.workspace = true
+timestamped-frame.workspace = true
+flydra2 = { workspace = true, default-features = true }
+flydra-mvg.workspace = true
+mvg.workspace = true
+frame-source.workspace = true
 
 [dev-dependencies]
-download-verify = { path = "../download-verify" }
-serde_json = "1"
+download-verify.workspace = true
+serde_json.workspace = true

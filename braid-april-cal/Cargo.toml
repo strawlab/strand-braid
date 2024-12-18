@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-log = "0.4"
+log.workspace = true
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+serde_yaml.workspace = true
 itertools = "0.10.5"
 nalgebra.workspace = true
 cam-geom.workspace = true
@@ -24,8 +24,8 @@ flydra-mvg = { path = "../flydra-mvg" }
 opencv-calibrate = { path = "../opencv-calibrate", optional = true }
 
 [dev-dependencies]
-anyhow = "1"
-ads-webasm = { path = "../ads-webasm", features = ["csv-widget"] }
+anyhow.workspace = true
+ads-webasm.workspace = true
 
 [features]
 default = ["solve-pnp"]

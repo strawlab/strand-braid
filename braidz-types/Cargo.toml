@@ -8,9 +8,9 @@ rust-version = "1.76"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "^1.0", features = ["derive"] }
+serde.workspace = true
 chrono.workspace = true
 
-flydra-types = { path = "../flydra-types" }
-mvg = { path = "../mvg", features = ["serde-serialize"] }
-regex = "1.10.3"
+flydra-types.workspace = true
+mvg.workspace = true
+regex.workspace = true

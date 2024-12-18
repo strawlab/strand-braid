@@ -5,12 +5,10 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-toml = "0.5"
-shellexpand = "2.0"
+toml.workspace = true
+shellexpand.workspace = true
 thiserror.workspace = true
-log = "0.4"
+log.workspace = true
 
-flydra-types = { path = "../flydra-types" }
-serde = { version = "1.0.79", features = ["derive"] }
-
-[features]
+flydra-types.workspace = true
+serde.workspace = true

@@ -54,15 +54,9 @@ pub type Result<M> = std::result::Result<M, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{source}")]
-    Io {
-        source: std::io::Error,
-
-    },
+    Io { source: std::io::Error },
     #[error("{source}")]
-    Zip {
-        source: zip::result::ZipError,
-
-    },
+    Zip { source: zip::result::ZipError },
     #[error("file not found")]
     FileNotFound,
     #[error("filename not utf8")]
@@ -79,10 +73,7 @@ impl From<zip::result::ZipError> for Error {
     fn from(source: zip::result::ZipError) -> Self {
         match source {
             zip::result::ZipError::FileNotFound => Error::FileNotFound,
-            source => Error::Zip {
-                source,
-
-            },
+            source => Error::Zip { source },
         }
     }
 }
@@ -91,10 +82,7 @@ impl From<std::io::Error> for Error {
     fn from(source: std::io::Error) -> Self {
         match source.kind() {
             std::io::ErrorKind::NotFound => Error::FileNotFound,
-            _ => Error::Io {
-                source,
-
-            },
+            _ => Error::Io { source },
         }
     }
 }
@@ -311,7 +299,6 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     /// Open raw file (e.g. `.csv`) or gz version (e.g. `.csv.gz`) of a file.
     ///
     /// This prefers to use the gz compressed file if it exists.
-    #[cfg(feature = "with-gz")]
     pub fn open_raw_or_gz(&mut self, src_fname: &str) -> Result<MaybeGzReader> {
         let gz_fname = format!("{}.gz", src_fname);
         let gz_exists = self.path_starter().join(&gz_fname).exists();
@@ -327,13 +314,11 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     }
 }
 
-#[cfg(feature = "with-gz")]
 pub enum MaybeGzReader<'a> {
     Raw(FileReader<'a>),
     Gz(libflate::gzip::Decoder<FileReader<'a>>),
 }
 
-#[cfg(feature = "with-gz")]
 impl<'a> Read for MaybeGzReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
@@ -773,7 +758,6 @@ mod tests {
             }
         }
 
-        #[cfg(feature = "with-gz")]
         {
             let mut buf = String::new();
             archive

@@ -7,43 +7,41 @@ rust-version = "1.76"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-libc = "0.2"
-byteorder = "1"
+libc.workspace = true
+byteorder.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
-serde = { version = "1.0", features = ["derive"] }
-serde_cbor = { version = "0.11.2", optional = true }
-tokio-util = { version = "0.7.3", features = ["codec"], optional = true }
-bytes = { version = "1.0", optional = true }
+serde.workspace = true
+serde_cbor = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 bitflags = "1.0"
-ordered-float = { version = "3.0.0", features = ["serde"] }
+ordered-float.workspace = true
 static_assertions = "1.1.0"
-nalgebra = { workspace = true, features = ["serde-serialize"] }
+nalgebra.workspace = true
 num-integer = "0.1"
-http = "1"
+http.workspace = true
 if-addrs = { version = "0.11.0", optional = true }
 percent-encoding = "2.3.1"
 
-eyre = { version = "0.6", optional = true }
+eyre = { workspace = true, optional = true }
 axum-token-auth = { workspace = true, optional = true }
-tokio = { version = "1", optional = true }
+tokio = { workspace = true, optional = true }
 
-withkey = { path = "../withkey" }
-datetime-conversion = { path = "../datetime-conversion" }
-rust-cam-bui-types = { path = "../rust-cam-bui-types" }
-flydra-pt-detect-cfg = { path = "../flydra-feature-detector/flydra-pt-detect-cfg" }
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
-bui-backend-session-types = { path = "../bui-backend-session/types" }
-tracing = { version = "0.1.40", default-features = false }
+withkey.workspace = true
+datetime-conversion.workspace = true
+rust-cam-bui-types.workspace = true
+flydra-pt-detect-cfg.workspace = true
+flydra-feature-detector-types.workspace = true
+bui-backend-session-types.workspace = true
+tracing.workspace = true
 
 [features]
-default = ["with-tokio-codec"]
-
 with-tokio-codec = ["tokio-util", "bytes", "serde_cbor"]
 start-listener = ["eyre", "axum-token-auth", "tokio"]
 build-urls = ["if-addrs"]
 
 [dev-dependencies]
-eyre = "0.6"
-serde_cbor = "0.11.2"
-csv = "1.0"
+eyre.workspace = true
+serde_cbor.workspace = true
+csv.workspace = true

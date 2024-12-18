@@ -5,8 +5,8 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 
 [dependencies]
-mvg = { path = ".." }
-flydra-mvg = { path = "../../flydra-mvg" }
-clap = { version = "4.3.4", features = ["derive"] }
+mvg.workspace = true
+flydra-mvg.workspace = true
+clap.workspace = true
 nalgebra.workspace = true
-pretty-print-nalgebra = "0.1.0"
+pretty-print-nalgebra.workspace = true

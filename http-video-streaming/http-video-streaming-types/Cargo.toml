@@ -6,9 +6,9 @@ edition = "2021"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-serde = {version="1.0", features=["derive"]}
+serde.workspace = true
 
-bui-backend-session-types = { path = "../../bui-backend-session/types" }
+bui-backend-session-types.workspace = true
 
 [dev-dependencies]
-serde_yaml = "0.9"
+serde_yaml.workspace = true

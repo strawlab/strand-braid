@@ -19,15 +19,15 @@ gobject-sys = "0.10"
 gstreamer = "0.16"
 gstreamer-base = "0.16"
 gstreamer-video = "0.16"
-lazy_static = "1.0"
-csv = "1.1"
-serde = { version = "1.0", features = ["derive"] }
-bytes = "0.6"
+lazy_static.workspace = true
+csv.workspace = true
+serde.workspace = true
+bytes.workspace = true
 
-ads-apriltag = { path = "../apriltag" }
+ads-apriltag.workspace = true
 
 [build-dependencies]
 gst-plugin-version-helper = "0.7.5"
 
 [dev-dependencies]
-download-verify = { path = "../download-verify" }
+download-verify.workspace = true
