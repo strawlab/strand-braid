@@ -51,7 +51,6 @@ members = [
     "env-tracing-logger",
     "env-tracing-logger/env-tracing-logger-sample",
     "event-stream-types",
-    "fastimage",
     "fastfreeimage",
     "fly-eye",
     "fmf",
@@ -126,7 +125,7 @@ members = [
     "zip-or-dir/dir2zip",
 ]
 
-exclude = ["led-box-firmware", "led-box-firmware-pico"]
+exclude = ["fastimage", "led-box-firmware", "led-box-firmware-pico"]
 
 [profile.release]
 debug = true
@@ -301,7 +300,6 @@ enum-iter = { path = "enum-iter" }
 env-tracing-logger = { path = "env-tracing-logger" }
 event-stream-types = { path = "event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
-fastimage = { path = "fastimage" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
 flydra-feature-detector = { path = "flydra-feature-detector" }
 flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }

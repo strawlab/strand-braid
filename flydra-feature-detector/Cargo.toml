@@ -23,7 +23,7 @@ nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
 ipp-sys = { workspace = true, optional = true }
 
-fastimage = { workspace = true, optional = true }
+fastimage = { path = "../fastimage", optional = true }
 fastfreeimage = { workspace = true, optional = true }
 ci2.workspace = true
 ci2-remote-control.workspace = true
