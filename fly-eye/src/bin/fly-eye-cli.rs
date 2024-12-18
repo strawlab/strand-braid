@@ -4,9 +4,6 @@ use basic_frame::BasicExtra;
 use clap::Parser;
 use std::path::PathBuf;
 
-use channellib::unbounded;
-use crossbeam_ok::CrossbeamOk;
-
 use formats::{pixel_format::RGB8, ImageData, Stride};
 
 /// run fly eye on image file
@@ -20,7 +17,7 @@ struct Opt {
 fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
     let piston_image = image::open(&input_image)?;
 
-    let (firehose_tx, firehose_rx) = unbounded();
+    let (firehose_tx, firehose_rx) = std::sync::mpsc::channel();
 
     let frame = convert_image::image_to_rgb8(piston_image)?;
     let extra = Box::new(BasicExtra {
@@ -36,7 +33,9 @@ fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
         extra,
     };
     let dynframe = basic_frame::DynamicFrame::from(frame);
-    firehose_tx.send(dynframe).cb_ok();
+    firehose_tx
+        .send(dynframe)
+        .map_err(|_| anyhow::anyhow!("receiver disconnected"))?;
 
     fly_eye::mainloop(firehose_rx)?;
 

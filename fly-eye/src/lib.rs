@@ -15,8 +15,8 @@ mod fly_eye;
 #[cfg(feature = "screen-quad")]
 mod screen_quad;
 
-use channellib::Receiver;
 use glium::{glutin, Surface};
+use std::sync::mpsc::Receiver;
 
 use glutin::window::WindowBuilder;
 
@@ -132,13 +132,10 @@ pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
                     panic!("reached unreachable state");
                 }
             }
-            Err(e) => {
-                if e.is_disconnected() {
-                    Err::<(), _>(e).unwrap(); // todo: cleaner exit
-                } else {
-                    assert!(e.is_empty());
-                }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                panic!("disconnected"); // todo: cleaner exit
             }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
         }
 
         // drawing a frame
@@ -205,17 +202,20 @@ pub fn mainloop(rx: Receiver<DynamicFrame>) -> anyhow::Result<()> {
 /// check if a frame is available. if yes, get it and keep getting until most recent.
 fn get_most_recent_frame(
     receiver: &Receiver<DynamicFrame>,
-) -> Result<DynamicFrame, channellib::TryRecvError> {
-    let mut result = Err(crossbeam_channel::TryRecvError::Empty.into());
+) -> Result<DynamicFrame, std::sync::mpsc::TryRecvError> {
+    // In case we have no message waiting, return empty.
+    let mut result = Err(std::sync::mpsc::TryRecvError::Empty);
+    // loop until we get an empty message
     loop {
         match receiver.try_recv() {
-            Ok(r) => result = Ok(r),
-            Err(e) => {
-                if e.is_empty() {
-                    break;
-                } else {
-                    return Err(e);
-                }
+            Ok(r) => {
+                result = Ok(r);
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                break;
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                return Err(std::sync::mpsc::TryRecvError::Disconnected);
             }
         }
     }

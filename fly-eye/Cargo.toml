@@ -10,7 +10,6 @@ anyhow.workspace = true
 log.workspace = true
 env_logger.workspace = true
 clap.workspace = true
-crossbeam-channel.workspace = true
 image.workspace = true
 glium = "0.32.1"
 winit = "0.27.5"
@@ -22,9 +21,7 @@ basic-frame.workspace = true
 convert-image.workspace = true
 machine-vision-formats.workspace = true
 machine-vision-shaders.workspace = true
-crossbeam-ok.workspace = true
 ci2.workspace = true
-channellib.workspace = true
 ci2-pyloncxx = { workspace = true, optional = true }
 
 [features]

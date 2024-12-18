@@ -1,10 +1,9 @@
 use basic_frame::DynamicFrame;
-use channellib::Sender;
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
+use std::sync::mpsc::Sender;
 
 use ci2::{Camera, CameraInfo, CameraModule};
-use crossbeam_ok::CrossbeamOk;
 
 fn thread_loop(firehose_tx: Sender<DynamicFrame>) -> anyhow::Result<()> {
     let mymod = backend::new_module()?;
@@ -22,14 +21,16 @@ fn thread_loop(firehose_tx: Sender<DynamicFrame>) -> anyhow::Result<()> {
 
     loop {
         let frame = cam.next_frame()?;
-        firehose_tx.send(frame.into()).cb_ok();
+        firehose_tx
+            .send(frame.into())
+            .map_err(|_| anyhow::anyhow!("receiver disconnected"))?;
     }
 }
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let (firehose_tx, firehose_rx) = channellib::unbounded();
+    let (firehose_tx, firehose_rx) = std::sync::mpsc::channel();
 
     std::thread::spawn(move || {
         thread_loop(firehose_tx).unwrap();
