@@ -21,10 +21,10 @@ pub enum Error {
     },
     #[error("webm writer error: {0}")]
     Mp4WriterError(#[from] mp4_writer::Error),
-    #[error("SendError")]
-    SendError,
+    #[error("WorkerDisconnected")]
+    WorkerDisconnected,
     #[error(transparent)]
-    RecvError(#[from] channellib::RecvError),
+    RecvError(#[from] std::sync::mpsc::RecvError),
     #[error("already done")]
     AlreadyDone,
     #[error("disconnected")]
@@ -35,34 +35,29 @@ pub enum Error {
     FfmpegWriterError(#[from] ffmpeg_writer::Error),
 }
 
-impl From<channellib::SendError<Msg>> for Error {
-    #[allow(unused_variables)]
-    fn from(orig: channellib::SendError<Msg>) -> Error {
-        Error::SendError
-    }
-}
-
 type Result<T> = std::result::Result<T, Error>;
 
+/// From outside the worker thread, check if we received an error from the
+/// thread. The worker thread should live forever and if it doesn't, return a
+/// disconnected error.
 macro_rules! async_err {
     ($rx: expr) => {
         match $rx.try_recv() {
             Ok(e) => {
                 return Err(e);
             }
-            Err(e) => {
-                if !e.is_empty() {
-                    return Err(Error::Disconnected);
-                }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                return Err(Error::Disconnected);
             }
         }
     };
 }
 
 pub struct BgMovieWriter {
-    tx: channellib::Sender<Msg>,
+    tx: std::sync::mpsc::SyncSender<Msg>,
     is_done: bool,
-    err_rx: channellib::Receiver<Error>,
+    err_rx: std::sync::mpsc::Receiver<Error>,
 }
 
 impl BgMovieWriter {
@@ -72,7 +67,7 @@ impl BgMovieWriter {
         queue_size: usize,
         data_dir: Option<PathBuf>,
     ) -> Self {
-        let (err_tx, err_rx) = channellib::unbounded();
+        let (err_tx, err_rx) = std::sync::mpsc::channel();
         let tx = launch_runner(
             format_str_mp4,
             recording_config,
@@ -97,17 +92,27 @@ impl BgMovieWriter {
             return Err(Error::AlreadyDone);
         }
         let msg = Msg::Write((frame, timestamp));
-        self.send(msg)
+        // This will only succeed if the channel is not full. It will not block.
+        match self.tx.try_send(msg) {
+            Ok(()) => {}
+            Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
+                log::warn!("Dropping frame to save: channel full");
+            }
+            Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => {
+                return Err(Error::WorkerDisconnected);
+            }
+        }
+        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<()> {
         async_err!(self.err_rx);
         self.is_done = true;
-        self.send(Msg::Finish)
-    }
-
-    fn send(&mut self, msg: Msg) -> Result<()> {
-        self.tx.send(msg)?;
+        // We want to send the finish message without fail, so this blocks if
+        // needed.
+        self.tx
+            .send(Msg::Finish)
+            .map_err(|_e| Error::WorkerDisconnected)?;
         Ok(())
     }
 }
@@ -122,9 +127,11 @@ macro_rules! thread_try {
         match $result {
             Ok(val) => val,
             Err(e) => {
+                // Create a panic message in case we cannot send a normal error.
                 let s = format!("send failed {}:{}: {}", file!(), line!(), e);
+                // Send the error, panic if we cannot send error.
                 $tx.send(Error::from(e)).expect(&s);
-                return; // exit the thread
+                return; // Exit the thread.
             }
         }
     };
@@ -226,10 +233,10 @@ fn launch_runner(
     format_str_mp4: String,
     recording_config: ci2_remote_control::RecordingConfig,
     size: usize,
-    err_tx: channellib::Sender<Error>,
+    err_tx: std::sync::mpsc::Sender<Error>,
     data_dir: Option<PathBuf>,
-) -> channellib::Sender<Msg> {
-    let (tx, rx) = channellib::bounded::<Msg>(size);
+) -> std::sync::mpsc::SyncSender<Msg> {
+    let (tx, rx) = std::sync::mpsc::sync_channel::<Msg>(size);
     std::thread::spawn(move || {
         // Load CUDA and nvidia-encode shared libs, but do not return error
         // (yet).

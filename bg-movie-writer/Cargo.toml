@@ -15,7 +15,6 @@ machine-vision-formats.workspace = true
 ci2-remote-control.workspace = true
 nvenc = { path = "../nvenc" }
 basic-frame = { path = "../basic-frame" }
-channellib = { path = "../channellib" }
 
 ffmpeg-writer.workspace = true
 srt-writer.workspace = true
