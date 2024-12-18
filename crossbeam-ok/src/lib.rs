@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn it_works() {
         use crate::CrossbeamOk;
-        let (tx, _rx) = crossbeam_channel::unbounded();
+        let (tx, _rx) = channellib::unbounded();
         tx.send(123u8).cb_ok();
     }
 }
