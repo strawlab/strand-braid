@@ -52,6 +52,13 @@ impl SrtData {
     }
 }
 
+// Found in libx264-encoded h264 streams. See
+// https://code.videolan.org/videolan/x264/-/blob/da14df5535/encoder/set.c#L598
+const X264_UUID: &[u8; 16] = uuid::uuid!("dc45e9bd-e6d9-48b7-962c-d820d923eeef").as_bytes();
+
+// Found in videotoolbox-encoded h264 streams.
+const VIDEOTOOLBOX_UUID: &[u8; 16] = uuid::uuid!("47564adc-5c4c-433f-94ef-c5113cd143a8").as_bytes();
+
 /// H264 data source. Can come directly from an "Annex B" format .h264 file or
 /// from an MP4 file.
 ///
@@ -379,10 +386,6 @@ where
                                     match &sei_message.payload_type {
                                         HeaderType::UserDataUnregistered => {
                                             let udu = UserDataUnregistered::read(&sei_message)?;
-                                            tracing::trace!(
-                                                "SEI UserDataUnregistered uuid: {:?}",
-                                                udu.uuid
-                                            );
                                             match udu.uuid {
                                                 &H264_METADATA_UUID => {
                                                     let md: H264Metadata =
@@ -400,6 +403,20 @@ where
 
                                                     tz_offset = Some(*md.creation_time.offset());
                                                     h264_metadata = Some(md);
+                                                }
+                                                X264_UUID => {
+                                                    let payload_str =
+                                                        String::from_utf8_lossy(udu.payload);
+                                                    tracing::trace!(
+                                                        "Ignoring SEI UserDataUnregistered x264 payload: {}",
+                                                        payload_str,
+                                                    );
+                                                }
+                                                VIDEOTOOLBOX_UUID => {
+                                                    tracing::trace!(
+                                                    "Ignoring SEI UserDataUnregistered videotoolbox payload: {}",
+                                                    pretty_hex::simple_hex(&udu.payload),
+                                                );
                                                 }
                                                 b"MISPmicrosectime" => {
                                                     let precision_time =
@@ -421,7 +438,10 @@ where
                                                     }
                                                 }
                                                 _uuid => {
-                                                    // anyhow::bail!("unexpected SEI UDU UUID: {uuid:?}");
+                                                    tracing::trace!(
+                                                        "Ignoring SEI UserDataUnregistered uuid: {}",
+                                                        pretty_hex::simple_hex(udu.uuid),
+                                                    );
                                                 }
                                             }
                                         }
