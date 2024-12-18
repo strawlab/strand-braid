@@ -414,8 +414,7 @@ where
                                                 }
                                                 VIDEOTOOLBOX_UUID => {
                                                     tracing::trace!(
-                                                    "Ignoring SEI UserDataUnregistered videotoolbox payload: {}",
-                                                    pretty_hex::simple_hex(&udu.payload),
+                                                    "Ignoring SEI UserDataUnregistered from videotoolbox."
                                                 );
                                                 }
                                                 b"MISPmicrosectime" => {
@@ -440,7 +439,7 @@ where
                                                 _uuid => {
                                                     tracing::trace!(
                                                         "Ignoring SEI UserDataUnregistered uuid: {}",
-                                                        pretty_hex::simple_hex(udu.uuid),
+                                                        uuid::Uuid::from_bytes(*udu.uuid).to_string(),
                                                     );
                                                 }
                                             }

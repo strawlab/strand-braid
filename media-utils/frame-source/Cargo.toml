@@ -17,7 +17,6 @@ kamadak-exif = "0.5.5"
 mp4.workspace = true
 h264-reader.workspace = true
 openh264.workspace = true
-pretty-hex = "0.3.0"
 memchr.workspace = true
 bytes.workspace = true
 winnow = "0.6.20"
