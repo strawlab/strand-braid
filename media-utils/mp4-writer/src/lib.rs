@@ -1086,22 +1086,24 @@ impl H264Parser {
 
         // Split into Encapsulated Byte Sequence Payload (EBSP) message
         for ebsp_msg in nals.nals.iter() {
-            let mut did_sps_pps = false;
+            let mut is_this_sps_or_pps = false;
             if !ebsp_msg.is_empty() {
                 let code = ebsp_msg[0];
                 match code {
                     0x67 => {
                         self.sps = Some(ebsp_msg[..].to_vec());
-                        did_sps_pps = true;
+                        is_this_sps_or_pps = true;
                     }
                     0x68 => {
                         self.pps = Some(ebsp_msg[..].to_vec());
-                        did_sps_pps = true;
+                        is_this_sps_or_pps = true;
                     }
                     _ => {}
                 }
-                if !did_sps_pps {
-                    // Don't insert the timestamp before SPS or PPS.
+                if !is_this_sps_or_pps {
+                    // Insert our timeestamp data, but only if we did not write
+                    // an SPS or PPS because we do not want to write our
+                    // timestamp prior to SPS or PPS.
                     if let Some(ts) = precision_timestamp.take() {
                         let mut rbsp_msg = [0u8; 32];
                         rbsp_msg[0] = 0x06; // code 6 - SEI
