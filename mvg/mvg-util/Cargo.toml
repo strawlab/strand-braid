@@ -11,3 +11,5 @@ clap.workspace = true
 nalgebra.workspace = true
 pretty-print-nalgebra.workspace = true
 color-eyre.workspace = true
+csv.workspace = true
+serde.workspace = true

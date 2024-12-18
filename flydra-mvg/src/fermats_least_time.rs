@@ -102,7 +102,7 @@ pub(crate) fn find_fastest_path_fermat<R: RealField + Copy>(params: &RootParams<
         refraction_eq,    // Parameters
         eps,              // Tolerance
     )
-    .ok_or(mvg::MvgError::NoValidRootFound)?; // Not really NotEnoughPoints
+    .ok_or(crate::FlydraMvgError::NoValidRootFound)?; // Not really NotEnoughPoints
     let h1 = h - h2;
     Ok(h1)
 }

@@ -20,6 +20,7 @@ members = [
     "braid-offline",
     "braid-process-video",
     "braidz-export-rrd",
+    "braidz-mcsc",
     "braidz-parser",
     "braidz-parser/braidz-chunked-iter",
     "braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",

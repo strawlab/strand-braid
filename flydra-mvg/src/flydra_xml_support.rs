@@ -5,7 +5,7 @@ use nalgebra::RealField;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Default, Deserialize, PartialEq)]
 #[serde(rename = "multi_camera_reconstructor", deny_unknown_fields)]
 pub struct FlydraReconstructor<R: RealField + serde::Serialize> {
     #[serde(rename = "single_camera_calibration")]

@@ -10,6 +10,8 @@ pub enum Error {
         #[from]
         source: mvg::MvgError,
     },
+    #[error("{0}")]
+    FlydraMvg(#[from] flydra_mvg::FlydraMvgError),
     #[error("{source}")]
     Io {
         #[from]

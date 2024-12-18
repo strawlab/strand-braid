@@ -5,7 +5,10 @@ braid-process-video usr/bin
 braid-run usr/bin
 braid-show-config usr/bin
 braidz-cli usr/bin
+braidz-mcsc usr/bin
 braidz-export-rrd usr/bin
+cal-to-xml usr/bin
+align-calibration usr/bin
 compute-flydra1-compat usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin

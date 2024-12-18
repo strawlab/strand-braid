@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
 extern crate log;
 
@@ -31,7 +32,25 @@ use crate::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
 
 const AIR_REFRACTION: f64 = 1.0003;
 
-pub use mvg::Result;
+#[derive(thiserror::Error, Debug)]
+pub enum FlydraMvgError {
+    #[error("xml eror: {0}")]
+    SerdeXmlError(#[from] serde_xml_rs::Error),
+    #[error("cannot convert to or from flydra xml: {msg}")]
+    FailedFlydraXmlConversion { msg: &'static str },
+    #[error("MVG error: {0}")]
+    MvgError(#[from] mvg::MvgError),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("not implemented operation in mvg")]
+    NotImplemented,
+    #[error("no valid root found")]
+    NoValidRootFound,
+    #[error("No non-linear parameter file {0} found")]
+    NoNonlinearParameters(PathBuf),
+}
+
+pub type Result<T> = std::result::Result<T, FlydraMvgError>;
 
 // MultiCameraIter -------------------------------------------------------
 
@@ -390,6 +409,10 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         self.water.is_some()
     }
 
+    pub fn water(&self) -> Option<R> {
+        self.water
+    }
+
     pub fn to_system(self) -> MultiCameraSystem<R> {
         self.system
     }
@@ -460,7 +483,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         points: &[(String, UndistortedPixel<R>)],
     ) -> Result<PointWorldFrameMaybeWithSumReprojError<R>> {
         if points.len() < 2 {
-            return Err(MvgError::NotEnoughPoints);
+            return Err(MvgError::NotEnoughPoints.into());
         }
 
         use crate::PointWorldFrameMaybeWithSumReprojError::*;
@@ -472,7 +495,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 // based calculation? This would seem problematic...
                 let opt_water_3d_pt = match self.find3d_water(points, n2) {
                     Ok(water_3d_pt) => Some(water_3d_pt),
-                    Err(MvgError::CamGeomError { .. }) => None,
+                    Err(FlydraMvgError::MvgError(MvgError::CamGeomError { .. })) => None,
                     Err(e) => {
                         return Err(e);
                     }
@@ -518,7 +541,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
             })
             .collect();
         if upoints.len() != points.len() {
-            return Err(MvgError::UnknownCamera);
+            return Err(MvgError::UnknownCamera.into());
         }
         Ok(WorldCoordAndUndistorted2D::new(
             self.find3d(&upoints)?,
@@ -588,13 +611,13 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 ));
             }
         }
-        let pt = cam_geom::best_intersection_of_rays(&rays)?;
+        let pt = cam_geom::best_intersection_of_rays(&rays).map_err(mvg::MvgError::from)?;
         Ok(pt.into())
     }
 
     /// Find 3D coordinate using pixel coordinates from cameras
     fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
-        self.system.find3d(points)
+        Ok(self.system.find3d(points).map_err(mvg::MvgError::from)?)
     }
 
     /// Find reprojection error of 3D coordinate into pixel coordinates
@@ -655,18 +678,120 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 }
 
+fn loadtxt<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, U3, U4>>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    let buf = std::fs::read_to_string(p.as_ref()).map_err(mvg::MvgError::from)?;
+    let lines: Vec<&str> = buf.trim().split("\n").collect();
+    let lines: Vec<&str> = lines
+        .into_iter()
+        .filter(|line| !line.trim().starts_with('#'))
+        .collect();
+    if lines.len() != 3 {
+        return Err(MvgError::ParseError.into());
+    }
+    let mut result = OMatrix::<R, U3, U4>::zeros();
+    for (i, line) in lines.iter().enumerate() {
+        for (j, val_str) in line.split_ascii_whitespace().enumerate() {
+            let val: f64 = val_str.parse().map_err(|_| MvgError::ParseError)?;
+            result[(i, j)] = na::convert(val);
+        }
+    }
+    Ok(result)
+}
+
+fn loadrad<R>(p: impl AsRef<std::path::Path>) -> Result<FlydraDistortionModel<R>>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    let buf = std::fs::read_to_string(p.as_ref())?;
+    let lines: Vec<&str> = buf.trim().split("\n").collect();
+    let mut vars = BTreeMap::new();
+    for line in lines.into_iter() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let parts: Vec<_> = line.split("=").collect();
+        if parts.len() != 2 {
+            return Err(MvgError::ParseError.into());
+        }
+        let (varname, valstr) = (parts[0], parts[1]);
+        let val: f64 = valstr.trim().parse().map_err(|_| MvgError::ParseError)?;
+        let val: R = na::convert(val);
+        vars.insert(varname.trim().to_string(), val);
+    }
+
+    Ok(FlydraDistortionModel {
+        fc1: vars["K11"],
+        fc2: vars["K22"],
+        cc1: vars["K13"],
+        cc2: vars["K23"],
+        alpha_c: na::convert(0.0),
+        k1: vars["kc1"],
+        k2: vars["kc2"],
+        p1: vars["kc3"],
+        p2: vars["kc4"],
+        fc1p: None,
+        fc2p: None,
+        cc1p: None,
+        cc2p: None,
+    })
+}
+
 impl<R> FlydraMultiCameraSystem<R>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
-    pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
-        let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)
-            .map_err(|_e| {
-            MvgError::FailedFlydraXmlConversion {
-                msg: "XML parsing error",
+    pub fn from_mcsc_dir<P>(mcsc_dir: P) -> Result<Self>
+    where
+        P: AsRef<std::path::Path>,
+    {
+        let mcsc_dir = PathBuf::from(mcsc_dir.as_ref());
+        let cam_order_fname = mcsc_dir.join("camera_order.txt");
+        let cam_order = std::fs::read_to_string(cam_order_fname)?;
+        let cam_ids: Vec<&str> = cam_order.trim().split("\n").collect();
 
+        let res_dat = mcsc_dir.join("Res.dat");
+        let res_dat_buf = std::fs::read_to_string(res_dat)?;
+        let res_lines: Vec<&str> = res_dat_buf.trim().split("\n").collect();
+        assert_eq!(cam_ids.len(), res_lines.len());
+        let mut cameras = Vec::new();
+        for (i, (cam_id, res_row)) in cam_ids.iter().zip(res_lines.iter()).enumerate() {
+            let wh: Vec<&str> = res_row.split(" ").collect();
+            assert_eq!(wh.len(), 2);
+            let w = wh[0].parse().unwrap();
+            let h = wh[1].parse().unwrap();
+
+            let pmat_fname = mcsc_dir.join(format!("camera{}.Pmat.cal", (i + 1)));
+            let pmat = loadtxt(&pmat_fname)?; // 3 rows x 4 columns
+
+            let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
+            if !rad_fname.exists() {
+                return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
             }
-        })?;
+            let non_linear_parameters = loadrad(&rad_fname)?;
+
+            let cam = SingleCameraCalibration {
+                cam_id: cam_id.to_string(),
+                calibration_matrix: pmat,
+                resolution: (w, h),
+                scale_factor: None,
+                non_linear_parameters,
+            };
+            cameras.push(cam);
+        }
+
+        let recon = flydra_xml_support::FlydraReconstructor {
+            cameras,
+            ..Default::default()
+        };
+        FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
+    }
+
+    pub fn from_flydra_xml<Rd: Read>(reader: Rd) -> Result<Self> {
+        let recon: flydra_xml_support::FlydraReconstructor<R> = serde_xml_rs::from_reader(reader)?;
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
 
@@ -685,6 +810,10 @@ where
         P: AsRef<std::path::Path>,
     {
         let cal_fname = cal_fname.as_ref();
+
+        if cal_fname.is_dir() {
+            return Ok(Self::from_mcsc_dir(cal_fname)?);
+        }
 
         let cal_file = std::fs::File::open(cal_fname)?;
 
@@ -713,10 +842,10 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(MvgError::FailedFlydraXmlConversion {
+            return Err(FlydraMvgError::FailedFlydraXmlConversion {
                 msg: "3rd term of radial distortion not supported",
-
-            });
+            }
+            .into());
         }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
@@ -797,9 +926,8 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         // epsilon should be really low.
         let epsilon = 0.03;
         if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
-            return Err(MvgError::FailedFlydraXmlConversion {
+            return Err(FlydraMvgError::FailedFlydraXmlConversion {
                 msg: "skew not supported",
-
             });
         }
 
@@ -808,27 +936,27 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
 
         if let Some(fc1p) = cam.non_linear_parameters.fc1p {
             if fc1p != cam.non_linear_parameters.fc1 {
-                return Err(MvgError::NotImplemented);
+                return Err(FlydraMvgError::NotImplemented);
             }
         }
         if let Some(fc2p) = cam.non_linear_parameters.fc2p {
             if fc2p != cam.non_linear_parameters.fc2 {
-                return Err(MvgError::NotImplemented);
+                return Err(FlydraMvgError::NotImplemented);
             }
         }
         if let Some(cc1p) = cam.non_linear_parameters.cc1p {
             if cc1p != cam.non_linear_parameters.cc1 {
-                return Err(MvgError::NotImplemented);
+                return Err(FlydraMvgError::NotImplemented);
             }
         }
         if let Some(cc2p) = cam.non_linear_parameters.cc2p {
             if cc2p != cam.non_linear_parameters.cc2 {
-                return Err(MvgError::NotImplemented);
+                return Err(FlydraMvgError::NotImplemented);
             }
         }
         if let Some(scale_factor) = cam.scale_factor {
             if scale_factor != one {
-                return Err(MvgError::NotImplemented);
+                return Err(FlydraMvgError::NotImplemented);
             }
         }
 
@@ -861,7 +989,8 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
             zero, zero, one)
         };
         let distortion = Distortion::from_opencv_vec(distortion);
-        let intrinsics = RosOpenCvIntrinsics::from_components(p, k, distortion, rect)?;
+        let intrinsics = RosOpenCvIntrinsics::from_components(p, k, distortion, rect)
+            .map_err(mvg::MvgError::from)?;
         let camcenter = pmat2cam_center(&cam.calibration_matrix);
 
         let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);

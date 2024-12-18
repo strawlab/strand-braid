@@ -6,6 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
+thiserror.workspace = true
 log.workspace = true
 num-traits.workspace = true
 nalgebra.workspace = true

@@ -3,7 +3,7 @@ extern crate pretty_print_nalgebra;
 
 use clap::Parser;
 
-type Result<T> = std::result::Result<T, mvg::MvgError>;
+type Result<T> = std::result::Result<T, flydra_mvg::FlydraMvgError>;
 
 #[derive(Debug, Parser)]
 #[command(name = "print-cal", version)]

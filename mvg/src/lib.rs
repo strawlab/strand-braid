@@ -16,10 +16,14 @@ pub enum MvgError {
     RectificationMatrixNotSupported,
     #[error("not enough points")]
     NotEnoughPoints,
+    #[error("invalid shape")]
+    InvalidShape,
     #[error("unknown camera")]
     UnknownCamera,
     #[error("SVD failed")]
     SvdFailed,
+    #[error("Parsing error")]
+    ParseError,
     #[error("invalid rotation matrix")]
     InvalidRotationMatrix,
     #[error("unsupported version")]
@@ -35,30 +39,20 @@ pub enum MvgError {
     MultipleValidRootsFound,
     #[error("no valid root found")]
     NoValidRootFound,
-    #[error("not implemented operation in mvg")]
-    NotImplemented,
-    #[error("cannot convert to or from flydra xml: {msg}")]
-    FailedFlydraXmlConversion {
-        msg: &'static str,
-
-    },
     #[error("IO error: {source}")]
     Io {
         #[from]
         source: std::io::Error,
-
     },
     #[error("serde_yaml error: {source}")]
     SerdeYaml {
         #[from]
         source: serde_yaml::Error,
-
     },
     #[error("serde_json error: {source}")]
     SerdeJson {
         #[from]
         source: serde_json::Error,
-
     },
     #[error("SvgError: {}", error)]
     SvgError { error: &'static str },
@@ -68,13 +62,11 @@ pub enum MvgError {
     CamGeomError {
         #[from]
         source: cam_geom::Error,
-
     },
     #[error("opencv_ros_camera::Error: {source}")]
     OpencvRosError {
         #[from]
         source: opencv_ros_camera::Error,
-
     },
 }
 
@@ -96,6 +88,8 @@ mod pymvg_support;
 pub mod intrinsics;
 
 pub mod extrinsics;
+
+pub mod align_points;
 
 #[cfg(feature = "rerun-io")]
 pub mod rerun_io;

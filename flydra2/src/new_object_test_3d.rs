@@ -3,7 +3,7 @@ use tracing::error;
 
 use flydra_types::{RawCamName, TrackingParams};
 
-use mvg::PointWorldFrameWithSumReprojError;
+use mvg::{MvgError, PointWorldFrameWithSumReprojError};
 
 use crate::{
     safe_u8, set_of_subsets, tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult,
@@ -141,7 +141,7 @@ impl HypothesisTest for NewObjectTestFull3D {
                 let data = match self.recon.find3d_and_cum_reproj_dist_distorted(&points) {
                     Ok(data) => data,
                     Err(err) => {
-                        if let mvg::MvgError::SvdFailed = err {
+                        if let flydra_mvg::FlydraMvgError::MvgError(MvgError::SvdFailed) = err {
                             error!("failed SVD in find3d with points {:?}", points);
                             continue;
                         }
