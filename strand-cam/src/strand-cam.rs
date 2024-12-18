@@ -675,6 +675,8 @@ pub struct StrandCamArgs {
     #[cfg(target_os = "linux")]
     v4l2loopback: Option<PathBuf>,
     data_dir: Option<PathBuf>,
+    #[cfg(feature = "eframe-gui")]
+    windowed: Option<bool>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -720,6 +722,8 @@ impl Default for StrandCamArgs {
             #[cfg(target_os = "linux")]
             v4l2loopback: None,
             data_dir: Default::default(),
+            #[cfg(feature = "eframe-gui")]
+            windowed: Default::default(),
         }
     }
 }
@@ -1057,6 +1061,8 @@ where
             egui_ctx_rx,
         });
 
+        let windowed = args.windowed;
+
         // Move tokio runtime to new thread to keep GUI event loop on initial thread.
         let tokio_thread_jh = std::thread::Builder::new()
             .name("tokio-thread".to_string())
@@ -1077,7 +1083,7 @@ where
 
         let native_options = eframe::NativeOptions {
             window_builder: Some(Box::new(move |mut vb| {
-                vb.fullscreen = None;
+                vb.fullscreen = Some(!windowed.unwrap_or(false));
                 vb
             })),
             ..Default::default()

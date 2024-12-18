@@ -124,39 +124,40 @@ impl eframe::App for StrandCamEguiApp {
         };
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::warn_if_debug_build(ui);
-            ui.heading("Strand Camera");
+            egui::ScrollArea::both().show(ui, |ui| {
+                egui::warn_if_debug_build(ui);
+                ui.heading("Strand Camera");
 
-            if let Some(tex) = self.screen_texture.as_ref() {
-                ui.add(egui::Image::new(tex).shrink_to_fit());
-            }
-
-            if do_exit {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-
-            {
-                if ui.button("Quit").clicked() {
-                    // Ignore only possible error of SendError which we could
-                    // get if the receiver hung up.
-                    let _ = cmd_tx.blocking_send(());
+                if do_exit {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    // frame.close();
                 }
 
-                match url_string {
-                    Some(mut url) => {
-                        ui.label("URL");
-                        ui.text_edit_singleline(&mut url);
-                    }
-                    None => {
-                        ui.label("waiting for GUI");
-                    }
+                if let Some(tex) = self.screen_texture.as_ref() {
+                    ui.add(egui::Image::new(tex).shrink_to_fit());
                 }
 
-                ui.label(version_string.as_str());
-            }
-            egui::warn_if_debug_build(ui);
+                {
+                    if ui.button("Quit").clicked() {
+                        // Ignore only possible error of SendError which we could
+                        // get if the receiver hung up.
+                        let _ = cmd_tx.blocking_send(());
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        // frame.close();
+                    }
+
+                    match url_string {
+                        Some(mut url) => {
+                            ui.label("URL");
+                            ui.text_edit_singleline(&mut url);
+                        }
+                        None => {
+                            ui.label("waiting for GUI");
+                        }
+                    }
+
+                    ui.label(version_string.as_str());
+                }
+            });
         });
     }
 }
