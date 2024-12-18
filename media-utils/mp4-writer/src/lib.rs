@@ -150,6 +150,8 @@ where
 {
     inner: Option<WriteState<'lib, T>>,
     nv_enc: Option<nvenc::NvEnc<'lib>>,
+    first_sps: Option<Vec<u8>>,
+    first_pps: Option<Vec<u8>>,
 }
 
 impl<'lib, T> Mp4Writer<'lib, T>
@@ -165,7 +167,14 @@ where
         Ok(Self {
             inner: Some(WriteState::Configured(Box::new((fd, config, h264_parser)))),
             nv_enc,
+            first_sps: None,
+            first_pps: None,
         })
+    }
+
+    pub fn set_first_sps_pps(&mut self, first_sps: Option<Vec<u8>>, first_pps: Option<Vec<u8>>) {
+        self.first_sps = first_sps;
+        self.first_pps = first_pps;
     }
 
     /// Low-level writer which saves a buffer which is already h264 encoded.
@@ -234,19 +243,26 @@ where
                 } else {
                     h264_parser.push_nals(sample, None);
                 }
-                let mp4_writer = start_mp4_writer(
-                    fd,
+
+                let sps = if let Some(sps) = self.first_sps.as_ref() {
+                    sps
+                } else {
                     h264_parser
                         .sps
                         .as_ref()
-                        .ok_or(Error::RequiredH264DataNotFound {})?,
+                        .ok_or(Error::RequiredH264DataNotFound {})?
+                };
+
+                let pps = if let Some(pps) = self.first_pps.as_ref() {
+                    pps
+                } else {
                     h264_parser
                         .pps
                         .as_ref()
-                        .ok_or(Error::RequiredH264DataNotFound {})?,
-                    width,
-                    height,
-                )?;
+                        .ok_or(Error::RequiredH264DataNotFound {})?
+                };
+
+                let mp4_writer = start_mp4_writer(fd, sps, pps, width, height)?;
                 let mp4_segment = MaybeMp4Writer::Mp4Writer(mp4_writer);
                 let my_encoder = MyEncoder::CopyRawH264 {
                     h264_parser: h264_parser.clone(),

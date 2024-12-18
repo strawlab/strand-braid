@@ -33,6 +33,8 @@ pub enum Mp4SourceError {
 pub struct Mp4Source {
     mp4_reader: mp4::Mp4Reader<Box<dyn SeekRead + Send>>,
     nal_locations: Vec<Mp4NalLocation>,
+    first_sps: Vec<u8>,
+    first_pps: Vec<u8>,
 }
 
 impl SeekableH264Source for Mp4Source {
@@ -54,6 +56,12 @@ impl SeekableH264Source for Mp4Source {
         } else {
             Err(Mp4SourceError::SampleDisappeared.into())
         }
+    }
+    fn first_sps(&self) -> Option<Vec<u8>> {
+        Some(self.first_sps.clone())
+    }
+    fn first_pps(&self) -> Option<Vec<u8>> {
+        Some(self.first_pps.clone())
     }
 }
 
@@ -110,6 +118,8 @@ pub(crate) fn from_reader_with_timestamp_source(
     let seekable_h264_source = Mp4Source {
         mp4_reader,
         nal_locations,
+        first_sps: data_from_mp4_track.sequence_parameter_set.clone(),
+        first_pps: data_from_mp4_track.picture_parameter_set.clone(),
     };
 
     let h264_source = H264Source::from_seekable_h264_source_with_timestamp_source(

@@ -101,9 +101,9 @@ pub enum Error {
     SerdeJsonError(#[from] serde_json::Error),
     #[error("{0}")]
     MkvStrandError(#[from] mkv_strand_reader::Error),
-    #[error("{0}")]
+    #[error("OpenH264Error: {0}")]
     OpenH264Error(#[from] openh264::Error),
-    #[error("{0}")]
+    #[error("Mp4Error: {0}")]
     Mp4Error(#[from] mp4::Error),
 }
 

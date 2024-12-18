@@ -110,6 +110,12 @@ pub struct H264Source<H: SeekableH264Source> {
     srt_data: Option<SrtData>,
 }
 
+impl<H: SeekableH264Source> H264Source<H> {
+    pub fn as_seekable_h264_source(&self) -> &H {
+        &self.seekable_h264_source
+    }
+}
+
 /// Timing information for a frame of video.
 pub struct FrameTimeInfo {
     /// The NAL unit location.
@@ -208,6 +214,11 @@ pub trait SeekableH264Source {
         }
         Ok(result)
     }
+
+    /// Return the first SPS
+    fn first_sps(&self) -> Option<Vec<u8>>;
+    /// Return the first PPS
+    fn first_pps(&self) -> Option<Vec<u8>>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -247,6 +258,13 @@ impl SeekableH264Source for H264AnnexBSource {
         let mut buf = vec![0u8; location.sz];
         self.inner.read_exact(&mut buf)?;
         Ok(vec![buf])
+    }
+
+    fn first_sps(&self) -> Option<Vec<u8>> {
+        None
+    }
+    fn first_pps(&self) -> Option<Vec<u8>> {
+        None
     }
 }
 
@@ -745,7 +763,9 @@ impl<'a> UserDataUnregistered<'a> {
             )));
         }
         if msg.payload.len() < 16 {
-            return Err(Error::UduError("SEI payload too short to contain UserDataUnregistered message".to_string()));
+            return Err(Error::UduError(
+                "SEI payload too short to contain UserDataUnregistered message".to_string(),
+            ));
         }
         let uuid = (&msg.payload[0..16]).try_into().unwrap();
 
