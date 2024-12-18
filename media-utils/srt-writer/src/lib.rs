@@ -49,32 +49,33 @@ impl SrtWriter {
         self.wtr.flush()
     }
 
-    pub fn into_inner(self) -> Result<Box<dyn Write>> {
-        Ok(self.wtr)
+    pub fn close(mut self) -> Result<()> {
+        self.wtr.flush()
     }
 }
 
 /// A buffering [SrtWriter] which is meant to be called for every frame.
 ///
-/// This buffers values from each frame so that it can calculate start and stop
-/// times for each frames. The first write thus only stores the buffer, and the
-/// buffer is written upon [Self::drop].
+/// This buffers values from each frame until the next frame. In this way, it
+/// can calculate start and stop times for each frame. The first call to
+/// [Self::add_frame] thus only stores the buffer, and the buffered value is
+/// written upon [Self::close] or [Self::drop].
 pub struct BufferingSrtFrameWriter {
-    wtr: SrtWriter,
+    srt_wtr: SrtWriter,
     prev: Option<(Duration, String)>,
 }
 
 impl BufferingSrtFrameWriter {
     pub fn new(wtr: Box<dyn Write>) -> Self {
         Self {
-            wtr: SrtWriter::new(wtr),
+            srt_wtr: SrtWriter::new(wtr),
             prev: None,
         }
     }
     pub fn add_frame(&mut self, pts: Duration, val: String) -> Result<()> {
         if let Some((prev_pts, prev_value)) = self.prev.take() {
             // write buffered value
-            self.wtr.append(prev_pts, pts, &prev_value).unwrap()
+            self.srt_wtr.append(prev_pts, pts, &prev_value).unwrap()
         }
         // store current value
         self.prev = Some((pts, val));
@@ -86,17 +87,40 @@ impl BufferingSrtFrameWriter {
     /// Note that this does not flush the currently buffered value, as that
     /// would require creating a new timestamp.
     pub fn flush(&mut self) -> Result<()> {
-        self.wtr.flush()
+        self.srt_wtr.flush()
+    }
+
+    pub fn close(mut self) -> Result<()> {
+        self.end_with_fake_timestamp()?;
+        // Ensure no further frames are appended by dropping self.
+        Ok(())
+    }
+
+    /// End the file (private method)
+    ///
+    /// As this adds a fake timestamp, we do want to drop self so that we do not
+    /// continue appending timestamps after the bad one. This fake timestamp
+    /// should be only the final timestamp and not in the middle of the file.
+    ///
+    /// The caller must ensure that no further frames are appended, e.g. by
+    /// dropping this instance of Self.
+    fn end_with_fake_timestamp(&mut self) -> Result<()> {
+        if let Some((pts, value)) = self.prev.take() {
+            // invent timestamp in the future
+            let future_pts = pts + Duration::from_secs(1);
+            self.srt_wtr.append(pts, future_pts, &value)?;
+        }
+        // As simply dropping self.srt_wtr will not flush it, we must manually do
+        // it.
+        self.srt_wtr.flush()?;
+        Ok(())
     }
 }
 
 impl Drop for BufferingSrtFrameWriter {
     fn drop(&mut self) {
-        if let Some((pts, value)) = self.prev.take() {
-            // invent timestamp in the future
-            let future_pts = pts + Duration::from_secs(1);
-            self.wtr.append(pts, future_pts, &value).unwrap()
-        }
-        self.wtr.flush().unwrap()
+        self.end_with_fake_timestamp().unwrap();
+        // We ensure no further frames are appended because we are in drop()
+        // here.
     }
 }

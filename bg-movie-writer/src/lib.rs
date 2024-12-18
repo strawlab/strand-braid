@@ -23,6 +23,8 @@ pub enum Error {
     Mp4WriterError(#[from] mp4_writer::Error),
     #[error("WorkerDisconnected")]
     WorkerDisconnected,
+    #[error("AlreadyClosed")]
+    AlreadyClosed,
     #[error(transparent)]
     RecvError(#[from] std::sync::mpsc::RecvError),
     #[error("already done")]
@@ -161,8 +163,10 @@ where
 }
 
 struct MyFfmpegWriter {
-    fwtr: ffmpeg_writer::FfmpegWriter,
-    swtr: srt_writer::BufferingSrtFrameWriter,
+    wtrs: Option<(
+        ffmpeg_writer::FfmpegWriter,
+        srt_writer::BufferingSrtFrameWriter,
+    )>,
     count: usize,
 }
 
@@ -201,11 +205,15 @@ impl MyFfmpegWriter {
         let fwtr = ffmpeg_writer::FfmpegWriter::new(mp4_filename, Some(ffmpeg_codec_args), rate)?;
         let out_fd = std::fs::File::create(&srt_filename)?;
         let swtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(out_fd));
-        Ok(Self {
-            fwtr,
-            swtr,
-            count: 0,
-        })
+        let wtrs = Some((fwtr, swtr));
+        Ok(Self { wtrs, count: 0 })
+    }
+    fn finish(&mut self) -> Result<()> {
+        if let Some((fwtr, swtr)) = self.wtrs.take() {
+            fwtr.close()?;
+            swtr.close()?;
+        }
+        Ok(())
     }
     fn write<IM, FMT>(
         &mut self,
@@ -216,15 +224,20 @@ impl MyFfmpegWriter {
         IM: ImageStride<FMT>,
         FMT: PixelFormat,
     {
-        let mp4_pts = self.fwtr.write_frame(frame)?;
+        let (fwtr, swtr) = if let Some(wtrs) = self.wtrs.as_mut() {
+            wtrs
+        } else {
+            return Err(Error::AlreadyClosed);
+        };
+        let mp4_pts = fwtr.write_frame(frame)?;
 
         let msg = SrtMsg { timestamp };
         let msg = serde_json::to_string(&msg).unwrap();
 
         self.count += 1;
 
-        self.swtr.add_frame(mp4_pts, msg)?;
-        self.swtr.flush()?;
+        swtr.add_frame(mp4_pts, msg)?;
+        swtr.flush()?;
         Ok(())
     }
 }
@@ -353,9 +366,11 @@ fn launch_runner(
                 Msg::Finish => {
                     match &mut raw {
                         RawWriter::Mp4Writer(ref mut mp4_writer) => {
-                            thread_try!(err_tx, mp4_writer.finish());
+                            thread_try!(err_tx, mp4_writer.finish())
                         }
-                        RawWriter::FfmpegWriter(_) => {}
+                        RawWriter::FfmpegWriter(ffmpeg_wtr) => {
+                            thread_try!(err_tx, ffmpeg_wtr.finish())
+                        }
                         RawWriter::None => {
                             panic!("")
                         }
