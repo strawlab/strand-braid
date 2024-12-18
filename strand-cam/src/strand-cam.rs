@@ -2688,12 +2688,12 @@ where
                         if is_recording_mp4 != do_recording {
                             // Compute new values.
                             let msg = if do_recording {
-                                info!("Start MP4 recording");
+                                info!("Starting MP4 recording.");
 
                                 // change state
                                 Msg::StartMp4
                             } else {
-                                info!("Stopping MP4 recording");
+                                info!("Stopping MP4 recording.");
                                 Msg::StopMp4
                             };
 
