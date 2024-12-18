@@ -75,14 +75,28 @@ impl From<CalibrationInfo> for CalibrationSummary {
 pub struct CameraSummary {
     pub name: String,
     pub camera_center: (f64, f64, f64),
+    pub fx: f64,
+    pub fy: f64,
+    pub distortion: Option<Vec<f64>>,
 }
 
 impl CameraSummary {
     pub fn new(name: &str, cam: &mvg::Camera<f64>) -> Self {
         let cc = cam.extrinsics().camcenter();
+        let fx = cam.intrinsics().fx();
+        let fy = cam.intrinsics().fy();
+        let d = &cam.intrinsics().distortion;
+        let distortion = if d.is_linear() {
+            None
+        } else {
+            Some(d.opencv_vec().iter().map(Clone::clone).collect())
+        };
         Self {
             name: name.into(),
             camera_center: (cc[0], cc[1], cc[2]),
+            distortion,
+            fx,
+            fy,
         }
     }
 }

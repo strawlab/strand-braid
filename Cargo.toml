@@ -207,7 +207,7 @@ ncollide2d = { package = "ncollide2d-updated", version = "0.36.3" }
 ncollide3d = { package = "ncollide3d-updated", version = "0.36.3" }
 num-iter = "0.1"
 num-traits = "0.2"
-opencv-ros-camera = { version = "0.15.0", features = ["serde-serialize"] }
+opencv-ros-camera = { version = "0.15.1", features = ["serde-serialize"] }
 openh264 = "0.6.0"
 ordered-float = { version = "3.4", features = ["serde"] }
 parking_lot = "0.12"
