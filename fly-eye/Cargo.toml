@@ -25,7 +25,7 @@ ci2.workspace = true
 ci2-pyloncxx = { workspace = true, optional = true }
 
 [features]
-default = ["fly-eye"]
+default = ["backend_pyloncxx", "fly-eye"]
 
 fly-eye = []
 screen-quad = []

@@ -23,7 +23,7 @@ pylon-cxx = { version = "0.4.0", optional = true }
 ci2-vimba = { path = "../ci2-vimba", optional = true }
 
 [features]
-default = []
+default = ["backend_pyloncxx"]
 
 # Backend choice
 backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-cxx"]

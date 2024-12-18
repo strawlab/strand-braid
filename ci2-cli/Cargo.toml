@@ -22,7 +22,7 @@ ci2 = { path = "../ci2" }
 ci2-pyloncxx = { path = "../ci2-pyloncxx", optional = true }
 
 [features]
-default = []
+default = ["backend_pyloncxx"]
 
 # Backend choice
 backend_pyloncxx = ["ci2-pyloncxx"]
