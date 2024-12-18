@@ -11,6 +11,6 @@ eyre.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 
-env-tracing-logger = { path = "../../env-tracing-logger" }
-frame-source = { path = "../frame-source" }
-srt-writer = { path = "../srt-writer" }
+env-tracing-logger.workspace = true
+frame-source.workspace = true
+srt-writer.workspace = true

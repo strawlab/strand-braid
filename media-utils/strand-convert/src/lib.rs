@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::{Parser, ValueEnum};
-use eyre::{self as anyhow, WrapErr, Result};
+use eyre::{self as anyhow, Result, WrapErr};
 
 use indicatif::{HumanBytes, HumanDuration, ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
@@ -559,7 +559,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 .iter()
                 .take(N_FRAMES_TO_COMPUTE_FPS)
                 .map(|frame_data| frame_data.map(|x| x.timestamp().unwrap_duration()))
-                .collect::<Result<Vec<Duration>>>()?;
+                .collect::<frame_source::Result<Vec<Duration>>>()?;
             if timestamps.len() <= 1 {
                 // at most only a single frame, so interval does not matter.
                 Duration::from_nanos(1_000_000)
@@ -694,7 +694,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     if let Some(take) = cli.take {
         tracing::info!("  limiting to {} input images", take);
-        stack_iter = Box::new(stack_iter.take(take)) as Box<dyn Iterator<Item = Result<FrameData>>>;
+        stack_iter = Box::new(stack_iter.take(take))
+            as Box<dyn Iterator<Item = frame_source::Result<FrameData>>>;
     };
 
     let mut stack_iter = stack_iter.peekable();

@@ -9,7 +9,7 @@ use timestamped_frame::ExtraTimeData;
 ///
 /// There is no braidz source of truth in this case.
 pub(crate) struct SyncedIter {
-    frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
+    frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
@@ -20,7 +20,7 @@ pub(crate) struct SyncedIter {
 
 impl SyncedIter {
     pub(crate) fn new(
-        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
+        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
     ) -> Result<Self> {
@@ -75,7 +75,7 @@ impl Iterator for SyncedIter {
 
         let mut stamps = Vec::with_capacity(self.frame_readers.len());
 
-        let camera_pictures: Vec<Result<crate::OutTimepointPerCamera>> = self
+        let camera_pictures: Vec<frame_source::Result<crate::OutTimepointPerCamera>> = self
             .frame_readers
             .iter_mut()
             .filter_map(|frame_reader| {
@@ -146,13 +146,13 @@ impl Iterator for SyncedIter {
             .unwrap_or_else(|| self.previous_max + self.frame_duration);
 
         if have_more_data {
-            let camera_pictures: Result<Vec<crate::OutTimepointPerCamera>> =
+            let camera_pictures: frame_source::Result<Vec<crate::OutTimepointPerCamera>> =
                 camera_pictures.into_iter().collect();
 
             let camera_pictures = match camera_pictures {
                 Ok(cp) => cp,
                 Err(e) => {
-                    return Some(Err(e));
+                    return Some(Err(e.into()));
                 }
             };
 

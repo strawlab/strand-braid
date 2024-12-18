@@ -1,11 +1,11 @@
 use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
 
-use crate::{h264_source::SeekRead, FrameDataSource};
+use crate::{h264_source::SeekRead, FrameDataSource, Result};
 use ci2_remote_control::Mp4RecordingConfig;
 
 #[test]
-fn test_h264_precision_timestamps() -> eyre::Result<()> {
+fn test_h264_precision_timestamps() -> Result<()> {
     let start: DateTime<Utc> = DateTime::from_timestamp(60 * 60, 0).unwrap();
 
     let dt_msec = 5;
@@ -23,26 +23,21 @@ fn test_h264_precision_timestamps() -> eyre::Result<()> {
     let mut ptss = Vec::new();
     {
         let mut my_mp4_writer =
-            mp4_writer::Mp4Writer::new(std::io::Cursor::new(&mut mp4_buf), cfg, None)?;
+            mp4_writer::Mp4Writer::new(std::io::Cursor::new(&mut mp4_buf), cfg, None).unwrap();
 
         const STRIDE: usize = W as usize * 3;
         let image_data = vec![0u8; STRIDE * H as usize];
 
-        let frame = machine_vision_formats::owned::OImage::<RGB8>::new(
-            W,
-            H,
-            STRIDE.try_into().unwrap(),
-            image_data,
-        )
-        .unwrap();
+        let frame =
+            machine_vision_formats::owned::OImage::<RGB8>::new(W, H, STRIDE, image_data).unwrap();
 
         for fno in 0..=1000 {
             let pts = Duration::try_milliseconds(fno * dt_msec).unwrap();
             let ts = start + pts;
             ptss.push(pts.to_std().unwrap());
-            my_mp4_writer.write(&frame, ts)?;
+            my_mp4_writer.write(&frame, ts).unwrap();
         }
-        my_mp4_writer.finish()?;
+        my_mp4_writer.finish().unwrap();
     }
 
     let size = mp4_buf.len() as u64;

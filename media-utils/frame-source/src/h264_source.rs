@@ -5,7 +5,6 @@ use std::{
 };
 
 use chrono::{DateTime, FixedOffset, Utc};
-use eyre::{self as anyhow, WrapErr};
 use h264_reader::{
     nal::{
         sei::{HeaderType, SeiMessage, SeiReader},
@@ -22,8 +21,8 @@ use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION
 use crate::{
     ntp_timestamp::NtpTimestamp,
     srt_reader::{self, Stanza},
-    EncodedH264, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr, Result,
-    Timestamp, TimestampSource,
+    EncodedH264, Error, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr,
+    Result, Timestamp, TimestampSource,
 };
 
 struct SrtData {
@@ -151,7 +150,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 {
-            anyhow::bail!("Skipping frames with H264 file is not supported.");
+            return Err(Error::SkippingFramesNotSupported);
             // Doing so would require finding I frames and only skipping to
             // those (or decoding and interpolating a new I frame).
             // Also: caching SPS and PPS would be required.
@@ -161,7 +160,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
         Ok(())
     }
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
-        anyhow::bail!("h264 luminance scanning not implemented");
+        Err(Error::NotImplemented("h264 luminance scanning"))
     }
     fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         let openh264_decoder_state = if self.do_decode_h264 {
@@ -275,7 +274,7 @@ where
 
         // open SRT file
         if timestamp_source == crate::TimestampSource::SrtFile && srt_file_path.is_none() {
-            eyre::bail!("Requested SRT file as timestamp source, but no .srt file path given.");
+            return Err(Error::NoSrtPathGiven);
         }
 
         let srt_data = if let Some(srt_file_path) = srt_file_path {
@@ -310,7 +309,7 @@ where
                 // SPS
                 let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
                 if sps_nal.header().unwrap().nal_unit_type() != UnitType::SeqParameterSet {
-                    anyhow::bail!("expected SPS NAL");
+                    return Err(Error::ExpectedSpsNotFound);
                 }
 
                 let isps =
@@ -322,7 +321,7 @@ where
                 // PPS
                 let pps_nal = RefNal::new(&dfc.picture_parameter_set, &[], true);
                 if pps_nal.header().unwrap().nal_unit_type() != UnitType::PicParameterSet {
-                    anyhow::bail!("expected PPS NAL");
+                    return Err(Error::ExpectedPpsNotFound);
                 }
 
                 let ipps = h264_reader::nal::pps::PicParameterSet::from_bits(
@@ -371,14 +370,14 @@ where
                                                     let md: H264Metadata =
                                                         serde_json::from_slice(udu.payload)?;
                                                     if md.version != H264_METADATA_VERSION {
-                                                        anyhow::bail!(
-                                                            "unexpected version in h264 metadata"
-                                                        );
+                                                        return Err(Error::H264Error(
+                                                            "unexpected version in h264 metadata",
+                                                        ));
                                                     }
                                                     if h264_metadata.is_some() {
-                                                        anyhow::bail!(
+                                                        return Err(Error::H264Error(
                                                             "multiple SEI messages, but expected exactly one"
-                                                        );
+                                                        ));
                                                     }
 
                                                     tz_offset = Some(*md.creation_time.offset());
@@ -386,10 +385,7 @@ where
                                                 }
                                                 b"MISPmicrosectime" => {
                                                     let precision_time =
-                                                        parse_precision_time(udu.payload)
-                                                            .with_context(|| {
-                                                                "Parsing precision time stamp"
-                                                            })?;
+                                                        parse_precision_time(udu.payload)?;
                                                     precise_timestamp = Some(precision_time);
                                                     if next_frame_num == 0 {
                                                         frame0_precision_time =
@@ -430,9 +426,10 @@ where
                                     // X.
                                 }
                                 Err(e) => {
-                                    anyhow::bail!(
-                                        "unexpected error reading NAL unit {nal_location_index} SEI: {e:?}"
-                                    );
+                                    return Err(Error::H264Nal {
+                                        nal_location_index,
+                                        e,
+                                    });
                                 }
                             }
                         }
@@ -458,7 +455,7 @@ where
                                 // https://github.com/dholroyd/h264-reader/issues/56
                             }
                             Err(e) => {
-                                anyhow::bail!("reading PPS: {e:?}");
+                                return Err(Error::H264Pps(format!("reading PPS: {e:?}")));
                             }
                         }
                     }
@@ -488,8 +485,7 @@ where
             }
         }
 
-        let (width, height) =
-            widthheight.ok_or_else(|| anyhow::anyhow!("expected SPS not found"))?;
+        let (width, height) = widthheight.ok_or_else(|| crate::Error::ExpectedSpsNotFound)?;
 
         let timezone = tz_offset.unwrap_or_else(|| chrono::FixedOffset::east_opt(0).unwrap());
 
@@ -511,25 +507,24 @@ where
             }
             crate::TimestampSource::FrameInfoRecvTime => {
                 if frame0_frameinfo_recv_ntp.is_none() {
-                    anyhow::bail!(
-                        "Requested timestamp source {timestamp_source:?}, but FrameInfo not present."
-                    );
+                    return Err(Error::H264TimestampError(format!(
+                        "Requested timestamp source {timestamp_source:?}, but FrameInfo not present.")));
                 }
                 (Some(timestamp_source), true)
             }
             crate::TimestampSource::MispMicrosectime => {
                 if frame0_precision_time.is_none() {
-                    anyhow::bail!(
+                    return Err(Error::H264TimestampError(format!(
                         "Requested timestamp source {timestamp_source:?}, but timestamp not present."
-                    );
+                    )));
                 }
                 (Some(timestamp_source), true)
             }
             crate::TimestampSource::Mp4Pts => {
                 if mp4_pts.is_none() {
-                    anyhow::bail!(
+                    return Err(Error::H264TimestampError(format!(
                         "Requested timestamp source {timestamp_source:?}, but MP4 PTS not present."
-                    );
+                    )));
                 }
                 (Some(timestamp_source), true)
             }
@@ -538,11 +533,11 @@ where
 
         if let Some(mp4_pts) = mp4_pts.as_ref() {
             if mp4_pts.len() != frame_time_info.len() {
-                anyhow::bail!(
+                return Err(Error::H264TimestampError(format!(
                     "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
                     mp4_pts.len(),
                     frame_time_info.len()
-                );
+                )));
             }
         }
 
@@ -676,9 +671,7 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
                             idx,
                         })
                     }
-                    Ok(None) => Err(anyhow::anyhow!(
-                        "decoder unexpectedly did not return image data"
-                    )),
+                    Ok(None) => Err(crate::Error::DecoderDidNotReturnImageData),
                     Err(decode_err) => Err(decode_err.into()),
                 }
             } else {
@@ -712,8 +705,7 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<H264AnnexBSource>> {
-    let rdr = std::fs::File::open(path.as_ref())
-        .with_context(|| format!("Opening {}", path.as_ref().display()))?;
+    let rdr = std::fs::File::open(path.as_ref())?;
     let seekable_h264_source = H264AnnexBSource::from_file(rdr)?;
     from_annexb_reader_with_timestamp_source(
         seekable_h264_source,
@@ -721,7 +713,6 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
         timestamp_source,
         srt_file_path,
     )
-    .with_context(|| format!("Reading H264 file {}", path.as_ref().display()))
 }
 
 fn from_annexb_reader_with_timestamp_source(
@@ -748,13 +739,13 @@ pub(crate) struct UserDataUnregistered<'a> {
 impl<'a> UserDataUnregistered<'a> {
     pub fn read(msg: &SeiMessage<'a>) -> Result<UserDataUnregistered<'a>> {
         if msg.payload_type != HeaderType::UserDataUnregistered {
-            anyhow::bail!(
+            return Err(Error::UduError(format!(
                 "expected UserDataUnregistered message, found {:?}",
                 msg.payload_type
-            );
+            )));
         }
         if msg.payload.len() < 16 {
-            anyhow::bail!("SEI payload too short to contain UserDataUnregistered message");
+            return Err(Error::UduError("SEI payload too short to contain UserDataUnregistered message".to_string()));
         }
         let uuid = (&msg.payload[0..16]).try_into().unwrap();
 
@@ -765,7 +756,7 @@ impl<'a> UserDataUnregistered<'a> {
 
 pub(crate) fn parse_precision_time(payload: &[u8]) -> Result<chrono::DateTime<chrono::Utc>> {
     if payload.len() != 12 {
-        anyhow::bail!("unexpected payload length");
+        return Err(Error::UnexpectedPayloadLength);
     }
 
     // // Time Stamp Status byte from MISB Standard 0603.
@@ -783,7 +774,7 @@ pub(crate) fn parse_precision_time(payload: &[u8]) -> Result<chrono::DateTime<ch
     let mut precision_time_stamp_bytes = [0u8; 8];
     for i in &[3, 6, 9] {
         if payload[*i] != 0xFF {
-            anyhow::bail!("unexpected start code emulation prevention byte");
+            return Err(Error::UnexpectedStartCodeByte);
         }
     }
     precision_time_stamp_bytes[0..2].copy_from_slice(&payload[1..3]);
@@ -835,7 +826,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn parse_h264() -> eyre::Result<()> {
+    fn parse_h264() -> Result<()> {
         {
             let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
             let cursor = std::io::Cursor::new(file_buf);

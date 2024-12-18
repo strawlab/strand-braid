@@ -190,7 +190,7 @@ impl Iterator for BraidArchiveNoVideoData {
 
 struct BraidArchivePerCam<'a> {
     cam_name: String,
-    frame_reader: Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>,
+    frame_reader: Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
 }
@@ -218,7 +218,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
         camera_names: &[&str],
-        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
+        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
         sync_threshold: chrono::Duration,
     ) -> Result<Self> {
         assert_eq!(camera_names.len(), frame_readers.len());
@@ -358,7 +358,7 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
             let mut trigger_timestamp = None;
 
             // Iterate across all input mp4 cameras.
-            let camera_pictures: Vec<Result<crate::OutTimepointPerCamera>> = self
+            let camera_pictures: Vec<frame_source::Result<crate::OutTimepointPerCamera>> = self
                 .per_cam
                 .iter_mut()
                 .map(|this_cam| {
@@ -475,13 +475,13 @@ impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
                 kalman_estimates,
             });
 
-            let camera_pictures: Result<Vec<crate::OutTimepointPerCamera>> =
+            let camera_pictures: frame_source::Result<Vec<crate::OutTimepointPerCamera>> =
                 camera_pictures.into_iter().collect();
 
             let camera_pictures = match camera_pictures {
                 Ok(cp) => cp,
                 Err(e) => {
-                    return Some(Err(e));
+                    return Some(Err(e.into()));
                 }
             };
 

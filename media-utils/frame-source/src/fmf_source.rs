@@ -1,5 +1,4 @@
-use crate::{FrameData, FrameDataSource, ImageData, Timestamp};
-use eyre::{self as anyhow, Result, WrapErr};
+use crate::{FrameData, FrameDataSource, ImageData, Result, Timestamp};
 use fmf::reader::FMFReader;
 use std::path::Path;
 use timestamped_frame::ExtraTimeData;
@@ -11,12 +10,7 @@ struct FmfSourceIter {
 }
 impl FmfSourceIter {
     fn new(parent: &FmfSource) -> Result<Self> {
-        let mut rdr = FMFReader::new(&parent.filename).with_context(|| {
-            anyhow::anyhow!(
-                "Error from FMFReader opening '{}'",
-                parent.filename.display()
-            )
-        })?;
+        let mut rdr = FMFReader::new(&parent.filename)?;
         let frame0_time_utc = parent.frame0_time_utc;
         for _ in 0..parent.skip_frames {
             rdr.next();
@@ -48,7 +42,7 @@ impl Iterator for FmfSourceIter {
                     idx,
                 })
             }
-            Err(e) => Err(anyhow::Error::from(e)),
+            Err(e) => Err(e.into()),
         })
     }
 }
@@ -82,9 +76,7 @@ impl FrameDataSource for FmfSource {
         if n_frames == 0 {
             return Ok(());
         }
-        let mut rdr = FMFReader::new(&self.filename).with_context(|| {
-            anyhow::anyhow!("Error from FMFReader opening '{}'", self.filename.display())
-        })?;
+        let mut rdr = FMFReader::new(&self.filename)?;
 
         let mut frame = None;
         for _ in 0..n_frames {
@@ -92,13 +84,8 @@ impl FrameDataSource for FmfSource {
         }
 
         let frame = frame
-            .map(|f| f.map_err(anyhow::Error::from))
-            .unwrap_or_else(|| {
-                anyhow::bail!(
-                    "fmf file without {n_frames} of data '{}'",
-                    self.filename.display()
-                )
-            })?;
+            .map(|f| f.map_err(Into::into))
+            .unwrap_or_else(|| Err(crate::Error::FmfWithNotEnoughData))?;
 
         let frame_time_utc = frame.extra().host_timestamp();
         let duration = frame_time_utc - self.frame0_time_utc;
@@ -111,7 +98,7 @@ impl FrameDataSource for FmfSource {
     }
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         // FMF reader does not support seek because we may read .gz files.
-        anyhow::bail!("estimating luminance range not supported for FMF source.");
+        Err(crate::Error::UnsupportedForEsimatingLuminangeRange)
     }
     fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>>> {
         Box::new(FmfSourceIter::new(self).unwrap())
@@ -127,15 +114,13 @@ impl FrameDataSource for FmfSource {
 impl FmfSource {
     fn new<P: AsRef<std::path::Path>>(filename: P) -> Result<Self> {
         let filename = filename.as_ref().to_path_buf();
-        let mut rdr = FMFReader::new(&filename).with_context(|| {
-            anyhow::anyhow!("Error from FMFReader opening '{}'", filename.display())
-        })?;
+        let mut rdr = FMFReader::new(&filename)?;
         let width = rdr.width();
         let height = rdr.height();
         let frame0 = rdr
             .next()
-            .map(|f| f.map_err(anyhow::Error::from))
-            .unwrap_or_else(|| anyhow::bail!("fmf file with no data '{}'", filename.display()))?;
+            .map(|f| f.map_err(crate::Error::from))
+            .unwrap_or_else(|| Err(crate::Error::FmfWithNotEnoughData))?;
 
         let frame0_time_utc = frame0.extra().host_timestamp();
         let frame0_time = mkv_strand_reader::infer_timezone(&frame0_time_utc, filename.to_str())?;
@@ -153,5 +138,5 @@ impl FmfSource {
 
 pub fn from_path<P: AsRef<Path>>(path: P) -> Result<FmfSource> {
     let filename = path.as_ref();
-    FmfSource::new(filename).with_context(|| format!("Reading FMF file {}", filename.display()))
+    FmfSource::new(filename)
 }

@@ -1,8 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 use std::path::PathBuf;
 
-use eyre::{self as anyhow, Result};
-
 use basic_frame::DynamicFrame;
 
 pub mod pv_tiff_stack;
@@ -17,6 +15,99 @@ pub mod strand_cam_mkv_source;
 mod ntp_timestamp;
 #[cfg(test)]
 mod test_timestamps;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("SRT parse error")]
+    SrtParseError,
+    #[error("decoder unexpectedly did not return image data")]
+    DecoderDidNotReturnImageData,
+    #[error("expected SPS not found")]
+    ExpectedSpsNotFound,
+    #[error("expected PPS not found")]
+    ExpectedPpsNotFound,
+    #[error("fmf file with not enough data")]
+    FmfWithNotEnoughData,
+    #[error("JSON parse error")]
+    JsonParseError,
+    #[error("expected tiff image")]
+    ExpectedTiffImage,
+    #[error("no files found with pattern")]
+    NoFilesFound,
+    #[error("unsupported for estimating luminance range")]
+    UnsupportedForEsimatingLuminangeRange,
+    #[error("imagej data expected to be bytes")]
+    ImageJDataExpectedToBeBytes,
+    #[error("failed to read metadata")]
+    FailedToReadMetadata,
+    #[error("exif metadata does not start with expected magic string")]
+    ExifMetadataFailsMagic,
+    #[error("Skipping frames with H264 file is not supported.")]
+    SkippingFramesNotSupported,
+    #[error("Not implemented: {0}")]
+    NotImplemented(&'static str),
+    #[error("Requested SRT file as timestamp source, but no .srt file path given.")]
+    NoSrtPathGiven,
+    #[error("H264Error: {0}")]
+    H264Error(&'static str),
+    #[error("unexpected error reading NAL unit {nal_location_index} SEI: {e:?}")]
+    H264Nal {
+        nal_location_index: usize,
+        e: h264_reader::rbsp::BitReaderError,
+    },
+    #[error("PPS error {0}")]
+    H264Pps(String),
+    #[error("H264 timestamp error {0}")]
+    H264TimestampError(String),
+    #[error("H264 UDU error {0}")]
+    UduError(String),
+    #[error("unexpected payload length")]
+    UnexpectedPayloadLength,
+    #[error("unexpected start code emulation prevention byte")]
+    UnexpectedStartCodeByte,
+    #[error("MP4 source error: {0}")]
+    Mp4SourceError(#[from] mp4_source::Mp4SourceError),
+    #[error("strand camera MKV source error: {0}")]
+    StrandMkvSourceError(#[from] strand_cam_mkv_source::StrandMkvSourceError),
+    #[error("srt file given, but not supported for this file type")]
+    NoSrtSupportForFileType,
+    #[error("input {0} is a file, but the extension was not recognized.")]
+    UnknownExtensionForFile(PathBuf),
+    #[error("Attempting to open \"{0}\" as directory with TIFF stack failed because it is not a directory.")]
+    TiffStackNotDir(PathBuf),
+    #[error("{0}")]
+    FmfError(#[from] fmf::FMFError),
+    #[error("{0}")]
+    PatternError(#[from] glob::PatternError),
+    #[error("{0}")]
+    GlobError(#[from] glob::GlobError),
+    #[error("{0}")]
+    OutOfRangeError(#[from] chrono::OutOfRangeError),
+    #[error("{0}")]
+    ChronoParseError(#[from] chrono::ParseError),
+    #[error("{0}")]
+    TiffError(#[from] tiff::TiffError),
+    #[error("{0}")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("{0}")]
+    ExifError(#[from] exif::Error),
+    #[error("{0}")]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+    #[error("{0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+    #[error("{0}")]
+    MkvStrandError(#[from] mkv_strand_reader::Error),
+    #[error("{0}")]
+    OpenH264Error(#[from] openh264::Error),
+    #[error("{0}")]
+    Mp4Error(#[from] mp4::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A source of FrameData
 ///
@@ -145,7 +236,7 @@ pub enum ImageData {
 }
 
 impl std::fmt::Debug for ImageData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ImageData::Decoded(_) => {
                 write!(f, "ImageData::Decoded")
@@ -171,7 +262,7 @@ pub enum H264EncodingVariant {
 }
 
 impl std::fmt::Debug for H264EncodingVariant {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AnnexB(buf) => write!(f, "H264EncodingVariant::AnnexB({} bytes)", buf.len()),
             Self::Avcc(buf) => write!(f, "H264EncodingVariant::Avcc({} bytes)", buf.len()),
@@ -255,7 +346,7 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
             match extension.to_str() {
                 Some("mkv") => {
                     if srt_file_path.is_some() {
-                        eyre::bail!("srt file given, but not supported for mkv files");
+                        return Err(Error::NoSrtSupportForFileType);
                     }
                     let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
                         &input,
@@ -275,7 +366,7 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
                 }
                 Some("h264") => {
                     if srt_file_path.is_some() {
-                        eyre::bail!("srt file given, but not supported for h264 files");
+                        return Err(Error::NoSrtSupportForFileType);
                     }
                     let h264_video = h264_source::from_annexb_path_with_timestamp_source(
                         &input,
@@ -293,19 +384,18 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
             let fmf_video = fmf_source::from_path(&input)?;
             return Ok(Box::new(fmf_video));
         }
-        anyhow::bail!(
-            "input {} is a file, but the extension was not recognized.",
-            input.as_ref().display()
-        );
+        return Err(Error::UnknownExtensionForFile(PathBuf::from(
+            input.as_ref(),
+        )));
     } else {
         let dirname = input_path;
 
         if !std::fs::metadata(&dirname)?.is_dir() {
-            anyhow::bail!("Attempting to open \"{}\" as directory with TIFF stack failed because it is not a directory.", dirname.display());
+            return Err(Error::TiffStackNotDir(dirname));
         }
         let pattern = dirname.join("*.tif");
         if srt_file_path.is_some() {
-            eyre::bail!("srt file given, but not supported for tiff stack");
+            return Err(Error::NoSrtSupportForFileType);
         }
         let stack = pv_tiff_stack::from_path_pattern(pattern.to_str().unwrap())?;
         Ok(Box::new(stack))

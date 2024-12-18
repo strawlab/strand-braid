@@ -2,15 +2,32 @@
 
 use std::path::Path;
 
-use eyre::{self as anyhow, Result, WrapErr};
-
-use crate::h264_source::{H264Source, SeekRead, SeekableH264Source};
+use crate::{
+    h264_source::{H264Source, SeekRead, SeekableH264Source},
+    Result,
+};
 use mp4::MediaType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mp4NalLocation {
     track_id: u32,
     sample_id: u32,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Mp4SourceError {
+    #[error("sample is empty")]
+    SampleEmpty,
+    #[error("sample in track disappeared")]
+    SampleDisappeared,
+    #[error("only MP4 files with a single H264 video track are supported")]
+    SingleH264TrackOnly,
+    #[error("No H264 video track found in MP4 file.")]
+    NoH264Track,
+    #[error("sample buffer is too short for NAL unit header")]
+    SampleBufferTooShort,
+    #[error("AVCC buffer length: {sz}+4 but buffer {cur_len}")]
+    LengthMismatch { sz: usize, cur_len: usize },
 }
 
 pub struct Mp4Source {
@@ -32,10 +49,10 @@ impl SeekableH264Source for Mp4Source {
                 let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
                 return Ok(sample_nal_units.iter().map(|x| x.to_vec()).collect());
             } else {
-                anyhow::bail!("sample is empty");
+                Err(Mp4SourceError::SampleEmpty.into())
             }
         } else {
-            anyhow::bail!("sample in track disappeared");
+            Err(Mp4SourceError::SampleDisappeared.into())
         }
     }
 }
@@ -52,7 +69,7 @@ pub(crate) fn from_reader_with_timestamp_source(
         // ignore all tracks except H264
         if track.media_type()? == MediaType::H264 {
             if video_track.is_some() {
-                anyhow::bail!("only MP4 files with a single H264 video track are supported");
+                return Err(Mp4SourceError::SingleH264TrackOnly.into());
             }
             video_track = Some((track_id, track));
         }
@@ -61,7 +78,7 @@ pub(crate) fn from_reader_with_timestamp_source(
     let (track_id, track) = if let Some(vt) = video_track {
         vt
     } else {
-        anyhow::bail!("No H264 video track found in MP4 file.");
+        return Err(Mp4SourceError::NoH264Track.into());
     };
 
     let track_id = *track_id;
@@ -112,8 +129,7 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
 ) -> Result<H264Source<Mp4Source>> {
-    let rdr = std::fs::File::open(path.as_ref())
-        .with_context(|| format!("Opening {}", path.as_ref().display()))?;
+    let rdr = std::fs::File::open(path.as_ref())?;
     let size = rdr.metadata()?.len();
     let buf_reader: Box<(dyn SeekRead + Send + 'static)> = Box::new(std::io::BufReader::new(rdr));
     let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
@@ -123,8 +139,7 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
         do_decode_h264,
         timestamp_source,
         srt_file_path,
-    )
-    .with_context(|| format!("Reading MP4 file {}", path.as_ref().display()))?;
+    )?;
     Ok(result)
 }
 
@@ -141,13 +156,17 @@ fn avcc_to_nalu_ebsp(mp4_sample_buffer: &[u8]) -> Result<Vec<&[u8]>> {
     let mut total_nal_sizes = 0;
     while !cur_buf.is_empty() {
         if cur_buf.len() < 4 {
-            anyhow::bail!("sample buffer is too short for NAL unit header");
+            return Err(Mp4SourceError::SampleBufferTooShort.into());
         }
         let header = [cur_buf[0], cur_buf[1], cur_buf[2], cur_buf[3]];
         let sz: usize = u32::from_be_bytes(header).try_into().unwrap();
         let used = sz + 4;
         if cur_buf.len() < used {
-            anyhow::bail!("AVCC buffer length: {sz}+4 but buffer {}", cur_buf.len());
+            return Err(Mp4SourceError::LengthMismatch {
+                sz,
+                cur_len: cur_buf.len(),
+            }
+            .into());
         }
         total_nal_sizes += used;
         result.push(&cur_buf[4..used]);

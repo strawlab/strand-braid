@@ -1,8 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 use std::{io::Cursor, path::Path};
 
-use eyre::{self as anyhow, WrapErr};
-
 use super::*;
 
 const IJIJINFO_KEY: u16 = 50839;
@@ -87,7 +85,7 @@ impl FrameDataSource for PvTiffStack {
             let image = match this_frame?.image {
                 ImageData::Tiff(image) => image,
                 _ => {
-                    anyhow::bail!("expected tiff image");
+                    return Err(crate::Error::ExpectedTiffImage);
                 }
             };
             let (this_low, this_high) = image.luminance_range()?;
@@ -122,7 +120,7 @@ impl PvTiffStack {
             paths.push(path?);
         }
         if paths.is_empty() {
-            anyhow::bail!("no files in \"{}\"", pattern);
+            return Err(crate::Error::NoFilesFound);
         }
         Self::new_from_paths(paths)
     }
@@ -130,12 +128,7 @@ impl PvTiffStack {
         paths.sort();
 
         let file0_buf = read_file(&paths[0])?;
-        let frame0_metadata = extract_tiff_metadata(&file0_buf).with_context(|| {
-            format!(
-                "while extracting TIFF metadata from file {}",
-                paths[0].display()
-            )
-        })?;
+        let frame0_metadata = extract_tiff_metadata(&file0_buf)?;
 
         // For the initial time, use the `ReceivedTime` metadata. Corrected by
         // subtracting exposure duration. I guess there remains some error due
@@ -238,7 +231,7 @@ impl TiffImage {
                 }
             }
             _ => {
-                anyhow::bail!("unsupported tiff type for estimating luminance range");
+                return Err(crate::Error::UnsupportedForEsimatingLuminangeRange);
             }
         }
         Ok((min, max))
@@ -259,9 +252,7 @@ fn read_tiff_image(buf: &[u8], metadata: TiffMetadata) -> Result<TiffImage> {
 fn extract_tiff_metadata(buf: &[u8]) -> Result<TiffMetadata> {
     let mut rdr = Cursor::new(buf);
     let exifreader = exif::Reader::new();
-    let exif = exifreader
-        .read_from_container(&mut rdr)
-        .context("reading EXIF data")?;
+    let exif = exifreader.read_from_container(&mut rdr)?;
 
     let imagej_metadata = exif.get_field(
         exif::Tag(exif::Context::Tiff, IJIJINFO_KEY),
@@ -271,14 +262,14 @@ fn extract_tiff_metadata(buf: &[u8]) -> Result<TiffMetadata> {
         if let exif::Value::Byte(bytes) = &imagej_metadata.value {
             bytes
         } else {
-            anyhow::bail!("imagej data expected to be bytes");
+            return Err(crate::Error::ImageJDataExpectedToBeBytes);
         }
     } else {
-        anyhow::bail!("failed to read metadata");
+        return Err(crate::Error::FailedToReadMetadata);
     };
     let mystr = String::from_utf8(bytes.clone())?.replace(['\x00', '\x01'], "");
     if !mystr.starts_with(MAGICSTR) {
-        anyhow::bail!("exif metadata does not start with expected magic string");
+        return Err(crate::Error::ExifMetadataFailsMagic);
     }
     let mystr = &mystr[MAGICSTR.len()..];
     let json: serde_json::Value = serde_json::from_str(mystr)?;
@@ -323,12 +314,12 @@ fn path_to_tiff(
     })
 }
 
-fn json_parse_err() -> anyhow::Error {
-    anyhow::anyhow!("json parse error")
+fn json_parse_err() -> crate::Error {
+    crate::Error::JsonParseError
 }
 
 fn read_file<P: AsRef<Path>>(path: P) -> Result<Vec<u8>> {
-    std::fs::read(path.as_ref()).with_context(|| format!("Reading {}", path.as_ref().display()))
+    Ok(std::fs::read(path.as_ref())?)
 }
 
 fn parse_picosecs(picosecs_str: &str) -> Result<std::time::Duration> {

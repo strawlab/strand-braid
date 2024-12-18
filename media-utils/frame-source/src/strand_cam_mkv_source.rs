@@ -4,12 +4,27 @@ use std::{
     path::Path,
 };
 
-use eyre::{self as anyhow, WrapErr};
 use openh264::formats::YUVSource;
 
 use mkv_strand_reader::ParsedStrandCamMkv;
 
 use super::*;
+
+#[derive(thiserror::Error, Debug)]
+pub enum StrandMkvSourceError {
+    #[error("cannot skip frames without decoding H264")]
+    CannotSkipWithoutDecodingH264,
+    #[error("could not decode single frame with openh264")]
+    CouldNotDecodeSingleFrameWithOpenH264,
+    #[error("Uncompressed MKV with fourcc '{0}' unsupported")]
+    UnsupportedFourcc(String),
+    #[error("Unsupported codec '{0}'")]
+    UnsupportedCodec(String),
+    #[error("Support for {timestamp_source:?} timestamp source not (yet) implemented for Strand Cam MKV files.")]
+    UnimplTsSource { timestamp_source: TimestampSource },
+    #[error("unexpected image data")]
+    UnexpectedImageData,
+}
 
 // NAL unit start for b"MISPmicrosectime":
 const PRECISION_TIME_NALU_START: &[u8] = &[
@@ -60,7 +75,7 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
             let decoder = match self.h264_decoder_state.as_mut() {
                 Some(decoder) => decoder,
                 None => {
-                    anyhow::bail!("cannot skip frames without decoding H264");
+                    return Err(StrandMkvSourceError::CannotSkipWithoutDecodingH264.into());
                 }
             };
 
@@ -88,7 +103,7 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
                 let _decoded_yuv = if let Some(decoded_yuv) = decoder.decode(&h264_raw_buf)? {
                     decoded_yuv
                 } else {
-                    anyhow::bail!("could not decode single frame with openh264");
+                    return Err(StrandMkvSourceError::CouldNotDecodeSingleFrameWithOpenH264.into());
                 };
             }
 
@@ -110,7 +125,7 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
         Ok(())
     }
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
-        anyhow::bail!("mkv luminance scanning not implemented");
+        Err(Error::UnsupportedForEsimatingLuminangeRange)
     }
     fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         Box::new(StrandCamMkvSourceIter {
@@ -147,11 +162,12 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
     where
         P: AsRef<std::path::Path>,
     {
-        let (parsed, rdr) = mkv_strand_reader::parse_strand_cam_mkv(rdr, false, path)
-            .context("Reading Strand Camera MKV.")?;
+        let (parsed, rdr) = mkv_strand_reader::parse_strand_cam_mkv(rdr, false, path)?;
         if let Some(uncompressed_fourcc) = &parsed.uncompressed_fourcc {
             if uncompressed_fourcc.as_str() != "Y800" {
-                anyhow::bail!("uncompressed MKV with fourcc '{uncompressed_fourcc}' unsupported.");
+                return Err(
+                    StrandMkvSourceError::UnsupportedFourcc(uncompressed_fourcc.clone()).into(),
+                );
             }
         }
 
@@ -162,7 +178,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         } else if &parsed.codec == "V_MPEG4/ISO/AVC" {
             Format::H264
         } else {
-            anyhow::bail!("unsupported codec {}", parsed.codec);
+            return Err(StrandMkvSourceError::UnsupportedCodec(parsed.codec).into());
         };
 
         let h264_decoder_state = if do_decode_h264 {
@@ -174,7 +190,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         match timestamp_source {
             crate::TimestampSource::BestGuess => {}
             _ => {
-                anyhow::bail!("Support for {timestamp_source:?} timestamp source not (yet) implemented for Strand Cam MKV files.");
+                return Err(StrandMkvSourceError::UnimplTsSource { timestamp_source }.into());
             }
         }
 
@@ -218,9 +234,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 
         self.rdr.seek(std::io::SeekFrom::Start(bd.start_idx))?;
         let mut image_data = vec![0u8; bd.size];
-        self.rdr
-            .read_exact(&mut image_data)
-            .with_context(|| format!("reading {} bytes from mkv at {}", bd.size, bd.start_idx))?;
+        self.rdr.read_exact(&mut image_data)?;
 
         let pts = bd.pts;
         let pts_chrono = metadata.creation_time + chrono::Duration::from_std(pts)?;
@@ -251,7 +265,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                 // theoretically valid start bytes. Still, we write the full 4
                 // start bytes, so this should be OK.
                 if !image_data.starts_with(&[0, 0, 0, 1]) {
-                    anyhow::bail!("unexpected image data");
+                    return Err(StrandMkvSourceError::UnexpectedImageData.into());
                 }
                 let has_precision_timestamp = image_data.starts_with(PRECISION_TIME_NALU_START);
                 if let Some(decoder) = self.h264_decoder_state.as_mut() {
@@ -272,7 +286,9 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                             extra,
                         })
                     } else {
-                        anyhow::bail!("could not decode single frame with openh264");
+                        return Err(
+                            StrandMkvSourceError::CouldNotDecodeSingleFrameWithOpenH264.into()
+                        );
                     };
                     super::ImageData::Decoded(dynamic_frame)
                 } else {
@@ -311,8 +327,7 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
 ) -> Result<StrandCamMkvSource<BufReader<std::fs::File>>> {
-    let rdr = std::fs::File::open(path.as_ref())
-        .with_context(|| format!("Opening {}", path.as_ref().display()))?;
+    let rdr = std::fs::File::open(path.as_ref())?;
     let buf_reader = BufReader::new(rdr);
     StrandCamMkvSource::new(
         buf_reader,
@@ -320,5 +335,4 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
         do_decode_h264,
         timestamp_source,
     )
-    .with_context(|| format!("Reading MKV file {}", path.as_ref().display()))
 }

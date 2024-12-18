@@ -1,6 +1,6 @@
 use std::{io::Read, time::Duration};
 
-use eyre::{Context, Result};
+use crate::Result;
 
 use winnow::{
     ascii::{dec_uint, digit1, line_ending},
@@ -115,15 +115,14 @@ fn parse_stanzas(input: &mut &BStr) -> PResult<Vec<Stanza>> {
 }
 
 pub(crate) fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
-    let mut fd = std::fs::File::open(p)
-        .with_context(|| format!("while reading SRT file {}", p.display()))?;
+    let mut fd = std::fs::File::open(p)?;
     let mut buf = Vec::new();
     fd.read_to_end(&mut buf)?;
     let mut buf_bstr: &BStr = buf.as_slice().into();
 
     let stanzas: Vec<Stanza> = parse_stanzas
         .parse_next(&mut buf_bstr)
-        .map_err(|e| eyre::eyre!(e))?;
+        .map_err(|_e| crate::Error::SrtParseError)?;
 
     Ok(stanzas)
 }
@@ -227,8 +226,8 @@ mod test_duration {
             let ms = s * 1000 + ms;
             let dur = Duration::from_millis(ms);
             let dur_str = dur.srt();
-            let mut dur_bytes: &BStr = dur_str.as_str().into();
-            let parsed = trace("parse_duration", parse_duration).parse(&mut dur_bytes);
+            let dur_bytes: &BStr = dur_str.as_str().into();
+            let parsed = trace("parse_duration", parse_duration).parse(dur_bytes);
             let parsed = parsed.unwrap();
             assert_eq!(dur, parsed);
         }

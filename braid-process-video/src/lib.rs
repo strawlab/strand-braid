@@ -138,7 +138,7 @@ pub(crate) struct BraidzFrameInfo {
 
 fn synchronize_readers_from(
     approx_start_time: DateTime<Utc>,
-    readers: &mut [Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>],
+    readers: &mut [Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>],
 ) {
     // Advance each reader until upcoming frame is not before the start time.
     for reader in readers.iter_mut() {
@@ -370,7 +370,9 @@ struct CameraSource {
 }
 
 impl CameraSource {
-    fn take_reader(&mut self) -> Option<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>> {
+    fn take_reader(
+        &mut self,
+    ) -> Option<Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>> {
         match &mut self.cam_id {
             CameraIdentifier::MovieOnly(ref mut m) | CameraIdentifier::Both((ref mut m, _)) => {
                 m.reader.take()
@@ -419,7 +421,7 @@ struct MovieCamId {
     /// Full path of the movie, including directory if given
     _full_path: std::path::PathBuf,
     /// The file reader
-    reader: Option<Peek2<Box<dyn Iterator<Item = Result<FrameData>>>>>,
+    reader: Option<Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>>,
     /// File name of the movie (without directory path)
     filename: String,
     /// Source of timestamp data in the video file
@@ -501,7 +503,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         .as_ref()
         .map(|archive| archive.expected_fps as f32);
 
-    let frame_sources: Vec<Result<_>> = cfg
+    let frame_sources: Vec<_> = cfg
         .input_video
         .iter()
         .map(|s| {
@@ -509,8 +511,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             frame_source::from_path(&s.filename, do_decode_h264)
         })
         .collect();
-    let frame_sources: Result<Vec<_>> = frame_sources.into_iter().collect();
-    let frame_sources: Vec<_> = frame_sources?;
+    let frame_sources = frame_sources
+        .into_iter()
+        .collect::<frame_source::Result<Vec<_>>>()?;
 
     let frame_sources = Box::new(frame_sources);
     let frame_sources: &'static mut [Box<dyn FrameDataSource>] = frame_sources.leak();
