@@ -32,8 +32,8 @@ bui-backend-session-types.workspace = true
 strand-cam-storetype = { path = "../../strand-cam-storetype", default-features = false }
 flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
 http-video-streaming-types = { path = "../../http-video-streaming/http-video-streaming-types" }
-ci2-types = { path = "../../ci2/ci2-types" }
-ci2-remote-control = { path = "../../ci2-remote-control" }
+ci2-types.workspace = true
+ci2-remote-control.workspace = true
 
 led-box-comms = { path = "../../led-box-comms" }
 enum-iter = { path = "../../enum-iter" }

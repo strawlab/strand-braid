@@ -10,11 +10,9 @@ log = "0.4.5"
 chrono.workspace = true
 thiserror.workspace = true
 
-mp4-writer = { path = "../media-utils/mp4-writer", features = [
-    "openh264-encode",
-] }
+mp4-writer = { workspace = true, features = ["openh264-encode"] }
 machine-vision-formats.workspace = true
-ci2-remote-control = { path = "../ci2-remote-control" }
+ci2-remote-control.workspace = true
 nvenc = { path = "../nvenc" }
 basic-frame = { path = "../basic-frame" }
 channellib = { path = "../channellib" }

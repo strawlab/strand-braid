@@ -11,7 +11,7 @@ imops = { path = "../imops" }
 machine-vision-formats.workspace = true
 
 [dev-dependencies]
-itertools = "0.8"
+itertools.workspace = true
 criterion = "0.5"
 approx.workspace = true
 anyhow.workspace = true

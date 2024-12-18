@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[macro_use]
-extern crate serde_derive;
 extern crate serde;
 
 #[cfg(not(feature = "std"))]
 extern crate core as std;
+
+use serde::{Serialize, Deserialize};
 
 pub const MAX_INTENSITY: u16 = 16000;
 pub const COMM_VERSION: u16 = 3;

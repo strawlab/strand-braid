@@ -1,12 +1,11 @@
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate ci2_types;
 extern crate enum_iter;
 extern crate rust_cam_bui_types;
 
 use enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
+use serde::{Serialize,Deserialize};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum RecordingFrameRate {

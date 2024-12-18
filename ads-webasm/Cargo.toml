@@ -8,22 +8,19 @@ rust-version = "1.76"
 [dependencies]
 yew.workspace = true
 js-sys.workspace = true
-gloo-file = "0.2"
 wasm-bindgen.workspace = true
-serde = "1.0"
+serde.workspace = true
 serde_yaml.workspace = true
-serde_derive = "1.0"
 chrono.workspace = true
-csv = { version = "1.1", optional = true }
+csv = { workspace = true, optional = true }
+gloo-file = { workspace = true, optional = true }
 
 yew-tincture.workspace = true
 
 simple-obj-parse = { path = "../simple-obj-parse", optional = true }
 textured-tri-mesh = { path = "../textured-tri-mesh", optional = true }
-http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 enum-iter.workspace = true
 rust-cam-bui-types.workspace = true
-bui-backend-session-types = { path = "../bui-backend-session/types" }
 
 [dependencies.web-sys]
 workspace = true
@@ -41,4 +38,4 @@ features = [
 
 [features]
 obj = ["simple-obj-parse", "textured-tri-mesh"]
-csv-widget = ["csv"]
+csv-widget = ["csv", "gloo-file"]

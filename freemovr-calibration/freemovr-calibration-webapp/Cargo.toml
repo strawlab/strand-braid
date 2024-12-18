@@ -20,16 +20,12 @@ web-sys = { workspace = true, features = [
 ] }
 log.workspace = true
 wasm-logger.workspace = true
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = "1.0"
-serde_yaml.workspace = true
-http = "0.2"
-itertools = "0.7.8"
+serde.workspace = true
 chrono.workspace = true
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 
-mvg = { path = "../../mvg", features = ["serde-serialize"] }
-enum-iter = { path = "../../enum-iter" }
+mvg.workspace = true
+enum-iter.workspace = true
 ads-webasm.workspace = true
 
 freemovr-calibration = { path = ".." }

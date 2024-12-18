@@ -13,7 +13,7 @@ serde_yaml.workspace = true
 bui-backend-session-types = { path = "../bui-backend-session/types" }
 led-box-comms = { path = "../led-box-comms" }
 ci2-types = { path = "../ci2/ci2-types" }
-ci2-remote-control = { path = "../ci2-remote-control" }
+ci2-remote-control.workspace = true
 flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
 http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
 rust-cam-bui-types.workspace = true

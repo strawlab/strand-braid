@@ -8,7 +8,7 @@ clap.workspace = true
 eyre.workspace = true
 chrono.workspace = true
 path-slash = "0.2.1"
-indicatif = "0.17.1"
+indicatif.workspace = true
 
 frame-source = { path = "../frame-source" }
 env-tracing-logger = { path = "../../env-tracing-logger" }

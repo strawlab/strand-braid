@@ -15,15 +15,15 @@ image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
 nalgebra.workspace = true
-regex = "1.10.3"
+regex.workspace = true
 machine-vision-formats.workspace = true
 opencv = { version = "0.88.8", optional = true }
 chrono.workspace = true
 
-env-tracing-logger = { path = "../../env-tracing-logger" }
+env-tracing-logger.workspace = true
 convert-image.workspace = true
-frame-source = { path = "../frame-source" }
-basic-frame = { path = "../../basic-frame" }
-mp4-writer = { path = "../mp4-writer" }
+frame-source.workspace = true
+basic-frame.workspace = true
+mp4-writer.workspace = true
 flydra-types.workspace = true
-indicatif = "0.17.8"
+indicatif.workspace = true

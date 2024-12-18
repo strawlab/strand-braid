@@ -145,7 +145,6 @@ bytes = "1.6"
 cam-geom = { version = "0.15", features = ["serde-serialize"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
-color-eyre = "0.6.2"
 configure = "0.1.1"
 cookie = "0.18.0"
 cookie_store = "0.20.0"
@@ -161,6 +160,7 @@ eyre = "0.6.12"
 fs_extra = "1.1"
 futures = "0.3.30"
 glob = "0.3.1"
+gloo-file = "0.2"
 gloo-events = "0.1.1"
 gloo-utils = "0.1"
 h264-reader = "0.7.0"
@@ -189,7 +189,7 @@ image = { version = "0.25", default-features = false, features = [
 include_dir = "0.7.3"
 indicatif = "0.17.1"
 ipp-sys = "0.4.4"
-itertools = "0.8"
+itertools = "0.10"
 js-sys = "0.3"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"

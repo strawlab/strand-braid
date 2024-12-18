@@ -1,7 +1,6 @@
-#[macro_use]
-extern crate serde_derive;
 extern crate enum_iter;
 
+use serde::{Serialize, Deserialize};
 use enum_iter::EnumIter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

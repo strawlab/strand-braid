@@ -18,21 +18,19 @@ env_logger.workspace = true
 clap.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
-glob = "0.3"
+glob.workspace = true
 image.workspace = true
 machine-vision-formats.workspace = true
 y4m.workspace = true
 
-timestamped-frame = { path = "../../timestamped-frame" }
-fmf = { path = ".." }
+timestamped-frame.workspace = true
+fmf.workspace = true
 convert-image.workspace = true
 basic-frame = { path = "../../basic-frame" }
 
-mp4-writer = { path = "../../media-utils/mp4-writer", features = [
-    "openh264-encode",
-] }
-y4m-writer = { path = "../../media-utils/y4m-writer" }
-ci2-remote-control = { path = "../../ci2-remote-control" }
+mp4-writer = { workspace = true, features = ["openh264-encode"] }
+y4m-writer.workspace = true
+ci2-remote-control.workspace = true
 
 nvenc = { path = "../../nvenc" }
 
