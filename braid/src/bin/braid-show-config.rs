@@ -1,6 +1,6 @@
 use braid::braid_start;
 use clap::Parser;
-use color_eyre::{eyre::WrapErr, Result};
+use eyre::{WrapErr, Result};
 
 /// show the configuration, including defaults and overrides in TOML format
 #[derive(Debug, Parser)]

@@ -1,4 +1,4 @@
-use color_eyre::eyre::Result;
+use eyre::Result;
 
 lazy_static::lazy_static! {
     static ref VIMBA_MODULE: ci2_vimba::WrappedModule = ci2_vimba::new_module().unwrap();

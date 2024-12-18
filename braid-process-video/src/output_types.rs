@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use eyre::Result;
 use ordered_float::NotNan;
 use std::io::Write;
 
@@ -93,7 +93,7 @@ impl DebugStorage {
                         )?;
                     }
                 }
-                Ok::<_, color_eyre::eyre::Error>(())
+                Ok::<_, eyre::Error>(())
             };
             write_it(&cam_render_data.points, "feature")?;
             write_it(&cam_render_data.reprojected_points, "reprojected")?;

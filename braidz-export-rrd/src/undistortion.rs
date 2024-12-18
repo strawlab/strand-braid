@@ -1,5 +1,5 @@
 use basic_frame::DynamicFrame;
-use color_eyre::eyre::{self as anyhow};
+use eyre::{self as anyhow};
 use machine_vision_formats::{pixel_format, PixFmt};
 
 use opencv::core::{self, Mat};

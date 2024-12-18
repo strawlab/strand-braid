@@ -1,3 +1,3 @@
-fn main() -> color_eyre::Result<()> {
+fn main() -> eyre::Result<()> {
     strand_convert::main()
 }

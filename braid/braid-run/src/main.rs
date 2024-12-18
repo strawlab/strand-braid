@@ -1,8 +1,5 @@
 use clap::Parser;
-use color_eyre::{
-    eyre::{self, WrapErr},
-    Result,
-};
+use eyre::{self, WrapErr, Result};
 use tracing::debug;
 
 use braid::braid_start;

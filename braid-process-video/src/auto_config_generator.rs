@@ -1,7 +1,4 @@
-use color_eyre::{
-    eyre::{self as anyhow},
-    Result,
-};
+use eyre::{self as anyhow, Result};
 
 use crate::config::{
     path_to_string, BraidRetrackVideoConfig, DebugOutputConfig, OutputConfig, Valid, Validate,

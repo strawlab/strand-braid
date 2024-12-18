@@ -1,4 +1,4 @@
-use color_eyre::eyre::{self as anyhow};
+use eyre::{self as anyhow};
 
 use machine_vision_formats::{pixel_format::RGBA8, ImageBuffer, ImageBufferRef, ImageData, Stride};
 

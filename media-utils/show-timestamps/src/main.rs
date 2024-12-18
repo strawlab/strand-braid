@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
 use clap::{Parser, ValueEnum};
-use color_eyre::eyre::{self, Result};
+use eyre::{self, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
 trait DisplayTimestamp {

@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::eyre::{self, WrapErr};
+use eyre::{self, WrapErr};
 use srt_writer::BufferingSrtFrameWriter;
 use std::path::PathBuf;
 

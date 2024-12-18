@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use color_eyre::eyre::Context;
+use eyre::Context;
 use flydra_mvg::FlydraMultiCameraSystem;
 
 #[derive(Debug, Parser)]
@@ -10,7 +10,7 @@ struct Opt {
     input: std::path::PathBuf,
 }
 
-fn main() -> color_eyre::Result<()> {
+fn main() -> eyre::Result<()> {
     let opt = Opt::parse();
     let cal_path = opt.input;
 

@@ -1,7 +1,7 @@
 use braid::braid_start;
 use braid_config_data::BraidConfig;
 use clap::Parser;
-use color_eyre::Result;
+use eyre::Result;
 
 /// show the default configuration in TOML format
 #[derive(Debug, Parser)]

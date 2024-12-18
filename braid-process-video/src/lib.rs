@@ -1,10 +1,7 @@
 use std::{collections::BTreeMap, io::Write};
 
 use chrono::{DateTime, Utc};
-use color_eyre::{
-    eyre::{self as anyhow, WrapErr},
-    Result,
-};
+use eyre::{self as anyhow, Result, WrapErr};
 use flydra_mvg::FlydraMultiCameraSystem;
 use frame_source::{FrameData, FrameDataSource};
 use futures::future::join_all;

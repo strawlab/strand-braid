@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use color_eyre::eyre::{self as anyhow, WrapErr};
+use eyre::{self as anyhow, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 use tracing::{debug, info, warn};

@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::eyre::{self, Context, Result};
+use eyre::{self, Context, Result};
 use polars::prelude::*;
 use std::{
     collections::BTreeMap,

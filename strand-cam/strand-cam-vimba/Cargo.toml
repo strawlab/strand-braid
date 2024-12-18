@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-color-eyre.workspace = true
+eyre.workspace = true
 lazy_static.workspace = true
 tracing.workspace = true
 

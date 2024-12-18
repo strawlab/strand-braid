@@ -1,10 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 use std::io::Cursor;
 
-use color_eyre::{
-    eyre::{self as anyhow},
-    Result,
-};
+use eyre::{self as anyhow, Result};
 
 use basic_frame::DynamicFrame;
 use frame_source::pv_tiff_stack::TiffImage;

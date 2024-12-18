@@ -21,7 +21,7 @@ rerun = { workspace = true, optional = true }
 num-iter.workspace = true
 approx.workspace = true
 dlt.workspace = true
-color-eyre.workspace = true
+eyre.workspace = true
 
 rerun.workspace = true
 

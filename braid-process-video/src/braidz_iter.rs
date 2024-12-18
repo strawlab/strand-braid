@@ -2,10 +2,7 @@ use std::{collections::BTreeMap, iter::Peekable};
 
 use braidz_types::CalibrationInfo;
 use chrono::{DateTime, Utc};
-use color_eyre::{
-    eyre::{self as anyhow},
-    Result,
-};
+use eyre::{self as anyhow, Result};
 
 use flydra_mvg::FlydraMultiCameraSystem;
 use flydra_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};

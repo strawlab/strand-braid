@@ -33,10 +33,7 @@ use flydra_types::{
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-use color_eyre::{
-    eyre::{self, WrapErr},
-    Result,
-};
+use eyre::{self, WrapErr, Result};
 
 use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
 

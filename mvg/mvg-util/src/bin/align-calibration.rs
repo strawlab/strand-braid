@@ -1,8 +1,5 @@
 use clap::Parser;
-use color_eyre::{
-    eyre::{bail, Context},
-    Result,
-};
+use eyre::{bail, Context, Result};
 use flydra_mvg::FlydraMultiCameraSystem;
 use mvg::align_points::{align_points, Algorithm};
 use nalgebra::{Dyn, OMatrix, U1, U3};

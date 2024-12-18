@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate approx;
 
-use color_eyre::eyre as anyhow;
+use eyre as anyhow;
 use opencv_ros_camera::{from_ros_yaml, Distortion, NamedIntrinsicParameters, RosOpenCvIntrinsics};
 
 use nalgebra::{

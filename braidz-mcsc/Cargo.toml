@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap.workspace = true
-color-eyre.workspace = true
+eyre.workspace = true
 tracing.workspace = true
 polars = { version = "0.45", default-features = false, features = [
     "dtype-u8",

@@ -1,7 +1,7 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
 use clap::{Parser, ValueEnum};
-use color_eyre::eyre::{self as anyhow, WrapErr};
+use eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::{cam_geom_to_rr_pinhole_archetype as to_pinhole, AsRerunTransform3D};

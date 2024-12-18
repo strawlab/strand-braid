@@ -1,7 +1,4 @@
-use color_eyre::{
-    eyre::{self as anyhow},
-    Result,
-};
+use eyre::{self as anyhow, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
     future::Future,

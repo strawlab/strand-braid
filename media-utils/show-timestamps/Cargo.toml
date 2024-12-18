@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap.workspace = true
-color-eyre.workspace = true
+eyre.workspace = true
 chrono.workspace = true
 path-slash = "0.2.1"
 indicatif = "0.17.1"
