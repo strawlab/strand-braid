@@ -32,7 +32,6 @@ indicatif.workspace = true
 
 braidz-parser.workspace = true
 braidz-types.workspace = true
-channellib.workspace = true
 ci2-remote-control.workspace = true
 env-tracing-logger.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode"] }
