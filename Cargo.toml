@@ -33,7 +33,6 @@ members = [
     "camcal",
     "led-box",
     "led-box-comms",
-    "channellib",
     "ci2",
     "ci2/ci2-types",
     "ci2-async",
@@ -43,7 +42,6 @@ members = [
     "ci2-remote-control",
     "ci2-simple-async-demo",
     "ci2-simple-demo",
-    "crossbeam-ok",
     "csv-eof",
     "datetime-conversion",
     "download-verify",
@@ -147,7 +145,6 @@ clap = { version = "4.4.3", features = ["derive", "env", "string"] }
 configure = "0.1.1"
 cookie = "0.18.0"
 cookie_store = "0.20.0"
-crossbeam-channel = "0.5"
 csv = "1.1"
 convert-image = "0.1.0"
 delaunator = "1.0"
@@ -283,14 +280,12 @@ bui-backend-session = { path = "bui-backend-session" }
 bui-backend-session-types = { path = "bui-backend-session/types" }
 build-util = { path = "build-util" }
 camcal = { path = "camcal" }
-channellib = { path = "channellib" }
 ci2 = { path = "ci2" }
 ci2-async = { path = "ci2-async" }
 ci2-pyloncxx = { path = "ci2-pyloncxx" }
 ci2-remote-control = { path = "ci2-remote-control" }
 ci2-types = { path = "ci2/ci2-types" }
 ci2-vimba = { path = "ci2-vimba" }
-crossbeam-ok = { path = "crossbeam-ok" }
 csv-eof = { path = "csv-eof" }
 datetime-conversion = { path = "datetime-conversion" }
 download-verify = { path = "download-verify" }
