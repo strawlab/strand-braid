@@ -28,3 +28,6 @@ braidz-parser.workspace = true
 flydra-types.workspace = true
 zip-or-dir.workspace = true
 flydra-mvg.workspace = true
+
+[dev-dependencies]
+download-verify.workspace = true

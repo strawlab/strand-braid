@@ -5,7 +5,7 @@ use polars::prelude::*;
 use std::{
     collections::BTreeMap,
     fs,
-    io::{self, Read, Write},
+    io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
 };
 
@@ -14,7 +14,7 @@ use flydra_mvg::FlydraMultiCameraSystem;
 static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
 static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
 
-#[derive(Parser)]
+#[derive(Parser, Default)]
 struct Cli {
     /// Input braidz filename.
     #[arg(long)]
@@ -249,10 +249,43 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
     Ok(())
 }
 
+fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &Path) -> Result<()> {
+    fs::create_dir_all(&mcsc_dir_name).unwrap();
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).unwrap();
+        let outpath = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+        let outpath = mcsc_dir_name.join(outpath);
+
+        if (*file.name()).ends_with('/') {
+            fs::create_dir_all(&outpath).unwrap();
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(p).unwrap();
+                }
+            }
+            let mut outfile = fs::File::create(&outpath).unwrap();
+            io::copy(&mut file, &mut outfile).unwrap();
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     env_tracing_logger::init();
     let opt = Cli::parse();
+    let xml_out_name = braiz_mcsc(opt)?;
+    println!(
+        "Unaligned calibration XML saved to {}",
+        xml_out_name.display()
+    );
+    Ok(())
+}
 
+fn braiz_mcsc(opt: Cli) -> Result<PathBuf> {
     let use_nth_observation = opt.use_nth_observation.unwrap_or(1);
 
     let mut archive = zip_or_dir::ZipDirArchive::auto_from_path(&opt.input)
@@ -524,31 +557,33 @@ fn main() -> Result<()> {
 
     // open MCSC zip archive
     let rdr = std::io::Cursor::new(MCSC_RELEASE);
-    let mut mcsc_zip_archive = ZipArchive::new(rdr)?;
+    let mcsc_zip_archive = ZipArchive::new(rdr)?;
     // unpack MCSC into tempdir
     let mcsc_root = tempfile::tempdir()?;
     let mcsc_dir_name = PathBuf::from(mcsc_root.path());
-    fs::create_dir_all(&mcsc_dir_name).unwrap();
-    for i in 0..mcsc_zip_archive.len() {
-        let mut file = mcsc_zip_archive.by_index(i).unwrap();
-        let outpath = match file.enclosed_name() {
-            Some(path) => path.to_owned(),
-            None => continue,
-        };
-        let outpath = mcsc_dir_name.join(outpath);
 
-        if (*file.name()).ends_with('/') {
-            fs::create_dir_all(&outpath).unwrap();
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(p).unwrap();
-                }
-            }
-            let mut outfile = fs::File::create(&outpath).unwrap();
-            io::copy(&mut file, &mut outfile).unwrap();
-        }
-    }
+    unpack_zip_into(mcsc_zip_archive, &mcsc_dir_name)?;
+    // fs::create_dir_all(&mcsc_dir_name).unwrap();
+    // for i in 0..mcsc_zip_archive.len() {
+    //     let mut file = mcsc_zip_archive.by_index(i).unwrap();
+    //     let outpath = match file.enclosed_name() {
+    //         Some(path) => path.to_owned(),
+    //         None => continue,
+    //     };
+    //     let outpath = mcsc_dir_name.join(outpath);
+
+    //     if (*file.name()).ends_with('/') {
+    //         fs::create_dir_all(&outpath).unwrap();
+    //     } else {
+    //         if let Some(p) = outpath.parent() {
+    //             if !p.exists() {
+    //                 fs::create_dir_all(p).unwrap();
+    //             }
+    //         }
+    //         let mut outfile = fs::File::create(&outpath).unwrap();
+    //         io::copy(&mut file, &mut outfile).unwrap();
+    //     }
+    // }
 
     let gocal_abs = mcsc_dir_name
         .join(MCSC_DIRNAME)
@@ -585,10 +620,47 @@ fn main() -> Result<()> {
     })?;
     calibration.to_flydra_xml(&mut out_fd)?;
 
-    println!(
-        "Unaligned calibration XML saved to {}",
-        xml_out_name.display()
-    );
+    Ok(xml_out_name)
+}
 
-    Ok(())
+#[cfg(test)]
+mod test {
+    use eyre::Result;
+
+    use super::*;
+
+    const FNAME: &str = "braidz-mcsc-cal-test-data.zip";
+    const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
+    const SHA256SUM: &str = "f0043d73749e9c2c161240436eca9101a4bf71cf81785a45b04877fe7ae6d33e";
+
+    #[test]
+    #[ignore] // Ignore normally because it is slow and requires Octave.
+    fn test_braiz_mcsc() -> Result<()> {
+        download_verify::download_verify(
+            format!("{}/{}", URL_BASE, FNAME).as_str(),
+            FNAME,
+            &download_verify::Hash::Sha256(SHA256SUM.into()),
+        )
+        .unwrap();
+
+        let data_root = tempfile::tempdir()?;
+        let data_root_dir_name = PathBuf::from(data_root.path());
+
+        let rdr = std::fs::File::open(FNAME)?;
+        let cal_data_archive = ZipArchive::new(rdr)?;
+
+        unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
+
+        let input = data_root_dir_name.join("20241017_164418.braidz");
+        let checkerboard_cal_dir = Some(data_root_dir_name.join("checkerboard-cal-results"));
+
+        let opt = Cli {
+            input,
+            checkerboard_cal_dir,
+            ..Default::default()
+        };
+        let _xml_out_name = braiz_mcsc(opt)?;
+        // TODO: check that the calibration makes sense...
+        Ok(())
+    }
 }
