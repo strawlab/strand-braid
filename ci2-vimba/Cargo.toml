@@ -8,7 +8,7 @@ rust-version = "1.76"
 
 [dependencies]
 vimba = { path = "../vimba" }
-log.workspace = true
+tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 machine-vision-formats.workspace = true

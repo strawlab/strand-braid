@@ -15,11 +15,9 @@
 
 use std::rc::Rc;
 
-#[macro_use]
-extern crate log;
-
 use ci2_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
 use convert_image::convert_into;
+use tracing::{debug, error, info, trace};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
@@ -400,7 +398,7 @@ where
                                 match encoder.initialize(&params) {
                                     Ok(()) => Ok(()),
                                     Err(e) => {
-                                        log::error!(
+                                        tracing::error!(
                                             "failed initializing nvenc with params: {:?}",
                                             params
                                         );

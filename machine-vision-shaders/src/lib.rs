@@ -1,6 +1,6 @@
-#[macro_use]
-extern crate log;
 extern crate machine_vision_formats as formats;
+
+use tracing::error;
 
 use formats::PixFmt;
 

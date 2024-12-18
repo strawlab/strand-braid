@@ -7,7 +7,7 @@ use tokio_util::codec::Decoder;
 
 use parking_lot::Mutex;
 
-use log::{debug, error, info};
+use tracing::{debug, error, info};
 
 use json_lines::codec::JsonLinesCodec;
 use led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
@@ -242,7 +242,7 @@ pub async fn handle_box(
         match cmd_rx.recv().await {
             Some(Cmd::Quit) | None => {
                 // quit request or channel closed
-                log::info!("exiting serial task");
+                tracing::info!("exiting serial task");
                 return Ok(());
             }
             Some(cmd) => {
@@ -258,7 +258,7 @@ async fn handle_cmd(cmd: Cmd, box_manager: &mut Arc<Mutex<BoxManager>>) -> anyho
             panic!("should handle quit outside this function");
         }
         Cmd::Connect(_) => {
-            log::warn!("already connected");
+            tracing::warn!("already connected");
         }
         Cmd::Toggle(chan) => {
             let mut guard = box_manager.lock();

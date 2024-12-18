@@ -1,15 +1,12 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-#[macro_use]
-extern crate log;
-
 use clap::{Parser, ValueEnum};
-
 use machine_vision_formats::{
     image_ref::ImageRef,
     pixel_format::{Mono8, RGB8},
     Stride,
 };
+use tracing::info;
 
 use ci2_remote_control::Mp4RecordingConfig;
 

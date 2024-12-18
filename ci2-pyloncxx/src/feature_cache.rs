@@ -71,7 +71,7 @@ impl PfsCache {
             }
         }
         if !found {
-            log::warn!(
+            tracing::warn!(
                 "Attemped to store {}:{} to cache, but key not in cache.",
                 key,
                 value,

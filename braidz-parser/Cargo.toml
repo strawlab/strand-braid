@@ -7,7 +7,7 @@ rust-version = "1.56"
 
 [dependencies]
 thiserror.workspace = true
-log.workspace = true
+tracing.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 csv.workspace = true

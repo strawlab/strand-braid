@@ -132,8 +132,9 @@ pub(crate) fn doit<P: AsRef<std::path::Path>>(
     let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
     let mut png_fname = std::path::PathBuf::from(out_fname.as_ref());
     png_fname.set_extension("png");
-    let png_buf = convert_image::frame_to_encoded_buffer(&rasterized, convert_image::EncoderOptions::Png)?;
+    let png_buf =
+        convert_image::frame_to_encoded_buffer(&rasterized, convert_image::EncoderOptions::Png)?;
     std::fs::write(&png_fname, png_buf)?;
-    log::info!("Saved image for debugging to: {}", png_fname.display());
+    tracing::info!("Saved image for debugging to: {}", png_fname.display());
     Ok(())
 }

@@ -13,7 +13,7 @@ path = "src/fmf-cli.rs"
 doc = false
 
 [dependencies]
-log.workspace = true
+tracing.workspace = true
 env_logger.workspace = true
 clap.workspace = true
 chrono.workspace = true

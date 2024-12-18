@@ -1,9 +1,6 @@
-#[macro_use]
-extern crate log;
-
-use serde::{Deserialize, Serialize};
-
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use nalgebra::geometry::{Point2, Point3};
 

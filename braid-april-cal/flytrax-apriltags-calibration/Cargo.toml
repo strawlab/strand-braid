@@ -16,7 +16,7 @@ serde_yaml.workspace = true
 tagger.workspace = true
 tiny-skia.workspace = true
 usvg.workspace = true
-log.workspace = true
+tracing.workspace = true
 
 ads-webasm.workspace = true
 ads-apriltag.workspace = true

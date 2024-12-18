@@ -1,5 +1,5 @@
 extern crate env_logger;
-extern crate log;
+
 
 extern crate ci2;
 #[cfg(feature = "backend_pyloncxx")]

@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-log.workspace = true
+tracing.workspace = true
 machine-vision-formats.workspace = true
 anyhow.workspace = true
 

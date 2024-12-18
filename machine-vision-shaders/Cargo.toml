@@ -2,9 +2,9 @@
 name = "machine-vision-shaders"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2015"
+edition = "2021"
 
 [dependencies]
-log.workspace = true
+tracing.workspace = true
 
 machine-vision-formats.workspace = true

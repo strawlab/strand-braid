@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-use log::info;
+use tracing::info;
 use yew::{classes, html, Component, Context, Html};
 use yew_agent::{Bridge, Bridged, HandlerId, Public, Worker as Agent, WorkerLink as AgentLink};
 
@@ -117,7 +117,7 @@ impl Component for Model {
                     self.worker.send(MyWorkerRequest::CalcExr(src_data));
                 }
                 Err(e) => {
-                    log::error!("cound not get calibration data: {:?}", e);
+                    tracing::error!("cound not get calibration data: {:?}", e);
                 }
             },
             Msg::DownloadExr => {
@@ -131,7 +131,7 @@ impl Component for Model {
                     self.worker.send(MyWorkerRequest::CalcCsv(src_data));
                 }
                 Err(e) => {
-                    log::error!("cound not get calibration data: {:?}", e);
+                    tracing::error!("cound not get calibration data: {:?}", e);
                 }
             },
             Msg::DownloadCorrespondingCsv => {
@@ -154,7 +154,7 @@ impl Component for Model {
                         ));
                     }
                     _ => {
-                        log::error!("no CSV file loaded");
+                        tracing::error!("no CSV file loaded");
                     }
                 }
             }
@@ -168,21 +168,21 @@ impl Component for Model {
                     self.n_computing_exr -= 1;
                     match d {
                         Ok(d) => self.computed_exr = Some(d),
-                        Err(e) => log::error!("{}", e),
+                        Err(e) => tracing::error!("{}", e),
                     }
                 }
                 MyWorkerResponse::CsvData(d) => {
                     self.n_computing_csv -= 1;
                     match d {
                         Ok(d) => self.computed_csv = Some(d),
-                        Err(e) => log::error!("{}", e),
+                        Err(e) => tracing::error!("{}", e),
                     }
                 }
                 MyWorkerResponse::AdvancedExrData(d) => {
                     self.n_computing_stage_2_exr -= 1;
                     match d {
                         Ok(d) => self.computed_stage_2_exr = Some(d),
-                        Err(e) => log::error!("{}", e),
+                        Err(e) => tracing::error!("{}", e),
                     }
                 }
             },

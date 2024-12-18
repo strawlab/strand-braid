@@ -16,7 +16,7 @@ y4m.workspace = true
 
 [dev-dependencies]
 eyre.workspace = true
-log.workspace = true
+tracing.workspace = true
 env_logger.workspace = true
 h264-reader.workspace = true
 rusttype = "0.9.2"

@@ -201,7 +201,7 @@ impl Component for VideoField {
                 let canvas = document.get_element_by_id(&self.div_css_id).unwrap_throw();
                 canvas.request_fullscreen().unwrap_or_else(|_e| {
                     // ... if fail (e.g. iPhone Safari), go full window.
-                    // log::error!("Failed fullscreen request: {e:?}");
+                    // tracing::error!("Failed fullscreen request: {e:?}");
                     if let Some(ref callback) = ctx.props().on_full_window {
                         callback.emit(val);
                     }

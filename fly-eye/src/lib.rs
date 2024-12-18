@@ -1,8 +1,6 @@
-#[macro_use]
-extern crate log;
-
 use machine_vision_formats as formats;
 use machine_vision_shaders as shaders;
+use tracing::debug;
 
 use basic_frame::DynamicFrame;
 use formats::Stride;

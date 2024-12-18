@@ -24,10 +24,8 @@
 //! implement [AsyncCamera] without serializing access to the camera but rather
 //! by taking advantage of functionality in most camera drivers.
 
-#[macro_use]
-extern crate log;
-
 use futures::Stream;
+use tracing::{debug, error};
 
 use basic_frame::DynamicFrame;
 use machine_vision_formats as formats;

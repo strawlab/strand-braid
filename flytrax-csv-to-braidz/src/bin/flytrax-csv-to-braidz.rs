@@ -1,9 +1,8 @@
 #[macro_use]
-extern crate log;
-#[macro_use]
 extern crate lazy_static;
 
 use anyhow::Context;
+use tracing::info;
 
 use flydra_types::{MiniArenaConfig, XYGridConfig};
 use flytrax_csv_to_braidz::{parse_configs_and_run, PseudoCalParams, RowFilter};
@@ -169,7 +168,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
                 .with_context(|| format!("parsing {}", flytrax_jpeg_fname.display()))?,
         );
     } else {
-        log::warn!(
+        tracing::warn!(
             "File {} did not exist - cannot preserve flytrax image.",
             flytrax_jpeg_fname.display()
         );

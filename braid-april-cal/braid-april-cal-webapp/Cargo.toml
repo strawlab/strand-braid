@@ -21,7 +21,7 @@ web-sys = { workspace = true, features = [
     "HtmlAnchorElement",
     "Url",
 ] }
-log.workspace = true
+tracing.workspace = true
 wasm-logger.workspace = true
 chrono.workspace = true
 

@@ -5,7 +5,7 @@ use tokio_util::codec::Decoder;
 
 use tokio_serial::SerialPortBuilderExt;
 
-use log::info;
+use tracing::info;
 
 use clap::Parser;
 
@@ -67,7 +67,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
                             info!("Found comm version {found}.");
                             let expected = led_box_comms::COMM_VERSION;
                             if found != expected {
-                                log::error!("This program compiled to support comm version {expected}, but found version {found}.");
+                                tracing::error!("This program compiled to support comm version {expected}, but found version {found}.");
                                 return;
                             }
                         }

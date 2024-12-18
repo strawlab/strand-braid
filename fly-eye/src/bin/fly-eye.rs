@@ -7,14 +7,14 @@ use ci2::{Camera, CameraInfo, CameraModule};
 
 fn thread_loop(firehose_tx: Sender<DynamicFrame>) -> anyhow::Result<()> {
     let mymod = backend::new_module()?;
-    log::info!("camera module: {}", (&mymod).name());
+    tracing::info!("camera module: {}", (&mymod).name());
 
     let infos = (&mymod).camera_infos().expect("get camera info");
     if infos.len() == 0 {
         panic!("No cameras found.")
     }
     let mut cam = (&mymod).camera(&infos[0].name())?;
-    log::info!("  got camera {:?}", cam.name());
+    tracing::info!("  got camera {:?}", cam.name());
 
     cam.set_acquisition_mode(ci2::AcquisitionMode::Continuous)?;
     cam.acquisition_start()?;

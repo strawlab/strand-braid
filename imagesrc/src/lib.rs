@@ -1,4 +1,3 @@
-extern crate log;
 extern crate machine_vision_formats as formats;
 
 use futures::stream::Stream;

@@ -1,11 +1,9 @@
-#[macro_use]
-extern crate log;
-
-use anyhow::Context;
-
-use clap::Parser;
 use std::io::Write;
 use std::path::PathBuf;
+
+use anyhow::Context;
+use clap::Parser;
+use tracing::{error, info};
 
 const EXR_COMMENT: Option<&str> = Some("Created by freemovr-calibration-cli.");
 

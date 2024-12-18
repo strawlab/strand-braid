@@ -1,4 +1,4 @@
-use log::{error, warn};
+use tracing::{error, warn};
 use parking_lot::Mutex;
 use std::{
     convert::TryInto,

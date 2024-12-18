@@ -4,7 +4,7 @@ use parking_lot::Mutex;
 
 use eframe::egui;
 
-use log::info;
+use tracing::info;
 
 use crate::box_status::{BoxManager, BoxStatus, Cmd};
 

@@ -11,7 +11,7 @@ gstreamer = "0.16"
 gstreamer-app = "0.16"
 gstreamer-video = "0.16"
 futures = "0.3"
-log.workspace = true
+tracing.workspace = true
 thread-control = "0.1.2"
 parking_lot.workspace = true
 

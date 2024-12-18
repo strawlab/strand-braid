@@ -115,7 +115,7 @@ fn vimba_err(err: i32) -> std::result::Result<(), VimbaError> {
 
 macro_rules! vimba_call_no_err {
     ($expr: expr) => {{
-        log::debug!("calling: {} {}:{}", stringify!($expr), file!(), line!());
+        tracing::debug!("calling: {} {}:{}", stringify!($expr), file!(), line!());
         unsafe { $expr }
     }};
 }
@@ -123,7 +123,7 @@ macro_rules! vimba_call_no_err {
 macro_rules! vimba_call {
     ($expr: expr) => {{
         let errcode = vimba_call_no_err!($expr);
-        log::debug!("  errcode: {}", errcode);
+        tracing::debug!("  errcode: {}", errcode);
 
         vimba_err(errcode)
     }};
@@ -362,7 +362,7 @@ impl<'lib> Camera<'lib> {
             is_open: true,
             vimba_lib,
         };
-        log::debug!("opening {:?}", result);
+        tracing::debug!("opening {:?}", result);
         Ok(result)
     }
 
@@ -557,7 +557,7 @@ impl<'lib> Camera<'lib> {
     }
 
     pub fn command_run(&self, command_name: &str) -> Result<()> {
-        log::debug!("camera {:?} command_run {}", self, command_name);
+        tracing::debug!("camera {:?} command_run {}", self, command_name);
         let data = std::ffi::CString::new(command_name)?;
         vimba_call!(self
             .vimba_lib
@@ -580,7 +580,7 @@ impl<'lib> Camera<'lib> {
             return Err(Error::InvalidCall {});
         }
 
-        log::debug!("camera {:?} announcing frame {:?}", self, frame);
+        tracing::debug!("camera {:?} announcing frame {:?}", self, frame);
 
         vimba_call!(self.vimba_lib.VmbFrameAnnounce(
             self.handle,
@@ -593,14 +593,14 @@ impl<'lib> Camera<'lib> {
     }
 
     pub fn frame_revoke(&self, frame: &mut Frame) -> Result<()> {
-        log::debug!("camera {:?} revoking frame {:?}", self, frame);
+        tracing::debug!("camera {:?} revoking frame {:?}", self, frame);
         vimba_call!(self.vimba_lib.VmbFrameRevoke(self.handle, &*frame.frame,))?;
         frame.already_announced = false;
         Ok(())
     }
 
     pub fn capture_start(&self) -> Result<()> {
-        log::debug!("camera {:?} capture start", self);
+        tracing::debug!("camera {:?} capture start", self);
         vimba_call!(self.vimba_lib.VmbCaptureStart(self.handle))?;
         Ok(())
     }
@@ -611,7 +611,7 @@ impl<'lib> Camera<'lib> {
     }
 
     pub fn capture_frame_queue(&self, frame: &mut Frame) -> Result<()> {
-        log::debug!("camera {:?} queueing frame {:?}", self, frame);
+        tracing::debug!("camera {:?} queueing frame {:?}", self, frame);
         vimba_call!(self
             .vimba_lib
             .VmbCaptureFrameQueue(self.handle, &*frame.frame, None))?;
@@ -622,7 +622,7 @@ impl<'lib> Camera<'lib> {
         frame: &mut Frame,
         callback: VmbFrameCallback,
     ) -> Result<()> {
-        log::debug!("camera {:?} queueing frame {:?}", self, frame);
+        tracing::debug!("camera {:?} queueing frame {:?}", self, frame);
         vimba_call!(self
             .vimba_lib
             .VmbCaptureFrameQueue(self.handle, &*frame.frame, callback))?;
@@ -635,7 +635,7 @@ impl<'lib> Camera<'lib> {
     }
 
     pub fn capture_frame_wait(&self, frame: &mut Frame, timeout: u32) -> Result<()> {
-        log::debug!("camera {:?} waiting for frame {:?}", self, frame);
+        tracing::debug!("camera {:?} waiting for frame {:?}", self, frame);
         vimba_call!(self
             .vimba_lib
             .VmbCaptureFrameWait(self.handle, &*frame.frame, timeout))?;

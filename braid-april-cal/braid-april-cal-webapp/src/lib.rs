@@ -53,12 +53,12 @@ impl Component for Model {
                                 .insert(cfg.camera_name.clone(), (cfg, csv_data));
                         }
                         Err(e) => {
-                            log::error!("failed getting camera name: {}", e);
+                            tracing::error!("failed getting camera name: {}", e);
                         }
                     }
                 }
                 _ => {
-                    log::error!("CSV error: empty file or failed parsing");
+                    tracing::error!("CSV error: empty file or failed parsing");
                 }
             },
             Msg::RemoveCamera(cam_name) => {
@@ -71,12 +71,12 @@ impl Component for Model {
                             self.computed_calibration = Some(cal);
                         }
                         Err(e) => {
-                            log::error!("Error performing calibration: {}", e);
+                            tracing::error!("Error performing calibration: {}", e);
                         }
                     };
                 }
                 Err(e) => {
-                    log::error!("could not get calibration data: {:?}", e);
+                    tracing::error!("could not get calibration data: {:?}", e);
                 }
             },
             Msg::DownloadXmlCal => {

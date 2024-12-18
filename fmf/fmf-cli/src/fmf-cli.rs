@@ -1,7 +1,5 @@
-#[macro_use]
-extern crate log;
-
 use anyhow::Result;
+use tracing::{debug, info};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};

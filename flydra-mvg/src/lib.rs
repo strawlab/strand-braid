@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-extern crate log;
-
 use serde::de::DeserializeOwned;
 
 use num_traits::{One, Zero};
@@ -267,7 +265,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
             let r0 = match fermats_least_time::find_fastest_path_fermat(&root_params) {
                 Ok(r0) => r0,
                 Err(e) => {
-                    log::error!(
+                    tracing::error!(
                         "find_fastest_path_fermat {} with parameters: {:?}",
                         e,
                         root_params,

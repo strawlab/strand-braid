@@ -1,15 +1,12 @@
 // Copyright 2022-2023 Andrew D. Straw.
-#[macro_use]
-extern crate log;
-
+use font_drawing::stamp_frame;
 use machine_vision_formats::{
     image_ref::ImageRef,
     owned::OImage,
     pixel_format::{Mono8, RGB8},
     ImageMutStride, Stride,
 };
-
-use font_drawing::stamp_frame;
+use tracing::info;
 
 use rusttype::Font;
 

@@ -8,7 +8,7 @@ rust-version = "1.76"
 toml.workspace = true
 shellexpand.workspace = true
 thiserror.workspace = true
-log.workspace = true
+tracing.workspace = true
 
 flydra-types.workspace = true
 serde.workspace = true

@@ -282,7 +282,7 @@ pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidCon
             let cfg1: BraidConfig1 = match toml::from_str(&contents) {
                 Ok(cfg1) => cfg1,
                 Err(err_cfg1) => {
-                    log::error!(
+                    tracing::error!(
                         "parsing config file first as BraidConfig failed \
                     and then again as BraidConfig1 failed. The parse error for \
                     BraidConfig1 is: {}\n The original error when parsing \

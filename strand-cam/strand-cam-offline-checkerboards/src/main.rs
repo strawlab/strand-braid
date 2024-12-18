@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
 use image::GenericImageView;
-use log::{error, info};
+use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 struct Cli {

@@ -1,18 +1,16 @@
 //! Convert 2D csv files from strand cam into tracks in .braid directory
-#[macro_use]
-extern crate log;
-
 use std::{
     collections::BTreeMap,
     io::{BufRead, Write},
     path::{Path, PathBuf},
 };
 
-use braid_offline::KalmanizeOptions;
-use flydra_mvg::FlydraMultiCameraSystem;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
+use braid_offline::KalmanizeOptions;
 use flydra2::Data2dDistortedRow;
+use flydra_mvg::FlydraMultiCameraSystem;
 use flydra_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
@@ -41,7 +39,7 @@ fn load_yaml_calibration(
 ) -> Result<CalibrationType> {
     let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
         serde_yaml::from_str(&calibration_params_buf)?;
-    log::info!("loaded YAML intrinsics calibration");
+    tracing::info!("loaded YAML intrinsics calibration");
 
     let eargs = eargs.ok_or_else(|| {
         anyhow::anyhow!("when loading YAML calibration, need apriltags_3d_fiducial_coords")
@@ -67,7 +65,7 @@ fn load_yaml_calibration(
     let system = single_cam_result.cal_result().cam_system.clone();
 
     for camera_name in system.cams_by_name().keys() {
-        log::info!(
+        tracing::info!(
             "Calibration result for {}: {:.2} pixel mean reprojection distance",
             camera_name,
             single_cam_result.cal_result().mean_reproj_dist[camera_name]
@@ -98,12 +96,12 @@ where
     let cfg = flytrax_io::read_csv_commented_header(&mut point_detection_csv_reader)?;
 
     let mut pseudo_cal_params = None;
-    log::info!("reading calibration parameters from file {}", cal_file_name);
+    tracing::info!("reading calibration parameters from file {}", cal_file_name);
     let calibration_params_buf = std::fs::read_to_string(cal_file_name)
         .with_context(|| format!("reading calibration parameters file \"{}\"", cal_file_name))?;
     let cal_type = if cal_file_name.ends_with(".xml") {
         let full_cal = FlydraMultiCameraSystem::from_flydra_xml(calibration_params_buf.as_bytes())?;
-        log::info!("loaded XML calibration with {} cameras", full_cal.len());
+        tracing::info!("loaded XML calibration with {} cameras", full_cal.len());
         CalibrationType::FullCal(Box::new(full_cal))
     } else if cal_file_name.ends_with(".toml") {
         let pseudo: PseudoCalParams =

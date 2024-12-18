@@ -7,7 +7,7 @@ rust-version = "1.76"
 
 [dependencies]
 anyhow.workspace = true
-log.workspace = true
+tracing.workspace = true
 env_logger.workspace = true
 clap.workspace = true
 image.workspace = true

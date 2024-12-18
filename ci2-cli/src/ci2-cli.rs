@@ -1,10 +1,8 @@
-#[macro_use]
-extern crate log;
-
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
 
 use clap::Parser;
+use tracing::{error, info};
 
 use ci2::{Camera, CameraModule};
 

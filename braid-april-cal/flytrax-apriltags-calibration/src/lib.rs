@@ -43,7 +43,7 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
     let im = apriltag::ImageU8Borrowed::view(&dest);
     let detections = td.detect(apriltag::ImageU8::inner(&im));
 
-    log::info!(
+    tracing::info!(
         "In image file {}, got {} detection(s).",
         fname.as_ref().display(),
         detections.len()
@@ -128,7 +128,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
         }
     };
 
-    log::info!(
+    tracing::info!(
         "In fiducial coordinates file {}, got {} fiducial marker(s).",
         cli.apriltags_3d_fiducial_coords.display(),
         fiducial_3d_coords.len()
@@ -217,7 +217,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
     let cal_result = braid_april_cal::do_calibrate_system(&src_data)?;
 
-    log::info!(
+    tracing::info!(
         "Calibration result for {}: {:.2} pixel mean reprojection distance",
         camera_name,
         cal_result.mean_reproj_dist[&camera_name]
@@ -273,7 +273,7 @@ pub fn save_cal_result_to_xml<P: AsRef<Path>>(
     } = res;
     let xml_buf = cal_result.to_flydra_xml()?;
     std::fs::write(output_xml.as_ref(), xml_buf)?;
-    log::info!("Saved output XML to: {}", output_xml.as_ref().display());
+    tracing::info!("Saved output XML to: {}", output_xml.as_ref().display());
 
     Ok(())
 }
@@ -302,7 +302,7 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
     };
 
     img_write::doit(&out_svg_fname, &pcrf)?;
-    log::info!(
+    tracing::info!(
         "Saved image for debugging to: {}",
         out_svg_fname.as_ref().display()
     );
