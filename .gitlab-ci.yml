@@ -134,8 +134,8 @@ test_flydra2:
     - pip3 install --upgrade pip
 
     # # Install flydra from pip
-    - python -m pip install flydra_core
-    - python -m pip install flydra_analysis
+    - python -m pip install flydra_core>=0.7.20
+    - python -m pip install flydra_analysis>=0.7.20
 
     # Install required python packages
     - python -m pip install imageio
