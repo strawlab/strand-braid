@@ -41,7 +41,7 @@ pub struct FfmpegCodecArgs {
 }
 
 fn prefix() -> Vec<String> {
-    zq(&["-hide_banner", "-nostdin", "-y"])
+    zq(&["-nostats", "-hide_banner", "-nostdin", "-y"])
 }
 
 fn middle() -> Vec<String> {
