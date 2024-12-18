@@ -96,7 +96,7 @@ impl BgMovieWriter {
         match self.tx.try_send(msg) {
             Ok(()) => {}
             Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
-                log::warn!("Dropping frame to save: channel full");
+                tracing::warn!("Dropping frame to save: channel full");
             }
             Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => {
                 return Err(Error::WorkerDisconnected);
@@ -306,7 +306,7 @@ fn launch_runner(
                                     _ => None,
                                 };
 
-                                log::info!(
+                                tracing::info!(
                                     "saving MP4 to {}",
                                     std::fs::canonicalize(mp4_path).unwrap().display()
                                 );
@@ -364,7 +364,7 @@ fn launch_runner(
                             panic!("")
                         }
                     }
-                    log::info!("MP4 saving complete.");
+                    tracing::info!("MP4 saving complete.");
                     return; // end the thread
                 }
             };
