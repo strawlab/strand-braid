@@ -1046,18 +1046,22 @@ braid-process-video-ubuntu2204:
       - build/
     name: "braid-process-video-ubuntu2204-${CI_COMMIT_SHA}"
 
-slow-braid-process-video-test:
+slow-tests:
   image: ubuntu:focal
   when: manual
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential libvpx-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential libvpx-dev zip octave
     - cc --version
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - cd braid-process-video
+    - cd $CI_PROJECT_DIR/braidz-mcsc
+    - ./package-mcsc-zip.sh
+    - cargo test --release -- --include-ignored
+
+    - cd $CI_PROJECT_DIR/braid-process-video
     - cargo test --release -- --include-ignored
 
 extra-programs-ubuntu2404:
