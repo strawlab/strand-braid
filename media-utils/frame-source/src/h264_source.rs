@@ -544,24 +544,27 @@ where
             }
             crate::TimestampSource::FrameInfoRecvTime => {
                 if frame0_frameinfo_recv_ntp.is_none() {
-                    return Err(Error::H264TimestampError(format!(
-                        "Requested timestamp source {timestamp_source:?}, but FrameInfo not present.")));
+                    return Err(Error::H264TimestampError(
+                        "Requested timestamp source FrameInfoRecvTime, but FrameInfo not present."
+                            .into(),
+                    ));
                 }
                 (Some(timestamp_source), true)
             }
             crate::TimestampSource::MispMicrosectime => {
                 if frame0_precision_time.is_none() {
-                    return Err(Error::H264TimestampError(format!(
-                        "Requested timestamp source {timestamp_source:?}, but timestamp not present."
-                    )));
+                    return Err(Error::H264TimestampError(
+                        "Requested timestamp source MispMicrosectime, but frame0_precision_time not present."
+                            .into(),
+                    ));
                 }
                 (Some(timestamp_source), true)
             }
             crate::TimestampSource::Mp4Pts => {
                 if mp4_pts.is_none() {
-                    return Err(Error::H264TimestampError(format!(
-                        "Requested timestamp source {timestamp_source:?}, but MP4 PTS not present."
-                    )));
+                    return Err(Error::H264TimestampError(
+                        "Requested timestamp source Mp4Pts, but MP4 PTS not present.".into(),
+                    ));
                 }
                 (Some(timestamp_source), true)
             }
