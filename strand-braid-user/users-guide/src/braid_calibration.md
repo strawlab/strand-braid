@@ -98,7 +98,7 @@ We will run the `braidz-mcsc` program to export the data for MCSC and then to
 run MCSC. Use something like the following, updating for your specific case:
 
 ```ignore
-braidz-mcsc --input 20241017_164418.braidz --checkerboard-cal-dir ~/.config/strand-cam/camera_info --use-nth-observation 4 --gocal ~/src/MultiCamSelfCal/MultiCamSelfCal/gocal.m
+braidz-mcsc --input 20241017_164418.braidz --checkerboard-cal-dir ~/.config/strand-cam/camera_info --use-nth-observation 4
 ```
 
 Here:
@@ -110,10 +110,6 @@ Here:
   `strand-cam-offline-checkerboards`.
 - `--use-nth-observation 4` indicates that only every 4th frame of data should
   be exported. See below.
-- `--gocal ~/src/MultiCamSelfCal/MultiCamSelfCal/gocal.m` tells the program to run Octave
-  using the script named here, which should be the `MultiCamSelfCal/gocal.m`
-  script in a local checkout of the [MultiCamSelfCal
-  repository](https://github.com/strawlab/MultiCamSelfCal).
 
 This will print various pieces of information to the console when it runs. First it will print something like this:
 

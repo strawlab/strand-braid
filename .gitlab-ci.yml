@@ -1064,7 +1064,7 @@ extra-programs-ubuntu2404:
   when: manual
   image: ubuntu:noble
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
     - _packaging/setup-opencv-4.9.0-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -1078,6 +1078,7 @@ extra-programs-ubuntu2404:
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-mcsc
+    - ./package-mcsc-zip.sh
     - cargo build --release
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
@@ -1104,7 +1105,7 @@ extra-programs-ubuntu2404:
 extra-programs-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
     - _packaging/setup-opencv-4.9.0-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -1118,6 +1119,7 @@ extra-programs-ubuntu2004:
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-mcsc
+    - ./package-mcsc-zip.sh
     - cargo build --release
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
@@ -1145,7 +1147,7 @@ extra-programs-ubuntu2204:
   when: manual
   image: ubuntu:jammy
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
     - _packaging/setup-opencv-4.9.0-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -1159,6 +1161,7 @@ extra-programs-ubuntu2204:
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-mcsc
+    - ./package-mcsc-zip.sh
     - cargo build --release
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 

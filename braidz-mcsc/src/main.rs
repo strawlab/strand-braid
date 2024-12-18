@@ -1,3 +1,4 @@
+use ::zip::ZipArchive;
 use clap::Parser;
 use eyre::{self, Context, Result};
 use polars::prelude::*;
@@ -9,6 +10,9 @@ use std::{
 };
 
 use flydra_mvg::FlydraMultiCameraSystem;
+
+static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
+static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
 
 #[derive(Parser)]
 struct Cli {
@@ -28,10 +32,6 @@ struct Cli {
     /// Rather than using each frame, use only 1/N of them.
     #[arg(long)]
     use_nth_observation: Option<u16>,
-
-    /// Location of the "gocal.m" script to run with octave.
-    #[arg(long)]
-    gocal: Option<PathBuf>,
 
     /// If set, keep the intermediate MCSC calibration directory.
     #[arg(long)]
@@ -462,19 +462,6 @@ fn main() -> Result<()> {
         for (npt, count_per_num_pts) in by_n_pts.iter() {
             println!(" {npt}: {count_per_num_pts}");
         }
-        /*
-
-        851 points
-        by camera id:
-         Basler_40022057: 802
-         Basler_40025037: 816
-         Basler_40025042: 657
-         Basler_40025383: 846
-        by n points:
-         3: 283
-         4: 568
-
-        */
 
         let id_mat = DatMat::new(count, num_cameras, id_mat)?.transpose();
         let points = DatMat::new(count, num_cameras * 3, points)?.transpose();
@@ -527,41 +514,70 @@ fn main() -> Result<()> {
         );
     }
 
-    if let Some(gocal) = &opt.gocal {
-        let resultdir = out_dir_name.join("result");
-        copy_dir_all(&out_dir_name, &resultdir)?;
+    // open MCSC zip archive
+    let rdr = std::io::Cursor::new(MCSC_RELEASE);
+    let mut mcsc_zip_archive = ZipArchive::new(rdr)?;
+    // unpack MCSC into tempdir
+    let mcsc_root = tempfile::tempdir()?;
+    let mcsc_dir_name = PathBuf::from(mcsc_root.path());
+    fs::create_dir_all(&mcsc_dir_name).unwrap();
+    for i in 0..mcsc_zip_archive.len() {
+        let mut file = mcsc_zip_archive.by_index(i).unwrap();
+        let outpath = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+        let outpath = mcsc_dir_name.join(outpath);
 
-        let config_arg = format!(
-            "--config={resultdir}",
-            resultdir = std::path::absolute(&resultdir)?.display()
-        );
-        let args = vec![gocal.as_os_str(), config_arg.as_ref()];
-        let gocal_abs = std::path::absolute(gocal)?;
-        let current_dir = gocal_abs.parent().unwrap();
-        if !std::process::Command::new("octave")
-            .args(args)
-            .current_dir(current_dir)
-            .status()?
-            .success()
-        {
-            eyre::bail!("octave failed");
+        if (*file.name()).ends_with('/') {
+            fs::create_dir_all(&outpath).unwrap();
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(p).unwrap();
+                }
+            }
+            let mut outfile = fs::File::create(&outpath).unwrap();
+            io::copy(&mut file, &mut outfile).unwrap();
         }
-
-        println!("Reading calibration at {}", resultdir.display());
-
-        let calibration = FlydraMultiCameraSystem::<f64>::from_path(&resultdir)
-            .with_context(|| format!("while reading calibration at {}", resultdir.display()))?;
-
-        let mut out_fd = std::fs::File::create_new(&xml_out_name).with_context(|| {
-            format!(
-                "While creating XML calibration output file {}",
-                xml_out_name.display()
-            )
-        })?;
-        calibration.to_flydra_xml(&mut out_fd)?;
-
-        println!("Calibration XML saved to {}", xml_out_name.display());
     }
+
+    let gocal_abs = mcsc_dir_name
+        .join(MCSC_DIRNAME)
+        .join("MultiCamSelfCal/gocal.m");
+
+    let resultdir = out_dir_name.join("result");
+    copy_dir_all(&out_dir_name, &resultdir)?;
+
+    let config_arg = format!(
+        "--config={resultdir}",
+        resultdir = std::path::absolute(&resultdir)?.display()
+    );
+    let args = vec![gocal_abs.as_os_str(), config_arg.as_ref()];
+    let current_dir = gocal_abs.parent().unwrap();
+    if !std::process::Command::new("octave")
+        .args(args)
+        .current_dir(current_dir)
+        .status()?
+        .success()
+    {
+        eyre::bail!("octave failed");
+    }
+
+    println!("Reading calibration at {}", resultdir.display());
+
+    let calibration = FlydraMultiCameraSystem::<f64>::from_path(&resultdir)
+        .with_context(|| format!("while reading calibration at {}", resultdir.display()))?;
+
+    let mut out_fd = std::fs::File::create_new(&xml_out_name).with_context(|| {
+        format!(
+            "While creating XML calibration output file {}",
+            xml_out_name.display()
+        )
+    })?;
+    calibration.to_flydra_xml(&mut out_fd)?;
+
+    println!("Calibration XML saved to {}", xml_out_name.display());
 
     Ok(())
 }

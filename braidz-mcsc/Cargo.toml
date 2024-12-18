@@ -20,6 +20,8 @@ opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 tempfile.workspace = true
 image.workspace = true
+include_dir.workspace = true
+zip.workspace = true
 
 env-tracing-logger.workspace = true
 braidz-parser.workspace = true
