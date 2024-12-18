@@ -25,7 +25,7 @@ where
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var(
             "RUST_LOG",
-            "strand_cam=info,flydra_feature_detector=info,rt_image_viewer=info,warn",
+            "strand_cam=info,flydra_feature_detector=info,bg_movie_writer=info,warn",
         );
     }
 

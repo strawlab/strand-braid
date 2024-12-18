@@ -364,6 +364,7 @@ fn launch_runner(
                             panic!("")
                         }
                     }
+                    log::info!("MP4 saving complete.");
                     return; // end the thread
                 }
             };
