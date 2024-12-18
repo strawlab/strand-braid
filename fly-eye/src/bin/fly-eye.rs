@@ -1,13 +1,13 @@
 use basic_frame::DynamicFrame;
 use channellib::Sender;
-#[cfg(feature = "camsrc_pyloncxx")]
-use ci2_pyloncxx as camsrc;
+#[cfg(feature = "backend_pyloncxx")]
+use ci2_pyloncxx as backend;
 
 use ci2::{Camera, CameraInfo, CameraModule};
 use crossbeam_ok::CrossbeamOk;
 
 fn thread_loop(firehose_tx: Sender<DynamicFrame>) -> anyhow::Result<()> {
-    let mymod = camsrc::new_module()?;
+    let mymod = backend::new_module()?;
     log::info!("camera module: {}", (&mymod).name());
 
     let infos = (&mymod).camera_infos().expect("get camera info");

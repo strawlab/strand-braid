@@ -101,7 +101,7 @@ test_crates:
 
     - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
     - cd fly-eye
-    - cargo build --release --features camsrc_pyloncxx
+    - cargo build --release --features backend_pyloncxx
     - cd ..
 
     - cd imagesrc-gst

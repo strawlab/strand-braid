@@ -32,4 +32,4 @@ default = ["fly-eye"]
 
 fly-eye = []
 screen-quad = []
-camsrc_pyloncxx = ["ci2-pyloncxx"]
+backend_pyloncxx = ["ci2-pyloncxx"]
