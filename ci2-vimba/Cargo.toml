@@ -22,7 +22,6 @@ vmbc-sys = "0.1"
 ci2 = { path = "../ci2" }
 basic-frame = { path = "../basic-frame" }
 timestamped-frame = { path = "../timestamped-frame" }
-channellib = { path = "../channellib" }
 
 [dev-dependencies]
 env_logger.workspace = true

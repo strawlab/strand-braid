@@ -1,3 +1,4 @@
+use log::{error, warn};
 use parking_lot::Mutex;
 use std::{
     convert::TryInto,
@@ -17,7 +18,7 @@ use formats::PixFmt;
 use timestamped_frame::HostTimeData;
 
 use basic_frame::DynamicFrame;
-use channellib::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, SyncSender};
 
 // Number of frames to allocate for the Vimba driver.
 const N_BUFFER_FRAMES: usize = 10;
@@ -26,7 +27,7 @@ const N_CHANNEL_FRAMES: usize = 10;
 
 struct FrameSender {
     handle: CamHandle,
-    tx: Sender<std::result::Result<DynamicFrame, ci2::Error>>,
+    tx: SyncSender<std::result::Result<DynamicFrame, ci2::Error>>,
 }
 
 struct CamHandle {
@@ -164,10 +165,13 @@ fn callback_rust(
             }
         };
 
-        match tx.send(msg) {
+        match tx.try_send(msg) {
             Ok(()) => {}
-            Err(e) => {
-                eprintln!("CB: send frame error: {}", e);
+            Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
+                warn!("channel full");
+            }
+            Err(std::sync::mpsc::TrySendError::Disconnected(_frame_result)) => {
+                error!("disconnected channel");
                 IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
             }
         }
@@ -302,7 +306,7 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         let rx = {
             // In this scope, we keep the lock on the SENDERS mutex.
             let vec_senders = &mut *SENDERS.lock();
-            let (tx, rx) = channellib::bounded(N_CHANNEL_FRAMES);
+            let (tx, rx) = std::sync::mpsc::sync_channel(N_CHANNEL_FRAMES);
             let sender = FrameSender {
                 handle: CamHandle {
                     inner: camera.handle(),
