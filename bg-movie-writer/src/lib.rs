@@ -108,11 +108,16 @@ impl BgMovieWriter {
     pub fn finish(&mut self) -> Result<()> {
         async_err!(self.err_rx);
         self.is_done = true;
-        // We want to send the finish message without fail, so this blocks if
-        // needed.
-        self.tx
-            .send(Msg::Finish)
-            .map_err(|_e| Error::WorkerDisconnected)?;
+        let tx = self.tx.clone();
+        // We want to send the finish message without fail, so this spawns a new
+        // thread which blocks until the message can be sent. If we don't spawn
+        // a new thread, the writer thread can be busy and block the frame
+        // processing thread. If we don't block on sending, we can miss the
+        // finish message.
+        std::thread::spawn(move || {
+            tx.send(Msg::Finish).unwrap();
+            // .map_err(|_e| Error::WorkerDisconnected)
+        });
         Ok(())
     }
 }
