@@ -169,7 +169,7 @@ Repr. error in proj. space (no fact./fact./BA) is ...  0.388949 0.381359 0.35805
 2D reprojection error
 All points: mean  0.36 pixels, std is 0.31
 
-Calibration XML saved to 20241017_164418.braidz.xml
+Unaligned calibration XML saved to 20241017_164418-unaligned.xml
 ```
 
 Important things to watch for:
@@ -183,21 +183,21 @@ Important things to watch for:
 
 The above example calibration is a good one.
 
-In the example above, the file `20241017_164418.braidz.xml` was created. You may
-now use this new calibration, saved as an XML file, as the calibration for
+In the example above, the file `20241017_164418-unaligned.xml` was created. You
+may now use this new calibration, saved as an XML file, as the calibration for
 Braid. Specify the filename of your new XML file as `cal_fname` in the
 `[mainbrain]` section of your Braid configuration `.toml` file.
 
 ### With the new calibration, perform offline tracking the data used to calibrate.
 
 Now you have a working calibration, which is NOT aligned or scaled to any
-coordinate system, but an (undefined) coordinate system that the MCSC code
+coordinate system, but in an undefined coordinate system that the MCSC code
 picked. We can use this calibration to do tracking, although in general having
 correct scaling is important for good tracking. The reason correct scaling is
 important for good quality tracking is because Braid tracks using a dynamic
-model of movement in which maneuverability is parameterized and tracking
-performance is best when the actual maneuverability statistics match the
-expected statistic.
+model of movement in which maneuverability is parameterized and performance is
+best when the actual maneuverability matches the expected statistical
+paramterization.
 
 Now we will take our existing "unaligned" calibration, and despite the scaling
 and alignment issue, track some points so that we have 3D coordinates. We will

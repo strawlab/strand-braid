@@ -490,8 +490,16 @@ fn main() -> Result<()> {
     #[allow(unused_variables)]
     let mut output_root_guard = None; // will cleanup on drop
 
+    let input_str = opt
+        .input
+        .as_os_str()
+        .to_str()
+        .ok_or_else(|| eyre::eyre!("input filename is not valid unicode?"))?;
+    let input_base_name = input_str
+        .strip_suffix(".braidz")
+        .ok_or_else(|| eyre::eyre!("expected input filename to end with '.braidz'."))?;
     let out_dir_name = if opt.keep {
-        PathBuf::from(format!("{}.mcsc", opt.input.display()))
+        PathBuf::from(format!("{}.mcsc", input_base_name))
     } else {
         let output_root = tempfile::tempdir()?;
         let out_dir_name = PathBuf::from(output_root.path());
@@ -501,7 +509,7 @@ fn main() -> Result<()> {
         }
         out_dir_name
     };
-    let xml_out_name = PathBuf::from(format!("{}.xml", opt.input.display()));
+    let xml_out_name = PathBuf::from(format!("{}-unaligned.xml", input_base_name));
 
     mcsc_data.save_to_path(&out_dir_name)?;
 
@@ -577,7 +585,10 @@ fn main() -> Result<()> {
     })?;
     calibration.to_flydra_xml(&mut out_fd)?;
 
-    println!("Calibration XML saved to {}", xml_out_name.display());
+    println!(
+        "Unaligned calibration XML saved to {}",
+        xml_out_name.display()
+    );
 
     Ok(())
 }
