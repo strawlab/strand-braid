@@ -48,7 +48,7 @@ fn prefix() -> Vec<String> {
 }
 
 fn middle() -> Vec<String> {
-    zq(&["-i", "-", "-fps_mode", "passthrough"])
+    zq(&["-i", "-"])
 }
 
 fn zq(x: &[&str]) -> Vec<String> {
