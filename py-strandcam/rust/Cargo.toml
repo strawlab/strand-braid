@@ -15,15 +15,13 @@ eyre.workspace = true
 lazy_static.workspace = true
 
 strand-cam = { workspace = true, features = [
-    "flydra_feat_detect",
     "bundle_files",
     "plugin-process-frame",
     "flydra_feat_detect",
     "imtrack-absdiff",
-    "use_ipp",
 ] }
 plugin-defs.workspace = true
-ipp-sys.workspace = true # Just so we can specify features
+ipp-sys = {workspace = true, optional = true}
 
 ci2-async.workspace = true
 ci2-pyloncxx.workspace = true
@@ -31,3 +29,7 @@ ci2-pyloncxx.workspace = true
 [build-dependencies]
 cbindgen = { version = "0.25", default-features = false }
 plugin-defs.workspace = true
+
+[features]
+use_ipp = ["strand-cam/use_ipp", "ipp-sys"]
+do_not_use_ipp = ["strand-cam/do_not_use_ipp"]

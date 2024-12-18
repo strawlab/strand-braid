@@ -7,7 +7,7 @@ ipp_sys = os.environ["IPP_SYS"]
 def build_native(spec):
     # Step 1: build the rust library
     build = spec.add_external_build(
-        cmd=["cargo", "build", "--release", "--features", "ipp-sys/%s" % (ipp_sys,)],
+        cmd=["cargo", "build", "--release", "--features", "use_ipp,ipp-sys/%s" % (ipp_sys,)],
         path="./rust",
     )
 
