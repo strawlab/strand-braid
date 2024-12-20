@@ -10,12 +10,11 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
-pyo3 = { version = "0.22", features = [
+pyo3 = { version = "0.23", features = [
     "extension-module",
     "abi3-py37",
-    "gil-refs",
 ] }
-numpy = "0.22"
+numpy = "0.23"
 csv.workspace = true
 chrono.workspace = true
 
