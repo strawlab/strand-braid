@@ -39,7 +39,7 @@ futures.workspace = true
 mvg.workspace = true
 zip-or-dir.workspace = true
 braidz-types.workspace = true
-braidz-parser = { path = "../braidz-parser" }
+braidz-parser.workspace = true
 wasm-bindgen-futures = { version = "0.4.37" }
 ads-webasm.workspace = true
 
