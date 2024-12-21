@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 use tracing::info;
-use yew::{classes, html, Component, Context, Html};
+use yew::{html, Component, Context, Html};
 use yew_agent::{Bridge, Bridged, HandlerId, Public, Worker as Agent, WorkerLink as AgentLink};
 
 use ads_webasm::components::{CsvDataField, MaybeCsvData, ObjWidget};
@@ -254,12 +254,10 @@ impl Component for Model {
                 </p>
 
                 <h2>{"Input: Display Surface Model"}</h2>
-                <label class={classes!("btn", "custom-file-upload")}>
-                    {"Select an OBJ file."}
-                    <ObjWidget
-                        onfile={ctx.link().callback(|obj_file| Msg::ObjFile(obj_file))}
-                        />
-                </label>
+                <ObjWidget
+                    button_text={"Select an OBJ file."}
+                    onfile={ctx.link().callback(|obj_file| Msg::ObjFile(obj_file))}
+                    />
                 <p>
                     { &obj_file_state }
                 </p>
@@ -279,12 +277,10 @@ impl Component for Model {
 
                 <h2>{"Input: Corresponding Points"}</h2>
                 <p>{"The file must be a CSV file with columns: display_x, display_y, texture_u, texture_v."}</p>
-                <label class={classes!("btn", "custom-file-upload")}>
-                    {"Select a CSV file."}
-                    <CsvDataField<SimpleUVCorrespondance>
-                        onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
-                        />
-                </label>
+                <CsvDataField<SimpleUVCorrespondance>
+                    button_text={"Select a CSV file."}
+                    onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
+                    />
                 <p>
                     { &csv_file_state }
                 </p>
@@ -332,12 +328,10 @@ impl Component for Model {
                     <p>{"With your own program, edit the CSV file you downloaded above."}</p>
 
                     <h3>{"Step 3: Upload the Corresponding Points"}</h3>
-                    <label class={classes!("btn", "custom-file-upload")}>
-                        {"Select a CSV file."}
                         <CsvDataField<CompleteCorrespondance>
+                            button_text={"Select a CSV file."}
                             onfile={ctx.link().callback(|csv_file| Msg::CsvFile2(csv_file))}
                             />
-                    </label>
                     <p>
                         { &stage_2_csv_file_state }
                     </p>

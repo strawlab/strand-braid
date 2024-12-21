@@ -29,3 +29,5 @@ pub mod obj_widget;
 
 #[cfg(feature = "obj")]
 pub use self::obj_widget::ObjWidget;
+
+pub mod file_input;

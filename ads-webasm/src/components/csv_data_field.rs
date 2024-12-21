@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use web_sys::{Event, HtmlInputElement};
-use yew::{html, Callback, Component, Context, Html, Properties, TargetCast};
+use yew::{html, Callback, Component, Context, Html, Properties};
 
 use gloo_file::callbacks::FileReader;
 use gloo_file::File;
+
+use crate::components::file_input::FileInput;
 
 #[derive(PartialEq, Clone)]
 pub struct CsvData<RowType> {
@@ -98,6 +99,7 @@ pub struct Props<RowType>
 where
     RowType: PartialEq,
 {
+    pub button_text: String,
     pub onfile: Option<Callback<MaybeCsvData<RowType>>>,
 }
 
@@ -146,23 +148,14 @@ where
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let button_text = ctx.props().button_text.clone();
         html! {
-                <input type="file"
-                    class="custom-file-upload-input"
-                    multiple=false
-                    onchange={ctx.link().callback(move |e: Event| {
-                        let mut result = Vec::new();
-                        let input: HtmlInputElement = e.target_unchecked_into();
-
-                        if let Some(files) = input.files() {
-                            let files = js_sys::try_iter(&files)
-                                .unwrap()
-                                .unwrap()
-                                .map(|v| web_sys::File::from(v.unwrap()))
-                                .map(File::from);
-                            result.extend(files);
-                        }
-                        Msg::Files(result)
+                <FileInput
+                    button_text={button_text}
+                    accept={".csv"}
+                    multiple={false}
+                    on_changed={ctx.link().callback(|files| {
+                        Msg::Files(files)
                     })}
                 />
         }

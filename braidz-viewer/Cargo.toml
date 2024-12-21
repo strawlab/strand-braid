@@ -41,6 +41,7 @@ zip-or-dir.workspace = true
 braidz-types.workspace = true
 braidz-parser = { path = "../braidz-parser" }
 wasm-bindgen-futures = { version = "0.4.37" }
+ads-webasm.workspace = true
 
 [dependencies.web-sys]
 workspace = true

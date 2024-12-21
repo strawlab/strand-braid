@@ -13,7 +13,7 @@ serde.workspace = true
 serde_yaml.workspace = true
 chrono.workspace = true
 csv = { workspace = true, optional = true }
-gloo-file = { workspace = true, optional = true }
+gloo-file = { workspace = true }
 
 yew-tincture.workspace = true
 
@@ -26,9 +26,11 @@ rust-cam-bui-types.workspace = true
 workspace = true
 features = [
     "CanvasRenderingContext2d",
+    "DataTransfer",
     "Document",
     "DomRect",
     "DomTokenList",
+    "DragEvent",
     "Element",
     "EventSource",
     "HtmlCanvasElement",
@@ -38,4 +40,4 @@ features = [
 
 [features]
 obj = ["simple-obj-parse", "textured-tri-mesh"]
-csv-widget = ["csv", "gloo-file"]
+csv-widget = ["csv"]

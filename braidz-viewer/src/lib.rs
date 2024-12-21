@@ -18,7 +18,9 @@ use plotters_canvas::CanvasBackend;
 
 use serde::{Deserialize, Serialize};
 
-use web_sys::{self, console::log_1, Event, HtmlInputElement};
+use web_sys::{self, console::log_1};
+
+use ads_webasm::components::file_input::FileInput;
 
 // -----------------------------------------------------------------------------
 
@@ -261,7 +263,8 @@ impl Component for Model {
                 </div>
                 <div id="content-wrap"
                     ondrop={ctx.link().callback(Msg::FileDropped)}
-                    ondragover={ctx.link().callback(Msg::FileDraggedOver)}>
+                    ondragover={ctx.link().callback(Msg::FileDraggedOver)}
+                    >
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
                         {"Viewer for files saved by "}
@@ -270,31 +273,16 @@ impl Component for Model {
                     </p>
                     <p>
                     </p>
-                    <div class={"file-upload-div"}>
-                        <label class={classes!("btn","custom-file-upload")}>{"Select a BRAIDZ file."}
-                            <input
-                                type="file"
-                                class={"custom-file-upload-input"}
-                                accept={".braidz"}
-                                multiple=false
-                                onchange={ctx.link().callback(move |e: Event| {
-                                    let mut result = Vec::new();
-                                    let input: HtmlInputElement = e.target_unchecked_into();
-
-                                    if let Some(files) = input.files() {
-                                        let files = js_sys::try_iter(&files)
-                                            .unwrap_throw()
-                                            .unwrap_throw()
-                                            .map(|v| web_sys::File::from(v.unwrap_throw()))
-                                            .map(File::from);
-                                        result.extend(files);
-                                    }
-                                    assert!(result.len()==1);
-                                    Msg::FileChanged(result.pop().unwrap_throw())
-                                })}
-                            />
-                        </label>
-                    </div>
+                    <FileInput
+                        button_text={"Select a BRAIDZ file."}
+                        accept={".braidz"}
+                        multiple=false
+                        on_changed={ctx.link().callback(|files: Vec<File>| {
+                            assert_eq!(files.len(),1);
+                            let file = files.into_iter().next().unwrap();
+                            Msg::FileChanged(file)
+                        })}
+                    />
                     <div>
                         {braidz_file_part}
                         {did_error_part}

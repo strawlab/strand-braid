@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use web_sys::{Event, HtmlInputElement};
-use yew::{html, Callback, Component, Context, Html, Properties, TargetCast};
+use yew::{html, Callback, Component, Context, Html, Properties};
 
 use gloo_file::callbacks::FileReader;
 use gloo_file::File;
+
+use crate::components::file_input::FileInput;
 
 pub struct ObjWidget {
     readers: HashMap<String, FileReader>,
@@ -60,6 +61,7 @@ impl Default for MaybeValidObjFile {
 
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
+    pub button_text: String,
     pub onfile: Option<Callback<MaybeValidObjFile>>,
 }
 
@@ -75,13 +77,6 @@ impl Component for ObjWidget {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            // Msg::Loaded(file_name, data) => {
-            //     self.readers.remove(&file_name);
-            //     let file = parse_csv(file_name, &data);
-            //     if let Some(ref callback) = ctx.props().onfile {
-            //         callback.emit(file);
-            //     }
-            // }
             Msg::Loaded(filename, buf) => {
                 self.readers.remove(&filename);
                 let file = match simple_obj_parse::obj_parse(&buf) {
@@ -127,25 +122,14 @@ impl Component for ObjWidget {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let button_text = ctx.props().button_text.clone();
         html! {
-            <input
-                type="file"
-                class="custom-file-upload-input"
+            <FileInput
+                button_text={button_text}
                 multiple=false
                 accept=".obj"
-                onchange={ctx.link().callback(move |e: Event| {
-                    let mut result = Vec::new();
-                    let input: HtmlInputElement = e.target_unchecked_into();
-
-                    if let Some(files) = input.files() {
-                        let files = js_sys::try_iter(&files)
-                            .unwrap()
-                            .unwrap()
-                            .map(|v| web_sys::File::from(v.unwrap()))
-                            .map(File::from);
-                        result.extend(files);
-                    }
-                    Msg::Files(result)
+                on_changed={ctx.link().callback(|files| {
+                    Msg::Files(files)
                 })}
                 />
         }

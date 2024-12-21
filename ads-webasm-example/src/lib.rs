@@ -194,12 +194,10 @@ impl Component for Model {
 
                <div>
                    <h2>{"Data Upload"}</h2>
-                   <label class={classes!("btn", "custom-file-upload")}>
-                       {"Select a CSV file."}
-                       <CsvDataField<CsvRowType>
-                           onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
-                           />
-                   </label>
+                    <CsvDataField<CsvRowType>
+                        button_text="Select a CSV file."
+                        onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
+                        />
                    <p>
                        { &csv_file_state }
                    </p>

@@ -122,12 +122,10 @@ impl Component for Model {
                {"tutorial"}</a>{" may also be interesting."}</p>
             <h2>{"Input: 3D coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file with columns: id, x, y, z."}</p>
-            <label class={classes!("btn", "custom-file-upload")}>
-                {"Upload a 3D coordinate CSV file."}
-                <CsvDataField<Fiducial3DCoords>
-                    onfile={ctx.link().callback(Msg::Fiducial3dCoordsData)}
-                    />
-            </label>
+            <CsvDataField<Fiducial3DCoords>
+                button_text={"Upload a 3D coordinate CSV file."}
+                onfile={ctx.link().callback(Msg::Fiducial3dCoordsData)}
+                />
             <p>
                 { &fiducial_3d_coords_file_state }
             </p>
@@ -135,12 +133,10 @@ impl Component for Model {
             <h2>{"Input: Automatically detected camera coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Required \
                  columns: id, h02, h12 where (h02,h12) is tag center.)"}</p>
-            <label class={classes!("btn", "custom-file-upload")}>
-                {"Upload a camera coordinate CSV file."}
-                <CsvDataField<DetectionSerializer>
-                    onfile={ctx.link().callback(Msg::DetectionSerializerData)}
-                    />
-            </label>
+            <CsvDataField<DetectionSerializer>
+                button_text={"Upload a camera coordinate CSV file."}
+                onfile={ctx.link().callback(Msg::DetectionSerializerData)}
+                />
             {self.view_camera_data(ctx)}
 
             <h2>{"Compute calibration"}</h2>
