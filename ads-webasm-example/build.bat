@@ -1,4 +1,4 @@
-wasm-pack build --target web
+wasm-pack build --target web --dev --features ads-webasm/obj
 
 mkdir pkg
 copy static\index.html pkg

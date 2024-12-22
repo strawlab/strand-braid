@@ -1,7 +1,7 @@
 #!/bin/bash -x
-set -o errexit
+set -euo pipefail
 
-wasm-pack build --target web
+wasm-pack build --target web --dev --features ads-webasm/obj
 
 cp static/index.html pkg/index.html
 grass -I ../ads-webasm/scss static/ads-webasm-example.scss pkg/style.css
