@@ -13,18 +13,25 @@
 // initial frame. (Although, to specify the timezone, the creation time may be
 // in a timezone other than UTC.)
 
+#[cfg(feature = "nv-encode")]
 use std::rc::Rc;
 
 use ci2_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
+#[cfg(feature = "nv-encode")]
 use convert_image::convert_into;
-use tracing::{debug, error, info, trace};
+#[cfg(feature = "nv-encode")]
+use tracing::info;
+use tracing::{debug, error, trace};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
+#[cfg(feature = "nv-encode")]
+use machine_vision_formats::{image_ref::ImageRefMut, pixel_format};
+
 use machine_vision_formats::{
-    image_ref::ImageRefMut, pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride,
-    PixelFormat, Stride,
+    ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
 };
+
 #[cfg(feature = "nv-encode")]
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
@@ -110,6 +117,7 @@ enum MyEncoder<'lib> {
     #[cfg(feature = "nv-encode")]
     Nvidia(NvEncoder<'lib>),
     #[cfg(not(feature = "nv-encode"))]
+    #[allow(dead_code)]
     NoNvidia(std::marker::PhantomData<&'lib u8>),
     #[cfg(feature = "openh264")]
     OpenH264(OpenH264Encoder),
@@ -368,7 +376,7 @@ where
                     ci2_remote_control::Mp4Codec::H264LessAvc => {}
                     ci2_remote_control::Mp4Codec::H264OpenH264(_) => {}
                     #[cfg(not(feature = "nv-encode"))]
-                    ci2_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
+                    ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
                         return Err(Error::NoNvencCompiledError)
                     }
                     #[cfg(feature = "nv-encode")]
@@ -592,6 +600,7 @@ where
     /// any errors will result in a panic.
     pub fn finish(&mut self) -> Result<()> {
         let inner = self.inner.take();
+        #[allow(unused_mut)]
         match inner {
             Some(WriteState::Configured(_)) => {
                 // no frames written.
@@ -759,7 +768,7 @@ where
             )?;
         }
         #[cfg(not(feature = "nv-encode"))]
-        (MyEncoder::NoNvidia(_), Some(state_inner)) => {
+        (MyEncoder::NoNvidia(_), Some(_)) => {
             return Err(Error::NoNvencCompiledError);
         }
         #[cfg(feature = "nv-encode")]
@@ -839,6 +848,7 @@ where
 }
 
 struct RecordingStateInner {
+    #[allow(dead_code)]
     first_timestamp: chrono::DateTime<chrono::Local>,
     previous_timestamp: chrono::DateTime<chrono::Local>,
     /// limits the maximum framerate

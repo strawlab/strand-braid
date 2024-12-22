@@ -51,11 +51,13 @@ fn main() -> eyre::Result<()> {
 
                 let out_fd = std::fs::File::create(&output_fname)?;
 
+                #[cfg(feature = "nv-encode")]
                 #[allow(unused_assignments)]
                 let mut nvenc_libs = None;
 
                 let h264_bitrate = None;
 
+                #[allow(unused_variables)]
                 let (codec, libs_and_nv_enc) = match cli.encoder {
                     Encoder::OpenH264 => {
                         let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
@@ -69,8 +71,13 @@ fn main() -> eyre::Result<()> {
                                 debug: false,
                             }
                         });
-                        (codec, None)
+                        #[cfg(not(feature = "nv-encode"))]
+                        let none = Option::<()>::None;
+                        #[cfg(feature = "nv-encode")]
+                        let none = None;
+                        (codec, none)
                     }
+                    #[cfg(feature = "nv-encode")]
                     Encoder::NvEnc => {
                         nvenc_libs = Some(nvenc::Dynlibs::new()?);
                         let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
@@ -78,6 +85,10 @@ fn main() -> eyre::Result<()> {
                             codec,
                             Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
                         )
+                    }
+                    #[cfg(not(feature = "nv-encode"))]
+                    Encoder::NvEnc => {
+                        panic!("NvEnc support not compiled");
                     }
                     Encoder::LessAvc => (ci2_remote_control::Mp4Codec::H264LessAvc, None),
                 };
@@ -91,7 +102,10 @@ fn main() -> eyre::Result<()> {
                     h264_metadata: None,
                 };
 
+                #[cfg(feature = "nv-encode")]
                 let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, libs_and_nv_enc)?;
+                #[cfg(not(feature = "nv-encode"))]
+                let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg)?;
 
                 // Load the font
                 // let font_data = include_bytes!("../Roboto-Regular.ttf");

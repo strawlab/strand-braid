@@ -44,11 +44,13 @@ fn main() -> eyre::Result<()> {
 
         let out_fd = std::fs::File::create(output_fname)?;
 
+        #[cfg(feature = "nv-encode")]
         #[allow(unused_assignments)]
         let mut nvenc_libs = None;
 
         let h264_bitrate = None;
 
+        #[allow(unused_variables)]
         let (codec, libs_and_nv_enc) = match codec_str.as_str() {
             "open-h264" => {
                 let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
@@ -62,8 +64,13 @@ fn main() -> eyre::Result<()> {
                         debug: false,
                     }
                 });
-                (codec, None)
+                #[cfg(not(feature = "nv-encode"))]
+                let none = Option::<()>::None;
+                #[cfg(feature = "nv-encode")]
+                let none = None;
+                (codec, none)
             }
+            #[cfg(feature = "nv-encode")]
             "nv-h264" => {
                 nvenc_libs = Some(nvenc::Dynlibs::new()?);
                 let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
@@ -84,7 +91,10 @@ fn main() -> eyre::Result<()> {
             h264_metadata: None,
         };
 
+        #[cfg(feature = "nv-encode")]
         let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, libs_and_nv_enc)?;
+        #[cfg(not(feature = "nv-encode"))]
+        let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg)?;
 
         let image = {
             match pixfmt_str.as_str() {

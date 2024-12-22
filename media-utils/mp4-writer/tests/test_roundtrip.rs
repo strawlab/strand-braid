@@ -55,11 +55,13 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         println!("testing {}", output_name.display());
         let out_fd = std::fs::File::create(&output_name)?;
 
+        #[cfg(feature = "nv-encode")]
         #[allow(unused_assignments)]
         let mut nvenc_libs = None;
 
         let h264_bitrate = None;
 
+        #[allow(unused_variables)]
         let (codec, libs_and_nv_enc, is_lossy) = match codec_str.as_str() {
             "open-h264" => {
                 let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
@@ -73,8 +75,13 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
                         debug: false,
                     }
                 });
-                (codec, None, true)
+                #[cfg(not(feature = "nv-encode"))]
+                let none = Option::<()>::None;
+                #[cfg(feature = "nv-encode")]
+                let none = None;
+                (codec, none, true)
             }
+            #[cfg(feature = "nv-encode")]
             "nv-h264" => {
                 nvenc_libs = Some(nvenc::Dynlibs::new()?);
                 let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
@@ -100,7 +107,10 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
 
         let frame = generate_image(pixfmt_str, *width, *height, start)?;
         {
+            #[cfg(feature = "nv-encode")]
             let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, libs_and_nv_enc)?;
+            #[cfg(not(feature = "nv-encode"))]
+            let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg)?;
             my_mp4_writer.write_dynamic(&frame, start)?;
             // close file at end of this block
         }

@@ -10,7 +10,7 @@ tracing.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 
-mp4-writer = { workspace = true, features = ["openh264-encode"] }
+mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 machine-vision-formats.workspace = true
 ci2-remote-control.workspace = true
 nvenc = { path = "../nvenc" }

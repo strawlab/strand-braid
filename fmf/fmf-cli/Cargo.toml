@@ -28,7 +28,7 @@ fmf.workspace = true
 convert-image.workspace = true
 basic-frame = { path = "../../basic-frame" }
 
-mp4-writer = { workspace = true, features = ["openh264-encode"] }
+mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 y4m-writer.workspace = true
 ci2-remote-control.workspace = true
 

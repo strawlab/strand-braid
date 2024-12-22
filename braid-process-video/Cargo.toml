@@ -34,7 +34,7 @@ braidz-parser.workspace = true
 braidz-types.workspace = true
 ci2-remote-control.workspace = true
 env-tracing-logger.workspace = true
-mp4-writer = { workspace = true, features = ["openh264-encode"] }
+mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 braid-config-data.workspace = true
 flydra-types.workspace = true
 convert-image.workspace = true

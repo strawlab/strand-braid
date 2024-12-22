@@ -99,7 +99,7 @@ braid-config-data.workspace = true
 opencv-calibrate = { workspace = true, optional = true }
 camcal = { workspace = true, optional = true }
 rust-cam-bui-types.workspace = true
-mp4-writer = { workspace = true, features = ["openh264-encode"] }
+mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 strand-cam-csv-config-types.workspace = true
 plugin-defs = { workspace = true, optional = true }
 bg-movie-writer.workspace = true
