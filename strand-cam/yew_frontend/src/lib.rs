@@ -1,5 +1,3 @@
-#![recursion_limit = "1000"]
-
 use std::{
     cell::RefCell,
     error::Error,

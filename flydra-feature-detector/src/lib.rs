@@ -1,4 +1,3 @@
-#![recursion_limit = "128"]
 use tracing::{debug, error, info, warn};
 
 #[cfg(not(any(feature = "do_not_use_ipp", feature = "use_ipp")))]

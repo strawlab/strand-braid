@@ -1,5 +1,3 @@
-#![recursion_limit = "1024"]
-
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 

@@ -1,5 +1,3 @@
-#![recursion_limit = "512"]
-
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
