@@ -25,6 +25,7 @@ use machine_vision_formats::{
     image_ref::ImageRefMut, pixel_format, ImageBuffer, ImageBufferRef, ImageData, ImageStride,
     PixelFormat, Stride,
 };
+#[cfg(feature = "nv-encode")]
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
 
 use thiserror::Error;
@@ -69,6 +70,10 @@ pub enum Error {
         #[from]
         inner: openh264::Error,
     },
+    #[cfg(not(feature = "nv-encode"))]
+    #[error("no nvenc at compile time")]
+    NoNvencCompiledError,
+    #[cfg(feature = "nv-encode")]
     #[error("nvenc error")]
     NvencError(#[from] nvenc::NvEncError),
     #[error("nvenc libraries not loaded")]
@@ -82,12 +87,14 @@ pub enum Error {
     Y4mWriterError(#[from] y4m_writer::Error),
 }
 
+#[cfg(feature = "nv-encode")]
 impl From<dynlink_nvidia_encode::NvencError> for Error {
     fn from(orig: dynlink_nvidia_encode::NvencError) -> Self {
         Error::NvencError(orig.into())
     }
 }
 
+#[cfg(feature = "nv-encode")]
 impl From<dynlink_cuda::CudaError> for Error {
     fn from(orig: dynlink_cuda::CudaError) -> Self {
         Error::NvencError(orig.into())
@@ -100,7 +107,10 @@ enum MyEncoder<'lib> {
     CopyRawH264 {
         h264_parser: H264Parser,
     },
+    #[cfg(feature = "nv-encode")]
     Nvidia(NvEncoder<'lib>),
+    #[cfg(not(feature = "nv-encode"))]
+    NoNvidia(std::marker::PhantomData<&'lib u8>),
     #[cfg(feature = "openh264")]
     OpenH264(OpenH264Encoder),
     LessH264(LessEncoderWrapper),
@@ -149,6 +159,7 @@ where
     T: std::io::Write + std::io::Seek,
 {
     inner: Option<WriteState<'lib, T>>,
+    #[cfg(feature = "nv-encode")]
     nv_enc: Option<nvenc::NvEnc<'lib>>,
     first_sps: Option<Vec<u8>>,
     first_pps: Option<Vec<u8>>,
@@ -161,11 +172,12 @@ where
     pub fn new(
         fd: T,
         config: Mp4RecordingConfig,
-        nv_enc: Option<nvenc::NvEnc<'lib>>,
+        #[cfg(feature = "nv-encode")] nv_enc: Option<nvenc::NvEnc<'lib>>,
     ) -> Result<Self> {
         let h264_parser = H264Parser::new(config.h264_metadata.clone());
         Ok(Self {
             inner: Some(WriteState::Configured(Box::new((fd, config, h264_parser)))),
+            #[cfg(feature = "nv-encode")]
             nv_enc,
             first_sps: None,
             first_pps: None,
@@ -348,12 +360,18 @@ where
                 let width = frame.width();
                 let height = frame.height();
 
+                #[cfg(feature = "nv-encode")]
                 let mut opt_nv_h264_encoder = None;
 
                 match &cfg.codec {
                     ci2_remote_control::Mp4Codec::H264RawStream => {}
                     ci2_remote_control::Mp4Codec::H264LessAvc => {}
                     ci2_remote_control::Mp4Codec::H264OpenH264(_) => {}
+                    #[cfg(not(feature = "nv-encode"))]
+                    ci2_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
+                        return Err(Error::NoNvencCompiledError)
+                    }
+                    #[cfg(feature = "nv-encode")]
                     ci2_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
@@ -497,9 +515,14 @@ where
                             panic!("No Open H264 support at compilation time.");
                         }
                     }
+                    #[cfg(feature = "nv-encode")]
                     ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
                         let enc = opt_nv_h264_encoder.unwrap();
                         MyEncoder::Nvidia(enc)
+                    }
+                    #[cfg(not(feature = "nv-encode"))]
+                    ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
+                        return Err(Error::NoNvencCompiledError);
                     }
                 };
 
@@ -581,6 +604,11 @@ where
                     }
                     #[cfg(feature = "openh264")]
                     MyEncoder::OpenH264(_encoder) => { /* nothing to do */ }
+                    #[cfg(not(feature = "nv-encode"))]
+                    MyEncoder::NoNvidia(_) => {
+                        return Err(Error::NoNvencCompiledError);
+                    }
+                    #[cfg(feature = "nv-encode")]
                     MyEncoder::Nvidia(ref mut nv_encoder) => {
                         nv_encoder.encoder.end_stream()?;
                         // Now done with all frames, drain the pending data.
@@ -624,6 +652,7 @@ where
     }
 }
 
+#[cfg(feature = "nv-encode")]
 fn nv_outbuf_to_sample(outbuf: dynlink_nvidia_encode::api::LockedOutputBuffer) -> EbspNals {
     let nals = h264_annexb_split(outbuf.mem()).collect();
 
@@ -729,6 +758,11 @@ where
                 state_inner.trim_height,
             )?;
         }
+        #[cfg(not(feature = "nv-encode"))]
+        (MyEncoder::NoNvidia(_), Some(state_inner)) => {
+            return Err(Error::NoNvencCompiledError);
+        }
+        #[cfg(feature = "nv-encode")]
         (MyEncoder::Nvidia(ref mut nv_encoder), Some(state_inner)) => {
             let vram_buf: &mut IOBuffer<_, _> = match nv_encoder.vram_queue.get_available() {
                 Some(iobuf) => iobuf,
@@ -857,6 +891,7 @@ impl LessEncoderWrapper {
     }
 }
 
+#[cfg(feature = "nv-encode")]
 struct NvEncoder<'lib> {
     encoder: Rc<nvenc::Encoder<'lib>>,
     h264_parser: H264Parser,
@@ -864,6 +899,7 @@ struct NvEncoder<'lib> {
     first_timestamp: chrono::DateTime<chrono::Local>,
 }
 
+#[cfg(feature = "nv-encode")]
 impl<'lib> NvEncoder<'lib> {
     fn compute_local_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Local> {
         self.first_timestamp + sample.pts

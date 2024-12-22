@@ -29,4 +29,4 @@ mkv-strand-reader.workspace = true
 timestamped-frame.workspace = true
 
 [dev-dependencies]
-mp4-writer.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }

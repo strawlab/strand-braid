@@ -31,7 +31,7 @@ convert-image.workspace = true
 frame-source.workspace = true
 basic-frame.workspace = true
 ci2-remote-control.workspace = true
-mp4-writer.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }
 
 [features]
 default = ["undistort-images", "openh264-encode"]

@@ -24,6 +24,6 @@ env-tracing-logger.workspace = true
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 basic-frame.workspace = true
-mp4-writer.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }
 flydra-types.workspace = true
 indicatif.workspace = true

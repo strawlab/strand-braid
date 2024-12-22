@@ -18,9 +18,9 @@ bitvec = "1.0.1"
 h264-reader.workspace = true
 less-avc.workspace = true
 
-nvenc.workspace = true
-dynlink-cuda.workspace = true
-dynlink-nvidia-encode.workspace = true
+nvenc = { workspace = true, optional = true }
+dynlink-cuda = { workspace = true, optional = true }
+dynlink-nvidia-encode = { workspace = true, optional = true }
 
 ci2-remote-control.workspace = true
 convert-image.workspace = true
@@ -46,3 +46,4 @@ basic-frame = { workspace = true, features = ["convert-image"] }
 
 [features]
 openh264-encode = ["openh264", "frame-source/openh264"]
+nv-encode = ["nvenc", "dynlink-cuda", "dynlink-nvidia-encode"]

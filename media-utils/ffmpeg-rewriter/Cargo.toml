@@ -13,7 +13,7 @@ serde_json.workspace = true
 tracing.workspace = true
 
 ffmpeg-writer.workspace = true
-mp4-writer.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }
 frame-source = { workspace = true, features = ["openh264"] }
 srt-writer.workspace = true
 
