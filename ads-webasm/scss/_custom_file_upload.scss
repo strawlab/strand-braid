@@ -1,6 +1,20 @@
-div.custom-file-upload-div {
+div.custom-file-upload-div-outer {
+    margin: 2px;
+    padding: 1px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.custom-file-upload-dropzone {
+    background-color: mediumseagreen;
+}
+
+div.custom-file-upload-div-inner {
     margin: 10px;
-    padding: 10px;
+}
+
+.custom-file-upload-fs {
+    font-size: 80%;
 }
 
 input[type="file"].custom-file-upload-input {
