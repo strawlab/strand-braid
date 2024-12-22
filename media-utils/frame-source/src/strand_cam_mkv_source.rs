@@ -4,8 +4,6 @@ use std::{
     path::Path,
 };
 
-use openh264::formats::YUVSource;
-
 use mkv_strand_reader::ParsedStrandCamMkv;
 
 use super::*;
@@ -41,7 +39,7 @@ pub struct StrandCamMkvSource<R: Read + Seek> {
     pub parsed: ParsedStrandCamMkv,
     src_format: Format,
     is_uncompressed: bool,
-    h264_decoder_state: Option<openh264::decoder::Decoder>,
+    h264_decoder_state: Option<crate::opt_openh264_decoder::DecoderType>,
     keyframes_cache: Option<Vec<usize>>,
 }
 
@@ -182,7 +180,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         };
 
         let h264_decoder_state = if do_decode_h264 {
-            Some(openh264::decoder::Decoder::new()?)
+            Some(crate::opt_openh264_decoder::DecoderType::new()?)
         } else {
             None
         };
@@ -270,21 +268,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                 let has_precision_timestamp = image_data.starts_with(PRECISION_TIME_NALU_START);
                 if let Some(decoder) = self.h264_decoder_state.as_mut() {
                     let dynamic_frame = if let Some(decoded_yuv) = decoder.decode(&image_data)? {
-                        let dim = decoded_yuv.dimensions();
-
-                        let stride = dim.0 * 3;
-                        let mut image_data = vec![0u8; stride * dim.1];
-                        decoded_yuv.write_rgb8(&mut image_data);
-                        basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
-                            machine_vision_formats::pixel_format::RGB8,
-                        > {
-                            width,
-                            height,
-                            stride: u32::try_from(stride).unwrap(),
-                            image_data,
-                            pixel_format: std::marker::PhantomData,
-                            extra,
-                        })
+                        my_decode(decoded_yuv, width, height, extra)?
                     } else {
                         return Err(
                             StrandMkvSourceError::CouldNotDecodeSingleFrameWithOpenH264.into()
@@ -307,6 +291,41 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
             idx,
         })
     }
+}
+
+#[cfg(not(feature = "openh264"))]
+fn my_decode(
+    _decoded_yuv: (),
+    _width: u32,
+    _height: u32,
+    _extra: Box<basic_frame::BasicExtra>,
+) -> Result<DynamicFrame> {
+    Err(Error::H264Error("No H264 decoder support at compile time"))
+}
+
+#[cfg(feature = "openh264")]
+fn my_decode(
+    decoded_yuv: openh264::decoder::DecodedYUV<'_>,
+    width: u32,
+    height: u32,
+    extra: Box<basic_frame::BasicExtra>,
+) -> Result<DynamicFrame> {
+    use openh264::formats::YUVSource;
+    let dim = decoded_yuv.dimensions();
+
+    let stride = dim.0 * 3;
+    let mut image_data = vec![0u8; stride * dim.1];
+    decoded_yuv.write_rgb8(&mut image_data);
+    Ok(basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
+        machine_vision_formats::pixel_format::RGB8,
+    > {
+        width,
+        height,
+        stride: u32::try_from(stride).unwrap(),
+        image_data,
+        pixel_format: std::marker::PhantomData,
+        extra,
+    }))
 }
 
 impl<'a, R: Read + Seek> Iterator for StrandCamMkvSourceIter<'a, R> {

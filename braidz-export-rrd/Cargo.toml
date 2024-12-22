@@ -37,4 +37,4 @@ mp4-writer.workspace = true
 default = ["undistort-images", "openh264-encode"]
 
 undistort-images = ["opencv", "basic-frame/convert-image"]
-openh264-encode = ["mp4-writer/openh264-encode"]
+openh264-encode = ["mp4-writer/openh264-encode", "frame-source/openh264"]

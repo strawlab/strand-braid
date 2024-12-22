@@ -13,7 +13,6 @@ use h264_reader::{
     rbsp::BitReaderError,
     Context as H264ParsingContext,
 };
-use openh264::formats::YUVSource;
 use serde::{Deserialize, Serialize};
 
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
@@ -177,7 +176,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     }
     fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         let openh264_decoder_state = if self.do_decode_h264 {
-            Some(openh264::decoder::Decoder::new().unwrap())
+            Some(crate::opt_openh264_decoder::DecoderType::new().unwrap())
         } else {
             None
         };
@@ -604,7 +603,7 @@ struct RawH264Iter<'parent, H: SeekableH264Source> {
     /// frame index (not NAL unit index)
     frame_idx: usize,
     next_nal_idx: usize,
-    openh264_decoder_state: Option<openh264::decoder::Decoder>,
+    openh264_decoder_state: Option<crate::opt_openh264_decoder::DecoderType>,
 }
 
 impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
@@ -662,55 +661,15 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
 
                 let decode_result = decoder.decode(&annex_b[..]);
                 match decode_result {
-                    Ok(Some(decoded_yuv)) => {
-                        let dim = decoded_yuv.dimensions();
-
-                        let stride = dim.0 * 3;
-                        let mut image_data = vec![0u8; stride * dim.1];
-                        decoded_yuv.write_rgb8(&mut image_data);
-
-                        let host_timestamp = match nti.precise_timestamp {
-                            Some(ts) => ts,
-                            None => {
-                                if let (Some(mp4_pts), Some(md)) =
-                                    (mp4_pts, &self.parent.h264_metadata)
-                                {
-                                    md.creation_time.with_timezone(&chrono::Utc)
-                                        + chrono::Duration::from_std(mp4_pts).unwrap()
-                                } else {
-                                    // No possible source of timestamp, use dummy value.
-                                    chrono::TimeZone::timestamp_opt(&chrono::Utc, 0, 0).unwrap()
-                                }
-                            }
-                        };
-
-                        let extra = Box::new(basic_frame::BasicExtra {
-                            host_timestamp,
-                            host_framenumber: frame_number,
-                        });
-                        let dynamic_frame =
-                            basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
-                                machine_vision_formats::pixel_format::RGB8,
-                            > {
-                                width: dim.0.try_into().unwrap(),
-                                height: dim.1.try_into().unwrap(),
-                                stride: u32::try_from(stride).unwrap(),
-                                image_data,
-                                pixel_format: std::marker::PhantomData,
-                                extra,
-                            });
-
-                        let buf_len = nal_units.iter().map(|x| x.len()).sum();
-                        // let buf_len = avcc_data.len();
-                        let idx = frame_number;
-                        let image = ImageData::Decoded(dynamic_frame);
-                        Ok(FrameData {
-                            timestamp: frame_timestamp,
-                            image,
-                            buf_len,
-                            idx,
-                        })
-                    }
+                    Ok(Some(decoded_yuv)) => my_decode(
+                        decoded_yuv,
+                        nti,
+                        mp4_pts,
+                        self.parent.h264_metadata.as_ref(),
+                        frame_number,
+                        nal_units,
+                        frame_timestamp,
+                    ),
                     Ok(None) => Err(crate::Error::DecoderDidNotReturnImageData),
                     Err(decode_err) => Err(decode_err.into()),
                 }
@@ -737,6 +696,76 @@ impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
         let remaining = self.parent.frame_time_info.len() - self.frame_idx;
         (remaining, Some(remaining))
     }
+}
+
+#[cfg(not(feature = "openh264"))]
+fn my_decode(
+    _decoded_yuv: (),
+    _nti: &FrameTimeInfo,
+    _mp4_pts: Option<std::time::Duration>,
+    _h264_metadata: Option<&H264Metadata>,
+    _frame_number: usize,
+    _nal_units: Vec<Vec<u8>>,
+    _frame_timestamp: Timestamp,
+) -> Result<FrameData> {
+    Err(Error::H264Error("No H264 decoder support at compile time"))
+}
+
+#[cfg(feature = "openh264")]
+fn my_decode(
+    decoded_yuv: openh264::decoder::DecodedYUV<'_>,
+    nti: &FrameTimeInfo,
+    mp4_pts: Option<std::time::Duration>,
+    h264_metadata: Option<&H264Metadata>,
+    frame_number: usize,
+    nal_units: Vec<Vec<u8>>,
+    frame_timestamp: Timestamp,
+) -> Result<FrameData> {
+    use openh264::formats::YUVSource;
+    let dim = decoded_yuv.dimensions();
+
+    let stride = dim.0 * 3;
+    let mut image_data = vec![0u8; stride * dim.1];
+    decoded_yuv.write_rgb8(&mut image_data);
+
+    let host_timestamp = match nti.precise_timestamp {
+        Some(ts) => ts,
+        None => {
+            if let (Some(mp4_pts), Some(md)) = (mp4_pts, &h264_metadata) {
+                md.creation_time.with_timezone(&chrono::Utc)
+                    + chrono::Duration::from_std(mp4_pts).unwrap()
+            } else {
+                // No possible source of timestamp, use dummy value.
+                chrono::TimeZone::timestamp_opt(&chrono::Utc, 0, 0).unwrap()
+            }
+        }
+    };
+
+    let extra = Box::new(basic_frame::BasicExtra {
+        host_timestamp,
+        host_framenumber: frame_number,
+    });
+    let dynamic_frame = basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
+        machine_vision_formats::pixel_format::RGB8,
+    > {
+        width: dim.0.try_into().unwrap(),
+        height: dim.1.try_into().unwrap(),
+        stride: u32::try_from(stride).unwrap(),
+        image_data,
+        pixel_format: std::marker::PhantomData,
+        extra,
+    });
+
+    let buf_len = nal_units.iter().map(|x| x.len()).sum();
+    // let buf_len = avcc_data.len();
+    let idx = frame_number;
+    let image = ImageData::Decoded(dynamic_frame);
+    Ok(FrameData {
+        timestamp: frame_timestamp,
+        image,
+        buf_len,
+        idx,
+    })
 }
 
 pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
@@ -865,10 +894,11 @@ struct FrameInfo {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
+    #[cfg(feature = "openh264")]
     #[test]
-    fn parse_h264() -> Result<()> {
+    fn parse_h264() -> crate::Result<()> {
+        use super::*;
+
         {
             let file_buf = include_bytes!("test-data/test_less-avc_mono8_15x14.h264");
             let cursor = std::io::Cursor::new(file_buf);

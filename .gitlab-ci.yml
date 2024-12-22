@@ -290,7 +290,7 @@ test_crates_rust_stable:
 
     # Test media-utils/frame-source
     - cd media-utils/frame-source
-    - cargo test
+    - cargo test --features openh264
     - cd ../..
 
 test_crates_rust_nightly:

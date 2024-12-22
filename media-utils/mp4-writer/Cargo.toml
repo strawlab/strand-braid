@@ -45,4 +45,4 @@ font-drawing.workspace = true
 basic-frame = { workspace = true, features = ["convert-image"] }
 
 [features]
-openh264-encode = ["openh264"]
+openh264-encode = ["openh264", "frame-source/openh264"]

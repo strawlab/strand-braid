@@ -9,6 +9,7 @@ pub mod fmf_source;
 mod h264_annexb_splitter;
 pub mod h264_source;
 pub mod mp4_source;
+mod opt_openh264_decoder;
 mod srt_reader;
 pub mod strand_cam_mkv_source;
 
@@ -101,6 +102,7 @@ pub enum Error {
     SerdeJsonError(#[from] serde_json::Error),
     #[error("{0}")]
     MkvStrandError(#[from] mkv_strand_reader::Error),
+    #[cfg(feature = "openh264")]
     #[error("OpenH264Error: {0}")]
     OpenH264Error(#[from] openh264::Error),
     #[error("Mp4Error: {0}")]
@@ -108,6 +110,11 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(feature = "openh264")]
+pub const COMPILED_WITH_OPENH264: bool = true;
+#[cfg(not(feature = "openh264"))]
+pub const COMPILED_WITH_OPENH264: bool = false;
 
 /// A source of FrameData
 ///

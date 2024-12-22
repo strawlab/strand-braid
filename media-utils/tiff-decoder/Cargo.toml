@@ -13,5 +13,5 @@ chrono.workspace = true
 machine-vision-formats.workspace = true
 itertools.workspace = true
 
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 basic-frame.workspace = true

@@ -45,7 +45,7 @@ timestamped-frame.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true
 mvg.workspace = true
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 
 [dev-dependencies]
 download-verify.workspace = true

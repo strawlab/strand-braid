@@ -16,7 +16,7 @@ ordered-float.workspace = true
 
 basic-frame.workspace = true
 convert-image.workspace = true
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 tiff-decoder.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode"] }
 ci2-remote-control.workspace = true

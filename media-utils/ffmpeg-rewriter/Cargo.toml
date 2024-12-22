@@ -14,7 +14,7 @@ tracing.workspace = true
 
 ffmpeg-writer.workspace = true
 mp4-writer.workspace = true
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 srt-writer.workspace = true
 
 [dev-dependencies]

@@ -12,5 +12,5 @@ tracing.workspace = true
 chrono.workspace = true
 
 env-tracing-logger.workspace = true
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 srt-writer.workspace = true

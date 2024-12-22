@@ -10,6 +10,6 @@ chrono.workspace = true
 path-slash = "0.2.1"
 indicatif.workspace = true
 
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 env-tracing-logger.workspace = true
 datetime-conversion.workspace = true
