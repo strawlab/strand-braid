@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "ads-webasm",
-    "ads-webasm-example",
+    "ads-webasm/example",
     "apriltag",
     "apriltag/apriltag-track-movie",
     "basic-frame",
