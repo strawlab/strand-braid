@@ -216,11 +216,7 @@ preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
 qrcodegen = "1.4"
 regex = "1.10.3"
-rerun = { version = "0.20", default-features = false, features = [
-    "glam",
-    "sdk",
-    "image",
-] }
+rerun = { version = "0.20", default-features = false }
 resvg = "0.19"
 rusttype = "0.9.2"
 serde = { version = "1.0", features = ["derive"] }

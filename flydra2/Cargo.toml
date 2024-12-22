@@ -50,7 +50,7 @@ tower-serve-static = { workspace = true, optional = true }
 include_dir = { workspace = true, optional = true }
 const_format = "0.2.32"
 approx.workspace = true
-rerun.workspace = true
+rerun = { workspace = true, features = ["sdk"] }
 
 braidz-types.workspace = true
 braidz-writer.workspace = true
