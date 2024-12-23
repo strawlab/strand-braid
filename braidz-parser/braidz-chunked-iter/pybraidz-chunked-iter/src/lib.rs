@@ -14,7 +14,7 @@ use zip_or_dir::{MaybeGzReader, ZipDirArchive};
 
 macro_rules! dict_set_item_array {
     ($dict:expr, $name:expr, $obj:expr, $py: expr) => {
-        if $dict.set_item($name, $obj.into_pyarray_bound($py)).is_err() {
+        if $dict.set_item($name, $obj.into_pyarray($py)).is_err() {
             panic!("error while setting '{}' key on data_dict", $name);
         }
     };
@@ -89,11 +89,11 @@ impl KalmanEstimatesChunker {
             }
         };
         let n_rows = chunk.rows.len();
-        let result_dict = PyDict::new_bound(slf.py());
+        let result_dict = PyDict::new(slf.py());
         if result_dict.set_item("n_rows", n_rows).is_err() {
             panic!("error while setting 'n_rows' key on result_dict");
         }
-        let data_dict = PyDict::new_bound(slf.py());
+        let data_dict = PyDict::new(slf.py());
 
         let mut obj_id = Vec::with_capacity(n_rows);
         let mut frame = Vec::with_capacity(n_rows);
