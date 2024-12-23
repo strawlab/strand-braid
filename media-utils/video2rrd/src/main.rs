@@ -40,7 +40,7 @@ struct Opt {
     no_progress: bool,
 }
 
-fn to_rr_image(im: ImageData) -> eyre::Result<rerun::EncodedImage> {
+fn to_rr_image(im: ImageData) -> eyre::Result<re_types::archetypes::EncodedImage> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => eyre::bail!("image not decoded"),
@@ -52,7 +52,9 @@ fn to_rr_image(im: ImageData) -> eyre::Result<rerun::EncodedImage> {
         x,
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)
     )?;
-    Ok(rerun::EncodedImage::from_file_contents(contents))
+    Ok(re_types::archetypes::EncodedImage::from_file_contents(
+        contents,
+    ))
 }
 
 fn main() -> eyre::Result<()> {
@@ -104,7 +106,7 @@ fn main() -> eyre::Result<()> {
     // let (data2d_fnos, data2d_stamps): (Vec<i64>, Vec<f64>) = frametimes.iter().cloned().unzip();
 
     // Initiate recording
-    let mut rec_builder = rerun::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"));
+    let mut rec_builder = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"));
 
     if let Some(recording_id) = opt.recording_id {
         rec_builder = rec_builder.recording_id(recording_id);

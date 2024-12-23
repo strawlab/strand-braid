@@ -10,7 +10,8 @@ serde_yaml.workspace = true
 eyre.workspace = true
 
 tracing.workspace = true
-rerun = { workspace = true, features = ["image", "sdk"] }
+re_types = { workspace = true, features = ["image"] }
+re_sdk.workspace = true
 image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
