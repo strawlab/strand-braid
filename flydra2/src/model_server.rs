@@ -191,7 +191,7 @@ pub async fn new_model_server(
                 .next()
                 .unwrap();
             tracing::info!("Streaming data to rerun at {socket_addr}");
-            rerun::RecordingStreamBuilder::new("braid")
+            re_sdk::RecordingStreamBuilder::new("braid")
                 .connect_tcp_opts(socket_addr, None)
                 .unwrap()
         });
@@ -221,9 +221,13 @@ pub async fn new_model_server(
                             (SendType::CalibrationFlydraXml(_calib), _tdpt) => {}
                             (SendType::Birth(row), _tdpt) | (SendType::Update(row), _tdpt) => {
                                 let obj_id = format!("{}", row.obj_id);
-                                let position =
-                                    rerun::Vec3D::new(row.x as f32, row.y as f32, row.z as f32);
-                                rec.log(obj_id, &rerun::Points3D::new([position])).unwrap();
+                                let position = re_types::datatypes::Vec3D::new(
+                                    row.x as f32,
+                                    row.y as f32,
+                                    row.z as f32,
+                                );
+                                rec.log(obj_id, &re_types::archetypes::Points3D::new([position]))
+                                    .unwrap();
                             }
                             (SendType::Death(_x), _tdpt) => {}
                             (SendType::EndOfFrame(_x), _tdpt) => {}
