@@ -15,7 +15,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
-rerun = { workspace = true, optional = true, features = ["sdk"] }
+re_types = { workspace = true, optional = true, features = ["glam"] }
 
 [dev-dependencies]
 num-iter.workspace = true
@@ -23,9 +23,7 @@ approx.workspace = true
 dlt.workspace = true
 eyre.workspace = true
 
-rerun = { workspace = true, features = ["glam"] }
-
 [features]
 serde-serialize = []
 
-rerun-io = ["rerun"]
+rerun-io = ["dep:re_types"]

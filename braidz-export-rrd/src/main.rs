@@ -6,6 +6,11 @@ use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::{cam_geom_to_rr_pinhole_archetype as to_pinhole, AsRerunTransform3D};
 use rayon::prelude::*;
+use re_types::{
+    archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
+    components::PinholeProjection,
+    datatypes::Mat3x3,
+};
 use std::{collections::BTreeMap, path::PathBuf};
 
 #[cfg(feature = "undistort-images")]
@@ -83,7 +88,7 @@ struct CachedCamData {
 }
 
 struct OfflineBraidzRerunLogger {
-    rec: rerun::RecordingStream,
+    rec: re_sdk::RecordingStream,
     camid2camn: BTreeMap<String, CamNum>,
     by_camn: BTreeMap<CamNum, CachedCamData>,
     by_camname: BTreeMap<String, CachedCamData>,
@@ -103,7 +108,7 @@ struct OfflineBraidzRerunLogger {
 
 impl OfflineBraidzRerunLogger {
     fn new(
-        rec: rerun::RecordingStream,
+        rec: re_sdk::RecordingStream,
         camid2camn: BTreeMap<String, CamNum>,
         inter_frame_interval_f64: f64,
         have_image_data: bool,
@@ -130,10 +135,8 @@ impl OfflineBraidzRerunLogger {
 
             {
                 tracing::warn!("Creating wrong pinhole transform for camera {cam_name} to enable better auto-view in rerun.");
-                let m =
-                    rerun::datatypes::Mat3x3::from([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
-                let pinhole =
-                    rerun::archetypes::Pinhole::new(rerun::components::PinholeProjection(m));
+                let m = Mat3x3::from([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+                let pinhole = Pinhole::new(PinholeProjection(m));
                 self.rec.log_static(base_path, &pinhole)?;
                 self.rec.log_static(raw_path.clone(), &pinhole)?;
             }
@@ -356,7 +359,7 @@ impl OfflineBraidzRerunLogger {
             if !row.x.is_nan() {
                 self.rec.log(
                     ent_path.clone(),
-                    &rerun::Points2D::new([(row.x as f32, row.y as f32)]),
+                    &Points2D::new([(row.x as f32, row.y as f32)]),
                 )?;
                 self.last_data2d.insert(ent_path, row.frame);
             } else {
@@ -368,8 +371,7 @@ impl OfflineBraidzRerunLogger {
                         row.frame,
                         "must call in frame order for a given entity path"
                     );
-                    self.rec
-                        .log(ent_path, &rerun::Points2D::new(empty_position))?;
+                    self.rec.log(ent_path, &Points2D::new(empty_position))?;
                 }
             }
         };
@@ -384,10 +386,8 @@ impl OfflineBraidzRerunLogger {
                 let linearized = nl_intrinsics.undistort(&pt2d);
                 let x = linearized.data[0];
                 let y = linearized.data[1];
-                self.rec.log(
-                    ent_path.clone(),
-                    &rerun::Points2D::new([(x as f32, y as f32)]),
-                )?;
+                self.rec
+                    .log(ent_path.clone(), &Points2D::new([(x as f32, y as f32)]))?;
                 self.last_data2d.insert(ent_path, row.frame);
             } else {
                 // We have no detection at this frame. If required, tell rerun
@@ -398,8 +398,7 @@ impl OfflineBraidzRerunLogger {
                         row.frame,
                         "must call in frame order for a given entity path"
                     );
-                    self.rec
-                        .log(ent_path, &rerun::Points2D::new(empty_position))?;
+                    self.rec.log(ent_path, &Points2D::new(empty_position))?;
                 }
             }
         }
@@ -413,7 +412,7 @@ impl OfflineBraidzRerunLogger {
             self.rec.set_time_seconds(SECONDS_TIMELINE, *timestamp);
             self.rec.log(
                 format!("world/obj_id/origin"),
-                &rerun::Points3D::new([(0.0 as f32, 0.0 as f32, 0.0 as f32)]),
+                &Points3D::new([(0.0 as f32, 0.0 as f32, 0.0 as f32)]),
             )?;
         }
         Ok(())
@@ -436,7 +435,7 @@ impl OfflineBraidzRerunLogger {
             }
             self.rec.log(
                 format!("world/obj_id/{}", row.obj_id),
-                &rerun::Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
+                &Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
             )?;
             last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
 
@@ -450,10 +449,10 @@ impl OfflineBraidzRerunLogger {
                     if let Some(cam_cal) = cam_cal {
                         let arch = if cam_data.image_is_undistorted {
                             let pt2d = cam_cal.project_3d_to_pixel(&pt3d).coords;
-                            rerun::Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
                         } else {
                             let pt2d = cam_cal.project_3d_to_distorted_pixel(&pt3d).coords;
-                            rerun::Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
                         };
                         let ent_path = &cam_data.image_ent_path;
                         self.rec.log(format!("{ent_path}/reproj"), &arch)?;
@@ -475,7 +474,7 @@ impl OfflineBraidzRerunLogger {
             }
             self.rec.log(
                 format!("world/obj_id/{}", obj_id),
-                &rerun::Points3D::new(empty_position),
+                &Points3D::new(empty_position),
             )?;
         }
         Ok(())
@@ -485,7 +484,7 @@ impl OfflineBraidzRerunLogger {
 fn to_rr_image(
     im: ImageData,
     undist_cache: Option<&UndistortionCache>,
-) -> anyhow::Result<(rerun::EncodedImage, DynamicFrame)> {
+) -> anyhow::Result<(EncodedImage, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => anyhow::bail!("image not decoded"),
@@ -511,7 +510,7 @@ fn to_rr_image(
         x,
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)
     )?;
-    Ok((rerun::EncodedImage::from_file_contents(contents), decoded))
+    Ok((EncodedImage::from_file_contents(contents), decoded))
 }
 
 fn main() -> anyhow::Result<()> {
@@ -526,7 +525,7 @@ fn main() -> anyhow::Result<()> {
             "{name} {version} (rerun {rrvers})",
             name = env!("CARGO_PKG_NAME"),
             version = env!("CARGO_PKG_VERSION"),
-            rrvers = rerun::build_info().version,
+            rrvers = re_sdk::build_info().version,
         );
         return Ok(());
     }
@@ -576,7 +575,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Initiate recording
-    let rec = rerun::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
+    let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
         .save(&output)
         .with_context(|| format!("Creating output file {}", output.display()))?;
 

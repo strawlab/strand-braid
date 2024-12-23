@@ -55,9 +55,9 @@ impl<T: RealField> ToR<T> for f64 {
 
 fn rr_translation_and_mat3<R: RealField>(
     extrinsics: &cam_geom::ExtrinsicParameters<R>,
-) -> rerun::Transform3D {
+) -> re_types::archetypes::Transform3D {
     let t = extrinsics.camcenter();
-    let translation = rerun::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]);
+    let translation = re_types::datatypes::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]);
     let rot = extrinsics.rotation();
     let rot = rot.matrix();
     let mut col_major = [0.0; 9];
@@ -67,16 +67,16 @@ fn rr_translation_and_mat3<R: RealField>(
             col_major[idx] = rot[(col, row)].f32();
         }
     }
-    let mat3x3 = rerun::Mat3x3(col_major);
-    rerun::Transform3D::from_translation_mat3x3(translation, mat3x3)
+    let mat3x3 = re_types::datatypes::Mat3x3(col_major);
+    re_types::archetypes::Transform3D::from_translation_mat3x3(translation, mat3x3)
 }
 
 pub trait AsRerunTransform3D {
-    fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D>;
+    fn as_rerun_transform3d(&self) -> impl Into<re_types::archetypes::Transform3D>;
 }
 
 impl AsRerunTransform3D for cam_geom::ExtrinsicParameters<f64> {
-    fn as_rerun_transform3d(&self) -> impl Into<rerun::Transform3D> {
+    fn as_rerun_transform3d(&self) -> impl Into<re_types::archetypes::Transform3D> {
         rr_translation_and_mat3(self)
     }
 }
@@ -93,7 +93,7 @@ fn test_extrinsics_rerun_roundtrip() {
     let orig = cam_geom::ExtrinsicParameters::<f64>::from_view(&cc, &lookat, &up_unit);
     let rmat = orig.rotation().matrix();
 
-    // convert to rerun
+    // convert to re_types
     let rr = rr_translation_and_mat3(&orig);
 
     // check camcenter
@@ -121,12 +121,12 @@ fn test_extrinsics_rerun_roundtrip() {
 
 fn pinhole_projection_component<R: RealField>(
     cam: &RosOpenCvIntrinsics<R>,
-) -> Result<rerun::components::PinholeProjection, MvgError> {
-    // Check if camera can be exactly represented in rerun.
+) -> Result<re_types::components::PinholeProjection, MvgError> {
+    // Check if camera can be exactly represented in re_types.
     if !cam.distortion.is_linear() {
         return Err(MvgError::RerunUnsupportedIntrinsics);
     }
-    // Does rerun actually cameras with nonzero skew? Here we are say "yes", but actually it might not.
+    // Does re_types actually cameras with nonzero skew? Here we are say "yes", but actually it might not.
     for loc in [(1, 0), (2, 0), (2, 1)] {
         if cam.p[loc].clone().abs() > 1e-16.R() {
             return Err(MvgError::RerunUnsupportedIntrinsics);
@@ -141,23 +141,23 @@ fn pinhole_projection_component<R: RealField>(
 
 fn pinhole_projection_component_lossy<R: RealField>(
     cam: &RosOpenCvIntrinsics<R>,
-) -> rerun::components::PinholeProjection {
+) -> re_types::components::PinholeProjection {
     let fx = cam.p[(0, 0)].f32();
     let fy = cam.p[(1, 1)].f32();
     let cx = cam.p[(0, 2)].f32();
     let cy = cam.p[(1, 2)].f32();
 
-    let m = rerun::datatypes::Mat3x3([fx, 0.0, 0.0, 0.0, fy, 0.0, cx, cy, 1.0]);
-    rerun::components::PinholeProjection(m)
+    let m = re_types::datatypes::Mat3x3([fx, 0.0, 0.0, 0.0, fy, 0.0, cx, cy, 1.0]);
+    re_types::components::PinholeProjection(m)
 }
 
 pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
     cam: &cam_geom::Camera<R, cam_geom::IntrinsicParametersPerspective<R>>,
     width: usize,
     height: usize,
-) -> rerun::archetypes::Pinhole {
+) -> re_types::archetypes::Pinhole {
     let i = cam.intrinsics();
-    let m = rerun::datatypes::Mat3x3([
+    let m = re_types::datatypes::Mat3x3([
         i.fx().f32(),
         0.0,
         0.0,
@@ -168,9 +168,9 @@ pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
         i.cy().f32(),
         1.0,
     ]);
-    let image_from_camera = rerun::components::PinholeProjection(m);
-    let resolution: rerun::Vec2D = (width as f32, height as f32).into();
-    rerun::archetypes::Pinhole {
+    let image_from_camera = re_types::components::PinholeProjection(m);
+    let resolution: re_types::datatypes::Vec2D = (width as f32, height as f32).into();
+    re_types::archetypes::Pinhole {
         image_from_camera,
         resolution: Some(resolution.into()),
         camera_xyz: None,
@@ -180,7 +180,7 @@ pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
 
 #[cfg(test)]
 fn opencv_intrinsics<R: RealField>(
-    orig: &rerun::components::PinholeProjection,
+    orig: &re_types::components::PinholeProjection,
 ) -> RosOpenCvIntrinsics<R> {
     let m = orig.0;
     let col0 = m.col(0);
@@ -195,36 +195,36 @@ fn opencv_intrinsics<R: RealField>(
 }
 
 impl<R: RealField + Copy> crate::Camera<R> {
-    /// return [rerun::components::Resolution]
-    pub fn rr_resolution_component(&self) -> rerun::components::Resolution {
-        rerun::components::Resolution(rerun::datatypes::Vec2D::new(
+    /// return [re_types::components::Resolution]
+    pub fn rr_resolution_component(&self) -> re_types::components::Resolution {
+        re_types::components::Resolution(re_types::datatypes::Vec2D::new(
             self.width() as f32,
             self.height() as f32,
         ))
     }
 
-    /// return a [rerun::archetypes::Pinhole]
+    /// return a [re_types::archetypes::Pinhole]
     ///
     /// The conversion will not succeed if the camera cannot be represented
-    /// exactly in rerun.
-    pub fn rr_pinhole_archetype(&self) -> Result<rerun::archetypes::Pinhole, MvgError> {
+    /// exactly in re_types.
+    pub fn rr_pinhole_archetype(&self) -> Result<re_types::archetypes::Pinhole, MvgError> {
         let image_from_camera = pinhole_projection_component(self.intrinsics())?;
         let resolution = Some(self.rr_resolution_component());
-        Ok(rerun::archetypes::Pinhole {
+        Ok(re_types::archetypes::Pinhole {
             image_from_camera,
             resolution,
             camera_xyz: None,
             image_plane_distance: None,
         })
     }
-    /// return a [rerun::archetypes::Pinhole]
+    /// return a [re_types::archetypes::Pinhole]
     ///
     /// The conversion always succeed, even if the camera cannot be represented
-    /// exactly in rerun.
-    pub fn rr_pinhole_archetype_lossy(&self) -> rerun::archetypes::Pinhole {
+    /// exactly in re_types.
+    pub fn rr_pinhole_archetype_lossy(&self) -> re_types::archetypes::Pinhole {
         let image_from_camera = pinhole_projection_component_lossy(self.intrinsics());
         let resolution = Some(self.rr_resolution_component());
-        rerun::archetypes::Pinhole {
+        re_types::archetypes::Pinhole {
             image_from_camera,
             resolution,
             camera_xyz: None,
@@ -237,9 +237,9 @@ impl<R: RealField + Copy> crate::Camera<R> {
 fn test_intrinsics_rerun_roundtrip() {
     // create camera, including intrinsics
     let orig = crate::Camera::<f64>::default();
-    // convert to rerun
+    // convert to re_types
     let rr = orig.rr_pinhole_archetype().unwrap();
-    // convert back from rerun
+    // convert back from re_types
     let intrinsics = opencv_intrinsics::<f64>(&rr.image_from_camera);
     // compare original intrinsics with converted
     assert_eq!(orig.intrinsics(), &intrinsics);
@@ -252,7 +252,7 @@ fn test_intrinsics_rerun() {
 
     // create camera, including intrinsics
     let orig = crate::Camera::<f64>::default();
-    // convert to rerun
+    // convert to re_types
     let rr = orig.rr_pinhole_archetype().unwrap();
 
     let orig_intrinsics = orig.intrinsics();
@@ -274,7 +274,7 @@ fn test_intrinsics_rerun() {
 
     for (pt3d, px_orig) in pts.data.row_iter().zip(pixels_orig.data.row_iter()) {
         let pt3d_v2 =
-            rerun::external::glam::Vec3::new(pt3d[0] as f32, pt3d[1] as f32, pt3d[2] as f32);
+            re_types::external::glam::Vec3::new(pt3d[0] as f32, pt3d[1] as f32, pt3d[2] as f32);
         let pix_rr = rr.project(pt3d_v2);
         approx::assert_relative_eq!(pix_rr.x, px_orig[0] as f32, epsilon = 1e-10);
         approx::assert_relative_eq!(pix_rr.y, px_orig[1] as f32, epsilon = 1e-10);

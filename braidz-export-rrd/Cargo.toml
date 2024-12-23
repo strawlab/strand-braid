@@ -12,7 +12,8 @@ serde_yaml.workspace = true
 eyre.workspace = true
 
 tracing.workspace = true
-rerun.workspace = true
+re_types.workspace = true
+re_sdk.workspace = true
 image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
