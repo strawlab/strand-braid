@@ -77,8 +77,6 @@ pub enum Msg {
     RenderAll,
     FileChanged(File),
     Loaded(String, Vec<u8>),
-    FileDropped(DragEvent),
-    FileDraggedOver(DragEvent),
 }
 
 enum WhyBusy {
@@ -175,26 +173,6 @@ impl Component for Model {
                 });
                 self.readers.insert(filename, reader);
             }
-            Msg::FileDropped(evt) => {
-                evt.prevent_default();
-                let files = evt.data_transfer().unwrap_throw().files();
-                // log_1(&format!("files dropped: {:?}", files).into());
-                if let Some(files) = files {
-                    let mut result = Vec::new();
-                    let files = js_sys::try_iter(&files)
-                        .unwrap_throw()
-                        .unwrap_throw()
-                        .map(|v| web_sys::File::from(v.unwrap_throw()))
-                        .map(File::from);
-                    result.extend(files);
-                    assert!(result.len() == 1);
-                    ctx.link()
-                        .send_message(Msg::FileChanged(result.pop().unwrap_throw()));
-                }
-            }
-            Msg::FileDraggedOver(evt) => {
-                evt.prevent_default();
-            }
         }
         true
     }
@@ -259,10 +237,7 @@ impl Component for Model {
                         </div>
                     </div>
                 </div>
-                <div id="content-wrap"
-                    ondrop={ctx.link().callback(Msg::FileDropped)}
-                    ondragover={ctx.link().callback(Msg::FileDraggedOver)}
-                    >
+                <div id="content-wrap">
                     <h1>{"BRAIDZ Viewer"}</h1>
                     <p>
                         {"Viewer for files saved by "}
