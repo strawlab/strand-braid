@@ -25,7 +25,7 @@ opencv-calibrate = { path = "../opencv-calibrate", optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
-ads-webasm.workspace = true
+ads-webasm = { workspace = true, features = ["csv-widget"] }
 
 [features]
 default = ["solve-pnp"]

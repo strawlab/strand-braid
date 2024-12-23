@@ -19,6 +19,6 @@ yew-tincture.workspace = true
 log.workspace = true
 wasm-logger.workspace = true
 
-ads-webasm.workspace = true
+ads-webasm = { workspace = true, features = ["csv-widget"] }
 rust-cam-bui-types.workspace = true
 enum-iter.workspace = true

@@ -18,7 +18,7 @@ tiny-skia.workspace = true
 usvg.workspace = true
 tracing.workspace = true
 
-ads-webasm.workspace = true
+ads-webasm = { workspace = true, features = ["csv-widget"] }
 ads-apriltag.workspace = true
 braid-april-cal.workspace = true
 convert-image.workspace = true

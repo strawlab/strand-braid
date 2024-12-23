@@ -266,7 +266,7 @@ zip = { version = "0.6.6", default-features = false, features = [
 ] }
 
 ads-apriltag = { path = "apriltag" }
-ads-webasm = { path = "ads-webasm", features = ["obj", "csv-widget"] }
+ads-webasm = { path = "ads-webasm" }
 basic-frame = { path = "basic-frame" }
 bg-movie-writer = { path = "bg-movie-writer" }
 braid = { path = "braid" }
