@@ -891,8 +891,8 @@ strand-cam-flydratrax-pylon-ubuntu2204:
       - build/
     name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
-braid-offline-ubuntu2404:
-  when: manual
+braid-offline-static:
+  # Build without glibc dependency so it runs on cluster with ancient glibc.
   image: ubuntu:noble
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
@@ -900,13 +900,10 @@ braid-offline-ubuntu2404:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    # Build without glibc dependency so it runs on cluster with ancient glibc.
     - rustup target install x86_64-unknown-linux-musl
 
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --target x86_64-unknown-linux-musl
-    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
-    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
@@ -914,56 +911,7 @@ braid-offline-ubuntu2404:
   artifacts:
     paths:
       - build/
-    name: "braid-offline-ubuntu2404-${CI_COMMIT_SHA}"
-
-braid-offline-ubuntu2004:
-  image: ubuntu:focal
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    # Build without glibc dependency so it runs on cluster with ancient glibc.
-    - rustup target install x86_64-unknown-linux-musl
-
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --target x86_64-unknown-linux-musl
-    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
-    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
-
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
-    - cp ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "braid-offline-ubuntu2004-${CI_COMMIT_SHA}"
-
-braid-offline-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    # Build without glibc dependency so it runs on cluster with ancient glibc.
-    - rustup target install x86_64-unknown-linux-musl
-
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --target x86_64-unknown-linux-musl
-    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
-    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
-
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
-    - cp ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "braid-offline-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "braid-offline-static-${CI_COMMIT_SHA}"
 
 braid-process-video-ubuntu2404:
   when: manual
@@ -1440,7 +1388,7 @@ strand-braid-ubuntu-2404:
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/*.deb
   needs:
-    - braid-offline-ubuntu2404
+    - braid-offline-static
     - braid-process-video-ubuntu2404
     - braid-ubuntu2404
     - extra-programs-ubuntu2404
@@ -1493,7 +1441,7 @@ strand-braid-ubuntu-2004:
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
-    - braid-offline-ubuntu2004
+    - braid-offline-static
     - braid-process-video-ubuntu2004
     - braid-ubuntu2004
     - extra-programs-ubuntu2004
@@ -1547,7 +1495,7 @@ strand-braid-ubuntu-2204:
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/*.deb
   needs:
-    - braid-offline-ubuntu2204
+    - braid-offline-static
     - braid-process-video-ubuntu2204
     - braid-ubuntu2204
     - extra-programs-ubuntu2204
