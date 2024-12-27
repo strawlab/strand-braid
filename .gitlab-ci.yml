@@ -1088,26 +1088,9 @@ extra-programs-ubuntu2204:
       - build/
     name: "extra-programs-ubuntu2204-${CI_COMMIT_SHA}"
 
-fmf-cli-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
-
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
-    - export RUSTFLAGS="-D warnings"
-
-    - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../../target/release/fmf $CI_PROJECT_DIR/build
-  artifacts:
-    paths:
-      - build/
-    name: "fmf-cli-ubuntu2404-${CI_COMMIT_SHA}"
-
-fmf-cli-ubuntu2004:
+fmf-cli:
+  # Build on Ubuntu Focal (20.04) but doesn't link libraries with
+  # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl
@@ -1124,26 +1107,7 @@ fmf-cli-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "fmf-cli-ubuntu2004-${CI_COMMIT_SHA}"
-
-fmf-cli-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
-
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
-    - export RUSTFLAGS="-D warnings"
-
-    - cd $CI_PROJECT_DIR/fmf/fmf-cli
-    - cargo build --release
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../../target/release/fmf $CI_PROJECT_DIR/build
-  artifacts:
-    paths:
-      - build/
-    name: "fmf-cli-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "fmf-cli-${CI_COMMIT_SHA}"
 
 braid-webapps:
   image: rust:1.83
@@ -1361,7 +1325,7 @@ strand-braid-ubuntu-2404:
     - braid-process-video
     - braid-ubuntu2404
     - extra-programs-ubuntu2404
-    - fmf-cli-ubuntu2404
+    - fmf-cli
     - strand-cam-vimba-ubuntu2404
     - strand-cam-pylon-ubuntu2404
     - flytrax-csv-to-braidz-binary
@@ -1415,7 +1379,7 @@ strand-braid-ubuntu-2004:
     - braid-process-video
     - braid-ubuntu2004
     - extra-programs-ubuntu2004
-    - fmf-cli-ubuntu2004
+    - fmf-cli
     - strand-cam-vimba-ubuntu2004
     - strand-cam-pylon-ubuntu2004
     - flytrax-csv-to-braidz-binary
@@ -1470,7 +1434,7 @@ strand-braid-ubuntu-2204:
     - braid-process-video
     - braid-ubuntu2204
     - extra-programs-ubuntu2204
-    - fmf-cli-ubuntu2204
+    - fmf-cli
     - strand-cam-vimba-ubuntu2204
     - strand-cam-pylon-ubuntu2204
     - flytrax-csv-to-braidz-binary
