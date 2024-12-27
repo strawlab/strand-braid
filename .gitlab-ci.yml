@@ -1062,7 +1062,8 @@ extra-programs-ubuntu2404:
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release --features undistort-images
+    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release
+    - ldd ../target/release/braidz-export-rrd
     - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
@@ -1103,7 +1104,8 @@ extra-programs-ubuntu2004:
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release --features undistort-images
+    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release
+    - ldd ../target/release/braidz-export-rrd
     - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
@@ -1145,7 +1147,8 @@ extra-programs-ubuntu2204:
     - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release --features undistort-images
+    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release
+    - ldd ../target/release/braidz-export-rrd
     - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
