@@ -682,7 +682,7 @@ braid-process-video:
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev libvpx-dev curl
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git pkg-config libclang-dev libvpx-dev curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -704,7 +704,7 @@ slow-tests:
   image: ubuntu:focal
   when: manual
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev curl build-essential libvpx-dev zip octave
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config libclang-dev curl build-essential libvpx-dev zip octave
     - cc --version
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
@@ -891,7 +891,7 @@ strand-braid-ubuntu-2404:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
@@ -947,7 +947,7 @@ strand-braid-ubuntu-2004:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
@@ -1003,7 +1003,7 @@ strand-braid-ubuntu-2204:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
