@@ -1110,7 +1110,7 @@ fmf-cli-ubuntu2404:
 fmf-cli-ubuntu2004:
   image: ubuntu:focal
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper pkg-config libvpx-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -1119,7 +1119,8 @@ fmf-cli-ubuntu2004:
     - cd $CI_PROJECT_DIR/fmf/fmf-cli
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../../target/release/fmf $CI_PROJECT_DIR/build
+    - ldd -v $CI_PROJECT_DIR/target/release/fmf
+    - cp $CI_PROJECT_DIR/target/release/fmf $CI_PROJECT_DIR/build
   artifacts:
     paths:
       - build/
