@@ -21,7 +21,7 @@ test_crates:
 
     - export RUSTFLAGS="-D warnings"
 
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev libapriltag-dev ffmpeg
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev ffmpeg
     - rustup target add thumbv7em-none-eabihf
 
     # Test ffmpeg-writer
@@ -1134,7 +1134,7 @@ strand-braid-ubuntu-2404:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
@@ -1188,7 +1188,7 @@ strand-braid-ubuntu-2004:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
@@ -1243,7 +1243,7 @@ strand-braid-ubuntu-2204:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libapriltag-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
