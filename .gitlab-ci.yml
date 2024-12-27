@@ -543,7 +543,8 @@ strand-cam-pylon-ubuntu2004:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -583,7 +584,8 @@ strand-cam-pylon-ubuntu2404:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -623,7 +625,8 @@ strand-cam-pylon-ubuntu2204:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -664,7 +667,8 @@ strand-cam-vimba-ubuntu2404:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -703,7 +707,8 @@ strand-cam-vimba-ubuntu2004:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -743,7 +748,8 @@ strand-cam-vimba-ubuntu2204:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
-    - ldd $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
+    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
     - cd $CI_PROJECT_DIR/write-debian-changelog
@@ -800,7 +806,8 @@ strand-cam-flydratrax-pylon-ubuntu2404:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
@@ -838,7 +845,8 @@ strand-cam-flydratrax-pylon-ubuntu2004:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
@@ -877,7 +885,8 @@ strand-cam-flydratrax-pylon-ubuntu2204:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
-    # - ../target/release/strand-cam --version # disabled because requires pylon libs in path
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
+    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
     - mkdir -p $CI_PROJECT_DIR/build
     # Rename the target to `strand-cam-flydratrax-pylon`.
     - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
