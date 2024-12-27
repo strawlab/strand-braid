@@ -775,7 +775,7 @@ flytrax-csv-to-braidz-binary:
     - OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig cargo build --release --features "with_apriltags"
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - ldd $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz
+    - ldd -v $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz
     - cp $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
   artifacts:
     paths:
