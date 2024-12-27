@@ -905,6 +905,8 @@ braid-offline-ubuntu2404:
 
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --target x86_64-unknown-linux-musl
+    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
+    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
@@ -927,6 +929,8 @@ braid-offline-ubuntu2004:
 
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --target x86_64-unknown-linux-musl
+    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
+    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
@@ -950,6 +954,8 @@ braid-offline-ubuntu2204:
 
     - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release --target x86_64-unknown-linux-musl
+    - ldd ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack
+    - ldd ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
