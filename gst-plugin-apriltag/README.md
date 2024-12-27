@@ -2,11 +2,11 @@
 
 ## Prerequisites:
 
-This crate requires gstreamer (with the video plugin) and april tag libraries.
+This crate requires gstreamer (with the video plugin) libraries.
 
 On Debian/Ubuntu linux, you can install the prerequisites to build like this:
 
-    sudo apt-get install libgstreamer-plugins-base1.0-dev libapriltag-dev
+    sudo apt-get install libgstreamer-plugins-base1.0-dev
 
 On Debian/Ubuntu linux, you can install `gst-inspect-1.0` like this:
 
