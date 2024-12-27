@@ -1137,44 +1137,9 @@ braid-webapps:
     - ./build.sh
     - cd ../..
 
-braid-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-24.04.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    # - export RUSTFLAGS="-D warnings"
-
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
-    - ./build.sh
-
-    - mkdir -p $CI_PROJECT_DIR/build
-
-    # build braid-run
-    - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,tracing/release_max_level_debug --release
-    - ldd -v $CI_PROJECT_DIR/target/release/braid-run
-    - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
-
-    # build braid
-    - cd $CI_PROJECT_DIR/braid
-    - NUM_JOBS=2 cargo build --release
-    - ../target/release/braid-default-config # ensure default config gets printed
-    - ../target/release/braid-show-config simple.toml # ensure simple.toml config parses
-    - ldd -v $CI_PROJECT_DIR/target/release/braid
-    - cp ../target/release/braid $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-default-config $CI_PROJECT_DIR/build
-
-  artifacts:
-    paths:
-      - build/
-    name: "braid-ubuntu2404-${CI_COMMIT_SHA}"
-
-braid-ubuntu2004:
+brain-run-binary:
+  # Build on Ubuntu Focal (20.04) but doesn't link libraries with
+  # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -1208,44 +1173,7 @@ braid-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "braid-ubuntu2004-${CI_COMMIT_SHA}"
-
-braid-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-22.04.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    # - export RUSTFLAGS="-D warnings"
-
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
-    - ./build.sh
-
-    - mkdir -p $CI_PROJECT_DIR/build
-
-    # build braid-run
-    - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,tracing/release_max_level_debug --release
-    - ldd -v $CI_PROJECT_DIR/target/release/braid-run
-    - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
-
-    # build braid
-    - cd $CI_PROJECT_DIR/braid
-    - NUM_JOBS=2 cargo build --release
-    - ../target/release/braid-default-config # ensure default config gets printed
-    - ../target/release/braid-show-config simple.toml # ensure simple.toml config parses
-    - ldd -v $CI_PROJECT_DIR/target/release/braid
-    - cp ../target/release/braid $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-show-config $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-default-config $CI_PROJECT_DIR/build
-
-  artifacts:
-    paths:
-      - build/
-    name: "braid-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "brain-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
   image: rust:1.83
@@ -1323,7 +1251,7 @@ strand-braid-ubuntu-2404:
   needs:
     - braid-offline-static
     - braid-process-video
-    - braid-ubuntu2404
+    - brain-run-binary
     - extra-programs-ubuntu2404
     - fmf-cli
     - strand-cam-vimba-ubuntu2404
@@ -1377,7 +1305,7 @@ strand-braid-ubuntu-2004:
   needs:
     - braid-offline-static
     - braid-process-video
-    - braid-ubuntu2004
+    - brain-run-binary
     - extra-programs-ubuntu2004
     - fmf-cli
     - strand-cam-vimba-ubuntu2004
@@ -1432,7 +1360,7 @@ strand-braid-ubuntu-2204:
   needs:
     - braid-offline-static
     - braid-process-video
-    - braid-ubuntu2204
+    - brain-run-binary
     - extra-programs-ubuntu2204
     - fmf-cli
     - strand-cam-vimba-ubuntu2204
