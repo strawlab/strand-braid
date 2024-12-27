@@ -7,13 +7,13 @@ edition = "2021"
 anyhow.workspace = true
 machine-vision-formats.workspace = true
 clap.workspace = true
-serde = { version = "1.0.188", features = ["derive"] }
-csv = "1.2.2"
+serde.workspace = true
+csv.workspace = true
 y4m.workspace = true
 
-ads-apriltag = { path = ".." }
+ads-apriltag.workspace = true
 convert-image.workspace = true
-y4m-writer = { path = "../../media-utils/y4m-writer" }
+y4m-writer.workspace = true
 
 [dev-dependencies]
-download-verify = { path = "../../download-verify" }
+download-verify.workspace = true
