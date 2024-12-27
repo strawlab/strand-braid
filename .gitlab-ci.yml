@@ -762,7 +762,7 @@ strand-cam-vimba-ubuntu2204:
 
 flytrax-csv-to-braidz-binary:
   # Use manylinux project to build binary compatible with old glibc
-  image: quay.io/pypa/manylinux_2_28_x86_64
+  image: quay.io/pypa/manylinux2014_x86_64
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -902,7 +902,7 @@ strand-cam-flydratrax-pylon-ubuntu2204:
 
 braid-offline-static:
   # Build without glibc dependency so it runs on cluster with ancient glibc.
-  image: quay.io/pypa/manylinux_2_28_x86_64
+  image: quay.io/pypa/manylinux2014_x86_64
   script:
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
