@@ -44,7 +44,13 @@ ufmf.workspace = true
 chrono.workspace = true
 convert-image.workspace = true
 hyper.workspace = true
-hyper-tls = "0.6"
+hyper-rustls = { version = "0.27.3", default-features = false, features = [
+    "webpki-tokio",
+    "native-tokio",
+    "http1",
+    "logging",
+    "ring",
+] }
 futures.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

@@ -13,7 +13,9 @@ use event_stream_types::{
 use futures::{sink::SinkExt, stream::StreamExt};
 use http::StatusCode;
 use http_video_streaming as video_streaming;
-use hyper_tls::HttpsConnector;
+
+use hyper_rustls::HttpsConnector;
+
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use machine_vision_formats as formats;
 #[allow(unused_imports)]
@@ -2360,7 +2362,11 @@ where
         let known_version2 = known_version;
         let stream_future = async move {
             while interval_stream.next().await.is_some() {
-                let https = HttpsConnector::new();
+                let https = hyper_rustls::HttpsConnectorBuilder::new()
+                    .with_webpki_roots()
+                    .https_only()
+                    .enable_http1()
+                    .build();
                 let client = Client::builder(TokioExecutor::new()).build::<_, MyBody>(https);
 
                 let r = check_version(client, known_version2.clone(), app_name).await;
