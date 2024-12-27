@@ -893,11 +893,8 @@ strand-cam-flydratrax-pylon-ubuntu2204:
 
 braid-offline-static:
   # Build without glibc dependency so it runs on cluster with ancient glibc.
-  image: ubuntu:noble
+  image: rust:1.83
   script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential git
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
     - rustup target install x86_64-unknown-linux-musl
