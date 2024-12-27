@@ -22,6 +22,7 @@ WORKDIR /usr/src/strand-braid/strand-cam/yew_frontend
 RUN ./build.sh
 
 WORKDIR /usr/src/strand-braid/strand-cam/strand-cam-pylon-gui
+ENV RUSTFLAGS="-C link-args=-Wl,-rpath,/opt/pylon/lib"
 RUN cargo build --release
 
 FROM docker.io/library/ubuntu:bionic
@@ -29,6 +30,5 @@ COPY --from=0 /usr/src/strand-braid/target/release/strand-cam-pylon-gui /usr/bin
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y openssl curl
 COPY _packaging/install-pylon-linux.sh /usr/bin/install-pylon-linux.sh
 RUN /usr/bin/install-pylon-linux.sh && rm /usr/bin/install-pylon-linux.sh
-ENV LD_LIBRARY_PATH=/opt/pylon/lib
+RUN strand-cam-pylon-gui --version && ldd -v /usr/bin/strand-cam-pylon-gui
 CMD ["strand-cam-pylon-gui"]
-
