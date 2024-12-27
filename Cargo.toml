@@ -99,8 +99,6 @@ members = [
     "opencv-calibrate",
     "opencv-calibrate/find-chessboard",
     "parry-geom",
-    "plugin-defs",
-    "py-strandcam/rust",
     "refraction",
     "simple-obj-parse",
     "strand-cam",
@@ -141,6 +139,7 @@ base64 = "0.12"
 byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.15", features = ["serde-serialize"] }
+cbindgen = { version = "0.25", default-features = false }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
 configure = "0.1.1"
@@ -323,7 +322,6 @@ ncollide-geom = { path = "freemovr-calibration/ncollide-geom" }
 nvenc = { path = "nvenc" }
 opencv-calibrate = { path = "opencv-calibrate" }
 parry-geom = { path = "parry-geom" }
-plugin-defs = { path = "plugin-defs" }
 refraction = { path = "refraction" }
 rust-cam-bui-types = { path = "rust-cam-bui-types" }
 srt-writer = { path = "media-utils/srt-writer" }

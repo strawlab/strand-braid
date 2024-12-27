@@ -31,7 +31,6 @@ base64.workspace = true
 directories = "4.0.1"
 eyre.workspace = true
 parking_lot.workspace = true
-thread-control = { workspace = true, optional = true }
 ipp-sys = { workspace = true, optional = true }
 ci2.workspace = true
 ci2-async.workspace = true
@@ -101,7 +100,6 @@ camcal = { workspace = true, optional = true }
 rust-cam-bui-types.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 strand-cam-csv-config-types.workspace = true
-plugin-defs = { workspace = true, optional = true }
 bg-movie-writer.workspace = true
 ffmpeg-writer.workspace = true
 strand-cam-pseudo-cal = { workspace = true, optional = true }
@@ -125,8 +123,6 @@ eframe-gui = ["eframe"]
 fiducial = ["ads-apriltag", "csv", "libflate"]
 
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
-
-plugin-process-frame = ["plugin-defs", "thread-control"]
 
 # Serve style
 ## Bundle files into executable

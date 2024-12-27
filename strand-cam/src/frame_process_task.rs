@@ -52,19 +52,11 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
-    #[cfg(feature = "plugin-process-frame")] plugin_handler_thread_tx: std::sync::mpsc::SyncSender<
-        DynamicFrame,
-    >,
-    #[cfg(feature = "plugin-process-frame")] plugin_result_rx: std::sync::mpsc::Receiver<
-        Vec<http_video_streaming_types::Point>,
-    >,
-    #[cfg(feature = "plugin-process-frame")] plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<crate::ToLedBoxDevice>,
     #[cfg(feature = "flydratrax")] http_camserver_info: flydra_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
     led_box_heartbeat_update_arc: Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
-    #[cfg(feature = "plugin-process-frame")] do_process_frame_callback: bool,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "flydratrax")] args: &crate::StrandCamArgs,
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
@@ -1284,32 +1276,6 @@ pub(crate) async fn frame_process_task<'a>(
                             inner.writer.write(x, save_mp4_fmf_stamp)?
                         });
                         inner.last_saved_stamp = Some(save_mp4_fmf_stamp);
-                    }
-                }
-
-                #[cfg(feature = "plugin-process-frame")]
-                {
-                    // Do FFI image processing with lowest latency possible
-                    if do_process_frame_callback {
-                        match plugin_handler_thread_tx.try_send(frame.clone()) {
-                            Err(std::sync::mpsc::TrySendError::Disconnected(_msg)) => {
-                                eyre::bail!("The plugin receiver hung up");
-                            }
-                            Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
-                                error!("cannot transmit frame to plugin: channel full");
-                            }
-                            Ok(()) => match plugin_result_rx.recv_timeout(plugin_wait_dur) {
-                                Ok(results) => {
-                                    found_points.extend(results);
-                                }
-                                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                                    error!("Not displaying annotation because the plugin took too long.");
-                                }
-                                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                                    eyre::bail!("The plugin sender disconnected.");
-                                }
-                            },
-                        }
                     }
                 }
 

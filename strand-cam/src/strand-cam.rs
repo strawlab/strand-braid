@@ -128,94 +128,6 @@ const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
 use eyre::{eyre, Result, WrapErr};
 
-#[cfg(feature = "plugin-process-frame")]
-struct CloseAppOnThreadExit {
-    file: &'static str,
-    line: u32,
-    thread_handle: std::thread::Thread,
-    sender: Option<tokio::sync::mpsc::Sender<CamArg>>,
-}
-
-#[cfg(feature = "plugin-process-frame")]
-impl CloseAppOnThreadExit {
-    pub fn new(sender: tokio::sync::mpsc::Sender<CamArg>, file: &'static str, line: u32) -> Self {
-        let thread_handle = std::thread::current();
-        Self {
-            sender: Some(sender),
-            file,
-            line,
-            thread_handle,
-        }
-    }
-
-    fn check<T, E>(&self, result: StdResult<T, E>) -> T
-    where
-        E: std::convert::Into<eyre::Report>,
-    {
-        match result {
-            Ok(v) => v,
-            Err(e) => self.fail(e.into()),
-        }
-    }
-
-    fn fail(&self, e: eyre::Report) -> ! {
-        display_err(
-            e,
-            self.file,
-            self.line,
-            self.thread_handle.name(),
-            self.thread_handle.id(),
-        );
-        panic!(
-            "panicing thread {:?} due to error",
-            self.thread_handle.name()
-        );
-    }
-
-    fn success(mut self) {
-        self.sender.take();
-    }
-}
-
-#[cfg(feature = "plugin-process-frame")]
-fn display_err(
-    err: eyre::Report,
-    file: &str,
-    line: u32,
-    thread_name: Option<&str>,
-    thread_id: std::thread::ThreadId,
-) {
-    eprintln!(
-        "Error {}:{} ({:?} Thread name {:?}): {}",
-        file, line, thread_id, thread_name, err
-    );
-    eprintln!("Alternate view of error:",);
-    eprintln!("{:#?}", err,);
-    eprintln!("Debug view of error:",);
-    eprintln!("{:?}", err,);
-}
-
-#[cfg(feature = "plugin-process-frame")]
-impl Drop for CloseAppOnThreadExit {
-    fn drop(&mut self) {
-        if let Some(sender) = self.sender.take() {
-            debug!(
-                "*** dropping in thread {:?} {}:{}",
-                self.thread_handle.name(),
-                self.file,
-                self.line
-            );
-            match sender.blocking_send(CamArg::DoQuit) {
-                Ok(()) => {}
-                Err(e) => {
-                    error!("failed sending quit command: {}", e);
-                    std::process::exit(1);
-                }
-            }
-        }
-    }
-}
-
 pub(crate) enum Msg {
     StartMp4,
     StopMp4,
@@ -543,29 +455,6 @@ impl Default for ImPtDetectCfgSource {
     }
 }
 
-#[cfg(feature = "plugin-process-frame")]
-pub struct ProcessFrameCbData {
-    pub func_ptr: plugin_defs::ProcessFrameFunc,
-    pub data_handle: plugin_defs::DataHandle,
-}
-
-#[cfg(feature = "plugin-process-frame")]
-impl std::fmt::Debug for ProcessFrameCbData {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "ProcessFrameCbData{{..}}")
-    }
-}
-
-// Ideally it would just be DataHandle which we declare Send, but we cannot do
-// that because it is just a type alias of "*mut c_void" which is defined
-// elsewhere.
-#[cfg(feature = "plugin-process-frame")]
-unsafe impl Send for ProcessFrameCbData {}
-
-#[allow(dead_code)]
-#[cfg(not(feature = "plugin-process-frame"))]
-struct ProcessFrameCbData {}
-
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub enum TimestampSource {
     BraidTrigger, // TODO: rename to CleverComputation or similar
@@ -658,10 +547,6 @@ pub struct StrandCamArgs {
     pub disable_console: bool,
     pub csv_save_dir: String,
     pub led_box_device_path: Option<String>,
-    #[cfg(feature = "plugin-process-frame")]
-    pub process_frame_callback: Option<ProcessFrameCbData>,
-    #[cfg(feature = "plugin-process-frame")]
-    pub plugin_wait_dur: std::time::Duration,
     #[cfg(feature = "flydratrax")]
     pub save_empty_data2d: SaveEmptyData2dType,
     #[cfg(feature = "flydratrax")]
@@ -706,10 +591,6 @@ impl Default for StrandCamArgs {
                 .to_string(),
             csv_save_dir: "/dev/null".to_string(),
             led_box_device_path: None,
-            #[cfg(feature = "plugin-process-frame")]
-            process_frame_callback: None,
-            #[cfg(feature = "plugin-process-frame")]
-            plugin_wait_dur: std::time::Duration::from_millis(5),
             #[cfg(feature = "flydratrax")]
             flydratrax_calibration_source: CalSource::PseudoCal,
             #[cfg(feature = "flydratrax")]
@@ -1584,15 +1465,6 @@ where
         }
     };
 
-    #[cfg(feature = "plugin-process-frame")]
-    let (plugin_handler_thread_tx, plugin_handler_thread_rx) =
-        std::sync::mpsc::sync_channel::<DynamicFrame>(500);
-    #[cfg(feature = "plugin-process-frame")]
-    let (plugin_result_tx, plugin_result_rx) = std::sync::mpsc::sync_channel::<_>(500);
-
-    #[cfg(feature = "plugin-process-frame")]
-    let plugin_wait_dur = args.plugin_wait_dur;
-
     let (firehose_tx, firehose_rx) = tokio::sync::mpsc::channel::<AnnotatedFrame>(5);
 
     // Put first frame in channel.
@@ -2270,12 +2142,6 @@ where
         }
     }
 
-    #[cfg(feature = "plugin-process-frame")]
-    let do_process_frame_callback = args.process_frame_callback.is_some();
-
-    #[cfg(feature = "plugin-process-frame")]
-    let process_frame_callback = args.process_frame_callback;
-
     #[cfg(feature = "checkercal")]
     let collected_corners_arc: CollectedCornersArc = Arc::new(parking_lot::RwLock::new(Vec::new()));
 
@@ -2317,12 +2183,6 @@ where
             #[cfg(feature = "flydra_feat_detect")]
             std::path::Path::new(&csv_save_dir).to_path_buf(),
             firehose_tx,
-            #[cfg(feature = "plugin-process-frame")]
-            plugin_handler_thread_tx,
-            #[cfg(feature = "plugin-process-frame")]
-            plugin_result_rx,
-            #[cfg(feature = "plugin-process-frame")]
-            plugin_wait_dur,
             #[cfg(feature = "flydratrax")]
             led_box_tx_std,
             #[cfg(feature = "flydratrax")]
@@ -2330,8 +2190,6 @@ where
             transmit_msg_tx.clone(),
             camdata_udp_addr,
             led_box_heartbeat_update_arc2,
-            #[cfg(feature = "plugin-process-frame")]
-            do_process_frame_callback,
             #[cfg(feature = "checkercal")]
             collected_corners_arc.clone(),
             #[cfg(feature = "flydratrax")]
@@ -3388,29 +3246,6 @@ where
             .unwrap();
     });
 
-    #[cfg(feature = "plugin-process-frame")]
-    let (plugin_streaming_control, plugin_streaming_jh) = {
-        let cam_args_tx2 = cam_args_tx.clone();
-        let (flag, control) = thread_control::make_pair();
-        let join_handle = std::thread::Builder::new()
-            .name("plugin_streaming".to_string())
-            .spawn(move || {
-                // ignore plugin
-                let thread_closer = CloseAppOnThreadExit::new(cam_args_tx2, file!(), line!());
-                while flag.is_alive() {
-                    let frame = thread_closer.check(plugin_handler_thread_rx.recv());
-                    if let Some(ref pfc) = process_frame_callback {
-                        let c_data = view_as_c_frame(&frame);
-                        let c_timestamp = get_c_timestamp(&frame);
-                        let ffi_result = (pfc.func_ptr)(&c_data, pfc.data_handle, c_timestamp);
-                        let points = ffi_to_points(&ffi_result);
-                        thread_closer.check(plugin_result_tx.send(points));
-                    }
-                }
-                thread_closer.success();
-            })?;
-        (control, join_handle)
-    };
     debug!("  running forever");
 
     {
@@ -3600,19 +3435,6 @@ where
     }
     info!("Strand Cam ending nicely. :)");
 
-    #[cfg(feature = "plugin-process-frame")]
-    {
-        plugin_streaming_control.stop();
-        while !plugin_streaming_control.is_done() {
-            debug!(
-                "waiting for stop {:?} {:?}",
-                plugin_streaming_jh.thread().name(),
-                plugin_streaming_jh.thread().id()
-            );
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        }
-    }
-
     Ok(mymod)
 }
 
@@ -3630,52 +3452,6 @@ where
     let remote_in_local = start + remote_offset_symmetric;
     tracing::debug!("Camera timestamp: {remote_in_local} {remote} {max_err}.");
     Ok((remote_in_local, remote))
-}
-
-#[cfg(feature = "plugin-process-frame")]
-fn ffi_to_points(
-    pts: &plugin_defs::StrandCamFrameAnnotation,
-) -> Vec<http_video_streaming_types::Point> {
-    pts.as_slice()
-        .iter()
-        .map(|pt| http_video_streaming_types::Point {
-            x: pt.x,
-            y: pt.y,
-            area: None,
-            theta: None,
-        })
-        .collect()
-}
-
-#[cfg(feature = "plugin-process-frame")]
-fn get_pixfmt(pixfmt: &PixFmt) -> plugin_defs::EisvogelPixelFormat {
-    match pixfmt {
-        PixFmt::Mono8 => plugin_defs::EisvogelPixelFormat::MONO8,
-        PixFmt::BayerRG8 => plugin_defs::EisvogelPixelFormat::BayerRG8,
-        other => panic!("unsupported pixel format: {}", other),
-    }
-}
-
-#[cfg(feature = "plugin-process-frame")]
-fn get_c_timestamp<'a>(frame: &'a DynamicFrame) -> f64 {
-    let ts = frame.extra().host_timestamp();
-    datetime_conversion::datetime_to_f64(&ts)
-}
-
-#[cfg(feature = "plugin-process-frame")]
-fn view_as_c_frame(frame: &DynamicFrame) -> plugin_defs::FrameData {
-    use formats::Stride;
-
-    let pixel_format = get_pixfmt(&frame.pixel_format());
-
-    let result = plugin_defs::FrameData {
-        data: frame.image_data_without_format(),
-        stride: frame.stride() as u64,
-        rows: frame.height(),
-        cols: frame.width(),
-        pixel_format,
-    };
-    result
 }
 
 fn open_browser(url: String) -> Result<()> {
