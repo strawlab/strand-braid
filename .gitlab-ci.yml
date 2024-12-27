@@ -903,18 +903,20 @@ strand-braid-ubuntu-2404:
 
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
-    - ls -l ../build
-    - ldd ../build/flytrax-csv-to-braidz
-    - ldd ../build/strand-cam-flydratrax-pylon
-    - ldd ../build/strand-cam-pylon
-    - ldd ../build/strand-cam-vimba
-    - ldd ../build/braid
-    - ldd ../build/braid-run
-    - ldd ../build/cal-to-xml
-    - ldd ../build/align-calibration
-    - ldd ../build/braidz-mcsc
-    - ldd ../build/braidz-export-rrd
-    - ldd ../build/braid-process-video
+    - ls -l $CI_PROJECT_DIR/build
+    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/braid-run --version
+    - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/braid
+    - ldd -v $CI_PROJECT_DIR/build/braid-run
+    - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
+    - ldd -v $CI_PROJECT_DIR/build/align-calibration
+    - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
+    - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
@@ -957,18 +959,20 @@ strand-braid-ubuntu-2004:
 
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
-    - ls -l ../build
-    - ldd ../build/flytrax-csv-to-braidz
-    - ldd ../build/strand-cam-flydratrax-pylon
-    - ldd ../build/strand-cam-pylon
-    - ldd ../build/strand-cam-vimba
-    - ldd ../build/braid
-    - ldd ../build/braid-run
-    - ldd ../build/cal-to-xml
-    - ldd ../build/align-calibration
-    - ldd ../build/braidz-mcsc
-    - ldd ../build/braidz-export-rrd
-    - ldd ../build/braid-process-video
+    - ls -l $CI_PROJECT_DIR/build
+    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/braid-run --version
+    - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/braid
+    - ldd -v $CI_PROJECT_DIR/build/braid-run
+    - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
+    - ldd -v $CI_PROJECT_DIR/build/align-calibration
+    - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
+    - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -1012,18 +1016,20 @@ strand-braid-ubuntu-2204:
 
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
-    - ls -l ../build
-    - ldd ../build/flytrax-csv-to-braidz
-    - ldd ../build/strand-cam-flydratrax-pylon
-    - ldd ../build/strand-cam-pylon
-    - ldd ../build/strand-cam-vimba
-    - ldd ../build/braid
-    - ldd ../build/braid-run
-    - ldd ../build/cal-to-xml
-    - ldd ../build/align-calibration
-    - ldd ../build/braidz-mcsc
-    - ldd ../build/braidz-export-rrd
-    - ldd ../build/braid-process-video
+    - ls -l $CI_PROJECT_DIR/build
+    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/braid-run --version
+    - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/braid
+    - ldd -v $CI_PROJECT_DIR/build/braid-run
+    - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
+    - ldd -v $CI_PROJECT_DIR/build/align-calibration
+    - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
+    - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
