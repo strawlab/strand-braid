@@ -902,18 +902,20 @@ strand-cam-flydratrax-pylon-ubuntu2204:
 
 braid-offline-static:
   # Build without glibc dependency so it runs on cluster with ancient glibc.
-  image: rust:1.83
+  image: quay.io/pypa/manylinux_2_28_x86_64
   script:
+    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+    - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - rustup target install x86_64-unknown-linux-musl
-
     - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release --target x86_64-unknown-linux-musl
+    - cargo build --release
+    - ldd -v $CI_PROJECT_DIR/target/release/braid-offline-retrack
+    - ldd -v $CI_PROJECT_DIR/target/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/x86_64-unknown-linux-musl/release/braid-offline-retrack $CI_PROJECT_DIR/build/
-    - cp ../target/x86_64-unknown-linux-musl/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/release/braid-offline-retrack $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
