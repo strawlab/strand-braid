@@ -910,28 +910,9 @@ braid-offline-static:
       - build/
     name: "braid-offline-static-${CI_COMMIT_SHA}"
 
-braid-process-video-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev pkg-config libclang-dev libvpx-dev curl
-
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
-    - export RUSTFLAGS="-D warnings"
-
-    - cd braid-process-video
-    - cargo test --release
-    - cargo build --release
-
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "braid-process-video-ubuntu2404-${CI_COMMIT_SHA}"
-
-braid-process-video-ubuntu2004:
+braid-process-video:
+  # Build on Ubuntu Focal (20.04) but doesn't link libraries with
+  # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev pkg-config libclang-dev libvpx-dev curl
@@ -943,34 +924,14 @@ braid-process-video-ubuntu2004:
     - cd braid-process-video
     - cargo test --release
     - cargo build --release
+    - ldd -v ../target/release/braid-process-video
 
     - mkdir -p $CI_PROJECT_DIR/build
     - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
-    name: "braid-process-video-ubuntu2004-${CI_COMMIT_SHA}"
-
-braid-process-video-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  script:
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git libavformat-dev libavfilter-dev libavdevice-dev pkg-config libclang-dev libvpx-dev curl
-
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
-    - export RUSTFLAGS="-D warnings"
-
-    - cd braid-process-video
-    - cargo test --release
-    - cargo build --release
-
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "braid-process-video-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "braid-process-video-${CI_COMMIT_SHA}"
 
 slow-tests:
   image: ubuntu:focal
@@ -1377,6 +1338,7 @@ strand-braid-ubuntu-2404:
     - ldd ../build/align-calibration
     - ldd ../build/braidz-mcsc
     - ldd ../build/braidz-export-rrd
+    - ldd ../build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
@@ -1386,7 +1348,7 @@ strand-braid-ubuntu-2404:
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/*.deb
   needs:
     - braid-offline-static
-    - braid-process-video-ubuntu2404
+    - braid-process-video
     - braid-ubuntu2404
     - extra-programs-ubuntu2404
     - fmf-cli-ubuntu2404
@@ -1430,6 +1392,7 @@ strand-braid-ubuntu-2004:
     - ldd ../build/align-calibration
     - ldd ../build/braidz-mcsc
     - ldd ../build/braidz-export-rrd
+    - ldd ../build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -1439,7 +1402,7 @@ strand-braid-ubuntu-2004:
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
     - braid-offline-static
-    - braid-process-video-ubuntu2004
+    - braid-process-video
     - braid-ubuntu2004
     - extra-programs-ubuntu2004
     - fmf-cli-ubuntu2004
@@ -1484,6 +1447,7 @@ strand-braid-ubuntu-2204:
     - ldd ../build/align-calibration
     - ldd ../build/braidz-mcsc
     - ldd ../build/braidz-export-rrd
+    - ldd ../build/braid-process-video
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
@@ -1493,7 +1457,7 @@ strand-braid-ubuntu-2204:
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/*.deb
   needs:
     - braid-offline-static
-    - braid-process-video-ubuntu2204
+    - braid-process-video
     - braid-ubuntu2204
     - extra-programs-ubuntu2204
     - fmf-cli-ubuntu2204
