@@ -887,7 +887,6 @@ led-box-firmware:
 
 # build the final downloadable .deb
 strand-braid-ubuntu-2404:
-  when: manual
   image: ubuntu:noble
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
@@ -1000,7 +999,6 @@ strand-braid-ubuntu-2004:
 
 # build the final downloadable .deb
 strand-braid-ubuntu-2204:
-  when: manual
   image: ubuntu:jammy
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
