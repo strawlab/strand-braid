@@ -15,7 +15,7 @@ cache:
 test_crates:
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -130,7 +130,7 @@ test_flydra2:
     GIT_SUBMODULE_STRATEGY: recursive
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     # Install python and pip, but let pip install everything from there.
@@ -314,8 +314,8 @@ test_crates_rust_nightly:
 test_flydra_feature_detector:
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-base.sh
+    - _packaging/setup-ubuntu-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -325,8 +325,8 @@ test_flydra_feature_detector:
 test_fastimage:
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-base.sh
+    - _packaging/setup-ubuntu-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -335,7 +335,7 @@ test_fastimage:
 led-box-ubuntu2004-debs:
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
@@ -357,7 +357,7 @@ led-box-ubuntu2004-debs:
 led-box-standalone-ubuntu2004-deb:
   image: ubuntu:focal
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
@@ -439,8 +439,8 @@ build-api-docs:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-20.04.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-base.sh
+    - _packaging/setup-ubuntu-ipp.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
@@ -521,10 +521,10 @@ strand-cam-pylon-binary:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -562,10 +562,10 @@ strand-cam-vimba-binary:
     GIT_SUBMODULE_STRATEGY: recursive
 
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
-    - _packaging/setup-ubuntu-20.04-vimba.sh
+    - _packaging/setup-ubuntu-ipp.sh
+    - _packaging/setup-ubuntu-vimba.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -622,10 +622,10 @@ strand-cam-flydratrax-pylon-binary:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-20.04-ipp.sh
+    - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
@@ -818,7 +818,7 @@ brain-run-binary:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
     # - export RUSTFLAGS="-D warnings"
 
@@ -897,7 +897,7 @@ strand-braid-ubuntu-2404:
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-24.04-vimba.sh
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
     - mkdir -p strand-braid-ubuntu-2404-${CI_COMMIT_TAG}
 
@@ -946,12 +946,12 @@ strand-braid-ubuntu-2004:
   script:
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev libssl-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev
 
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-20.04-vimba.sh
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
     - mkdir -p strand-braid-ubuntu-2004-${CI_COMMIT_TAG}
 
@@ -1006,7 +1006,7 @@ strand-braid-ubuntu-2204:
     # Download pylon and install so dpkg figues out the source
     - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
-    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-22.04-vimba.sh
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
     - mkdir -p strand-braid-ubuntu-2204-${CI_COMMIT_TAG}
 
@@ -1053,7 +1053,7 @@ build_simple:
   image: ubuntu:focal
   script:
     # Install cargo and wasm-pack and grass
-    - _packaging/setup-ubuntu-20.04.sh
+    - _packaging/setup-ubuntu-base.sh
     # Put them on the path
     - export PATH="$PATH:$CARGO_HOME/bin"
     # Install Pylon

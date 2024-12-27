@@ -2,7 +2,7 @@
 set -o errexit
 
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev libssl-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev
+DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev
 
 ORIG_DIR=`pwd`
 echo $ORIG_DIR
