@@ -39,13 +39,13 @@ test_crates:
     - cargo test --release
     - cd ../..
 
-    # Test apriltag
-    - cd apriltag
+    # Test ads-apriltag
+    - cd ads-apriltag
     - cargo test --release
     - cd ..
 
     # Test apriltag-track-movie
-    - cd apriltag/apriltag-track-movie
+    - cd ads-apriltag/apriltag-track-movie
     - cargo test --release
     - cd ../..
 

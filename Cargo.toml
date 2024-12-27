@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
+    "ads-apriltag",
+    "ads-apriltag/apriltag-track-movie",
     "ads-webasm",
     "ads-webasm/example",
-    "apriltag",
-    "apriltag/apriltag-track-movie",
     "basic-frame",
     "bg-movie-writer",
     "bisection-search",
@@ -264,7 +264,7 @@ zip = { version = "0.6.6", default-features = false, features = [
     "time",
 ] }
 
-ads-apriltag = { path = "apriltag" }
+ads-apriltag = { path = "ads-apriltag" }
 ads-webasm = { path = "ads-webasm" }
 basic-frame = { path = "basic-frame" }
 bg-movie-writer = { path = "bg-movie-writer" }
