@@ -6,7 +6,6 @@ rust-version = "1.76"
 description = "process videos within the Braid multi-camera framework"
 
 [dependencies]
-# apt install libavformat-dev libavfilter-dev libavdevice-dev libavresample-dev libvpx-dev
 tracing.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
