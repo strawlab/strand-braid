@@ -516,7 +516,7 @@ publish-api-docs:
     - build-api-docs
   when: manual
 
-strand-cam-pylon-ubuntu2004:
+strand-cam-pylon-binary:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -554,132 +554,9 @@ strand-cam-pylon-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "strand-cam-pylon-ubuntu2004-${CI_COMMIT_SHA}"
+    name: "strand-cam-pylon-binary-${CI_COMMIT_SHA}"
 
-strand-cam-pylon-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-24.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-24.04-ipp.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-
-    - export RUSTFLAGS="-D warnings"
-
-    - rustc --version
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon noble > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
-    - cp ../target/release/write-debian-changelog $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-pylon-ubuntu2404-${CI_COMMIT_SHA}"
-
-strand-cam-pylon-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-22.04-ipp.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-
-    - export RUSTFLAGS="-D warnings"
-
-    - rustc --version
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon jammy > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
-    - cp ../target/release/write-debian-changelog $CI_PROJECT_DIR/build/
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-pylon-ubuntu2204-${CI_COMMIT_SHA}"
-
-strand-cam-vimba-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-
-  script:
-    - _packaging/setup-ubuntu-24.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-24.04-ipp.sh
-    - _packaging/setup-ubuntu-24.04-vimba.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-
-    - export RUSTFLAGS="-D warnings"
-
-    - rustc --version
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
-    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba noble > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-vimba-ubuntu2404-${CI_COMMIT_SHA}"
-
-strand-cam-vimba-ubuntu2004:
+strand-cam-vimba-binary:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -717,48 +594,7 @@ strand-cam-vimba-ubuntu2004:
   artifacts:
     paths:
       - build/
-    name: "strand-cam-vimba-ubuntu2004-${CI_COMMIT_SHA}"
-
-strand-cam-vimba-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-
-  script:
-    - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-22.04-ipp.sh
-    - _packaging/setup-ubuntu-22.04-vimba.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-
-    - export RUSTFLAGS="-D warnings"
-
-    - rustc --version
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
-    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba jammy > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-vimba-ubuntu2204-${CI_COMMIT_SHA}"
+    name: "strand-cam-vimba-binary-${CI_COMMIT_SHA}"
 
 flytrax-csv-to-braidz-binary:
   # Use manylinux project to build binary compatible with old glibc
@@ -781,47 +617,7 @@ flytrax-csv-to-braidz-binary:
     paths:
       - build/
 
-strand-cam-flydratrax-pylon-ubuntu2404:
-  when: manual
-  image: ubuntu:noble
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-24.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-24.04-ipp.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    # Rename the target to `strand-cam-flydratrax-pylon`.
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - cp $CI_PROJECT_DIR/_packaging/strand-braid/strand-cam-flydratrax-pylon.desktop $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon noble > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-flydratrax-pylon-ubuntu2404-${CI_COMMIT_SHA}"
-
-strand-cam-flydratrax-pylon-ubuntu2004:
+strand-cam-flydratrax-pylon-binary:
   image: ubuntu:focal
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -854,46 +650,6 @@ strand-cam-flydratrax-pylon-ubuntu2004:
     - cd $CI_PROJECT_DIR/write-debian-changelog
     - cargo build --release
     - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
-
-strand-cam-flydratrax-pylon-ubuntu2204:
-  when: manual
-  image: ubuntu:jammy
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-ubuntu-22.04.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
-    - _packaging/setup-ubuntu-22.04-ipp.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
-
-    - >
-      source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
-      IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    # Rename the target to `strand-cam-flydratrax-pylon`.
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - cp $CI_PROJECT_DIR/_packaging/strand-braid/strand-cam-flydratrax-pylon.desktop $CI_PROJECT_DIR/build/
-    - cd $CI_PROJECT_DIR/write-debian-changelog
-    - cargo build --release
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon jammy > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
     - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
   artifacts:
     paths:
@@ -1172,10 +928,10 @@ strand-braid-ubuntu-2404:
     - brain-run-binary
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-ubuntu2404
-    - strand-cam-pylon-ubuntu2404
+    - strand-cam-vimba-binary
+    - strand-cam-pylon-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-ubuntu2404
+    - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2404" in the
   # filename.
@@ -1226,10 +982,10 @@ strand-braid-ubuntu-2004:
     - brain-run-binary
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-ubuntu2004
-    - strand-cam-pylon-ubuntu2004
+    - strand-cam-vimba-binary
+    - strand-cam-pylon-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-ubuntu2004
+    - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.
@@ -1281,10 +1037,10 @@ strand-braid-ubuntu-2204:
     - brain-run-binary
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-ubuntu2204
-    - strand-cam-pylon-ubuntu2204
+    - strand-cam-vimba-binary
+    - strand-cam-pylon-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-ubuntu2204
+    - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2204" in the
   # filename.
