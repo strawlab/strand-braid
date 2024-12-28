@@ -1,0 +1,10 @@
+[package]
+name = "refraction"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.76"
+
+[dependencies]
+simba.workspace = true
+bisection-search.workspace = true

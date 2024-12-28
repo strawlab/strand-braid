@@ -1,0 +1,17 @@
+[package]
+name = "camcal"
+license = "MIT OR Apache-2.0"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.76"
+
+[dependencies]
+nalgebra.workspace = true
+opencv-ros-camera.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
+chrono.workspace = true
+eyre.workspace = true
+
+opencv-calibrate.workspace = true

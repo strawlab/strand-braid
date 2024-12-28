@@ -6,8 +6,6 @@ members = [
     "ads-webasm",
     "ads-webasm/example",
     "basic-frame",
-    "bg-movie-writer",
-    "bisection-search",
     "braid",
     "braid/braid-run",
     "braid/braid-run/braid_frontend",
@@ -30,18 +28,16 @@ members = [
     "bui-backend-session",
     "bui-backend-session/types",
     "build-util",
-    "camcal",
-    "led-box",
-    "led-box-comms",
-    "ci2",
-    "ci2/ci2-types",
-    "ci2-async",
-    "ci2-cli",
-    "ci2-pyloncxx",
-    "ci2-vimba",
-    "ci2-remote-control",
-    "ci2-simple-async-demo",
-    "ci2-simple-demo",
+    "camera/ci2",
+    "camera/ci2-async",
+    "camera/ci2-cli",
+    "camera/ci2-pyloncxx",
+    "camera/ci2-remote-control",
+    "camera/ci2-simple-async-demo",
+    "camera/ci2-simple-demo",
+    "camera/ci2-types",
+    "camera/ci2-vimba",
+    "camera/vimba",
     "csv-eof",
     "datetime-conversion",
     "download-verify",
@@ -51,12 +47,9 @@ members = [
     "event-stream-types",
     "fastfreeimage",
     "fly-eye",
-    "fmf",
-    "fmf/fmf-cli",
     "flydra-feature-detector",
     "flydra-feature-detector/flydra-feature-detector-types",
     "flydra-feature-detector/flydra-pt-detect-cfg",
-    "flydra-mvg",
     "flydra-types",
     "flydra2",
     "flytrax-csv-to-braidz",
@@ -64,15 +57,31 @@ members = [
     "freemovr-calibration/freemovr-calibration-cli",
     "freemovr-calibration/freemovr-calibration-webapp",
     "freemovr-calibration/ncollide-geom",
+    "geometry/camcal",
+    "geometry/flydra-mvg",
+    "geometry/mvg",
+    "geometry/mvg/mvg-util",
+    "geometry/opencv-calibrate",
+    "geometry/opencv-calibrate/find-chessboard",
+    "geometry/parry-geom",
+    "geometry/refraction",
+    "geometry/refraction/bisection-search",
+    "geometry/simple-obj-parse",
+    "geometry/textured-tri-mesh",
     "groupby",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",
+    "led-box",
+    "led-box-comms",
     "led-box-standalone",
     "machine-vision-shaders",
+    "media-utils/bg-movie-writer",
     "media-utils/dump-frame",
     "media-utils/ffmpeg-writer",
     "media-utils/ffmpeg-rewriter",
+    "media-utils/fmf",
+    "media-utils/fmf/fmf-cli",
     "media-utils/font-drawing",
     "media-utils/frame-source",
     "media-utils/less-avc-wrapper",
@@ -83,20 +92,14 @@ members = [
     "media-utils/srt-writer",
     "media-utils/strand-convert",
     "media-utils/tiff-decoder",
+    "media-utils/ufmf",
     "media-utils/video2rrd",
     "media-utils/video2srt",
     "media-utils/y4m-writer",
-    "mvg",
-    "mvg/mvg-util",
     "nvenc",
     "nvenc/dynlink-cuda",
     "nvenc/dynlink-nvidia-encode",
     "nvenc/dynlink-nvidia-encode/gen-nvenc-bindings",
-    "opencv-calibrate",
-    "opencv-calibrate/find-chessboard",
-    "parry-geom",
-    "refraction",
-    "simple-obj-parse",
     "strand-cam",
     "strand-cam/flytrax-io",
     "strand-cam/strand-cam-offline-checkerboards",
@@ -107,11 +110,8 @@ members = [
     "strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
-    "textured-tri-mesh",
     "timestamped-frame",
     "tracking",
-    "ufmf",
-    "vimba",
     "withkey",
     "write-debian-changelog",
     "zip-or-dir",
@@ -200,6 +200,7 @@ ncollide2d = { package = "ncollide2d-updated", version = "0.36.3" }
 ncollide3d = { package = "ncollide3d-updated", version = "0.36.3" }
 num-iter = "0.1"
 num-traits = "0.2"
+obj = { version = "0.10", features = ["genmesh"] }
 opencv-ros-camera = { version = "0.15.1", features = ["serde-serialize"] }
 openh264 = "0.6.0"
 ordered-float = { version = "3.4", features = ["serde"] }
@@ -263,7 +264,8 @@ zip = { version = "0.6.6", default-features = false, features = [
 ads-apriltag = { path = "ads-apriltag" }
 ads-webasm = { path = "ads-webasm" }
 basic-frame = { path = "basic-frame" }
-bg-movie-writer = { path = "bg-movie-writer" }
+bisection-search = { path = "geometry/refraction/bisection-search" }
+bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
 braid-april-cal = { path = "braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
@@ -275,13 +277,13 @@ braidz-writer = { path = "braid/braidz-writer" }
 bui-backend-session = { path = "bui-backend-session" }
 bui-backend-session-types = { path = "bui-backend-session/types" }
 build-util = { path = "build-util" }
-camcal = { path = "camcal" }
-ci2 = { path = "ci2" }
-ci2-async = { path = "ci2-async" }
-ci2-pyloncxx = { path = "ci2-pyloncxx" }
-ci2-remote-control = { path = "ci2-remote-control" }
-ci2-types = { path = "ci2/ci2-types" }
-ci2-vimba = { path = "ci2-vimba" }
+camcal = { path = "geometry/camcal" }
+ci2 = { path = "camera/ci2" }
+ci2-async = { path = "camera/ci2-async" }
+ci2-pyloncxx = { path = "camera/ci2-pyloncxx" }
+ci2-remote-control = { path = "camera/ci2-remote-control" }
+ci2-types = { path = "camera/ci2-types" }
+ci2-vimba = { path = "camera/ci2-vimba" }
 csv-eof = { path = "csv-eof" }
 datetime-conversion = { path = "datetime-conversion" }
 download-verify = { path = "download-verify" }
@@ -297,11 +299,11 @@ flydra-feature-detector = { path = "flydra-feature-detector" }
 flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }
 flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
 flydra-types = { path = "flydra-types", default-features = false }
-flydra-mvg = { path = "flydra-mvg" }
+flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "flydra2", default-features = false }
 flytrax-apriltags-calibration = { path = "braid-april-cal/flytrax-apriltags-calibration" }
 flytrax-io = { path = "strand-cam/flytrax-io" }
-fmf = { path = "fmf" }
+fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
 frame-source = { path = "media-utils/frame-source" }
 groupby = { path = "groupby" }
@@ -313,22 +315,25 @@ less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
 machine-vision-shaders = { path = "machine-vision-shaders" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
-mvg = { path = "mvg", features = ["serde-serialize"] }
+mvg = { path = "geometry/mvg", features = ["serde-serialize"] }
 ncollide-geom = { path = "freemovr-calibration/ncollide-geom" }
 nvenc = { path = "nvenc" }
-opencv-calibrate = { path = "opencv-calibrate" }
-parry-geom = { path = "parry-geom" }
-refraction = { path = "refraction" }
+opencv-calibrate = { path = "geometry/opencv-calibrate" }
+parry-geom = { path = "geometry/parry-geom" }
+refraction = { path = "geometry/refraction" }
 rust-cam-bui-types = { path = "rust-cam-bui-types" }
+simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
 strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
+textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 timestamped-frame = { path = "timestamped-frame" }
 tracking = { path = "tracking" }
-ufmf = { path = "ufmf" }
+ufmf = { path = "media-utils/ufmf" }
+vimba = { path = "camera/vimba" }
 withkey = { path = "withkey" }
 y4m-writer = { path = "media-utils/y4m-writer" }
 zip-or-dir = { path = "zip-or-dir" }

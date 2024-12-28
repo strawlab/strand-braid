@@ -1,0 +1,21 @@
+[package]
+name = "ufmf"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.76"
+
+[dependencies]
+byteorder.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+structure = "0.1.2"
+cast = "0.2.2"
+
+basic-frame.workspace = true
+machine-vision-formats.workspace = true
+timestamped-frame.workspace = true
+datetime-conversion.workspace = true
+
+[dev-dependencies]
+basic-frame.workspace = true

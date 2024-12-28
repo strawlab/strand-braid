@@ -1,13 +1,16 @@
 [package]
-name = "basic-frame"
+name = "ci2"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
+thiserror.workspace = true
+anyhow.workspace = true
 chrono.workspace = true
-machine-vision-formats = { workspace = true, features = ["std"] }
 
+machine-vision-formats.workspace = true
+ci2-types.workspace = true
+basic-frame.workspace = true
 timestamped-frame.workspace = true
-convert-image = { workspace = true, optional = true }

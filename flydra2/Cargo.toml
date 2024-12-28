@@ -9,7 +9,7 @@ rust-version = "1.76"
 path = "src/flydra2.rs"
 
 [build-dependencies]
-build-util = { path = "../build-util" }
+build-util.workspace = true
 
 [dependencies]
 thiserror.workspace = true

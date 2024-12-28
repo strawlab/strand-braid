@@ -17,8 +17,7 @@ ncollide2d = { workspace = true, features = ["default"] }
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
-genmesh = "0.6"
-obj = { version = "0.10", features = ["genmesh"] }
+obj.workspace = true
 byteorder.workspace = true
 image.workspace = true
 csv.workspace = true
@@ -26,11 +25,11 @@ chrono.workspace = true
 
 dlt = { workspace = true, features = ["default"] }
 mvg.workspace = true
-camcal = { path = "../camcal", optional = true }
+camcal = { workspace = true, optional = true }
 opencv-calibrate = { workspace = true, optional = true }
-simple-obj-parse = { path = "../simple-obj-parse" }
-textured-tri-mesh = { path = "../textured-tri-mesh" }
-ncollide-geom = { workspace = true }
+simple-obj-parse.workspace = true
+textured-tri-mesh.workspace = true
+ncollide-geom.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

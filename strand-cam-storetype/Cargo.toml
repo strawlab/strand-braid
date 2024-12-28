@@ -6,18 +6,18 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = "1.0"
+serde.workspace = true
+serde_json.workspace = true
 serde_yaml.workspace = true
 
-bui-backend-session-types = { path = "../bui-backend-session/types" }
-led-box-comms = { path = "../led-box-comms" }
-ci2-types = { path = "../ci2/ci2-types" }
+bui-backend-session-types.workspace = true
+led-box-comms.workspace = true
+ci2-types.workspace = true
 ci2-remote-control.workspace = true
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types" }
-http-video-streaming-types = { path = "../http-video-streaming/http-video-streaming-types" }
+flydra-feature-detector-types.workspace = true
+http-video-streaming-types.workspace = true
 rust-cam-bui-types.workspace = true
-mvg = { path = "../mvg", features = ["serde-serialize"] }
+mvg = { workspace = true, features = ["serde-serialize"] }
 
 [features]
 default = ["std"]

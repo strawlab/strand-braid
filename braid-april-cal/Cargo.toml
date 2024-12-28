@@ -19,9 +19,9 @@ argmin = { version = "0.8.1", features = [
 ], default-features = false }
 argmin-math = "0.3"
 
-mvg = { path = "../mvg", features = ["serde-serialize"] }
-flydra-mvg = { path = "../flydra-mvg" }
-opencv-calibrate = { path = "../opencv-calibrate", optional = true }
+mvg = { workspace = true, features = ["serde-serialize"] }
+flydra-mvg.workspace = true
+opencv-calibrate = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true

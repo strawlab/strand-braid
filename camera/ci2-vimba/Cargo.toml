@@ -1,0 +1,29 @@
+[package]
+name = "ci2-vimba"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.76"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vimba.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+machine-vision-formats.workspace = true
+chrono.workspace = true
+parking_lot = "0.12.1"
+lazy_static.workspace = true
+tempfile.workspace = true
+
+vmbc-sys = "0.1"
+
+ci2 = { path = "../ci2" }
+basic-frame.workspace = true
+timestamped-frame.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true
+anyhow.workspace = true
+timestamped-frame.workspace = true

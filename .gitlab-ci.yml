@@ -35,22 +35,20 @@ test_crates:
     - cd ../..
 
     # Test fmf-cli
-    - cd fmf/fmf-cli
+    - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
     - cargo test --release
-    - cd ../..
 
     # Test ads-apriltag
-    - cd ads-apriltag
+    - cd $CI_PROJECT_DIR/ads-apriltag
     - cargo test --release
-    - cd ..
 
     # Test apriltag-track-movie
-    - cd ads-apriltag/apriltag-track-movie
+    - cd $CI_PROJECT_DIR/ads-apriltag/apriltag-track-movie
     - cargo test --release
     - cd ../..
 
     # Test braid-april-cal, which requires opencv
-    - cd braid-april-cal
+    - cd $CI_PROJECT_DIR/braid-april-cal
     # run test in release mode, otherwise slow
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features solve-pnp
     - cd ..
@@ -83,26 +81,21 @@ test_crates:
 
     # Test Pylon stuff
     - _packaging/install-pylon-linux.sh
-    - cd ci2-simple-demo
+    - cd $CI_PROJECT_DIR/camera/ci2-simple-demo
     - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
-    - cd ..
 
-    - cd ci2-simple-async-demo
+    - cd $CI_PROJECT_DIR/camera/ci2-simple-async-demo
     - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
-    - cd ..
 
-    - cd ci2-cli
+    - cd $CI_PROJECT_DIR/camera/ci2-cli
     - cargo test --features backend_pyloncxx
-    - cd ..
 
     - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
-    - cd fly-eye
+    - cd $CI_PROJECT_DIR/fly-eye
     - cargo build --release --features backend_pyloncxx
-    - cd ..
 
-    - cd led-box-comms
+    - cd $CI_PROJECT_DIR/led-box-comms
     - cargo test
-    - cd ..
 
 test_flydra2:
   variables:
@@ -165,27 +158,24 @@ test_crates_rust_stable:
     - cd ..
 
     # Test mvg
-    - cd mvg
+    - cd $CI_PROJECT_DIR/geometry/mvg
     - cargo test --features rerun-io
-    - cd ..
 
     # Test braid-april-cal-webapp
-    - cd braid-april-cal/braid-april-cal-webapp
+    - cd $CI_PROJECT_DIR/braid-april-cal/braid-april-cal-webapp
     - cargo test
     - cd ../..
 
     # Test datetime-conversion
     - cd datetime-conversion
     - cargo test
-    - cd ..
 
-    # Test simple-obj-parse
-    - cd simple-obj-parse
+    # Test geometry/simple-obj-parse
+    - cd $CI_PROJECT_DIR/geometry/simple-obj-parse
     - cargo test
-    - cd ..
 
     # basic-frame
-    - cd basic-frame
+    - cd $CI_PROJECT_DIR/basic-frame
     - cargo test
     - cargo test --features convert-image
     - cd ..
@@ -214,31 +204,27 @@ test_crates_rust_stable:
     - cd ..
 
     # Test ufmf
-    - cd ufmf
+    - cd $CI_PROJECT_DIR/media-utils/ufmf
     - cargo test
-    - cd ..
 
     # Test flydra-types
-    - cd flydra-types
+    - cd $CI_PROJECT_DIR/flydra-types
     - cargo test
-    - cd ..
 
-    - cd mvg/mvg-util
+    # Test mvg/mvg-util
+    - cd $CI_PROJECT_DIR/geometry/mvg/mvg-util
     - cargo test
-    - cd ../..
 
     # Test flydra-mvg
-    - cd flydra-mvg
+    - cd $CI_PROJECT_DIR/geometry/flydra-mvg
     - cargo test
-    - cd ..
 
     # Test fmf
-    - cd fmf
+    - cd $CI_PROJECT_DIR/media-utils/fmf
     - cargo test
-    - cd ..
 
     # Test media-utils/tiff-decoder
-    - cd media-utils/tiff-decoder
+    - cd $CI_PROJECT_DIR/media-utils/tiff-decoder
     - cargo test
     - cd ../..
 
@@ -710,7 +696,7 @@ extra-programs:
 
     - mkdir -p $CI_PROJECT_DIR/build
 
-    - cd $CI_PROJECT_DIR/mvg/mvg-util
+    - cd $CI_PROJECT_DIR/geometry/mvg/mvg-util
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/cal-to-xml $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
@@ -752,7 +738,7 @@ fmf-cli:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR/fmf/fmf-cli
+    - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - ldd -v $CI_PROJECT_DIR/target/release/fmf

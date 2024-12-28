@@ -1,0 +1,25 @@
+[package]
+name = "ci2-simple-demo"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2021"
+rust-version = "1.76"
+
+[dependencies]
+tracing.workspace = true
+machine-vision-formats.workspace = true
+anyhow.workspace = true
+
+timestamped-frame.workspace = true
+ci2.workspace = true
+env_logger.workspace = true
+ci2-pyloncxx = { workspace = true, optional = true }
+ci2-vimba = { workspace = true, optional = true }
+lazy_static.workspace = true
+
+[features]
+default = ["backend_pyloncxx"]
+
+# Backend choice
+backend_pyloncxx = ["ci2-pyloncxx"]
+backend_vimba = ["ci2-vimba"]
