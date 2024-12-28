@@ -65,7 +65,6 @@ members = [
     "freemovr-calibration/freemovr-calibration-webapp",
     "freemovr-calibration/ncollide-geom",
     "groupby",
-    "gst-plugin-apriltag",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",

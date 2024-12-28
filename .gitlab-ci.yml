@@ -21,7 +21,7 @@ test_crates:
 
     - export RUSTFLAGS="-D warnings"
 
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y libgstreamer-plugins-base1.0-dev ffmpeg
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
     - rustup target add thumbv7em-none-eabihf
 
     # Test ffmpeg-writer
@@ -48,11 +48,6 @@ test_crates:
     - cd ads-apriltag/apriltag-track-movie
     - cargo test --release
     - cd ../..
-
-    # Test gstreamer apriltag detector
-    - cd gst-plugin-apriltag
-    - cargo test --release
-    - cd ..
 
     # Test braid-april-cal, which requires opencv
     - cd braid-april-cal
@@ -103,10 +98,6 @@ test_crates:
     - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
     - cd fly-eye
     - cargo build --release --features backend_pyloncxx
-    - cd ..
-
-    - cd gst-plugin-apriltag
-    - cargo check --all-targets
     - cd ..
 
     - cd led-box-comms
