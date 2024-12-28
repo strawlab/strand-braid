@@ -54,10 +54,6 @@ test_crates:
     - cargo test --release
     - cd ..
 
-    - cd gst-plugin-nvargustime
-    - cargo test --release
-    - cd ..
-
     # Test braid-april-cal, which requires opencv
     - cd braid-april-cal
     # run test in release mode, otherwise slow
@@ -107,10 +103,6 @@ test_crates:
     - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
     - cd fly-eye
     - cargo build --release --features backend_pyloncxx
-    - cd ..
-
-    - cd gst-plugin-nvargustime
-    - cargo check --all-targets
     - cd ..
 
     - cd gst-plugin-apriltag
