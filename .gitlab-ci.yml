@@ -109,10 +109,6 @@ test_crates:
     - cargo build --release --features backend_pyloncxx
     - cd ..
 
-    - cd imagesrc-gst
-    - cargo check --all-targets
-    - cd ..
-
     - cd gst-plugin-nvargustime
     - cargo check --all-targets
     - cd ..

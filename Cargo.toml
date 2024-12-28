@@ -69,8 +69,6 @@ members = [
     "gst-plugin-nvargustime",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
-    "imagesrc",
-    "imagesrc-gst",
     "imops",
     "led-box-standalone",
     "machine-vision-shaders",
