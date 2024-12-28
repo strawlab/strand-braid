@@ -7,8 +7,7 @@ use basic_frame::DynamicFrame;
 
 mod movie_writer_thread;
 
-// TODO?: generalize also to FMF writer
-
+/// Possible errors
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("io error: {source}")]
@@ -46,6 +45,10 @@ macro_rules! poll_err {
     }};
 }
 
+/// A writer which will save a movie in a background thread.
+///
+/// [Self::new] will spawn the thread and the methods [Self::write] and
+/// [Self::finish] return immediately, even though their work is not done.
 pub struct BgMovieWriter {
     tx: std::sync::mpsc::SyncSender<Msg>,
     is_done: bool,
@@ -53,14 +56,15 @@ pub struct BgMovieWriter {
 }
 
 impl BgMovieWriter {
-    /// This spawns a writer thread which will save a movie in the background.
-    /// The methods [Self::write] and [Self::finish] return immediately, even
-    /// though their work is not done.
+    /// This spawns the writer thread.
     ///
     /// - `format_str_mp4` determines the filename used after formatting with
-    /// [chrono::DateTime::format].
+    ///   [chrono::DateTime::format].
+    /// - `recording_config` specifies the recording method and configuration
     /// - `queue_size` is the number of frames that can be buffered before
-    /// frames will be dropped.
+    ///   frames will be dropped.
+    /// - `data_dir`, if specified, will be the directory location of the saved
+    ///   file.
     pub fn new(
         format_str_mp4: String,
         recording_config: ci2_remote_control::RecordingConfig,

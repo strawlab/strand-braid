@@ -181,6 +181,7 @@ impl Default for NvidiaH264Options {
     }
 }
 
+/// Configuration for MP4 recording
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Mp4RecordingConfig {
     pub codec: Mp4Codec,
@@ -189,6 +190,7 @@ pub struct Mp4RecordingConfig {
     pub h264_metadata: Option<H264Metadata>,
 }
 
+/// Configuration for an ffmpeg-based recording
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FfmpegRecordingConfig {
     pub codec_args: FfmpegCodecArgs,
@@ -196,9 +198,12 @@ pub struct FfmpegRecordingConfig {
     pub max_framerate: RecordingFrameRate,
 }
 
+/// Specify recording method and configuration
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum RecordingConfig {
+    /// Record using MP4 writer
     Mp4(Mp4RecordingConfig),
+    /// Record via y4m pipe to ffmpeg
     Ffmpeg(FfmpegRecordingConfig),
 }
 
@@ -356,6 +361,7 @@ impl enum_iter::EnumIter for BitrateSelection {
 
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
+/// Codec-specific arguments for ffmpeg
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct FfmpegCodecArgs {
     pub device_args: FfmpegCodecArgList,
