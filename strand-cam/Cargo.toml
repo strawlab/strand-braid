@@ -30,7 +30,6 @@ preferences-serde1.workspace = true
 base64.workspace = true
 directories = "4.0.1"
 eyre.workspace = true
-parking_lot.workspace = true
 ipp-sys = { workspace = true, optional = true }
 ci2.workspace = true
 ci2-async.workspace = true

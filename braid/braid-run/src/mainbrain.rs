@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, RwLock,
     },
 };
 
@@ -15,7 +15,6 @@ use axum::{
 };
 use futures::StreamExt;
 use http::{HeaderValue, StatusCode};
-use parking_lot::RwLock;
 use preferences_serde1::{AppInfo, Preferences};
 use serde::Serialize;
 use tokio::net::UdpSocket;
@@ -33,7 +32,7 @@ use flydra_types::{
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 
-use eyre::{self, WrapErr, Result};
+use eyre::{self, Result, WrapErr};
 
 use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHandler};
 
@@ -60,25 +59,19 @@ pub(crate) enum MainbrainError {
     HyperError {
         #[from]
         source: hyper::Error,
-
     },
     #[error("{source}")]
     BuiBackendSessionError {
         #[from]
         source: bui_backend_session::Error,
-
     },
     #[error("{source}")]
     PreferencesError {
         #[from]
         source: preferences_serde1::PreferencesError,
-
     },
     #[error("unknown camera \"{cam_name}\"")]
-    UnknownCamera {
-        cam_name: RawCamName,
-
-    },
+    UnknownCamera { cam_name: RawCamName },
 }
 
 pub(crate) type MainbrainResult<T> = std::result::Result<T, MainbrainError>;
@@ -108,7 +101,7 @@ async fn events_handler(
 ) -> impl axum::response::IntoResponse {
     session_key.is_present();
     let key = {
-        let mut next_connection_id = app_state.next_connection_id.write();
+        let mut next_connection_id = app_state.next_connection_id.write().unwrap();
         let key = *next_connection_id;
         *next_connection_id += 1;
         key
@@ -117,7 +110,7 @@ async fn events_handler(
 
     // Send an initial copy of our state.
     {
-        let current_state = app_state.shared_store.read().as_ref().clone();
+        let current_state = app_state.shared_store.read().unwrap().as_ref().clone();
         let frame_string = to_event_frame(&current_state);
         match tx
             .send(Ok(http_body::Frame::data(frame_string.into())))
@@ -169,7 +162,13 @@ async fn remote_camera_info_handler(
     if let Some(config) = cam_cfg {
         let software_limit_framerate = app_state.software_limit_framerate.clone();
 
-        let trig_config = app_state.shared_store.read().as_ref().trigger_type.clone();
+        let trig_config = app_state
+            .shared_store
+            .read()
+            .unwrap()
+            .as_ref()
+            .trigger_type
+            .clone();
 
         let msg = flydra_types::RemoteCameraInfoResponse {
             camdata_udp_port: app_state.lowlatency_camdata_udp_addr.port(),
@@ -399,7 +398,7 @@ struct SendConnectedCamToBuiBackend {
 
 impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
     fn on_cam_changed(&self, new_cam_list: Vec<CamInfo>) {
-        let mut tracker = self.shared_store.write();
+        let mut tracker = self.shared_store.write().unwrap();
         tracker.modify(|shared| shared.connected_cameras = new_cam_list.clone());
     }
 }
@@ -570,7 +569,7 @@ pub(crate) async fn do_run_forever(
             cookie_store::CookieStore::new(None)
         }
     };
-    let jar = Arc::new(parking_lot::RwLock::new(jar.clone()));
+    let jar = Arc::new(RwLock::new(jar.clone()));
     let strand_cam_http_session_handler =
         StrandCamHttpSessionHandler::new(cam_manager.clone(), jar);
 
@@ -824,11 +823,11 @@ pub(crate) async fn do_run_forever(
                     });
                     let cm = tm.clone();
                     {
-                        let mut guard = time_model_arc.write();
+                        let mut guard = time_model_arc.write().unwrap();
                         *guard = tm;
                     }
                     {
-                        let mut tracker_guard = tracker.write();
+                        let mut tracker_guard = tracker.write().unwrap();
                         tracker_guard.modify(|shared| shared.clock_model = cm.clone());
                     }
                     let strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
@@ -887,7 +886,7 @@ pub(crate) async fn do_run_forever(
             tx.send(Cmd::StartPulses).await?;
 
             {
-                let mut expected_framerate = expected_framerate_arc.write();
+                let mut expected_framerate = expected_framerate_arc.write().unwrap();
                 *expected_framerate = Some(rate_actual as f32);
             }
 
@@ -921,7 +920,7 @@ pub(crate) async fn do_run_forever(
 
             signal_triggerbox_connected.store(true, Ordering::SeqCst);
 
-            let mut expected_framerate = expected_framerate_arc.write();
+            let mut expected_framerate = expected_framerate_arc.write().unwrap();
             *expected_framerate = Some(*framerate as f32);
 
             let gain = 1.0 / framerate;
@@ -941,7 +940,7 @@ pub(crate) async fn do_run_forever(
 
             if let Some(periodic_signal_period_usec) = ptpcfg.periodic_signal_period_usec {
                 let framerate = 1e6 / periodic_signal_period_usec;
-                let mut expected_framerate = expected_framerate_arc.write();
+                let mut expected_framerate = expected_framerate_arc.write().unwrap();
                 *expected_framerate = Some(framerate as f32);
             }
         }
@@ -1006,7 +1005,7 @@ pub(crate) async fn do_run_forever(
                 info!("All cameras done synchronizing.");
 
                 // Send message to listeners.
-                let mut tracker = shared_store.write();
+                let mut tracker = shared_store.write().unwrap();
                 tracker.modify(|shared| shared.all_expected_cameras_are_synced = true);
                 break;
             }
@@ -1108,7 +1107,7 @@ pub(crate) async fn do_run_forever(
                 Some(synced_frame) => {
                     let trigger_timestamp = match &trigger_cfg {
                         TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => {
-                            let time_model = time_model_arc.read();
+                            let time_model = time_model_arc.read().unwrap();
                             compute_trigger_timestamp(&time_model, synced_frame)
                         }
                         TriggerType::PtpSync(_) => {
@@ -1172,11 +1171,11 @@ pub(crate) async fn do_run_forever(
     tokio::spawn(flydra2::new_model_server(data_rx, model_pose_server_addr));
 
     {
-        let mut tracker = tracker2.write();
+        let mut tracker = tracker2.write().unwrap();
         tracker.modify(|shared| shared.model_server_addr = Some(model_pose_server_addr))
     }
 
-    let expected_framerate: Option<f32> = *expected_framerate_arc9.read();
+    let expected_framerate: Option<f32> = *expected_framerate_arc9.read().unwrap();
     info!("expected_framerate: {:?}", expected_framerate);
 
     coord_processor.add_listener(data_tx);
@@ -1255,7 +1254,7 @@ impl LiveStatsCollector {
     fn register_new_frame_data(&self, name: &RawCamName, n_points: usize) {
         let to_send = {
             // scope for lock on self.collected
-            let mut collected = self.collected.write();
+            let mut collected = self.collected.write().unwrap();
             let entry = collected
                 .entry(name.clone())
                 .or_insert_with(LiveStatsAccum::new);
@@ -1269,7 +1268,7 @@ impl LiveStatsCollector {
         };
         if let Some((name, recent_stats)) = to_send {
             // scope for shared scope
-            let mut tracker = self.shared.write();
+            let mut tracker = self.shared.write().unwrap();
             tracker.modify(|shared| {
                 for cc in shared.connected_cameras.iter_mut() {
                     if cc.name == name {
@@ -1294,14 +1293,14 @@ pub(crate) async fn toggle_saving_csv_tables(
     shared_data: SharedStore,
 ) {
     if start_saving {
-        let expected_framerate: Option<f32> = *expected_framerate_arc.read();
+        let expected_framerate: Option<f32> = *expected_framerate_arc.read().unwrap();
         let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
         let dirname = local.format("%Y%m%d_%H%M%S.braid").to_string();
         let mut my_dir = output_base_dirname.clone();
         my_dir.push(dirname);
         let per_cam_data = {
             // small scope for read lock
-            let per_cam_data_ref = per_cam_data_arc.read();
+            let per_cam_data_ref = per_cam_data_arc.read().unwrap();
             (*per_cam_data_ref).clone()
         };
         let cfg = flydra2::StartSavingCsvConfig {
@@ -1326,7 +1325,7 @@ pub(crate) async fn toggle_saving_csv_tables(
         }
 
         {
-            let mut tracker = shared_data.write();
+            let mut tracker = shared_data.write().unwrap();
             tracker.modify(|store| {
                 store.csv_tables_dirname = Some(RecordingPath::new(my_dir.display().to_string()));
             });
@@ -1344,7 +1343,7 @@ pub(crate) async fn toggle_saving_csv_tables(
         }
 
         {
-            let mut tracker = shared_data.write();
+            let mut tracker = shared_data.write().unwrap();
             tracker.modify(|store| {
                 store.csv_tables_dirname = None;
             });
@@ -1363,7 +1362,7 @@ async fn synchronize_cameras(
 
     // This time must be prior to actually resetting sync data.
     {
-        let mut sync_pulse_pause_started = sync_pulse_pause_started_arc.write();
+        let mut sync_pulse_pause_started = sync_pulse_pause_started_arc.write().unwrap();
         *sync_pulse_pause_started = Some(std::time::Instant::now());
     }
 
@@ -1371,7 +1370,7 @@ async fn synchronize_cameras(
     cam_manager.reset_sync_data();
 
     {
-        let mut guard = time_model_arc.write();
+        let mut guard = time_model_arc.write().unwrap();
         *guard = None;
     }
 

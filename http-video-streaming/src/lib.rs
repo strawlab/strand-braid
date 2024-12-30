@@ -1,6 +1,8 @@
 use http_video_streaming_types::StrokeStyle;
-use parking_lot::Mutex;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use tokio_stream::StreamExt;
 
@@ -94,7 +96,7 @@ impl PerSender {
                 // sent_time computed early so that latency includes duration to encode, etc.
                 let sent_time = chrono::Local::now();
                 let tc = {
-                    let most_recent_frame_data = most_recent_frame_data.lock();
+                    let most_recent_frame_data = most_recent_frame_data.lock().unwrap();
                     let bytes = basic_frame::match_all_dynamic_fmts!(
                         &most_recent_frame_data.frame,
                         x,

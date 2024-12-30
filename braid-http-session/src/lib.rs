@@ -1,6 +1,5 @@
 use bui_backend_session::HttpSession;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tracing::{debug, error};
 
 #[derive(thiserror::Error, Debug)]

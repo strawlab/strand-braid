@@ -1,6 +1,8 @@
-use parking_lot::RwLock;
 use preferences_serde1::Preferences;
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, RwLock},
+};
 use tracing::{debug, error, info, warn};
 
 use bui_backend_session::HttpSession;
@@ -61,7 +63,7 @@ impl StrandCamHttpSessionHandler {
             bui_backend_session::create_session(&bui_server_addr_info, self.jar.clone()).await;
         let session = match result {
             Ok(session) => {
-                let mut name_to_session = self.name_to_session.write();
+                let mut name_to_session = self.name_to_session.write().unwrap();
                 let session = MaybeSession::Alive(session);
                 name_to_session.insert(cam_name.clone(), session.clone());
                 session
@@ -77,7 +79,7 @@ impl StrandCamHttpSessionHandler {
         };
         {
             // We have the cookie from braid now, so store it to disk.
-            let jar = self.jar.read();
+            let jar = self.jar.read().unwrap();
             Preferences::save(
                 &*jar,
                 &crate::mainbrain::APP_INFO,
@@ -96,7 +98,7 @@ impl StrandCamHttpSessionHandler {
         cam_name: &RawCamName,
     ) -> Result<MaybeSession, MainbrainError> {
         // Get session if it already exists.
-        let opt_session = { self.name_to_session.read().get(cam_name).cloned() };
+        let opt_session = { self.name_to_session.read().unwrap().get(cam_name).cloned() };
 
         // Create session if needed.
         match opt_session {
@@ -132,7 +134,7 @@ impl StrandCamHttpSessionHandler {
                             "For \"{}\": StrandCamHttpSessionHandler::post() got error {err:?}",
                             cam_name.as_str(),
                         );
-                        let mut name_to_session = self.name_to_session.write();
+                        let mut name_to_session = self.name_to_session.write().unwrap();
                         name_to_session.insert(cam_name.clone(), MaybeSession::Errored);
                         // return Err(MainbrainError::blarg);
                     }
@@ -167,7 +169,7 @@ impl StrandCamHttpSessionHandler {
         let cam_result = self.post(cam_name, args).await;
 
         // If we are telling the camera to quit, we don't want to keep its session around
-        let mut name_to_session = self.name_to_session.write();
+        let mut name_to_session = self.name_to_session.write().unwrap();
         name_to_session.remove(cam_name);
         self.cam_manager.remove(cam_name);
         // TODO: we should cancel the stream of incoming frames so that they

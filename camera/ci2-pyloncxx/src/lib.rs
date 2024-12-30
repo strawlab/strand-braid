@@ -2,8 +2,7 @@ extern crate machine_vision_formats as formats;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use basic_frame::DynamicFrame;
 use ci2::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
@@ -34,19 +33,14 @@ pub enum Error {
     PylonError {
         #[from]
         source: pylon_cxx::PylonError,
-
     },
     #[error("int parse error: {source}")]
     IntParseError {
         #[from]
         source: std::num::ParseIntError,
-
     },
     #[error("other error: {msg}")]
-    OtherError {
-        msg: String,
-
-    },
+    OtherError { msg: String },
 }
 
 impl From<Error> for ci2::Error {
@@ -446,7 +440,6 @@ impl<'a> WrappedCamera<'a> {
         }
         Err(Error::OtherError {
             msg: format!("requested camera '{}' was not found", name),
-
         }
         .into())
     }
@@ -491,7 +484,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     // }
 
     fn command_execute(&self, name: &str, verify: bool) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -502,7 +495,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_bool(&self, name: &str) -> ci2::Result<bool> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -513,7 +506,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_bool_set(&self, name: &str, value: bool) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -524,7 +517,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_enum(&self, name: &str) -> ci2::Result<String> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let node = camera
             .node_map()
             .map_pylon_err()?
@@ -534,18 +527,18 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let mut node = camera
             .node_map()
             .map_pylon_err()?
             .enum_node(name)
             .map_pylon_err()?;
-        node.set_value_pfs(&mut self.pfs_cache.lock(), value)
+        node.set_value_pfs(&mut self.pfs_cache.lock().unwrap(), value)
             .map_pylon_err()
     }
 
     fn feature_float(&self, name: &str) -> ci2::Result<f64> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -556,7 +549,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_float_set(&self, name: &str, value: f64) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -567,7 +560,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_int(&self, name: &str) -> ci2::Result<i64> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -578,7 +571,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     fn feature_int_set(&self, name: &str, value: i64) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -596,7 +589,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         // LF line endings. So here we convert line endings to LF only.
         let settings_lf_only = settings.lines().collect::<Vec<_>>().join("\n");
 
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
@@ -609,7 +602,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         // Ideally we would simply call camera.node_map().map_pylon_err()?.save_to_string() here,
         // but this requires stopping the camera. Instead we cache the node
         // values.
-        Ok(self.pfs_cache.lock().to_header_string())
+        Ok(self.pfs_cache.lock().unwrap().to_header_string())
     }
 
     /// Return the sensor width in pixels
@@ -617,6 +610,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         Ok(self
             .inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .integer_node("Width")
@@ -630,6 +624,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         Ok(self
             .inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .integer_node("Height")
@@ -641,7 +636,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     // Settings: PixFmt ----------------------------
     fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let pixel_format_node = camera
             .node_map()
             .map_pylon_err()?
@@ -650,7 +645,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         convert_to_pixel_format(pixel_format_node.value().map_pylon_err()?.as_ref())
     }
     fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let pixel_format_node = camera
             .node_map()
             .map_pylon_err()?
@@ -673,14 +668,14 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
     fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
         let s = convert_pixel_format(pixel_format)?;
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let mut pixel_format_node = camera
             .node_map()
             .map_pylon_err()?
             .enum_node("PixelFormat")
             .map_pylon_err()?;
         pixel_format_node
-            .set_value_pfs(&mut self.pfs_cache.lock(), s)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), s)
             .map_pylon_err()
     }
 
@@ -688,7 +683,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     /// value given in microseconds
 
     fn exposure_time(&self) -> ci2::Result<f64> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let name = self.exposure_time_param_name();
         if self.is_sfnc2 {
             camera
@@ -712,7 +707,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     /// value given in microseconds
     fn exposure_time_range(&self) -> ci2::Result<(f64, f64)> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let name = self.exposure_time_param_name();
         if self.is_sfnc2 {
             let node = camera
@@ -736,7 +731,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     /// value given in microseconds
     fn set_exposure_time(&mut self, value: f64) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let name = self.exposure_time_param_name();
         if self.is_sfnc2 {
             camera
@@ -744,7 +739,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
                 .map_pylon_err()?
                 .float_node(name)
                 .map_pylon_err()?
-                .set_value_pfs(&mut self.pfs_cache.lock(), value)
+                .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), value)
                 .map_pylon_err()
         } else {
             camera
@@ -752,14 +747,14 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
                 .map_pylon_err()?
                 .integer_node(name)
                 .map_pylon_err()?
-                .set_value_pfs(&mut self.pfs_cache.lock(), value.round() as i64)
+                .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), value.round() as i64)
                 .map_pylon_err()
         }
     }
 
     // Settings: Exposure Time Auto Mode ----------------------------
     fn exposure_auto(&self) -> ci2::Result<AutoMode> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let val = camera
             .node_map()
             .map_pylon_err()?
@@ -773,18 +768,19 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         let sval = mode_to_str(value);
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .enum_node("ExposureAuto")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), sval)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), sval)
             .map_pylon_err()
     }
 
     // Settings: Gain ----------------------------
     /// value given in dB
     fn gain(&self) -> ci2::Result<f64> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         if self.is_sfnc2 {
             camera
                 .node_map()
@@ -809,7 +805,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
     /// value given in dB
     fn gain_range(&self) -> ci2::Result<(f64, f64)> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         if self.is_sfnc2 {
             let gain_node = camera
                 .node_map()
@@ -838,14 +834,14 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     /// value given in dB
     fn set_gain(&mut self, gain_db: f64) -> ci2::Result<()> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         if self.is_sfnc2 {
             camera
                 .node_map()
                 .map_pylon_err()?
                 .float_node("Gain")
                 .map_pylon_err()?
-                .set_value_pfs(&mut self.pfs_cache.lock(), gain_db)
+                .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), gain_db)
                 .map_pylon_err()?;
         } else {
             let gain_raw = gain_db_to_raw(gain_db)?;
@@ -854,7 +850,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
                 .map_pylon_err()?
                 .integer_node("GainRaw")
                 .map_pylon_err()?
-                .set_value_pfs(&mut self.pfs_cache.lock(), gain_raw)
+                .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), gain_raw)
                 .map_pylon_err()?;
         }
         Ok(())
@@ -862,7 +858,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
     // Settings: Gain Auto Mode ----------------------------
     fn gain_auto(&self) -> ci2::Result<AutoMode> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let val = camera
             .node_map()
             .map_pylon_err()?
@@ -877,17 +873,18 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         let sval = mode_to_str(value);
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .enum_node("GainAuto")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), sval)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), sval)
             .map_pylon_err()
     }
 
     // Settings: TriggerMode ----------------------------
     fn trigger_mode(&self) -> ci2::Result<TriggerMode> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let val = camera
             .node_map()
             .map_pylon_err()?
@@ -911,11 +908,12 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         };
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .enum_node("TriggerMode")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), sval)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), sval)
             .map_pylon_err()
     }
 
@@ -923,6 +921,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     fn acquisition_frame_rate_enable(&self) -> ci2::Result<bool> {
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .boolean_node("AcquisitionFrameRateEnable")
@@ -933,17 +932,18 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     fn set_acquisition_frame_rate_enable(&mut self, value: bool) -> ci2::Result<()> {
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .boolean_node("AcquisitionFrameRateEnable")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), value)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), value)
             .map_pylon_err()
     }
 
     // Settings: AcquisitionFrameRate ----------------------------
     fn acquisition_frame_rate(&self) -> ci2::Result<f64> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let node = camera
             .node_map()
             .map_pylon_err()?
@@ -952,7 +952,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         node.value().map_pylon_err()
     }
     fn acquisition_frame_rate_range(&self) -> ci2::Result<(f64, f64)> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let node = camera
             .node_map()
             .map_pylon_err()?
@@ -963,17 +963,18 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     fn set_acquisition_frame_rate(&mut self, value: f64) -> ci2::Result<()> {
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .float_node(self.acquisition_frame_rate_name())
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), value)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), value)
             .map_pylon_err()
     }
 
     // Settings: TriggerSelector ----------------------------
     fn trigger_selector(&self) -> ci2::Result<TriggerSelector> {
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         let val = camera
             .node_map()
             .map_pylon_err()?
@@ -1005,13 +1006,13 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
                 )));
             }
         };
-        let camera = self.inner.lock();
+        let camera = self.inner.lock().unwrap();
         camera
             .node_map()
             .map_pylon_err()?
             .enum_node("TriggerSelector")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), sval)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), sval)
             .map_pylon_err()
     }
 
@@ -1020,6 +1021,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         let mode = self
             .inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .enum_node("AcquisitionMode")
@@ -1046,11 +1048,12 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         };
         self.inner
             .lock()
+            .unwrap()
             .node_map()
             .map_pylon_err()?
             .enum_node("AcquisitionMode")
             .map_pylon_err()?
-            .set_value_pfs(&mut self.pfs_cache.lock(), sval)
+            .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), sval)
             .map_pylon_err()
     }
 
@@ -1058,12 +1061,13 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     fn acquisition_start(&mut self) -> ci2::Result<()> {
         self.inner
             .lock()
+            .unwrap()
             .start_grabbing(&pylon_cxx::GrabOptions::default())
             .map_pylon_err()?;
         Ok(())
     }
     fn acquisition_stop(&mut self) -> ci2::Result<()> {
-        self.inner.lock().stop_grabbing().map_pylon_err()?;
+        self.inner.lock().unwrap().stop_grabbing().map_pylon_err()?;
         Ok(())
     }
 
@@ -1071,8 +1075,8 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
         let pixel_format = self.pixel_format()?;
 
-        let mut gr = self.grab_result.lock();
-        let cam = self.inner.lock();
+        let mut gr = self.grab_result.lock().unwrap();
+        let cam = self.inner.lock().unwrap();
 
         // Wait for an image and then retrieve it. A timeout of 99999 ms is used.
         cam.retrieve_result(99999, &mut gr, pylon_cxx::TimeoutHandling::ThrowException)

@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 
@@ -22,7 +20,7 @@ impl LedBoxApp {
         cmd_tx: tokio::sync::mpsc::Sender<Cmd>,
         cc: &eframe::CreationContext<'_>,
     ) -> Self {
-        box_manager.lock().frame = Some(cc.egui_ctx.clone());
+        box_manager.lock().unwrap().frame = Some(cc.egui_ctx.clone());
         Self {
             available_ports,
             box_manager,
@@ -49,7 +47,7 @@ impl eframe::App for LedBoxApp {
             ui.heading("LED box control");
 
             {
-                let status = box_manager.lock().status();
+                let status = box_manager.lock().unwrap().status();
                 match &status {
                     BoxStatus::Unconnected => {
                         ui.label(" Unconnected ");

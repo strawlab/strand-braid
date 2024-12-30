@@ -14,7 +14,6 @@ build-util.workspace = true
 [dependencies]
 thiserror.workspace = true
 hdrhistogram.workspace = true
-parking_lot.workspace = true
 futures.workspace = true
 pin-project.workspace = true
 csv.workspace = true

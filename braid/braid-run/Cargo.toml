@@ -14,7 +14,6 @@ build-util.workspace = true
 configure.workspace = true
 thiserror.workspace = true
 eyre.workspace = true
-parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
@@ -74,8 +73,6 @@ strand-cam-storetype.workspace = true
 
 [features]
 default = ["bundle_files"]
-
-deadlock_detection = ["parking_lot/deadlock_detection"]
 
 # BUI frontend. must pick one of the following two:
 bundle_files = ["flydra2/bundle_files", "tower-serve-static", "include_dir"]

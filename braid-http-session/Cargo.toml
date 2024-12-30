@@ -18,4 +18,3 @@ http-body-util.workspace = true
 bytes = "1.5.0"
 axum.workspace = true
 cookie_store.workspace = true
-parking_lot = "0.12.1"

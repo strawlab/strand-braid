@@ -1,11 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 use futures::{SinkExt, StreamExt};
 use tokio_serial::SerialPortBuilderExt;
 use tokio_util::codec::Decoder;
-
-use parking_lot::Mutex;
 
 use tracing::{debug, error, info};
 
@@ -72,7 +70,7 @@ pub async fn handle_box(
     mut cmd_rx: tokio::sync::mpsc::Receiver<Cmd>,
 ) -> anyhow::Result<()> {
     // initial state - unconnected
-    assert_eq!(box_manager.lock().status(), BoxStatus::Unconnected);
+    assert_eq!(box_manager.lock().unwrap().status(), BoxStatus::Unconnected);
 
     let device_name;
     loop {
@@ -160,7 +158,7 @@ pub async fn handle_box(
     to_box_writer.send(msg).await.unwrap();
 
     let mut frame = {
-        let mut guard = box_manager.lock();
+        let mut guard = box_manager.lock().unwrap();
         guard.inner = Some(BoxManagerInner {
             to_box_writer,
             state: next_state,
@@ -212,6 +210,7 @@ pub async fn handle_box(
     let stream_future = {
         let to_box_writer = box_manager
             .lock()
+            .unwrap()
             .inner
             .as_ref()
             .unwrap()
@@ -261,7 +260,7 @@ async fn handle_cmd(cmd: Cmd, box_manager: &mut Arc<Mutex<BoxManager>>) -> anyho
             tracing::warn!("already connected");
         }
         Cmd::Toggle(chan) => {
-            let mut guard = box_manager.lock();
+            let mut guard = box_manager.lock().unwrap();
             {
                 let inner = guard.inner.as_mut().unwrap();
                 {

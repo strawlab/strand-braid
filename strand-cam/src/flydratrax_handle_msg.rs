@@ -1,7 +1,6 @@
 use async_change_tracker::ChangeTracker;
 use nalgebra as na;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tracing::{debug, error, info};
 
 use crate::Result;
@@ -88,7 +87,7 @@ pub async fn create_message_handler(
 
         {
             let led_program_config: LedProgramConfig = {
-                let store = ssa2.read();
+                let store = ssa2.read().unwrap();
                 store.as_ref().led_program_config.clone()
             };
             let led_trigger_mode = led_program_config.led_trigger_mode;
@@ -143,7 +142,7 @@ pub async fn create_message_handler(
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
                 let device_state: Option<led_box_comms::DeviceState> = {
-                    let tracker = ssa2.read();
+                    let tracker = ssa2.read().unwrap();
                     tracker.as_ref().led_box_device_state.clone()
                 };
                 if let Some(mut device_state) = device_state {

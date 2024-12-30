@@ -204,7 +204,6 @@ obj = { version = "0.10", features = ["genmesh"] }
 opencv-ros-camera = { version = "0.15.1", features = ["serde-serialize"] }
 openh264 = "0.6.0"
 ordered-float = { version = "3.4", features = ["serde"] }
-parking_lot = "0.12"
 parry2d-f64 = "0.17"
 parry3d-f64 = "0.17"
 pin-project = "1.0.11"

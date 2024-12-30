@@ -15,7 +15,6 @@ tokio = { version = "1.0.1", default-features = false, features = [
 ] }
 tokio-util = { version = "0.7.3", features = ["codec"] }
 tokio-serial = "5.4.1"
-parking_lot = "0.12.1"
 anyhow.workspace = true
 byteorder.workspace = true
 eframe = { version = "0.22.0", default-features = false, features = [

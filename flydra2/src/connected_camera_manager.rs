@@ -1,7 +1,8 @@
-use parking_lot::{Mutex, RwLock};
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, RwLock,
+};
 use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
@@ -91,6 +92,7 @@ impl HasCameraList for ConnectedCamerasManager {
         let inner: BTreeSet<u8> = self
             .inner
             .read()
+            .unwrap()
             .ccis
             .values()
             .map(|cci| cci.cam_num.0)
@@ -156,7 +158,7 @@ impl ConnectedCamerasManager {
     pub fn reset_sync_data(&mut self) {
         info!("Camera manager dropping old cameras and expecting new cameras");
 
-        let mut next_cam_num = { self.inner.read().next_cam_num.0 };
+        let mut next_cam_num = { self.inner.read().unwrap().next_cam_num.0 };
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
@@ -171,7 +173,7 @@ impl ConnectedCamerasManager {
         }
 
         let old_ccis = {
-            let mut inner = self.inner.write();
+            let mut inner = self.inner.write().unwrap();
             inner.next_cam_num = next_cam_num.into();
             let old_ccis = std::mem::take(&mut inner.ccis);
             inner.not_yet_connected = not_yet_connected;
@@ -195,7 +197,7 @@ impl ConnectedCamerasManager {
         f: Box<dyn ConnectedCamCallback>,
     ) -> Option<Box<dyn ConnectedCamCallback>> {
         let old = {
-            let mut mutex_guard = self.on_cam_change_func.lock();
+            let mut mutex_guard = self.on_cam_change_func.lock().unwrap();
             mutex_guard.replace(f)
         };
 
@@ -205,13 +207,14 @@ impl ConnectedCamerasManager {
     }
 
     fn notify_cam_changed_listeners(&self) {
-        let mutex_guard = self.on_cam_change_func.lock();
+        let mutex_guard = self.on_cam_change_func.lock().unwrap();
         let inner_ref: Option<&Box<dyn ConnectedCamCallback>> = mutex_guard.as_ref();
         if let Some(cb) = inner_ref {
             let cams = {
                 // scope for read lock on self.inner
                 self.inner
                     .read()
+                    .unwrap()
                     .ccis
                     .values()
                     .map(|cci| CamInfo {
@@ -252,7 +255,7 @@ impl ConnectedCamerasManager {
         {
             let raw_cam_name = raw_cam_name.clone();
 
-            let mut inner = this.inner.write();
+            let mut inner = this.inner.write().unwrap();
 
             assert!(
                 !inner.ccis.contains_key(&raw_cam_name),
@@ -293,7 +296,7 @@ impl ConnectedCamerasManager {
     }
 
     pub fn remove(&mut self, raw_cam_name: &RawCamName) {
-        self.inner.write().ccis.remove(raw_cam_name);
+        self.inner.write().unwrap().ccis.remove(raw_cam_name);
         self.notify_cam_changed_listeners();
     }
 
@@ -315,7 +318,7 @@ impl ConnectedCamerasManager {
         let raw_cam_name = raw_cam_name.clone();
         let cam_num = {
             // This scope is for the write lock on self.inner. Keep it minimal.
-            let mut inner = self.inner.write();
+            let mut inner = self.inner.write().unwrap();
 
             if inner.ccis.contains_key(&raw_cam_name) {
                 tracing::error!(
@@ -417,14 +420,14 @@ impl ConnectedCamerasManager {
         let mut got_frame_during_sync_time = false;
         let mut do_check_if_all_cameras_present = false;
         {
-            let inner = self.inner.read();
+            let inner = self.inner.read().unwrap();
             if let Some(cci) = inner.ccis.get(&raw_cam_name) {
                 // We know this camera already.
                 use crate::ConnectedCameraSyncState::*;
                 match cci.sync_state {
                     Unsynchronized => {
                         do_check_if_all_cameras_present = true;
-                        let sync_pulse_pause_started = sync_pulse_pause_started_arc.read();
+                        let sync_pulse_pause_started = sync_pulse_pause_started_arc.read().unwrap();
                         if let Some(pulse_time) = *sync_pulse_pause_started {
                             let elapsed = pulse_time.elapsed();
                             if sync_time_min < elapsed && elapsed < sync_time_max {
@@ -480,7 +483,7 @@ impl ConnectedCamerasManager {
         if got_frame_during_sync_time {
             let frames_during_sync = {
                 // This scope is for the write lock on self.inner. Keep it minimal.
-                let mut inner = self.inner.write();
+                let mut inner = self.inner.write().unwrap();
                 let frames_during_sync = match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.frames_during_sync += 1;
@@ -520,7 +523,7 @@ impl ConnectedCamerasManager {
         let my_span = tracing::span!(tracing::Level::DEBUG, "got_new_frame_live_ptp", cam);
         let _enter = my_span.enter();
 
-        let inner = self.inner.read();
+        let inner = self.inner.read().unwrap();
         if let Some(cci) = inner.ccis.get(&raw_cam_name) {
             let camera_periodic_signal_period_usec = self
                 .periodic_signal_period_usec
@@ -605,7 +608,7 @@ impl ConnectedCamerasManager {
             // Perform the book-keeping associated with synchronization.
             {
                 // This scope is for the write lock on self.inner. Keep it minimal.
-                let mut inner = self.inner.write();
+                let mut inner = self.inner.write().unwrap();
                 match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.sync_state = ConnectedCameraSyncState::Synchronized(frame0);
@@ -628,8 +631,10 @@ impl ConnectedCamerasManager {
             do_check_if_all_cameras_synchronized = true;
         }
 
-        if do_check_if_all_cameras_present && !self.inner.read().all_expected_cameras_are_present {
-            let mut inner = self.inner.write();
+        if do_check_if_all_cameras_present
+            && !self.inner.read().unwrap().all_expected_cameras_are_present
+        {
+            let mut inner = self.inner.write().unwrap();
             let i2: &mut ConnectedCamerasManagerInner = &mut inner;
             if i2.first_frame_arrived.insert(raw_cam_name.clone()) {
                 info!(
@@ -647,9 +652,9 @@ impl ConnectedCamerasManager {
         }
 
         if do_check_if_all_cameras_synchronized
-            && !self.inner.read().all_expected_cameras_are_synced
+            && !self.inner.read().unwrap().all_expected_cameras_are_synced
         {
-            let mut inner = self.inner.write();
+            let mut inner = self.inner.write().unwrap();
             let i2: &mut ConnectedCamerasManagerInner = &mut inner;
             // if i2.first_frame_arrived.insert(raw_cam_name.clone()) {
             //     info!("first frame from camera {} arrived.", raw_cam_name);
@@ -678,7 +683,7 @@ impl ConnectedCamerasManager {
     }
 
     pub fn get_raw_cam_name(&self, cam_num: CamNum) -> Option<RawCamName> {
-        for cci in self.inner.read().ccis.values() {
+        for cci in self.inner.read().unwrap().ccis.values() {
             if cci.cam_num == cam_num {
                 return Some(cci.raw_cam_name.clone());
             }
@@ -689,6 +694,7 @@ impl ConnectedCamerasManager {
     pub fn all_raw_cam_names(&self) -> Vec<RawCamName> {
         self.inner
             .read()
+            .unwrap()
             .ccis
             .values()
             .map(|cci| cci.raw_cam_name.clone())
@@ -698,13 +704,14 @@ impl ConnectedCamerasManager {
     pub fn http_camserver_info(&self, raw_cam_name: &RawCamName) -> Option<BuiServerInfo> {
         self.inner
             .read()
+            .unwrap()
             .ccis
             .get(raw_cam_name)
             .map(|cci| cci.http_camserver_info.clone())
     }
 
     pub fn cam_num(&self, raw_cam_name: &RawCamName) -> Option<CamNum> {
-        let inner = self.inner.read();
+        let inner = self.inner.read().unwrap();
         match inner.ccis.get(raw_cam_name) {
             Some(cci) => Some(cci.cam_num),
             None => inner.not_yet_connected.get(raw_cam_name).copied(),
@@ -714,6 +721,7 @@ impl ConnectedCamerasManager {
     pub(crate) fn sample(&self) -> Vec<CamInfoRow> {
         self.inner
             .read()
+            .unwrap()
             .ccis
             .values()
             .map(|cci| cci.copy_to_caminfo())
@@ -721,11 +729,11 @@ impl ConnectedCamerasManager {
     }
 
     pub fn len(&self) -> usize {
-        self.inner.read().ccis.len()
+        self.inner.read().unwrap().ccis.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.inner.read().ccis.is_empty()
+        self.inner.read().unwrap().ccis.is_empty()
     }
 }
 

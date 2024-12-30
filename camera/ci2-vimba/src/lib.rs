@@ -1,12 +1,11 @@
-use tracing::{error, warn};
-use parking_lot::Mutex;
 use std::{
     convert::TryInto,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
+use tracing::{error, warn};
 
 use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
@@ -150,7 +149,7 @@ fn callback_rust(
 
         let tx = {
             // In this scope, we keep the lock on the SENDERS mutex.
-            let vec_senders = &mut *SENDERS.lock();
+            let vec_senders = &mut *SENDERS.lock().unwrap();
             if let Some(idx) = vec_senders
                 .iter()
                 .position(|x| x.handle.inner == camera_handle)
@@ -305,7 +304,7 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
 
         let rx = {
             // In this scope, we keep the lock on the SENDERS mutex.
-            let vec_senders = &mut *SENDERS.lock();
+            let vec_senders = &mut *SENDERS.lock().unwrap();
             let (tx, rx) = std::sync::mpsc::sync_channel(N_CHANNEL_FRAMES);
             let sender = FrameSender {
                 handle: CamHandle {
@@ -414,7 +413,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
     //     let (is_readable, is_writeable) = self
     //         .camera
-    //         .lock()
+    //         .lock().unwrap()
     //         .feature_access_query(name)
     //         .map_vimba_err()?;
     //     Ok(ci2::AccessQueryResult {
@@ -424,16 +423,25 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     // }
 
     fn command_execute(&self, name: &str, _verify: bool) -> ci2::Result<()> {
-        self.camera.lock().command_run(name).map_vimba_err()
+        self.camera
+            .lock()
+            .unwrap()
+            .command_run(name)
+            .map_vimba_err()
     }
 
     fn feature_bool(&self, name: &str) -> ci2::Result<bool> {
-        self.camera.lock().feature_boolean(name).map_vimba_err()
+        self.camera
+            .lock()
+            .unwrap()
+            .feature_boolean(name)
+            .map_vimba_err()
     }
 
     fn feature_bool_set(&self, name: &str, value: bool) -> ci2::Result<()> {
         self.camera
             .lock()
+            .unwrap()
             .feature_boolean_set(name, value)
             .map_vimba_err()
     }
@@ -441,6 +449,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     fn feature_enum(&self, name: &str) -> ci2::Result<String> {
         self.camera
             .lock()
+            .unwrap()
             .feature_enum(name)
             .map_vimba_err()
             .map(Into::into)
@@ -449,28 +458,39 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
         self.camera
             .lock()
+            .unwrap()
             .feature_enum_set(name, value)
             .map_vimba_err()
     }
 
     fn feature_float(&self, name: &str) -> ci2::Result<f64> {
-        self.camera.lock().feature_float(name).map_vimba_err()
+        self.camera
+            .lock()
+            .unwrap()
+            .feature_float(name)
+            .map_vimba_err()
     }
 
     fn feature_float_set(&self, name: &str, value: f64) -> ci2::Result<()> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_set(name, value)
             .map_vimba_err()
     }
 
     fn feature_int(&self, name: &str) -> ci2::Result<i64> {
-        self.camera.lock().feature_int(name).map_vimba_err()
+        self.camera
+            .lock()
+            .unwrap()
+            .feature_int(name)
+            .map_vimba_err()
     }
 
     fn feature_int_set(&self, name: &str, value: i64) -> ci2::Result<()> {
         self.camera
             .lock()
+            .unwrap()
             .feature_int_set(name, value)
             .map_vimba_err()
     }
@@ -495,6 +515,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         let settings_settings = vimba::default_feature_persist_settings(); // let's get meta. settings to load the settings.
         self.camera
             .lock()
+            .unwrap()
             .camera_settings_load(&settings_path, &settings_settings)
             .map_vimba_err()
 
@@ -510,6 +531,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         let settings_settings = vimba::default_feature_persist_settings(); // let's get meta. settings to save the settings.
         self.camera
             .lock()
+            .unwrap()
             .camera_settings_save(&settings_path, &settings_settings)
             .map_vimba_err()?;
 
@@ -522,6 +544,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         Ok(self
             .camera
             .lock()
+            .unwrap()
             .feature_int("Width")
             .map_vimba_err()?
             .try_into()?)
@@ -530,17 +553,19 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         Ok(self
             .camera
             .lock()
+            .unwrap()
             .feature_int("Height")
             .map_vimba_err()?
             .try_into()?)
     }
     fn pixel_format(&self) -> std::result::Result<PixFmt, ci2::Error> {
-        self.camera.lock().pixel_format().map_vimba_err()
+        self.camera.lock().unwrap().pixel_format().map_vimba_err()
     }
     fn possible_pixel_formats(&self) -> std::result::Result<Vec<PixFmt>, ci2::Error> {
         let fmts = self
             .camera
             .lock()
+            .unwrap()
             .feature_enum_range_query("PixelFormat")
             .map_vimba_err()?;
         Ok(fmts
@@ -554,6 +579,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         let pixfmt_vimba = vimba::pixel_format_to_str(pixfmt).map_vimba_err()?;
         self.camera
             .lock()
+            .unwrap()
             .feature_enum_set("PixelFormat", pixfmt_vimba)
             .map_vimba_err()?;
         Ok(())
@@ -561,54 +587,63 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     fn exposure_time(&self) -> std::result::Result<f64, ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float("ExposureTime")
             .map_vimba_err()
     }
     fn exposure_time_range(&self) -> std::result::Result<(f64, f64), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_range_query("ExposureTime")
             .map_vimba_err()
     }
     fn set_exposure_time(&mut self, value: f64) -> std::result::Result<(), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_set("ExposureTime", value)
             .map_vimba_err()
     }
     fn exposure_auto(&self) -> std::result::Result<AutoMode, ci2::Error> {
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         let mystr = c.feature_enum("ExposureAuto").map_vimba_err()?;
         str_to_auto_mode(mystr)
     }
     fn set_exposure_auto(&mut self, value: AutoMode) -> std::result::Result<(), ci2::Error> {
         let valstr = auto_mode_to_str(value);
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         c.feature_enum_set("ExposureAuto", valstr).map_vimba_err()
     }
     fn gain(&self) -> std::result::Result<f64, ci2::Error> {
-        self.camera.lock().feature_float("Gain").map_vimba_err()
+        self.camera
+            .lock()
+            .unwrap()
+            .feature_float("Gain")
+            .map_vimba_err()
     }
     fn gain_range(&self) -> std::result::Result<(f64, f64), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_range_query("Gain")
             .map_vimba_err()
     }
     fn set_gain(&mut self, value: f64) -> std::result::Result<(), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_set("Gain", value)
             .map_vimba_err()
     }
     fn gain_auto(&self) -> std::result::Result<AutoMode, ci2::Error> {
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         let mystr = c.feature_enum("GainAuto").map_vimba_err()?;
         str_to_auto_mode(mystr)
     }
     fn set_gain_auto(&mut self, value: AutoMode) -> std::result::Result<(), ci2::Error> {
         let valstr = auto_mode_to_str(value);
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         c.feature_enum_set("GainAuto", valstr).map_vimba_err()
     }
 
@@ -623,7 +658,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         // The trigger selector must be set before the trigger mode.
         self.set_trigger_selector(ci2::TriggerSelector::FrameStart)?;
         {
-            let c = self.camera.lock();
+            let c = self.camera.lock().unwrap();
             c.feature_enum_set("TriggerSource", "Line0")
                 .map_vimba_err()?;
         }
@@ -655,7 +690,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     }
 
     fn trigger_mode(&self) -> std::result::Result<TriggerMode, ci2::Error> {
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         let val = c.feature_enum("TriggerMode").map_vimba_err()?;
         match val {
             "Off" => Ok(ci2::TriggerMode::Off),
@@ -673,12 +708,13 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             ci2::TriggerMode::Off => "Off",
             ci2::TriggerMode::On => "On",
         };
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         c.feature_enum_set("TriggerMode", valstr).map_vimba_err()
     }
     fn acquisition_frame_rate_enable(&self) -> std::result::Result<bool, ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_boolean("AcquisitionFrameRateEnable")
             .map_vimba_err()
     }
@@ -688,29 +724,33 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
     ) -> std::result::Result<(), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_boolean_set("AcquisitionFrameRateEnable", value)
             .map_vimba_err()
     }
     fn acquisition_frame_rate(&self) -> std::result::Result<f64, ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float("AcquisitionFrameRate")
             .map_vimba_err()
     }
     fn acquisition_frame_rate_range(&self) -> std::result::Result<(f64, f64), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_range_query("AcquisitionFrameRate")
             .map_vimba_err()
     }
     fn set_acquisition_frame_rate(&mut self, value: f64) -> std::result::Result<(), ci2::Error> {
         self.camera
             .lock()
+            .unwrap()
             .feature_float_set("AcquisitionFrameRate", value)
             .map_vimba_err()
     }
     fn trigger_selector(&self) -> std::result::Result<ci2::TriggerSelector, ci2::Error> {
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         let val = c.feature_enum("TriggerSelector").map_vimba_err()?;
         match val {
             "AcquisitionStart" => Ok(ci2::TriggerSelector::AcquisitionStart),
@@ -741,7 +781,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
                 )))
             }
         };
-        let c = self.camera.lock();
+        let c = self.camera.lock().unwrap();
         c.feature_enum_set("TriggerSelector", valstr)
             .map_vimba_err()
     }
@@ -749,6 +789,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         let val = self
             .camera
             .lock()
+            .unwrap()
             .feature_enum("AcquisitionMode")
             .map_vimba_err()?;
         Ok(match val {
@@ -770,6 +811,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         let modes = self
             .camera
             .lock()
+            .unwrap()
             .feature_enum_range_query("AcquisitionMode")
             .map_vimba_err()?;
         println!("modes {:?}", modes);
@@ -781,13 +823,14 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         };
         self.camera
             .lock()
+            .unwrap()
             .feature_enum_set("AcquisitionMode", sval)
             .map_vimba_err()
     }
     fn acquisition_start(&mut self) -> std::result::Result<(), ci2::Error> {
         IS_DONE.store(false, Ordering::Relaxed); // indicate we are done
 
-        let camera = self.camera.lock();
+        let camera = self.camera.lock().unwrap();
 
         for _ in 0..N_BUFFER_FRAMES {
             let buffer = camera.allocate_buffer().map_vimba_err()?;
@@ -814,7 +857,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         Ok(())
     }
     fn acquisition_stop(&mut self) -> std::result::Result<(), ci2::Error> {
-        let camera = self.camera.lock();
+        let camera = self.camera.lock().unwrap();
 
         IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
 

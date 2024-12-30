@@ -1,7 +1,6 @@
 use bui_backend_session_types::AccessToken;
 use http::{header::ACCEPT, HeaderValue};
-use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use thiserror::Error;
 
 const SET_COOKIE: &str = "set-cookie";
@@ -156,7 +155,7 @@ impl HttpSession {
         tracing::trace!("building request");
         let url = url::Url::parse(req.uri().to_string().as_ref()).unwrap();
         {
-            let jar = self.jar.read();
+            let jar = self.jar.read().unwrap();
             for (cookie_name, cookie_value) in jar.get_request_values(&url) {
                 let cookie = cookie_store::RawCookie::new(cookie_name, cookie_value);
                 tracing::trace!("adding cookie {}", cookie);
@@ -203,7 +202,7 @@ fn handle_response(
     match response.headers_mut().entry(SET_COOKIE) {
         Occupied(e) => {
             let (_key, drain) = e.remove_entry_mult();
-            let mut jar = jar2.write();
+            let mut jar = jar2.write().unwrap();
             jar.store_response_cookies(
                 drain.map(|cookie_raw| {
                     cookie_store::RawCookie::parse(cookie_raw.to_str().unwrap().to_string())

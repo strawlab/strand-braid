@@ -9,7 +9,7 @@ use rust_cam_bui_types::RecordingPath;
 use crate::mainbrain::*;
 
 fn start_saving_mp4s_all_cams(app_state: &BraidAppState, start_saving: bool) {
-    let mut tracker = app_state.shared_store.write();
+    let mut tracker = app_state.shared_store.write().unwrap();
     tracker.modify(|store| {
         if start_saving {
             store.fake_mp4_recording_path = Some(RecordingPath::new("".to_string()));
@@ -43,7 +43,7 @@ pub(crate) async fn callback_handler(
                     )
                     .map_err(|msg| (StatusCode::BAD_REQUEST, msg))?;
 
-                let mut current_cam_data = app_state.per_cam_data_arc.write();
+                let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 if current_cam_data
                     .insert(
                         cam_info.raw_cam_name.clone(),
@@ -64,21 +64,21 @@ pub(crate) async fn callback_handler(
                     "got new image for camera \"{}\"",
                     image_info.raw_cam_name.as_str()
                 );
-                let mut current_cam_data = app_state.per_cam_data_arc.write();
+                let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 current_cam_data
                     .get_mut(&image_info.raw_cam_name)
                     .unwrap()
                     .current_image_png = image_info.inner.current_image_png;
             }
             UpdateCamSettings(cam_settings) => {
-                let mut current_cam_data = app_state.per_cam_data_arc.write();
+                let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 current_cam_data
                     .get_mut(&cam_settings.raw_cam_name)
                     .unwrap()
                     .cam_settings_data = Some(cam_settings.inner);
             }
             UpdateFeatureDetectSettings(feature_detect_settings) => {
-                let mut current_cam_data = app_state.per_cam_data_arc.write();
+                let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 current_cam_data
                     .get_mut(&feature_detect_settings.raw_cam_name)
                     .unwrap()
@@ -137,7 +137,7 @@ pub(crate) async fn callback_handler(
                     })?;
 
                 {
-                    let mut tracker = app_state.shared_store.write();
+                    let mut tracker = app_state.shared_store.write().unwrap();
                     tracker.modify(|store| {
                         store.post_trigger_buffer_size = val;
                     });
@@ -147,7 +147,7 @@ pub(crate) async fn callback_handler(
                 debug!("got PostTriggerMp4Recording");
 
                 let is_saving = {
-                    let tracker = app_state.shared_store.read();
+                    let tracker = app_state.shared_store.read().unwrap();
                     (*tracker).as_ref().fake_mp4_recording_path.is_some()
                 };
 

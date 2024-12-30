@@ -13,7 +13,7 @@ use std::{
     fs::File,
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 use tracing::{debug, error, info, trace};
 
@@ -56,7 +56,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] http_camserver_info: flydra_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
-    led_box_heartbeat_update_arc: Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
+    led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "flydratrax")] args: &crate::StrandCamArgs,
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
@@ -165,7 +165,7 @@ pub(crate) async fn frame_process_task<'a>(
     )?;
     #[cfg(feature = "flydra_feat_detect")]
     let mut csv_save_state = SavingState::NotSaving;
-    let mut shared_store_arc: Option<Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>> = None;
+    let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
     #[cfg(feature = "flydratrax")]
     let mut kalman_tracking_config = strand_cam_storetype::KalmanTrackingConfig::default(); // this is replaced below
@@ -183,7 +183,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")]
     let red_style = http_video_streaming_types::StrokeStyle::from_rgb(255, 100, 100);
 
-    let expected_framerate_arc = Arc::new(parking_lot::RwLock::new(None));
+    let expected_framerate_arc = Arc::new(RwLock::new(None));
 
     let mut post_trig_buffer = post_trigger_buffer::PostTriggerBuffer::new();
 
@@ -213,7 +213,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "checkercal")]
     let mut checkerboard_loop_dur = std::time::Duration::from_millis(500);
 
-    // let current_image_timer_arc = Arc::new(parking_lot::RwLock::new(std::time::Instant::now()));
+    // let current_image_timer_arc = Arc::new(RwLock::new(std::time::Instant::now()));
 
     let mut im_ops_socket: Option<std::net::UdpSocket> = None;
 
@@ -224,7 +224,7 @@ pub(crate) async fn frame_process_task<'a>(
         #[cfg(feature = "flydra_feat_detect")]
         {
             if let Some(ref ssa) = shared_store_arc {
-                if let Some(store) = ssa.try_read() {
+                if let Ok(store) = ssa.try_read() {
                     let tracker = store.as_ref();
                     is_doing_object_detection = tracker.is_doing_object_detection;
                     // make copy. TODO only copy on change.
@@ -242,7 +242,7 @@ pub(crate) async fn frame_process_task<'a>(
             }
 
             let kalman_tracking_enabled = if let Some(ref ssa) = shared_store_arc {
-                let tracker = ssa.read();
+                let tracker = ssa.read().unwrap();
                 tracker.as_ref().kalman_tracking_config.enabled
             } else {
                 false
@@ -255,7 +255,7 @@ pub(crate) async fn frame_process_task<'a>(
                 let mut new_cam = None;
                 if let Some(ref ssa) = shared_store_arc {
                     let region = {
-                        let tracker = ssa.read();
+                        let tracker = ssa.read().unwrap();
                         kalman_tracking_config = tracker.as_ref().kalman_tracking_config.clone();
                         led_program_config = tracker.as_ref().led_program_config.clone();
                         tracker.as_ref().im_pt_detect_cfg.valid_region.clone()
@@ -367,7 +367,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 coord_processor.add_listener(model_sender); // the local LED control thing
                                 coord_processor.add_listener(model_server_data_tx); // the HTTP thing
 
-                                let expected_framerate = *expected_framerate_arc2.read();
+                                let expected_framerate = *expected_framerate_arc2.read().unwrap();
                                 let consume_future =
                                     coord_processor.consume_stream(flydra2_rx, expected_framerate);
 
@@ -398,7 +398,7 @@ pub(crate) async fn frame_process_task<'a>(
                 }
                 if let Some(cam) = new_cam {
                     if let Some(ref mut store) = shared_store_arc {
-                        let mut tracker = store.write();
+                        let mut tracker = store.write().unwrap();
                         tracker.modify(|tracker| {
                             tracker.camera_calibration = Some(cam);
                         });
@@ -435,7 +435,7 @@ pub(crate) async fn frame_process_task<'a>(
             }
         };
         let store_cache = if let Some(ref ssa) = shared_store_arc {
-            let tracker = ssa.read();
+            let tracker = ssa.read().unwrap();
             Some(tracker.as_ref().clone())
         } else {
             None
@@ -467,13 +467,13 @@ pub(crate) async fn frame_process_task<'a>(
             Msg::Store(stor) => {
                 // We get the shared store once at startup.
                 if is_braid {
-                    let mut tracker = stor.write();
+                    let mut tracker = stor.write().unwrap();
                     tracker.modify(|tracker| {
                         tracker.is_doing_object_detection = true;
                     });
                 }
                 {
-                    let tracker = stor.read();
+                    let tracker = stor.read().unwrap();
                     let shared = tracker.as_ref();
                     post_trig_buffer.set_size(shared.post_trigger_buffer_size);
                 }
@@ -507,7 +507,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                 let (format_str_mp4, mp4_recording_config) = {
                     // scope for reading cache
-                    let tracker = shared_store_arc.as_ref().unwrap().read();
+                    let tracker = shared_store_arc.as_ref().unwrap().read().unwrap();
                     let shared: &StoreType = tracker.as_ref();
 
                     let mp4_recording_config = FinalMp4RecordingConfig::new(shared, creation_time);
@@ -536,7 +536,7 @@ pub(crate) async fn frame_process_task<'a>(
                 my_mp4_writer = Some(raw);
 
                 if let Some(ref mut store) = shared_store_arc {
-                    let mut tracker = store.write();
+                    let mut tracker = store.write().unwrap();
                     tracker.modify(|tracker| {
                         tracker.is_recording_mp4 = is_recording_mp4;
                     });
@@ -566,7 +566,7 @@ pub(crate) async fn frame_process_task<'a>(
             Msg::SetPostTriggerBufferSize(size) => {
                 post_trig_buffer.set_size(size);
                 if let Some(ref mut store) = shared_store_arc {
-                    let mut tracker = store.write();
+                    let mut tracker = store.write().unwrap();
                     tracker.modify(|tracker| {
                         tracker.post_trigger_buffer_size = size;
                     });
@@ -638,14 +638,14 @@ pub(crate) async fn frame_process_task<'a>(
 
                 if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
                     if let Some(ref mut store) = shared_store_arc {
-                        let mut tracker = store.write();
+                        let mut tracker = store.write().unwrap();
                         tracker.modify(|tracker| {
                             tracker.measured_fps = new_fps as f32;
                         });
                     }
 
                     {
-                        let mut expected_framerate = expected_framerate_arc.write();
+                        let mut expected_framerate = expected_framerate_arc.write().unwrap();
                         *expected_framerate = Some(new_fps as f32);
                     }
                 }
@@ -788,14 +788,15 @@ pub(crate) async fn frame_process_task<'a>(
                                     .collect();
 
                                 let num_checkerboards_collected = {
-                                    let mut collected_corners = collected_corners_arc.write();
+                                    let mut collected_corners =
+                                        collected_corners_arc.write().unwrap();
                                     collected_corners.push(corners);
                                     collected_corners.len().try_into().unwrap()
                                 };
 
                                 if let Some(ref ssa) = shared_store_arc {
                                     // scope for write lock on ssa
-                                    let mut tracker = ssa.write();
+                                    let mut tracker = ssa.write().unwrap();
                                     tracker.modify(|shared| {
                                         shared.checkerboard_data.num_checkerboards_collected =
                                             num_checkerboards_collected;
@@ -1107,7 +1108,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         // scope for write lock on ssa
                                         let new_val =
                                             RecordingPath::new(csv_path.display().to_string());
-                                        let mut tracker = ssa.write();
+                                        let mut tracker = ssa.write().unwrap();
                                         tracker.modify(|shared| {
                                             shared.is_saving_im_pt_detect_csv = Some(new_val);
                                         });
@@ -1292,7 +1293,7 @@ pub(crate) async fn frame_process_task<'a>(
                     .collect();
 
                 // check led_box device heartbeat
-                if let Some(reader) = *led_box_heartbeat_update_arc.read() {
+                if let Some(reader) = *led_box_heartbeat_update_arc.read().unwrap() {
                     let elapsed = reader.elapsed();
                     if elapsed
                         > std::time::Duration::from_millis(2 * LED_BOX_HEARTBEAT_INTERVAL_MSEC)
@@ -1301,7 +1302,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                         // No heartbeat within the specified interval.
                         if let Some(ref ssa) = shared_store_arc {
-                            let mut tracker = ssa.write();
+                            let mut tracker = ssa.write().unwrap();
                             tracker.modify(|store| store.led_box_device_lost = true);
                         }
                     }
@@ -1425,7 +1426,7 @@ pub(crate) async fn frame_process_task<'a>(
                     // update UI
                     if let Some(ref ssa) = shared_store_arc {
                         // scope for write lock on ssa
-                        let mut tracker = ssa.write();
+                        let mut tracker = ssa.write().unwrap();
                         tracker.modify(|shared| {
                             shared.is_saving_im_pt_detect_csv = None;
                         });
@@ -1459,7 +1460,7 @@ pub(crate) async fn frame_process_task<'a>(
                     inner.finish()?;
                 }
                 if let Some(ref mut store) = shared_store_arc {
-                    let mut tracker = store.write();
+                    let mut tracker = store.write().unwrap();
                     tracker.modify(|tracker| {
                         tracker.is_recording_mp4 = None;
                     });

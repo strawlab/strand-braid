@@ -66,7 +66,7 @@ use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 pub const APP_INFO: AppInfo = AppInfo {
@@ -148,7 +148,7 @@ pub(crate) enum Msg {
     SetIsSavingObjDetectionCsv(CsvSaveConfig),
     #[cfg(feature = "flydra_feat_detect")]
     SetExpConfig(ImPtDetectCfg),
-    Store(Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>),
+    Store(Arc<RwLock<ChangeTracker<StoreType>>>),
     #[cfg(feature = "flydra_feat_detect")]
     TakeCurrentImageAsBackground,
     #[cfg(feature = "flydra_feat_detect")]
@@ -241,7 +241,7 @@ where
 }
 
 #[cfg(feature = "checkercal")]
-type CollectedCornersArc = Arc<parking_lot::RwLock<Vec<Vec<(f32, f32)>>>>;
+type CollectedCornersArc = Arc<RwLock<Vec<Vec<(f32, f32)>>>>;
 
 async fn convert_stream(
     raw_cam_name: RawCamName,
@@ -342,7 +342,7 @@ struct StrandCamAppState {
     event_broadcaster: EventBroadcaster<ConnectionSessionKey>,
     callback_senders: StrandCamCallbackSenders,
     tx_new_connection: tokio::sync::mpsc::Sender<event_stream_types::ConnectionEvent>,
-    shared_store_arc: Arc<parking_lot::RwLock<ChangeTracker<StoreType>>>,
+    shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
 }
 
 type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
@@ -359,12 +359,12 @@ async fn check_version(
         MyBody,
         // http_body_util::Empty<bytes::Bytes>,
     >,
-    known_version: Arc<parking_lot::RwLock<semver::Version>>,
+    known_version: Arc<RwLock<semver::Version>>,
     app_name: &'static str,
 ) -> Result<()> {
     let url = format!("https://version-check.strawlab.org/{app_name}");
     let url = url.parse::<hyper::Uri>().unwrap();
-    let agent = format!("{}/{}", app_name, *known_version.read());
+    let agent = format!("{}/{}", app_name, *known_version.read().unwrap());
 
     let req = hyper::Request::builder()
         .uri(&url)
@@ -403,7 +403,7 @@ async fn check_version(
             return Ok(());
         }
     };
-    let mut known_v = known_version3.write();
+    let mut known_v = known_version3.write().unwrap();
     if version.available > *known_v {
         info!(
             "New version of {} is available: {}. {}",
@@ -705,7 +705,7 @@ async fn events_handler(
     }
 
     // Send an initial copy of our state.
-    let shared_store = app_state.shared_store_arc.read().as_ref().clone();
+    let shared_store = app_state.shared_store_arc.read().unwrap().as_ref().clone();
     let frame_string = to_event_frame(&shared_store);
     match tx
         .send(Ok(http_body::Frame::data(frame_string.into())))
@@ -1052,7 +1052,7 @@ where
                             cookie_store::CookieStore::new(None)
                         }
                     };
-                let jar = Arc::new(parking_lot::RwLock::new(jar));
+                let jar = Arc::new(RwLock::new(jar));
                 let mut mainbrain_session = braid_http_session::create_mainbrain_session(
                     mainbrain_bui_loc.clone(),
                     jar.clone(),
@@ -1061,7 +1061,7 @@ where
                 tracing::debug!("Opened HTTP session with Braid.");
                 {
                     // We have the cookie from braid now, so store it to disk.
-                    let jar = jar.read();
+                    let jar = jar.read().unwrap();
                     Preferences::save(&*jar, &APP_INFO, BRAID_COOKIE_KEY)?;
                     tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
                 }
@@ -1684,7 +1684,7 @@ where
     let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
     let (led_box_tx_std, mut led_box_rx) = tokio::sync::mpsc::channel(20);
 
-    let led_box_heartbeat_update_arc = Arc::new(parking_lot::RwLock::new(None));
+    let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
 
     let gain_ranged = RangedValue {
         name: "gain".into(),
@@ -1983,9 +1983,7 @@ where
         camera_calibration: None,
     });
 
-    let frame_processing_error_state = Arc::new(parking_lot::RwLock::new(
-        FrameProcessingErrorState::default(),
-    ));
+    let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
 
     // let mut config = get_default_config();
     // config.cookie_name = "strand-camclient".to_string();
@@ -2004,7 +2002,7 @@ where
 
     let (tx_new_connection, rx_new_connection) = tokio::sync::mpsc::channel(10);
 
-    let shared_state = Arc::new(parking_lot::RwLock::new(shared_store));
+    let shared_state = Arc::new(RwLock::new(shared_store));
     let shared_store_arc = shared_state.clone();
 
     // Create our app state.
@@ -2145,7 +2143,7 @@ where
     }
 
     #[cfg(feature = "checkercal")]
-    let collected_corners_arc: CollectedCornersArc = Arc::new(parking_lot::RwLock::new(Vec::new()));
+    let collected_corners_arc: CollectedCornersArc = Arc::new(RwLock::new(Vec::new()));
 
     let frame_process_task_fut = {
         #[cfg(feature = "flydra_feat_detect")]
@@ -2265,9 +2263,9 @@ where
                         }
 
                         if tx_frame.capacity() == 0 {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|tracker| {
-                                let mut state = frame_processing_error_state.write();
+                                let mut state = frame_processing_error_state.write().unwrap();
                                 {
                                     match &*state {
                                         FrameProcessingErrorState::IgnoreAll => {}
@@ -2352,7 +2350,7 @@ where
 
         // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
         // versions later.
-        let known_version = Arc::new(parking_lot::RwLock::new(app_version));
+        let known_version = Arc::new(RwLock::new(app_version));
 
         // Create a stream to call our closure now and every 30 minutes.
         let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
@@ -2409,7 +2407,7 @@ where
                 #[allow(unused_variables)]
                 match cam_args {
                     CamArg::SetIngoreFutureFrameProcessingErrors(v) => {
-                        let mut state = frame_processing_error_state.write();
+                        let mut state = frame_processing_error_state.write().unwrap();
                         match v {
                             None => {
                                 *state = FrameProcessingErrorState::IgnoreAll;
@@ -2425,7 +2423,7 @@ where
                             }
                         }
 
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.had_frame_processing_error = false);
                     }
                     CamArg::SetExposureTime(v) => match cam.set_exposure_time(v) {
@@ -2440,7 +2438,7 @@ where
                                 .await
                                 .unwrap();
                             }
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|tracker| tracker.exposure_time.current = v);
                         }
                         Err(e) => {
@@ -2459,7 +2457,7 @@ where
                                 .await
                                 .unwrap();
                             }
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|tracker| tracker.gain.current = v);
                         }
                         Err(e) => {
@@ -2478,7 +2476,7 @@ where
                                 .await
                                 .unwrap();
                             }
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| match cam.gain_auto() {
                                 Ok(latest) => {
                                     shared.gain_auto = Some(latest);
@@ -2494,23 +2492,23 @@ where
                         }
                     },
                     CamArg::SetRecordingFps(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.mp4_max_framerate = v);
                     }
                     CamArg::SetMp4CudaDevice(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.mp4_cuda_device = v);
                     }
                     CamArg::SetMp4MaxFramerate(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.mp4_max_framerate = v);
                     }
                     CamArg::SetMp4Bitrate(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.mp4_bitrate = v);
                     }
                     CamArg::SetMp4Codec(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.mp4_codec = v);
                     }
                     CamArg::SetExposureAuto(v) => match cam.set_exposure_auto(v) {
@@ -2525,7 +2523,7 @@ where
                                 .await
                                 .unwrap();
                             }
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| match cam.exposure_auto() {
                                 Ok(latest) => {
                                     shared.exposure_auto = Some(latest);
@@ -2553,7 +2551,7 @@ where
                                     .await
                                     .unwrap();
                                 }
-                                let mut tracker = shared_store_arc.write();
+                                let mut tracker = shared_store_arc.write().unwrap();
                                 tracker.modify(|shared| {
                                 match cam.acquisition_frame_rate_enable() {
                                     Ok(latest) => {
@@ -2582,7 +2580,7 @@ where
                                 .await
                                 .unwrap();
                             }
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| match cam.acquisition_frame_rate() {
                                 Ok(latest) => {
                                     if let Some(ref mut frl) = shared.frame_rate_limit {
@@ -2616,13 +2614,13 @@ where
                             .map_err(to_eyre)?;
                     }
                     CamArg::SetFormatStr(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|tracker| tracker.format_str = v);
                     }
                     CamArg::SetIsRecordingMp4(do_recording) => {
                         // Copy values from cache and release the lock immediately.
                         let is_recording_mp4 = {
-                            let tracker = shared_store_arc.read();
+                            let tracker = shared_store_arc.read().unwrap();
                             let shared: &StoreType = tracker.as_ref();
                             shared.is_recording_mp4.is_some()
                         };
@@ -2639,7 +2637,7 @@ where
                         }
                     }
                     CamArg::ToggleAprilTagFamily(family) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             if let Some(ref mut ts) = shared.apriltag_state {
                                 if ts.is_recording_csv.is_some() {
@@ -2653,7 +2651,7 @@ where
                         });
                     }
                     CamArg::ToggleAprilTagDetection(do_detection) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             if let Some(ref mut ts) = shared.apriltag_state {
                                 ts.do_detection = do_detection;
@@ -2663,37 +2661,37 @@ where
                         });
                     }
                     CamArg::ToggleImOpsDetection(do_detection) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.do_detection = do_detection;
                         });
                     }
                     CamArg::SetImOpsDestination(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.destination = v;
                         });
                     }
                     CamArg::SetImOpsSource(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.source = v;
                         });
                     }
                     CamArg::SetImOpsCenterX(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.center_x = v;
                         });
                     }
                     CamArg::SetImOpsCenterY(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.center_y = v;
                         });
                     }
                     CamArg::SetImOpsThreshold(v) => {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.im_ops_state.threshold = v;
                         });
@@ -2701,7 +2699,7 @@ where
 
                     CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
                         let new_val = {
-                            let tracker = shared_store_arc.read();
+                            let tracker = shared_store_arc.read().unwrap();
                             let shared: &StoreType = tracker.as_ref();
                             if let Some(ref ts) = shared.apriltag_state {
                                 info!(
@@ -2735,7 +2733,7 @@ where
 
                         // Here we save the new recording state.
                         if let Some(new_val) = new_val {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 if let Some(ref mut ts) = shared.apriltag_state {
                                     ts.is_recording_csv = new_val;
@@ -2760,7 +2758,7 @@ where
                     CamArg::SetIsRecordingFmf(do_recording) => {
                         // Copy values from cache and release the lock immediately.
                         let (is_recording_fmf, format_str, recording_framerate) = {
-                            let tracker = shared_store_arc.read();
+                            let tracker = shared_store_arc.read().unwrap();
                             let shared: &StoreType = tracker.as_ref();
                             (
                                 shared.is_recording_fmf.clone(),
@@ -2789,7 +2787,7 @@ where
                             tx_frame2.send(msg).await.map_err(to_eyre)?;
 
                             // Save the new recording state.
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 shared.is_recording_fmf = new_val;
                             });
@@ -2800,7 +2798,7 @@ where
                         {
                             // Copy values from cache and release the lock immediately.
                             let (is_recording_ufmf, format_str_ufmf) = {
-                                let tracker = shared_store_arc.read();
+                                let tracker = shared_store_arc.read().unwrap();
                                 let shared: &StoreType = tracker.as_ref();
                                 (
                                     shared.is_recording_ufmf.clone(),
@@ -2833,7 +2831,7 @@ where
                                 tx_frame2.send(msg).await.map_err(to_eyre)?;
 
                                 // Save the new recording state.
-                                let mut tracker = shared_store_arc.write();
+                                let mut tracker = shared_store_arc.write().unwrap();
                                 tracker.modify(|shared| {
                                     shared.is_recording_ufmf = new_val;
                                 });
@@ -2845,7 +2843,7 @@ where
                         {
                             {
                                 // update store
-                                let mut tracker = shared_store_arc.write();
+                                let mut tracker = shared_store_arc.write().unwrap();
                                 tracker.modify(|shared| {
                                     shared.is_doing_object_detection = value;
                                 });
@@ -2883,7 +2881,7 @@ where
                                     .await
                                     .map_err(to_eyre)?;
                                 {
-                                    let mut tracker = shared_store_arc.write();
+                                    let mut tracker = shared_store_arc.write().unwrap();
                                     tracker.modify(|shared| {
                                         shared.im_pt_detect_cfg = cfg;
                                     });
@@ -2924,7 +2922,7 @@ where
                                     let cfg2 = cfg.clone();
                                     {
                                         // Update config and send to frame process thread
-                                        let mut tracker = shared_store_arc.write();
+                                        let mut tracker = shared_store_arc.write().unwrap();
                                         tracker.modify(|shared| {
                                             shared.kalman_tracking_config = cfg;
                                         });
@@ -2964,7 +2962,7 @@ where
                                     let cfg2 = cfg.clone();
                                     {
                                         // Update config and send to frame process thread
-                                        let mut tracker = shared_store_arc.write();
+                                        let mut tracker = shared_store_arc.write().unwrap();
                                         tracker.modify(|shared| {
                                             shared.led_program_config = cfg;
                                         });
@@ -2995,7 +2993,7 @@ where
                     CamArg::ToggleCheckerboardDetection(val) => {
                         #[cfg(feature = "checkercal")]
                         {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 shared.checkerboard_data.enabled = val;
                             });
@@ -3004,7 +3002,7 @@ where
                     CamArg::ToggleCheckerboardDebug(val) => {
                         #[cfg(feature = "checkercal")]
                         {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 if val {
                                     if shared.checkerboard_save_debug.is_none() {
@@ -3038,7 +3036,7 @@ where
                     CamArg::SetCheckerboardWidth(val) => {
                         #[cfg(feature = "checkercal")]
                         {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 shared.checkerboard_data.width = val;
                             });
@@ -3047,7 +3045,7 @@ where
                     CamArg::SetCheckerboardHeight(val) => {
                         #[cfg(feature = "checkercal")]
                         {
-                            let mut tracker = shared_store_arc.write();
+                            let mut tracker = shared_store_arc.write().unwrap();
                             tracker.modify(|shared| {
                                 shared.checkerboard_data.height = val;
                             });
@@ -3057,12 +3055,12 @@ where
                         #[cfg(feature = "checkercal")]
                         {
                             {
-                                let mut collected_corners = collected_corners_arc.write();
+                                let mut collected_corners = collected_corners_arc.write().unwrap();
                                 collected_corners.clear();
                             }
 
                             {
-                                let mut tracker = shared_store_arc.write();
+                                let mut tracker = shared_store_arc.write().unwrap();
                                 tracker.modify(|shared| {
                                     shared.checkerboard_data.num_checkerboards_collected = 0;
                                 });
@@ -3075,7 +3073,7 @@ where
                         {
                             info!("computing calibration");
                             let (n_rows, n_cols, checkerboard_save_debug) = {
-                                let tracker = shared_store_arc.read();
+                                let tracker = shared_store_arc.read().unwrap();
                                 let shared = (*tracker).as_ref();
                                 let n_rows = shared.checkerboard_data.height;
                                 let n_cols = shared.checkerboard_data.width;
@@ -3085,7 +3083,7 @@ where
                             };
 
                             let goodcorners: Vec<camcal::CheckerBoardData> = {
-                                let collected_corners = collected_corners_arc.read();
+                                let collected_corners = collected_corners_arc.read().unwrap();
                                 collected_corners
                                     .iter()
                                     .map(|corners| {
@@ -3291,7 +3289,7 @@ where
 
         // open serial port
         let port = {
-            let tracker = shared_store_arc.read();
+            let tracker = shared_store_arc.read().unwrap();
             let shared = tracker.as_ref();
             if let Some(serial_device) = shared.led_box_device_path.as_ref() {
                 info!("opening LED box \"{}\"", serial_device);
@@ -3361,7 +3359,8 @@ where
                             debug!("LED box round trip time: {} msec", now_millis - sent_millis);
 
                             // elsewhere check if this happens every LED_BOX_HEARTBEAT_INTERVAL_MSEC or so.
-                            let mut led_box_heartbeat_update = led_box_heartbeat_update_arc.write();
+                            let mut led_box_heartbeat_update =
+                                led_box_heartbeat_update_arc.write().unwrap();
                             *led_box_heartbeat_update = Some(std::time::Instant::now());
                         }
                         Ok(led_box_comms::FromDevice::StateWasSet) => {}
@@ -3384,7 +3383,7 @@ where
                     writer.send(msg).await.unwrap();
                     // copy new device state and store it to our cache
                     if let ToLedBoxDevice::DeviceState(new_state) = msg {
-                        let mut tracker = shared_store_arc.write();
+                        let mut tracker = shared_store_arc.write().unwrap();
                         tracker.modify(|shared| {
                             shared.led_box_device_state = Some(new_state);
                         })

@@ -13,7 +13,6 @@ thiserror.workspace = true
 anyhow.workspace = true
 machine-vision-formats.workspace = true
 chrono.workspace = true
-parking_lot = "0.12.1"
 lazy_static.workspace = true
 tempfile.workspace = true
 
