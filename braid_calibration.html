@@ -236,40 +236,23 @@ through a volume to create a single calibration for all cameras.</p>
 moving a LED in the arena (try move the LED in the whole arena volume, also turn
 it off and on sometimes to validate synchronization). When you are done, stop
 saving.</p>
-<h3><a class="header" href="#convert-braidz-file-to-flydra-mainbrain-h5-file" id="convert-braidz-file-to-flydra-mainbrain-h5-file">Convert <code>.braidz</code> file to flydra mainbrain <code>.h5</code> file</a></h3>
-<blockquote>
-<p>Note: from here in the document, there are many commands used from
-<a href="https://github.com/strawlab/flydra">Flydra</a>. While Braid itself runs without
-needing Flydra in any way, performing calibration and other data analysis
-steps currently requires the use of Flydra. Specifically, the
-<code>flydra_analysis</code> package is required. Please see
-<a href="https://github.com/strawlab/flydra#installation">here</a> for instructions about
-Flydra installation.</p>
-</blockquote>
-<p>By converting from <code>.braidz</code> to a Flydra mainbrain <code>.h5</code> file, you can use the
-wide range of analysis programs from <a href="https://github.com/strawlab/flydra">flydra</a>.</p>
-<p>For example, let's say you have the file <code>20190924_161153.braidz</code> saved by the
-Braid program. We will use the script <code>convert_braidz_to_flydra_h5.py</code>
-to do this conversion:</p>
-<pre><code class="language-ignore">python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete 20190924_161153.braidz
-</code></pre>
-<p>Upon success, there will be a new file saved with the suffix <code>.h5</code>. In this
-case, it will be named <code>20190924_161153.braidz.h5</code>.</p>
-<p>We can do the above but making use of bash variables to save typing later <code>BRAIDZ_FILE</code>.</p>
-<pre><code class="language-ignore">BRAIDZ_FILE=20190924_161153.braidz
-DATAFILE=&quot;$BRAIDZ_FILE.h5&quot;
-python ~/src/strand-braid/strand-braid-user/scripts/convert_braidz_to_flydra_h5.py --no-delete $BRAIDZ_FILE
-</code></pre>
-<p>Note that this conversion requires the program <code>compute-flydra1-compat</code> (this
-should be installed with Strand Camera and Braid by default and is part of the
-the <code>braid-offline</code> rust crate) to be on your path if you are converting 3D
-trajectories.</p>
 <h3><a class="header" href="#run-multicamselfcal-on-data-collected-with-braid" id="run-multicamselfcal-on-data-collected-with-braid">Run MultiCamSelfCal on data collected with Braid</a></h3>
-<p>You can collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/c9f20d5f8f4feb7e1fe008cf0ee67fbbc70b1ba0/docs/flydra-sphinx-docs/calibrating.md">the description for Flydra</a></p>
-<p>If your mainbrain <code>.h5</code> file is in the location <code>$DATAFILE</code>, you can run the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>
-program on this data to generate a multiple camera calibration.</p>
-<pre><code class="language-ignore">flydra_analysis_generate_recalibration --2d-data $DATAFILE --disable-kalman-objs $DATAFILE --undistort-intrinsics-yaml=$HOME/.config/strand-cam/camera_info  --run-mcsc --use-nth-observation=4
+<p>Collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/main/docs/flydra-sphinx-docs/calibrating.md">the description for
+Flydra</a></p>
+<p>We will run the <code>braidz-mcsc</code> program to export the data for MCSC and then to
+run MCSC. Use something like the following, updating for your specific case:</p>
+<pre><code class="language-ignore">braidz-mcsc --input 20241017_164418.braidz --checkerboard-cal-dir ~/.config/strand-cam/camera_info --use-nth-observation 4
 </code></pre>
+<p>Here:</p>
+<ul>
+<li><code>--input 20241017_164418.braidz</code> specifieds the name of the file, saved by
+Braid, containing the collected data to be used by MCSC.</li>
+<li><code>--checkerboard-cal-dir ~/.config/strand-cam/camera_info</code> specifies the
+directory containing <code>.yaml</code> files saved by
+<code>strand-cam-offline-checkerboards</code>.</li>
+<li><code>--use-nth-observation 4</code> indicates that only every 4th frame of data should
+be exported. See below.</li>
+</ul>
 <p>This will print various pieces of information to the console when it runs. First it will print something like this:</p>
 <pre><code class="language-ignore">851 points
 by camera id:
@@ -280,6 +263,7 @@ by camera id:
 by n points:
  3: 283
  4: 568
+Saved to directory &quot;20241017_164418.braidz.mcsc&quot;.
 </code></pre>
 <p>This means that 851 frames were acquired in which 3 or more cameras detected exactly one point.
 The contribution from each camera is listed. In this example, all cameras had between 657 and
@@ -324,7 +308,7 @@ Repr. error in proj. space (no fact./fact./BA) is ...  0.388949 0.381359 0.35805
 2D reprojection error
 All points: mean  0.36 pixels, std is 0.31
 
-finished: result in  /home/strawlab/20190924_161153.braidz.h5.recal/result
+Unaligned calibration XML saved to 20241017_164418-unaligned.xml
 </code></pre>
 <p>Important things to watch for:</p>
 <ul>
@@ -340,63 +324,40 @@ finished: result in  /home/strawlab/20190924_161153.braidz.h5.recal/result
 </li>
 </ul>
 <p>The above example calibration is a good one.</p>
-<h3><a class="header" href="#convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid" id="convert-your-new-calibration-to-an-xml-file-which-can-be-used-by-braid">Convert your new calibration to an XML file which can be used by Braid</a></h3>
-<p>Convert this to XML:</p>
-<pre><code class="language-ignore">flydra_analysis_calibration_to_xml ${DATAFILE}.recal/result &gt; new-calibration-name.xml
-</code></pre>
-<p>You may now use this new calibration, saved as an XML file, as the calibration
-for Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
+<p>In the example above, the file <code>20241017_164418-unaligned.xml</code> was created. You
+may now use this new calibration, saved as an XML file, as the calibration for
+Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
 <code>[mainbrain]</code> section of your Braid configuration <code>.toml</code> file.</p>
 <h3><a class="header" href="#with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate" id="with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate">With the new calibration, perform offline tracking the data used to calibrate.</a></h3>
 <p>Now you have a working calibration, which is NOT aligned or scaled to any
-coordinate system, but an (undefined) coordinate system that the MCSC code
+coordinate system, but in an undefined coordinate system that the MCSC code
 picked. We can use this calibration to do tracking, although in general having
 correct scaling is important for good tracking. The reason correct scaling is
 important for good quality tracking is because Braid tracks using a dynamic
-model of movement in which maneuverability is parameterized and tracking
-performance is best when the actual maneuverability statistics match the
-expected statistic.</p>
-<p>So, using the calibration from above, perform 3D tracking of the data with:</p>
-<pre><code class="language-ignore">flydra_kalmanize ${DATAFILE} -r ${DATAFILE}.recal/result
-</code></pre>
-<p>You can view these results with:</p>
-<pre><code class="language-ignore">DATAFILE_RETRACKED=`python -c &quot;print('${DATAFILE}'[:-3])&quot;`.kalmanized.h5
-flydra_analysis_plot_timeseries_2d_3d ${DATAFILE} -k ${DATAFILE_RETRACKED} --disable-kalman-smoothing
-</code></pre>
-<h3><a class="header" href="#align-your-new-calibration-using-a-gui" id="align-your-new-calibration-using-a-gui">Align your new calibration using a GUI</a></h3>
+model of movement in which maneuverability is parameterized and performance is
+best when the actual maneuverability matches the expected statistical
+paramterization.</p>
 <p>Now we will take our existing &quot;unaligned&quot; calibration, and despite the scaling
 and alignment issue, track some points so that we have 3D coordinates. We will
 use these 3D coordinates to &quot;align&quot; our calibration -- to adjust its scaling,
 rotation, and translation to arrive at a final calibration which outputs
 coordinates in the desired frame.</p>
-<p>Now, using the unaligned calibration from above, collect a dataset which
-outlines the geometry of your arena or other key 3D points which we serve as
-reference 3D points used to discover the correct alignment. We will use these
-unaligned 3D points output from the unaligned calibration to determine an
-alignment and scaling used to transform these 3D points to the correct,
-&quot;aligned&quot; 3D points. These alignment parameters will be used to update the original unaligned calibration into the final aligned calibration.</p>
-<p>The easiest way to acquire unaligned 3D points is to acquire a new dataset
-directly by running Braid with the new unaligned calibration. Alternatively, one
-can use a pre-existing 2D dataset and re-track it with <code>flydra_kalmanize</code> as
-above. We will call this dataset for alignment <code>${NEW_TRACKED_DATA}</code>.</p>
-<p>With this new dataset for alignment, we render the 3D tracks with a 3D model of
-some pre-specified geometry in the correct coordinate frame. We then adjust the
-alignment parameters by hand in a GUI. Here we align our newly tracked data in
-file <code>${NEW_TRACKED_DATA}</code> against the <code>sample_bowl.xml</code> file from
-<a href="https://github.com/strawlab/flydra/blob/main/flydra_analysis/flydra_analysis/a2/sample_bowl.xml">here</a>.
-In this example, the <code>sample_bowl.xml</code> file outlines a circle with diameter 0.33
-meters on the Z=0 plane. In this example, we tracked an LED outlining a circle
-of diameter 0.33 meters and on the plane which will be Z=0 in our final
-coordinate frame. Here is how to run the GUI program for running the alignment:</p>
-<pre><code class="language-ignore">flydra_analysis_calibration_align_gui --stim-xml ~/src/flydra/flydra_analysis/flydra_analysis/a2/sample_bowl.xml ${NEW_TRACKED_DATA}
+<p>(TODO: add more detail here.) Using the unaligned calibration from above,
+collect a dataset which contains known 3D reference locations. Using the Braid
+browser UI, note the 3D location of each 3D reference location as founded by
+Braid using the unaligned calibration. Save the unaligned and reference 3D
+locations to <code>.csv</code> files with the following schema:</p>
+<pre><code class="language-csv">x,y,z
+1,2,3
+4,5,6
 </code></pre>
-<h3><a class="header" href="#automatic-alignment-of-calibrations" id="automatic-alignment-of-calibrations">Automatic alignment of calibrations</a></h3>
-<p>As an alternative to using the GUI to perform alignment, it is possible to find
-the correct alignment automatically. The flydra program
-<code>flydra_analysis_align_calibration</code> does this. The major mathematical operations
-are performed in the <code>estsimt</code> function in
-<a href="https://github.com/strawlab/flydra/blob/main/flydra_core/flydra_core/align.py"><code>flydra_core.align</code></a>.</p>
-<p>(TODO: Write an example doing this.)</p>
+<p>Now run the <code>align-calibration</code> script like so:</p>
+<pre><code class="language-ignore">align-calibration --ground-truth-3d reference.csv --unaligned-3d unaligned.csv --unaligned-cal unaligned-calibration.xml --output-aligned-cal aligned-calibration.xml
+</code></pre>
+<p>If succesful, this will print various diagnostic information concluding with a
+section <code>Mean distance between ground truth and transformed points</code>. This can be
+interpreted as the quality of the alignment where smaller numbers are better and
+zero is perfect. As with all usage of braid, distances are specified in meters.</p>
 <h3><a class="header" href="#calibration-with-water" id="calibration-with-water">Calibration with water</a></h3>
 <p>As described
 <a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid
