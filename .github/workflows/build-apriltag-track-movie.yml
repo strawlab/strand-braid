@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     defaults:
       run:
-        working-directory: apriltag/apriltag-track-movie
+        working-directory: ads-apriltag/apriltag-track-movie
     steps:
       - uses: actions/checkout@v4
       - name: Build app
@@ -32,17 +32,17 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: apriltag/apriltag-track-movie
+        working-directory: ads-apriltag/apriltag-track-movie
     steps:
       - uses: actions/checkout@v4
       - name: Install pthread
         uses: lukka/run-vcpkg@v7
         id: vcpkg
         with:
-          vcpkgArguments: 'pthread'
-          vcpkgTriplet: 'x64-windows-static'
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgGitCommitId: '57bd7102d9fd880daa1b0958692294c4a125f6d8'
+          vcpkgArguments: "pthread"
+          vcpkgTriplet: "x64-windows-static"
+          vcpkgDirectory: "${{ github.workspace }}/vcpkg"
+          vcpkgGitCommitId: "57bd7102d9fd880daa1b0958692294c4a125f6d8"
       - name: Build app
         env:
           APRILTAG_SYS_WINDOWS_PTHREAD_INCLUDE_DIR: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\include'
