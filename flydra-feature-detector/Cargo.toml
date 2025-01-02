@@ -13,31 +13,24 @@ machine-vision-formats.workspace = true
 timestamped-frame.workspace = true
 basic-frame.workspace = true
 num-traits.workspace = true
-thread-control.workspace = true
 cast = "0.2.2"
 serde.workspace = true
 serde_yaml.workspace = true
 tokio.workspace = true
-stream-cancel.workspace = true
 nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
 ipp-sys = { workspace = true, optional = true }
 
 fastimage = { path = "../fastimage", optional = true }
 fastfreeimage = { workspace = true, optional = true }
-ci2.workspace = true
-ci2-remote-control.workspace = true
 rust-cam-bui-types.workspace = true
 flydra-types.workspace = true
 ufmf.workspace = true
 byteorder.workspace = true
 chrono.workspace = true
-futures.workspace = true
-mvg.workspace = true
 flydra-feature-detector-types.workspace = true
 http-video-streaming-types.workspace = true
 datetime-conversion.workspace = true
-braid-http-session.workspace = true
 
 parry-geom.workspace = true
 
