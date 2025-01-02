@@ -1,7 +1,6 @@
 use machine_vision_formats::{
-    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageMutData, Stride,
+    ImageBuffer, ImageBufferMutRef, ImageBufferRef, ImageData, ImageMutData, ImageStride, Stride,
 };
-use timestamped_frame::{ExtraTimeData, FrameTrait, HostTimeData, ImageStrideTime};
 
 mod dynamic_frame;
 pub use dynamic_frame::DynamicFrame;
@@ -15,7 +14,6 @@ macro_rules! new_basic_frame {
             height: $x.height,
             stride: $x.stride,
             image_data: $x.image_data,
-            extra: $x.extra,
             pixel_format: std::marker::PhantomData,
         }
     }};
@@ -83,8 +81,6 @@ pub struct BasicFrame<F> {
     pub image_data: Vec<u8>,
     /// pixel format
     pub pixel_format: std::marker::PhantomData<F>,
-    /// Additional data, including timestamp information.
-    pub extra: Box<dyn HostTimeData>,
 }
 
 impl<F> PartialEq for BasicFrame<F>
@@ -102,14 +98,6 @@ where
         // We do enforce that `stride` is equal
 
         // We know `pixel_format` is the same due to type F.
-
-        // Hmm, `extra` does not implement PartialEq.
-        if self.extra.host_framenumber() != other.extra.host_framenumber() {
-            return false;
-        }
-        if self.extra.host_timestamp() != other.extra.host_timestamp() {
-            return false;
-        }
 
         // Finally, check the buffers for equality in all regions where the pixels should be equal.
         let valid_size =
@@ -137,23 +125,17 @@ fn _test_basic_frame_is_send<F: Send>() {
     implements::<BasicFrame<F>>();
 }
 
-fn _test_basic_frame_is_frame_trait<F>() {
-    // Compile-time test to ensure BasicFrame implements FrameTrait trait.
-    fn implements<T: FrameTrait<F>, F>() {}
+fn _test_basic_frame_is_image_stride<F>() {
+    // Compile-time test to ensure BasicFrame implements ImageStride trait.
+    fn implements<T: ImageStride<F>, F>() {}
     implements::<BasicFrame<F>, F>();
 }
 
 impl<F> BasicFrame<F> {
-    pub fn copy_from(frame: &dyn ImageStrideTime<F>) -> BasicFrame<F> {
+    pub fn copy_from(frame: &dyn ImageStride<F>) -> BasicFrame<F> {
         let width = frame.width();
         let height = frame.height();
         let stride = frame.stride() as u32;
-        let host_timestamp = frame.extra().host_timestamp();
-        let host_framenumber = frame.extra().host_framenumber();
-        let extra = Box::new(BasicExtra {
-            host_timestamp,
-            host_framenumber,
-        });
 
         let image_data = frame.image_data().to_vec(); // copy data
 
@@ -162,32 +144,8 @@ impl<F> BasicFrame<F> {
             height,
             stride,
             image_data,
-            extra,
             pixel_format: std::marker::PhantomData,
         }
-    }
-}
-
-impl<F> ExtraTimeData for BasicFrame<F> {
-    fn extra(&self) -> &dyn HostTimeData {
-        self.extra.as_ref()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct BasicExtra {
-    /// timestamp from host computer
-    pub host_timestamp: chrono::DateTime<chrono::Utc>,
-    /// framenumber from host computer
-    pub host_framenumber: usize,
-}
-
-impl HostTimeData for BasicExtra {
-    fn host_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-        self.host_timestamp
-    }
-    fn host_framenumber(&self) -> usize {
-        self.host_framenumber
     }
 }
 
@@ -229,27 +187,3 @@ impl<F> From<Box<BasicFrame<F>>> for Vec<u8> {
         orig.image_data
     }
 }
-
-// impl<FRAME, FMT, EXTRA> From<Box<FRAME>> for BasicFrame<FMT, EXTRA>
-// where
-//     FRAME: FrameTrait<FMT, EXTRA>,
-//     EXTRA: HostTimeData,
-//     Vec<u8>: From<Box<FRAME>>,
-// {
-//     fn from(frame: Box<FRAME>) -> BasicFrame<FMT, EXTRA> {
-//         assert_eq!(machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap(), frame.pix_fmt());
-//         let width = frame.width();
-//         let height = frame.height();
-//         let stride = frame.stride() as u32;
-//         let (image_data, extra) = frame.into_data_extra();
-
-//         BasicFrame {
-//             width,
-//             height,
-//             stride,
-//             image_data,
-//             pixel_format: std::marker::PhantomData,
-//             extra,
-//         }
-//     }
-// }

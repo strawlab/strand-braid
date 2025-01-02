@@ -1,22 +1,15 @@
-use formats::{ImageData, PixFmt, PixelFormat, Stride};
+use formats::{ImageData, ImageStride, PixFmt, PixelFormat, Stride};
 use machine_vision_formats as formats;
 
-use timestamped_frame::{ExtraTimeData, HostTimeData};
-
-use crate::{convert_to_dynamic, match_all_dynamic_fmts, new_basic_frame, BasicExtra, BasicFrame};
+use crate::{convert_to_dynamic, match_all_dynamic_fmts, new_basic_frame, BasicFrame};
 
 macro_rules! new_basic_frame_copy {
     ($x:expr) => {{
-        let extra = Box::new(BasicExtra {
-            host_timestamp: $x.extra().host_timestamp(),
-            host_framenumber: $x.extra().host_framenumber(),
-        });
         BasicFrame {
             width: $x.width(),
             height: $x.height(),
             stride: $x.stride() as u32,
             image_data: $x.image_data().to_vec(),
-            extra,
             pixel_format: std::marker::PhantomData,
         }
     }};
@@ -24,10 +17,6 @@ macro_rules! new_basic_frame_copy {
 
 macro_rules! new_basic_frame_move {
     ($x:expr) => {{
-        let extra = Box::new(BasicExtra {
-            host_timestamp: $x.extra().host_timestamp(),
-            host_framenumber: $x.extra().host_framenumber(),
-        });
         let width = $x.width();
         let height = $x.height();
         let stride = $x.stride() as u32;
@@ -37,7 +26,6 @@ macro_rules! new_basic_frame_move {
             height,
             stride,
             image_data,
-            extra,
             pixel_format: std::marker::PhantomData,
         }
     }};
@@ -110,7 +98,6 @@ impl DynamicFrame {
         width: u32,
         height: u32,
         stride: u32,
-        extra: Box<dyn HostTimeData>,
         image_data: Vec<u8>,
         pixel_format: PixFmt,
     ) -> DynamicFrame {
@@ -119,23 +106,20 @@ impl DynamicFrame {
             width,
             height,
             stride,
-            extra,
             image_data,
             pixel_format: std::marker::PhantomData,
         });
         // ...then convert it to the right type.
         wrong_type.force_pixel_format(pixel_format)
     }
-    pub fn copy_from<FMT: PixelFormat>(
-        frame: &dyn timestamped_frame::ImageStrideTime<FMT>,
-    ) -> Self {
+    pub fn copy_from<FMT: PixelFormat>(frame: &dyn ImageStride<FMT>) -> Self {
         convert_to_dynamic2!(FMT, new_basic_frame_copy!(frame))
     }
 
     // TODO: actually implement the From trait
     pub fn from<FRAME, FMT>(frame: FRAME) -> Self
     where
-        FRAME: timestamped_frame::ImageStrideTime<FMT> + Into<Vec<u8>>,
+        FRAME: ImageStride<FMT> + Into<Vec<u8>>,
         FMT: PixelFormat,
     {
         convert_to_dynamic2!(FMT, new_basic_frame_move!(frame))
@@ -160,12 +144,11 @@ impl DynamicFrame {
             let width = self.width();
             let height = self.height();
             let stride = self.stride() as u32;
-            let (image_data, extra) = self.into_data_extra();
+            let image_data = self.into();
             Some(BasicFrame {
                 width,
                 height,
                 stride,
-                extra,
                 image_data,
                 pixel_format: std::marker::PhantomData,
             })
@@ -189,19 +172,17 @@ impl DynamicFrame {
             let width = self.width();
             let height = self.height();
             let stride = self.stride() as u32;
-            let (image_data, extra) = self.into_data_extra();
+            let image_data = self.into();
             Ok(BasicFrame {
                 width,
                 height,
                 stride,
-                extra,
                 image_data,
                 pixel_format: std::marker::PhantomData,
             })
         } else {
             let width = self.width();
             let height = self.height();
-            let extra = match_all_dynamic_fmts!(&self, x, { x.extra.clone() });
 
             let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
 
@@ -228,7 +209,6 @@ impl DynamicFrame {
                 width,
                 height,
                 stride: dest_stride as u32,
-                extra,
                 image_data,
                 pixel_format: std::marker::PhantomData,
             })
@@ -269,15 +249,6 @@ impl DynamicFrame {
     /// Note that this discards any type information about the pixel format.
     pub fn image_data_without_format(&self) -> &[u8] {
         match_all_dynamic_fmts!(self, x, &x.image_data)
-    }
-    pub fn into_data_extra(self) -> (Vec<u8>, Box<dyn HostTimeData>) {
-        match_all_dynamic_fmts!(self, x, { (x.image_data, x.extra) })
-    }
-}
-
-impl ExtraTimeData for DynamicFrame {
-    fn extra(&self) -> &dyn HostTimeData {
-        match_all_dynamic_fmts!(self, x, { x.extra.as_ref() })
     }
 }
 

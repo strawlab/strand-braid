@@ -1,9 +1,7 @@
 use crate::{fastim_mod, Result};
 
-use basic_frame::BasicExtra;
 use fastim_mod::FastImage;
 use machine_vision_formats::{self as formats, ImageBuffer, ImageBufferRef};
-use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[derive(Clone)]
 pub(crate) struct BorrowedFrame<'a, FMT>
@@ -14,7 +12,6 @@ where
     width: u32,
     height: u32,
     stride: usize,
-    extra: BasicExtra,
 }
 
 impl<FMT> formats::Stride for BorrowedFrame<'_, FMT>
@@ -47,28 +44,8 @@ where
     }
 }
 
-impl<'a, FMT: Clone> ExtraTimeData for BorrowedFrame<'a, FMT> {
-    fn extra(&self) -> &dyn HostTimeData {
-        &self.extra
-    }
-}
-
-// impl<'a, FMT> HostTimeData for BorrowedFrame<'a, FMT>
-// where
-//     FMT: Clone + Send,
-// {
-//     fn host_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-//         self.host_timestamp
-//     }
-//     fn host_framenumber(&self) -> usize {
-//         self.host_framenumber
-//     }
-// }
-
 pub(crate) fn borrow_fi<C, D, FMT>(
     fid: &fastim_mod::FastImageData<C, D>,
-    host_timestamp: chrono::DateTime<chrono::Utc>,
-    host_framenumber: usize,
 ) -> Result<BorrowedFrame<'_, FMT>>
 where
     C: fastim_mod::ChanTrait,
@@ -88,10 +65,6 @@ where
         let ptr: *const D = fid.raw_ptr();
         std::slice::from_raw_parts(ptr as *const u8, stride * height as usize)
     };
-    let extra = BasicExtra {
-        host_timestamp,
-        host_framenumber,
-    };
     Ok(BorrowedFrame {
         buffer_ref: ImageBufferRef {
             data,
@@ -100,6 +73,5 @@ where
         width,
         height,
         stride,
-        extra,
     })
 }

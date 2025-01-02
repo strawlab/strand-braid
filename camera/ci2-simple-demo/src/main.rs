@@ -1,6 +1,5 @@
 extern crate env_logger;
 
-
 extern crate ci2;
 #[cfg(feature = "backend_pyloncxx")]
 extern crate ci2_pyloncxx as backend;
@@ -9,7 +8,6 @@ extern crate ci2_vimba as backend;
 extern crate machine_vision_formats as formats;
 
 use ci2::{Camera, CameraModule};
-use timestamped_frame::ExtraTimeData;
 
 lazy_static::lazy_static! {
     static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
@@ -34,7 +32,7 @@ fn main() -> anyhow::Result<()> {
                 Ok(frame) => {
                     println!(
                         "  got frame {}: {}x{} {}",
-                        frame.extra().host_framenumber(),
+                        frame.host_timing.fno,
                         frame.width(),
                         frame.height(),
                         frame.pixel_format()

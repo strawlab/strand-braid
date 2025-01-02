@@ -1065,9 +1065,9 @@ pub struct FlydraRawUdpPacket {
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_time: FlydraFloatTimestampLocal<HostClock>,
     /// timestamp from the camera
-    pub device_timestamp: Option<std::num::NonZeroU64>,
+    pub device_timestamp: Option<u64>,
     /// frame number from the camera
-    pub block_id: Option<std::num::NonZeroU64>,
+    pub block_id: Option<u64>,
     pub framenumber: i32,
     pub n_frames_skipped: u32,
     /// this will always be 0.0 for flydra1 custom serialized packets
@@ -1241,11 +1241,11 @@ pub struct Data2dDistortedRow {
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// Timestamp from the camera.
-    pub device_timestamp: Option<std::num::NonZeroU64>,
+    pub device_timestamp: Option<u64>,
     /// Frame number from the camera.
     ///
     /// Note that this is not the synchronized frame number, which is [Self::frame].
-    pub block_id: Option<std::num::NonZeroU64>,
+    pub block_id: Option<u64>,
     /// The X (horizontal) coordinate of the detection, in camera pixels.
     #[serde(deserialize_with = "invalid_nan")]
     pub x: f64,
@@ -1295,11 +1295,11 @@ pub struct Data2dDistortedRowF32 {
     #[serde(with = "crate::timestamp_f64")]
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// timestamp from the camera
-    pub device_timestamp: Option<std::num::NonZeroU64>,
+    pub device_timestamp: Option<u64>,
     /// Frame number from the camera.
     ///
     /// Note that this is not the synchronized frame number, which is [Self::frame].
-    pub block_id: Option<std::num::NonZeroU64>,
+    pub block_id: Option<u64>,
     /// The X (horizontal) coordinate of the detection, in camera pixels.
     pub x: f32,
     /// The Y (vertial) coordinate of the detection, in camera pixels.

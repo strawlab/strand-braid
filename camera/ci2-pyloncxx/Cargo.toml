@@ -17,8 +17,8 @@ lazy_static.workspace = true
 ci2 = { path = "../ci2" }
 pylon-cxx = "0.4.0"
 machine-vision-formats.workspace = true
-timestamped-frame.workspace = true
 basic-frame.workspace = true
+ci2-pylon-types.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rlimit = "0.6"

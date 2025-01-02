@@ -903,8 +903,6 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             ImageData::Tiff(tiff_image) => {
                 let frame = tiff_decoder::read_tiff_image(
                     tiff_image,
-                    frame0_time,
-                    out_fno.try_into().unwrap(),
                     &cli.hdr_config,
                     hdr_lum_range,
                     &mut val_histogram,

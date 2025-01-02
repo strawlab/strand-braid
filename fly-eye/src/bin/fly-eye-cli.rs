@@ -1,6 +1,5 @@
 use machine_vision_formats as formats;
 
-use basic_frame::BasicExtra;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -20,17 +19,12 @@ fn fly_eye_cli(input_image: PathBuf) -> anyhow::Result<()> {
     let (firehose_tx, firehose_rx) = std::sync::mpsc::channel();
 
     let frame = convert_image::image_to_rgb8(piston_image)?;
-    let extra = Box::new(BasicExtra {
-        host_timestamp: chrono::Utc::now(),
-        host_framenumber: 0,
-    });
     let frame: basic_frame::BasicFrame<RGB8> = basic_frame::BasicFrame {
         width: frame.width(),
         height: frame.height(),
         stride: frame.stride().try_into().unwrap(),
         image_data: frame.buffer().data,
         pixel_format: std::marker::PhantomData,
-        extra,
     };
     let dynframe = basic_frame::DynamicFrame::from(frame);
     firehose_tx

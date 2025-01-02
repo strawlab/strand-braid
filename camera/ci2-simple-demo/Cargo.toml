@@ -10,7 +10,6 @@ tracing.workspace = true
 machine-vision-formats.workspace = true
 anyhow.workspace = true
 
-timestamped-frame.workspace = true
 ci2.workspace = true
 env_logger.workspace = true
 ci2-pyloncxx = { workspace = true, optional = true }

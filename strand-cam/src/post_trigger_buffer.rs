@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use basic_frame::DynamicFrame;
+use ci2::DynamicFrameWithInfo;
 
 pub(crate) struct PostTriggerBuffer {
     size: usize,
-    inner: VecDeque<DynamicFrame>,
+    inner: VecDeque<DynamicFrameWithInfo>,
 }
 
 impl PostTriggerBuffer {
@@ -26,14 +26,14 @@ impl PostTriggerBuffer {
         self.trim();
     }
 
-    pub(crate) fn push(&mut self, frame: &DynamicFrame) {
+    pub(crate) fn push(&mut self, frame: &DynamicFrameWithInfo) {
         if self.size > 0 {
             self.inner.push_back(frame.clone());
         }
         self.trim();
     }
 
-    pub(crate) fn get_and_clear(&mut self) -> VecDeque<DynamicFrame> {
+    pub(crate) fn get_and_clear(&mut self) -> VecDeque<DynamicFrameWithInfo> {
         std::mem::take(&mut self.inner)
     }
 }

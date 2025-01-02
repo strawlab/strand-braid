@@ -3,8 +3,6 @@
 fn main() -> eyre::Result<()> {
     let n_frames = 1;
 
-    let start = chrono::DateTime::from_timestamp(61, 0).unwrap();
-
     let mut outputs = Vec::new();
     for pixfmt in ["mono8", "rgb8"].iter() {
         for width in [640usize, 16, 30, 32].iter() {
@@ -51,10 +49,6 @@ fn main() -> eyre::Result<()> {
                         (width).try_into().unwrap(),
                         height.try_into().unwrap(),
                         stride.try_into().unwrap(),
-                        Box::new(basic_frame::BasicExtra {
-                            host_framenumber: 0,
-                            host_timestamp: start,
-                        }),
                         image_data,
                         machine_vision_formats::PixFmt::Mono8,
                     )
@@ -85,10 +79,6 @@ fn main() -> eyre::Result<()> {
                         (width).try_into().unwrap(),
                         height.try_into().unwrap(),
                         stride.try_into().unwrap(),
-                        Box::new(basic_frame::BasicExtra {
-                            host_framenumber: 0,
-                            host_timestamp: start,
-                        }),
                         image_data,
                         machine_vision_formats::PixFmt::RGB8,
                     )

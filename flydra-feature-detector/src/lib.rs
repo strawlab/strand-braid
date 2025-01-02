@@ -27,7 +27,6 @@ use fastim_mod::{
 };
 
 use formats::{pixel_format::Mono32f, Stride};
-use timestamped_frame::ExtraTimeData;
 
 use basic_frame::DynamicFrame;
 use flydra_types::{
@@ -130,7 +129,7 @@ impl TrackingState {
         mean_squared_im: FastImageData<Chan1, f32>,
         cfg: &ImPtDetectCfg,
         pixel_format: formats::PixFmt,
-        complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
+        complete_stamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self>
     where
         S: FastImage<C = Chan1, D = u8>,
@@ -397,11 +396,11 @@ fn save_bg_data(
     ufmf_writer: &mut ufmf::UFMFWriter<std::fs::File>,
     state_background: &background_model::BackgroundModel,
 ) -> Result<()> {
-    let (ts, fno) = state_background.complete_stamp;
-    let mean: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_background, ts, fno)?;
-    let sumsq: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_squared_im, ts, fno)?;
-    ufmf_writer.add_keyframe(b"mean", &mean)?;
-    ufmf_writer.add_keyframe(b"sumsq", &sumsq)?;
+    let ts = state_background.complete_stamp;
+    let mean: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_background)?;
+    let sumsq: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_squared_im)?;
+    ufmf_writer.add_keyframe(b"mean", &mean, ts)?;
+    ufmf_writer.add_keyframe(b"sumsq", &sumsq, ts)?;
     Ok(())
 }
 
@@ -624,15 +623,17 @@ impl FlydraFeatureDetector {
     pub fn process_new_frame(
         &mut self,
         frame: &DynamicFrame,
+        fno: usize,
+        timestamp_utc: DateTime<Utc>,
         ufmf_state: UfmfState,
-        device_timestamp: Option<std::num::NonZeroU64>,
-        block_id: Option<std::num::NonZeroU64>,
+        device_timestamp: Option<u64>,
+        block_id: Option<u64>,
         braid_ts: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
-        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&frame.extra().host_timestamp());
+        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);
         let acquire_duration = match braid_ts {
             Some(ref trigger_stamp) => {
                 // If available, the time from trigger pulse to the first code outside
@@ -643,7 +644,7 @@ impl FlydraFeatureDetector {
         };
 
         self.acquisition_histogram
-            .push_new_sample(acquire_duration, frame.extra().host_framenumber() as u64);
+            .push_new_sample(acquire_duration, fno as u64);
 
         if self.acquisition_histogram.is_old() {
             self.acquisition_histogram.show_stats();
@@ -667,7 +668,7 @@ impl FlydraFeatureDetector {
                     cast::u16(frame.width())?,
                     cast::u16(frame.height())?,
                     frame.pixel_format(),
-                    Some(frame),
+                    Some((frame, timestamp_utc)),
                 )?;
                 // save current background state when starting ufmf save.
                 do_save_ufmf_bg = true;
@@ -704,7 +705,7 @@ impl FlydraFeatureDetector {
             cam_received_time: acquire_stamp,
             device_timestamp,
             block_id,
-            framenumber: frame.extra().host_framenumber() as i32,
+            framenumber: fno as i32,
             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
             done_camnode_processing: 0.0,
             preprocess_stamp,
@@ -755,10 +756,7 @@ impl FlydraFeatureDetector {
 
                 startup_state.n_frames += 1;
                 packet.image_processing_steps |= ImageProcessingSteps::BGSTARTUP;
-                let complete_stamp = (
-                    frame.extra().host_timestamp(),
-                    frame.extra().host_framenumber(),
-                );
+                let complete_stamp = timestamp_utc;
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
                     let state = TrackingState::new(
@@ -788,10 +786,7 @@ impl FlydraFeatureDetector {
                     FastImageData::<Chan1, f32>::copy_from_32f_c1(&running_mean)?;
                 ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
 
-                let complete_stamp = (
-                    frame.extra().host_timestamp(),
-                    frame.extra().host_framenumber(),
-                );
+                let complete_stamp = timestamp_utc;
 
                 let state = TrackingState::new(
                     &raw_im_full,
@@ -841,7 +836,7 @@ impl FlydraFeatureDetector {
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();
                 if let UfmfState::Saving(ref mut ufmf_writer) = new_ufmf_state {
-                    ufmf_writer.add_frame(frame, &point_data)?;
+                    ufmf_writer.add_frame(frame, timestamp_utc, &point_data)?;
                     if do_save_ufmf_bg || got_new_bg_data {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }
@@ -878,7 +873,9 @@ impl FlydraFeatureDetector {
             if let BackgroundAcquisitionState::NormalUpdates(ref mut state) =
                 self.background_update_state
             {
-                state.background.start_bg_update(frame, &self.cfg)?;
+                state
+                    .background
+                    .start_bg_update(frame, &self.cfg, timestamp_utc)?;
             } else {
                 panic!("unreachable");
             }

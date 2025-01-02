@@ -435,8 +435,8 @@ struct RawPacketLogRow {
     timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "flydra_types::timestamp_f64")]
     cam_received_time: FlydraFloatTimestampLocal<HostClock>,
-    device_timestamp: Option<std::num::NonZeroU64>,
-    block_id: Option<std::num::NonZeroU64>,
+    device_timestamp: Option<u64>,
+    block_id: Option<u64>,
     framenumber: i32,
     n_frames_skipped: u32,
     done_camnode_processing: f64,
@@ -1116,7 +1116,7 @@ pub(crate) async fn do_run_forever(
                             // cameras should have this same timestamp, so it
                             // shouldn't matter which camera we use.
                             packet.device_timestamp.map(|device_timestamp| {
-                                let ptp_stamp = flydra_types::PtpStamp::new(device_timestamp.get());
+                                let ptp_stamp = flydra_types::PtpStamp::new(device_timestamp);
                                 let device_timestamp_chrono =
                                     chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
                                         .unwrap();

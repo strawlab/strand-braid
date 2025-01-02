@@ -536,8 +536,7 @@ impl ConnectedCamerasManager {
             let device_timestamp = PtpStamp::new(
                 packet
                     .device_timestamp
-                    .expect("could not get device_timestamp for frame")
-                    .get(),
+                    .expect("could not get device_timestamp for frame"),
             );
             let elapsed_since_launch = if let Some(dur) =
                 device_timestamp.duration_since(&self.launch_time_ptp)

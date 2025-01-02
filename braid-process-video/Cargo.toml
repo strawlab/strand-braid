@@ -40,7 +40,6 @@ convert-image.workspace = true
 datetime-conversion.workspace = true
 basic-frame.workspace = true
 fmf.workspace = true
-timestamped-frame.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true
 mvg.workspace = true

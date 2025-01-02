@@ -2,9 +2,9 @@ use crate::{errors::Error, fastim_mod, ipp_ctypes, Result};
 
 use tracing::{debug, error};
 
+use chrono::{DateTime, Utc};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use machine_vision_formats::{self as formats, ImageData, Stride};
-use timestamped_frame::ExtraTimeData;
 
 use basic_frame::DynamicFrame;
 
@@ -12,7 +12,7 @@ use fastim_mod::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
 
-type ToWorker = (DynamicFrame, ImPtDetectCfg);
+type ToWorker = (DynamicFrame, DateTime<Utc>, ImPtDetectCfg);
 type FromWorker = (
     FastImageData<Chan1, f32>,
     FastImageData<Chan1, f32>,
@@ -20,7 +20,6 @@ type FromWorker = (
     FastImageData<Chan1, u8>,
     FastImageRegion,
     chrono::DateTime<chrono::Utc>,
-    usize,
 );
 
 pub(crate) struct BackgroundModel {
@@ -29,7 +28,8 @@ pub(crate) struct BackgroundModel {
     pub(crate) mean_squared_im: FastImageData<Chan1, f32>,
     pub(crate) cmp_im: FastImageData<Chan1, u8>,
     pub(crate) current_roi: FastImageRegion,
-    pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
+    // pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
+    pub(crate) complete_stamp: chrono::DateTime<chrono::Utc>,
     tx_to_worker: std::sync::mpsc::SyncSender<ToWorker>,
     rx_from_worker: std::sync::mpsc::Receiver<FromWorker>,
 }
@@ -42,7 +42,7 @@ impl BackgroundModel {
         mean_squared_im: FastImageData<Chan1, f32>,
         cfg: &ImPtDetectCfg,
         pixel_format: formats::PixFmt,
-        complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
+        complete_stamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self>
     where
         S: FastImage<C = Chan1, D = u8>,
@@ -83,7 +83,7 @@ impl BackgroundModel {
                             break;
                         }
                     };
-                    let (frame, cfg) = x;
+                    let (frame, ts, cfg) = x;
                     let data = match &frame {
                         DynamicFrame::Mono8(x) => x.image_data(),
                         DynamicFrame::BayerRG8(x) => x.image_data(),
@@ -112,9 +112,7 @@ impl BackgroundModel {
                     let cmp_im = FastImageData::copy_from_8u_c1(&worker.cmp_im).unwrap();
 
                     let roi = worker.current_roi.clone();
-                    let ts = frame.extra().host_timestamp();
-                    let fno = frame.extra().host_framenumber();
-                    let msg = (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts, fno);
+                    let msg = (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts);
                     match tx_to_main.try_send(msg) {
                         Ok(()) => {}
                         Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
@@ -160,8 +158,9 @@ impl BackgroundModel {
         &mut self,
         frame: &DynamicFrame,
         cfg: &ImPtDetectCfg,
+        ts: DateTime<Utc>,
     ) -> Result<()> {
-        match self.tx_to_worker.try_send((frame.clone(), cfg.clone())) {
+        match self.tx_to_worker.try_send((frame.clone(), ts, cfg.clone())) {
             Ok(()) => {}
             Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
                 error!("not updating background image because pipe full");
@@ -177,13 +176,13 @@ impl BackgroundModel {
     pub(crate) fn poll_complete_updates(&mut self) -> Result<bool> {
         match self.rx_from_worker.try_recv() {
             Ok(msg) => {
-                let (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts, fno) = msg;
+                let (running_mean, mean_squared_im, mean_im, cmp_im, roi, ts) = msg;
                 self.mean_background = running_mean;
                 self.mean_squared_im = mean_squared_im;
                 self.mean_im = mean_im;
                 self.cmp_im = cmp_im;
                 self.current_roi = roi;
-                self.complete_stamp = (ts, fno);
+                self.complete_stamp = ts;
                 Ok(true)
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),

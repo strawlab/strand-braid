@@ -6,11 +6,10 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-futures = "0.3"
+futures.workspace = true
 tracing.workspace = true
 thread-control = "0.1.2"
 
 ci2 = { path = "../ci2" }
 machine-vision-formats.workspace = true
-timestamped-frame.workspace = true
 basic-frame.workspace = true

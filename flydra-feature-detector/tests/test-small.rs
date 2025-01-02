@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
 
 fn init() {
@@ -28,15 +29,13 @@ async fn track_small() -> anyhow::Result<()> {
         None,
     )?;
 
-    let extra = Box::new(basic_frame::BasicExtra {
-        host_framenumber: 0,
-        host_timestamp: chrono::Utc::now(),
-    });
     let buf = vec![0; (W * H) as usize];
     let pixel_format = machine_vision_formats::PixFmt::Mono8;
-    let frame = basic_frame::DynamicFrame::new(W, H, W, extra, buf, pixel_format);
+    let frame = basic_frame::DynamicFrame::new(W, H, W, buf, pixel_format);
     let ufmf_state = UfmfState::Stopped;
-    let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None, None)?;
+    let fno = 0;
+    let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
+    let maybe_found = ft.process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?;
     println!("maybe_found: {:?}", maybe_found);
     assert_eq!(maybe_found.0.points.len(), 0);
     Ok(())
@@ -65,25 +64,27 @@ async fn track_moving_stride() -> anyhow::Result<()> {
         None,
     )?;
 
-    for host_framenumber in 0..100 {
-        let extra = Box::new(basic_frame::BasicExtra {
-            host_framenumber,
-            host_timestamp: chrono::Utc::now(),
-        });
-
+    for fno in 0..100 {
         let mut buf = vec![0; STRIDE * (H as usize - 1) + W as usize];
 
-        let x_pos = host_framenumber % W as usize;
-        let y_pos = host_framenumber % H as usize;
+        let x_pos = fno % W as usize;
+        let y_pos = fno % H as usize;
 
         let buf_idx = y_pos * STRIDE + x_pos;
         buf[buf_idx] = 255;
 
         let pixel_format = machine_vision_formats::PixFmt::Mono8;
-        let frame = basic_frame::DynamicFrame::new(W, H, STRIDE as u32, extra, buf, pixel_format);
+        let frame = basic_frame::DynamicFrame::new(W, H, STRIDE as u32, buf, pixel_format);
         let ufmf_state = UfmfState::Stopped;
-        let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None, None)?;
-        println!("maybe_found: {maybe_found:?}, {x_pos},{y_pos}");
+        let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
+        let found_points = ft
+            .process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?
+            .0
+            .points
+            .into_iter()
+            .map(|pt| (pt.x0_abs, pt.y0_abs))
+            .collect::<Vec<_>>();
+        println!("maybe_found: {found_points:?}, {x_pos},{y_pos}");
     }
     Ok(())
 }

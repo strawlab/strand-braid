@@ -31,12 +31,14 @@ members = [
     "camera/ci2",
     "camera/ci2-async",
     "camera/ci2-cli",
+    "camera/ci2-pylon-types",
     "camera/ci2-pyloncxx",
     "camera/ci2-remote-control",
     "camera/ci2-simple-async-demo",
     "camera/ci2-simple-demo",
     "camera/ci2-types",
     "camera/ci2-vimba",
+    "camera/ci2-vimba-types",
     "camera/vimba",
     "csv-eof",
     "datetime-conversion",
@@ -110,7 +112,6 @@ members = [
     "strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
-    "timestamped-frame",
     "tracking",
     "withkey",
     "write-debian-changelog",
@@ -278,10 +279,12 @@ build-util = { path = "build-util" }
 camcal = { path = "geometry/camcal" }
 ci2 = { path = "camera/ci2" }
 ci2-async = { path = "camera/ci2-async" }
+ci2-pylon-types = { path = "camera/ci2-pylon-types" }
 ci2-pyloncxx = { path = "camera/ci2-pyloncxx" }
 ci2-remote-control = { path = "camera/ci2-remote-control" }
 ci2-types = { path = "camera/ci2-types" }
 ci2-vimba = { path = "camera/ci2-vimba" }
+ci2-vimba-types = { path = "camera/ci2-vimba-types" }
 csv-eof = { path = "csv-eof" }
 datetime-conversion = { path = "datetime-conversion" }
 download-verify = { path = "download-verify" }
@@ -328,7 +331,6 @@ strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
-timestamped-frame = { path = "timestamped-frame" }
 tracking = { path = "tracking" }
 ufmf = { path = "media-utils/ufmf" }
 vimba = { path = "camera/vimba" }

@@ -1,7 +1,6 @@
 use crate::{FrameData, FrameDataSource, ImageData, Result, Timestamp};
 use fmf::reader::FMFReader;
 use std::path::Path;
-use timestamped_frame::ExtraTimeData;
 
 struct FmfSourceIter {
     rdr: FMFReader,
@@ -27,10 +26,9 @@ impl Iterator for FmfSourceIter {
     fn next(&mut self) -> Option<Self::Item> {
         let pos_start = self.rdr.file_pos();
         self.rdr.next().map(|fmf_result| match fmf_result {
-            Ok(frame) => {
+            Ok((frame, frame_time_utc)) => {
                 let pos_end = self.rdr.file_pos();
                 let buf_len = pos_end - pos_start;
-                let frame_time_utc = frame.extra().host_timestamp();
                 let timestamp = frame_time_utc - self.frame0_time_utc;
                 let timestamp = Timestamp::Duration(timestamp.to_std()?);
                 let idx = self.idx;
@@ -78,16 +76,16 @@ impl FrameDataSource for FmfSource {
         }
         let mut rdr = FMFReader::new(&self.filename)?;
 
-        let mut frame = None;
+        let mut frame_timestamp = None;
         for _ in 0..n_frames {
-            frame = rdr.next()
+            frame_timestamp = rdr.next()
         }
 
-        let frame = frame
+        let frame_timestamp = frame_timestamp
             .map(|f| f.map_err(Into::into))
             .unwrap_or_else(|| Err(crate::Error::FmfWithNotEnoughData))?;
 
-        let frame_time_utc = frame.extra().host_timestamp();
+        let (_frame, frame_time_utc) = frame_timestamp;
         let duration = frame_time_utc - self.frame0_time_utc;
         let frame_time = self.frame0_time + duration;
 
@@ -117,12 +115,12 @@ impl FmfSource {
         let mut rdr = FMFReader::new(&filename)?;
         let width = rdr.width();
         let height = rdr.height();
-        let frame0 = rdr
+        let frame_timestamp0 = rdr
             .next()
             .map(|f| f.map_err(crate::Error::from))
             .unwrap_or_else(|| Err(crate::Error::FmfWithNotEnoughData))?;
 
-        let frame0_time_utc = frame0.extra().host_timestamp();
+        let (_frame0, frame0_time_utc) = frame_timestamp0;
         let frame0_time = mkv_strand_reader::infer_timezone(&frame0_time_utc, filename.to_str())?;
 
         Ok(Self {

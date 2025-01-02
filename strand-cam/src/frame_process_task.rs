@@ -26,7 +26,6 @@ use http_video_streaming::AnnotatedFrame;
 use rust_cam_bui_types::RecordingPath;
 
 use strand_cam_storetype::StoreType;
-use timestamped_frame::ExtraTimeData;
 
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
@@ -62,7 +61,6 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] acquisition_duration_allowed_imprecision_msec: Option<
         f64,
     >,
-    frame_info_extractor: &dyn ci2::ExtractFrameInfo,
     #[cfg(feature = "flydra_feat_detect")] app_name: &'static str,
     device_clock_model: Option<rust_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<(u64, u64)>,
@@ -219,6 +217,8 @@ pub(crate) async fn frame_process_task<'a>(
 
     let mut triggerbox_clock_model = None;
     let mut opt_frame_offset = None;
+
+    let mut block_id_offset = None;
 
     loop {
         #[cfg(feature = "flydra_feat_detect")]
@@ -500,7 +500,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                 // Get start time, either from buffered frames if present or current time.
                 let creation_time = if let Some(frame0) = frames.front() {
-                    frame0.extra().host_timestamp().into()
+                    frame0.host_timing.datetime.into()
                 } else {
                     local
                 };
@@ -528,10 +528,9 @@ pub(crate) async fn frame_process_task<'a>(
                     // Force frame width to be power of 2.
                     let val = 2;
                     let clipped_width = (frame.width() / val as u32) * val as u32;
-                    match_all_dynamic_fmts!(&mut frame, x, { x.width = clipped_width });
-                    // frame.width = clipped_width;
-                    let ts = frame.extra().host_timestamp();
-                    raw.write(frame, ts)?;
+                    match_all_dynamic_fmts!(&mut frame.image, x, { x.width = clipped_width });
+                    let ts = frame.host_timing.datetime;
+                    raw.write(frame.image, ts)?;
                 }
                 my_mp4_writer = Some(raw);
 
@@ -573,10 +572,21 @@ pub(crate) async fn frame_process_task<'a>(
                 }
             }
             Msg::Mframe(frame) => {
-                let extracted_frame_info = frame_info_extractor.extract_frame_info(&frame);
-                let device_timestamp = extracted_frame_info.device_timestamp;
-                tracing::trace!("device_timestamp: {device_timestamp:?}");
-                let block_id = extracted_frame_info.frame_id;
+                let (device_timestamp, block_id) = extract_backend_data(&frame);
+
+                // Check if frames were skipped
+                if let Some(block_id) = block_id {
+                    let this_offset = block_id as i128 - frame.host_timing.fno as i128;
+                    if let Some(prev_offset) = block_id_offset {
+                        let n_skipped = this_offset - prev_offset;
+                        if n_skipped != 0 {
+                            tracing::error!("{n_skipped} frame(s) skipped. block_id: {block_id}");
+                            block_id_offset = Some(this_offset);
+                        }
+                    } else {
+                        block_id_offset = Some(this_offset);
+                    }
+                }
 
                 // Compute, as cleverly as possible, a timestamp.
                 let braid_ts = match &trigger_type {
@@ -584,11 +594,11 @@ pub(crate) async fn frame_process_task<'a>(
                         flydra_types::triggerbox_time(
                             triggerbox_clock_model.as_ref(),
                             opt_frame_offset,
-                            extracted_frame_info.host_framenumber,
+                            frame.host_timing.fno,
                         )
                     }
                     Some(TriggerType::PtpSync(ptpcfg)) => {
-                        let ptp_stamp = PtpStamp::new(device_timestamp.unwrap().get());
+                        let ptp_stamp = PtpStamp::new(device_timestamp.unwrap());
                         if tracing::Level::TRACE <= tracing::level_filters::STATIC_MAX_LEVEL {
                             // Only run run this block if we compiled with
                             // trace-level logging enabled.
@@ -611,7 +621,7 @@ pub(crate) async fn frame_process_task<'a>(
                         let cm = device_clock_model.as_ref().unwrap();
                         let this_local_and_cam_time0 = local_and_cam_time0.as_ref().unwrap();
                         let (local_time0, cam_time0) = this_local_and_cam_time0;
-                        let device_timestamp = device_timestamp.unwrap().get();
+                        let device_timestamp = device_timestamp.unwrap();
                         let device_elapsed_nanos = device_timestamp - cam_time0;
                         let local_elapsed_nanos: f64 =
                             (device_elapsed_nanos as f64) * cm.gain + cm.offset;
@@ -632,11 +642,11 @@ pub(crate) async fn frame_process_task<'a>(
                 } else {
                     (
                         TimestampSource::HostAcquiredTimestamp,
-                        extracted_frame_info.host_timestamp,
+                        frame.host_timing.datetime,
                     )
                 };
 
-                if let Some(new_fps) = fps_calc.update(&extracted_frame_info) {
+                if let Some(new_fps) = fps_calc.update(&frame.host_timing) {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write().unwrap();
                         tracker.modify(|tracker| {
@@ -656,7 +666,7 @@ pub(crate) async fn frame_process_task<'a>(
                 if let Some(v4l_out_stream) = v4l_out_stream.as_mut() {
                     let (buf_out, buf_out_meta) =
                         v4l::io::traits::OutputStream::next(v4l_out_stream)?;
-                    let buf_in = frame.image_data_without_format();
+                    let buf_in = frame.image.image_data_without_format();
                     let bytesused = buf_in.len().try_into()?;
 
                     let buf_out = &mut buf_out[0..buf_in.len()];
@@ -701,7 +711,7 @@ pub(crate) async fn frame_process_task<'a>(
                                     checkerboard_data.width, checkerboard_data.height
                                 );
                                 let stamped = debug_image_stamp.format(&format_str).to_string();
-                                let png_buf = match_all_dynamic_fmts!(&frame, x, {
+                                let png_buf = match_all_dynamic_fmts!(&frame.image, x, {
                                     convert_image::frame_to_encoded_buffer(
                                         x,
                                         convert_image::EncoderOptions::Png,
@@ -722,7 +732,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 checkerboard_data.width, checkerboard_data.height
                             );
 
-                            let corners = basic_frame::match_all_dynamic_fmts!(&frame, x, {
+                            let corners = basic_frame::match_all_dynamic_fmts!(&frame.image, x, {
                                 let rgb: Box<
                                     dyn formats::ImageStride<formats::pixel_format::RGB8>,
                                 > = Box::new(convert_image::convert_ref::<
@@ -818,7 +828,7 @@ pub(crate) async fn frame_process_task<'a>(
                     {
                         if let Some(ref store_cache_ref) = store_cache {
                             if store_cache_ref.im_ops_state.do_detection {
-                                let thresholded = if let DynamicFrame::Mono8(mono8) = &frame {
+                                let thresholded = if let DynamicFrame::Mono8(mono8) = &frame.image {
                                     imops::threshold(
                                         mono8.clone(),
                                         imops::CmpOp::LessThan,
@@ -840,7 +850,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                                     let mc = CentroidToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        framenumber: block_id.unwrap().get(),
+                                        framenumber: block_id.unwrap(),
                                         timestamp: save_mp4_fmf_stamp,
                                         timestamp_source,
                                         mu00,
@@ -915,14 +925,14 @@ pub(crate) async fn frame_process_task<'a>(
                                         april_td.add_family(april_tf);
                                     }
 
-                                    if let Some(mut im) = frame2april(&frame) {
+                                    if let Some(mut im) = frame2april(&frame.image) {
                                         let detections = april_td.detect(im.inner_mut());
 
                                         if let Some(ref mut wtr) = apriltag_writer {
                                             wtr.save(
                                                 &detections,
-                                                frame.extra().host_framenumber(),
-                                                frame.extra().host_timestamp(),
+                                                frame.host_timing.fno,
+                                                frame.host_timing.datetime,
                                             )?;
                                         }
 
@@ -941,9 +951,8 @@ pub(crate) async fn frame_process_task<'a>(
 
                         // In case we are not doing flydra feature detection, send frame data to braid anyway.
                         let process_new_frame_start = chrono::Utc::now();
-                        let acquire_stamp = FlydraFloatTimestampLocal::from_dt(
-                            &extracted_frame_info.host_timestamp,
-                        );
+                        let acquire_stamp =
+                            FlydraFloatTimestampLocal::from_dt(&frame.host_timing.datetime);
 
                         let preprocess_stamp =
                             datetime_conversion::datetime_to_f64(&process_new_frame_start);
@@ -954,7 +963,7 @@ pub(crate) async fn frame_process_task<'a>(
                             cam_received_time: acquire_stamp,
                             device_timestamp,
                             block_id,
-                            framenumber: frame.extra().host_framenumber() as i32,
+                            framenumber: frame.host_timing.fno as i32,
                             n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
                             done_camnode_processing: 0.0,
                             preprocess_stamp,
@@ -982,7 +991,9 @@ pub(crate) async fn frame_process_task<'a>(
                             // mainbrain for 3D processing.
                             let (tracker_annotation, new_ufmf_state) = im_tracker
                                 .process_new_frame(
-                                    &frame,
+                                    &frame.image,
+                                    frame.host_timing.fno,
+                                    frame.host_timing.datetime,
                                     inner_ufmf_state,
                                     device_timestamp,
                                     block_id,
@@ -1024,7 +1035,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                                     let cam_received_timestamp =
                                         datetime_conversion::datetime_to_f64(
-                                            &frame.extra().host_timestamp(),
+                                            &frame.host_timing.datetime,
                                         );
 
                                     // TODO FIXME XXX It is a lie that this
@@ -1048,7 +1059,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         raw_cam_name.clone(),
                                         cam_num,
                                         flydra_types::SyncFno(
-                                            frame.extra().host_framenumber().try_into().unwrap(),
+                                            frame.host_timing.fno.try_into().unwrap(),
                                         ),
                                         trigger_timestamp,
                                         cam_received_timestamp,
@@ -1080,7 +1091,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                                     // start saving tracking
                                     let base_template = "flytrax%Y%m%d_%H%M%S";
-                                    let now = frame.extra().host_timestamp();
+                                    let now = frame.host_timing.datetime;
                                     let local = now.with_timezone(&chrono::Local);
                                     let base = local.format(base_template).to_string();
 
@@ -1090,7 +1101,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         image_path.push(base.clone());
                                         image_path.set_extension("jpg");
 
-                                        let bytes = match_all_dynamic_fmts!(&frame, x, {
+                                        let bytes = match_all_dynamic_fmts!(&frame.image, x, {
                                             convert_image::frame_to_encoded_buffer(
                                                 x,
                                                 convert_image::EncoderOptions::Jpeg(99),
@@ -1170,14 +1181,14 @@ pub(crate) async fn frame_process_task<'a>(
                                 }
                                 SavingState::Saving(ref mut inner) => {
                                     let interval = frame
-                                        .extra()
-                                        .host_timestamp()
+                                        .host_timing
+                                        .datetime
                                         .signed_duration_since(inner.last_save);
                                     // save found points
                                     if interval >= inner.min_interval && !points.is_empty() {
                                         let time_microseconds = frame
-                                            .extra()
-                                            .host_timestamp()
+                                            .host_timing
+                                            .datetime
                                             .signed_duration_since(inner.t0)
                                             .num_microseconds()
                                             .unwrap();
@@ -1219,7 +1230,7 @@ pub(crate) async fn frame_process_task<'a>(
                                                 inner.fd,
                                                 "{},{},{:.1},{:.1},{},{},{},{},{}",
                                                 time_microseconds,
-                                                frame.extra().host_framenumber(),
+                                                frame.host_timing.fno,
                                                 pt.x0_abs,
                                                 pt.y0_abs,
                                                 orientation_mod_pi,
@@ -1230,7 +1241,7 @@ pub(crate) async fn frame_process_task<'a>(
                                             )?;
                                             inner.fd.flush()?;
                                         }
-                                        inner.last_save = frame.extra().host_timestamp();
+                                        inner.last_save = frame.host_timing.datetime;
                                     }
                                 }
                             }
@@ -1258,7 +1269,7 @@ pub(crate) async fn frame_process_task<'a>(
                 };
 
                 if let Some(ref mut inner) = my_mp4_writer {
-                    let data = frame.clone(); // copy entire frame data
+                    let data = frame.image.clone(); // copy entire frame data
                     inner.write(data, save_mp4_fmf_stamp)?;
                 }
 
@@ -1273,7 +1284,7 @@ pub(crate) async fn frame_process_task<'a>(
                         }
                     };
                     if do_save {
-                        match_all_dynamic_fmts!(&frame, x, {
+                        match_all_dynamic_fmts!(&frame.image, x, {
                             inner.writer.write(x, save_mp4_fmf_stamp)?
                         });
                         inner.last_saved_stamp = Some(save_mp4_fmf_stamp);
@@ -1327,7 +1338,7 @@ pub(crate) async fn frame_process_task<'a>(
                 } else {
                     let result = firehose_tx
                         .send(AnnotatedFrame {
-                            frame,
+                            frame: frame.image,
                             found_points,
                             valid_display,
                             annotations,
@@ -1657,4 +1668,18 @@ fn to_serializer(
 struct FlydraConfigState {
     region: video_streaming::Shape,
     kalman_tracking_config: strand_cam_storetype::KalmanTrackingConfig,
+}
+
+/// Get device_timestamp and block_id from backend-specific data, if available.
+fn extract_backend_data(frame: &ci2::DynamicFrameWithInfo) -> (Option<u64>, Option<u64>) {
+    if let Some(any) = frame.backend_data.as_ref().map(ci2::AsAny::as_any) {
+        if let Some(xtra_pylon) = any.downcast_ref::<ci2_pylon_types::PylonExtra>() {
+            tracing::trace!("{xtra_pylon:?}");
+            return (Some(xtra_pylon.device_timestamp), Some(xtra_pylon.block_id));
+        } else if let Some(xtra_vimba) = any.downcast_ref::<ci2_vimba_types::VimbaExtra>() {
+            tracing::trace!("{xtra_vimba:?}");
+            return (Some(xtra_vimba.device_timestamp), Some(xtra_vimba.frame_id));
+        }
+    }
+    (None, None)
 }

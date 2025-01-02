@@ -72,8 +72,6 @@ impl ValHistogram {
 
 pub fn read_tiff_image(
     tiff_image: &TiffImage,
-    frame0_time: chrono::DateTime<chrono::FixedOffset>,
-    assign_idx: usize,
     hdr_cfg: &HdrConfig,
     hdr_lum_range: Option<(u16, u16)>,
     histogram: &mut ValHistogram,
@@ -87,12 +85,6 @@ pub fn read_tiff_image(
     let color = decoder.colortype()?;
 
     let (width, height) = decoder.dimensions()?;
-
-    let frame0_time_utc: chrono::DateTime<chrono::Utc> = frame0_time.into();
-    let extra = Box::new(basic_frame::BasicExtra {
-        host_timestamp: frame0_time_utc + chrono::Duration::from_std(metadata.timestamp)?,
-        host_framenumber: assign_idx,
-    });
 
     if hdr_lum_range.is_some() && hdr_cfg != &HdrConfig::Rescale_Linear_To_8Bits {
         anyhow::bail!("hdr_lum_range is set, but not rescaling to linear 8 bits");
@@ -161,7 +153,6 @@ pub fn read_tiff_image(
         width,
         height,
         stride,
-        extra,
         image_data,
         machine_vision_formats::PixFmt::Mono8,
     ))

@@ -14,7 +14,6 @@ cast = "0.2.2"
 
 basic-frame.workspace = true
 machine-vision-formats.workspace = true
-timestamped-frame.workspace = true
 datetime-conversion.workspace = true
 
 [dev-dependencies]

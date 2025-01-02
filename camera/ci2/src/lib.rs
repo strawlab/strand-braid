@@ -76,19 +76,67 @@ pub trait CameraModule: Send {
     /// The strings used in [Camera::node_map_load] and [Camera::node_map_save]
     /// would typically be stored in files with this extension.
     fn settings_file_extension(&self) -> &str;
-
-    fn frame_info_extractor(&self) -> &'static dyn ExtractFrameInfo;
 }
 
-pub struct FrameInfo {
-    pub device_timestamp: Option<std::num::NonZeroU64>,
-    pub frame_id: Option<std::num::NonZeroU64>,
-    pub host_framenumber: usize,
-    pub host_timestamp: chrono::DateTime<chrono::Utc>,
+#[derive(Clone)]
+pub struct DynamicFrameWithInfo {
+    /// The image frame acquired from the camera.
+    pub image: DynamicFrame,
+    /// Frame timing information acquired by the host.
+    pub host_timing: HostTimingInfo,
+    /// Backend-specific information about the frame.
+    ///
+    /// This may contain camera backend-specific timing information, which is
+    /// presumably better than that available using host-only information.
+    /// However, this is not guaranteed to be present.
+    pub backend_data: Option<Box<dyn BackendData>>,
 }
 
-pub trait ExtractFrameInfo: Sync + Send {
-    fn extract_frame_info(&self, _frame: &DynamicFrame) -> FrameInfo;
+pub trait BackendData: dyn_clone::DynClone + Send + AsAny {}
+
+// see https://users.rust-lang.org/t/calling-any-downcast-ref-requires-static/52071
+pub trait AsAny {
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+impl<T: std::any::Any> AsAny for T {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+// implement Clone for BackendData
+dyn_clone::clone_trait_object!(BackendData);
+
+impl DynamicFrameWithInfo {
+    pub fn width(&self) -> u32 {
+        self.image.width()
+    }
+    pub fn height(&self) -> u32 {
+        self.image.height()
+    }
+    pub fn pixel_format(&self) -> formats::PixFmt {
+        self.image.pixel_format()
+    }
+}
+
+/// Timing information acquired on the host computer.
+///
+/// This can be considered the "least common denominator" of frame timing
+/// information, as it will always be present but is not necessarily as accurate
+/// as desired.
+#[derive(Debug, Clone)]
+pub struct HostTimingInfo {
+    /// The frame number as counted by the host.
+    ///
+    /// This can deviate from the "real" frame number if the frames were
+    /// dropped, as might happen if the computer was busy with a different task.
+    pub fno: usize,
+    /// The timestamp of the frame when it was acquired by the host.
+    ///
+    /// This will be at least slightly delayed from the "real" frame timestamp
+    /// by transmission delays. Furthermore, if the computer was busy during
+    /// acquisition there may be additional, highly variable, delays.
+    pub datetime: chrono::DateTime<chrono::Utc>,
 }
 
 // ---------------------------
@@ -219,11 +267,5 @@ pub trait Camera: CameraInfo + Send {
     // This way pre-allocated can be stored to by the library and copies of the
     // data do not have to be made.
     // TODO: specify timeout
-    fn next_frame(&mut self) -> Result<DynamicFrame>;
+    fn next_frame(&mut self) -> Result<DynamicFrameWithInfo>;
 }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct AccessQueryResult {
-//     pub is_readable: bool,
-//     pub is_writeable: bool,
-// }

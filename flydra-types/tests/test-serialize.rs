@@ -15,8 +15,8 @@ fn make_test_packet() -> FlydraRawUdpPacket {
     let timestamp = 12.34;
     let timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(timestamp));
     let cam_received_time = FlydraFloatTimestampLocal::<HostClock>::from_f64(123.456);
-    let device_timestamp = std::num::NonZeroU64::new(123456);
-    let block_id = std::num::NonZeroU64::new(987654);
+    let device_timestamp = Some(123456);
+    let block_id = Some(987654);
     let framenumber = 42;
     let n_frames_skipped = 6;
 

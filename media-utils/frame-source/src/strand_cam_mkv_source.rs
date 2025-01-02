@@ -225,7 +225,6 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
     fn get_frame_inner(&mut self, idx: usize) -> Result<FrameData> {
         let bd = &self.parsed.block_data[idx];
 
-        let metadata = &self.parsed.metadata;
         let width = self.parsed.width;
         let height = self.parsed.height;
         let stride = self.parsed.width;
@@ -235,19 +234,12 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         self.rdr.read_exact(&mut image_data)?;
 
         let pts = bd.pts;
-        let pts_chrono = metadata.creation_time + chrono::Duration::from_std(pts)?;
-        let host_timestamp = pts_chrono.with_timezone(&chrono::Utc);
-        let extra = Box::new(basic_frame::BasicExtra {
-            host_timestamp,
-            host_framenumber: idx,
-        });
 
         let image = match self.src_format {
             Format::UncompressedMono => super::ImageData::Decoded(DynamicFrame::new(
                 width,
                 height,
                 stride,
-                extra,
                 image_data,
                 machine_vision_formats::PixFmt::Mono8,
             )),
@@ -268,7 +260,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
                 let has_precision_timestamp = image_data.starts_with(PRECISION_TIME_NALU_START);
                 if let Some(decoder) = self.h264_decoder_state.as_mut() {
                     let dynamic_frame = if let Some(decoded_yuv) = decoder.decode(&image_data)? {
-                        my_decode(decoded_yuv, width, height, extra)?
+                        my_decode(decoded_yuv, width, height)?
                     } else {
                         return Err(
                             StrandMkvSourceError::CouldNotDecodeSingleFrameWithOpenH264.into()
@@ -294,12 +286,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 }
 
 #[cfg(not(feature = "openh264"))]
-fn my_decode(
-    _decoded_yuv: (),
-    _width: u32,
-    _height: u32,
-    _extra: Box<basic_frame::BasicExtra>,
-) -> Result<DynamicFrame> {
+fn my_decode(_decoded_yuv: (), _width: u32, _height: u32) -> Result<DynamicFrame> {
     Err(Error::H264Error("No H264 decoder support at compile time"))
 }
 
@@ -308,7 +295,6 @@ fn my_decode(
     decoded_yuv: openh264::decoder::DecodedYUV<'_>,
     width: u32,
     height: u32,
-    extra: Box<basic_frame::BasicExtra>,
 ) -> Result<DynamicFrame> {
     use openh264::formats::YUVSource;
     let dim = decoded_yuv.dimensions();
@@ -324,7 +310,6 @@ fn my_decode(
         stride: u32::try_from(stride).unwrap(),
         image_data,
         pixel_format: std::marker::PhantomData,
-        extra,
     }))
 }
 

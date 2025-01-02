@@ -1,6 +1,5 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
 
 use ci2_remote_control::Mp4RecordingConfig;
@@ -105,7 +104,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
             h264_metadata: None,
         };
 
-        let frame = generate_image(pixfmt_str, *width, *height, start)?;
+        let frame = generate_image(pixfmt_str, *width, *height)?;
         {
             #[cfg(feature = "nv-encode")]
             let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, libs_and_nv_enc)?;
@@ -192,12 +191,7 @@ where
     true
 }
 
-fn generate_image(
-    pixfmt_str: &str,
-    width: u32,
-    height: u32,
-    start: DateTime<Utc>,
-) -> Result<basic_frame::DynamicFrame> {
+fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<basic_frame::DynamicFrame> {
     let width = width as usize;
     let height = height as usize;
     let image = {
@@ -221,10 +215,6 @@ fn generate_image(
                     (width).try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),
-                    Box::new(basic_frame::BasicExtra {
-                        host_framenumber: 0,
-                        host_timestamp: start.into(),
-                    }),
                     image_data,
                     machine_vision_formats::PixFmt::Mono8,
                 )
@@ -255,10 +245,6 @@ fn generate_image(
                     (width).try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),
-                    Box::new(basic_frame::BasicExtra {
-                        host_framenumber: 0,
-                        host_timestamp: start.into(),
-                    }),
                     image_data,
                     machine_vision_formats::PixFmt::RGB8,
                 )

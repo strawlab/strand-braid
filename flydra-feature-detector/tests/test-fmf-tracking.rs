@@ -33,10 +33,12 @@ async fn track_fmf() -> anyhow::Result<()> {
     let start = std::time::Instant::now();
     let mut count = 0;
     let mut n_pts = 0;
-    for frame in reader {
-        let frame = frame?;
+    for (fno, res_frame_ts) in reader.enumerate() {
+        let (frame, timestamp) = res_frame_ts?;
         let ufmf_state = UfmfState::Stopped;
-        let maybe_found = ft.process_new_frame(&frame, ufmf_state, None, None, None)?;
+
+        let maybe_found =
+            ft.process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?;
         count += 1;
         n_pts += maybe_found.0.points.len();
     }

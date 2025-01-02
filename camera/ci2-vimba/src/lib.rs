@@ -7,14 +7,12 @@ use std::{
 };
 use tracing::{error, warn};
 
-use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 
 use machine_vision_formats as formats;
 
-use ci2::{AcquisitionMode, AutoMode, TriggerMode};
+use ci2::{AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode};
 use formats::PixFmt;
-use timestamped_frame::HostTimeData;
 
 use basic_frame::DynamicFrame;
 use std::sync::mpsc::{Receiver, SyncSender};
@@ -26,7 +24,7 @@ const N_CHANNEL_FRAMES: usize = 10;
 
 struct FrameSender {
     handle: CamHandle,
-    tx: SyncSender<std::result::Result<DynamicFrame, ci2::Error>>,
+    tx: SyncSender<std::result::Result<InvalidHostFramenumber, ci2::Error>>,
 }
 
 struct CamHandle {
@@ -92,11 +90,9 @@ fn callback_rust(
             let pixel_format = vimba::pixel_format_code(code).map_vimba_err()?;
 
             {
-                let extra = Box::new(VimbaExtra {
+                let extra = Box::new(ci2_vimba_types::VimbaExtra {
                     frame_id,
                     device_timestamp,
-                    host_timestamp: now,
-                    pixel_format,
                 });
 
                 let width = unsafe { (*frame).width };
@@ -105,14 +101,22 @@ fn callback_rust(
                 // Compute minimum stride.
                 let min_stride = width as usize * pixel_format.bits_per_pixel() as usize / 8;
                 debug_assert!(min_stride * height as usize == image_data.len());
-                Ok(DynamicFrame::new(
+                let image = DynamicFrame::new(
                     width,
                     height,
                     min_stride.try_into().unwrap(),
-                    extra,
                     image_data,
                     pixel_format,
-                ))
+                );
+
+                Ok(InvalidHostFramenumber(DynamicFrameWithInfo {
+                    image,
+                    host_timing: HostTimingInfo {
+                        fno: 0, // will be fixed later
+                        datetime: now,
+                    },
+                    backend_data: Some(extra),
+                }))
             }
         } else {
             let str_msg = match frame_status {
@@ -322,15 +326,12 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
             info,
             frames: Vec::with_capacity(N_BUFFER_FRAMES),
             rx,
+            store_fno: 0,
         })
     }
 
     fn settings_file_extension(&self) -> &str {
         "xml"
-    }
-
-    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
-        &*FRAME_INFO
     }
 }
 
@@ -339,21 +340,6 @@ lazy_static::lazy_static! {
 }
 
 struct VimbaFrameInfo {}
-
-impl ci2::ExtractFrameInfo for VimbaFrameInfo {
-    fn extract_frame_info(&self, frame: &DynamicFrame) -> ci2::FrameInfo {
-        use timestamped_frame::ExtraTimeData;
-        let extra = frame.extra();
-
-        let vimba_extra = extra.as_any().downcast_ref::<VimbaExtra>().unwrap();
-        ci2::FrameInfo {
-            device_timestamp: std::num::NonZeroU64::new(vimba_extra.device_timestamp),
-            frame_id: std::num::NonZeroU64::new(vimba_extra.frame_id),
-            host_framenumber: extra.host_framenumber(),
-            host_timestamp: extra.host_timestamp(),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct VimbaCameraInfo {
@@ -378,12 +364,24 @@ impl ci2::CameraInfo for VimbaCameraInfo {
     }
 }
 
+/// newtype to indicate that framenumber must be updated
+struct InvalidHostFramenumber(DynamicFrameWithInfo);
+
+impl InvalidHostFramenumber {
+    fn as_valid(self, fno: usize) -> DynamicFrameWithInfo {
+        let mut result = self.0;
+        result.host_timing.fno = fno;
+        result
+    }
+}
+
 pub struct WrappedCamera<'lib> {
     pub camera: Arc<Mutex<vimba::Camera<'lib>>>,
     pub info: VimbaCameraInfo,
     acquisition_started: bool,
     frames: Vec<vimba::Frame>,
-    rx: Receiver<std::result::Result<DynamicFrame, ci2::Error>>,
+    rx: Receiver<std::result::Result<InvalidHostFramenumber, ci2::Error>>,
+    store_fno: usize,
 }
 
 fn _test_camera_is_send() {
@@ -872,7 +870,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         self.acquisition_started = false;
         Ok(())
     }
-    fn next_frame(&mut self) -> std::result::Result<DynamicFrame, ci2::Error> {
+    fn next_frame(&mut self) -> std::result::Result<DynamicFrameWithInfo, ci2::Error> {
         let msg = match self.rx.recv() {
             Ok(msg) => msg,
             Err(err) => {
@@ -882,26 +880,9 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
                 )));
             }
         };
-        let frame = msg?;
+        let frame = msg?.as_valid(self.store_fno);
+        self.store_fno += 1;
         Ok(frame)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct VimbaExtra {
-    pub frame_id: u64,
-    host_timestamp: DateTime<Utc>,
-    pub pixel_format: formats::PixFmt,
-    pub device_timestamp: u64,
-}
-
-impl HostTimeData for VimbaExtra {
-    fn host_framenumber(&self) -> usize {
-        // actually we just trust the device
-        self.frame_id.try_into().unwrap()
-    }
-    fn host_timestamp(&self) -> DateTime<Utc> {
-        self.host_timestamp
     }
 }
 

@@ -27,14 +27,13 @@
 use futures::Stream;
 use tracing::{debug, error};
 
-use basic_frame::DynamicFrame;
 use machine_vision_formats as formats;
 
-use ci2::Result;
+use ci2::{DynamicFrameWithInfo, Result};
 use std::sync::{Arc, Mutex};
 
 pub enum FrameResult {
-    Frame(DynamicFrame),
+    Frame(DynamicFrameWithInfo),
     SingleFrameError(String),
 }
 
@@ -412,7 +411,7 @@ where
     }
 
     /// blocks forever.
-    fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
+    fn next_frame(&mut self) -> ci2::Result<DynamicFrameWithInfo> {
         let mut c = self.camera.lock().unwrap();
         c.next_frame()
     }
@@ -439,9 +438,5 @@ where
 
     fn settings_file_extension(&self) -> &str {
         self.cam_module.settings_file_extension()
-    }
-
-    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
-        self.cam_module.frame_info_extractor()
     }
 }

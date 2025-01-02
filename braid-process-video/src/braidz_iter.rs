@@ -1,18 +1,21 @@
 use std::{collections::BTreeMap, iter::Peekable};
 
 use braidz_types::CalibrationInfo;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use eyre::{self as anyhow, Result};
 
 use flydra_mvg::FlydraMultiCameraSystem;
 use flydra_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
 use frame_source::FrameData;
-use timestamped_frame::ExtraTimeData;
 
 use crate::{argmin::Argmin, peek2::Peek2, SyncedPictures};
 
-fn clocks_within(a: &DateTime<Utc>, b: &DateTime<Utc>, dur: chrono::Duration) -> bool {
-    let dist = a.signed_duration_since(*b);
+fn clocks_within<TZ1, TZ2>(a: DateTime<TZ1>, b: DateTime<TZ2>, dur: chrono::Duration) -> bool
+where
+    TZ1: chrono::TimeZone,
+    TZ2: chrono::TimeZone,
+{
+    let dist = a.signed_duration_since(b);
     -dur < dist && dist < dur
 }
 
@@ -106,6 +109,7 @@ fn rows2result_no_video(
     let frame_num = rows[0].frame;
     let cam_received_timestamp = rows[0].cam_received_timestamp.clone();
     let timestamp: DateTime<Utc> = cam_received_timestamp.into();
+    let timestamp: DateTime<FixedOffset> = timestamp.into();
     let mut camera_pictures = Vec::new();
 
     for camn in camns {
@@ -193,6 +197,7 @@ struct BraidArchivePerCam<'a> {
     frame_reader: Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>,
     cam_num: CamNum,
     cam_rows_peek_iter: std::iter::Peekable<std::slice::Iter<'a, Data2dDistortedRow>>,
+    f0_time: DateTime<FixedOffset>,
 }
 
 pub(crate) fn as_ros_camid(raw_name: &str) -> String {
@@ -220,30 +225,15 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         camera_names: &[&str],
         frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
         sync_threshold: chrono::Duration,
+        frame0_times: Vec<DateTime<FixedOffset>>,
     ) -> Result<Self> {
         assert_eq!(camera_names.len(), frame_readers.len());
 
         // The readers will all have the current read position at
         // `approx_start_time` when this is called.
 
-        // Get time of first frame for each reader.
-        let t0: Vec<DateTime<Utc>> = frame_readers
-            .iter()
-            .map(|x| {
-                x.peek1()
-                    .unwrap()
-                    .as_ref()
-                    .unwrap()
-                    .decoded()
-                    .unwrap()
-                    .extra()
-                    .host_timestamp()
-            })
-            .collect();
-
         // Get earliest starting video
-        let i = t0.iter().argmin().unwrap();
-        let earliest_start_rdr = &frame_readers[i];
+        let i = frame0_times.iter().argmin().unwrap();
         let earliest_start_cam_name = &camera_names[i];
 
         let camid2camn = &archive.cam_info.camid2camn;
@@ -262,16 +252,8 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
             as_ros_camid
         };
 
-        let earliest_start = earliest_start_rdr
-            .peek1()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .decoded()
-            .unwrap()
-            .extra()
-            .host_timestamp();
-        let earliest_start_cam_num = &camid2camn.get(&as_camid(*earliest_start_cam_name)).unwrap();
+        let earliest_start = frame0_times[i];
+        let earliest_start_cam_num = &camid2camn.get(&as_camid(earliest_start_cam_name)).unwrap();
 
         // Now get data2d row with this timestamp to find the synchronized frame number.
         let cam_rows = data2d.get(earliest_start_cam_num).ok_or_else(|| {
@@ -284,11 +266,8 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         let mut found_frame = None;
 
         for row in cam_rows.iter() {
-            if clocks_within(
-                &(&row.cam_received_timestamp).into(),
-                &earliest_start,
-                sync_threshold,
-            ) {
+            let row_dt: DateTime<Utc> = (&row.cam_received_timestamp).into();
+            if clocks_within(row_dt, earliest_start, sync_threshold) {
                 if let Some(frame) = &found_frame {
                     assert_eq!(row.frame, *frame);
                 } else {
@@ -301,9 +280,10 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
 
         let per_cam = camera_names
             .iter()
-            .zip(frame_readers.into_iter())
-            .map(|(cam_name, frame_reader)| {
-                let cam_num = *camid2camn.get(&as_camid(*cam_name)).unwrap();
+            .zip(frame_readers)
+            .zip(frame0_times.iter())
+            .map(|((cam_name, frame_reader), f0_time)| {
+                let cam_num = *camid2camn.get(&as_camid(cam_name)).unwrap();
 
                 let cam_rows = data2d.get(&cam_num).unwrap();
                 for row in cam_rows.iter() {
@@ -321,6 +301,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
                     frame_reader,
                     cam_num,
                     cam_rows_peek_iter,
+                    f0_time: *f0_time,
                 }
             })
             .collect();
@@ -395,7 +376,7 @@ impl Iterator for BraidArchiveSyncVideoData<'_> {
                     }
 
                     let row0 = &this_cam_this_frame[0];
-                    let row0_pts_chrono = (&row0.cam_received_timestamp).into();
+                    let row0_pts_chrono: DateTime<Utc> = (&row0.cam_received_timestamp).into();
                     // Get the timestamp we need.
                     let need_stamp = &row0.cam_received_timestamp;
                     if let Some(tt) = &row0.timestamp {
@@ -418,13 +399,11 @@ impl Iterator for BraidArchiveSyncVideoData<'_> {
                             .as_ref()
                             .unwrap();
                         let idx = frame_data.idx();
-                        let p1_pts_chrono = frame_data
-                            .decoded()
-                            .unwrap()
-                            .extra()
-                            .host_timestamp();
+                        let p1_pts = frame_data
+                            .timestamp().unwrap_duration();
+                        let p1_pts_chrono = this_cam.f0_time + chrono::TimeDelta::from_std(p1_pts)?;
 
-                        if clocks_within(&need_chrono, &p1_pts_chrono, sync_threshold) {
+                        if clocks_within(need_chrono, p1_pts_chrono, sync_threshold) {
                             found = true;
                         } else if p1_pts_chrono > need_chrono {
                             // peek1 MP4 frame is after the time needed,
@@ -455,7 +434,7 @@ impl Iterator for BraidArchiveSyncVideoData<'_> {
                     };
 
                     Ok(crate::OutTimepointPerCamera::new(
-                        row0_pts_chrono,
+                        row0_pts_chrono.into(),
                         mp4_frame,
                         this_cam_this_frame,
                     ))

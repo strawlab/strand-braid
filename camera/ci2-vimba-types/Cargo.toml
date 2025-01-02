@@ -1,0 +1,7 @@
+[package]
+name = "ci2-vimba-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ci2.workspace = true

@@ -11,6 +11,5 @@ basic-frame.workspace = true
 byteorder.workspace = true
 chrono.workspace = true
 datetime-conversion.workspace = true
-timestamped-frame.workspace = true
 thiserror.workspace = true
 libflate.workspace = true

@@ -277,9 +277,9 @@ pub struct FrameData {
     /// time at which camnode got frame
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// timestamp from the camera
-    pub device_timestamp: Option<std::num::NonZeroU64>,
+    pub device_timestamp: Option<u64>,
     /// frame number from the camera
-    pub block_id: Option<std::num::NonZeroU64>,
+    pub block_id: Option<u64>,
     time_delta: SyncedFrameCount,
     tdpt: TimeDataPassthrough,
 }
@@ -292,8 +292,8 @@ impl FrameData {
         synced_frame: SyncFno,
         trigger_timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
         cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
-        device_timestamp: Option<std::num::NonZeroU64>,
-        block_id: Option<std::num::NonZeroU64>,
+        device_timestamp: Option<u64>,
+        block_id: Option<u64>,
     ) -> Self {
         let time_delta = Self::make_time_delta(synced_frame, trigger_timestamp.clone());
         let tdpt = TimeDataPassthrough::new(synced_frame, &trigger_timestamp);

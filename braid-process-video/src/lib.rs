@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, io::Write};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, TimeDelta};
 use eyre::{self as anyhow, Result, WrapErr};
 use flydra_mvg::FlydraMultiCameraSystem;
 use frame_source::{FrameData, FrameDataSource};
@@ -9,7 +9,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8, ImageData};
-use timestamped_frame::ExtraTimeData;
 
 use flydra_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
 
@@ -52,7 +51,7 @@ pub(crate) const DEFAULT_REPROJECTED_STYLE: &str = "fill: none; stroke: white; s
 
 #[derive(Debug)]
 pub(crate) struct OutTimepointPerCamera {
-    timestamp: DateTime<Utc>,
+    timestamp: DateTime<FixedOffset>,
     /// Camera image from MP4, MKV, or FMF file (if available).
     image: Option<DynamicFrame>,
     /// Braidz data. Empty if no braidz data available.
@@ -61,7 +60,7 @@ pub(crate) struct OutTimepointPerCamera {
 
 impl OutTimepointPerCamera {
     pub(crate) fn new(
-        timestamp: DateTime<Utc>,
+        timestamp: DateTime<FixedOffset>,
         image: Option<DynamicFrame>,
         this_cam_this_frame: Vec<Data2dDistortedRow>,
     ) -> Self {
@@ -76,7 +75,7 @@ impl OutTimepointPerCamera {
 /// An ordered `Vec` with one entry per camera.
 #[derive(Debug)]
 pub(crate) struct SyncedPictures {
-    pub(crate) timestamp: DateTime<Utc>,
+    pub(crate) timestamp: DateTime<FixedOffset>,
     pub(crate) camera_pictures: Vec<OutTimepointPerCamera>,
     /// If a braidz file was used as synchronization source, more data is
     /// available.
@@ -137,32 +136,31 @@ pub(crate) struct BraidzFrameInfo {
 }
 
 fn synchronize_readers_from(
-    approx_start_time: DateTime<Utc>,
+    approx_start_time: DateTime<FixedOffset>,
     readers: &mut [Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>],
+    frame0_times: &[chrono::DateTime<chrono::FixedOffset>],
 ) {
     // Advance each reader until upcoming frame is not before the start time.
-    for reader in readers.iter_mut() {
+    for (reader, frame0_time) in readers.iter_mut().zip(frame0_times) {
         // tracing::debug!("filename: {}", reader.as_ref().filename().display());
 
         // Get information for first frame
-        let p1_pts_chrono = reader
+        let p1_pts = reader
             .peek1()
             .unwrap()
             .as_ref()
             .unwrap()
-            .decoded()
-            .unwrap()
-            .extra()
-            .host_timestamp();
-        let p2_pts_chrono = reader
+            .timestamp()
+            .unwrap_duration();
+        let p1_pts_chrono = *frame0_time + TimeDelta::from_std(p1_pts).unwrap();
+        let p2_pts = reader
             .peek2()
             .unwrap()
             .as_ref()
             .unwrap()
-            .decoded()
-            .unwrap()
-            .extra()
-            .host_timestamp();
+            .timestamp()
+            .unwrap_duration();
+        let p2_pts_chrono = *frame0_time + TimeDelta::from_std(p2_pts).unwrap();
         let mut p1_delta = (p1_pts_chrono - approx_start_time)
             .num_nanoseconds()
             .unwrap()
@@ -179,13 +177,8 @@ fn synchronize_readers_from(
             loop {
                 // Get information for second frame
                 if let Some(p2_frame) = reader.peek2() {
-                    let p2_pts_chrono = p2_frame
-                        .as_ref()
-                        .unwrap()
-                        .decoded()
-                        .unwrap()
-                        .extra()
-                        .host_timestamp();
+                    let p2_pts = p2_frame.as_ref().unwrap().timestamp().unwrap_duration();
+                    let p2_pts_chrono = *frame0_time + TimeDelta::from_std(p2_pts).unwrap();
                     let p2_delta = (p2_pts_chrono - approx_start_time)
                         .num_nanoseconds()
                         .unwrap()
@@ -317,7 +310,7 @@ impl PerCamRender {
         }
     }
 
-    fn new_render_data(&self, pts_chrono: DateTime<Utc>) -> PerCamRenderFrame<'_> {
+    fn new_render_data(&self, pts_chrono: DateTime<FixedOffset>) -> PerCamRenderFrame<'_> {
         PerCamRenderFrame {
             p: self,
             png_buf: None,
@@ -333,7 +326,7 @@ pub(crate) struct PerCamRenderFrame<'a> {
     pub(crate) png_buf: Option<Vec<u8>>,
     pub(crate) points: Vec<(NotNan<f64>, NotNan<f64>)>,
     pub(crate) reprojected_points: Vec<(NotNan<f64>, NotNan<f64>)>,
-    pub(crate) pts_chrono: DateTime<Utc>,
+    pub(crate) pts_chrono: DateTime<FixedOffset>,
 }
 
 impl PerCamRenderFrame<'_> {
@@ -693,36 +686,35 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .frame_duration_microsecs
             .map(|x| chrono::Duration::from_std(std::time::Duration::from_micros(x)).unwrap())
             .unwrap_or_else(|| {
-                frame_readers
-                    .iter()
-                    .map(|reader| {
-                        let p1_pts_chrono = reader
-                            .peek1()
-                            .unwrap()
-                            .as_ref()
-                            .unwrap()
-                            .decoded()
-                            .unwrap()
-                            .extra()
-                            .host_timestamp();
-                        let p2_pts_chrono = reader
-                            .peek2()
-                            .unwrap()
-                            .as_ref()
-                            .unwrap()
-                            .decoded()
-                            .unwrap()
-                            .extra()
-                            .host_timestamp();
-                        p2_pts_chrono - p1_pts_chrono
-                    })
-                    .min()
-                    .unwrap()
+                chrono::TimeDelta::from_std(
+                    frame_readers
+                        .iter()
+                        .map(|reader| {
+                            let p1_pts = reader
+                                .peek1()
+                                .unwrap()
+                                .as_ref()
+                                .unwrap()
+                                .timestamp()
+                                .unwrap_duration();
+                            let p2_pts = reader
+                                .peek2()
+                                .unwrap()
+                                .as_ref()
+                                .unwrap()
+                                .timestamp()
+                                .unwrap_duration();
+                            p2_pts - p1_pts
+                        })
+                        .min()
+                        .unwrap(),
+                )
+                .unwrap()
             });
 
         let sync_threshold = cfg
             .sync_threshold_microseconds
-            .map(|x| chrono::Duration::from_std(std::time::Duration::from_micros(x)).unwrap())
+            .map(|x| chrono::TimeDelta::from_std(std::time::Duration::from_micros(x)).unwrap())
             .unwrap_or(frame_duration / 2);
 
         tracing::info!(
@@ -742,16 +734,18 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 &camera_names_ref,
                 frame_readers,
                 sync_threshold,
+                frame0_times,
             )?)
         } else if let Some(approx_start_time) = approx_start_time {
             // In this path, we use the timestamps in the saved videos as the source
             // of synchronization.
-            synchronize_readers_from(approx_start_time.into(), &mut frame_readers);
+            synchronize_readers_from(approx_start_time, &mut frame_readers, &frame0_times);
 
             Box::new(synced_iter::SyncedIter::new(
                 frame_readers,
                 sync_threshold,
                 frame_duration,
+                frame0_times,
             )?)
         } else {
             anyhow::bail!(

@@ -23,7 +23,6 @@ image.workspace = true
 machine-vision-formats.workspace = true
 y4m.workspace = true
 
-timestamped-frame.workspace = true
 fmf.workspace = true
 convert-image.workspace = true
 basic-frame.workspace = true

@@ -61,36 +61,27 @@ pub(crate) fn undistort_image(
         decoded.height().try_into().unwrap(),
         decoded.width().try_into().unwrap(),
     );
-    // let extra = Box::new(decoded.extra().clone());
 
     // convert to opencv::core::Mat
-    let (distorted_img, extra) = match decoded.pixel_format() {
+    let distorted_img = match decoded.pixel_format() {
         PixFmt::Mono8 => {
             let mono8 = decoded.into_pixel_format::<pixel_format::Mono8>()?;
-            let extra = mono8.extra;
-            (
-                Mat::from_slice_rows_cols(&mono8.image_data, rows, cols)?,
-                extra,
-            )
+            Mat::from_slice_rows_cols(&mono8.image_data, rows, cols)?
         }
         _ => {
             let rgb8 = decoded.into_pixel_format::<machine_vision_formats::pixel_format::RGB8>()?;
-            let extra = rgb8.extra;
             let data_slice = rgb8.image_data.as_slice();
             let stride = rgb8.stride;
-            (
-                unsafe {
-                    Mat::new_rows_cols_with_data(
-                        h,
-                        w,
-                        core::CV_8UC3,
-                        data_slice.as_ptr().cast::<c_void>().cast_mut(),
-                        stride.try_into().unwrap(),
-                    )
-                }?
-                .try_clone()?,
-                extra,
-            )
+            unsafe {
+                Mat::new_rows_cols_with_data(
+                    h,
+                    w,
+                    core::CV_8UC3,
+                    data_slice.as_ptr().cast::<c_void>().cast_mut(),
+                    stride.try_into().unwrap(),
+                )
+            }?
+            .try_clone()?
         }
     };
 
@@ -122,7 +113,6 @@ pub(crate) fn undistort_image(
                 stride: u32::try_from(stride).unwrap(),
                 image_data,
                 pixel_format: std::marker::PhantomData,
-                extra,
             };
             DynamicFrame::from(basic)
         }

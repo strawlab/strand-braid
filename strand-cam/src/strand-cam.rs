@@ -27,11 +27,10 @@ use tracing::{debug, error, info, trace, warn};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
-use ci2::{Camera, CameraInfo, CameraModule};
+use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
-use timestamped_frame::ExtraTimeData;
 
 use video_streaming::AnnotatedFrame;
 
@@ -143,7 +142,7 @@ pub(crate) enum Msg {
     SetTracking(bool),
     PostTriggerStartMp4,
     SetPostTriggerBufferSize(usize),
-    Mframe(DynamicFrame),
+    Mframe(DynamicFrameWithInfo),
     #[cfg(feature = "flydra_feat_detect")]
     SetIsSavingObjDetectionCsv(CsvSaveConfig),
     #[cfg(feature = "flydra_feat_detect")]
@@ -195,9 +194,9 @@ impl FpsCalc {
         }
     }
     /// return a newly computed fps value whenever available.
-    pub fn update(&mut self, fi: &ci2::FrameInfo) -> Option<f64> {
-        let fno = fi.host_framenumber;
-        let stamp = fi.host_timestamp;
+    pub fn update(&mut self, fi: &ci2::HostTimingInfo) -> Option<f64> {
+        let fno = fi.fno;
+        let stamp = fi.datetime;
         let mut reset_previous = true;
         let mut result = None;
         if let Some((prev_frame, ref prev_stamp)) = self.prev {
@@ -1255,7 +1254,6 @@ where
     G: Send,
 {
     let use_camera_name = cam; // simple arg name important for tracing::instrument
-    let frame_info_extractor = mymod.frame_info_extractor();
     let settings_file_ext = mymod.settings_file_extension().to_string();
 
     let (quit_rx, gui_stuff2) = if let Some(gas) = gui_app_stuff {
@@ -1423,6 +1421,7 @@ where
 
     #[cfg(target_os = "linux")]
     let v4l_out_stream = {
+        let frame = &frame.image;
         use machine_vision_formats::Stride;
         if let Some(v4l_device) = &args.v4l2loopback {
             if frame.pixel_format() != PixFmt::Mono8 {
@@ -1472,7 +1471,7 @@ where
     // Put first frame in channel.
     firehose_tx
         .send(AnnotatedFrame {
-            frame: frame.clone(),
+            frame: frame.image.clone(),
             found_points: vec![],
             valid_display: None,
             annotations: vec![],
@@ -1484,7 +1483,7 @@ where
     let image_width = frame.width();
     let image_height = frame.height();
 
-    let current_image_png = match_all_dynamic_fmts!(&frame, x, {
+    let current_image_png = match_all_dynamic_fmts!(&frame.image, x, {
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)?
     });
 
@@ -1890,7 +1889,7 @@ where
         }
     };
 
-    let is_nvenc_functioning = test_nvenc_save(frame)?;
+    let is_nvenc_functioning = test_nvenc_save(frame.image)?;
 
     let mp4_codec = match is_nvenc_functioning {
         true => CodecSelection::H264Nvenc,
@@ -2196,7 +2195,6 @@ where
             &args,
             #[cfg(feature = "flydra_feat_detect")]
             acquisition_duration_allowed_imprecision_msec,
-            frame_info_extractor,
             #[cfg(feature = "flydra_feat_detect")]
             app_name,
             device_clock_model,
@@ -2229,11 +2227,11 @@ where
                 std::time::Instant::now() - send_current_image_interval;
             while let Some(frame_msg) = frame_stream.next().await {
                 match &frame_msg {
-                    ci2_async::FrameResult::Frame(frame) => {
-                        let frame: &DynamicFrame = frame;
+                    ci2_async::FrameResult::Frame(fframe) => {
+                        let frame: &DynamicFrame = &fframe.image;
                         trace!(
                             "  got frame {}: {}x{}",
-                            frame.extra().host_framenumber(),
+                            fframe.host_timing.fno,
                             frame.width(),
                             frame.height()
                         );
@@ -2285,7 +2283,7 @@ where
                             error!("Channel full sending frame to process thread. Dropping frame data.");
                         } else {
                             tx_frame
-                                .send(Msg::Mframe(frame.clone()))
+                                .send(Msg::Mframe(fframe.clone()))
                                 .await
                                 .map_err(to_eyre)?;
                         }
@@ -2301,7 +2299,7 @@ where
 
                         if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
                             // encode frame to png buf
-                            let current_image_png = match_all_dynamic_fmts!(frame, x, {
+                            let current_image_png = match_all_dynamic_fmts!(&frame.image, x, {
                                 convert_image::frame_to_encoded_buffer(
                                     x,
                                     convert_image::EncoderOptions::Png,

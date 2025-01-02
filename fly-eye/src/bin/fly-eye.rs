@@ -22,7 +22,7 @@ fn thread_loop(firehose_tx: Sender<DynamicFrame>) -> anyhow::Result<()> {
     loop {
         let frame = cam.next_frame()?;
         firehose_tx
-            .send(frame.into())
+            .send(frame.image.into())
             .map_err(|_| anyhow::anyhow!("receiver disconnected"))?;
     }
 }

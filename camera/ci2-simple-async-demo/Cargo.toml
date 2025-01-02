@@ -14,17 +14,19 @@ lazy_static.workspace = true
 
 basic-frame.workspace = true
 machine-vision-formats.workspace = true
-timestamped-frame.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
 
-ci2-pyloncxx = { workspace = true, optional = true }
 pylon-cxx = { version = "0.4.0", optional = true }
+ci2-pyloncxx = { workspace = true, optional = true }
+ci2-pylon-types = { workspace = true, optional = true }
+
 ci2-vimba = { workspace = true, optional = true }
+ci2-vimba-types = { workspace = true, optional = true }
 
 [features]
 default = ["backend_pyloncxx"]
 
 # Backend choice
-backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-cxx"]
-backend_vimba = ["dep:ci2-vimba"]
+backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-cxx", "dep:ci2-pylon-types"]
+backend_vimba = ["dep:ci2-vimba", "dep:ci2-vimba-types"]

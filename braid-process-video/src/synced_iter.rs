@@ -1,9 +1,8 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset};
 use eyre::{self as anyhow, Result};
 
 use crate::{peek2::Peek2, SyncedPictures};
 use frame_source::FrameData;
-use timestamped_frame::ExtraTimeData;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
 ///
@@ -14,8 +13,9 @@ pub(crate) struct SyncedIter {
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
     frame_duration: chrono::Duration,
-    previous_min: DateTime<Utc>,
-    previous_max: DateTime<Utc>,
+    previous_min: DateTime<FixedOffset>,
+    previous_max: DateTime<FixedOffset>,
+    frame0_times: Vec<DateTime<FixedOffset>>,
 }
 
 impl SyncedIter {
@@ -23,30 +23,18 @@ impl SyncedIter {
         frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
+        frame0_times: Vec<DateTime<FixedOffset>>,
     ) -> Result<Self> {
         if sync_threshold * 2 > frame_duration {
             anyhow::bail!(
                 "Sync threshold must be at most half of frame duration. \
-            However, the syncthreshold is {} and the frame_duration is {}",
+            However, the sync_threshold is {} and the frame_duration is {}",
                 sync_threshold,
                 frame_duration
             );
         }
-        let t0: Vec<DateTime<Utc>> = frame_readers
-            .iter()
-            .map(|x| {
-                x.peek1()
-                    .unwrap()
-                    .as_ref()
-                    .unwrap()
-                    .decoded()
-                    .unwrap()
-                    .extra()
-                    .host_timestamp()
-            })
-            .collect();
-        let mut previous_min = *t0.iter().min().unwrap();
-        let mut previous_max = *t0.iter().max().unwrap();
+        let mut previous_min = *frame0_times.iter().min().unwrap();
+        let mut previous_max = *frame0_times.iter().max().unwrap();
         if (previous_max - previous_min) > sync_threshold {
             anyhow::bail!("range of timestamps in initial frame exceeds sync_threshold");
         }
@@ -61,6 +49,7 @@ impl SyncedIter {
             frame_duration,
             previous_min,
             previous_max,
+            frame0_times,
         })
     }
 }
@@ -78,8 +67,9 @@ impl Iterator for SyncedIter {
         let camera_pictures: Vec<frame_source::Result<crate::OutTimepointPerCamera>> = self
             .frame_readers
             .iter_mut()
-            .filter_map(|frame_reader| {
-                let timestamp1 = frame_reader.peek1().map(|x| x.as_ref().unwrap().decoded().unwrap().extra().host_timestamp());
+            .zip( self.frame0_times.iter())
+            .filter_map(|(frame_reader, f0_time)| {
+                let timestamp1 = frame_reader.peek1().map(|x| *f0_time+chrono::TimeDelta::from_std(x.as_ref().unwrap().timestamp().unwrap_duration()).unwrap());
 
                 let mp4_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;

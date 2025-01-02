@@ -26,7 +26,6 @@ basic-frame.workspace = true
 ci2-remote-control.workspace = true
 fmf.workspace = true
 mkv-strand-reader.workspace = true
-timestamped-frame.workspace = true
 
 [dev-dependencies]
 mp4-writer = { workspace = true, features = ["nv-encode"] }

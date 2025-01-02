@@ -9,8 +9,8 @@ rust-version = "1.76"
 thiserror.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
+dyn-clone.workspace = true
 
 machine-vision-formats.workspace = true
 ci2-types.workspace = true
 basic-frame.workspace = true
-timestamped-frame.workspace = true

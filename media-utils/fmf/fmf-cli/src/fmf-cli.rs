@@ -7,7 +7,6 @@ use clap::Parser;
 use convert_image::EncoderOptions;
 use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
-use timestamped_frame::ExtraTimeData;
 use y4m::Colorspace;
 
 /*
@@ -262,8 +261,8 @@ fn info(path: PathBuf) -> Result<()> {
         pixel_format: PixFmt,
     }
     let reader = fmf::FMFReader::new(&path)?;
-    for (fno, frame) in reader.enumerate() {
-        let frame = frame?;
+    for (fno, res_frame) in reader.enumerate() {
+        let (frame, timestamp) = res_frame?;
         let i = Info {
             width: frame.width(),
             stride: frame.stride(),
@@ -273,7 +272,7 @@ fn info(path: PathBuf) -> Result<()> {
         if fno == 0 {
             println!("{:?}", i);
         }
-        println!("frame {}: {}", fno, frame.extra().host_timestamp());
+        println!("frame {}: {}", fno, timestamp);
     }
     Ok(())
 }
@@ -303,9 +302,8 @@ fn export_fmf(
     let f = std::fs::File::create(&output_fname)?;
     let mut writer = fmf::FMFWriter::new(f)?;
 
-    for frame in reader {
-        let frame = frame?;
-        let fts = frame.extra().host_timestamp();
+    for res_frame in reader {
+        let (frame, fts) = res_frame?;
         let frame: DynamicFrame = match forced_input_pixel_format {
             Some(forced_input_pixel_format) => frame.force_pixel_format(forced_input_pixel_format),
             None => frame,
@@ -360,8 +358,8 @@ fn export_images(path: PathBuf, opts: EncoderOptions) -> Result<()> {
 
     let reader = fmf::FMFReader::new(&path)?;
 
-    for (i, frame) in reader.enumerate() {
-        let frame = frame?;
+    for (i, res_frame) in reader.enumerate() {
+        let (frame, _) = res_frame?;
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
         let buf =
@@ -514,7 +512,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     // collect timestamps
     let ts_first: Vec<_> = buffered_first
         .iter()
-        .map(|res_frame| res_frame.as_ref().unwrap().extra().host_timestamp())
+        .map(|res_frame| res_frame.as_ref().unwrap().1)
         .collect();
     // collect deltas
     let dt_first: Vec<f64> = ts_first
@@ -536,10 +534,9 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     debug!("opening file {}", output_fname.unwrap().display());
     let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, nv_enc)?;
 
-    for (fno, fmf_frame) in buffered_first.into_iter().chain(reader).enumerate() {
-        let fmf_frame = fmf_frame?;
+    for (fno, res_frame) in buffered_first.into_iter().chain(reader).enumerate() {
+        let (fmf_frame, ts) = res_frame?;
         debug!("saving frame {}", fno);
-        let ts = fmf_frame.extra().host_timestamp();
         match_all_dynamic_fmts!(fmf_frame, frame, {
             my_mp4_writer.write(&frame, ts)?;
         });
@@ -576,8 +573,8 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
     let reader = fmf::FMFReader::new(&x.input)?;
 
-    for frame in reader {
-        let frame = frame?;
+    for res_frame in reader {
+        let (frame, _) = res_frame?;
         basic_frame::match_all_dynamic_fmts!(frame, f, {
             y4m_writer.write_frame(&f)?;
         });
@@ -661,10 +658,6 @@ fn test_y4m() -> anyhow::Result<()> {
                 stride: width,
                 pixel_format: std::marker::PhantomData::<Mono8>,
                 image_data,
-                extra: Box::new(basic_frame::BasicExtra {
-                    host_timestamp: start,
-                    host_framenumber: 0,
-                }),
             };
             let orig_rgb8 = convert_image::convert_ref::<_, RGB8>(&frame)?;
 

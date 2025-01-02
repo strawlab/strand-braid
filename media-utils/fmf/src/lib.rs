@@ -42,7 +42,6 @@ pub enum FMFError {
     Io {
         #[from]
         source: std::io::Error,
-
     },
 
     #[error("From {path}: {source}")]
@@ -50,7 +49,6 @@ pub enum FMFError {
         path: String,
         #[source]
         source: std::io::Error,
-
     },
 
     #[error("{0}")]
@@ -286,29 +284,19 @@ impl<F: Write + Seek> Drop for FMFWriterInner<F> {
 #[cfg(test)]
 mod tests {
     use super::FMFWriter;
-    use basic_frame::{BasicExtra, BasicFrame};
+    use basic_frame::BasicFrame;
 
-    use timestamped_frame::ExtraTimeData;
-
-    use chrono::{DateTime, Local};
     use machine_vision_formats::pixel_format::Mono8;
 
     fn zeros(w: u32, h: u32) -> BasicFrame<Mono8> {
         let mut image_data = Vec::new();
         image_data.resize((w * h) as usize, 0);
-        let local: DateTime<Local> = Local::now();
-        let host_timestamp = local.with_timezone(&chrono::Utc);
-        let extra = Box::new(BasicExtra {
-            host_timestamp,
-            host_framenumber: 0,
-        });
 
         BasicFrame {
             width: w,
             height: h,
             stride: w,
             image_data,
-            extra,
             pixel_format: std::marker::PhantomData,
         }
     }
@@ -323,13 +311,15 @@ mod tests {
 
         // write some frames
         let f1 = zeros(w, h);
-        writer.write(&f1, f1.extra().host_timestamp()).unwrap();
+        let dt = chrono::DateTime::from_timestamp(61, 0).unwrap();
+
+        writer.write(&f1, dt).unwrap();
 
         let f2 = zeros(w, h);
-        writer.write(&f2, f2.extra().host_timestamp()).unwrap();
+        writer.write(&f2, dt).unwrap();
 
         let f3 = zeros(w, h);
-        writer.write(&f3, f3.extra().host_timestamp()).unwrap();
+        writer.write(&f3, dt).unwrap();
 
         let f = writer.close().unwrap();
 

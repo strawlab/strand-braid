@@ -1,8 +1,7 @@
 use futures::stream::StreamExt;
 
-use ci2::{Camera, CameraModule};
+use ci2::{BackendData, Camera, CameraModule};
 use ci2_async::AsyncCamera;
-use timestamped_frame::{ExtraTimeData, HostTimeData};
 
 #[cfg(feature = "backend_pyloncxx")]
 use ci2_pyloncxx as backend;
@@ -14,11 +13,10 @@ lazy_static::lazy_static! {
 }
 
 #[cfg(feature = "backend_pyloncxx")]
-pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
-    // Downcast to pylon specific type.
-    let pylon_extra = extra
+pub fn print_backend_specific_data(backend_data: &dyn BackendData) {
+    let pylon_extra = backend_data
         .as_any()
-        .downcast_ref::<backend::PylonExtra>()
+        .downcast_ref::<ci2_pylon_types::PylonExtra>()
         .unwrap();
     println!(
         "    device_timestamp: {}, block_id: {}",
@@ -27,11 +25,11 @@ pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
 }
 
 #[cfg(feature = "backend_vimba")]
-pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
+pub fn print_backend_specific_data(backend_data: &dyn BackendData) {
     // Downcast to vimba specific type.
-    let vimba_extra = extra
+    let vimba_extra = backend_data
         .as_any()
-        .downcast_ref::<ci2_vimba::VimbaExtra>()
+        .downcast_ref::<ci2_vimba_types::VimbaExtra>()
         .unwrap();
     println!(
         "    device_timestamp: {}, frame_id: {}",
@@ -40,7 +38,7 @@ pub fn print_backend_specific_data(extra: &dyn HostTimeData) {
 }
 
 #[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_vimba")))]
-pub fn print_backend_specific_data(_extra: &dyn HostTimeData) {
+pub fn print_backend_specific_data(_: &dyn BackendData) {
     // do nothing
 }
 
@@ -54,11 +52,13 @@ where
             ci2_async::FrameResult::Frame(frame) => {
                 println!(
                     "  got frame {}: {}x{}",
-                    frame.extra().host_framenumber(),
+                    frame.host_timing.fno,
                     frame.width(),
                     frame.height()
                 );
-                print_backend_specific_data(frame.extra());
+                if let Some(bd) = &frame.backend_data {
+                    print_backend_specific_data(bd.as_ref());
+                }
             }
             ci2_async::FrameResult::SingleFrameError(e) => {
                 println!("  got SingleFrameError: {:?}", e);

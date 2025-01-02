@@ -1,14 +1,14 @@
 extern crate machine_vision_formats as formats;
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
 use std::sync::{Arc, Mutex};
 
 use basic_frame::DynamicFrame;
-use ci2::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
+use ci2::{
+    AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode, TriggerSelector,
+};
 use machine_vision_formats::{ImageBuffer, ImageBufferRef};
 use pylon_cxx::HasProperties;
-use timestamped_frame::HostTimeData;
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
@@ -128,32 +128,6 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         // See https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/saving-camera-features-or-user-sets-as-file-on-hard-disk/588482/
         "pfs" // Pylon Feature Stream
     }
-
-    fn frame_info_extractor(&self) -> &'static dyn ci2::ExtractFrameInfo {
-        &*FRAME_INFO
-    }
-}
-
-lazy_static::lazy_static! {
-    static ref FRAME_INFO: PylonFrameInfo = PylonFrameInfo {};
-}
-
-struct PylonFrameInfo {}
-
-impl ci2::ExtractFrameInfo for PylonFrameInfo {
-    fn extract_frame_info(&self, frame: &DynamicFrame) -> ci2::FrameInfo {
-        use timestamped_frame::ExtraTimeData;
-        let extra = frame.extra();
-
-        let pylon_extra = extra.as_any().downcast_ref::<PylonExtra>().unwrap();
-
-        ci2::FrameInfo {
-            device_timestamp: std::num::NonZeroU64::new(pylon_extra.device_timestamp),
-            frame_id: std::num::NonZeroU64::new(pylon_extra.block_id),
-            host_framenumber: extra.host_framenumber(),
-            host_timestamp: extra.host_timestamp(),
-        }
-    }
 }
 
 /// Raw data and associated metadata from an acquired frame.
@@ -165,11 +139,9 @@ pub struct Frame {
     height: u32,
     /// number of bytes in an image row
     stride: u32,
-    image_data: Vec<u8>,                           // raw image data
-    host_timestamp: chrono::DateTime<chrono::Utc>, // timestamp from host computer
-    host_framenumber: usize,                       // framenumber from host computer
-    pub block_id: u64,                             // framenumber from the camera driver
-    pub device_timestamp: u64,                     // timestamp from the camera driver
+    image_data: Vec<u8>,   // raw image data
+    block_id: u64,         // framenumber from the camera driver
+    device_timestamp: u64, // timestamp from the camera driver
 }
 
 impl std::fmt::Debug for Frame {
@@ -180,15 +152,6 @@ impl std::fmt::Debug for Frame {
             .field("block_id", &self.block_id)
             .field("device_timestamp", &self.device_timestamp)
             .finish()
-    }
-}
-
-impl timestamped_frame::HostTimeData for Frame {
-    fn host_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-        self.host_timestamp
-    }
-    fn host_framenumber(&self) -> usize {
-        self.host_framenumber
     }
 }
 
@@ -1041,7 +1004,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
     }
 
     /// synchronous (blocking) frame acquisition
-    fn next_frame(&mut self) -> ci2::Result<DynamicFrame> {
+    fn next_frame(&mut self) -> ci2::Result<DynamicFrameWithInfo> {
         let pixel_format = self.pixel_format()?;
 
         let mut gr = self.grab_result.lock().unwrap();
@@ -1067,21 +1030,19 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             let image_data = buffer.to_vec();
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
 
-            let extra = Box::new(PylonExtra {
+            let backend_data = Box::new(ci2_pylon_types::PylonExtra {
                 block_id,
-                host_timestamp: now,
-                host_framenumber: fno,
                 device_timestamp,
-                pixel_format,
             });
-            Ok(DynamicFrame::new(
-                width,
-                height,
-                stride,
-                extra,
-                image_data,
-                pixel_format,
-            ))
+
+            let host_timing = HostTimingInfo { fno, datetime: now };
+            let image = DynamicFrame::new(width, height, stride, image_data, pixel_format);
+
+            Ok(DynamicFrameWithInfo {
+                image,
+                host_timing,
+                backend_data: Some(backend_data),
+            })
 
         // println!("Gray value of first pixel: {}\n", image_buffer[0]);
         } else {
@@ -1181,46 +1142,5 @@ fn mode_to_str(value: AutoMode) -> &'static str {
         ci2::AutoMode::Off => "Off",
         ci2::AutoMode::Once => "Once",
         ci2::AutoMode::Continuous => "Continuous",
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PylonExtra {
-    pub block_id: u64,
-    host_timestamp: DateTime<Utc>,
-    host_framenumber: usize,
-    pub pixel_format: formats::PixFmt,
-    pub device_timestamp: u64,
-}
-
-impl HostTimeData for PylonExtra {
-    fn host_framenumber(&self) -> usize {
-        self.host_framenumber
-    }
-    fn host_timestamp(&self) -> DateTime<Utc> {
-        self.host_timestamp
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_pylon_extra() {
-        use crate::PylonExtra;
-        use timestamped_frame::HostTimeData;
-
-        let pe: Box<dyn HostTimeData> = Box::new(PylonExtra {
-            block_id: 123,
-            host_timestamp: chrono::Utc::now(),
-            host_framenumber: 456,
-            pixel_format: formats::PixFmt::Mono8,
-            device_timestamp: 789,
-        });
-
-        let extra: &dyn HostTimeData = pe.as_ref();
-
-        let extra_any: &dyn std::any::Any = extra.as_any();
-
-        let _extra2 = extra_any.downcast_ref::<PylonExtra>().unwrap();
     }
 }

@@ -2,20 +2,19 @@ use std::{fs::File, io::Read, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 
-use basic_frame::{BasicExtra, BasicFrame, DynamicFrame};
-use datetime_conversion::f64_to_datetime;
+use basic_frame::{BasicFrame, DynamicFrame};
+use chrono::{DateTime, Utc};
 use formats::PixFmt;
 
 use crate::{pixel_formats, FMFError, FMFResult};
 
 macro_rules! bf {
-    ($width:expr, $height:expr, $stride:expr, $image_data:expr, $extra:expr) => {{
+    ($width:expr, $height:expr, $stride:expr, $image_data:expr) => {{
         BasicFrame {
             width: $width,
             height: $height,
             stride: $stride,
             image_data: $image_data,
-            extra: $extra,
             pixel_format: std::marker::PhantomData,
         }
     }};
@@ -26,24 +25,24 @@ const TIMESTAMP_SIZE: usize = 8;
 /// Return an DynamicFrame variant according to $pixfmt.
 #[macro_export]
 macro_rules! to_dynamic {
-    ($pixfmt:expr, $w:expr, $h:expr, $s:expr, $data:expr, $ex:expr) => {{
-        Ok(match $pixfmt {
-            PixFmt::Mono8 => DynamicFrame::Mono8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::Mono32f => DynamicFrame::Mono32f(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::RGB8 => DynamicFrame::RGB8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerRG8 => DynamicFrame::BayerRG8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerRG32f => DynamicFrame::BayerRG32f(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerBG8 => DynamicFrame::BayerBG8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerBG32f => DynamicFrame::BayerBG32f(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerGB8 => DynamicFrame::BayerGB8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerGB32f => DynamicFrame::BayerGB32f(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerGR8 => DynamicFrame::BayerGR8(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::BayerGR32f => DynamicFrame::BayerGR32f(bf!($w, $h, $s, $data, $ex)),
-            PixFmt::YUV422 => DynamicFrame::YUV422(bf!($w, $h, $s, $data, $ex)),
+    ($pixfmt:expr, $w:expr, $h:expr, $s:expr, $data:expr) => {{
+        match $pixfmt {
+            PixFmt::Mono8 => DynamicFrame::Mono8(bf!($w, $h, $s, $data)),
+            PixFmt::Mono32f => DynamicFrame::Mono32f(bf!($w, $h, $s, $data)),
+            PixFmt::RGB8 => DynamicFrame::RGB8(bf!($w, $h, $s, $data)),
+            PixFmt::BayerRG8 => DynamicFrame::BayerRG8(bf!($w, $h, $s, $data)),
+            PixFmt::BayerRG32f => DynamicFrame::BayerRG32f(bf!($w, $h, $s, $data)),
+            PixFmt::BayerBG8 => DynamicFrame::BayerBG8(bf!($w, $h, $s, $data)),
+            PixFmt::BayerBG32f => DynamicFrame::BayerBG32f(bf!($w, $h, $s, $data)),
+            PixFmt::BayerGB8 => DynamicFrame::BayerGB8(bf!($w, $h, $s, $data)),
+            PixFmt::BayerGB32f => DynamicFrame::BayerGB32f(bf!($w, $h, $s, $data)),
+            PixFmt::BayerGR8 => DynamicFrame::BayerGR8(bf!($w, $h, $s, $data)),
+            PixFmt::BayerGR32f => DynamicFrame::BayerGR32f(bf!($w, $h, $s, $data)),
+            PixFmt::YUV422 => DynamicFrame::YUV422(bf!($w, $h, $s, $data)),
             _ => {
                 panic!("unsupported pixel format {}", $pixfmt);
             }
-        })
+        }
     }};
 }
 
@@ -73,7 +72,6 @@ impl FMFReader {
             let gz_fd = open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
-
             })?;
             let decoder = libflate::gzip::Decoder::new(gz_fd)?;
             Box::new(decoder)
@@ -81,7 +79,6 @@ impl FMFReader {
             Box::new(open_buffered(&path).map_err(|e| FMFError::IoPath {
                 source: e,
                 path: path.as_ref().display().to_string(),
-
             })?)
         };
 
@@ -155,7 +152,7 @@ impl FMFReader {
         self.n_frames
     }
 
-    fn next_frame(&mut self) -> FMFResult<DynamicFrame> {
+    fn next_frame(&mut self) -> FMFResult<(DynamicFrame, DateTime<Utc>)> {
         // Private function to actually read next frame.
         if self.count >= self.n_frames {
             return Err(FMFError::ReadingPastEnd);
@@ -170,27 +167,24 @@ impl FMFReader {
         self.file_pos += self.image_data_size;
 
         let timestamp_f64 = timestamp_data.as_slice().read_f64::<LittleEndian>()?;
-        let host_timestamp = f64_to_datetime(timestamp_f64);
+        let dt = datetime_conversion::f64_to_datetime(timestamp_f64);
 
         let width = self.width;
         let height = self.height;
         let pixel_format = self.pixel_format;
         let bpp = self.pixel_format.bits_per_pixel() as u32;
         let stride = (width * bpp) / 8;
-        let host_framenumber = self.count;
         self.count += 1;
 
-        let extra = Box::new(BasicExtra {
-            host_timestamp,
-            host_framenumber,
-        });
-
-        to_dynamic!(pixel_format, width, height, stride, image_data, extra)
+        Ok((
+            to_dynamic!(pixel_format, width, height, stride, image_data),
+            dt,
+        ))
     }
 }
 
 impl Iterator for FMFReader {
-    type Item = FMFResult<DynamicFrame>;
+    type Item = FMFResult<(DynamicFrame, DateTime<Utc>)>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.did_error {
             // Encountered error. Do not read more.

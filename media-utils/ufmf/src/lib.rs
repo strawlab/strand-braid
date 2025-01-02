@@ -6,9 +6,9 @@ use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use chrono::{DateTime, Utc};
 use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
 use machine_vision_formats as formats;
-use timestamped_frame::{ExtraTimeData, ImageStrideTime};
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
@@ -29,7 +29,6 @@ pub enum UFMFError {
     Io {
         #[from]
         source: std::io::Error,
-
     },
     #[error("{0}")]
     Cast(#[from] cast::Error),
@@ -198,9 +197,9 @@ where
         max_width: u16,
         max_height: u16,
         pixel_format: PixFmt,
-        frame0: Option<&DynamicFrame>,
+        frame_timestamp0: Option<(&DynamicFrame, DateTime<Utc>)>,
     ) -> UFMFResult<Self> {
-        if let Some(frame0) = frame0.as_ref() {
+        if let Some((frame0, _timestamp0)) = frame_timestamp0.as_ref() {
             if frame0.pixel_format() != pixel_format {
                 return Err(UFMFError::FormatChanged);
             }
@@ -233,8 +232,10 @@ where
             pixel_format,
         };
 
-        if let Some(frame0) = frame0 {
-            match_all_dynamic_fmts!(frame0, x, { result.add_keyframe(b"frame0", x)? });
+        if let Some((frame0, timestamp0)) = frame_timestamp0 {
+            match_all_dynamic_fmts!(frame0, x, {
+                result.add_keyframe(b"frame0", x, timestamp0)?
+            });
         }
 
         Ok(result)
@@ -243,12 +244,13 @@ where
     pub fn add_frame(
         &mut self,
         origframe: &DynamicFrame,
+        timestamp: DateTime<Utc>,
         point_data: &[RectFromCenter],
     ) -> UFMFResult<Vec<RectFromCorner>> {
         if origframe.pixel_format() != self.pixel_format {
             return Err(UFMFError::FormatChanged);
         }
-        let timestamp = datetime_conversion::datetime_to_f64(&origframe.extra().host_timestamp());
+        let timestamp = datetime_conversion::datetime_to_f64(&timestamp);
 
         let rects: Vec<RectFromCorner> = point_data
             .iter()
@@ -311,9 +313,10 @@ where
         &mut self,
         keyframe_type: &[u8],
         frame: &FRAME,
+        timestamp_dt: DateTime<Utc>,
     ) -> UFMFResult<()>
     where
-        FRAME: ImageStrideTime<FMT>,
+        FRAME: ImageStride<FMT>,
         FMT: PixelFormat,
     {
         let mut self_f = match self.f {
@@ -323,14 +326,12 @@ where
             }
         };
 
-        let dtl = frame.extra().host_timestamp();
-
         let bytes_per_pixel = formats::pixel_format::pixfmt::<FMT>()
             .unwrap()
             .bits_per_pixel()
             / 8;
 
-        let timestamp = datetime_conversion::datetime_to_f64(&dtl);
+        let timestamp = datetime_conversion::datetime_to_f64(&timestamp_dt);
         let dtype = get_dtype(formats::pixel_format::pixfmt::<FMT>().unwrap())?;
         let width = cast::u16(frame.width())?;
         let height = cast::u16(frame.height())?;
@@ -340,7 +341,7 @@ where
                 .index_keyframes
                 .entry(keyframe_type.to_vec())
                 .or_default();
-            let timestamp = datetime_conversion::datetime_to_f64(&dtl);
+            let timestamp = datetime_conversion::datetime_to_f64(&timestamp_dt);
             entry.push(TimestampLoc {
                 timestamp,
                 loc: self.pos as u64,
@@ -359,17 +360,7 @@ where
             h: height,
         };
         self.pos += self_f.write(&buf)?;
-        // let frame: &dyn ImageStrideTime<FMT> = frame;
-        // let frame = AsImageStrideTime::as_image_stride_time(frame);
-        // let frame: &dyn ImageStride<FMT> = frame.as_image_stride();
-        self.pos += write_image(
-            &mut self_f,
-            frame,
-            // AsImageStride::as_image_stride(frame),
-            // frame.as_image_stride(),
-            bytes_per_pixel,
-            &rect,
-        )?;
+        self.pos += write_image(&mut self_f, frame, bytes_per_pixel, &rect)?;
         Ok(())
     }
 }
@@ -420,11 +411,11 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use basic_frame::{BasicExtra, BasicFrame, DynamicFrame};
+    use basic_frame::{BasicFrame, DynamicFrame};
     use byteorder::WriteBytesExt;
 
     #[allow(clippy::float_cmp)]
-    fn arange(start: u8, timestamp: f64) -> DynamicFrame {
+    fn arange(start: u8, timestamp: f64) -> (DynamicFrame, DateTime<Utc>) {
         let w = 10;
         let h = 10;
         let mut image_data = Vec::new();
@@ -432,31 +423,29 @@ mod tests {
             image_data.push(start + i as u8);
         }
 
-        let ts_local = datetime_conversion::f64_to_datetime(timestamp);
-        let host_timestamp = ts_local.with_timezone(&chrono::Utc);
+        let dt = datetime_conversion::f64_to_datetime(timestamp);
+        let host_timestamp = dt.with_timezone(&chrono::Utc);
 
         let roundtrip = datetime_conversion::datetime_to_f64(&host_timestamp);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-
                                           // by-byte comparison in the test will succeed.
-        let extra = Box::new(BasicExtra {
-            host_timestamp,
-            host_framenumber: 0,
-        });
 
-        DynamicFrame::Mono8(BasicFrame {
-            width: w,
-            height: h,
-            stride: w,
-            image_data,
-            pixel_format: std::marker::PhantomData,
-            extra,
-        })
+        (
+            DynamicFrame::Mono8(BasicFrame {
+                width: w,
+                height: h,
+                stride: w,
+                image_data,
+                pixel_format: std::marker::PhantomData,
+            }),
+            dt,
+        )
     }
 
     #[allow(clippy::float_cmp)]
-    fn arange_float(start: f32, timestamp: f64) -> DynamicFrame {
+    fn arange_float(start: f32, timestamp: f64) -> (DynamicFrame, DateTime<Utc>) {
         let w = 10;
         let h = 10;
 
@@ -467,27 +456,24 @@ mod tests {
         }
         let image_data = f.into_inner();
 
-        let ts_local = datetime_conversion::f64_to_datetime(timestamp);
-        let host_timestamp = ts_local.with_timezone(&chrono::Utc);
+        let ts_utc = datetime_conversion::f64_to_datetime(timestamp);
 
-        let roundtrip = datetime_conversion::datetime_to_f64(&host_timestamp);
+        let roundtrip = datetime_conversion::datetime_to_f64(&ts_utc);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-
                                           // by-byte comparison in the test will succeed.
-        let extra = Box::new(BasicExtra {
-            host_timestamp,
-            host_framenumber: 0,
-        });
 
-        DynamicFrame::Mono32f(BasicFrame {
-            width: w,
-            height: h,
-            stride: w * 4,
-            image_data,
-            pixel_format: std::marker::PhantomData,
-            extra,
-        })
+        (
+            DynamicFrame::Mono32f(BasicFrame {
+                width: w,
+                height: h,
+                stride: w * 4,
+                image_data,
+                pixel_format: std::marker::PhantomData,
+            }),
+            ts_utc,
+        )
     }
 
     #[test]
@@ -540,22 +526,22 @@ mod tests {
 
     #[test]
     fn test_saving_regions() {
-        let arr = arange(0, 123.456);
-        let frame0 = Some(&arr);
+        let (arr, dt) = arange(0, 123.456);
+        let frame0 = Some((&arr, dt));
         let w = 10;
         let h = 10;
         let pixel_format = formats::pixel_format::PixFmt::Mono8;
         let f = std::io::Cursor::new(Vec::new());
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, frame0).unwrap();
 
-        let arr2 = arange(100, 42.42);
+        let (arr2, dt2) = arange(100, 42.42);
         let point_data = vec![
             RectFromCenter::from_xy_wh(0, 0, 4, 4),
             RectFromCenter::from_xy_wh(4, 4, 4, 4),
             RectFromCenter::from_xy_wh(9, 9, 4, 4),
         ];
 
-        writer.add_frame(&arr2, &point_data).unwrap();
+        writer.add_frame(&arr2, dt2, &point_data).unwrap();
 
         let f = writer.close().unwrap();
 
@@ -647,11 +633,11 @@ mod tests {
         let pixel_format = formats::pixel_format::PixFmt::Mono8;
         let f = std::io::Cursor::new(Vec::new());
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, None).unwrap();
-        let running_mean = arange_float(0.1, 123.456);
+        let (running_mean, ts) = arange_float(0.1, 123.456);
 
         let running_mean = running_mean.as_basic::<Mono32f>().unwrap();
 
-        writer.add_keyframe(b"mean", &running_mean).unwrap();
+        writer.add_keyframe(b"mean", &running_mean, ts).unwrap();
         let f = writer.close().unwrap();
 
         // check that we cannot close again

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset};
 use eyre::{self as anyhow, Result};
 use std::io::Write;
 
@@ -10,7 +10,7 @@ pub(crate) struct VideoStorage<'lib> {
     pub(crate) path: std::path::PathBuf,
     pub(crate) mp4_writer: mp4_writer::Mp4Writer<'lib, std::fs::File>,
     /// timestamp of first frame
-    pub(crate) first_timestamp: Option<DateTime<Utc>>,
+    pub(crate) first_timestamp: Option<DateTime<FixedOffset>>,
     pub(crate) composite_margin_pixels: usize,
     pub(crate) feature_radius: String,
     pub(crate) reprojected_radius: String,

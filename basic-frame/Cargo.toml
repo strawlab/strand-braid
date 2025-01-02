@@ -9,5 +9,4 @@ rust-version = "1.76"
 chrono.workspace = true
 machine-vision-formats = { workspace = true, features = ["std"] }
 
-timestamped-frame.workspace = true
 convert-image = { workspace = true, optional = true }
