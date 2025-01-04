@@ -8,10 +8,7 @@ macro_rules! api_call {
     ($expr:expr) => {{
         let status = $expr;
         if status != cudaError_enum::CUDA_SUCCESS {
-            return Err(CudaError::ErrCode {
-                status,
-
-            });
+            return Err(CudaError::ErrCode { status });
         }
     }};
 }
@@ -39,7 +36,7 @@ pub struct LibCuda<'lib> {
     >,
 }
 
-impl<'lib> LibCuda<'lib> {
+impl LibCuda<'_> {
     pub fn init(&self, flags: u32) -> Result<(), CudaError> {
         api_call!((*self.cuInit)(flags));
         Ok(())
@@ -75,7 +72,7 @@ pub struct CudaContext<'a> {
     inner: CUcontext,
 }
 
-impl<'a> CudaContext<'a> {
+impl CudaContext<'_> {
     pub fn as_mut_void_ptr(&mut self) -> *mut std::ffi::c_void {
         self.inner as *mut std::ffi::c_void
     }
@@ -108,7 +105,6 @@ macro_rules! get_func {
         unsafe { $lib.library.get($name) }.map_err(|source| CudaError::NameFFIError {
             name: String::from_utf8_lossy($name).to_string(),
             source,
-
         })?
     }};
 }
