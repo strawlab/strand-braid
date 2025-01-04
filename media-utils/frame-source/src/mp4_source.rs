@@ -49,7 +49,7 @@ impl SeekableH264Source for Mp4Source {
         {
             if !sample.bytes.is_empty() {
                 let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
-                return Ok(sample_nal_units.iter().map(|x| x.to_vec()).collect());
+                Ok(sample_nal_units.iter().map(|x| x.to_vec()).collect())
             } else {
                 Err(Mp4SourceError::SampleEmpty.into())
             }

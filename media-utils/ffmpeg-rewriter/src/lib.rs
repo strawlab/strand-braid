@@ -163,7 +163,7 @@ impl FfmpegReWriter {
                 }
             };
             new_mp4.write_h264_buf(
-                &data,
+                data,
                 width,
                 height,
                 timestamp,
@@ -236,7 +236,7 @@ mod test {
 
         // let mp4_fname = "out.mp4";
 
-        let timestamp_micros: i64 = 1662921288_000_000; // Sun, 11 Sep 2022 18:34:48 UTC
+        let timestamp_micros: i64 = 1_662_921_288_000_000; // Sun, 11 Sep 2022 18:34:48 UTC
 
         let mut timestamps = vec![
             DateTime::from_timestamp_micros(timestamp_micros).unwrap(),
@@ -286,8 +286,8 @@ mod test {
         let frame0_time = frame_src.frame0_time().unwrap();
         assert_eq!(frame0_time, timestamps[0]);
 
-        assert_eq!(frame_src.width(), w as u32);
-        assert_eq!(frame_src.height(), h as u32);
+        assert_eq!(frame_src.width(), w);
+        assert_eq!(frame_src.height(), h);
 
         let mut count = 0;
         for (i, frame) in frame_src.iter().enumerate() {

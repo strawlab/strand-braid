@@ -100,7 +100,6 @@ impl FfmpegCodecArgs {
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
                 post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
-                ..Default::default()
             }),
             "videotoolbox" => Some(Self {
                 codec: Some("h264_videotoolbox".into()),

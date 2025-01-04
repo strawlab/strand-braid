@@ -44,7 +44,7 @@ impl<'de> serde::Deserialize<'de> for SyncFno {
 
 struct SyncFnoVisitor;
 
-impl<'de> serde::de::Visitor<'de> for SyncFnoVisitor {
+impl serde::de::Visitor<'_> for SyncFnoVisitor {
     type Value = u64;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

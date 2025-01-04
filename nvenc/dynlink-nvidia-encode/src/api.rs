@@ -322,7 +322,7 @@ fn test_timestamp_conversion() {
     }
 }
 
-impl<'lib> Drop for Encoder<'lib> {
+impl Drop for Encoder<'_> {
     fn drop(&mut self) {
         if !self.destroyed {
             let func = if let Some(func) = self.parent.inner.nvEncDestroyEncoder {
@@ -386,7 +386,7 @@ impl<'lib> InputBuffer<'lib> {
     }
 }
 
-impl<'lock, 'lib> Drop for LockedInputBuffer<'lock, 'lib> {
+impl Drop for LockedInputBuffer<'_, '_> {
     fn drop(&mut self) {
         if !self.dropped {
             let func = if let Some(func) = self.inner.encoder.parent.inner.nvEncUnlockInputBuffer {
@@ -413,7 +413,7 @@ impl<'lock, 'lib> Drop for LockedInputBuffer<'lock, 'lib> {
     }
 }
 
-impl<'lock, 'lib> LockedInputBuffer<'lock, 'lib> {
+impl LockedInputBuffer<'_, '_> {
     pub fn mem(&self) -> &[u8] {
         self.mem
     }
@@ -425,7 +425,7 @@ impl<'lock, 'lib> LockedInputBuffer<'lock, 'lib> {
     }
 }
 
-impl<'lib> Drop for InputBuffer<'lib> {
+impl Drop for InputBuffer<'_> {
     fn drop(&mut self) {
         if !self.destroyed {
             let func = if let Some(func) = self.encoder.parent.inner.nvEncDestroyInputBuffer {
@@ -466,7 +466,7 @@ pub struct LockedOutputBuffer<'lock, 'lib> {
     dropped: bool,
 }
 
-impl<'lib> Drop for OutputBuffer<'lib> {
+impl Drop for OutputBuffer<'_> {
     fn drop(&mut self) {
         if !self.destroyed {
             let func = if let Some(func) = self.encoder.parent.inner.nvEncDestroyBitstreamBuffer {
@@ -487,7 +487,7 @@ impl<'lib> Drop for OutputBuffer<'lib> {
     }
 }
 
-impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
+impl LockedOutputBuffer<'_, '_> {
     pub fn mem(&self) -> &[u8] {
         self.mem
     }
@@ -506,7 +506,7 @@ impl<'lock, 'lib> LockedOutputBuffer<'lock, 'lib> {
     }
 }
 
-impl<'lock, 'lib> Drop for LockedOutputBuffer<'lock, 'lib> {
+impl Drop for LockedOutputBuffer<'_, '_> {
     fn drop(&mut self) {
         if !self.dropped {
             let func = if let Some(func) = self.inner.encoder.parent.inner.nvEncUnlockBitstream {

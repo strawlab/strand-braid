@@ -606,7 +606,7 @@ struct RawH264Iter<'parent, H: SeekableH264Source> {
     openh264_decoder_state: Option<crate::opt_openh264_decoder::DecoderType>,
 }
 
-impl<'parent, H: SeekableH264Source> Iterator for RawH264Iter<'parent, H> {
+impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let frame_number = self.frame_idx;

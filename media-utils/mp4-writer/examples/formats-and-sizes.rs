@@ -5,12 +5,8 @@ use ci2_remote_control::Mp4RecordingConfig;
 type IType = usize;
 
 fn next16(x: IType) -> IType {
-    fn div_ceil(a: IType, b: IType) -> IType {
-        // See https://stackoverflow.com/a/72442854
-        (a + b - 1) / b
-    }
     let v = 16;
-    div_ceil(x, v) * 16
+    x.div_ceil(v) * 16
 }
 
 fn main() -> eyre::Result<()> {

@@ -336,7 +336,7 @@ pub(crate) struct PerCamRenderFrame<'a> {
     pub(crate) pts_chrono: DateTime<Utc>,
 }
 
-impl<'a> PerCamRenderFrame<'a> {
+impl PerCamRenderFrame<'_> {
     pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
         let png_buf = match frame {
             basic_frame::DynamicFrame::Mono8(frame_mono8) => {
@@ -586,9 +586,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     let cam_id = match cam_id {
                         CameraIdentifier::MovieOnly(m) => {
                             if let Some(raw_name) = m.raw_name().as_ref() {
-                                let ros_camid = crate::braidz_iter::as_ros_camid(&raw_name);
+                                let ros_camid = crate::braidz_iter::as_ros_camid(raw_name);
                                 if (&braidz_cam_id.cam_id_str == raw_name)
-                                    || (&braidz_cam_id.cam_id_str == &ros_camid)
+                                    || (braidz_cam_id.cam_id_str == ros_camid)
                                 {
                                     CameraIdentifier::Both((m, braidz_cam_id.clone()))
                                 } else {
@@ -683,7 +683,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
         // Determine which video started last and what time was the last start time.
         // This time is where we will start from.
-        let approx_start_time: Option<DateTime<_>> = frame0_times.iter().max().map(Clone::clone);
+        let approx_start_time: Option<DateTime<_>> = frame0_times.iter().max().copied();
 
         if let Some(approx_start_time) = &approx_start_time {
             tracing::info!("start time determined from videos: {}", approx_start_time);

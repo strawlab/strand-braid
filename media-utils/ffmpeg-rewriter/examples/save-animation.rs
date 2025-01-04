@@ -91,7 +91,7 @@ fn main() -> eyre::Result<()> {
                             let trimmed = OImage::<Mono8>::new(
                                 final_width,
                                 final_height,
-                                mono.stride().try_into().unwrap(),
+                                mono.stride(),
                                 mono.image_data()[..out_size_bytes].to_vec(),
                             )
                             .unwrap();

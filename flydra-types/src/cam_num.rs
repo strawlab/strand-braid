@@ -44,7 +44,7 @@ impl<'de> serde::Deserialize<'de> for CamNum {
 
 struct CamNumVisitor;
 
-impl<'de> serde::de::Visitor<'de> for CamNumVisitor {
+impl serde::de::Visitor<'_> for CamNumVisitor {
     type Value = u8;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

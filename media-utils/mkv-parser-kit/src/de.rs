@@ -262,7 +262,7 @@ impl<'a, R: Read + Seek> Deserializer<'a, R> {
     }
 }
 
-impl<'a, R: Read + Seek> Iterator for Deserializer<'a, R> {
+impl<R: Read + Seek> Iterator for Deserializer<'_, R> {
     type Item = Result<EbmlElement>;
     fn next(&mut self) -> Option<Result<EbmlElement>> {
         if self.element.is_none() {

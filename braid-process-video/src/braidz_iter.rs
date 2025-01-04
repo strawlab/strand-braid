@@ -342,7 +342,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
     }
 }
 
-impl<'a> Iterator for BraidArchiveSyncVideoData<'a> {
+impl Iterator for BraidArchiveSyncVideoData<'_> {
     type Item = Result<crate::SyncedPictures>;
     fn next(&mut self) -> std::option::Option<Self::Item> {
         let sync_threshold = self.sync_threshold;

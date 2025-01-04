@@ -456,7 +456,6 @@ impl enum_iter::EnumIter for CodecSelection {
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
                 post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
-                ..Default::default()
             }),
             // x264 with defaults
             Ffmpeg(FfmpegCodecArgs {

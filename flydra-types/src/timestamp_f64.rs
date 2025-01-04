@@ -12,7 +12,7 @@ use crate::*;
 
 struct FlydraF64TimestampLocalVisitor;
 
-impl<'de> serde::de::Visitor<'de> for FlydraF64TimestampLocalVisitor {
+impl serde::de::Visitor<'_> for FlydraF64TimestampLocalVisitor {
     type Value = f64;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

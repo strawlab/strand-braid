@@ -78,7 +78,7 @@ where
             break;
         }
     }
-    return Some(*bisect.interval.a());
+    Some(*bisect.interval.a())
 }
 
 #[cfg(test)]

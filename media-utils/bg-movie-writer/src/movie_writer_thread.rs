@@ -113,10 +113,8 @@ fn create_writer<'a>(
     data_dir: Option<&PathBuf>,
     recording_config: &ci2_remote_control::RecordingConfig,
 ) -> Result<RawWriter<'a, File>> {
-    let raw: RawWriter<'_, File>; // assigned below
-
     let local: chrono::DateTime<chrono::Local> = stamp.with_timezone(&chrono::Local);
-    let formatted_filename = local.format(&format_str_mp4).to_string();
+    let formatted_filename = local.format(format_str_mp4).to_string();
     let mp4_filename = if let Some(data_dir) = &data_dir {
         data_dir
             .join(formatted_filename)
@@ -128,7 +126,7 @@ fn create_writer<'a>(
     };
 
     use ci2_remote_control::RecordingConfig::*;
-    match &recording_config {
+    let raw: RawWriter<'_, File> = match &recording_config {
         Mp4(mp4_recording_config) => {
             let mp4_path = std::path::Path::new(&mp4_filename);
             let mp4_file = std::fs::File::create(mp4_path)?;
@@ -164,15 +162,13 @@ fn create_writer<'a>(
                 _ => None,
             };
 
-            raw = RawWriter::Mp4Writer(mp4_writer::Mp4Writer::new(
+            RawWriter::Mp4Writer(mp4_writer::Mp4Writer::new(
                 mp4_file,
                 mp4_recording_config.clone(),
                 nv_enc,
-            )?);
+            )?)
         }
-        Ffmpeg(c) => {
-            raw = RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_filename, c)?));
-        }
+        Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_filename, c)?)),
     };
     tracing::info!("Saving MP4 to \"{mp4_filename}\"");
 

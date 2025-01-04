@@ -47,7 +47,7 @@ impl<I: std::iter::Iterator> Peek2<I> {
 
 #[test]
 fn test_peek2() {
-    let a = vec![1, 2, 3];
+    let a = [1, 2, 3];
     let mut iter = Peek2::new(a.iter());
     assert_eq!(iter.peek1(), Some(&&1));
     assert_eq!(iter.peek2(), Some(&&2));
@@ -69,7 +69,7 @@ fn test_peek2() {
     assert_eq!(iter.peek2(), None);
 
     // ---
-    let a = vec![1, 2];
+    let a = [1, 2];
     let mut iter = Peek2::new(a.iter());
     assert_eq!(iter.peek1(), Some(&&1));
     assert_eq!(iter.peek2(), Some(&&2));
@@ -87,7 +87,7 @@ fn test_peek2() {
     assert_eq!(iter.peek2(), None);
 
     // ---
-    let a = vec![1];
+    let a = [1];
     let mut iter = Peek2::new(a.iter());
     assert_eq!(iter.peek1(), Some(&&1));
     assert_eq!(iter.peek2(), None);
