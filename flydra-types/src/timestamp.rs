@@ -66,7 +66,7 @@ impl<'a, S> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
 
 impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     fn from(orig: FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
-        datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
+        From::from(&orig)
     }
 }
 
@@ -136,4 +136,6 @@ fn ensure_conversion() {
     let t2 = FlydraFloatTimestampLocal::<HostClock>::from(t1);
     let t3 = t2.value_f64.into_inner();
     assert!((t3 - 60.123456789).abs() < 1e-10);
+    let t4: DateTime<Utc> = (&t2).into();
+    assert_eq!(t1, t4);
 }
