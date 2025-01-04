@@ -158,7 +158,7 @@ where
     C: nalgebra::Dim,
     DefaultAllocator: Allocator<R, C>,
 {
-    m.component_mul(&m)
+    m.component_mul(m)
 }
 
 fn median<T, C>(scales: &Matrix<T, U1, C, VecStorage<T, U1, C>>) -> Option<T>
