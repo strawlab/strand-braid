@@ -17,7 +17,7 @@ where
     extra: BasicExtra,
 }
 
-impl<'a, FMT> formats::Stride for BorrowedFrame<'a, FMT>
+impl<FMT> formats::Stride for BorrowedFrame<'_, FMT>
 where
     FMT: Clone,
 {
@@ -26,7 +26,7 @@ where
     }
 }
 
-impl<'a, FMT> formats::ImageData<FMT> for BorrowedFrame<'a, FMT>
+impl<FMT> formats::ImageData<FMT> for BorrowedFrame<'_, FMT>
 where
     FMT: Clone,
 {

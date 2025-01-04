@@ -188,7 +188,7 @@ impl BackgroundModel {
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                return Err(Error::BackgroundProcessingThreadDisconnected);
+                Err(Error::BackgroundProcessingThreadDisconnected)
             }
         }
     }
