@@ -25,7 +25,7 @@ impl<T: std::cmp::PartialOrd> Argmin<T> for std::slice::Iter<'_, T> {
 #[test]
 fn test_argmin() {
     assert_eq!(Vec::<i64>::new().iter().argmin(), None);
-    assert_eq!(vec![1, 2, 3].iter().argmin(), Some(0));
-    assert_eq!(vec![3, 2, 1].iter().argmin(), Some(2));
-    assert_eq!(vec![3, -2, 1].iter().argmin(), Some(1));
+    assert_eq!([1, 2, 3].iter().argmin(), Some(0));
+    assert_eq!([3, 2, 1].iter().argmin(), Some(2));
+    assert_eq!([3, -2, 1].iter().argmin(), Some(1));
 }

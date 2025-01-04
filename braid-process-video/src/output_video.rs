@@ -76,35 +76,25 @@ impl<'lib> VideoStorage<'lib> {
 
         let feature_radius = v
             .video_options
-            .feature_radius
-            .as_ref()
-            .map(Clone::clone)
+            .feature_radius.clone()
             .unwrap_or_else(|| crate::DEFAULT_FEATURE_RADIUS.to_string());
         let feature_style = v
             .video_options
-            .feature_style
-            .as_ref()
-            .map(Clone::clone)
+            .feature_style.clone()
             .unwrap_or_else(|| crate::DEFAULT_FEATURE_STYLE.to_string());
 
         let reprojected_radius = v
             .video_options
-            .reprojected_radius
-            .as_ref()
-            .map(Clone::clone)
+            .reprojected_radius.clone()
             .unwrap_or_else(|| crate::DEFAULT_REPROJECTED_RADIUS.to_string());
         let reprojected_style = v
             .video_options
-            .reprojected_style
-            .as_ref()
-            .map(Clone::clone)
+            .reprojected_style.clone()
             .unwrap_or_else(|| crate::DEFAULT_REPROJECTED_STYLE.to_string());
 
         let cam_text_style = v
             .video_options
-            .cam_text_style
-            .as_ref()
-            .map(Clone::clone)
+            .cam_text_style.clone()
             .unwrap_or_else(|| crate::DEFAULT_CAMERA_TEXT_STYLE.to_string());
 
         let mut usvg_opt = usvg::Options::default();

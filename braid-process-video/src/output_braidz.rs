@@ -103,7 +103,7 @@ impl BraidStorage {
         for raw_cam_name in all_expected_cameras.iter() {
             let no_server = flydra_types::BuiServerInfo::NoServer;
             cam_manager
-                .register_new_camera(&raw_cam_name, &no_server, None)
+                .register_new_camera(raw_cam_name, &no_server, None)
                 .map_err(|msg| anyhow::anyhow!("Error registering new camera: {msg}"))?;
         }
 

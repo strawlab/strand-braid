@@ -92,8 +92,10 @@ pub struct ProcessingConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
+#[derive(Default)]
 pub enum FeatureDetectionMethod {
     #[serde(rename = "copy")]
+    #[default]
     CopyExisting,
     // #[serde(rename = "bright-point")]
     // BrightPoint(BrightPointOptions),
@@ -101,11 +103,6 @@ pub enum FeatureDetectionMethod {
     // Flydra,
 }
 
-impl Default for FeatureDetectionMethod {
-    fn default() -> FeatureDetectionMethod {
-        FeatureDetectionMethod::CopyExisting
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -121,33 +118,27 @@ impl Default for BrightPointOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
+#[derive(Default)]
 pub enum CameraCalibrationSource {
     #[serde(rename = "none")]
+    #[default]
     None,
     #[serde(rename = "copy")]
     CopyExisting,
 }
 
-impl Default for CameraCalibrationSource {
-    fn default() -> CameraCalibrationSource {
-        CameraCalibrationSource::None
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
+#[derive(Default)]
 pub enum TrackingParametersSource {
     #[serde(rename = "copy")]
     CopyExisting,
     #[serde(rename = "default")]
+    #[default]
     Default,
 }
 
-impl Default for TrackingParametersSource {
-    fn default() -> TrackingParametersSource {
-        TrackingParametersSource::Default
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
