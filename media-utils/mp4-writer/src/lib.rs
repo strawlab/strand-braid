@@ -131,7 +131,7 @@ pub struct TrimmedImage<'a, FMT> {
     pub height: u32,
 }
 
-impl<'a, FMT> ImageData<FMT> for TrimmedImage<'a, FMT> {
+impl<FMT> ImageData<FMT> for TrimmedImage<'_, FMT> {
     fn width(&self) -> u32 {
         self.width
     }
@@ -147,7 +147,7 @@ impl<'a, FMT> ImageData<FMT> for TrimmedImage<'a, FMT> {
     }
 }
 
-impl<'a, FMT> Stride for TrimmedImage<'a, FMT> {
+impl<FMT> Stride for TrimmedImage<'_, FMT> {
     fn stride(&self) -> usize {
         self.orig.stride()
     }
@@ -673,7 +673,7 @@ fn nv_outbuf_to_sample(outbuf: dynlink_nvidia_encode::api::LockedOutputBuffer) -
     }
 }
 
-impl<'lib, T> Drop for Mp4Writer<'lib, T>
+impl<T> Drop for Mp4Writer<'_, T>
 where
     T: std::io::Write + std::io::Seek,
 {
@@ -910,7 +910,7 @@ struct NvEncoder<'lib> {
 }
 
 #[cfg(feature = "nv-encode")]
-impl<'lib> NvEncoder<'lib> {
+impl NvEncoder<'_> {
     fn compute_local_timestamp(&self, sample: &EbspNals) -> chrono::DateTime<chrono::Local> {
         self.first_timestamp + sample.pts
     }

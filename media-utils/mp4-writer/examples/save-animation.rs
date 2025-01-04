@@ -150,7 +150,7 @@ fn main() -> eyre::Result<()> {
                             let trimmed = ImageRef::<Mono8>::new(
                                 final_width,
                                 final_height,
-                                mono.stride().try_into().unwrap(),
+                                mono.stride(),
                                 &mono.image_data()[..out_size_bytes],
                             )
                             .unwrap();
@@ -162,7 +162,7 @@ fn main() -> eyre::Result<()> {
                             let trimmed = ImageRef::<RGB8>::new(
                                 final_width,
                                 final_height,
-                                frame.stride().try_into().unwrap(),
+                                frame.stride(),
                                 &frame.image_data()[..out_size_bytes],
                             )
                             .unwrap();
