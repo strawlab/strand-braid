@@ -776,7 +776,7 @@ braid-webapps:
     - ./build.sh
     - cd ../..
 
-brain-run-binary:
+braid-run-binary:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
@@ -812,7 +812,7 @@ brain-run-binary:
   artifacts:
     paths:
       - build/
-    name: "brain-run-binary-${CI_COMMIT_SHA}"
+    name: "braid-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
   image: rust:1.83
@@ -891,7 +891,7 @@ strand-braid-ubuntu-2404:
   needs:
     - braid-offline-static
     - braid-process-video
-    - brain-run-binary
+    - braid-run-binary
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -947,7 +947,7 @@ strand-braid-ubuntu-2004:
   needs:
     - braid-offline-static
     - braid-process-video
-    - brain-run-binary
+    - braid-run-binary
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -1003,7 +1003,7 @@ strand-braid-ubuntu-2204:
   needs:
     - braid-offline-static
     - braid-process-video
-    - brain-run-binary
+    - braid-run-binary
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
