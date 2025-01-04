@@ -248,25 +248,10 @@ impl ci2::CameraInfo for PylonCameraInfo {
     }
 }
 
-#[derive(Clone, Debug)]
-struct FramecountExtra {
-    epoch: u32,
-    previous_block_id: u64,
-    store_fno: u64,
-    last_rollover: u64,
-}
-
-#[derive(Clone, Debug)]
-enum FramecoutingMethod {
-    TrustDevice,
-    BaslerGigE(FramecountExtra),
-    IgnoreDevice(usize),
-}
-
 #[derive(Clone)]
 pub struct WrappedCamera<'a> {
     inner: Arc<Mutex<pylon_cxx::InstantCamera<'a>>>,
-    framecounting_method: FramecoutingMethod,
+    store_fno: usize,
     name: String,
     serial: String,
     model: String,
@@ -304,23 +289,7 @@ impl<'a> WrappedCamera<'a> {
                 let vendor = device_info
                     .property_value("VendorName")
                     .context("getting vendor")?;
-                let device_class = device_info
-                    .property_value("DeviceClass")
-                    .context("getting device class")?;
-                let framecounting_method = if &device_class == "BaslerGigE" {
-                    FramecoutingMethod::BaslerGigE(FramecountExtra {
-                        epoch: 0,
-                        previous_block_id: 0,
-                        store_fno: 0,
-                        last_rollover: 0,
-                    })
-                } else if model == "Emulation" {
-                    // As of Pylon 6.2.0, emulation with PYLON_CAMEMU does
-                    // not set frame number.
-                    FramecoutingMethod::IgnoreDevice(0)
-                } else {
-                    FramecoutingMethod::TrustDevice
-                };
+                let store_fno = 0;
 
                 let cam = tl_factory
                     .create_device(&device_info)
@@ -428,7 +397,7 @@ impl<'a> WrappedCamera<'a> {
                     // pylon_auto_init: Arc::new(Mutex::new(pylon_cxx::Pylon::new())),
                     inner: Arc::new(Mutex::new(cam)),
                     name: name.to_string(),
-                    framecounting_method,
+                    store_fno,
                     serial,
                     model,
                     vendor,
@@ -1089,48 +1058,14 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             let buffer = gr.buffer().map_pylon_err()?;
             let block_id = gr.block_id().map_pylon_err()?;
 
-            let fno: usize = match self.framecounting_method {
-                FramecoutingMethod::BaslerGigE(ref mut i) => {
-                    // Basler GigE cameras wrap after 65535 block. TODO: support
-                    // "Extended ID" mode which does not have this wraparound.
-                    if block_id < 30000 && i.previous_block_id > 30000 {
-                        // check nothing crazy is going on
-                        if (i.store_fno - i.last_rollover) < 30000 {
-                            return Err(ci2::Error::from(format!(
-                                "Cannot recover frame count with \
-                                Basler GigE camera {}. Did many \
-                                frames get dropped?",
-                                self.name
-                            )));
-                        }
-                        i.epoch += 1;
-                        i.last_rollover = i.store_fno;
-                    }
-                    i.store_fno += 1;
-                    let fno = (i.epoch as usize * 65535) + block_id as usize;
-                    i.previous_block_id = block_id;
-                    fno
-                }
-                FramecoutingMethod::TrustDevice => block_id as usize,
-                FramecoutingMethod::IgnoreDevice(ref mut store_fno) => {
-                    let fno: usize = *store_fno;
-                    *store_fno += 1;
-                    fno
-                }
-            };
+            let fno: usize = self.store_fno;
+            self.store_fno += 1;
 
             let width = gr.width().map_pylon_err()?;
             let height = gr.height().map_pylon_err()?;
             let stride = gr.stride().map_pylon_err()?.try_into()?;
             let image_data = buffer.to_vec();
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
-
-            if fno == BAD_FNO {
-                panic!(
-                    "host_framenumber has impossible value (framecounting method: {:?})",
-                    self.framecounting_method
-                );
-            }
 
             let extra = Box::new(PylonExtra {
                 block_id,
@@ -1150,6 +1085,8 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
         // println!("Gray value of first pixel: {}\n", image_buffer[0]);
         } else {
+            self.store_fno += 1;
+
             Err(ci2::Error::SingleFrameError(format!(
                 "Pylon Error {}: {}",
                 gr.error_code().map_pylon_err()?,
