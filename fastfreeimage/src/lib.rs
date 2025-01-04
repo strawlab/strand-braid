@@ -362,7 +362,7 @@ where
     }
 }
 
-impl<'a, C, D> FastImage for &'a FastImageData<C, D>
+impl<C, D> FastImage for &FastImageData<C, D>
 where
     C: ChanTrait,
     D: Copy + PartialEq,
@@ -472,7 +472,7 @@ impl<'a> FastImageView<'a, Chan1, u8> {
     }
 }
 
-impl<'a, C, D> FastImage for FastImageView<'a, C, D>
+impl<C, D> FastImage for FastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -501,7 +501,7 @@ where
     }
 }
 
-impl<'a, C, D> std::fmt::Debug for FastImageView<'a, C, D>
+impl<C, D> std::fmt::Debug for FastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -520,7 +520,7 @@ where
     }
 }
 
-impl<'a, C, D> FastImage for &FastImageView<'a, C, D>
+impl<C, D> FastImage for &FastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -603,7 +603,7 @@ impl<'a> MutableFastImageView<'a, Chan1, u8> {
     }
 }
 
-impl<'a, C, D> FastImage for MutableFastImageView<'a, C, D>
+impl<C, D> FastImage for MutableFastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -632,7 +632,7 @@ where
     }
 }
 
-impl<'a, C, D> FastImage for &MutableFastImageView<'a, C, D>
+impl<C, D> FastImage for &MutableFastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -661,7 +661,7 @@ where
     }
 }
 
-impl<'a, C, D> MutableFastImage for MutableFastImageView<'a, C, D>
+impl<C, D> MutableFastImage for MutableFastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -677,7 +677,7 @@ where
     }
 }
 
-impl<'a, C, D> std::fmt::Debug for MutableFastImageView<'a, C, D>
+impl<C, D> std::fmt::Debug for MutableFastImageView<'_, C, D>
 where
     C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
@@ -1145,7 +1145,7 @@ pub enum RoundMode {
 impl RoundMode {
     #[inline]
     fn f32_to_u8(&self, src: f32) -> u8 {
-        src.round().min(255.0).max(0.0) as u8
+        src.round().clamp(0.0, 255.0) as u8
     }
 }
 
