@@ -184,7 +184,7 @@ impl<'a> ImageStackIter<'a> {
     }
 }
 
-impl<'a> Iterator for ImageStackIter<'a> {
+impl Iterator for ImageStackIter<'_> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let result = self

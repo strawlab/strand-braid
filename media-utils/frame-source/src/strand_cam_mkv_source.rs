@@ -98,7 +98,7 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
                 let mut h264_raw_buf = vec![0u8; bd.size];
                 self.rdr.read_exact(&mut h264_raw_buf)?;
 
-                let _decoded_yuv = if let Some(decoded_yuv) = decoder.decode(&h264_raw_buf)? {
+                if let Some(decoded_yuv) = decoder.decode(&h264_raw_buf)? {
                     decoded_yuv
                 } else {
                     return Err(StrandMkvSourceError::CouldNotDecodeSingleFrameWithOpenH264.into());
@@ -328,7 +328,7 @@ fn my_decode(
     }))
 }
 
-impl<'a, R: Read + Seek> Iterator for StrandCamMkvSourceIter<'a, R> {
+impl<R: Read + Seek> Iterator for StrandCamMkvSourceIter<'_, R> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
         let result = self.parent.get_frame(self.idx);

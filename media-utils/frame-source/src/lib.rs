@@ -391,9 +391,9 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
             let fmf_video = fmf_source::from_path(&input)?;
             return Ok(Box::new(fmf_video));
         }
-        return Err(Error::UnknownExtensionForFile(PathBuf::from(
+        Err(Error::UnknownExtensionForFile(PathBuf::from(
             input.as_ref(),
-        )));
+        )))
     } else {
         let dirname = input_path;
 

@@ -58,8 +58,8 @@ pub struct MultiCameraIter<'a, 'b, R: RealField + Copy + Default + serde::Serial
     flydra_system: &'a FlydraMultiCameraSystem<R>,
 }
 
-impl<'a, 'b, R: RealField + Copy + Default + serde::Serialize> Iterator
-    for MultiCameraIter<'a, 'b, R>
+impl<R: RealField + Copy + Default + serde::Serialize> Iterator
+    for MultiCameraIter<'_, '_, R>
 {
     type Item = MultiCamera<R>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -810,7 +810,7 @@ where
         let cal_fname = cal_fname.as_ref();
 
         if cal_fname.is_dir() {
-            return Ok(Self::from_mcsc_dir(cal_fname)?);
+            return Self::from_mcsc_dir(cal_fname);
         }
 
         let cal_file = std::fs::File::open(cal_fname)?;
@@ -842,8 +842,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         if self.intrinsics().distortion.radial3() != na::convert(0.0) {
             return Err(FlydraMvgError::FailedFlydraXmlConversion {
                 msg: "3rd term of radial distortion not supported",
-            }
-            .into());
+            });
         }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
