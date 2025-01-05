@@ -622,7 +622,7 @@ strand-cam-flydratrax-pylon-binary:
     name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-static:
-  # Build without glibc dependency so it runs on cluster with ancient glibc.
+  # Use manylinux project to build binary compatible with old glibc
   image: quay.io/pypa/manylinux2014_x86_64
   script:
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
