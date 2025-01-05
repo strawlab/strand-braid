@@ -66,10 +66,9 @@ impl BgMovieWriter {
     /// - `data_dir`, if specified, will be the directory location of the saved
     ///   file.
     pub fn new(
-        format_str_mp4: String,
         recording_config: ci2_remote_control::RecordingConfig,
         queue_size: usize,
-        data_dir: Option<PathBuf>,
+        mp4_path: PathBuf,
     ) -> Self {
         // Create an Arc<Mutex<Option<Error>>> to hold a potential error from
         // the to-be-spawned writer thread.
@@ -80,13 +79,7 @@ impl BgMovieWriter {
         // Spawn the writer thread
         std::thread::spawn(move || {
             // Runs until the movie is done.
-            movie_writer_thread::writer_thread_loop(
-                format_str_mp4,
-                recording_config,
-                err_to_launcher,
-                data_dir,
-                rx,
-            )
+            movie_writer_thread::writer_thread_loop(recording_config, err_to_launcher, rx, mp4_path)
         });
         Self {
             tx,

@@ -5,7 +5,7 @@
 use std::{
     fs::File,
     io::{Seek, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -48,12 +48,11 @@ impl MyFfmpegWriter {
     /// Save using ffmpeg to filename given.
     ///
     /// It is expected that the filename ends with '.mp4'.
-    fn new(mp4_filename: &str, cfg: &FfmpegRecordingConfig) -> Result<Self> {
-        if !mp4_filename.ends_with(".mp4") {
+    fn new<P: AsRef<Path>>(mp4_filename: P, cfg: &FfmpegRecordingConfig) -> Result<Self> {
+        let mp4_filename: &Path = mp4_filename.as_ref();
+        if mp4_filename.extension().and_then(|x| x.to_str()) != Some(".mp4") {
             return Err(Error::FilenameDoesNotEndWithMp4);
         }
-        let mut srt_filename = mp4_filename[..mp4_filename.len() - 4].to_string();
-        srt_filename.push_str(".srt");
         let args = &cfg.codec_args;
         let ffmpeg_codec_args = ffmpeg_writer::FfmpegCodecArgs {
             device_args: args.device_args.clone(),
@@ -108,28 +107,13 @@ impl MyFfmpegWriter {
 /// Create a RawWriter. Runs inside writer thread loop.
 fn create_writer<'a>(
     libs_result: &'a std::result::Result<nvenc::Dynlibs, nvenc::NvEncError>,
-    stamp: DateTime<Local>,
-    format_str_mp4: &'a str,
-    data_dir: Option<&PathBuf>,
     recording_config: &ci2_remote_control::RecordingConfig,
+    mp4_path: &'a Path,
 ) -> Result<RawWriter<'a, File>> {
-    let local: chrono::DateTime<chrono::Local> = stamp.with_timezone(&chrono::Local);
-    let formatted_filename = local.format(format_str_mp4).to_string();
-    let mp4_filename = if let Some(data_dir) = &data_dir {
-        data_dir
-            .join(formatted_filename)
-            .into_os_string()
-            .into_string()
-            .unwrap()
-    } else {
-        formatted_filename
-    };
-
     use ci2_remote_control::RecordingConfig::*;
     let raw: RawWriter<'_, File> = match &recording_config {
         Mp4(mp4_recording_config) => {
-            let mp4_path = std::path::Path::new(&mp4_filename);
-            let mp4_file = std::fs::File::create(mp4_path)?;
+            let mp4_file = std::fs::File::create(&mp4_path)?;
 
             let nv_enc = match &mp4_recording_config.codec {
                 ci2_remote_control::Mp4Codec::H264NvEnc(_opts) => {
@@ -168,9 +152,9 @@ fn create_writer<'a>(
                 nv_enc,
             )?)
         }
-        Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_filename, c)?)),
+        Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_path, c)?)),
     };
-    tracing::info!("Saving MP4 to \"{mp4_filename}\"");
+    tracing::info!("Saving MP4 to \"{}\"", mp4_path.display());
 
     Ok(raw)
 }
@@ -209,11 +193,10 @@ fn finish_writer(raw: &mut RawWriter<'_, File>) -> Result<()> {
 }
 
 pub(crate) fn writer_thread_loop(
-    format_str_mp4: String,
     recording_config: ci2_remote_control::RecordingConfig,
     err_tx: Arc<Mutex<Option<Error>>>,
-    data_dir: Option<PathBuf>,
     rx: std::sync::mpsc::Receiver<Msg>,
+    mp4_path: PathBuf,
 ) {
     {
         // Load CUDA and nvidia-encode shared libs, but do not return error
@@ -233,13 +216,7 @@ pub(crate) fn writer_thread_loop(
                     } else {
                         let wtr = thread_try!(
                             err_tx,
-                            create_writer(
-                                &libs_result,
-                                stamp,
-                                &format_str_mp4,
-                                data_dir.as_ref(),
-                                &recording_config
-                            )
+                            create_writer(&libs_result, &recording_config, &mp4_path)
                         );
                         raw = Some(wtr);
                         raw.as_mut().unwrap()

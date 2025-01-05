@@ -518,11 +518,16 @@ pub(crate) async fn frame_process_task<'a>(
                 let filename = creation_time.format(format_str_mp4.as_str()).to_string();
                 let is_recording_mp4 = Some(RecordingPath::new(filename.clone()));
 
+                let mp4_path = {
+                    let local = chrono::Local::now();
+                    let formatted_filename = local.format(&format_str_mp4).to_string();
+                    data_dir.join(formatted_filename)
+                };
+
                 let mut raw = bg_movie_writer::BgMovieWriter::new(
-                    format_str_mp4,
                     mp4_recording_config.final_cfg,
                     frames.len() + 100,
-                    Some(data_dir.clone()),
+                    mp4_path,
                 );
                 for mut frame in frames.into_iter() {
                     // Force frame width to be power of 2.
