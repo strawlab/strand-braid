@@ -191,7 +191,7 @@ pub struct Mp4RecordingConfig {
 }
 
 /// Configuration for an ffmpeg-based recording
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct FfmpegRecordingConfig {
     pub codec_args: FfmpegCodecArgs,
     /// Limits the recording to a maximum frame rate.
@@ -205,6 +205,12 @@ pub enum RecordingConfig {
     Mp4(Mp4RecordingConfig),
     /// Record via y4m pipe to ffmpeg
     Ffmpeg(FfmpegRecordingConfig),
+}
+
+impl Default for RecordingConfig {
+    fn default() -> Self {
+        Self::Ffmpeg(Default::default())
+    }
 }
 
 impl RecordingConfig {
