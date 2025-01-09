@@ -1307,15 +1307,11 @@ where
         Err(a) => a.pixel_format.clone(),
     };
 
-    let send_current_image_interval = match &res_braid {
-        Ok(bi) => std::time::Duration::from_millis(
+    let send_image_to_braid_interval = res_braid.as_ref().ok().map(|bi| {
+        std::time::Duration::from_millis(
             bi.config_from_braid.config.send_current_image_interval_msec,
-        ),
-        Err(_) => {
-            // We never need to send if we are not using braid, so set to 365 days.
-            std::time::Duration::from_secs(60 * 60 * 24 * 365)
-        }
-    };
+        )
+    });
 
     let acquisition_duration_allowed_imprecision_msec = match &res_braid {
         Ok(bi) => {
@@ -2223,8 +2219,8 @@ where
         let mut transmit_msg_tx = transmit_msg_tx.clone();
         let raw_cam_name = raw_cam_name.clone();
         async move {
-            let mut send_current_image_timer =
-                std::time::Instant::now() - send_current_image_interval;
+            let mut send_image_to_braid_timer = std::time::Instant::now();
+            let mut send_image_to_braid_duration = std::time::Duration::from_millis(0);
             while let Some(frame_msg) = frame_stream.next().await {
                 match &frame_msg {
                     ci2_async::FrameResult::Frame(fframe) => {
@@ -2294,11 +2290,10 @@ where
                 }
 
                 if let ci2_async::FrameResult::Frame(frame) = &frame_msg {
-                    if send_current_image_timer.elapsed() >= send_current_image_interval {
-                        send_current_image_timer = std::time::Instant::now();
-
-                        if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
-                            // encode frame to png buf
+                    if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
+                        // Check if we need to send this frame to braid because our timer elapsed.
+                        if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
+                            // If yes, encode frame to png buffer.
                             let current_image_png = match_all_dynamic_fmts!(&frame.image, x, {
                                 convert_image::frame_to_encoded_buffer(
                                     x,
@@ -2307,6 +2302,7 @@ where
                                 .unwrap()
                             });
 
+                            // Prepare and send message to Braid.
                             let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
                                 flydra_types::PerCam {
                                     raw_cam_name: raw_cam_name.clone(),
@@ -2316,6 +2312,12 @@ where
                                 },
                             );
                             transmit_msg_tx.send(msg).await?;
+
+                            // Update timer for next iteration.
+                            send_image_to_braid_timer = std::time::Instant::now();
+                            if let Some(dur) = send_image_to_braid_interval {
+                                send_image_to_braid_duration = dur;
+                            }
                         }
                     }
                 }
