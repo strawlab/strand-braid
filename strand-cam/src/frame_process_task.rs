@@ -1677,7 +1677,8 @@ struct FlydraConfigState {
 
 /// Get device_timestamp and block_id from backend-specific data, if available.
 fn extract_backend_data(frame: &ci2::DynamicFrameWithInfo) -> (Option<u64>, Option<u64>) {
-    if let Some(any) = frame.backend_data.as_ref().map(ci2::AsAny::as_any) {
+    if let Some(backend_data) = frame.backend_data.as_ref() {
+        let any = ci2::AsAny::as_any(&**backend_data);
         if let Some(xtra_pylon) = any.downcast_ref::<ci2_pylon_types::PylonExtra>() {
             tracing::trace!("{xtra_pylon:?}");
             return (Some(xtra_pylon.device_timestamp), Some(xtra_pylon.block_id));
