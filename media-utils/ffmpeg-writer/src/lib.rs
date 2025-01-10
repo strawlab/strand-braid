@@ -179,6 +179,9 @@ impl FfmpegWriter {
                 None => false,
             };
 
+            if show_ffmpeg {
+                println!("ffmpeg {}", args.join(" "));
+            }
             let mut cmd0 = Command::new(FFMPEG);
             let cmd = cmd0.args(args).stdin(Stdio::piped());
 
