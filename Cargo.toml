@@ -41,7 +41,6 @@ members = [
     "camera/ci2-vimba-types",
     "camera/vimba",
     "csv-eof",
-    "datetime-conversion",
     "download-verify",
     "env-tracing-logger",
     "env-tracing-logger/env-tracing-logger-sample",
@@ -109,6 +108,7 @@ members = [
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
     "tracking",
+    "utils/datetime-conversion",
     "utils/enum-iter",
     "utils/groupby",
     "utils/withkey",
@@ -288,7 +288,7 @@ ci2-types = { path = "camera/ci2-types" }
 ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
 csv-eof = { path = "csv-eof" }
-datetime-conversion = { path = "datetime-conversion" }
+datetime-conversion = { path = "utils/datetime-conversion" }
 download-verify = { path = "download-verify" }
 dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
