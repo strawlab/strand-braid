@@ -41,8 +41,6 @@ members = [
     "camera/ci2-vimba-types",
     "camera/vimba",
     "download-verify",
-    "env-tracing-logger",
-    "env-tracing-logger/env-tracing-logger-sample",
     "event-stream-types",
     "fastfreeimage",
     "flydra-feature-detector",
@@ -110,6 +108,8 @@ members = [
     "utils/csv-eof",
     "utils/datetime-conversion",
     "utils/enum-iter",
+    "utils/env-tracing-logger",
+    "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/groupby",
     "utils/withkey",
     "write-debian-changelog",
@@ -292,7 +292,7 @@ download-verify = { path = "download-verify" }
 dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
 enum-iter = { path = "utils/enum-iter" }
-env-tracing-logger = { path = "env-tracing-logger" }
+env-tracing-logger = { path = "utils/env-tracing-logger" }
 event-stream-types = { path = "event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
 ffmpeg-rewriter = { path = "media-utils/ffmpeg-rewriter" }
