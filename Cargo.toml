@@ -244,7 +244,6 @@ tower-serve-static = "0.1"
 tracing = "0.1.41"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 tracing-panic = "0.1.1"
-tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
 ttf-firacode = "0.1"
 usvg = { version = "0.19.0", default-features = false }

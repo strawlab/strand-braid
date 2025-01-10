@@ -47,7 +47,6 @@ http-body.workspace = true
 base64.workspace = true
 cookie_store.workspace = true
 cookie.workspace = true
-tracing-subscriber.workspace = true
 shellexpand.workspace = true
 
 braid.workspace = true

@@ -15,7 +15,6 @@ tracing.workspace = true
 eyre.workspace = true
 dotenv.workspace = true
 chrono.workspace = true
-tracing-subscriber.workspace = true
 
 env-tracing-logger.workspace = true
 flydra-types.workspace = true
