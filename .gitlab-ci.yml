@@ -94,7 +94,7 @@ test_crates:
     - cd $CI_PROJECT_DIR/fly-eye
     - cargo build --release --features backend_pyloncxx
 
-    - cd $CI_PROJECT_DIR/led-box-comms
+    - cd $CI_PROJECT_DIR/led-box/led-box-comms
     - cargo test
 
 test_flydra2:
@@ -304,7 +304,7 @@ led-box-ubuntu2004-debs:
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
-    - cd led-box
+    - cd $CI_PROJECT_DIR/led-box/led-box
     - cp $CI_PROJECT_DIR/build/led-box ./
     - cp $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin ./led-box-firmware.bin
     - dpkg-buildpackage -rfakeroot -b -uc -us
@@ -327,7 +327,7 @@ led-box-standalone-ubuntu2004-deb:
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
 
-    - cd led-box-standalone
+    - cd $CI_PROJECT_DIR/led-box/led-box-standalone
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/led-box-standalone ./
     - dpkg-buildpackage -rfakeroot -b -uc -us
@@ -821,10 +821,10 @@ led-box-linux:
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - export RUSTFLAGS="-D warnings"
 
-    - cd led-box
+    - cd $CI_PROJECT_DIR/led-box/led-box
     - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/led-box $CI_PROJECT_DIR/build/led-box
+    - cp $CI_PROJECT_DIR/target/release/led-box $CI_PROJECT_DIR/build/led-box
   artifacts:
     paths:
       - build/
@@ -834,7 +834,7 @@ led-box-firmware:
   image: rust:1.83
   script:
     - rustc --version
-    - cd led-box-firmware
+    - cd led-box/led-box-firmware
 
     - cargo install cargo-binutils
 

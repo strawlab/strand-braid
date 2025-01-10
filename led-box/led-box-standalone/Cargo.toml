@@ -1,0 +1,21 @@
+[package]
+name = "led-box-standalone"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tracing.workspace = true
+futures.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tokio-serial.workspace = true
+anyhow.workspace = true
+byteorder.workspace = true
+eframe = { version = "0.22.0", default-features = false, features = [
+    "default_fonts",
+    "glow",
+] }
+json-lines.workspace = true
+
+led-box-comms.workspace = true
+env-tracing-logger.workspace = true

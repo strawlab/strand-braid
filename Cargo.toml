@@ -72,9 +72,9 @@ members = [
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",
-    "led-box",
-    "led-box-comms",
-    "led-box-standalone",
+    "led-box/led-box",
+    "led-box/led-box-comms",
+    "led-box/led-box-standalone",
     "machine-vision-shaders",
     "media-utils/bg-movie-writer",
     "media-utils/dump-frame",
@@ -119,7 +119,11 @@ members = [
     "zip-or-dir/dir2zip",
 ]
 
-exclude = ["fastimage", "led-box-firmware", "led-box-firmware-pico"]
+exclude = [
+    "fastimage",
+    "led-box/led-box-firmware",
+    "led-box/led-box-firmware-pico",
+]
 
 [profile.release]
 debug = true
@@ -311,7 +315,7 @@ groupby = { path = "utils/groupby" }
 http-video-streaming = { path = "http-video-streaming" }
 http-video-streaming-types = { path = "http-video-streaming/http-video-streaming-types" }
 imops = { path = "imops" }
-led-box-comms = { path = "led-box-comms" }
+led-box-comms = { path = "led-box/led-box-comms" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
 machine-vision-shaders = { path = "machine-vision-shaders" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
