@@ -7,7 +7,6 @@ use basic_frame::DynamicFrame;
 use ci2::{
     AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode, TriggerSelector,
 };
-use machine_vision_formats::{ImageBuffer, ImageBufferRef};
 use pylon_cxx::HasProperties;
 
 trait ExtendedError<T> {
@@ -127,64 +126,6 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
     fn settings_file_extension(&self) -> &str {
         // See https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/saving-camera-features-or-user-sets-as-file-on-hard-disk/588482/
         "pfs" // Pylon Feature Stream
-    }
-}
-
-/// Raw data and associated metadata from an acquired frame.
-#[derive(Clone)]
-pub struct Frame {
-    /// number of pixels in an image row
-    width: u32,
-    /// number of pixels in an image column
-    height: u32,
-    /// number of bytes in an image row
-    stride: u32,
-    image_data: Vec<u8>,   // raw image data
-    block_id: u64,         // framenumber from the camera driver
-    device_timestamp: u64, // timestamp from the camera driver
-}
-
-impl std::fmt::Debug for Frame {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Frame")
-            .field("width", &self.width)
-            .field("height", &self.height)
-            .field("block_id", &self.block_id)
-            .field("device_timestamp", &self.device_timestamp)
-            .finish()
-    }
-}
-
-impl<F> formats::ImageData<F> for Frame {
-    fn width(&self) -> u32 {
-        self.width
-    }
-    fn height(&self) -> u32 {
-        self.height
-    }
-    fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
-        ImageBufferRef::new(&self.image_data)
-    }
-    fn buffer(self) -> ImageBuffer<F> {
-        ImageBuffer::new(self.image_data)
-    }
-}
-
-impl formats::Stride for Frame {
-    fn stride(&self) -> usize {
-        self.stride as usize
-    }
-}
-
-impl From<Frame> for Vec<u8> {
-    fn from(orig: Frame) -> Vec<u8> {
-        orig.image_data
-    }
-}
-
-impl From<Box<Frame>> for Vec<u8> {
-    fn from(orig: Box<Frame>) -> Vec<u8> {
-        orig.image_data
     }
 }
 
