@@ -36,7 +36,7 @@ ci2-types.workspace = true
 ci2-remote-control.workspace = true
 
 led-box-comms = { path = "../../led-box-comms" }
-enum-iter = { path = "../../enum-iter" }
+enum-iter = { path = "../../utils/enum-iter" }
 ads-webasm.workspace = true
 
 [dependencies.web-sys]

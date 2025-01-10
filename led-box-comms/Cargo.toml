@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-enum-iter = { path = "../enum-iter", default-features = false, optional = true }
+enum-iter = { path = "../utils/enum-iter", optional = true }
 defmt = { version = "0.3", optional = true }
 
 [features]

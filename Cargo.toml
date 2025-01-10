@@ -43,7 +43,6 @@ members = [
     "csv-eof",
     "datetime-conversion",
     "download-verify",
-    "enum-iter",
     "env-tracing-logger",
     "env-tracing-logger/env-tracing-logger-sample",
     "event-stream-types",
@@ -70,7 +69,6 @@ members = [
     "geometry/refraction/bisection-search",
     "geometry/simple-obj-parse",
     "geometry/textured-tri-mesh",
-    "groupby",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",
@@ -113,7 +111,9 @@ members = [
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
     "tracking",
-    "withkey",
+    "utils/enum-iter",
+    "utils/groupby",
+    "utils/withkey",
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
@@ -290,7 +290,7 @@ datetime-conversion = { path = "datetime-conversion" }
 download-verify = { path = "download-verify" }
 dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
-enum-iter = { path = "enum-iter" }
+enum-iter = { path = "utils/enum-iter" }
 env-tracing-logger = { path = "env-tracing-logger" }
 event-stream-types = { path = "event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
@@ -307,7 +307,7 @@ flytrax-io = { path = "strand-cam/flytrax-io" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
 frame-source = { path = "media-utils/frame-source" }
-groupby = { path = "groupby" }
+groupby = { path = "utils/groupby" }
 http-video-streaming = { path = "http-video-streaming" }
 http-video-streaming-types = { path = "http-video-streaming/http-video-streaming-types" }
 imops = { path = "imops" }
@@ -334,7 +334,7 @@ tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }
 ufmf = { path = "media-utils/ufmf" }
 vimba = { path = "camera/vimba" }
-withkey = { path = "withkey" }
+withkey = { path = "utils/withkey" }
 y4m-writer = { path = "media-utils/y4m-writer" }
 zip-or-dir = { path = "zip-or-dir" }
 
