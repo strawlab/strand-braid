@@ -47,7 +47,6 @@ members = [
     "env-tracing-logger/env-tracing-logger-sample",
     "event-stream-types",
     "fastfreeimage",
-    "fly-eye",
     "flydra-feature-detector",
     "flydra-feature-detector/flydra-feature-detector-types",
     "flydra-feature-detector/flydra-pt-detect-cfg",
@@ -75,7 +74,6 @@ members = [
     "led-box/led-box",
     "led-box/led-box-comms",
     "led-box/led-box-standalone",
-    "machine-vision-shaders",
     "media-utils/bg-movie-writer",
     "media-utils/dump-frame",
     "media-utils/ffmpeg-writer",
@@ -317,7 +315,6 @@ http-video-streaming-types = { path = "http-video-streaming/http-video-streaming
 imops = { path = "imops" }
 led-box-comms = { path = "led-box/led-box-comms" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
-machine-vision-shaders = { path = "machine-vision-shaders" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
 mvg = { path = "geometry/mvg", features = ["serde-serialize"] }

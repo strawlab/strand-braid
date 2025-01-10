@@ -90,10 +90,6 @@ test_crates:
     - cd $CI_PROJECT_DIR/camera/ci2-cli
     - cargo test --features backend_pyloncxx
 
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y cmake pkg-config libfontconfig-dev
-    - cd $CI_PROJECT_DIR/fly-eye
-    - cargo build --release --features backend_pyloncxx
-
     - cd $CI_PROJECT_DIR/led-box/led-box-comms
     - cargo test
 
