@@ -825,11 +825,15 @@ async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
     }
 }
 
+/// Information acquired from Braid when the HTTP session is established.
 #[derive(Debug)]
 struct BraidInfo {
     mainbrain_session: braid_http_session::MainbrainSession,
-    /// Neither the IP nor the port are unspecified
+    /// The address to which low-latency tracking data should be sent.
+    ///
+    /// Neither the IP nor the port are unspecified.
     camdata_udp_addr: SocketAddr,
+    #[cfg_attr(not(feature = "flydra_feat_detect"), expect(dead_code))]
     tracker_cfg_src: ImPtDetectCfgSource,
     config_from_braid: flydra_types::RemoteCameraInfoResponse,
 }
@@ -1016,89 +1020,52 @@ struct GuiAppStuff {
     egui_ctx_rx: std::sync::mpsc::Receiver<eframe::egui::Context>,
 }
 
-/// First, connect to Braid if requested, then run.
-async fn run_after_maybe_connecting_to_braid<M, C, G>(
-    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
-    args: StrandCamArgs,
-    app_name: &'static str,
-    log_file_info: LogFileInfo,
-    gui_app_stuff: Option<GuiAppStuff>,
-    gui_singleton: ArcMutGuiSingleton,
-) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
-where
-    M: ci2::CameraModule<CameraType = C, Guard = G> + 'static,
-    C: 'static + ci2::Camera + Send,
-    G: Send,
-{
-    // If connecting to braid, do it here.
-    let res_braid: std::result::Result<BraidInfo, StandaloneArgs> = {
-        match &args.standalone_or_braid {
-            StandaloneOrBraid::Braid(braid_args) => {
-                info!("Will connect to braid at \"{}\"", braid_args.braid_url);
-                let mainbrain_bui_loc =
-                    flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
+    info!("Will connect to braid at \"{}\"", braid_args.braid_url);
+    let mainbrain_bui_loc =
+        flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
-                let jar: cookie_store::CookieStore =
-                    match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
-                        Ok(jar) => {
-                            tracing::debug!("loaded cookie store {BRAID_COOKIE_KEY}");
-                            jar
-                        }
-                        Err(e) => {
-                            tracing::debug!(
-                                "cookie store {BRAID_COOKIE_KEY} not loaded: {e} {e:?}"
-                            );
-                            cookie_store::CookieStore::new(None)
-                        }
-                    };
-                let jar = Arc::new(RwLock::new(jar));
-                let mut mainbrain_session = braid_http_session::create_mainbrain_session(
-                    mainbrain_bui_loc.clone(),
-                    jar.clone(),
-                )
-                .await?;
-                tracing::debug!("Opened HTTP session with Braid.");
-                {
-                    // We have the cookie from braid now, so store it to disk.
-                    let jar = jar.read().unwrap();
-                    Preferences::save(&*jar, &APP_INFO, BRAID_COOKIE_KEY)?;
-                    tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
-                }
-
-                let camera_name = flydra_types::RawCamName::new(braid_args.camera_name.clone());
-
-                let config_from_braid: flydra_types::RemoteCameraInfoResponse =
-                    mainbrain_session.get_remote_info(&camera_name).await?;
-
-                let camdata_udp_ip = mainbrain_bui_loc.addr().ip();
-                let camdata_udp_port = config_from_braid.camdata_udp_port;
-                let camdata_udp_addr = SocketAddr::new(camdata_udp_ip, camdata_udp_port);
-
-                let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
-                    config_from_braid.config.point_detection_config.clone(),
-                );
-
-                Ok(BraidInfo {
-                    mainbrain_session,
-                    config_from_braid,
-                    camdata_udp_addr,
-                    tracker_cfg_src,
-                })
-            }
-            StandaloneOrBraid::Standalone(standalone_args) => Err(standalone_args.clone()),
+    let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
+        Ok(jar) => {
+            tracing::debug!("loaded cookie store {BRAID_COOKIE_KEY}");
+            jar
+        }
+        Err(e) => {
+            tracing::debug!("cookie store {BRAID_COOKIE_KEY} not loaded: {e} {e:?}");
+            cookie_store::CookieStore::new(None)
         }
     };
+    let jar = Arc::new(RwLock::new(jar));
+    let mut mainbrain_session =
+        braid_http_session::create_mainbrain_session(mainbrain_bui_loc.clone(), jar.clone())
+            .await?;
+    tracing::debug!("Opened HTTP session with Braid.");
+    {
+        // We have the cookie from braid now, so store it to disk.
+        let jar = jar.read().unwrap();
+        Preferences::save(&*jar, &APP_INFO, BRAID_COOKIE_KEY)?;
+        tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
+    }
 
-    select_cam_and_run(
-        mymod,
-        args,
-        app_name,
-        res_braid,
-        log_file_info,
-        gui_app_stuff,
-        gui_singleton,
-    )
-    .await
+    let camera_name = flydra_types::RawCamName::new(braid_args.camera_name.clone());
+
+    let config_from_braid: flydra_types::RemoteCameraInfoResponse =
+        mainbrain_session.get_remote_info(&camera_name).await?;
+
+    let camdata_udp_ip = mainbrain_bui_loc.addr().ip();
+    let camdata_udp_port = config_from_braid.camdata_udp_port;
+    let camdata_udp_addr = SocketAddr::new(camdata_udp_ip, camdata_udp_port);
+
+    let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangesNotSavedToDisk(
+        config_from_braid.config.point_detection_config.clone(),
+    );
+
+    Ok(BraidInfo {
+        mainbrain_session,
+        config_from_braid,
+        camdata_udp_addr,
+        tracker_cfg_src,
+    })
 }
 
 struct LogFileInfo {
@@ -1110,12 +1077,11 @@ struct LogFileInfo {
     log_file_time: chrono::DateTime<chrono::Local>,
 }
 
-/// Determine the camera name to be used and call `run()`.
-async fn select_cam_and_run<M, C, G>(
+/// First, connect to Braid if requested, then run.
+async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-    res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
     log_file_info: LogFileInfo,
     gui_app_stuff: Option<GuiAppStuff>,
     gui_singleton: ArcMutGuiSingleton,
@@ -1125,11 +1091,19 @@ where
     C: 'static + ci2::Camera + Send,
     G: Send,
 {
+    // If connecting to braid, do it here.
+    let braid_info = {
+        match &args.standalone_or_braid {
+            StandaloneOrBraid::Braid(braid_args) => Some(connect_to_braid(braid_args).await?),
+            StandaloneOrBraid::Standalone(_) => None,
+        }
+    };
+
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
         StandaloneOrBraid::Braid(braid_args) => {
-            let braid_info = match &res_braid {
-                Ok(braid_info) => braid_info,
-                Err(_) => {
+            let braid_info = match &braid_info {
+                Some(braid_info) => braid_info,
+                None => {
                     eyre::bail!("requested braid, but no braid config");
                 }
             };
@@ -1210,7 +1184,7 @@ where
         mymod,
         args,
         app_name,
-        res_braid,
+        braid_info,
         strand_cam_bui_http_address_string,
         use_camera_name,
         gui_app_stuff,
@@ -1231,7 +1205,7 @@ where
     mymod,
     args,
     app_name,
-    res_braid,
+    braid_info,
     strand_cam_bui_http_address_string,
     gui_app_stuff,
     gui_singleton,
@@ -1241,7 +1215,7 @@ async fn run<M, C, G>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-    res_braid: std::result::Result<BraidInfo, StandaloneArgs>,
+    braid_info: Option<BraidInfo>,
     strand_cam_bui_http_address_string: String,
     cam: &str,
     gui_app_stuff: Option<GuiAppStuff>,
@@ -1296,6 +1270,17 @@ where
         .map_err(|e| warn!("Ignoring error getting gamma: {}", e))
         .ok()
         .map(|x: f64| x as f32);
+
+    // Use `Result` as an enum with two options. It's not the case that one is a
+    // non-error and the other an error condition. We just use `Result` rather
+    // than defining our own enum type here.
+    let res_braid = match (&braid_info, &args.standalone_or_braid) {
+        (Some(bi), StandaloneOrBraid::Braid(_)) => Ok(bi),
+        (None, StandaloneOrBraid::Standalone(a)) => Err(a),
+        (Some(_), StandaloneOrBraid::Standalone(_)) | (None, StandaloneOrBraid::Braid(_)) => {
+            unreachable!()
+        }
+    };
 
     let camera_settings_filename = match &res_braid {
         Ok(bi) => bi.config_from_braid.config.camera_settings_filename.clone(),
@@ -1489,11 +1474,6 @@ where
         Err(a) => a.tracker_cfg_src.clone(),
     };
 
-    #[cfg(not(feature = "flydra_feat_detect"))]
-    if let Ok(bi) = &res_braid {
-        let _ = bi.tracker_cfg_src.clone(); // silence unused field warning.
-    };
-
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
     #[cfg(not(feature = "flydra_feat_detect"))]
@@ -1533,12 +1513,12 @@ where
         Err(a) => a.software_limit_framerate.clone(),
     };
 
-    let (mut mainbrain_session, trigger_type) = match res_braid {
-        Ok(bi) => (
+    let (mut mainbrain_session, trigger_type) = match braid_info {
+        Some(bi) => (
             Some(bi.mainbrain_session),
             Some(bi.config_from_braid.trig_config),
         ),
-        Err(_a) => (None, None),
+        None => (None, None),
     };
 
     // spawn channel to send data to mainbrain
