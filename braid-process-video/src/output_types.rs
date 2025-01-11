@@ -40,6 +40,14 @@ impl<'lib> OutputStorage<'lib> {
             OutputStorage::Video(v) => &v.path,
         }
     }
+
+    pub(crate) async fn close(self) -> Result<()> {
+        match self {
+            OutputStorage::Debug(d) => d.close().await,
+            OutputStorage::Braid(b) => b.close().await,
+            OutputStorage::Video(v) => v.close().await,
+        }
+    }
 }
 
 pub(crate) struct DebugStorage {
@@ -98,6 +106,10 @@ impl DebugStorage {
             write_it(&cam_render_data.points, "feature")?;
             write_it(&cam_render_data.reprojected_points, "reprojected")?;
         }
+        Ok(())
+    }
+
+    pub(crate) async fn close(self) -> Result<()> {
         Ok(())
     }
 }

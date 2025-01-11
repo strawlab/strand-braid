@@ -25,7 +25,8 @@ mod synced_iter;
 mod config;
 pub(crate) use config::FeatureDetectionMethod;
 pub use config::{
-    BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig, VideoSourceConfig,
+    BraidRetrackVideoConfig, BraidzOutputConfig, OutputConfig, Valid, Validate, VideoOutputConfig,
+    VideoSourceConfig,
 };
 
 mod auto_config_generator;
@@ -777,7 +778,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     fd: std::fs::File::create(&output_filename)?,
                 })),
                 OutputConfig::Braidz(b) => {
-                    let (braidz_storage, coord_proc_fut) = output_braidz::BraidStorage::new(
+                    let braidz_storage = output_braidz::BraidStorage::new(
                         cfg,
                         &b,
                         tracking_parameters.clone(),
@@ -787,8 +788,6 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                         braidz_calibration.clone(),
                     )
                     .await?;
-
-                    coord_proc_fut.await?.await??;
 
                     Ok(OutputStorage::Braid(braidz_storage))
                 }
@@ -849,10 +848,17 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
 
     pb.finish_and_clear();
 
-    Ok(output_storage
+    // collect output filenames
+    let outputs = output_storage
         .iter()
         .map(|d| d.path().to_path_buf())
-        .collect())
+        .collect();
+
+    for output in output_storage.into_iter() {
+        output.close().await?;
+    }
+
+    Ok(outputs)
 }
 
 fn gather_frame_data<'a>(

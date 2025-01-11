@@ -1,8 +1,5 @@
 use eyre::{self as anyhow, Result};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    future::Future,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use flydra_types::{PerCamSaveData, RawCamName};
 
@@ -15,6 +12,7 @@ pub(crate) struct BraidStorage {
     pub(crate) cam_manager: flydra2::ConnectedCamerasManager,
     pub(crate) frame_data_tx: tokio::sync::mpsc::Sender<flydra2::StreamItem>,
     pub(crate) output_braidz_path: std::path::PathBuf,
+    pub(crate) coord_proc_jh: tokio::task::JoinHandle<Result<()>>,
 }
 
 impl BraidStorage {
@@ -26,12 +24,7 @@ impl BraidStorage {
         all_expected_cameras: BTreeSet<RawCamName>,
         expected_framerate: Option<f32>,
         braidz_calibration: Option<braidz_types::CalibrationInfo>,
-    ) -> Result<(
-        Self,
-        impl Future<
-            Output = Result<tokio::task::JoinHandle<Result<(), flydra2::Error>>, flydra2::Error>,
-        >,
-    )> {
+    ) -> Result<Self> {
         let output_braidz_path = std::path::PathBuf::from(&b.filename);
         let output_dirname =
             if output_braidz_path.extension() == Some(std::ffi::OsStr::new("braidz")) {
@@ -141,17 +134,20 @@ impl BraidStorage {
             .await
             .unwrap();
 
-        let coord_proc_fut = coord_processor.consume_stream(frame_data_rx, expected_framerate);
+        let coord_proc_jh = tokio::spawn(async move {
+            let coord_proc_fut = coord_processor.consume_stream(frame_data_rx, expected_framerate);
+            coord_proc_fut.await?.await??;
+            Ok(())
+        });
 
-        Ok((
-            Self {
-                cam_manager,
-                frame_data_tx,
-                output_braidz_path,
-            },
-            coord_proc_fut,
-        ))
+        Ok(Self {
+            cam_manager,
+            frame_data_tx,
+            output_braidz_path,
+            coord_proc_jh,
+        })
     }
+
     pub(crate) async fn render_frame(
         &mut self,
         out_fno: usize,
@@ -209,6 +205,22 @@ impl BraidStorage {
                 Err(e) => return Err(e.into()),
             }
         }
+        Ok(())
+    }
+
+    pub(crate) async fn close(self) -> Result<()> {
+        let BraidStorage {
+            cam_manager: _,
+            frame_data_tx,
+            output_braidz_path: _,
+            coord_proc_jh,
+        } = self;
+
+        // Stop transmitting frames, which causes coord processor to end.
+        std::mem::drop(frame_data_tx);
+
+        // Wait for coord processor to finish.
+        coord_proc_jh.await??;
         Ok(())
     }
 }
