@@ -44,7 +44,17 @@ pub fn initiate_logging<P: AsRef<std::path::Path>>(
     let console_layer = if disable_console {
         None
     } else {
-        let with_ansi = !cfg!(windows);
+        #[cfg(target_os = "windows")]
+        let with_ansi = match ansi_term::enable_ansi_support() {
+            Ok(_) => true,
+            Err(code) => {
+                tracing::error!("Failed setting windows ansi: {code}");
+                false
+            }
+        };
+        #[cfg(not(target_os = "windows"))]
+        let with_ansi = true;
+
         Some(
             fmt::layer()
                 .with_timer(timer)

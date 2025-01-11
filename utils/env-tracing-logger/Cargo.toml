@@ -10,3 +10,6 @@ chrono.workspace = true
 time = { version = "0.3.36", default-features = false }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "time"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+ansi_term = "0.12.1"
