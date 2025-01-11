@@ -1,7 +1,8 @@
 use eyre::{self as anyhow};
 
 use braid_process_video::{
-    BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig, VideoSourceConfig,
+    BraidRetrackVideoConfig, BraidzOutputConfig, OutputConfig, Valid, Validate, VideoOutputConfig,
+    VideoSourceConfig,
 };
 
 const BASE_URL: &str = "https://strawlab-cdn.com/assets/flycube6-videos";
@@ -10,14 +11,16 @@ const SOURCE_JSON: &str = include_str!("source.json");
 async fn do_config(cfg: &Valid<BraidRetrackVideoConfig>) -> anyhow::Result<()> {
     // generate the output
     let output_fnames = braid_process_video::run_config(cfg).await?;
-    assert_eq!(output_fnames.len(), 1);
-    let output_fname = output_fnames[0].clone();
+    assert_eq!(output_fnames.len(), 2);
+    let output_mp4 = output_fnames[0].clone();
 
     // start parsing output
     let do_decode_h264 = false;
-    let _src = frame_source::from_path(&output_fname, do_decode_h264)?;
+    let _src = frame_source::from_path(&output_mp4, do_decode_h264)?;
 
-    // TODO: check output. How?
+    // TODO: check output mp4. How?
+
+    // TODO: check output braidz
 
     Ok(())
 }
@@ -71,10 +74,15 @@ fn get_files(
     }
 
     let input_braidz = input_braidz.map(Into::into);
-    let output = vec![OutputConfig::Video(VideoOutputConfig {
-        filename: format!("tests/rendered/{}.mp4", dirname),
-        video_options: Default::default(),
-    })];
+    let output = vec![
+        OutputConfig::Video(VideoOutputConfig {
+            filename: format!("tests/rendered/{}.mp4", dirname),
+            video_options: Default::default(),
+        }),
+        OutputConfig::Braidz(BraidzOutputConfig {
+            filename: format!("tests/rendered/{dirname}.braidz"),
+        }),
+    ];
 
     let cfg = BraidRetrackVideoConfig {
         input_braidz,

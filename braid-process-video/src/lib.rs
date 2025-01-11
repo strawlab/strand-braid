@@ -25,7 +25,8 @@ mod synced_iter;
 mod config;
 pub(crate) use config::FeatureDetectionMethod;
 pub use config::{
-    BraidRetrackVideoConfig, OutputConfig, Valid, Validate, VideoOutputConfig, VideoSourceConfig,
+    BraidRetrackVideoConfig, BraidzOutputConfig, OutputConfig, Valid, Validate, VideoOutputConfig,
+    VideoSourceConfig,
 };
 
 mod auto_config_generator;
