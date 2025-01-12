@@ -110,14 +110,6 @@ pub(crate) async fn frame_process_task<'a>(
     #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
 
-    #[cfg(feature = "flydra_feat_detect")]
-    let frame_offset = if is_braid {
-        // We start initially unsynchronized. We wait for synchronizaton.
-        None
-    } else {
-        Some(0)
-    };
-
     let transmit_feature_detect_settings_tx = if is_braid {
         let (transmit_feature_detect_settings_tx, transmit_feature_detect_settings_rx) =
             tokio::sync::mpsc::channel::<ImPtDetectCfg>(10);
@@ -157,7 +149,6 @@ pub(crate) async fn frame_process_task<'a>(
         width,
         height,
         im_pt_detect_cfg.clone(),
-        frame_offset,
         transmit_feature_detect_settings_tx,
         acquisition_duration_allowed_imprecision_msec,
     )?;
@@ -1463,10 +1454,6 @@ pub(crate) async fn frame_process_task<'a>(
             }
             Msg::SetFrameOffset(fo) => {
                 opt_frame_offset = Some(fo);
-                #[cfg(feature = "flydra_feat_detect")]
-                {
-                    im_tracker.set_frame_offset(fo);
-                }
             }
             Msg::SetTriggerboxClockModel(cm) => {
                 triggerbox_clock_model = cm;

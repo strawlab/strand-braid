@@ -18,14 +18,11 @@ async fn track_fmf() -> anyhow::Result<()> {
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
-    let frame_offset = None;
-
     let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("fmf".to_string()),
         reader.width(),
         reader.height(),
         cfg,
-        frame_offset,
         None,
         None,
     )?;

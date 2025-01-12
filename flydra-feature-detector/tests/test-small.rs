@@ -17,14 +17,11 @@ async fn track_small() -> anyhow::Result<()> {
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
-    let frame_offset = None;
-
     let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("small-test-image".to_string()),
         W,
         H,
         cfg,
-        frame_offset,
         None,
         None,
     )?;
@@ -52,14 +49,11 @@ async fn track_moving_stride() -> anyhow::Result<()> {
 
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
-    let frame_offset = None;
-
     let mut ft = FlydraFeatureDetector::new(
         &flydra_types::RawCamName::new("moving".to_string()),
         W,
         H,
         cfg,
-        frame_offset,
         None,
         None,
     )?;

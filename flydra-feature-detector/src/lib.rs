@@ -417,7 +417,6 @@ pub struct FlydraFeatureDetector {
     last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<Chan1, u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
-    frame_offset: Option<u64>,
     acquisition_histogram: AcquisitionHistogram,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 
@@ -546,7 +545,6 @@ impl FlydraFeatureDetector {
         w: u32,
         h: u32,
         cfg: ImPtDetectCfg,
-        frame_offset: Option<u64>,
         transmit_feature_detect_settings_tx: Option<
             mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
@@ -562,7 +560,6 @@ impl FlydraFeatureDetector {
             mask_image: None,
             last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
-            frame_offset,
             acquisition_histogram,
             acquisition_duration_allowed_imprecision_msec,
             transmit_feature_detect_settings_tx,
@@ -591,11 +588,6 @@ impl FlydraFeatureDetector {
 
         self.mask_image = Some(compute_mask_image(&self.roi_sz, &self.cfg.valid_region)?);
         Ok(())
-    }
-
-    pub fn set_frame_offset(&mut self, value: u64) {
-        debug!("set_frame_offset");
-        self.frame_offset = Some(value);
     }
 
     // command from UI to say "take a new bg image"
