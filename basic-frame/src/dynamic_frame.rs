@@ -116,7 +116,8 @@ impl DynamicFrame {
         convert_to_dynamic2!(FMT, new_basic_frame_copy!(frame))
     }
 
-    // TODO: actually implement the From trait
+    // TODO: actually implement the From trait. However, this is more difficult
+    // than it may initially sound because of trait generic stuff.
     pub fn from<FRAME, FMT>(frame: FRAME) -> Self
     where
         FRAME: ImageStride<FMT> + Into<Vec<u8>>,
@@ -160,6 +161,10 @@ impl DynamicFrame {
     #[cfg(feature = "convert-image")]
     /// Return the image as a `BasicFrame` converting the data to the requested
     /// pixel format as necessary.
+    ///
+    /// Note that although this consumes [Self], it does not make sense to
+    /// implement a variant which takes only a reference because the data must
+    /// be copied in that case anyway.
     ///
     /// To avoid converting the data, use [Self::as_basic].
     pub fn into_pixel_format<FMT>(self) -> Result<BasicFrame<FMT>, convert_image::Error>
