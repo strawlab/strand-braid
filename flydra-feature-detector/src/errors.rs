@@ -15,9 +15,10 @@ pub enum Error {
     CastError(#[from] cast::Error),
     #[error("UFMFError({})", _0)]
     UFMFError(#[from] ufmf::UFMFError),
-    #[error("other error: {msg}")]
-    OtherError { msg: String },
-
+    #[error("unsupported pixel format: {fmt}")]
+    UnsupportedPixelFormat {
+        fmt: machine_vision_formats::pixel_format::PixFmt,
+    },
     #[error("FastImageError({0})")]
     FastImageError(#[from] fastim_mod::Error),
     #[error("IoError: {source}")]
