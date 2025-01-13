@@ -1,3 +1,4 @@
+use eyre as anyhow;
 use std::io::Write;
 
 // This is lightly modified from the version in braid-process-video.

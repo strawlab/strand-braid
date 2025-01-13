@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use eyre as anyhow;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 

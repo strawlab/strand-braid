@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
 use braid_april_cal::*;
+use eyre::{self as anyhow, Context};
 use flytrax_io::read_csv_commented_header;
 use machine_vision_formats::pixel_format::Mono8;
 use opencv_ros_camera::NamedIntrinsicParameters;

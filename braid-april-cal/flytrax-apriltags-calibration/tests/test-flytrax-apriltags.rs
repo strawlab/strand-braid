@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use eyre::{Context, Result};
 
 use flytrax_apriltags_calibration::{compute_extrinsics, ComputeExtrinsicsArgs};
 

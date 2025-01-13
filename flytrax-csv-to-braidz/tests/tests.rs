@@ -100,7 +100,8 @@ async fn test_z_values_zero() {
 }
 
 #[test(tokio::test)]
-async fn mini_arenas_with_apriltags() -> anyhow::Result<()> {
+#[cfg(feature = "with_apriltags")]
+async fn mini_arenas_with_apriltags() -> eyre::Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets";
 
     const CHECKERBOARD_CAL_FNAME: &str = "20230629-ob9-data/20230629_optobehav9_calibration.yaml";

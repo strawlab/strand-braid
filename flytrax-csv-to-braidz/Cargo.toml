@@ -20,7 +20,7 @@ lazy_static.workspace = true
 futures.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
-anyhow.workspace = true
+eyre.workspace = true
 image.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 

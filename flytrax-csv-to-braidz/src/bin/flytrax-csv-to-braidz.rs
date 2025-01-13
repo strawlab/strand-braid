@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use anyhow::Context;
+use eyre::{self as anyhow, Context};
 use tracing::info;
 
 use flydra_types::{MiniArenaConfig, XYGridConfig};

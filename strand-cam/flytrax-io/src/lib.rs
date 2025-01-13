@@ -1,6 +1,6 @@
 use std::io::BufRead;
 
-use anyhow::Result;
+use eyre::{self as anyhow, Result};
 
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 

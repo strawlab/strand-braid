@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow.workspace = true
+eyre.workspace = true
 serde_yaml.workspace = true
 
 strand-cam-csv-config-types = { path = "../../strand-cam-csv-config-types" }
