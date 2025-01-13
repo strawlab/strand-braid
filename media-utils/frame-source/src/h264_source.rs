@@ -661,7 +661,7 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
 
                 match decoder.decode(&annex_b[..])? {
                     Some(decoded_yuv) => {
-                        my_decode(decoded_yuv, frame_number, nal_units, frame_timestamp)
+                        yuv2rgb(decoded_yuv, frame_number, nal_units, frame_timestamp)
                     }
                     None => Err(crate::Error::DecoderDidNotReturnImageData),
                 }
@@ -691,7 +691,7 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
 }
 
 #[cfg(not(feature = "openh264"))]
-fn my_decode(
+fn yuv2rgb(
     _decoded_yuv: (),
     _frame_number: usize,
     _nal_units: Vec<Vec<u8>>,
@@ -701,7 +701,7 @@ fn my_decode(
 }
 
 #[cfg(feature = "openh264")]
-fn my_decode(
+fn yuv2rgb(
     decoded_yuv: openh264::decoder::DecodedYUV<'_>,
     frame_number: usize,
     nal_units: Vec<Vec<u8>>,
