@@ -497,7 +497,7 @@ pub(crate) fn writer_task_main(
     const FLUSH_INTERVAL: u64 = 1;
     let flush_interval = Duration::from_secs(FLUSH_INTERVAL);
 
-    tracing::debug!("Starting braidz writer task. {}:{}", file!(), line!());
+    tracing::debug!("Starting braidz writer task.");
 
     while let Some(msg) = braidz_write_rx.blocking_recv() {
         // TODO: improve flushing. Specifically, if we block for a long time
