@@ -127,16 +127,47 @@ impl RadFile {
 
 /// All things saved to an MCSC directory
 pub struct McscConfigDir {
+    /// indicates whether point is visible from camera (shape: n_cams x n_points)
     pub id_mat: DatMat<i8>,
+    /// pixel size of each camera (shape n_cams x 2)
     pub res: DatMat<usize>,
     pub radfiles: Vec<RadFile>,
     pub camera_order: Vec<String>,
     pub cfg: McscCfg,
+    /// image coordinates of point from camera (shape: n_cams*3 x n_points)
     pub points: DatMat<f64>,
 }
 
 impl McscConfigDir {
+    fn validate(&self) -> Result<()> {
+        let n_cams = self.id_mat.rows;
+        let n_points = self.id_mat.cols;
+
+        if self.points.rows != n_cams * 3 {
+            eyre::bail!("inconsistent number of cameras");
+        }
+        if self.points.cols != n_points {
+            eyre::bail!("inconsistent number of points");
+        }
+
+        if self.camera_order.len() != n_cams {
+            eyre::bail!("inconsistent number of cameras");
+        }
+
+        if self.res.rows != n_cams {
+            eyre::bail!("inconsistent number of cameras");
+        }
+
+        if self.res.cols != 2 {
+            eyre::bail!("inconsistent `res` data");
+        }
+
+        Ok(())
+    }
+
     pub fn save_to_path<P: AsRef<Path>>(&self, p: P) -> Result<()> {
+        self.validate()?;
+
         let base = PathBuf::from(p.as_ref());
         std::fs::create_dir_all(&base)?;
 
