@@ -54,6 +54,7 @@ members = [
     "freemovr-calibration/ncollide-geom",
     "geometry/camcal",
     "geometry/flydra-mvg",
+    "geometry/mcsc-structs",
     "geometry/mvg",
     "geometry/mvg/mvg-util",
     "geometry/opencv-calibrate",
@@ -314,6 +315,7 @@ http-video-streaming-types = { path = "http-video-streaming/http-video-streaming
 imops = { path = "imops" }
 led-box-comms = { path = "led-box/led-box-comms" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
+mcsc-structs = { path = "geometry/mcsc-structs" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
 mvg = { path = "geometry/mvg", features = ["serde-serialize"] }

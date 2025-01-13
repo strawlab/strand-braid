@@ -26,6 +26,7 @@ zip.workspace = true
 env-tracing-logger.workspace = true
 braidz-parser.workspace = true
 flydra-types.workspace = true
+mcsc-structs.workspace = true
 zip-or-dir.workspace = true
 flydra-mvg.workspace = true
 

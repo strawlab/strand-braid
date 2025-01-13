@@ -1,0 +1,8 @@
+[package]
+name = "mcsc-structs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eyre.workspace = true
+opencv-ros-camera.workspace = true
