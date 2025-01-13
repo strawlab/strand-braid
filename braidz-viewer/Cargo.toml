@@ -21,7 +21,7 @@ gloo-file.workspace = true
 yew.workspace = true
 
 wasm-bindgen.workspace = true
-js-sys = "0.3.28"
+js-sys.workspace = true
 plotters = { version = "0.3.4", default-features = false, features = [
     "bitmap_encoder",
     "bitmap_gif",
