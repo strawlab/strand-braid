@@ -28,6 +28,4 @@ anyhow.workspace = true
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 
 [features]
-default = ["solve-pnp"]
-
 solve-pnp = ["opencv-calibrate"]

@@ -26,6 +26,6 @@ wasm-logger.workspace = true
 chrono.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
-braid-april-cal = { path = "..", default-features = false }
+braid-april-cal.workspace = true
 
 [features]

@@ -292,11 +292,11 @@ fn dlt(
     Ok(linear_cam)
 }
 
+#[cfg(feature = "solve-pnp")]
 fn solve_extrinsics(
     points: Vec<AprilTagCorrespondingPoint<f64>>,
     intrinsics: &NamedIntrinsicParameters<f64>,
 ) -> Result<CamSolution, MyError> {
-    #[cfg(feature = "solve-pnp")]
     {
         let cv_points: Vec<opencv_calibrate::CorrespondingPoint> = points
             .iter()
@@ -360,13 +360,6 @@ fn solve_extrinsics(
         .unwrap();
 
         Ok(CamSolution { final_cam, points })
-    }
-    #[cfg(not(feature = "solve-pnp"))]
-    {
-        let _ = (intrinsics, points);
-        Err(MyError {
-            msg: "'solve-pnp' feature must be enabled to solve extrinsics".into(),
-        })
     }
 }
 
@@ -440,8 +433,18 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
         }
 
         let sln = if let Some(kgi) = src_data.known_good_intrinsics.as_ref() {
-            let known_good_intrinsics = kgi.get(cam_name).unwrap();
-            solve_extrinsics(points, known_good_intrinsics)?
+            #[cfg(feature = "solve-pnp")]
+            {
+                let known_good_intrinsics = kgi.get(cam_name).unwrap();
+                solve_extrinsics(points, known_good_intrinsics)?
+            }
+            #[cfg(not(feature = "solve-pnp"))]
+            {
+                let _ = kgi;
+                return Err(MyError {
+                    msg: "'solve-pnp' feature must be enabled to solve extrinsics when intrinsics provided".into(),
+                });
+            }
         } else {
             dlt_then_distortion(cfg, points)?
         };
