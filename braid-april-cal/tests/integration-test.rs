@@ -22,7 +22,7 @@ fn gen_cal() -> CalibrationResult {
     let per_camera_2d = cams_bufs
         .into_iter()
         .map(|buf| {
-            let detections = parse_csv::<DetectionSerializer>("camera-detections.csv".into(), &buf);
+            let detections = parse_csv::<AprilDetection>("camera-detections.csv".into(), &buf);
             match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
@@ -127,7 +127,7 @@ fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
     let per_camera_2d = cams_bufs
         .into_iter()
         .map(|buf| {
-            let detections = parse_csv::<DetectionSerializer>("camera-detections.csv".into(), &buf);
+            let detections = parse_csv::<AprilDetection>("camera-detections.csv".into(), &buf);
             match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();

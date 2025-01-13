@@ -123,9 +123,12 @@ pub struct Fiducial3DCoords {
     pub z: f64,
 }
 
-// The center pixel of the detection is (h02,h12)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct DetectionSerializer {
+/// For deserializing a detection.
+///
+/// Note that other fields are likely saved (e.g. `h00`), but we just ignore
+/// those as they are not necessary for our purposes here.
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct AprilDetection {
     pub id: i32,
     pub h02: f64,
     pub h12: f64,
@@ -199,7 +202,7 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
 // #[derive(Serialize, Deserialize)]
 pub struct CalData {
     pub fiducial_3d_coords: Vec<Fiducial3DCoords>,
-    pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<DetectionSerializer>)>,
+    pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<AprilDetection>)>,
     pub known_good_intrinsics: Option<BTreeMap<String, NamedIntrinsicParameters<f64>>>,
 }
 
@@ -230,7 +233,7 @@ impl CalibrationResult {
 
 fn gather_points_per_cam(
     object_points: &BTreeMap<u32, [f64; 3]>,
-    cam_data: &[DetectionSerializer],
+    cam_data: &[AprilDetection],
 ) -> Result<Vec<AprilTagCorrespondingPoint<f64>>, MyError> {
     // Iterate through all rows of detection data to collect all detections
     // per marker.

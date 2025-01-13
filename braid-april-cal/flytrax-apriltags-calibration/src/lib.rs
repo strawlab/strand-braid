@@ -187,7 +187,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
         let detections2: Vec<_> = detections
             .iter()
-            .map(|d| DetectionSerializer {
+            .map(|d| AprilDetection {
                 id: d.id,
                 h02: d.x,
                 h12: d.y,
