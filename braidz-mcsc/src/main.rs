@@ -1,19 +1,15 @@
-use ::zip::ZipArchive;
 use clap::Parser;
 use eyre::{self, Context, Result};
 use polars::prelude::*;
 use std::{
     collections::BTreeMap,
     fs,
-    io::{self, Read, Seek},
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 
 use flydra_mvg::FlydraMultiCameraSystem;
 use mcsc_structs::{DatMat, McscCfg, McscConfigDir, RadFile};
-
-static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
-static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
 
 #[derive(Parser, Default)]
 struct Cli {
@@ -51,31 +47,6 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
             copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
         } else {
             fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
-
-fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &Path) -> Result<()> {
-    fs::create_dir_all(&mcsc_dir_name).unwrap();
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i).unwrap();
-        let outpath = match file.enclosed_name() {
-            Some(path) => path.to_owned(),
-            None => continue,
-        };
-        let outpath = mcsc_dir_name.join(outpath);
-
-        if (*file.name()).ends_with('/') {
-            fs::create_dir_all(&outpath).unwrap();
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(p).unwrap();
-                }
-            }
-            let mut outfile = fs::File::create(&outpath).unwrap();
-            io::copy(&mut file, &mut outfile).unwrap();
         }
     }
     Ok(())
@@ -366,39 +337,12 @@ fn braiz_mcsc(opt: Cli) -> Result<PathBuf> {
         );
     }
 
-    // open MCSC zip archive
-    let rdr = std::io::Cursor::new(MCSC_RELEASE);
-    let mcsc_zip_archive = ZipArchive::new(rdr)?;
     // unpack MCSC into tempdir
     let mcsc_root = tempfile::tempdir()?;
     let mcsc_dir_name = PathBuf::from(mcsc_root.path());
 
-    unpack_zip_into(mcsc_zip_archive, &mcsc_dir_name)?;
-    // fs::create_dir_all(&mcsc_dir_name).unwrap();
-    // for i in 0..mcsc_zip_archive.len() {
-    //     let mut file = mcsc_zip_archive.by_index(i).unwrap();
-    //     let outpath = match file.enclosed_name() {
-    //         Some(path) => path.to_owned(),
-    //         None => continue,
-    //     };
-    //     let outpath = mcsc_dir_name.join(outpath);
-
-    //     if (*file.name()).ends_with('/') {
-    //         fs::create_dir_all(&outpath).unwrap();
-    //     } else {
-    //         if let Some(p) = outpath.parent() {
-    //             if !p.exists() {
-    //                 fs::create_dir_all(p).unwrap();
-    //             }
-    //         }
-    //         let mut outfile = fs::File::create(&outpath).unwrap();
-    //         io::copy(&mut file, &mut outfile).unwrap();
-    //     }
-    // }
-
-    let gocal_abs = mcsc_dir_name
-        .join(MCSC_DIRNAME)
-        .join("MultiCamSelfCal/gocal.m");
+    let mcsc_base = mcsc_structs::unpack_mcsc_into(&mcsc_dir_name)?;
+    let gocal_abs = mcsc_base.join("MultiCamSelfCal/gocal.m");
 
     let resultdir = out_dir_name.join("result");
     copy_dir_all(&out_dir_name, &resultdir)?;
@@ -436,13 +380,43 @@ fn braiz_mcsc(opt: Cli) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod test {
+    use ::zip::ZipArchive;
     use eyre::Result;
+    use std::io::Seek;
 
     use super::*;
 
     const FNAME: &str = "braidz-mcsc-cal-test-data.zip";
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
     const SHA256SUM: &str = "f0043d73749e9c2c161240436eca9101a4bf71cf81785a45b04877fe7ae6d33e";
+
+    fn unpack_zip_into<R: Read + Seek>(
+        mut archive: ZipArchive<R>,
+        mcsc_dir_name: &Path,
+    ) -> Result<()> {
+        fs::create_dir_all(&mcsc_dir_name).unwrap();
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).unwrap();
+            let outpath = match file.enclosed_name() {
+                Some(path) => path.to_owned(),
+                None => continue,
+            };
+            let outpath = mcsc_dir_name.join(outpath);
+
+            if (*file.name()).ends_with('/') {
+                fs::create_dir_all(&outpath).unwrap();
+            } else {
+                if let Some(p) = outpath.parent() {
+                    if !p.exists() {
+                        fs::create_dir_all(p).unwrap();
+                    }
+                }
+                let mut outfile = fs::File::create(&outpath).unwrap();
+                io::copy(&mut file, &mut outfile).unwrap();
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     #[ignore] // Ignore normally because it is slow and requires Octave.

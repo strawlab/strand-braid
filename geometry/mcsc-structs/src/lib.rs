@@ -1,8 +1,13 @@
 use eyre::Result;
 use std::{
-    io::Write,
+    fs,
+    io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
 };
+use zip::ZipArchive;
+
+static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
+static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
 
 pub struct DatMat<T> {
     rows: usize,
@@ -196,4 +201,41 @@ Use-Nth-Frame: {use_nth_observation}
 
         Ok(())
     }
+}
+
+/// Unpack the mcsc source into the directory specified and return the path into
+/// which `MultiCamSelfCal/gocal.m` was saved.
+pub fn unpack_mcsc_into(mcsc_dir_name: &Path) -> Result<PathBuf> {
+    // open MCSC zip archive
+    let rdr = std::io::Cursor::new(MCSC_RELEASE);
+    let mcsc_zip_archive = ZipArchive::new(rdr)?;
+    // unpack MCSC into tempdir
+    unpack_zip_into(mcsc_zip_archive, &mcsc_dir_name)?;
+
+    Ok(mcsc_dir_name.join(MCSC_DIRNAME))
+}
+
+fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &Path) -> Result<()> {
+    fs::create_dir_all(&mcsc_dir_name).unwrap();
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).unwrap();
+        let outpath = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+        let outpath = mcsc_dir_name.join(outpath);
+
+        if (*file.name()).ends_with('/') {
+            fs::create_dir_all(&outpath).unwrap();
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(p).unwrap();
+                }
+            }
+            let mut outfile = fs::File::create(&outpath).unwrap();
+            io::copy(&mut file, &mut outfile).unwrap();
+        }
+    }
+    Ok(())
 }

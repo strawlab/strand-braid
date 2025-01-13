@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 eyre.workspace = true
 opencv-ros-camera.workspace = true
+zip.workspace = true
