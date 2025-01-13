@@ -289,12 +289,7 @@ where
     ) -> Result<Self> {
         let nal_locations: Vec<H::NalLocation> = seekable_h264_source.nal_boundaries().to_vec();
 
-        let mut tz_offset = None;
-        let mut h264_metadata = None;
-        let mut scratch = Vec::new();
         let mut parsing_ctx = H264ParsingContext::default();
-        let mut frame0_precision_time = None;
-        let mut frame0_frameinfo_recv_ntp = None;
 
         // open SRT file
         if timestamp_source == crate::TimestampSource::SrtFile && srt_file_path.is_none() {
@@ -313,22 +308,9 @@ where
             None
         };
 
-        // One entry per frame. Can refer to multiple multiple NAL units, e.g.
-        // in MP4 files where a frame is an MP4 sample containing multiple NAL
-        // units.
-        let mut frame_time_info = Vec::new();
-
-        // Cached value of MISP time data for the frame whose data is being accumulated.
-        let mut precise_timestamp = None;
-        // Cached value of NTP received time data for the frame whose data is
-        // being accumulated.
-        let mut frameinfo_recv_ntp = None;
-        // Cached value of frame number as we accumluate data.
-        let mut next_frame_num = 0;
-
         // Use data from container if present
         if let Some(dfc) = data_from_mp4_track {
-            tracing::trace!("Using SPS and PPS data from mp4 track.");
+            tracing::debug!("Using SPS and PPS data from mp4 track.");
             {
                 // SPS
                 let sps_nal = RefNal::new(&dfc.sequence_parameter_set, &[], true);
@@ -358,161 +340,13 @@ where
         }
 
         // iterate through all NAL units.
-        tracing::trace!("iterating through all NAL units");
-        for (nal_location_index, nal_location) in nal_locations.iter().enumerate() {
-            // Read all NAL units from this location. (For MP4 files, this means
-            // read all NAL units from this sample. For H264 AnnexB files, this
-            // will read a single NAL unit.)
-            let nal_units = seekable_h264_source.read_nal_units_at_location(nal_location)?;
-            for nal_unit in nal_units.iter() {
-                // Note, there are multiple NAL units per `nal_location_index`
-                // in MP4 files because in that case, `nal_location_index`
-                // refers to the MP4 sample which has multiple NAL units.
-                let nal = RefNal::new(nal_unit.as_slice(), &[], true);
-                let nal_unit_type = nal.header().unwrap().nal_unit_type();
-                tracing::trace!("NAL unit location index {nal_location_index}, {nal_unit_type:?}");
-                match nal_unit_type {
-                    UnitType::SEI => {
-                        let mut sei_reader =
-                            SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
-                        loop {
-                            match sei_reader.next() {
-                                Ok(Some(sei_message)) => {
-                                    tracing::trace!(
-                                        "SEI payload type: {:?}",
-                                        sei_message.payload_type
-                                    );
-                                    match &sei_message.payload_type {
-                                        HeaderType::UserDataUnregistered => {
-                                            let udu = UserDataUnregistered::read(&sei_message)?;
-                                            match udu.uuid {
-                                                &H264_METADATA_UUID => {
-                                                    let md: H264Metadata =
-                                                        serde_json::from_slice(udu.payload)?;
-                                                    if md.version != H264_METADATA_VERSION {
-                                                        return Err(Error::H264Error(
-                                                            "unexpected version in h264 metadata",
-                                                        ));
-                                                    }
-                                                    if h264_metadata.is_some() {
-                                                        return Err(Error::H264Error(
-                                                            "multiple SEI messages, but expected exactly one"
-                                                        ));
-                                                    }
-
-                                                    tz_offset = Some(*md.creation_time.offset());
-                                                    h264_metadata = Some(md);
-                                                }
-                                                X264_UUID => {
-                                                    let payload_str =
-                                                        String::from_utf8_lossy(udu.payload);
-                                                    tracing::trace!(
-                                                        "Ignoring SEI UserDataUnregistered x264 payload: {}",
-                                                        payload_str,
-                                                    );
-                                                }
-                                                VIDEOTOOLBOX_UUID => {
-                                                    tracing::trace!(
-                                                    "Ignoring SEI UserDataUnregistered from videotoolbox."
-                                                );
-                                                }
-                                                b"MISPmicrosectime" => {
-                                                    let precision_time =
-                                                        parse_precision_time(udu.payload)?;
-                                                    precise_timestamp = Some(precision_time);
-                                                    if next_frame_num == 0 {
-                                                        frame0_precision_time =
-                                                            Some(precision_time);
-                                                    }
-                                                }
-                                                b"strawlab.org/89H" => {
-                                                    let fi: FrameInfo =
-                                                        serde_json::from_slice(udu.payload)?;
-                                                    frameinfo_recv_ntp =
-                                                        Some(NtpTimestamp(fi.recv));
-                                                    if next_frame_num == 0 {
-                                                        frame0_frameinfo_recv_ntp =
-                                                            frameinfo_recv_ntp;
-                                                    }
-                                                }
-                                                _uuid => {
-                                                    tracing::trace!(
-                                                        "Ignoring SEI UserDataUnregistered uuid: {}",
-                                                        uuid::Uuid::from_bytes(*udu.uuid).to_string(),
-                                                    );
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            // handle other SEI types.
-                                        }
-                                    }
-                                }
-                                Ok(None) => {
-                                    break;
-                                }
-                                Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
-                                    tracing::error!(
-                                        "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
-                                    );
-                                    // We do not process this NAL unit but nor do we
-                                    // propagate the error further. FFMPEG also
-                                    // skips this error except writing "SEI type 5
-                                    // size X truncated at Y" where Y is less than
-                                    // X.
-                                }
-                                Err(e) => {
-                                    return Err(Error::H264Nal {
-                                        nal_location_index,
-                                        e,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    UnitType::SeqParameterSet => {
-                        let isps =
-                            h264_reader::nal::sps::SeqParameterSet::from_bits(nal.rbsp_bits())
-                                .unwrap();
-                        parsing_ctx.put_seq_param_set(isps);
-                    }
-                    UnitType::PicParameterSet => {
-                        match h264_reader::nal::pps::PicParameterSet::from_bits(
-                            &parsing_ctx,
-                            nal.rbsp_bits(),
-                        ) {
-                            Ok(ipps) => {
-                                parsing_ctx.put_pic_param_set(ipps);
-                            }
-                            Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
-                                h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
-                            )) => {
-                                // While this is open, ignore the error.
-                                // https://github.com/dholroyd/h264-reader/issues/56
-                            }
-                            Err(e) => {
-                                return Err(Error::H264Pps(format!("reading PPS: {e:?}")));
-                            }
-                        }
-                    }
-                    UnitType::SliceLayerWithoutPartitioningIdr
-                    | UnitType::SliceLayerWithoutPartitioningNonIdr => {
-                        // The NAL unit with the video frames comes after the
-                        // timing into NAL unit(s) so we gather them now.
-                        frame_time_info.push(FrameTimeInfo {
-                            nal_location_index,
-                            precise_timestamp,
-                            frameinfo_recv_ntp,
-                        });
-                        // Reset temporary values.
-                        precise_timestamp = None;
-                        frameinfo_recv_ntp = None;
-                        next_frame_num += 1;
-                    }
-                    _nal_unit_type => {}
-                }
-            }
-        }
+        let (
+            frame_time_info,
+            frame0_precision_time,
+            frame0_frameinfo_recv_ntp,
+            h264_metadata,
+            tz_offset,
+        ) = load_timing_data(&nal_locations, &mut seekable_h264_source, &mut parsing_ctx)?;
 
         let mut widthheight = None;
         for sps in parsing_ctx.sps() {
@@ -596,6 +430,205 @@ where
             srt_data,
         })
     }
+}
+
+fn load_timing_data<H>(
+    nal_locations: &[H::NalLocation],
+    seekable_h264_source: &mut H,
+    parsing_ctx: &mut H264ParsingContext,
+) -> Result<(
+    Vec<FrameTimeInfo>,
+    Option<DateTime<Utc>>,
+    Option<NtpTimestamp>,
+    Option<H264Metadata>,
+    Option<FixedOffset>,
+)>
+where
+    H: SeekableH264Source,
+    <H as SeekableH264Source>::NalLocation: Clone,
+{
+    let mut scratch = Vec::new();
+
+    let mut tz_offset = None;
+
+    let mut h264_metadata = None;
+
+    // One entry per frame. Can refer to multiple multiple NAL units, e.g.
+    // in MP4 files where a frame is an MP4 sample containing multiple NAL
+    // units.
+    let mut frame_time_info = Vec::new();
+
+    let mut frame0_precision_time = None;
+    let mut frame0_frameinfo_recv_ntp = None;
+
+    tracing::debug!(
+        "Iterating through NAL units at {} locations to load timing data.",
+        nal_locations.len()
+    );
+    // Cached value of MISP time data for the frame whose data is being accumulated.
+    let mut precise_timestamp = None;
+    // Cached value of frame number as we accumluate data.
+    let mut next_frame_num = 0;
+
+    // Cached value of NTP received time data for the frame whose data is
+    // being accumulated.
+    let mut frameinfo_recv_ntp = None;
+
+    for (nal_location_index, nal_location) in nal_locations.iter().enumerate() {
+        // Read all NAL units from this location. (For MP4 files, this means
+        // read all NAL units from this sample. For H264 AnnexB files, this
+        // will read a single NAL unit.)
+        let nal_units = seekable_h264_source.read_nal_units_at_location(nal_location)?;
+        for nal_unit in nal_units.iter() {
+            // Note, there are multiple NAL units per `nal_location_index`
+            // in MP4 files because in that case, `nal_location_index`
+            // refers to the MP4 sample which has multiple NAL units.
+            let nal = RefNal::new(nal_unit.as_slice(), &[], true);
+            let nal_unit_type = nal.header().unwrap().nal_unit_type();
+            tracing::trace!("NAL unit location index {nal_location_index}, {nal_unit_type:?}");
+            match nal_unit_type {
+                UnitType::SEI => {
+                    let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
+                    loop {
+                        match sei_reader.next() {
+                            Ok(Some(sei_message)) => {
+                                tracing::trace!("SEI payload type: {:?}", sei_message.payload_type);
+                                match &sei_message.payload_type {
+                                    HeaderType::UserDataUnregistered => {
+                                        let udu = UserDataUnregistered::read(&sei_message)?;
+                                        match udu.uuid {
+                                            &H264_METADATA_UUID => {
+                                                let md: H264Metadata =
+                                                    serde_json::from_slice(udu.payload)?;
+                                                if md.version != H264_METADATA_VERSION {
+                                                    return Err(Error::H264Error(
+                                                        "unexpected version in h264 metadata",
+                                                    ));
+                                                }
+                                                if h264_metadata.is_some() {
+                                                    return Err(Error::H264Error(
+                                                        "multiple SEI messages, but expected exactly one"
+                                                    ));
+                                                }
+
+                                                tz_offset = Some(*md.creation_time.offset());
+                                                h264_metadata = Some(md);
+                                            }
+                                            X264_UUID => {
+                                                let payload_str =
+                                                    String::from_utf8_lossy(udu.payload);
+                                                tracing::trace!(
+                                                    "Ignoring SEI UserDataUnregistered x264 payload: {}",
+                                                    payload_str,
+                                                );
+                                            }
+                                            VIDEOTOOLBOX_UUID => {
+                                                tracing::trace!(
+                                                "Ignoring SEI UserDataUnregistered from videotoolbox."
+                                            );
+                                            }
+                                            b"MISPmicrosectime" => {
+                                                let precision_time =
+                                                    parse_precision_time(udu.payload)?;
+                                                precise_timestamp = Some(precision_time);
+                                                if next_frame_num == 0 {
+                                                    frame0_precision_time = Some(precision_time);
+                                                }
+                                            }
+                                            b"strawlab.org/89H" => {
+                                                let fi: FrameInfo =
+                                                    serde_json::from_slice(udu.payload)?;
+                                                frameinfo_recv_ntp = Some(NtpTimestamp(fi.recv));
+                                                if next_frame_num == 0 {
+                                                    frame0_frameinfo_recv_ntp = frameinfo_recv_ntp;
+                                                }
+                                            }
+                                            _uuid => {
+                                                tracing::trace!(
+                                                    "Ignoring SEI UserDataUnregistered uuid: {}",
+                                                    uuid::Uuid::from_bytes(*udu.uuid).to_string(),
+                                                );
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        // handle other SEI types.
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                break;
+                            }
+                            Err(BitReaderError::ReaderErrorFor(what, io_err)) => {
+                                tracing::error!(
+                                    "Ignoring error when reading SEI NAL unit {what}: {io_err:?}"
+                                );
+                                // We do not process this NAL unit but nor do we
+                                // propagate the error further. FFMPEG also
+                                // skips this error except writing "SEI type 5
+                                // size X truncated at Y" where Y is less than
+                                // X.
+                            }
+                            Err(e) => {
+                                return Err(Error::H264Nal {
+                                    nal_location_index,
+                                    e,
+                                });
+                            }
+                        }
+                    }
+                }
+                UnitType::SeqParameterSet => {
+                    let isps =
+                        h264_reader::nal::sps::SeqParameterSet::from_bits(nal.rbsp_bits()).unwrap();
+                    parsing_ctx.put_seq_param_set(isps);
+                }
+                UnitType::PicParameterSet => {
+                    match h264_reader::nal::pps::PicParameterSet::from_bits(
+                        &parsing_ctx,
+                        nal.rbsp_bits(),
+                    ) {
+                        Ok(ipps) => {
+                            parsing_ctx.put_pic_param_set(ipps);
+                        }
+                        Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
+                            h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
+                        )) => {
+                            // While this is open, ignore the error.
+                            // https://github.com/dholroyd/h264-reader/issues/56
+                        }
+                        Err(e) => {
+                            return Err(Error::H264Pps(format!("reading PPS: {e:?}")));
+                        }
+                    }
+                }
+                UnitType::SliceLayerWithoutPartitioningIdr
+                | UnitType::SliceLayerWithoutPartitioningNonIdr => {
+                    // The NAL unit with the video frames comes after the
+                    // timing into NAL unit(s) so we gather them now.
+                    frame_time_info.push(FrameTimeInfo {
+                        nal_location_index,
+                        precise_timestamp,
+                        frameinfo_recv_ntp,
+                    });
+                    // Reset temporary values.
+                    precise_timestamp = None;
+                    frameinfo_recv_ntp = None;
+                    next_frame_num += 1;
+                }
+                _nal_unit_type => {}
+            }
+        }
+    }
+    tracing::debug!("Done iterating through all NAL units.");
+
+    Ok((
+        frame_time_info,
+        frame0_precision_time,
+        frame0_frameinfo_recv_ntp,
+        h264_metadata,
+        tz_offset,
+    ))
 }
 
 struct RawH264Iter<'parent, H: SeekableH264Source> {
