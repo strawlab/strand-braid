@@ -675,7 +675,7 @@ slow-tests:
     - cd $CI_PROJECT_DIR/geometry/mcsc-structs
     - ./package-mcsc-zip.sh
 
-    - cd $CI_PROJECT_DIR/braidz-mcsc
+    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
     - cargo test --release -- --include-ignored
 
     - cd $CI_PROJECT_DIR/braid-process-video
@@ -702,9 +702,9 @@ extra-programs:
     - cd $CI_PROJECT_DIR/geometry/mcsc-structs
     - ./package-mcsc-zip.sh
 
-    - cd $CI_PROJECT_DIR/braidz-mcsc
+    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
     - cargo build --release
-    - cp ../target/release/braidz-mcsc $CI_PROJECT_DIR/build
+    - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release
