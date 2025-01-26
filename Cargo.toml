@@ -144,7 +144,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
 configure = "0.1.1"
 cookie = "0.18.0"
-cookie_store = "0.20.0"
+cookie_store = "0.21.0"
 csv = "1.1"
 convert-image = "0.1.0"
 delaunator = "1.0"
