@@ -56,7 +56,7 @@ pub fn dir_to_braidz<P1: AsRef<Path>, P2: AsRef<Path>>(
     // file name filter. However, the README.md file should ideally
     // remain uncompressed and as the first file so that inspecting
     // the braidz file will show this.)
-    let options = zip::write::FileOptions::default()
+    let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Stored)
         .large_file(true)
         .unix_permissions(0o755);

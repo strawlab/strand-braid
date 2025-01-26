@@ -257,7 +257,7 @@ wasm-logger = "0.2.0"
 y4m = { git = "https://github.com/astraw/y4m", rev = "6992473b73838c84cb659387b21d2ab2ebe94766" }
 yew = { version = "0.21.0", features = ["csr"] }
 yew-tincture = "0.2.2"
-zip = { version = "0.6.6", default-features = false, features = [
+zip = { version = "2.2.2", default-features = false, features = [
     "deflate",
     "time",
 ] }

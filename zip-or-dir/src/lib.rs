@@ -565,7 +565,7 @@ fn copy_dir<R: Read + Seek>(
             let mut buf = vec![];
             fd.read_to_end(&mut buf).unwrap();
 
-            let mut options = zip::write::FileOptions::default();
+            let mut options = zip::write::SimpleFileOptions::default();
             if buf.len() >= 0xFFFFFFFF {
                 println!("setting large file to true");
                 options = options.large_file(true);

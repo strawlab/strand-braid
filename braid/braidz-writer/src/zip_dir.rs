@@ -6,15 +6,16 @@ use zip::{result::ZipResult, write::FileOptions, ZipWriter};
 use std::fs::File;
 use std::path::Path;
 
-pub(crate) fn zip_dir<T, P>(
+pub(crate) fn zip_dir<T, P, FO>(
     it: &mut dyn Iterator<Item = walkdir::DirEntry>,
     prefix: P,
     mut zipw: &mut ZipWriter<T>,
-    options: FileOptions,
+    options: FileOptions<FO>,
 ) -> ZipResult<()>
 where
     T: Write + Seek,
     P: AsRef<Path>,
+    FO: zip::write::FileOptionExtension + Clone,
 {
     for entry in it {
         let path = entry.path();
@@ -32,13 +33,13 @@ where
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
         if path.is_file() {
-            zipw.start_file(name_string, options)?;
+            zipw.start_file(name_string, options.clone())?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zipw)?;
         } else if !name_string.is_empty() {
             // Only if not root! Avoids path spec / warning
             // and mapname conversion failed error on unzip
-            zipw.add_directory(name_string, options)?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
+            zipw.add_directory(name_string, options.clone())?; // Discussion about deprecation error at https://github.com/zip-rs/zip/issues/181
         }
     }
     Result::Ok(())
