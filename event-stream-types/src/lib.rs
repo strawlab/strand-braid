@@ -41,8 +41,10 @@ pub struct ConnectionEvent {
 
 pub struct AcceptsEventStream;
 
-#[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for AcceptsEventStream {
+impl<S> axum::extract::FromRequestParts<S> for AcceptsEventStream
+where
+    S: Send + Sync,
+{
     type Rejection = (StatusCode, &'static str);
     async fn from_request_parts(p: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
         const ES: &[u8] = b"text/event-stream";
@@ -66,7 +68,6 @@ impl<S> axum::extract::FromRequestParts<S> for AcceptsEventStream {
 /// This is purely for backwards-compatibility and can be removed sometime.
 pub struct TolerantJson<T>(pub T);
 
-#[axum::async_trait]
 impl<T, S> axum::extract::FromRequest<S> for TolerantJson<T>
 where
     T: serde::de::DeserializeOwned,
