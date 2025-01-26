@@ -97,7 +97,7 @@ http.workspace = true
 cookie.workspace = true
 
 bui-backend-session-types.workspace = true
-braid-config-data.workspace = true
+braid-config-data = { workspace = true, optional = true }
 ci2-pylon-types.workspace = true
 ci2-vimba-types.workspace = true
 opencv-calibrate = { workspace = true, optional = true }
@@ -139,6 +139,7 @@ imtrack-dark-circle = []
 imtrack-absdiff = []
 
 flydratrax = [
+    "braid-config-data",
     "mvg",
     "strand-cam-pseudo-cal",
     "flydra-mvg",
