@@ -502,11 +502,11 @@ where
                         {
                             let cfg = openh264::encoder::EncoderConfig::new()
                                 .debug(opts.debug())
-                                .enable_skip_frame(opts.enable_skip_frame())
+                                .skip_frames(opts.enable_skip_frame())
                                 .rate_control_mode(convert_openh264_rc_mode(
                                     opts.rate_control_mode(),
                                 ))
-                                .set_bitrate_bps(opts.bitrate_bps());
+                                .bitrate(openh264::encoder::BitRate::from_bps(opts.bitrate_bps()));
 
                             MyEncoder::OpenH264(OpenH264Encoder {
                                 encoder: openh264::encoder::Encoder::with_api_config(

@@ -61,7 +61,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         let h264_bitrate = None;
 
         #[allow(unused_variables)]
-        let (codec, libs_and_nv_enc, is_lossy) = match codec_str.as_str() {
+        let (codec, libs_and_nv_enc, max_diff) = match codec_str.as_str() {
             "open-h264" => {
                 let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
                     let preset = if let Some(bitrate) = h264_bitrate {
@@ -78,7 +78,7 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
                 let none = Option::<()>::None;
                 #[cfg(feature = "nv-encode")]
                 let none = None;
-                (codec, none, true)
+                (codec, none, 25)
             }
             #[cfg(feature = "nv-encode")]
             "nv-h264" => {
@@ -87,16 +87,14 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
                 (
                     codec,
                     Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
-                    true,
+                    22,
                 )
             }
-            "less_avc" => (ci2_remote_control::Mp4Codec::H264LessAvc, None, false),
+            "less_avc" => (ci2_remote_control::Mp4Codec::H264LessAvc, None, 0),
             _ => {
                 panic!("unknown codec str");
             }
         };
-
-        let max_diff = if is_lossy { 22 } else { 0 };
 
         let cfg = Mp4RecordingConfig {
             codec,
