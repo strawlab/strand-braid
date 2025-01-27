@@ -1012,18 +1012,6 @@ impl ModelCollection<CollectionFramePosteriors> {
                 let estimate = to_bayesian_estimate(coords, &self.mcinner.params);
 
                 let obj_id = next_obj_id_func();
-                // trace!(
-                //     "birth of object {} at frame {} (using: {:?})",
-                //     obj_id,
-                //     unused.0.tdpt.frame.0,
-                //     data_assoc_this_timestamp
-                // );
-
-                // let mini_arena_idx = self
-                //     .mcinner
-                //     .params
-                //     .mini_arena_config
-                //     .get_arena_index(&coords);
 
                 let model = LivingModel {
                     gestation_age: Some(1),
