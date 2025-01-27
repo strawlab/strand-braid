@@ -2049,7 +2049,7 @@ where
         .route("/strand-cam-events", axum::routing::get(events_handler))
         .route("/cam-name", axum::routing::get(cam_name_handler))
         .route("/callback", axum::routing::post(callback_handler))
-        .nest_service("/", serve_dir)
+        .fallback_service(serve_dir)
         .layer(
             tower::ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())

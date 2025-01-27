@@ -236,8 +236,8 @@ tokio-serial = { version = "5.4.3" }
 tokio-stream = { version = "0.1.9", features = ["time"] }
 tokio-util = { version = "0.7.3", features = ["codec", "net"] }
 toml = "0.5"
-tower = "0.4.13"
-tower-http = { version = "0.5.0", features = ["fs", "trace"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.2", features = ["fs", "trace"] }
 tower-serve-static = "0.1"
 tracing = "0.1.41"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }

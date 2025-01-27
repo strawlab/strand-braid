@@ -340,7 +340,7 @@ async fn launch_braid_http_backend(
             axum::routing::post(crate::callback_handling::callback_handler)
                 .layer(axum::extract::DefaultBodyLimit::max(100_000_000)),
         )
-        .nest_service("/", serve_dir)
+        .fallback_service(serve_dir)
         .layer(
             tower::ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())

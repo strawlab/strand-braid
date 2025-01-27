@@ -161,7 +161,7 @@ pub async fn new_model_server(
     // Create axum router.
     let router = axum::Router::new()
         .route(EVENTS_PATH, axum::routing::get(events_handler))
-        .nest_service("/", serve_dir)
+        .fallback_service(serve_dir)
         .with_state(app_state.clone());
 
     // create future for our app
