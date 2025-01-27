@@ -323,16 +323,16 @@ async fn launch_braid_http_backend(
     let router = axum::Router::new()
         .route("/braid-events", get(events_handler))
         .route(
-            "/remote-camera-info/:encoded_cam_name",
+            "/remote-camera-info/{encoded_cam_name}",
             get(remote_camera_info_handler),
         )
         // .route("/cam-proxy/:encoded_cam_name", get(slash_redirect_handler))
         .route(
-            "/cam-proxy/:encoded_cam_name/",
+            "/cam-proxy/{encoded_cam_name}/",
             axum::routing::method_routing::any(cam_proxy_handler_root),
         )
         .route(
-            "/cam-proxy/:encoded_cam_name/*path",
+            "/cam-proxy/{encoded_cam_name}/{*path}",
             axum::routing::method_routing::any(cam_proxy_handler),
         )
         .route(
