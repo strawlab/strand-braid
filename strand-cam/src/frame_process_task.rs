@@ -823,7 +823,9 @@ pub(crate) async fn frame_process_task<'a>(
 
                     {
                         if let Some(ref store_cache_ref) = store_cache {
-                            if store_cache_ref.im_ops_state.do_detection {
+                            if let (true, Some(framenumber)) =
+                                (store_cache_ref.im_ops_state.do_detection, block_id)
+                            {
                                 let thresholded = if let DynamicFrame::Mono8(mono8) = &frame.image {
                                     imops::threshold(
                                         mono8.clone(),
@@ -846,7 +848,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                                     let mc = CentroidToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        framenumber: block_id.unwrap(),
+                                        framenumber,
                                         timestamp: save_mp4_fmf_stamp,
                                         timestamp_source,
                                         mu00,

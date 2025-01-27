@@ -971,10 +971,16 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             let image_data = buffer.to_vec();
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
 
-            let backend_data = Box::new(ci2_pylon_types::PylonExtra {
-                block_id,
-                device_timestamp,
-            });
+            let backend_data = if !(device_timestamp == 0 && block_id == u64::MAX) {
+                Some(Box::new(ci2_pylon_types::PylonExtra {
+                    block_id,
+                    device_timestamp,
+                }) as Box<dyn ci2::BackendData>)
+            } else {
+                // This happens when the Basler driver emulates a camera. Don't
+                // propagate these bad values further.
+                None
+            };
 
             let host_timing = HostTimingInfo { fno, datetime: now };
             let image = DynamicFrame::new(width, height, stride, image_data, pixel_format);
@@ -982,7 +988,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             Ok(DynamicFrameWithInfo {
                 image,
                 host_timing,
-                backend_data: Some(backend_data),
+                backend_data,
             })
 
         // println!("Gray value of first pixel: {}\n", image_buffer[0]);
