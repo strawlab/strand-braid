@@ -45,7 +45,10 @@ test_crates:
     # Test apriltag-track-movie
     - cd $CI_PROJECT_DIR/ads-apriltag/apriltag-track-movie
     - cargo test --release
-    - cd ../..
+
+    # Test bui-backend-session
+    - cd $CI_PROJECT_DIR/bui-backend-session
+    - cargo test --release
 
     # Test braid-april-cal, which requires opencv
     - cd $CI_PROJECT_DIR/braid-april-cal
@@ -795,7 +798,6 @@ braid-run-binary:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - cargo test
     - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,tracing/release_max_level_debug --release
     - ldd -v $CI_PROJECT_DIR/target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build

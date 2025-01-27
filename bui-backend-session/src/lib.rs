@@ -217,3 +217,29 @@ fn handle_response(
     tracing::trace!("done handling cookies in response {:?}", response);
     Ok(response)
 }
+
+#[test]
+fn test_serialized_cookie_store() {
+    // Test that we can upgrade `cookie_store` crate without invalidating on-disk stored cookies.
+
+    // Load CookieStore from json like we have previously saved to disk.
+    let serialized_json = r#"[{"raw_cookie":"abc=def; Expires=Thu, 20 Nov 2025 12:19:29 GMT","path":["/",false],"domain":{"HostOnly":"127.0.0.1"},"expires":{"AtUtc":"2025-11-20T12:19:29Z"}}]"#;
+    let loaded: cookie_store::CookieStore = serde_json::from_str(serialized_json).unwrap();
+
+    // What do we expect?
+    let expected = {
+        let mut expected = cookie_store::CookieStore::new(None);
+        let cookie_str = "abc=def; Expires=Thu, 20 Nov 2025 12:19:29 GMT";
+        let request_url = "http://127.0.0.1/".try_into().unwrap();
+
+        let cookie = cookie_store::Cookie::parse(cookie_str, &request_url).unwrap();
+        expected.insert(cookie, &request_url).unwrap();
+        expected
+    };
+
+    // Since CookieStore does not implement PartialEq, we convert to json values
+    // and compare those.
+    let loaded_json: serde_json::Value = serde_json::to_value(&loaded).unwrap();
+    let expected_json: serde_json::Value = serde_json::to_value(&expected).unwrap();
+    assert_eq!(&loaded_json, &expected_json);
+}
