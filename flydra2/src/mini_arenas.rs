@@ -96,7 +96,8 @@ pub(crate) fn build_mini_arena_images(
                         let ray = cam.project_distorted_pixel_to_ray(&pt);
                         let coords_3d = crate::flat_2d::ray_to_flat_3d(&ray);
                         if let Some(coords_3d) = coords_3d {
-                            if let Some(arena_idx) = xy_grid_cfg.get_arena_index(&coords_3d).idx() {
+                            let coords = [coords_3d.x, coords_3d.y, coords_3d.z];
+                            if let Some(arena_idx) = xy_grid_cfg.get_arena_index(&coords).idx() {
                                 let coords_idx = row * cam.width() + col;
                                 mini_arena_image[coords_idx] = arena_idx;
                             }

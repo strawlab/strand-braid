@@ -813,13 +813,6 @@ impl MiniArenaConfig {
         self == &Self::NoMiniArena
     }
 
-    pub fn get_arena_index(&self, coords: &nalgebra::Point3<MyFloat>) -> MiniArenaLocator {
-        match self {
-            Self::NoMiniArena => MiniArenaLocator::from_mini_arena_idx(0),
-            Self::XYGrid(xy_grid_config) => xy_grid_config.get_arena_index(coords),
-        }
-    }
-
     pub fn iter_locators(&self) -> impl Iterator<Item = MiniArenaLocator> {
         let res = match self {
             Self::NoMiniArena => vec![MiniArenaLocator::from_mini_arena_idx(0)],
@@ -916,12 +909,12 @@ impl XYGridConfig {
         }
     }
 
-    pub fn get_arena_index(&self, coords: &nalgebra::Point3<MyFloat>) -> MiniArenaLocator {
-        if coords.z != 0.0 {
+    pub fn get_arena_index(&self, coords: &[MyFloat; 3]) -> MiniArenaLocator {
+        if coords[2] != 0.0 {
             return MiniArenaLocator::new_none();
         }
-        let obj_x = coords.x;
-        let obj_y = coords.y;
+        let obj_x = coords[0];
+        let obj_y = coords[1];
 
         let (dist_x, idx_x) = self.x_centers.dist_and_argmin(obj_x);
         let (dist_y, idx_y) = self.y_centers.dist_and_argmin(obj_y);
