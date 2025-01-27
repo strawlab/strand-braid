@@ -809,7 +809,7 @@ pub enum MiniArenaConfig {
 }
 
 impl MiniArenaConfig {
-    pub fn is_none(&self) -> bool {
+    fn is_none(&self) -> bool {
         self == &Self::NoMiniArena
     }
 
@@ -833,10 +833,6 @@ impl MiniArenaConfig {
                 xy_grid_config.x_centers.0.len() * xy_grid_config.y_centers.0.len()
             }
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 }
 
