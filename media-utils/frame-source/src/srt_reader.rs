@@ -11,7 +11,7 @@ use winnow::{
     BStr,
 };
 
-fn parse_digits<'s>(input: &mut &'s BStr) -> PResult<u64> {
+fn parse_digits<'s>(input: &mut &'s BStr) -> ModalResult<u64> {
     trace("parse_digits", move |input: &mut &'s BStr| {
         digit1
             .parse_to()
@@ -21,7 +21,7 @@ fn parse_digits<'s>(input: &mut &'s BStr) -> PResult<u64> {
     .parse_next(input)
 }
 
-fn parse_duration(input: &mut &BStr) -> PResult<Duration> {
+fn parse_duration(input: &mut &BStr) -> ModalResult<Duration> {
     trace("parse_duration", move |input: &mut &BStr| {
         let (hours, _, minutes, _, seconds, _, millis) = (
             take(2usize),
@@ -56,23 +56,23 @@ pub(crate) struct Stanza {
     pub(crate) lines: String,
 }
 
-fn parse_stanza(input: &mut &BStr) -> PResult<Stanza> {
+fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
     trace("parse_stanza", move |input: &mut &BStr| {
         let num = dec_uint::<_, usize, ContextError>;
 
         // first line: count
-        let count_res: PResult<(usize,)> = seq!(num, _: line_ending).parse_next(input);
+        let count_res: ModalResult<(usize,)> = seq!(num, _: line_ending).parse_next(input);
         let count = count_res.unwrap().0;
 
         // "00:00:00,100 --> 00:00:00,210"
-        let start_stop_res: PResult<(Duration, Duration)> =
+        let start_stop_res: ModalResult<(Duration, Duration)> =
             seq!(parse_duration, _: " --> ", parse_duration, _: line_ending).parse_next(input);
         let (start, stop) = start_stop_res?;
 
         // TODO: match against two `line_ending`s (rather than only '\n')
         let till_newlines = take_until(0.., "\n\n");
 
-        let res: PResult<&[u8]> = if let Some(lines0) = opt(till_newlines).parse_next(input)? {
+        let res: ModalResult<&[u8]> = if let Some(lines0) = opt(till_newlines).parse_next(input)? {
             // Clear one trailing newline. (Leave other as stanza seperator.)
             "\n".parse_next(input)?;
             Ok(lines0)
@@ -93,7 +93,7 @@ fn parse_stanza(input: &mut &BStr) -> PResult<Stanza> {
     .parse_next(input)
 }
 
-fn parse_stanzas(input: &mut &BStr) -> PResult<Vec<Stanza>> {
+fn parse_stanzas(input: &mut &BStr) -> ModalResult<Vec<Stanza>> {
     trace("parse_stanzas", move |input: &mut &BStr| {
         let mut result = vec![];
         loop {
