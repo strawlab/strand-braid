@@ -126,8 +126,8 @@ fn pinhole_projection_component<R: RealField>(
     if !cam.distortion.is_linear() {
         return Err(MvgError::RerunUnsupportedIntrinsics);
     }
-    // Does re_types actually cameras with nonzero skew? Here we are say "yes", but actually it might not.
-    for loc in [(1, 0), (2, 0), (2, 1)] {
+    // re_types does not model all possible intrinsic matrices, raise error.
+    for loc in [(0, 1), (1, 0), (2, 0), (2, 1)] {
         if cam.p[loc].clone().abs() > 1e-16.R() {
             return Err(MvgError::RerunUnsupportedIntrinsics);
         }
@@ -147,8 +147,10 @@ fn pinhole_projection_component_lossy<R: RealField>(
     let cx = cam.p[(0, 2)].f32();
     let cy = cam.p[(1, 2)].f32();
 
-    let m = re_types::datatypes::Mat3x3([fx, 0.0, 0.0, 0.0, fy, 0.0, cx, cy, 1.0]);
-    re_types::components::PinholeProjection(m)
+    re_types::components::PinholeProjection::from_focal_length_and_principal_point(
+        (fx, fy),
+        (cx, cy),
+    )
 }
 
 pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
@@ -216,20 +218,6 @@ impl<R: RealField + Copy> crate::Camera<R> {
             camera_xyz: None,
             image_plane_distance: None,
         })
-    }
-    /// return a [re_types::archetypes::Pinhole]
-    ///
-    /// The conversion always succeed, even if the camera cannot be represented
-    /// exactly in re_types.
-    pub fn rr_pinhole_archetype_lossy(&self) -> re_types::archetypes::Pinhole {
-        let image_from_camera = pinhole_projection_component_lossy(self.intrinsics());
-        let resolution = Some(self.rr_resolution_component());
-        re_types::archetypes::Pinhole {
-            image_from_camera,
-            resolution,
-            camera_xyz: None,
-            image_plane_distance: None,
-        }
     }
 }
 
