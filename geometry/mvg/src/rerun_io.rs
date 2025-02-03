@@ -136,20 +136,16 @@ fn pinhole_projection_component<R: RealField>(
         return Err(MvgError::RerunUnsupportedIntrinsics);
     }
 
-    Ok(pinhole_projection_component_lossy(cam))
-}
-
-fn pinhole_projection_component_lossy<R: RealField>(
-    cam: &RosOpenCvIntrinsics<R>,
-) -> re_types::components::PinholeProjection {
     let fx = cam.p[(0, 0)].f32();
     let fy = cam.p[(1, 1)].f32();
     let cx = cam.p[(0, 2)].f32();
     let cy = cam.p[(1, 2)].f32();
 
-    re_types::components::PinholeProjection::from_focal_length_and_principal_point(
-        (fx, fy),
-        (cx, cy),
+    Ok(
+        re_types::components::PinholeProjection::from_focal_length_and_principal_point(
+            (fx, fy),
+            (cx, cy),
+        ),
     )
 }
 
@@ -157,27 +153,23 @@ pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
     cam: &cam_geom::Camera<R, cam_geom::IntrinsicParametersPerspective<R>>,
     width: usize,
     height: usize,
-) -> re_types::archetypes::Pinhole {
+) -> Result<re_types::archetypes::Pinhole, MvgError> {
     let i = cam.intrinsics();
-    let m = re_types::datatypes::Mat3x3([
-        i.fx().f32(),
-        0.0,
-        0.0,
-        0.0,
-        i.fy().f32(),
-        0.0,
-        i.cx().f32(),
-        i.cy().f32(),
-        1.0,
-    ]);
-    let image_from_camera = re_types::components::PinholeProjection(m);
+    if i.skew().f32().abs() > 1e-10 {
+        return Err(MvgError::RerunUnsupportedIntrinsics);
+    }
+    let image_from_camera =
+        re_types::components::PinholeProjection::from_focal_length_and_principal_point(
+            (i.fx().f32(), i.fy().f32()),
+            (i.cx().f32(), i.cy().f32()),
+        );
     let resolution: re_types::datatypes::Vec2D = (width as f32, height as f32).into();
-    re_types::archetypes::Pinhole {
+    Ok(re_types::archetypes::Pinhole {
         image_from_camera,
         resolution: Some(resolution.into()),
         camera_xyz: None,
         image_plane_distance: None,
-    }
+    })
 }
 
 #[cfg(test)]

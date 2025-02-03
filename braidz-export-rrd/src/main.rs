@@ -9,7 +9,6 @@ use rayon::prelude::*;
 use re_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
-    datatypes::Mat3x3,
 };
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -135,8 +134,11 @@ impl OfflineBraidzRerunLogger {
 
             {
                 tracing::warn!("Creating wrong pinhole transform for camera {cam_name} to enable better auto-view in rerun.");
-                let m = Mat3x3::from([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
-                let pinhole = Pinhole::new(PinholeProjection(m));
+                let pinhole =
+                    Pinhole::new(PinholeProjection::from_focal_length_and_principal_point(
+                        (1.0, 1.0),
+                        (320.0, 240.0),
+                    ));
                 self.rec.log_static(base_path, &pinhole)?;
                 self.rec.log_static(raw_path.clone(), &pinhole)?;
             }
@@ -198,11 +200,13 @@ impl OfflineBraidzRerunLogger {
                     );
                     self.did_show_2499_warning = true;
                 }
+                // Linearize camera model, which drops distortions. (Potential
+                // skew will persist.)
                 let lin_cam = cam.linearize_to_cam_geom();
-                self.rec.log_static(
-                    lin_path.clone(),
-                    &to_pinhole(&lin_cam, cam.width(), cam.height()),
-                )?;
+                // This returns error in case of skew, because rerun's pinhole
+                // model does not support skew.
+                let re_cam = to_pinhole(&lin_cam, cam.width(), cam.height())?;
+                self.rec.log_static(lin_path.clone(), &re_cam)?;
 
                 let use_intrinsics = Some(cam.intrinsics().clone());
 
