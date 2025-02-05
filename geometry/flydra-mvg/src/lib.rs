@@ -32,7 +32,7 @@ const AIR_REFRACTION: f64 = 1.0003;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FlydraMvgError {
-    #[error("xml eror: {0}")]
+    #[error("xml error: {0}")]
     SerdeXmlError(#[from] serde_xml_rs::Error),
     #[error("cannot convert to or from flydra xml: {msg}")]
     FailedFlydraXmlConversion { msg: &'static str },
