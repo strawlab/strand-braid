@@ -475,7 +475,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             Some(
                 calibration_info
                     .cameras
-                    .cams()
+                    .cams_by_name()
                     .iter()
                     .map(|(k, v)| (k.clone(), (v.width(), v.height())))
                     .collect(),

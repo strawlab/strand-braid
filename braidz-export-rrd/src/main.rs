@@ -600,7 +600,7 @@ fn main() -> anyhow::Result<()> {
         if cal.water.is_some() {
             tracing::error!("omitting water");
         }
-        for (cam_name, cam) in cal.cameras.cams().iter() {
+        for (cam_name, cam) in cal.cameras.cams_by_name().iter() {
             rrd_logger.add_camera_calibration(cam_name, cam)?;
         }
     } else {

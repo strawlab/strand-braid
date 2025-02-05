@@ -424,11 +424,11 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     pub fn len(&self) -> usize {
-        self.system.cams().len()
+        self.system.cams_by_name().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.system.cams().is_empty()
+        self.system.cams_by_name().is_empty()
     }
 
     pub fn cam_by_name(&self, name: &str) -> Option<MultiCamera<R>> {
@@ -440,7 +440,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     pub fn cam_names(&self) -> CamNameIter<'_, R> {
-        CamNameIter(self.system.cams().keys())
+        CamNameIter(self.system.cams_by_name().keys())
     }
 
     pub fn cameras(&self) -> MultiCameraIter<R> {

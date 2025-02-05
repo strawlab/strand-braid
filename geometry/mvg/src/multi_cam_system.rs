@@ -66,11 +66,6 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     }
 
     #[inline]
-    pub fn cams(&self) -> &BTreeMap<String, Camera<R>> {
-        &self.cams_by_name
-    }
-
-    #[inline]
     pub fn cam_by_name(&self, name: &str) -> Option<&Camera<R>> {
         self.cams_by_name.get(name)
     }

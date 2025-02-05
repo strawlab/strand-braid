@@ -148,7 +148,7 @@ fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
 fn test_load_pymvg() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
     let system = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
-    assert_eq!(system.cams().len(), 1);
+    assert_eq!(system.cams_by_name().len(), 1);
     let cam = system.cam_by_name("cam1").unwrap();
 
     // First test some key points with data from Python ----------------
