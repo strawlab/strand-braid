@@ -111,11 +111,11 @@ fn pinhole_projection_component<R: RealField>(
 }
 
 pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
-    cam: &cam_geom::Camera<R, cam_geom::IntrinsicParametersPerspective<R>>,
+    intrinsics: &cam_geom::IntrinsicParametersPerspective<R>,
     width: usize,
     height: usize,
 ) -> Result<re_types::archetypes::Pinhole, MvgError> {
-    let i = cam.intrinsics();
+    let i = intrinsics;
     if i.skew().f32().abs() > 1e-10 {
         return Err(MvgError::RerunUnsupportedIntrinsics);
     }

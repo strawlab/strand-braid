@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 use eyre::{self as anyhow, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
-use mvg::rerun_io::{cam_geom_to_rr_pinhole_archetype as to_pinhole, AsRerunTransform3D};
+use mvg::rerun_io::AsRerunTransform3D;
 use rayon::prelude::*;
 use re_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
@@ -205,7 +205,11 @@ impl OfflineBraidzRerunLogger {
                 let lin_cam = cam.linearize_to_cam_geom();
                 // This returns error in case of skew, because rerun's pinhole
                 // model does not support skew.
-                let re_cam = to_pinhole(&lin_cam, cam.width(), cam.height())?;
+                let re_cam = mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                    lin_cam.intrinsics(),
+                    cam.width(),
+                    cam.height(),
+                )?;
                 self.rec.log_static(lin_path.clone(), &re_cam)?;
 
                 let use_intrinsics = Some(cam.intrinsics().clone());
