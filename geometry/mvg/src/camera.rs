@@ -18,12 +18,22 @@ use crate::{
     RosOpenCvIntrinsics, UndistortedPixel,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Camera<R: RealField + Copy> {
+#[derive(Clone, PartialEq)]
+pub struct Camera<R: RealField> {
     pub(crate) width: usize,
     pub(crate) height: usize,
     pub(crate) inner: cam_geom::Camera<R, RosOpenCvIntrinsics<R>>,
     pub(crate) cache: CameraCache<R>,
+}
+
+impl<R: RealField + Copy> std::fmt::Debug for Camera<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Camera")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("inner", &self.inner)
+            .finish()
+    }
 }
 
 impl<R: RealField + Copy> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera<R> {
@@ -169,16 +179,9 @@ fn _test_camera_is_deserialize() {
 }
 
 #[derive(Clone, PartialEq)]
-pub(crate) struct CameraCache<R: RealField + Copy> {
+pub(crate) struct CameraCache<R: RealField> {
     pub(crate) m: OMatrix<R, U3, U4>,
     pub(crate) pinv: OMatrix<R, U4, U3>,
-}
-
-impl<R: RealField + Copy> std::fmt::Debug for CameraCache<R> {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // do not show cache
-        Ok(())
-    }
 }
 
 fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
