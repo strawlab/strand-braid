@@ -209,6 +209,17 @@ impl<R: RealField + Copy> Camera<R> {
         extrinsics: ExtrinsicParameters<R>,
         intrinsics: RosOpenCvIntrinsics<R>,
     ) -> Result<Self> {
+        let inner = cam_geom::Camera::new(intrinsics, extrinsics);
+        Self::new_from_cam_geom(width, height, inner)
+    }
+
+    pub fn new_from_cam_geom(
+        width: usize,
+        height: usize,
+        inner: cam_geom::Camera<R, RosOpenCvIntrinsics<R>>,
+    ) -> Result<Self> {
+        let intrinsics = inner.intrinsics();
+        let extrinsics = inner.extrinsics();
         let m = {
             let p33 = intrinsics.p.fixed_view::<3, 3>(0, 0);
             p33 * extrinsics.matrix()
@@ -220,7 +231,6 @@ impl<R: RealField + Copy> Camera<R> {
         let m = m / m[(2, 3)]; // normalize
 
         let pinv = my_pinv(&m)?;
-        let inner = cam_geom::Camera::new(intrinsics, extrinsics);
         let cache = CameraCache { m, pinv };
         Ok(Self {
             width,
