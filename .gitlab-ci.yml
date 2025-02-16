@@ -50,20 +50,18 @@ test_crates:
     - cd $CI_PROJECT_DIR/bui-backend-session
     - cargo test --release
 
-    # Test braid-april-cal, which requires opencv
+    # Test braid-april-cal
     - cd $CI_PROJECT_DIR/braid-april-cal
     # run test in release mode, otherwise slow
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features solve-pnp
-    - cd ..
+    - cargo test --release
 
-    # Test braid-april-cal, which requires opencv
-    - cd braid-april-cal/flytrax-apriltags-calibration
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release
-    - cd ../..
+    # Test flytrax-apriltags-calibration
+    - cd $CI_PROJECT_DIR/braid-april-cal/flytrax-apriltags-calibration
+    - cargo test --release
 
-    # flytrax-csv-to-braidz, which requires opencv
-    - cd flytrax-csv-to-braidz
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "with_apriltags"
+    # Test flytrax-csv-to-braidz
+    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
+    - cargo test --release --features "with_apriltags"
     - cd ..
 
     # Test freemovr-calibration, which requires opencv

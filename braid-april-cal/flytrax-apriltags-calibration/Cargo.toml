@@ -19,7 +19,7 @@ tracing.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 ads-apriltag.workspace = true
-braid-april-cal = { workspace = true, features = ["solve-pnp"] }
+braid-april-cal.workspace = true
 convert-image.workspace = true
 flytrax-io.workspace = true
 mvg.workspace = true
