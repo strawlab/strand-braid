@@ -22,6 +22,8 @@ num-iter.workspace = true
 approx.workspace = true
 dlt.workspace = true
 eyre.workspace = true
+re_sdk.workspace = true
+re_types.workspace = true
 
 [features]
 serde-serialize = []
