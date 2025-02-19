@@ -4,18 +4,19 @@ use nalgebra as na;
 
 use mvg::rerun_io::AsRerunTransform3D;
 
-#[cfg(not(feature = "rerun-io"))]
-compile_error!("this example requires the 'rerun-io' feature.");
-
 fn main() -> eyre::Result<()> {
     // Create 3d points.
     #[rustfmt::skip]
     let points3d = Matrix3xX::<f64>::from_column_slice(
         &[
         0.0, 0.0, 0.0,
-        0.1, 0.0, 0.0,
-        0.1, 0.1, 0.0,
-        0.0, 0.1, 0.0,
+        1.0, 0.0, 0.0,
+        1.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
+        1.0, 0.0, 1.0,
+        1.0, 1.0, 1.0,
+        0.0, 1.0, 1.0,
     ]);
 
     // Create rerun file
@@ -38,7 +39,7 @@ fn main() -> eyre::Result<()> {
     let extrinsics = ExtrinsicParameters::from_view(&cc, &lookat, &up_unit);
 
     let width = 640;
-    let height = 320;
+    let height = 480;
 
     let params = cam_geom::PerspectiveParams {
         fx: 100.0,

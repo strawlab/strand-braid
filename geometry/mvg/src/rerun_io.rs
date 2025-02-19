@@ -61,8 +61,14 @@ fn rr_translation_and_rotation<R: RealField>(
 ) {
     use re_types::{components::RotationQuat, datatypes::Quaternion};
     let r = &extrinsics.pose().rotation.coords;
-    let rquat = RotationQuat(Quaternion([r.x.f32(), r.y.f32(), r.z.f32(), r.w.f32()]));
-    let t = extrinsics.camcenter();
+    // convert from nalgebra to rerun
+    let rquat = RotationQuat(Quaternion::from_xyzw([
+        r.x.f32(),
+        r.y.f32(),
+        r.z.f32(),
+        r.w.f32(),
+    ]));
+    let t = extrinsics.translation();
     let translation = re_types::datatypes::Vec3D([t[0].f32(), t[1].f32(), t[2].f32()]).into();
     (translation, rquat)
 }
@@ -73,8 +79,58 @@ pub trait AsRerunTransform3D {
 
 impl AsRerunTransform3D for cam_geom::ExtrinsicParameters<f64> {
     fn as_rerun_transform3d(&self) -> impl Into<re_types::archetypes::Transform3D> {
+        use re_types::components::TransformRelation;
         let (t, r) = rr_translation_and_rotation(self);
         re_types::archetypes::Transform3D::from_translation_rotation(t, r)
+            .with_relation(TransformRelation::ChildFromParent)
+    }
+}
+
+#[test]
+fn test_rerun_transform3d() {
+    use nalgebra::{Matrix3xX, Vector3};
+    use re_types::external::glam::{self, Affine3A};
+
+    // You can log this to rerun with the `export-rerun-log` example.
+
+    // Create extrinsic parameters
+    let cc = Vector3::new(3.0, 2.0, 1.0);
+    let lookat = Vector3::new(0.0, 0.0, 0.0);
+    let up = Vector3::new(0.0, 0.0, 1.0);
+    let up_unit = na::core::Unit::new_normalize(up);
+
+    let extrinsics = cam_geom::ExtrinsicParameters::from_view(&cc, &lookat, &up_unit);
+
+    #[rustfmt::skip]
+    let points3d = Matrix3xX::<f64>::from_column_slice(
+        &[
+        0.0, 0.0, 0.0,
+        1.0, 0.0, 0.0,
+        1.0, 1.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
+        1.0, 0.0, 1.0,
+        1.0, 1.0, 1.0,
+        0.0, 1.0, 1.0,
+    ]);
+
+    // Transform points using cam_geom
+    let world = cam_geom::Points::new(points3d.transpose());
+    let cam = extrinsics.world_to_camera(&world);
+
+    // Transform points using rerun/glam
+    let (rrt, rrq) = rr_translation_and_rotation(&extrinsics);
+    let glam_t: Affine3A = rrt.into();
+    let glam_r: Affine3A = rrq.try_into().unwrap();
+    for i in 0..points3d.ncols() {
+        let (x, y, z) = (points3d[(0, i)], points3d[(1, i)], points3d[(2, i)]);
+        let pt = glam::Vec3::new(x as f32, y as f32, z as f32);
+        let p2 = glam_t.transform_point3(glam_r.transform_point3(pt));
+
+        // Now test transformed point
+        approx::assert_relative_eq!(p2.x as f64, cam.data[(i, 0)], epsilon = 1e-6);
+        approx::assert_relative_eq!(p2.y as f64, cam.data[(i, 1)], epsilon = 1e-6);
+        approx::assert_relative_eq!(p2.z as f64, cam.data[(i, 2)], epsilon = 1e-6);
     }
 }
 

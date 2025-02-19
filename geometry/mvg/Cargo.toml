@@ -29,3 +29,7 @@ re_types.workspace = true
 serde-serialize = []
 
 rerun-io = ["dep:re_types"]
+
+[[example]]
+name = "export-rerun-log"
+required-features = ["rerun-io"]
