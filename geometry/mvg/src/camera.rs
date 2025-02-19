@@ -26,182 +26,6 @@ pub struct Camera<R: RealField> {
     pub(crate) cache: CameraCache<R>,
 }
 
-impl<R: RealField + Copy> std::fmt::Debug for Camera<R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Camera")
-            .field("width", &self.width)
-            .field("height", &self.height)
-            .field("inner", &self.inner)
-            .finish()
-    }
-}
-
-impl<R: RealField + Copy> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera<R> {
-    #[inline]
-    fn as_ref(&self) -> &cam_geom::Camera<R, RosOpenCvIntrinsics<R>> {
-        &self.inner
-    }
-}
-
-#[cfg(feature = "serde-serialize")]
-impl<R: RealField + serde::Serialize + Copy> serde::Serialize for Camera<R> {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-
-        // 5 is the number of fields we serialize from the struct.
-        let mut state = serializer.serialize_struct("Camera", 5)?;
-        state.serialize_field("width", &self.width)?;
-        state.serialize_field("height", &self.height)?;
-        state.serialize_field("extrinsics", &self.extrinsics())?;
-        state.serialize_field("intrinsics", &self.intrinsics())?;
-        state.end()
-    }
-}
-
-#[cfg(feature = "serde-serialize")]
-impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de> for Camera<R> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de;
-        use std::fmt;
-
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "lowercase")]
-        enum Field {
-            Width,
-            Height,
-            Extrinsics,
-            Intrinsics,
-        }
-
-        struct CameraVisitor<'de, R2: RealField + serde::Deserialize<'de>>(
-            std::marker::PhantomData<&'de R2>,
-        );
-
-        impl<'de, R2: RealField + serde::Deserialize<'de> + Copy> serde::de::Visitor<'de>
-            for CameraVisitor<'de, R2>
-        {
-            type Value = Camera<R2>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("struct Camera")
-            }
-
-            fn visit_seq<V>(self, mut seq: V) -> std::result::Result<Camera<R2>, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                let width = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let height = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let extrinsics = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let intrinsics = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                Camera::new(width, height, extrinsics, intrinsics)
-                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
-            }
-
-            fn visit_map<V>(self, mut map: V) -> std::result::Result<Camera<R2>, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut width = None;
-                let mut height = None;
-                let mut extrinsics = None;
-                let mut intrinsics = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Width => {
-                            if width.is_some() {
-                                return Err(de::Error::duplicate_field("width"));
-                            }
-                            width = Some(map.next_value()?);
-                        }
-                        Field::Height => {
-                            if height.is_some() {
-                                return Err(de::Error::duplicate_field("height"));
-                            }
-                            height = Some(map.next_value()?);
-                        }
-                        Field::Extrinsics => {
-                            if extrinsics.is_some() {
-                                return Err(de::Error::duplicate_field("extrinsics"));
-                            }
-                            extrinsics = Some(map.next_value()?);
-                        }
-                        Field::Intrinsics => {
-                            if intrinsics.is_some() {
-                                return Err(de::Error::duplicate_field("intrinsics"));
-                            }
-                            intrinsics = Some(map.next_value()?);
-                        }
-                    }
-                }
-                let width = width.ok_or_else(|| de::Error::missing_field("width"))?;
-                let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
-                let extrinsics =
-                    extrinsics.ok_or_else(|| de::Error::missing_field("extrinsics"))?;
-                let intrinsics =
-                    intrinsics.ok_or_else(|| de::Error::missing_field("intrinsics"))?;
-                Camera::new(width, height, extrinsics, intrinsics)
-                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
-            }
-        }
-
-        const FIELDS: &[&str] = &["width", "height", "extrinsics", "intrinsics"];
-        deserializer.deserialize_struct("Camera", FIELDS, CameraVisitor(std::marker::PhantomData))
-    }
-}
-
-#[cfg(feature = "serde-serialize")]
-fn _test_camera_is_serialize() {
-    // Compile-time test to ensure Camera implements Serialize trait.
-    fn implements<T: serde::Serialize>() {}
-    implements::<Camera<f64>>();
-}
-
-#[cfg(feature = "serde-serialize")]
-fn _test_camera_is_deserialize() {
-    // Compile-time test to ensure Camera implements Deserialize trait.
-    fn implements<'de, T: serde::Deserialize<'de>>() {}
-    implements::<Camera<f64>>();
-}
-
-#[derive(Clone, PartialEq)]
-pub(crate) struct CameraCache<R: RealField> {
-    pub(crate) m: OMatrix<R, U3, U4>,
-    pub(crate) pinv: OMatrix<R, U4, U3>,
-}
-
-fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
-    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
-        .ok_or(MvgError::SvdFailed)?
-        .pseudo_inverse(na::convert(1.0e-7))
-        .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {}", e),
-        })
-}
-
-fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R, U4, U4>> {
-    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
-        .ok_or(MvgError::SvdFailed)?
-        .pseudo_inverse(na::convert(1.0e-7))
-        .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {}", e),
-        })
-}
-
 impl<R: RealField + Copy> Camera<R> {
     pub fn new(
         width: usize,
@@ -465,6 +289,182 @@ impl<R: RealField + Copy> std::default::Default for Camera<R> {
         let intrinsics = crate::make_default_intrinsics();
         Camera::new(640, 480, extrinsics, intrinsics).unwrap()
     }
+}
+
+impl<R: RealField + Copy> std::fmt::Debug for Camera<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Camera")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+impl<R: RealField + Copy> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for Camera<R> {
+    #[inline]
+    fn as_ref(&self) -> &cam_geom::Camera<R, RosOpenCvIntrinsics<R>> {
+        &self.inner
+    }
+}
+
+#[cfg(feature = "serde-serialize")]
+impl<R: RealField + serde::Serialize + Copy> serde::Serialize for Camera<R> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        // 5 is the number of fields we serialize from the struct.
+        let mut state = serializer.serialize_struct("Camera", 5)?;
+        state.serialize_field("width", &self.width)?;
+        state.serialize_field("height", &self.height)?;
+        state.serialize_field("extrinsics", &self.extrinsics())?;
+        state.serialize_field("intrinsics", &self.intrinsics())?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde-serialize")]
+impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de> for Camera<R> {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de;
+        use std::fmt;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Width,
+            Height,
+            Extrinsics,
+            Intrinsics,
+        }
+
+        struct CameraVisitor<'de, R2: RealField + serde::Deserialize<'de>>(
+            std::marker::PhantomData<&'de R2>,
+        );
+
+        impl<'de, R2: RealField + serde::Deserialize<'de> + Copy> serde::de::Visitor<'de>
+            for CameraVisitor<'de, R2>
+        {
+            type Value = Camera<R2>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("struct Camera")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> std::result::Result<Camera<R2>, V::Error>
+            where
+                V: serde::de::SeqAccess<'de>,
+            {
+                let width = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let height = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let extrinsics = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let intrinsics = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                Camera::new(width, height, extrinsics, intrinsics)
+                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
+            }
+
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Camera<R2>, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                let mut width = None;
+                let mut height = None;
+                let mut extrinsics = None;
+                let mut intrinsics = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Width => {
+                            if width.is_some() {
+                                return Err(de::Error::duplicate_field("width"));
+                            }
+                            width = Some(map.next_value()?);
+                        }
+                        Field::Height => {
+                            if height.is_some() {
+                                return Err(de::Error::duplicate_field("height"));
+                            }
+                            height = Some(map.next_value()?);
+                        }
+                        Field::Extrinsics => {
+                            if extrinsics.is_some() {
+                                return Err(de::Error::duplicate_field("extrinsics"));
+                            }
+                            extrinsics = Some(map.next_value()?);
+                        }
+                        Field::Intrinsics => {
+                            if intrinsics.is_some() {
+                                return Err(de::Error::duplicate_field("intrinsics"));
+                            }
+                            intrinsics = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let width = width.ok_or_else(|| de::Error::missing_field("width"))?;
+                let height = height.ok_or_else(|| de::Error::missing_field("height"))?;
+                let extrinsics =
+                    extrinsics.ok_or_else(|| de::Error::missing_field("extrinsics"))?;
+                let intrinsics =
+                    intrinsics.ok_or_else(|| de::Error::missing_field("intrinsics"))?;
+                Camera::new(width, height, extrinsics, intrinsics)
+                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
+            }
+        }
+
+        const FIELDS: &[&str] = &["width", "height", "extrinsics", "intrinsics"];
+        deserializer.deserialize_struct("Camera", FIELDS, CameraVisitor(std::marker::PhantomData))
+    }
+}
+
+#[cfg(feature = "serde-serialize")]
+fn _test_camera_is_serialize() {
+    // Compile-time test to ensure Camera implements Serialize trait.
+    fn implements<T: serde::Serialize>() {}
+    implements::<Camera<f64>>();
+}
+
+#[cfg(feature = "serde-serialize")]
+fn _test_camera_is_deserialize() {
+    // Compile-time test to ensure Camera implements Deserialize trait.
+    fn implements<'de, T: serde::Deserialize<'de>>() {}
+    implements::<Camera<f64>>();
+}
+
+#[derive(Clone, PartialEq)]
+pub(crate) struct CameraCache<R: RealField> {
+    pub(crate) m: OMatrix<R, U3, U4>,
+    pub(crate) pinv: OMatrix<R, U4, U3>,
+}
+
+fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
+        .ok_or(MvgError::SvdFailed)?
+        .pseudo_inverse(na::convert(1.0e-7))
+        .map_err(|e| MvgError::PinvError {
+            error: format!("inserve_failed {}", e),
+        })
+}
+
+fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R, U4, U4>> {
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
+        .ok_or(MvgError::SvdFailed)?
+        .pseudo_inverse(na::convert(1.0e-7))
+        .map_err(|e| MvgError::PinvError {
+            error: format!("inserve_failed {}", e),
+        })
 }
 
 fn build_xform<R: RealField + Copy>(s: R, rot: Matrix3<R>, t: Vector3<R>) -> Matrix4<R> {
