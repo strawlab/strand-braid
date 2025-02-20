@@ -12,7 +12,7 @@ Realtime 3D Tracking of Multiple Flying Animals. *Journal of The Royal Society
 Interface 8*(11), 395-409.
 [doi:10.1098/rsif.2010.0230](http://dx.doi.org/10.1098/rsif.2010.0230)
 
-![images/rsif20100230f02.jpg](imagesrsif20100230f02.jpg).
+![images/rsif20100230f02.jpg](images/rsif20100230f02.jpg).
 
 **Figure 1: Principles of 3D Tracking in Braid.** References in blue refer to
 parts of [Straw et al. (2011)](http://dx.doi.org/10.1098/rsif.2010.0230). (a)
