@@ -18,7 +18,8 @@ argmin = { version = "0.8.1", features = [
     "wasm-bindgen",
 ], default-features = false }
 argmin-math = "0.3"
-sqpnp_simple = "0.1.5"
+sqpnp = "0.2.0"
+glam = "0.29.2"
 
 mvg = { workspace = true, features = ["serde-serialize"] }
 flydra-mvg.workspace = true

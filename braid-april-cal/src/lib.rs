@@ -314,19 +314,43 @@ fn solve_extrinsics(
     points: Vec<AprilTagCorrespondingPoint<f64>>,
     intrinsics: &NamedIntrinsicParameters<f64>,
 ) -> Result<CamSolution, MyError> {
+    use glam::f32::{Vec2, Vec3};
+
     let p2ds: Vec<(f64, f64)> = points
         .iter()
         .map(|p| normalize_point(&intrinsics.intrinsics, (p.image_point[0], p.image_point[1])))
+        .collect();
+    let p2ds: Vec<Vec2> = p2ds
+        .iter()
+        .map(|p| Vec2::new(p.0 as f32, p.1 as f32))
         .collect();
     let p3ds: Vec<(f64, f64, f64)> = points
         .iter()
         .map(|p| (p.object_point[0], p.object_point[1], p.object_point[2]))
         .collect();
-    if let Some((rvec_pnp, tvec_pnp)) = sqpnp_simple::sqpnp_solve(&p3ds, &p2ds) {
+    let p3ds: Vec<Vec3> = p3ds
+        .iter()
+        .map(|p| Vec3::new(p.0 as f32, p.1 as f32, p.2 as f32))
+        .collect();
+
+    let mut solver = sqpnp::Solver::<sqpnp::DefaultParameters>::new();
+    if solver.solve(&p3ds, &p2ds, None) {
+        let solution = solver.best_solution().unwrap();
+        let r = solution.rotation_matrix();
+        let r: nalgebra::SMatrix<f64, 3, 3> = r.as_dmat3().into();
+        let t = solution.translation();
+
         let extrin = {
-            let rvec = nalgebra::Vector3::new(rvec_pnp.0, rvec_pnp.1, rvec_pnp.2);
-            let tvec = nalgebra::Vector3::new(tvec_pnp.0, tvec_pnp.1, tvec_pnp.2);
-            let transform = nalgebra::Isometry3::new(tvec, rvec);
+            let rotation = nalgebra::UnitQuaternion::from_rotation_matrix(
+                &nalgebra::Rotation3::from_matrix_unchecked(r),
+            );
+            let translation = nalgebra::Translation::from(nalgebra::Vector3::new(
+                t.x as f64, t.y as f64, t.z as f64,
+            ));
+            let transform = nalgebra::Isometry3 {
+                translation,
+                rotation,
+            };
             cam_geom::ExtrinsicParameters::from_pose(&transform)
         };
 
