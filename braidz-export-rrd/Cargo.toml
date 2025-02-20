@@ -21,7 +21,9 @@ nalgebra.workspace = true
 regex.workspace = true
 machine-vision-formats.workspace = true
 rayon = "1.9.0"
-opencv = { version = "0.90", optional = true }
+kornia-image = "0.1.8"
+kornia-imgproc = "0.1.8"
+kornia-tensor = "0.1.8"
 
 braidz-parser.workspace = true
 env-tracing-logger.workspace = true
@@ -30,12 +32,11 @@ braidz-types.workspace = true
 flydra-types.workspace = true
 convert-image.workspace = true
 frame-source.workspace = true
-basic-frame.workspace = true
+basic-frame = { workspace = true, features = ["convert-image"] }
 ci2-remote-control.workspace = true
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 
 [features]
-default = ["undistort-images", "openh264-encode"]
+default = ["openh264-encode"]
 
-undistort-images = ["opencv", "basic-frame/convert-image"]
 openh264-encode = ["mp4-writer/openh264-encode", "frame-source/openh264"]

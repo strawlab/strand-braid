@@ -12,10 +12,8 @@ use re_types::{
 };
 use std::{collections::BTreeMap, path::PathBuf};
 
-#[cfg(feature = "undistort-images")]
 use crate::undistortion::UndistortionCache;
 
-#[cfg(feature = "undistort-images")]
 mod undistortion;
 
 const SECONDS_TIMELINE: &str = "wall_clock";
@@ -57,13 +55,7 @@ struct Opt {
     version: bool,
 }
 
-#[cfg(feature = "undistort-images")]
 const CAN_UNDISTORT_IMAGES: bool = true;
-#[cfg(not(feature = "undistort-images"))]
-const CAN_UNDISTORT_IMAGES: bool = false;
-
-#[cfg(not(feature = "undistort-images"))]
-struct UndistortionCache {}
 
 #[derive(Clone, Debug)]
 struct CachedCamData {
@@ -272,17 +264,6 @@ impl OfflineBraidzRerunLogger {
 
         let undist_cache = if let Some(intrinsics) = &cam_data.nl_intrinsics {
             let calibration = cam_data.calibration.as_ref().unwrap();
-            #[cfg(not(feature = "undistort-images"))]
-            {
-                let _ = intrinsics; // silence unused warning.
-                let _ = calibration; // silence unused warning.
-                tracing::error!(
-                    "Support to undistortion images was not compiled. \
-                Images will be distorted but geometry will be linear."
-                );
-                None
-            }
-            #[cfg(feature = "undistort-images")]
             Some(UndistortionCache::new(
                 intrinsics,
                 calibration.width(),
@@ -499,15 +480,7 @@ fn to_rr_image(
     };
 
     let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
-        #[cfg(feature = "undistort-images")]
-        {
-            undistortion::undistort_image(decoded, undist_cache)?
-        }
-        #[cfg(not(feature = "undistort-images"))]
-        {
-            let _ = undist_cache; // silence unused variable warning.
-            unreachable!();
-        }
+        undistortion::undistort_image(decoded, undist_cache)?
     } else {
         decoded
     };
@@ -621,64 +594,66 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Process videos
-    mp4_inputs.as_slice().par_iter().for_each(|mp4_filename| {
-        let my_mp4_writer = if opt.export_linearized_mp4s {
-            let linearized_mp4_output: PathBuf = {
-                let output = mp4_filename.as_os_str().to_owned();
-                let output = output.to_str().unwrap().to_string();
-                let o2 = output.trim_end_matches(".mp4");
-                let output_ref: &std::ffi::OsStr = o2.as_ref();
-                let mut output = output_ref.to_os_string();
-                output.push(UNDIST_NAME);
-                output.into()
-            };
+    mp4_inputs
+        .as_slice()
+        .par_iter()
+        .try_for_each(|mp4_filename| {
+            let my_mp4_writer = if opt.export_linearized_mp4s {
+                let linearized_mp4_output: PathBuf = {
+                    let output = mp4_filename.as_os_str().to_owned();
+                    let output = output.to_str().unwrap().to_string();
+                    let o2 = output.trim_end_matches(".mp4");
+                    let output_ref: &std::ffi::OsStr = o2.as_ref();
+                    let mut output = output_ref.to_os_string();
+                    output.push(UNDIST_NAME);
+                    output.into()
+                };
 
-            tracing::info!(
-                "linearize (undistort) {} -> {}",
-                mp4_filename.display(),
-                linearized_mp4_output.display()
-            );
-            let out_fd = std::fs::File::create(&linearized_mp4_output)
-                .with_context(|| {
+                tracing::info!(
+                    "linearize (undistort) {} -> {}",
+                    mp4_filename.display(),
+                    linearized_mp4_output.display()
+                );
+                let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
                     format!(
                         "Creating MP4 output file {}",
                         linearized_mp4_output.display()
                     )
-                })
-                .unwrap();
+                })?;
 
-            let codec = if opt.encoder == Encoder::OpenH264 {
-                #[cfg(feature = "openh264-encode")]
-                {
-                    use ci2_remote_control::OpenH264Preset;
-                    ci2_remote_control::Mp4Codec::H264OpenH264(
-                        ci2_remote_control::OpenH264Options {
-                            debug: false,
-                            preset: OpenH264Preset::AllFrames,
-                        },
-                    )
-                }
-                #[cfg(not(feature = "openh264-encode"))]
-                panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
+                let codec = if opt.encoder == Encoder::OpenH264 {
+                    #[cfg(feature = "openh264-encode")]
+                    {
+                        use ci2_remote_control::OpenH264Preset;
+                        ci2_remote_control::Mp4Codec::H264OpenH264(
+                            ci2_remote_control::OpenH264Options {
+                                debug: false,
+                                preset: OpenH264Preset::AllFrames,
+                            },
+                        )
+                    }
+                    #[cfg(not(feature = "openh264-encode"))]
+                    panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
+                } else {
+                    ci2_remote_control::Mp4Codec::H264LessAvc
+                };
+
+                let cfg = ci2_remote_control::Mp4RecordingConfig {
+                    codec,
+                    max_framerate: Default::default(),
+                    h264_metadata: None,
+                };
+
+                let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None)?;
+                Some(my_mp4_writer)
             } else {
-                ci2_remote_control::Mp4Codec::H264LessAvc
+                None
             };
 
-            let cfg = ci2_remote_control::Mp4RecordingConfig {
-                codec,
-                max_framerate: Default::default(),
-                h264_metadata: None,
-            };
-
-            let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None).unwrap();
-            Some(my_mp4_writer)
-        } else {
-            None
-        };
-
-        let mp4_filename = mp4_filename.to_str().unwrap();
-        rrd_logger.log_video(mp4_filename, my_mp4_writer).unwrap();
-    });
+            let mp4_filename = mp4_filename.to_str().unwrap();
+            rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
+            Ok::<(), anyhow::ErrReport>(())
+        })?;
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
 }
