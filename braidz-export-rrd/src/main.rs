@@ -1,7 +1,7 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
 use clap::{Parser, ValueEnum};
-use eyre::{self as anyhow, WrapErr};
+use eyre::WrapErr;
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::AsRerunTransform3D;
@@ -119,7 +119,7 @@ impl OfflineBraidzRerunLogger {
         }
     }
 
-    fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> anyhow::Result<()> {
+    fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> eyre::Result<()> {
         for (cam_name, camn) in cam_info.camid2camn.iter() {
             let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
             let raw_path = format!("{base_path}/raw");
@@ -155,7 +155,7 @@ impl OfflineBraidzRerunLogger {
         &mut self,
         cam_name: &str,
         cam: &mvg::Camera<f64>,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let camn = self.camid2camn.get(cam_name).unwrap();
         let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
         // convert camera pose to rerun transform3d
@@ -252,7 +252,7 @@ impl OfflineBraidzRerunLogger {
         &self,
         mp4_filename: &str,
         mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let (_, camname) = camera_name_from_filename(&mp4_filename);
         if camname.is_none() {
             tracing::warn!("Did not recognize camera name for file \"{mp4_filename}\". Skipping.");
@@ -285,7 +285,7 @@ impl OfflineBraidzRerunLogger {
             let pts = match frame.timestamp() {
                 Timestamp::Duration(pts) => pts,
                 _ => {
-                    anyhow::bail!("video has no PTS timestamps.");
+                    eyre::bail!("video has no PTS timestamps.");
                 }
             };
 
@@ -320,15 +320,12 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_data2d_distorted(
-        &mut self,
-        row: &braidz_types::Data2dDistortedRow,
-    ) -> anyhow::Result<()> {
+    fn log_data2d_distorted(&mut self, row: &braidz_types::Data2dDistortedRow) -> eyre::Result<()> {
         // Always cache timing data.
         let cam_data = self
             .by_camn
             .get(&row.camn)
-            .ok_or_else(|| anyhow::anyhow!("camn {} not known", row.camn))?;
+            .ok_or_else(|| eyre::eyre!("camn {} not known", row.camn))?;
         let dt = row.cam_received_timestamp.as_f64();
         self.frametimes
             .entry(cam_data.camn)
@@ -394,7 +391,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn add_empty3d(&self) -> anyhow::Result<()> {
+    fn add_empty3d(&self) -> eyre::Result<()> {
         // fake 3d data so rerun viewer 0.14 setups up blueprint nicely for us.
         if let (Some(frame), Some(timestamp)) = (&self.last_frame, &self.last_timestamp) {
             self.rec.set_time_sequence(FRAMES_TIMELINE, *frame);
@@ -411,7 +408,7 @@ impl OfflineBraidzRerunLogger {
         &self,
         kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
         log_reprojected_2d: bool,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let mut last_detection_per_obj = BTreeMap::new();
 
         // iterate through all saved data.
@@ -473,10 +470,10 @@ impl OfflineBraidzRerunLogger {
 fn to_rr_image(
     im: ImageData,
     undist_cache: Option<&UndistortionCache>,
-) -> anyhow::Result<(EncodedImage, DynamicFrame)> {
+) -> eyre::Result<(EncodedImage, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
-        _ => anyhow::bail!("image not decoded"),
+        _ => eyre::bail!("image not decoded"),
     };
 
     let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
@@ -494,7 +491,7 @@ fn to_rr_image(
     Ok((EncodedImage::from_file_contents(contents), decoded))
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
     }
@@ -521,7 +518,7 @@ fn main() -> anyhow::Result<()> {
             .collect();
         let n_braidz_files = braidz_inputs.len();
         if n_braidz_files != 1 {
-            anyhow::bail!("expected exactly one .braidz file, found {n_braidz_files}");
+            eyre::bail!("expected exactly one .braidz file, found {n_braidz_files}");
         } else {
             braidz_inputs[0].clone()
         }
@@ -552,7 +549,7 @@ fn main() -> anyhow::Result<()> {
         .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
         .collect();
     if mp4_inputs.len() != inputs.len() {
-        anyhow::bail!("expected only mp4 inputs beyond one .braidz file.");
+        eyre::bail!("expected only mp4 inputs beyond one .braidz file.");
     }
 
     // Initiate recording
@@ -652,7 +649,7 @@ fn main() -> anyhow::Result<()> {
 
             let mp4_filename = mp4_filename.to_str().unwrap();
             rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
-            Ok::<(), anyhow::ErrReport>(())
+            Ok::<(), eyre::ErrReport>(())
         })?;
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())

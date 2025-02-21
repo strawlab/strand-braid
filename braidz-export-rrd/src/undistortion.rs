@@ -1,5 +1,4 @@
 use basic_frame::DynamicFrame;
-use eyre::{self as anyhow};
 use machine_vision_formats::{pixel_format, PixFmt};
 
 use opencv_ros_camera::RosOpenCvIntrinsics;
@@ -15,7 +14,7 @@ impl UndistortionCache {
         intrinsics: &RosOpenCvIntrinsics<f64>,
         width: usize,
         height: usize,
-    ) -> anyhow::Result<Self> {
+    ) -> eyre::Result<Self> {
         use kornia_imgproc::interpolation::grid::meshgrid_from_fn;
 
         let (mapx, mapy) = meshgrid_from_fn(width, height, |u, v| {
@@ -34,7 +33,7 @@ impl UndistortionCache {
 pub(crate) fn undistort_image(
     decoded: DynamicFrame,
     undist_cache: &UndistortionCache,
-) -> anyhow::Result<DynamicFrame> {
+) -> eyre::Result<DynamicFrame> {
     let width = decoded.width().try_into().unwrap();
     let height = decoded.height().try_into().unwrap();
 
@@ -78,12 +77,12 @@ pub(crate) fn undistort_image(
             )?;
             let tensor: kornia_tensor::Tensor<f32, 3, _> = undistorted_img.0;
             if tensor.shape[2] != 3 {
-                anyhow::bail!("expected exactly 3 channels");
+                eyre::bail!("expected exactly 3 channels");
             }
             let data_f32 = tensor.into_vec();
             let data_u8: Vec<_> = data_f32.into_iter().map(|x| x as u8).collect();
             if data_u8.len() != width * height * 3 {
-                anyhow::bail!("unexpected output image size");
+                eyre::bail!("unexpected output image size");
             }
 
             let basic = basic_frame::BasicFrame::<machine_vision_formats::pixel_format::RGB8> {
