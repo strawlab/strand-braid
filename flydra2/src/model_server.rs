@@ -269,7 +269,7 @@ pub async fn new_model_server(
                                 }
                             }
                             (SendType::Birth(row), _tdpt) | (SendType::Update(row), _tdpt) => {
-                                let obj_id = format!("{}", row.obj_id);
+                                let obj_id = format!("/obj/{}", row.obj_id);
                                 let position = re_types::datatypes::Vec3D::new(
                                     row.x as f32,
                                     row.y as f32,
