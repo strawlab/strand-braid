@@ -64,6 +64,7 @@ members = [
     "geometry/refraction/bisection-search",
     "geometry/simple-obj-parse",
     "geometry/textured-tri-mesh",
+    "geometry/undistort-image",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",
@@ -332,6 +333,7 @@ textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }
 ufmf = { path = "media-utils/ufmf" }
+undistort-image = { path = "geometry/undistort-image" }
 vimba = { path = "camera/vimba" }
 withkey = { path = "utils/withkey" }
 y4m-writer = { path = "media-utils/y4m-writer" }

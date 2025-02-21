@@ -4,13 +4,13 @@ use machine_vision_formats::{pixel_format, PixFmt};
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
 #[derive(Clone)]
-pub(crate) struct UndistortionCache {
+pub struct UndistortionCache {
     mapx: kornia_tensor::CpuTensor2<f32>,
     mapy: kornia_tensor::CpuTensor2<f32>,
 }
 
 impl UndistortionCache {
-    pub(crate) fn new(
+    pub fn new(
         intrinsics: &RosOpenCvIntrinsics<f64>,
         width: usize,
         height: usize,
@@ -30,7 +30,7 @@ impl UndistortionCache {
     }
 }
 
-pub(crate) fn undistort_image(
+pub fn undistort_image(
     decoded: DynamicFrame,
     undist_cache: &UndistortionCache,
 ) -> eyre::Result<DynamicFrame> {

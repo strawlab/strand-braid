@@ -12,10 +12,6 @@ use re_types::{
 };
 use std::{collections::BTreeMap, path::PathBuf};
 
-use crate::undistortion::UndistortionCache;
-
-mod undistortion;
-
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
 const DETECT_NAME: &str = "detect";
@@ -264,7 +260,7 @@ impl OfflineBraidzRerunLogger {
 
         let undist_cache = if let Some(intrinsics) = &cam_data.nl_intrinsics {
             let calibration = cam_data.calibration.as_ref().unwrap();
-            Some(UndistortionCache::new(
+            Some(undistort_image::UndistortionCache::new(
                 intrinsics,
                 calibration.width(),
                 calibration.height(),
@@ -469,7 +465,7 @@ impl OfflineBraidzRerunLogger {
 
 fn to_rr_image(
     im: ImageData,
-    undist_cache: Option<&UndistortionCache>,
+    undist_cache: Option<&undistort_image::UndistortionCache>,
 ) -> eyre::Result<(EncodedImage, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
@@ -477,7 +473,7 @@ fn to_rr_image(
     };
 
     let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
-        undistortion::undistort_image(decoded, undist_cache)?
+        undistort_image::undistort_image(decoded, undist_cache)?
     } else {
         decoded
     };
