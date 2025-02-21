@@ -18,10 +18,10 @@ impl UndistortionCache {
         use kornia_imgproc::interpolation::grid::meshgrid_from_fn;
 
         let (mapx, mapy) = meshgrid_from_fn(width, height, |u, v| {
-            let dist = opencv_ros_camera::UndistortedPixels {
+            let undist = opencv_ros_camera::UndistortedPixels {
                 data: nalgebra::RowVector2::<f64>::new(u as f64, v as f64),
             };
-            let dist = intrinsics.distort(&dist).data;
+            let dist = intrinsics.distort(&undist).data;
             Ok((dist[(0, 0)] as f32, dist[(0, 1)] as f32))
         })
         .unwrap();
