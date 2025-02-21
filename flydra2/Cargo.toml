@@ -51,12 +51,14 @@ const_format = "0.2.32"
 approx.workspace = true
 re_types.workspace = true
 re_sdk.workspace = true
+cam-geom.workspace = true
+num-traits.workspace = true
 
 braidz-types.workspace = true
 braidz-writer.workspace = true
 datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
-mvg.workspace = true
+mvg = { workspace = true, features = ["rerun-io"] }
 flydra-mvg.workspace = true
 http-video-streaming-types.workspace = true
 flydra-types.workspace = true

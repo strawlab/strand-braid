@@ -1,6 +1,7 @@
-use tracing::{debug, info};
-
+use flydra_mvg::FlydraMultiCameraSystem;
+use num_traits::Float;
 use std::sync::{Arc, RwLock};
+use tracing::{debug, info};
 
 use http_body::Frame;
 use serde::{Deserialize, Serialize};
@@ -204,6 +205,8 @@ pub async fn new_model_server(
             );
         }
 
+        let mut did_show_rerun_warning = false;
+
         // Wait for the next update time to arrive ...
         loop {
             let opt_new_data = data_rx.recv().await;
@@ -218,7 +221,53 @@ pub async fn new_model_server(
 
                     if let Some(rec) = &rec {
                         match data {
-                            (SendType::CalibrationFlydraXml(_calib), _tdpt) => {}
+                            (SendType::CalibrationFlydraXml(calib_xml), _tdpt) => {
+                                let buf = std::io::Cursor::new(calib_xml);
+                                let system = FlydraMultiCameraSystem::<f64>::from_flydra_xml(buf)?;
+                                for (cam_name, cam) in system.system().cams_by_name().iter() {
+                                    use mvg::rerun_io::AsRerunTransform3D;
+                                    const CAMERA_BASE_PATH: &str = "/world/camera";
+                                    let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
+                                    rec.log(
+                                        base_path.as_str(),
+                                        &extrinsics_f64(cam.extrinsics())
+                                            .as_rerun_transform3d()
+                                            .into(),
+                                    )
+                                    .unwrap();
+                                    let raw_path = format!("{base_path}/raw");
+                                    let (w, h) = (cam.width(), cam.height());
+
+                                    let i = cam.intrinsics();
+                                    if !i.distortion.is_linear() {
+                                        // Drop distortions to log to rerun. See https://github.com/rerun-io/rerun/issues/2499
+                                        if !did_show_rerun_warning {
+                                            tracing::warn!("Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499");
+                                            did_show_rerun_warning = true;
+                                        }
+                                    }
+                                    if i.skew().abs() > 1e-15 {
+                                        tracing::warn!("Camera has skew, but rerun cameras do not support skew");
+                                    }
+                                    let params = cam_geom::PerspectiveParams {
+                                        fx: i.fx(),
+                                        fy: i.fy(),
+                                        skew: 0.0,
+                                        cx: i.cx(),
+                                        cy: i.cy(),
+                                    };
+                                    let intrinsics: cam_geom::IntrinsicParametersPerspective<_> =
+                                        params.into();
+                                    // TODO: confirm that `intrinsics` is equal to `cam.intrinsics()`.
+                                    let pinhole = mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                                        &intrinsics,
+                                        w,
+                                        h,
+                                    )
+                                    .unwrap();
+                                    rec.log(raw_path, &pinhole).unwrap();
+                                }
+                            }
                             (SendType::Birth(row), _tdpt) | (SendType::Update(row), _tdpt) => {
                                 let obj_id = format!("{}", row.obj_id);
                                 let position = re_types::datatypes::Vec3D::new(
@@ -251,6 +300,31 @@ pub async fn new_model_server(
     // ...then exit.
 
     Ok(())
+}
+
+// makes ExtrinsicParameters<F> into ExtrinsicParameters<f64>
+fn extrinsics_f64<F: nalgebra::RealField + Float>(
+    e: &cam_geom::ExtrinsicParameters<F>,
+) -> cam_geom::ExtrinsicParameters<f64> {
+    let r = e.pose().rotation.as_ref().coords;
+    let rotation: nalgebra::UnitQuaternion<f64> =
+        nalgebra::UnitQuaternion::from_quaternion(nalgebra::Quaternion {
+            coords: nalgebra::Vector4::new(
+                r[0].to_f64().unwrap(),
+                r[1].to_f64().unwrap(),
+                r[2].to_f64().unwrap(),
+                r[3].to_f64().unwrap(),
+            ),
+        });
+    let c = e.camcenter();
+    let camcenter = nalgebra::Point3 {
+        coords: nalgebra::Vector3::new(
+            c[0].to_f64().unwrap(),
+            c[1].to_f64().unwrap(),
+            c[2].to_f64().unwrap(),
+        ),
+    };
+    cam_geom::ExtrinsicParameters::from_rotation_and_camcenter(rotation, camcenter)
 }
 
 fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {
