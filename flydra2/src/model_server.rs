@@ -278,7 +278,16 @@ pub async fn new_model_server(
                                 rec.log(obj_id, &re_types::archetypes::Points3D::new([position]))
                                     .unwrap();
                             }
-                            (SendType::Death(_x), _tdpt) => {}
+                            (SendType::Death(obj_id), _tdpt) => {
+                                // log end of trajectory - indicate there are no more data for this obj_id
+                                let obj_id = format!("/obj/{}", obj_id);
+                                let empty_position: [(f32, f32, f32); 0] = [];
+                                rec.log(
+                                    obj_id,
+                                    &re_types::archetypes::Points3D::new(empty_position),
+                                )
+                                .unwrap();
+                            }
                             (SendType::EndOfFrame(_x), _tdpt) => {}
                         }
                     }
