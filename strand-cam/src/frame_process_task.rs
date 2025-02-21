@@ -914,8 +914,6 @@ pub(crate) async fn frame_process_task<'a>(
                         if let Some(ref store_cache_ref) = store_cache {
                             if let Some(ref ts) = store_cache_ref.apriltag_state {
                                 if ts.do_detection {
-                                    use apriltag::ImageU8;
-
                                     if current_tag_family != ts.april_family {
                                         april_td.clear_families();
                                         current_tag_family = ts.april_family.clone();
@@ -923,21 +921,20 @@ pub(crate) async fn frame_process_task<'a>(
                                         april_td.add_family(april_tf);
                                     }
 
-                                    if let Some(mut im) = frame2april(&frame.image) {
-                                        let detections = april_td.detect(im.inner_mut());
+                                    let mut im = frame2april(&frame.image)?;
 
-                                        if let Some(ref mut wtr) = apriltag_writer {
-                                            wtr.save(
-                                                &detections,
-                                                frame.host_timing.fno,
-                                                frame.host_timing.datetime,
-                                            )?;
-                                        }
+                                    let detections = april_td.detect(im.inner_mut());
 
-                                        let tag_points =
-                                            detections.as_slice().iter().map(det2display);
-                                        all_points.extend(tag_points);
+                                    if let Some(ref mut wtr) = apriltag_writer {
+                                        wtr.save(
+                                            &detections,
+                                            frame.host_timing.fno,
+                                            frame.host_timing.datetime,
+                                        )?;
                                     }
+
+                                    let tag_points = detections.as_slice().iter().map(det2display);
+                                    all_points.extend(tag_points);
                                 }
                             }
                         }
@@ -1587,10 +1584,22 @@ fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
 }
 
 #[cfg(feature = "fiducial")]
-fn frame2april(frame: &DynamicFrame) -> Option<apriltag::ImageU8Borrowed> {
+fn frame2april(frame: &DynamicFrame) -> Result<Box<dyn apriltag::ImageU8>> {
     match frame {
-        DynamicFrame::Mono8(frame) => Some(apriltag::ImageU8Borrowed::view(frame)),
-        _ => None,
+        DynamicFrame::Mono8(mono8) => Ok(Box::new(apriltag::ImageU8Borrowed::view(mono8))),
+        other_fmt => {
+            let mono8 = other_fmt
+                .clone()
+                .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
+            let im = apriltag::ImageU8Owned::new(
+                mono8.width.try_into().unwrap(),
+                mono8.height.try_into().unwrap(),
+                mono8.stride.try_into().unwrap(),
+                mono8.into(),
+            )
+            .unwrap();
+            Ok(Box::new(im))
+        }
     }
 }
 
