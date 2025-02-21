@@ -166,15 +166,14 @@ impl DynamicFrame {
     /// the data (without reallocation or copying). Otherwise, the data is
     /// converted.
     ///
-    /// Note that although this consumes [Self], it does not make sense to
-    /// implement a variant which takes only a reference because the data must
-    /// be copied in that case anyway.
-    ///
     /// To avoid converting the data, use [Self::as_basic].
     pub fn into_pixel_format<FMT>(self) -> Result<BasicFrame<FMT>, convert_image::Error>
     where
         FMT: PixelFormat,
     {
+        // TODO: return a CowImage that views data when it doesn't need to be
+        // converted and allocates new data when it does.
+
         let pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
         if pixfmt == self.pixel_format() {
             // Fast path. Simply return the data.
