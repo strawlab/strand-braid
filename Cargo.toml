@@ -132,7 +132,6 @@ debug = true
 adskalman = "0.16"
 anyhow = "1"
 approx = "0.5"
-apriltag-sys = "0.3"
 async-change-tracker = "0.3.4"
 axum = "0.8.1"
 axum-token-auth = "0.2.0"
