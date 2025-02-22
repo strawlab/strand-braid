@@ -139,64 +139,6 @@ extern "C"
         return result;
     }
 
-    int ippe()
-    {
-        return cv::SolvePnPMethod::SOLVEPNP_IPPE;
-    }
-
-    int epnp()
-    {
-        return cv::SolvePnPMethod::SOLVEPNP_EPNP;
-    }
-
-    struct cv_return_value_bool solve_pnp(int n_points, double *objectPointsRaw, double *imagePointsRaw, double *camera_matrix, double *distortion_coeffs, double *rotation_vec, double *translation_vec, int flags)
-    {
-        struct cv_return_value_bool result = {0, 0, true};
-
-        std::vector<cv::Point3d> object_points;
-        std::vector<cv::Point2d> image_points;
-
-        // copy data. (TODO: make it a view.)
-        for (int i = 0; i < n_points; i++)
-        {
-            object_points.push_back(cv::Point3d(objectPointsRaw[3 * i], objectPointsRaw[3 * i + 1], objectPointsRaw[3 * i + 2]));
-            image_points.push_back(cv::Point2d(imagePointsRaw[2 * i], imagePointsRaw[2 * i + 1]));
-        }
-
-        cv::Mat cameraMatrix(3, 3, CV_64F, (void *)camera_matrix);
-        cv::Mat distortionCoeffs(5, 1, CV_64F, (void *)distortion_coeffs);
-        cv::Mat rotationVec(1, 3, CV_64F, (void *)rotation_vec);       // (note: this is a copy)
-        cv::Mat translationVec(1, 3, CV_64F, (void *)translation_vec); // (note: this is a copy)
-
-        bool useExtrinsicGuess = false;
-
-        try
-        {
-            result.result = cv::solvePnP(object_points, image_points, cameraMatrix, distortionCoeffs, rotationVec, translationVec, useExtrinsicGuess, flags);
-        }
-        catch (const cv::Exception &e)
-        {
-            result.is_cv_exception = 1;
-        }
-        catch (...)
-        {
-            result.is_other_exception = 1;
-        }
-
-        // TODO: just view the original data allocated
-        for (int i = 0; i < 3; i++)
-        {
-            rotation_vec[i] = rotationVec.at<double>(0, i);
-        }
-
-        for (int i = 0; i < 3; i++)
-        {
-            translation_vec[i] = translationVec.at<double>(0, i);
-        }
-
-        return result;
-    }
-
     std::vector<cv::Point2f> *vec_point2f_new()
     {
         return new std::vector<cv::Point2f>;
