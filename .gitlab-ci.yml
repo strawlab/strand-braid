@@ -137,7 +137,7 @@ test_flydra2:
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_stable:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
@@ -255,21 +255,20 @@ test_crates_rust_stable:
     - cd ../..
 
 test_crates_rust_nightly:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2024-12-14
+    - rustup update --no-self-update nightly-2025-02-14
 
     # Test imops with nightly features
-    - cd imops
-    - cargo +nightly-2024-12-14 test --no-default-features --features std,simd
-    - cd ..
+    - cd $CI_PROJECT_DIR/imops
+    - cargo +nightly-2025-02-14 test --no-default-features --features std,simd
 
     # Test fastfreeimage
-    - cd fastfreeimage
-    - cargo +nightly-2024-12-14 test --features portsimd
+    - cd $CI_PROJECT_DIR/fastfreeimage
+    - cargo +nightly-2025-02-14 test --features portsimd
     - cd ..
 
 test_flydra_feature_detector:
@@ -336,7 +335,7 @@ led-box-standalone-ubuntu2004-deb:
     name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -351,7 +350,7 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -748,7 +747,7 @@ fmf-cli:
     name: "fmf-cli-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -814,7 +813,7 @@ braid-run-binary:
     name: "braid-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -830,7 +829,7 @@ led-box-linux:
     name: "led-box-linux-${CI_COMMIT_SHA}"
 
 led-box-firmware:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - rustc --version
     - cd led-box/led-box-firmware
@@ -1041,7 +1040,7 @@ build_simple:
     - cargo build --release
 
 test_user_guide:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - cd strand-braid-user/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz
