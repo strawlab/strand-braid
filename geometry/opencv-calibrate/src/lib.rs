@@ -111,9 +111,6 @@ pub fn calibrate_camera(
     debug_assert!(total * 2 == image_points.len());
 
     let mut camera_matrix = [0.0; 9];
-    camera_matrix[0] = 1.0;
-    camera_matrix[4] = 1.0;
-    camera_matrix[8] = 0.0;
     let mut distortion_coeffs = [0.0; 5];
 
     let mut rotation_matrices: Vec<[f64; 9]> = (0..num_images).map(|_| [0.0; 9]).collect();
