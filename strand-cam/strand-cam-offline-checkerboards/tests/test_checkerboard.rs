@@ -48,7 +48,6 @@ fn test_checkerboard() -> Result<()> {
     let data_root = tempfile::tempdir()?;
     let data_root_dir_name =
         Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
-    // std::mem::forget(data_root);
 
     let rdr = std::fs::File::open(FNAME)?;
     let cal_data_archive = ZipArchive::new(rdr)?;
@@ -56,9 +55,7 @@ fn test_checkerboard() -> Result<()> {
     unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
 
     let cli = Cli {
-        input_dirname: data_root_dir_name
-            .join("checkerboard_debug_20240222_164128")
-            .into_std_path_buf(),
+        input_dirname: data_root_dir_name.join("checkerboard_debug_20240222_164128"),
         pattern_width: 18,
         pattern_height: 8,
     };

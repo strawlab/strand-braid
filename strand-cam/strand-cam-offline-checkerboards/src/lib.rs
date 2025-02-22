@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
 use image::GenericImageView;
@@ -7,8 +8,8 @@ use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 pub struct Cli {
-    /// Input directory name (with .png or .jpg files)
-    pub input_dirname: std::path::PathBuf,
+    /// Input directory name (with .png, .jpg, .bmp, or .tiff files)
+    pub input_dirname: Utf8PathBuf,
     /// Width of checkerboard pattern, in number of corners (e.g. 8x8 checks
     /// would be 7x7 corners)
     #[arg(default_value_t = 7)]
@@ -19,33 +20,28 @@ pub struct Cli {
     pub pattern_height: usize,
 }
 
-fn get_image_files(dirname: &std::path::Path) -> Result<Vec<PathBuf>> {
+fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
     if !std::fs::metadata(&dirname)?.is_dir() {
-        anyhow::bail!("Attempting to open \"{}\" as directory with PNG or JPG stack failed because it is not a directory.", dirname.display());
+        anyhow::bail!("Attempting to open \"{dirname}\" because it is not a directory.");
     }
     let png_joined = dirname.join("*.png");
-    let png_pattern = png_joined.to_str().unwrap();
+    let png_pattern = png_joined.to_string();
 
     let jpg_joined = dirname.join("*.jpg");
-    let jpg_pattern = jpg_joined.to_str().unwrap();
+    let jpg_pattern = jpg_joined.to_string();
 
-    // First prefer PNG, then if none are found, look for JPG files. (Probably the logic
-    // here could be improved.)
+    let bmp_joined = dirname.join("*.bmp");
+    let bmp_pattern = bmp_joined.to_string();
+
+    let tiff_joined = dirname.join("*.tiff");
+    let tiff_pattern = tiff_joined.to_string();
+
     let mut paths = vec![];
-    for path in glob::glob_with(
-        png_pattern,
-        glob::MatchOptions {
-            case_sensitive: false,
-            require_literal_separator: true,
-            require_literal_leading_dot: true,
-        },
-    )? {
-        paths.push(path?);
-    }
-
-    if paths.is_empty() {
+    for pattern in [png_pattern, jpg_pattern, bmp_pattern, tiff_pattern] {
+        // First prefer PNG, then if none are found, look for JPG files. (Probably the logic
+        // here could be improved.)
         for path in glob::glob_with(
-            jpg_pattern,
+            &pattern,
             glob::MatchOptions {
                 case_sensitive: false,
                 require_literal_separator: true,
@@ -57,7 +53,7 @@ fn get_image_files(dirname: &std::path::Path) -> Result<Vec<PathBuf>> {
     }
 
     if paths.is_empty() {
-        anyhow::bail!("no PNG or JPG files in \"{}\"", png_pattern);
+        anyhow::bail!("no image files in \"{}\"", dirname);
     }
 
     paths.sort();
@@ -124,7 +120,7 @@ pub fn run_cal(cli: Cli) -> Result<()> {
             );
             info!("got calibrated intrinsics: {:?}", intrinsics);
 
-            let cam_name = dirname.as_os_str().to_str().unwrap().to_string();
+            let cam_name = dirname.to_string();
 
             let format_str = format!("{}.%Y%m%d_%H%M%S.yaml", cam_name.as_str());
             let local = chrono::Local::now();

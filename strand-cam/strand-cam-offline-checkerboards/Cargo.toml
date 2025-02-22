@@ -13,6 +13,7 @@ image.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 chrono.workspace = true
+camino.workspace = true
 
 strand-cam-storetype.workspace = true
 opencv-calibrate.workspace = true
@@ -21,5 +22,4 @@ camcal.workspace = true
 [dev-dependencies]
 download-verify.workspace = true
 tempfile.workspace = true
-camino.workspace = true
 zip.workspace = true

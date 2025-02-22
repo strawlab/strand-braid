@@ -139,6 +139,7 @@ base64 = "0.12"
 byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.15", features = ["serde-serialize"] }
+camino = "1.1.9"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
 configure = "0.1.1"
@@ -177,6 +178,7 @@ hyper-util = { version = "0.1.1", features = [
 ] }
 iana-time-zone = "0.1"
 image = { version = "0.25", default-features = false, features = [
+    "bmp",
     "jpeg",
     "png",
     "tiff",
