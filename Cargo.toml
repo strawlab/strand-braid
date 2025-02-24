@@ -52,6 +52,7 @@ members = [
     "freemovr-calibration/freemovr-calibration-webapp",
     "freemovr-calibration/ncollide-geom",
     "geometry/braidz-mcsc",
+    "geometry/bundle-adj",
     "geometry/camcal",
     "geometry/flydra-mvg",
     "geometry/mcsc-structs",
@@ -191,6 +192,7 @@ js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
 less-avc = "0.1.4"
+levenberg-marquardt = "0.14.0"
 libc = "0.2"
 libflate = "0.1"
 log = "0.4"
@@ -277,6 +279,7 @@ braidz-writer = { path = "braid/braidz-writer" }
 bui-backend-session = { path = "bui-backend-session" }
 bui-backend-session-types = { path = "bui-backend-session/types" }
 build-util = { path = "build-util" }
+bundle-adj = { path = "geometry/bundle-adj" }
 camcal = { path = "geometry/camcal" }
 ci2 = { path = "camera/ci2" }
 ci2-async = { path = "camera/ci2-async" }
