@@ -23,7 +23,10 @@ pub struct Cli {
 }
 
 fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
-    if !std::fs::metadata(&dirname)?.is_dir() {
+    if !std::fs::metadata(&dirname)
+        .with_context(|| format!("While reading filesystem metadata from \"{dirname}\"."))?
+        .is_dir()
+    {
         anyhow::bail!("Attempting to open \"{dirname}\" because it is not a directory.");
     }
     let png_joined = dirname.join("*.png");
