@@ -1,7 +1,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use eyre::Result;
 use std::io::{Read, Seek};
-use strand_cam_offline_checkerboards::{run_cal, Cli};
+use strand_cam_offline_checkerboards::{Cli, run_cal};
 use zip::ZipArchive;
 
 const FNAME: &str = "checkerboard_debug_20240222_164128.zip";
@@ -59,5 +59,26 @@ fn test_checkerboard() -> Result<()> {
         pattern_width: 18,
         pattern_height: 8,
     };
-    run_cal(cli)
+    let cal = run_cal(cli)?;
+
+    // Test results against those from a successful run. (Some deviation is
+    // expected.)
+
+    // camera_matrix is stored in row major order.
+    approx::assert_relative_eq!(cal.camera_matrix[0], 1188.8, epsilon = 0.1); // fx
+    approx::assert_relative_eq!(cal.camera_matrix[1], 0.0); // skew
+    approx::assert_relative_eq!(cal.camera_matrix[2], 939.0, epsilon = 1.0); // cx
+    approx::assert_relative_eq!(cal.camera_matrix[3], 0.0);
+    approx::assert_relative_eq!(cal.camera_matrix[4], 1188.8, epsilon = 0.1); // fy
+    approx::assert_relative_eq!(cal.camera_matrix[5], 583.0, epsilon = 1.0); // cy
+    approx::assert_relative_eq!(cal.camera_matrix[6], 0.0);
+    approx::assert_relative_eq!(cal.camera_matrix[7], 0.0);
+    approx::assert_relative_eq!(cal.camera_matrix[8], 1.0);
+
+    approx::assert_relative_eq!(cal.distortion_coeffs[0], -0.234, epsilon = 0.01);
+    approx::assert_relative_eq!(cal.distortion_coeffs[1], 0.0754987651101312, epsilon = 0.01);
+    approx::assert_relative_eq!(cal.distortion_coeffs[2], -7.954e-6, epsilon = 1e-5);
+    approx::assert_relative_eq!(cal.distortion_coeffs[3], 6.39e-5, epsilon = 1e-5);
+
+    Ok(())
 }

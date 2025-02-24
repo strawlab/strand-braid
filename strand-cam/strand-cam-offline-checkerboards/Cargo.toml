@@ -25,3 +25,4 @@ camcal.workspace = true
 download-verify.workspace = true
 tempfile.workspace = true
 zip.workspace = true
+approx.workspace = true

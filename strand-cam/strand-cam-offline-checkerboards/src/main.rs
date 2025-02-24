@@ -1,7 +1,7 @@
 use clap::Parser;
 use eyre::Result;
 
-use strand_cam_offline_checkerboards::{run_cal, Cli};
+use strand_cam_offline_checkerboards::{Cli, run_cal};
 
 fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
@@ -13,5 +13,6 @@ fn main() -> Result<()> {
 
     env_logger::init();
     let cli = Cli::parse();
-    run_cal(cli)
+    run_cal(cli)?;
+    Ok(())
 }

@@ -4,7 +4,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
 use image::GenericImageView;
-use tracing::{error, info};
+use opencv_calibrate::CalibrationResult;
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -61,7 +62,7 @@ fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn run_cal(cli: Cli) -> Result<()> {
+pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let dirname = cli.input_dirname;
     let fnames = get_image_files(&dirname)?;
 
@@ -111,7 +112,8 @@ pub fn run_cal(cli: Cli) -> Result<()> {
         .collect();
 
     let size = camcal::PixelSize::new(image_width as usize, image_height as usize);
-    match camcal::compute_intrinsics_with_raw_opencv::<f64>(size, &goodcorners) {
+    let raw_opencv_cal = match camcal::compute_intrinsics_with_raw_opencv::<f64>(size, &goodcorners)
+    {
         Ok(raw_opencv_cal) => {
             let intrinsics = camcal::convert_to_cam_geom::<f64>(&raw_opencv_cal);
 
@@ -145,11 +147,12 @@ pub fn run_cal(cli: Cli) -> Result<()> {
                 .with_context(|| format!("Copying to file {cam_info_file}"))?;
 
             info!("Saved camera calibration to file: {cam_info_file}");
+            raw_opencv_cal
         }
         Err(e) => {
-            error!("failed doing calibration {:?} {}", e, e);
+            eyre::bail!("failed doing calibration {:?} {}", e, e);
         }
     };
 
-    Ok(())
+    Ok(raw_opencv_cal)
 }
