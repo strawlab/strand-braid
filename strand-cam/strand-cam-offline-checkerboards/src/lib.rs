@@ -7,6 +7,7 @@ use image::GenericImageView;
 use tracing::{error, info};
 
 #[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// Input directory name (with .png, .jpg, .bmp, or .tiff files)
     pub input_dirname: Utf8PathBuf,
