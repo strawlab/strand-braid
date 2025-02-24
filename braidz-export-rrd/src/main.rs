@@ -1,7 +1,7 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
 use clap::{Parser, ValueEnum};
-use eyre::{self as anyhow, WrapErr};
+use eyre::WrapErr;
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::AsRerunTransform3D;
@@ -11,12 +11,6 @@ use re_types::{
     components::PinholeProjection,
 };
 use std::{collections::BTreeMap, path::PathBuf};
-
-#[cfg(feature = "undistort-images")]
-use crate::undistortion::UndistortionCache;
-
-#[cfg(feature = "undistort-images")]
-mod undistortion;
 
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
@@ -57,13 +51,7 @@ struct Opt {
     version: bool,
 }
 
-#[cfg(feature = "undistort-images")]
 const CAN_UNDISTORT_IMAGES: bool = true;
-#[cfg(not(feature = "undistort-images"))]
-const CAN_UNDISTORT_IMAGES: bool = false;
-
-#[cfg(not(feature = "undistort-images"))]
-struct UndistortionCache {}
 
 #[derive(Clone, Debug)]
 struct CachedCamData {
@@ -127,7 +115,7 @@ impl OfflineBraidzRerunLogger {
         }
     }
 
-    fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> anyhow::Result<()> {
+    fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> eyre::Result<()> {
         for (cam_name, camn) in cam_info.camid2camn.iter() {
             let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
             let raw_path = format!("{base_path}/raw");
@@ -163,7 +151,7 @@ impl OfflineBraidzRerunLogger {
         &mut self,
         cam_name: &str,
         cam: &mvg::Camera<f64>,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let camn = self.camid2camn.get(cam_name).unwrap();
         let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
         // convert camera pose to rerun transform3d
@@ -260,7 +248,7 @@ impl OfflineBraidzRerunLogger {
         &self,
         mp4_filename: &str,
         mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let (_, camname) = camera_name_from_filename(&mp4_filename);
         if camname.is_none() {
             tracing::warn!("Did not recognize camera name for file \"{mp4_filename}\". Skipping.");
@@ -272,18 +260,7 @@ impl OfflineBraidzRerunLogger {
 
         let undist_cache = if let Some(intrinsics) = &cam_data.nl_intrinsics {
             let calibration = cam_data.calibration.as_ref().unwrap();
-            #[cfg(not(feature = "undistort-images"))]
-            {
-                let _ = intrinsics; // silence unused warning.
-                let _ = calibration; // silence unused warning.
-                tracing::error!(
-                    "Support to undistortion images was not compiled. \
-                Images will be distorted but geometry will be linear."
-                );
-                None
-            }
-            #[cfg(feature = "undistort-images")]
-            Some(UndistortionCache::new(
+            Some(undistort_image::UndistortionCache::new(
                 intrinsics,
                 calibration.width(),
                 calibration.height(),
@@ -304,7 +281,7 @@ impl OfflineBraidzRerunLogger {
             let pts = match frame.timestamp() {
                 Timestamp::Duration(pts) => pts,
                 _ => {
-                    anyhow::bail!("video has no PTS timestamps.");
+                    eyre::bail!("video has no PTS timestamps.");
                 }
             };
 
@@ -339,15 +316,12 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_data2d_distorted(
-        &mut self,
-        row: &braidz_types::Data2dDistortedRow,
-    ) -> anyhow::Result<()> {
+    fn log_data2d_distorted(&mut self, row: &braidz_types::Data2dDistortedRow) -> eyre::Result<()> {
         // Always cache timing data.
         let cam_data = self
             .by_camn
             .get(&row.camn)
-            .ok_or_else(|| anyhow::anyhow!("camn {} not known", row.camn))?;
+            .ok_or_else(|| eyre::eyre!("camn {} not known", row.camn))?;
         let dt = row.cam_received_timestamp.as_f64();
         self.frametimes
             .entry(cam_data.camn)
@@ -413,7 +387,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn add_empty3d(&self) -> anyhow::Result<()> {
+    fn add_empty3d(&self) -> eyre::Result<()> {
         // fake 3d data so rerun viewer 0.14 setups up blueprint nicely for us.
         if let (Some(frame), Some(timestamp)) = (&self.last_frame, &self.last_timestamp) {
             self.rec.set_time_sequence(FRAMES_TIMELINE, *frame);
@@ -430,7 +404,7 @@ impl OfflineBraidzRerunLogger {
         &self,
         kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
         log_reprojected_2d: bool,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let mut last_detection_per_obj = BTreeMap::new();
 
         // iterate through all saved data.
@@ -491,23 +465,15 @@ impl OfflineBraidzRerunLogger {
 
 fn to_rr_image(
     im: ImageData,
-    undist_cache: Option<&UndistortionCache>,
-) -> anyhow::Result<(EncodedImage, DynamicFrame)> {
+    undist_cache: Option<&undistort_image::UndistortionCache>,
+) -> eyre::Result<(EncodedImage, DynamicFrame)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
-        _ => anyhow::bail!("image not decoded"),
+        _ => eyre::bail!("image not decoded"),
     };
 
     let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
-        #[cfg(feature = "undistort-images")]
-        {
-            undistortion::undistort_image(decoded, undist_cache)?
-        }
-        #[cfg(not(feature = "undistort-images"))]
-        {
-            let _ = undist_cache; // silence unused variable warning.
-            unreachable!();
-        }
+        undistort_image::undistort_image(decoded, undist_cache)?
     } else {
         decoded
     };
@@ -521,7 +487,7 @@ fn to_rr_image(
     Ok((EncodedImage::from_file_contents(contents), decoded))
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
     }
@@ -548,7 +514,7 @@ fn main() -> anyhow::Result<()> {
             .collect();
         let n_braidz_files = braidz_inputs.len();
         if n_braidz_files != 1 {
-            anyhow::bail!("expected exactly one .braidz file, found {n_braidz_files}");
+            eyre::bail!("expected exactly one .braidz file, found {n_braidz_files}");
         } else {
             braidz_inputs[0].clone()
         }
@@ -579,7 +545,7 @@ fn main() -> anyhow::Result<()> {
         .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
         .collect();
     if mp4_inputs.len() != inputs.len() {
-        anyhow::bail!("expected only mp4 inputs beyond one .braidz file.");
+        eyre::bail!("expected only mp4 inputs beyond one .braidz file.");
     }
 
     // Initiate recording
@@ -600,7 +566,7 @@ fn main() -> anyhow::Result<()> {
         if cal.water.is_some() {
             tracing::error!("omitting water");
         }
-        for (cam_name, cam) in cal.cameras.cams().iter() {
+        for (cam_name, cam) in cal.cameras.cams_by_name().iter() {
             rrd_logger.add_camera_calibration(cam_name, cam)?;
         }
     } else {
@@ -621,64 +587,66 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Process videos
-    mp4_inputs.as_slice().par_iter().for_each(|mp4_filename| {
-        let my_mp4_writer = if opt.export_linearized_mp4s {
-            let linearized_mp4_output: PathBuf = {
-                let output = mp4_filename.as_os_str().to_owned();
-                let output = output.to_str().unwrap().to_string();
-                let o2 = output.trim_end_matches(".mp4");
-                let output_ref: &std::ffi::OsStr = o2.as_ref();
-                let mut output = output_ref.to_os_string();
-                output.push(UNDIST_NAME);
-                output.into()
-            };
+    mp4_inputs
+        .as_slice()
+        .par_iter()
+        .try_for_each(|mp4_filename| {
+            let my_mp4_writer = if opt.export_linearized_mp4s {
+                let linearized_mp4_output: PathBuf = {
+                    let output = mp4_filename.as_os_str().to_owned();
+                    let output = output.to_str().unwrap().to_string();
+                    let o2 = output.trim_end_matches(".mp4");
+                    let output_ref: &std::ffi::OsStr = o2.as_ref();
+                    let mut output = output_ref.to_os_string();
+                    output.push(UNDIST_NAME);
+                    output.into()
+                };
 
-            tracing::info!(
-                "linearize (undistort) {} -> {}",
-                mp4_filename.display(),
-                linearized_mp4_output.display()
-            );
-            let out_fd = std::fs::File::create(&linearized_mp4_output)
-                .with_context(|| {
+                tracing::info!(
+                    "linearize (undistort) {} -> {}",
+                    mp4_filename.display(),
+                    linearized_mp4_output.display()
+                );
+                let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
                     format!(
                         "Creating MP4 output file {}",
                         linearized_mp4_output.display()
                     )
-                })
-                .unwrap();
+                })?;
 
-            let codec = if opt.encoder == Encoder::OpenH264 {
-                #[cfg(feature = "openh264-encode")]
-                {
-                    use ci2_remote_control::OpenH264Preset;
-                    ci2_remote_control::Mp4Codec::H264OpenH264(
-                        ci2_remote_control::OpenH264Options {
-                            debug: false,
-                            preset: OpenH264Preset::AllFrames,
-                        },
-                    )
-                }
-                #[cfg(not(feature = "openh264-encode"))]
-                panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
+                let codec = if opt.encoder == Encoder::OpenH264 {
+                    #[cfg(feature = "openh264-encode")]
+                    {
+                        use ci2_remote_control::OpenH264Preset;
+                        ci2_remote_control::Mp4Codec::H264OpenH264(
+                            ci2_remote_control::OpenH264Options {
+                                debug: false,
+                                preset: OpenH264Preset::AllFrames,
+                            },
+                        )
+                    }
+                    #[cfg(not(feature = "openh264-encode"))]
+                    panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
+                } else {
+                    ci2_remote_control::Mp4Codec::H264LessAvc
+                };
+
+                let cfg = ci2_remote_control::Mp4RecordingConfig {
+                    codec,
+                    max_framerate: Default::default(),
+                    h264_metadata: None,
+                };
+
+                let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None)?;
+                Some(my_mp4_writer)
             } else {
-                ci2_remote_control::Mp4Codec::H264LessAvc
+                None
             };
 
-            let cfg = ci2_remote_control::Mp4RecordingConfig {
-                codec,
-                max_framerate: Default::default(),
-                h264_metadata: None,
-            };
-
-            let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None).unwrap();
-            Some(my_mp4_writer)
-        } else {
-            None
-        };
-
-        let mp4_filename = mp4_filename.to_str().unwrap();
-        rrd_logger.log_video(mp4_filename, my_mp4_writer).unwrap();
-    });
+            let mp4_filename = mp4_filename.to_str().unwrap();
+            rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
+            Ok::<(), eyre::ErrReport>(())
+        })?;
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
     Ok(())
 }

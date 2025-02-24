@@ -11,9 +11,6 @@ members = [
     "braid/braid-run/braid_frontend",
     "braid/braidz-writer",
     "braid/braidz-writer/cli",
-    "braid-april-cal",
-    "braid-april-cal/braid-april-cal-webapp",
-    "braid-april-cal/flytrax-apriltags-calibration",
     "braid-config-data",
     "braid-offline",
     "braid-process-video",
@@ -51,7 +48,12 @@ members = [
     "freemovr-calibration/freemovr-calibration-cli",
     "freemovr-calibration/freemovr-calibration-webapp",
     "freemovr-calibration/ncollide-geom",
+    "geometry/braid-april-cal",
+    "geometry/braid-april-cal/braid-april-cal-cli",
+    "geometry/braid-april-cal/braid-april-cal-webapp",
+    "geometry/braid-april-cal/flytrax-apriltags-calibration",
     "geometry/braidz-mcsc",
+    "geometry/bundle-adj",
     "geometry/camcal",
     "geometry/flydra-mvg",
     "geometry/mcsc-structs",
@@ -64,6 +66,7 @@ members = [
     "geometry/refraction/bisection-search",
     "geometry/simple-obj-parse",
     "geometry/textured-tri-mesh",
+    "geometry/undistort-image",
     "http-video-streaming",
     "http-video-streaming/http-video-streaming-types",
     "imops",
@@ -131,7 +134,6 @@ debug = true
 adskalman = "0.16"
 anyhow = "1"
 approx = "0.5"
-apriltag-sys = "0.3"
 async-change-tracker = "0.3.4"
 axum = "0.8.1"
 axum-token-auth = "0.2.0"
@@ -139,6 +141,7 @@ base64 = "0.12"
 byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.15", features = ["serde-serialize"] }
+camino = "1.1.9"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
 configure = "0.1.1"
@@ -177,6 +180,7 @@ hyper-util = { version = "0.1.1", features = [
 ] }
 iana-time-zone = "0.1"
 image = { version = "0.25", default-features = false, features = [
+    "bmp",
     "jpeg",
     "png",
     "tiff",
@@ -189,6 +193,7 @@ js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
 less-avc = "0.1.4"
+levenberg-marquardt = "0.14.0"
 libc = "0.2"
 libflate = "0.1"
 log = "0.4"
@@ -265,7 +270,7 @@ basic-frame = { path = "basic-frame" }
 bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
-braid-april-cal = { path = "braid-april-cal" }
+braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
@@ -275,6 +280,7 @@ braidz-writer = { path = "braid/braidz-writer" }
 bui-backend-session = { path = "bui-backend-session" }
 bui-backend-session-types = { path = "bui-backend-session/types" }
 build-util = { path = "build-util" }
+bundle-adj = { path = "geometry/bundle-adj" }
 camcal = { path = "geometry/camcal" }
 ci2 = { path = "camera/ci2" }
 ci2-async = { path = "camera/ci2-async" }
@@ -301,7 +307,7 @@ flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
 flydra-types = { path = "flydra-types", default-features = false }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "flydra2", default-features = false }
-flytrax-apriltags-calibration = { path = "braid-april-cal/flytrax-apriltags-calibration" }
+flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
 flytrax-io = { path = "strand-cam/flytrax-io" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
@@ -332,6 +338,7 @@ textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }
 ufmf = { path = "media-utils/ufmf" }
+undistort-image = { path = "geometry/undistort-image" }
 vimba = { path = "camera/vimba" }
 withkey = { path = "utils/withkey" }
 y4m-writer = { path = "media-utils/y4m-writer" }

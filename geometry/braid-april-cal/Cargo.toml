@@ -18,14 +18,12 @@ argmin = { version = "0.8.1", features = [
     "wasm-bindgen",
 ], default-features = false }
 argmin-math = "0.3"
+sqpnp = "0.2.0"
+glam = "0.29.2"
 
 mvg = { workspace = true, features = ["serde-serialize"] }
 flydra-mvg.workspace = true
-opencv-calibrate = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
 ads-webasm = { workspace = true, features = ["csv-widget"] }
-
-[features]
-solve-pnp = ["opencv-calibrate"]

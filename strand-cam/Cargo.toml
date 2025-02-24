@@ -125,7 +125,7 @@ build-util.workspace = true
 default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 eframe-gui = ["eframe"]
-fiducial = ["ads-apriltag", "csv", "libflate"]
+fiducial = ["ads-apriltag", "csv", "libflate", "basic-frame/convert-image"]
 
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 

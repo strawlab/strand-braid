@@ -1,7 +1,6 @@
 use ads_webasm::components::{parse_csv, MaybeCsvData};
 use braid_april_cal::*;
 
-#[cfg(feature = "solve-pnp")]
 use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo};
 
 fn gen_cal() -> CalibrationResult {
@@ -109,7 +108,6 @@ fn test_calibration_pymvg() {
 }
 
 #[test]
-#[cfg(feature = "solve-pnp")]
 fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
     let fiducial_3d_coords_buf = include_bytes!("data-single-cam/apriltags_coordinates.csv");
     let fiducial_3d_coords = parse_csv::<Fiducial3DCoords>(

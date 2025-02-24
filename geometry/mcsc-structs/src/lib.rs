@@ -9,33 +9,47 @@ use zip::ZipArchive;
 static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
 static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
 
+#[derive(Clone)]
 pub struct DatMat<T> {
     rows: usize,
-    pub cols: usize,
+    cols: usize,
+    /// row-major storage
     vals: Vec<T>,
 }
 
-impl<T> DatMat<T>
-where
-    T: Copy,
-{
+impl<T> DatMat<T> {
     pub fn new(rows: usize, cols: usize, vals: Vec<T>) -> Result<Self> {
         if vals.len() != rows * cols {
             eyre::bail!("wrong size");
         }
         Ok(Self { rows, cols, vals })
     }
+    pub fn nrows(&self) -> usize {
+        self.rows
+    }
+    pub fn ncols(&self) -> usize {
+        self.cols
+    }
+}
+
+impl<T> std::ops::Index<(usize, usize)> for DatMat<T> {
+    type Output = T;
+
+    fn index(&self, index: (usize, usize)) -> &Self::Output {
+        let (i, j) = index;
+        &self.vals[i * self.cols + j]
+    }
 }
 
 impl<T> DatMat<T>
 where
-    T: Copy,
+    T: Clone,
 {
     pub fn transpose(&self) -> Self {
         let mut vals = Vec::with_capacity(self.vals.len());
         for col in 0..self.cols {
             for row in 0..self.rows {
-                vals.push(self.vals[row * self.cols + col]);
+                vals.push(self.vals[row * self.cols + col].clone());
             }
         }
         Self {
@@ -59,6 +73,17 @@ where
             fd.write_all(b"\n")?;
         }
         Ok(())
+    }
+}
+
+impl From<DatMat<bool>> for DatMat<i8> {
+    fn from(orig: DatMat<bool>) -> Self {
+        let vals = orig.vals.into_iter().map(|x| x.into()).collect();
+        Self {
+            rows: orig.rows,
+            cols: orig.cols,
+            vals,
+        }
     }
 }
 
@@ -87,12 +112,12 @@ pub struct RadFile {
     distortion: Vec<f64>,
 }
 impl RadFile {
-    pub fn new(intrinsics: &opencv_ros_camera::RosCameraInfo<f64>) -> Result<Self> {
-        let k = intrinsics.camera_matrix.data.clone();
+    pub fn new(cam_info: &opencv_ros_camera::RosCameraInfo<f64>) -> Result<Self> {
+        let k = cam_info.camera_matrix.data.clone();
         if k.len() != 9 {
             eyre::bail!("expected exactly 9 values in camera matrix");
         }
-        let distortion = intrinsics.distortion_coefficients.data.clone();
+        let distortion = cam_info.distortion_coefficients.data.clone();
         if distortion.len() > 4 {
             for val in &distortion[4..] {
                 if *val != 0.0 {

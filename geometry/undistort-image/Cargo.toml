@@ -1,0 +1,15 @@
+[package]
+name = "undistort-image"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eyre.workspace = true
+kornia-image = "0.1.8"
+kornia-imgproc = "0.1.8"
+kornia-tensor = "0.1.8"
+machine-vision-formats.workspace = true
+nalgebra.workspace = true
+opencv-ros-camera.workspace = true
+
+basic-frame = { workspace = true, features = ["convert-image"] }

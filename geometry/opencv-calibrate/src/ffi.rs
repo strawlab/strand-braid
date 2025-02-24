@@ -48,19 +48,4 @@ extern "C" {
     pub(crate) fn vec_point2f_new() -> *mut c_void;
     pub(crate) fn vec_point2f_delete(result: *mut c_void);
     pub(crate) fn vec_point2f_slice(result: *mut c_void) -> cv_return_value_slice;
-
-    pub(crate) fn solve_pnp(
-        n_points: c_int,
-        object_points: *const c_double,
-        image_points: *const c_double,
-        camera_matrix: *const c_double,
-        distortion_coeffs: *const c_double,
-        rvec: *mut c_double,
-        tvec: *mut c_double,
-        pose_method: c_int,
-    ) -> cv_return_value_bool;
-
-    pub(crate) fn ippe() -> c_int;
-    pub(crate) fn epnp() -> c_int;
-
 }

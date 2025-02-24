@@ -1,19 +1,28 @@
 [package]
 name = "strand-cam-offline-checkerboards"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+description = "Generate camera intrinsic camera calibration from directory full of images"
+rust-version = "1.85"
 
 [dependencies]
 eyre.workspace = true
 clap.workspace = true
-env_logger.workspace = true
 glob.workspace = true
 tracing.workspace = true
 image.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 chrono.workspace = true
+camino.workspace = true
 
+env-tracing-logger.workspace = true
 strand-cam-storetype.workspace = true
 opencv-calibrate.workspace = true
 camcal.workspace = true
+
+[dev-dependencies]
+download-verify.workspace = true
+tempfile.workspace = true
+zip.workspace = true
+approx.workspace = true

@@ -100,15 +100,6 @@ impl From<mvg::MvgError> for MyError {
     }
 }
 
-#[cfg(feature = "solve-pnp")]
-impl From<opencv_calibrate::Error> for MyError {
-    fn from(orig: opencv_calibrate::Error) -> MyError {
-        MyError {
-            msg: format!("opencv_calibrate::Error: {}", orig),
-        }
-    }
-}
-
 impl std::fmt::Display for MyError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.msg)
@@ -295,63 +286,72 @@ fn dlt(
     Ok(linear_cam)
 }
 
-#[cfg(feature = "solve-pnp")]
+/// put point in image coordinates into object coordinates
+///
+/// This assumes that the intrinsic parameter matrix is exactly
+/// [ fx,  0, cx]
+/// [  0, fy, cy]
+/// [  0,  0,  1]
+///
+/// and that the distortion center is at (cx,cy).
+fn normalize_point(
+    intrinsics: &opencv_ros_camera::RosOpenCvIntrinsics<f64>,
+    distorted: (f64, f64),
+) -> (f64, f64) {
+    let distorted =
+        cam_geom::Pixels::new(nalgebra::Vector2::new(distorted.0, distorted.1).transpose());
+    let undistorted = intrinsics.undistort(&distorted);
+    let x = undistorted.data[(0, 0)];
+    let y = undistorted.data[(0, 1)];
+    let x = x - intrinsics.cx();
+    let y = y - intrinsics.cy();
+    let x = x / intrinsics.fx();
+    let y = y / intrinsics.fy();
+    (x, y)
+}
+
 fn solve_extrinsics(
     points: Vec<AprilTagCorrespondingPoint<f64>>,
     intrinsics: &NamedIntrinsicParameters<f64>,
 ) -> Result<CamSolution, MyError> {
-    {
-        let cv_points: Vec<opencv_calibrate::CorrespondingPoint> = points
-            .iter()
-            .map(|pt| {
-                let o = &pt.object_point;
-                let i = &pt.image_point;
-                opencv_calibrate::CorrespondingPoint {
-                    object_point: (o[0], o[1], o[2]),
-                    image_point: (i[0], i[1]),
-                }
-            })
-            .collect();
-        let k = intrinsics.intrinsics.k;
-        let cam_matrix = [
-            k[(0, 0)],
-            k[(0, 1)],
-            k[(0, 2)],
-            k[(1, 0)],
-            k[(1, 1)],
-            k[(1, 2)],
-            k[(2, 0)],
-            k[(2, 1)],
-            k[(2, 2)],
-        ];
-        let dist_coeffs = intrinsics
-            .intrinsics
-            .distortion
-            .opencv_vec()
-            .as_slice()
-            .try_into()
-            .unwrap();
-        let cv_extrinsics = opencv_calibrate::solve_pnp(
-            &cv_points,
-            &cam_matrix,
-            &dist_coeffs,
-            opencv_calibrate::PoseMethod::Ippe,
-        )?;
+    use glam::f32::{Vec2, Vec3};
+
+    let p2ds: Vec<(f64, f64)> = points
+        .iter()
+        .map(|p| normalize_point(&intrinsics.intrinsics, (p.image_point[0], p.image_point[1])))
+        .collect();
+    let p2ds: Vec<Vec2> = p2ds
+        .iter()
+        .map(|p| Vec2::new(p.0 as f32, p.1 as f32))
+        .collect();
+    let p3ds: Vec<(f64, f64, f64)> = points
+        .iter()
+        .map(|p| (p.object_point[0], p.object_point[1], p.object_point[2]))
+        .collect();
+    let p3ds: Vec<Vec3> = p3ds
+        .iter()
+        .map(|p| Vec3::new(p.0 as f32, p.1 as f32, p.2 as f32))
+        .collect();
+
+    let mut solver = sqpnp::Solver::<sqpnp::DefaultParameters>::new();
+    if solver.solve(&p3ds, &p2ds, None) {
+        let solution = solver.best_solution().unwrap();
+        let r = solution.rotation_matrix();
+        let r: nalgebra::SMatrix<f64, 3, 3> = r.as_dmat3().into();
+        let t = solution.translation();
 
         let extrin = {
-            // convert from OpenCV rodrigues vec to axis-angle
-            let [a, b, c] = cv_extrinsics.rvec;
-            let angle = (a * a + b * b + c * c).sqrt();
-            let axis = nalgebra::Vector3::new(a, b, c);
-            let axis = nalgebra::base::Unit::new_normalize(axis);
-            let rquat = nalgebra::geometry::UnitQuaternion::from_axis_angle(&axis, angle);
-            let rmat = rquat.to_rotation_matrix();
-
-            let [x, y, z] = cv_extrinsics.tvec;
-            let t = nalgebra::Point3::new(x, y, z);
-
-            let camcenter = -(rmat.transpose() * t);
-            cam_geom::ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter)
+            let rotation = nalgebra::UnitQuaternion::from_rotation_matrix(
+                &nalgebra::Rotation3::from_matrix_unchecked(r),
+            );
+            let translation = nalgebra::Translation::from(nalgebra::Vector3::new(
+                t.x as f64, t.y as f64, t.z as f64,
+            ));
+            let transform = nalgebra::Isometry3 {
+                translation,
+                rotation,
+            };
+            cam_geom::ExtrinsicParameters::from_pose(&transform)
         };
 
         let final_cam = mvg::Camera::new(
@@ -363,6 +363,10 @@ fn solve_extrinsics(
         .unwrap();
 
         Ok(CamSolution { final_cam, points })
+    } else {
+        Err(MyError {
+            msg: "sqpnp failed to find solution".to_string(),
+        })
     }
 }
 
@@ -436,18 +440,8 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
         }
 
         let sln = if let Some(kgi) = src_data.known_good_intrinsics.as_ref() {
-            #[cfg(feature = "solve-pnp")]
-            {
-                let known_good_intrinsics = kgi.get(cam_name).unwrap();
-                solve_extrinsics(points, known_good_intrinsics)?
-            }
-            #[cfg(not(feature = "solve-pnp"))]
-            {
-                let _ = kgi;
-                return Err(MyError {
-                    msg: "'solve-pnp' feature must be enabled to solve extrinsics when intrinsics provided".into(),
-                });
-            }
+            let known_good_intrinsics = kgi.get(cam_name).unwrap();
+            solve_extrinsics(points, known_good_intrinsics)?
         } else {
             dlt_then_distortion(cfg, points)?
         };

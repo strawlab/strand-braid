@@ -8,23 +8,17 @@ edition = "2021"
 clap.workspace = true
 serde_yaml.workspace = true
 eyre.workspace = true
-
 tracing.workspace = true
 re_types = { workspace = true, features = ["image"] }
 re_sdk.workspace = true
 image.workspace = true
-opencv-ros-camera.workspace = true
-cam-geom.workspace = true
-nalgebra.workspace = true
 regex.workspace = true
 machine-vision-formats.workspace = true
-opencv = { version = "0.88.8", optional = true }
 chrono.workspace = true
+indicatif.workspace = true
 
 env-tracing-logger.workspace = true
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 basic-frame.workspace = true
-mp4-writer = { workspace = true, features = ["nv-encode"] }
 flydra-types.workspace = true
-indicatif.workspace = true

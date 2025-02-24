@@ -16,7 +16,6 @@ test_crates:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-base.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -50,25 +49,33 @@ test_crates:
     - cd $CI_PROJECT_DIR/bui-backend-session
     - cargo test --release
 
-    # Test braid-april-cal, which requires opencv
-    - cd $CI_PROJECT_DIR/braid-april-cal
-    # run test in release mode, otherwise slow
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features solve-pnp
+    # Test braid-april-cal
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal
+    - cargo test --release
+
+    # Test bundle-adj
+    - cd $CI_PROJECT_DIR/geometry/bundle-adj
+    - cargo test --release
+
+    # Test braid-april-cal-cli
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
+    - cargo test --release
+
+    # Test flytrax-apriltags-calibration
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/flytrax-apriltags-calibration
+    - cargo test --release
+
+    # Test flytrax-csv-to-braidz
+    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
+    - cargo test --release --features "with_apriltags"
     - cd ..
 
-    # Test braid-april-cal, which requires opencv
-    - cd braid-april-cal/flytrax-apriltags-calibration
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release
-    - cd ../..
-
-    # flytrax-csv-to-braidz, which requires opencv
-    - cd flytrax-csv-to-braidz
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "with_apriltags"
-    - cd ..
+    # Install opencv
+    - cd $CI_PROJECT_DIR
+    - _packaging/setup-opencv-4.9.0-static.sh
 
     # Test freemovr-calibration, which requires opencv
     - cd freemovr-calibration
-    # run test in release mode, otherwise slow
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
     - cd ..
 
@@ -139,7 +146,7 @@ test_flydra2:
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_stable:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
@@ -161,7 +168,7 @@ test_crates_rust_stable:
     - cargo test --features rerun-io
 
     # Test braid-april-cal-webapp
-    - cd $CI_PROJECT_DIR/braid-april-cal/braid-april-cal-webapp
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
     - cargo test
 
     # Test datetime-conversion
@@ -257,21 +264,20 @@ test_crates_rust_stable:
     - cd ../..
 
 test_crates_rust_nightly:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2024-12-14
+    - rustup update --no-self-update nightly-2025-02-14
 
     # Test imops with nightly features
-    - cd imops
-    - cargo +nightly-2024-12-14 test --no-default-features --features std,simd
-    - cd ..
+    - cd $CI_PROJECT_DIR/imops
+    - cargo +nightly-2025-02-14 test --no-default-features --features std,simd
 
     # Test fastfreeimage
-    - cd fastfreeimage
-    - cargo +nightly-2024-12-14 test --features portsimd
+    - cd $CI_PROJECT_DIR/fastfreeimage
+    - cargo +nightly-2025-02-14 test --features portsimd
     - cd ..
 
 test_flydra_feature_detector:
@@ -338,7 +344,7 @@ led-box-standalone-ubuntu2004-deb:
     name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -353,7 +359,7 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -565,14 +571,13 @@ flytrax-csv-to-braidz-binary:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-opencv-4.9.0-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
-    - OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig cargo test --release --features "with_apriltags"
-    - OPENCV_STATIC=1 PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig cargo build --release --features "with_apriltags"
+    - cargo test --release --features "with_apriltags"
+    - cargo build --release --features "with_apriltags"
 
     - mkdir -p $CI_PROJECT_DIR/build
     - ldd -v $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz
@@ -690,7 +695,6 @@ extra-programs:
   image: ubuntu:focal
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
-    - _packaging/setup-opencv-4.9.0-static.sh
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -710,7 +714,7 @@ extra-programs:
     - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-export-rrd
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --release
+    - cargo build --release
     - ldd -v $CI_PROJECT_DIR/target/release/braidz-export-rrd
     - cp ../target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
@@ -752,7 +756,7 @@ fmf-cli:
     name: "fmf-cli-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -772,12 +776,10 @@ braid-webapps:
     - cd braidz-viewer
     - cargo update -p wasm-bindgen --precise 0.2.100
     - ./build.sh
-    - cd ..
 
-    - cd braid-april-cal/braid-april-cal-webapp
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
     - cargo update -p wasm-bindgen --precise 0.2.100
     - ./build.sh
-    - cd ../..
 
 braid-run-binary:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
@@ -818,7 +820,7 @@ braid-run-binary:
     name: "braid-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
@@ -834,7 +836,7 @@ led-box-linux:
     name: "led-box-linux-${CI_COMMIT_SHA}"
 
 led-box-firmware:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - rustc --version
     - cd led-box/led-box-firmware
@@ -1045,7 +1047,7 @@ build_simple:
     - cargo build --release
 
 test_user_guide:
-  image: rust:1.83
+  image: rust:1.85
   script:
     - cd strand-braid-user/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz

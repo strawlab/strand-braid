@@ -6,12 +6,11 @@ use serde::de::DeserializeOwned;
 
 use num_traits::{One, Zero};
 
-use na::core::dimension::{U2, U3, U4};
-use na::core::{Matrix3, OMatrix, Vector3, Vector5};
-use na::geometry::Point3;
-use na::RealField;
-use na::{allocator::Allocator, DefaultAllocator, U1};
 use nalgebra as na;
+use nalgebra::{
+    allocator::Allocator, geometry::Point3, DefaultAllocator, Dyn, Matrix3, OMatrix, RealField,
+    Vector3, Vector5, U1, U2, U3, U4,
+};
 
 use cam_geom::ExtrinsicParameters;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
@@ -32,7 +31,7 @@ const AIR_REFRACTION: f64 = 1.0003;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FlydraMvgError {
-    #[error("xml eror: {0}")]
+    #[error("xml error: {0}")]
     SerdeXmlError(#[from] serde_xml_rs::Error),
     #[error("cannot convert to or from flydra xml: {msg}")]
     FailedFlydraXmlConversion { msg: &'static str },
@@ -58,9 +57,7 @@ pub struct MultiCameraIter<'a, 'b, R: RealField + Copy + Default + serde::Serial
     flydra_system: &'a FlydraMultiCameraSystem<R>,
 }
 
-impl<R: RealField + Copy + Default + serde::Serialize> Iterator
-    for MultiCameraIter<'_, '_, R>
-{
+impl<R: RealField + Copy + Default + serde::Serialize> Iterator for MultiCameraIter<'_, '_, R> {
     type Item = MultiCamera<R>;
     fn next(&mut self) -> Option<Self::Item> {
         self.name_iter
@@ -426,11 +423,11 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     pub fn len(&self) -> usize {
-        self.system.cams().len()
+        self.system.cams_by_name().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.system.cams().is_empty()
+        self.system.cams_by_name().is_empty()
     }
 
     pub fn cam_by_name(&self, name: &str) -> Option<MultiCamera<R>> {
@@ -442,7 +439,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 
     pub fn cam_names(&self) -> CamNameIter<'_, R> {
-        CamNameIter(self.system.cams().keys())
+        CamNameIter(self.system.cams_by_name().keys())
     }
 
     pub fn cameras(&self) -> MultiCameraIter<R> {
@@ -676,7 +673,18 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 }
 
-fn loadtxt<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, U3, U4>>
+fn loadtxt_3x4<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, U3, U4>>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    let mat = loadtxt_dyn::<R>(p)?;
+    if mat.nrows() != 3 || mat.ncols() != 4 {
+        return Err(MvgError::ParseError.into());
+    }
+    Ok(OMatrix::<R, U3, U4>::from_column_slice(mat.as_slice()))
+}
+
+fn loadtxt_dyn<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, Dyn, Dyn>>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
@@ -686,17 +694,35 @@ where
         .into_iter()
         .filter(|line| !line.trim().starts_with('#'))
         .collect();
-    if lines.len() != 3 {
+    let mut result = Vec::new();
+    let mut n_cols = None;
+    for line in lines.iter() {
+        let mut this_line: Vec<R> = Vec::new();
+        for val_str in line.split_ascii_whitespace() {
+            let val: f64 = val_str.parse().map_err(|_| MvgError::ParseError)?;
+            this_line.push(na::convert(val));
+        }
+        if n_cols.is_none() {
+            n_cols = Some(this_line.len());
+        }
+        if n_cols != Some(this_line.len()) {
+            return Err(MvgError::ParseError.into());
+        }
+        result.push(this_line);
+    }
+    let n_rows = result.len();
+    if n_rows < 1 {
         return Err(MvgError::ParseError.into());
     }
-    let mut result = OMatrix::<R, U3, U4>::zeros();
-    for (i, line) in lines.iter().enumerate() {
-        for (j, val_str) in line.split_ascii_whitespace().enumerate() {
-            let val: f64 = val_str.parse().map_err(|_| MvgError::ParseError)?;
-            result[(i, j)] = na::convert(val);
+    let n_cols = n_cols.unwrap();
+
+    let mut rmat = OMatrix::<R, Dyn, Dyn>::zeros(n_rows, n_cols);
+    for (i, this_row) in result.into_iter().enumerate() {
+        for (j, this_el) in this_row.into_iter().enumerate() {
+            rmat[(i, j)] = this_el;
         }
     }
-    Ok(result)
+    Ok(rmat)
 }
 
 fn loadrad<R>(p: impl AsRef<std::path::Path>) -> Result<FlydraDistortionModel<R>>
@@ -731,11 +757,63 @@ where
         k2: vars["kc2"],
         p1: vars["kc3"],
         p2: vars["kc4"],
+        k3: na::convert(0.0),
         fc1p: None,
         fc2p: None,
         cc1p: None,
         cc2p: None,
     })
+}
+
+pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(
+    mcsc_dir: P,
+) -> Result<(Vec<SingleCameraCalibration<R>>, Vec<OMatrix<f64, Dyn, Dyn>>)>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    let mcsc_dir = std::path::PathBuf::from(mcsc_dir.as_ref());
+    let cam_order_fname = mcsc_dir.join("camera_order.txt");
+    let cam_order = std::fs::read_to_string(cam_order_fname)?;
+    let cam_ids: Vec<&str> = cam_order.trim().split("\n").collect();
+
+    let res_dat = mcsc_dir.join("Res.dat");
+    let res_dat_buf = std::fs::read_to_string(res_dat)?;
+    let res_lines: Vec<&str> = res_dat_buf.trim().split("\n").collect();
+    assert_eq!(cam_ids.len(), res_lines.len());
+    let mut cameras = Vec::new();
+    let mut points4cals = Vec::new();
+    for (i, (cam_id, res_row)) in cam_ids.iter().zip(res_lines.iter()).enumerate() {
+        let wh: Vec<&str> = res_row.split(" ").collect();
+        assert_eq!(wh.len(), 2);
+        let w = wh[0].parse().unwrap();
+        let h = wh[1].parse().unwrap();
+
+        let pmat_fname = mcsc_dir.join(format!("camera{}.Pmat.cal", (i + 1)));
+        let pmat = loadtxt_3x4(&pmat_fname)?; // 3 rows x 4 columns
+
+        let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
+        if !rad_fname.exists() {
+            return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
+        }
+        let non_linear_parameters = loadrad(&rad_fname)?;
+
+        let cam = SingleCameraCalibration {
+            cam_id: cam_id.to_string(),
+            calibration_matrix: pmat,
+            resolution: (w, h),
+            scale_factor: None,
+            non_linear_parameters,
+        };
+        cameras.push(cam);
+
+        let points4cal_fname = mcsc_dir.join(format!("cam{}.points4cal.dat", (i + 1)));
+        if points4cal_fname.exists() {
+            let points4cal = loadtxt_dyn(&points4cal_fname)?;
+            points4cals.push(points4cal);
+        }
+    }
+
+    Ok((cameras, points4cals))
 }
 
 impl<R> FlydraMultiCameraSystem<R>
@@ -746,41 +824,7 @@ where
     where
         P: AsRef<std::path::Path>,
     {
-        let mcsc_dir = PathBuf::from(mcsc_dir.as_ref());
-        let cam_order_fname = mcsc_dir.join("camera_order.txt");
-        let cam_order = std::fs::read_to_string(cam_order_fname)?;
-        let cam_ids: Vec<&str> = cam_order.trim().split("\n").collect();
-
-        let res_dat = mcsc_dir.join("Res.dat");
-        let res_dat_buf = std::fs::read_to_string(res_dat)?;
-        let res_lines: Vec<&str> = res_dat_buf.trim().split("\n").collect();
-        assert_eq!(cam_ids.len(), res_lines.len());
-        let mut cameras = Vec::new();
-        for (i, (cam_id, res_row)) in cam_ids.iter().zip(res_lines.iter()).enumerate() {
-            let wh: Vec<&str> = res_row.split(" ").collect();
-            assert_eq!(wh.len(), 2);
-            let w = wh[0].parse().unwrap();
-            let h = wh[1].parse().unwrap();
-
-            let pmat_fname = mcsc_dir.join(format!("camera{}.Pmat.cal", (i + 1)));
-            let pmat = loadtxt(&pmat_fname)?; // 3 rows x 4 columns
-
-            let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
-            if !rad_fname.exists() {
-                return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
-            }
-            let non_linear_parameters = loadrad(&rad_fname)?;
-
-            let cam = SingleCameraCalibration {
-                cam_id: cam_id.to_string(),
-                calibration_matrix: pmat,
-                resolution: (w, h),
-                scale_factor: None,
-                non_linear_parameters,
-            };
-            cameras.push(cam);
-        }
-
+        let (cameras, _) = read_mcsc_dir(mcsc_dir)?;
         let recon = flydra_xml_support::FlydraReconstructor {
             cameras,
             ..Default::default()
@@ -835,15 +879,9 @@ pub trait FlydraCamera<R: RealField + Copy + serde::Serialize> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>>;
     fn from_flydra(cam: &SingleCameraCalibration<R>) -> Result<(String, Camera<R>)>;
 }
-
 impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
-        if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(FlydraMvgError::FailedFlydraXmlConversion {
-                msg: "3rd term of radial distortion not supported",
-            });
-        }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
         let alpha_c = k[(0, 1)] / k[(0, 0)];
@@ -858,6 +896,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
             k2: distortion.radial2(),
             p1: distortion.tangential1(),
             p2: distortion.tangential2(),
+            k3: distortion.radial3(),
             fc1p: None,
             fc2p: None,
             cc1p: None,
@@ -873,128 +912,133 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
         })
     }
 
-    #[allow(non_snake_case)]
     fn from_flydra(cam: &SingleCameraCalibration<R>) -> Result<(String, Camera<R>)> {
-        let one: R = One::one();
-        let zero: R = Zero::zero();
-
-        let name = cam.cam_id.clone();
-        let m = cam.calibration_matrix.remove_column(3);
-        let (rquat, k) = rq_decomposition(m)?;
-
-        let k22: R = k[(2, 2)];
-        let k = k * (one / k22); // normalize
-        let p = OMatrix::<R, U3, U4>::new(
-            k[(0, 0)],
-            k[(0, 1)],
-            k[(0, 2)],
-            zero,
-            k[(1, 0)],
-            k[(1, 1)],
-            k[(1, 2)],
-            zero,
-            k[(2, 0)],
-            k[(2, 1)],
-            k[(2, 2)],
-            zero,
-        );
-
-        // (Ab)use PyMVG's rectification to do coordinate transform
-        // for MCSC's undistortion.
-
-        // The intrinsic parameters used for 3D -> 2D.
-        let ex = p[(0, 0)];
-        let bx = p[(0, 2)];
-        let Sx = p[(0, 3)];
-        let ey = p[(1, 1)];
-        let by = p[(1, 2)];
-        let Sy = p[(1, 3)];
-
-        // Parameters used to define undistortion coordinates.
-        let fx = cam.non_linear_parameters.fc1;
-        let fy = cam.non_linear_parameters.fc2;
-        let cx = cam.non_linear_parameters.cc1;
-        let cy = cam.non_linear_parameters.cc2;
-
-        let expected_alpha_c = k[(0, 1)] / k[(0, 0)];
         // We allow a relatively large epsilon here because, due to a bug, we
         // have saved many calibrations with cam.non_linear_parameters.alpha_c
         // set to zero where the skew in k is not quite zero. In theory, this
         // epsilon should be really low.
         let epsilon = 0.03;
-        if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
-            return Err(FlydraMvgError::FailedFlydraXmlConversion {
-                msg: "skew not supported",
-            });
-        }
+        from_flydra_with_limited_skew(cam, epsilon)
+    }
+}
 
-        // TODO: turn all these `unimplemented!()` calls into
-        // proper error returns.
+#[allow(non_snake_case)]
+pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
+    cam: &SingleCameraCalibration<R>,
+    epsilon: f64,
+) -> Result<(String, Camera<R>)> {
+    let one: R = One::one();
+    let zero: R = Zero::zero();
 
-        if let Some(fc1p) = cam.non_linear_parameters.fc1p {
-            if fc1p != cam.non_linear_parameters.fc1 {
-                return Err(FlydraMvgError::NotImplemented);
-            }
-        }
-        if let Some(fc2p) = cam.non_linear_parameters.fc2p {
-            if fc2p != cam.non_linear_parameters.fc2 {
-                return Err(FlydraMvgError::NotImplemented);
-            }
-        }
-        if let Some(cc1p) = cam.non_linear_parameters.cc1p {
-            if cc1p != cam.non_linear_parameters.cc1 {
-                return Err(FlydraMvgError::NotImplemented);
-            }
-        }
-        if let Some(cc2p) = cam.non_linear_parameters.cc2p {
-            if cc2p != cam.non_linear_parameters.cc2 {
-                return Err(FlydraMvgError::NotImplemented);
-            }
-        }
-        if let Some(scale_factor) = cam.scale_factor {
-            if scale_factor != one {
-                return Err(FlydraMvgError::NotImplemented);
-            }
-        }
+    let name = cam.cam_id.clone();
+    let m = cam.calibration_matrix.remove_column(3);
+    let (rquat, k) = rq_decomposition(m)?;
 
-        // This craziness abuses the rectification matrix of the ROS/OpenCV
-        // model to compensate for the issue that the intrinsic parameters used
-        // in the MultiCamSelfCal (MCSC) distortion correction are independent
-        // from the intrinsic parameters of the linear camera model. With this
-        // abuse, we allow storing the MCSC calibration results in a compatible
-        // way with ROS/OpenCV.
-        //
-        // Potential bug warning: it could be that the math used to work out
-        // this matrix form had has a bug in which it was assumed that skew was
-        // always zero. (This goes especially for entry [0,1].)
-        #[rustfmt::skip]
+    let k22: R = k[(2, 2)];
+    let k = k * (one / k22); // normalize
+    let p = OMatrix::<R, U3, U4>::new(
+        k[(0, 0)],
+        k[(0, 1)],
+        k[(0, 2)],
+        zero,
+        k[(1, 0)],
+        k[(1, 1)],
+        k[(1, 2)],
+        zero,
+        k[(2, 0)],
+        k[(2, 1)],
+        k[(2, 2)],
+        zero,
+    );
+
+    // (Ab)use PyMVG's rectification to do coordinate transform
+    // for MCSC's undistortion.
+
+    // The intrinsic parameters used for 3D -> 2D.
+    let ex = p[(0, 0)];
+    let bx = p[(0, 2)];
+    let Sx = p[(0, 3)];
+    let ey = p[(1, 1)];
+    let by = p[(1, 2)];
+    let Sy = p[(1, 3)];
+
+    // Parameters used to define undistortion coordinates.
+    let fx = cam.non_linear_parameters.fc1;
+    let fy = cam.non_linear_parameters.fc2;
+    let cx = cam.non_linear_parameters.cc1;
+    let cy = cam.non_linear_parameters.cc2;
+
+    let expected_alpha_c = k[(0, 1)] / k[(0, 0)];
+
+    if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
+        return Err(FlydraMvgError::FailedFlydraXmlConversion {
+            msg: "skew not supported",
+        });
+    }
+
+    if let Some(fc1p) = cam.non_linear_parameters.fc1p {
+        if fc1p != cam.non_linear_parameters.fc1 {
+            return Err(FlydraMvgError::NotImplemented);
+        }
+    }
+    if let Some(fc2p) = cam.non_linear_parameters.fc2p {
+        if fc2p != cam.non_linear_parameters.fc2 {
+            return Err(FlydraMvgError::NotImplemented);
+        }
+    }
+    if let Some(cc1p) = cam.non_linear_parameters.cc1p {
+        if cc1p != cam.non_linear_parameters.cc1 {
+            return Err(FlydraMvgError::NotImplemented);
+        }
+    }
+    if let Some(cc2p) = cam.non_linear_parameters.cc2p {
+        if cc2p != cam.non_linear_parameters.cc2 {
+            return Err(FlydraMvgError::NotImplemented);
+        }
+    }
+    if let Some(scale_factor) = cam.scale_factor {
+        if scale_factor != one {
+            return Err(FlydraMvgError::NotImplemented);
+        }
+    }
+
+    // This craziness abuses the rectification matrix of the ROS/OpenCV
+    // model to compensate for the issue that the intrinsic parameters used
+    // in the MultiCamSelfCal (MCSC) distortion correction are independent
+    // from the intrinsic parameters of the linear camera model. With this
+    // abuse, we allow storing the MCSC calibration results in a compatible
+    // way with ROS/OpenCV.
+    //
+    // Potential bug warning: it could be that the math used to work out
+    // this matrix form had has a bug in which it was assumed that skew was
+    // always zero. (This goes especially for entry [0,1].)
+    #[rustfmt::skip]
         let rect_t = {
             Matrix3::new(
             ex/fx,     zero, (bx+Sx-cx)/fx,
              zero,    ey/fy, (by+Sy-cy)/fy,
              zero,     zero,           one)
         };
-        let rect = rect_t.transpose();
-        let i = &cam.non_linear_parameters;
-        let k3 = zero;
-        let distortion = Vector5::new(i.k1, i.k2, i.p1, i.p2, k3);
-        #[rustfmt::skip]
+    let rect = rect_t.transpose();
+    let i = &cam.non_linear_parameters;
+    let k3 = zero;
+    let distortion = Vector5::new(i.k1, i.k2, i.p1, i.p2, k3);
+    #[rustfmt::skip]
         let k = {
             Matrix3::new(
             fx, i.alpha_c*fx, cx,
             zero, fy, cy,
             zero, zero, one)
         };
-        let distortion = Distortion::from_opencv_vec(distortion);
-        let intrinsics = RosOpenCvIntrinsics::from_components(p, k, distortion, rect)
-            .map_err(mvg::MvgError::from)?;
-        let camcenter = pmat2cam_center(&cam.calibration_matrix);
+    let distortion = Distortion::from_opencv_vec(distortion);
+    let intrinsics = RosOpenCvIntrinsics::from_components(p, k, distortion, rect)
+        .map_err(mvg::MvgError::from)?;
+    let camcenter = pmat2cam_center(&cam.calibration_matrix);
 
-        let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);
-        let cam2 = Self::new(cam.resolution.0, cam.resolution.1, extrinsics, intrinsics)?;
+    let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);
+    let cam2 = Camera::new(cam.resolution.0, cam.resolution.1, extrinsics, intrinsics)?;
 
-        Ok((name, cam2))
-    }
+    Ok((name, cam2))
 }
 
 /// helper function (duplicated from mvg)
