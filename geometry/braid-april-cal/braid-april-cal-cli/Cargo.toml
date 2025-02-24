@@ -1,0 +1,31 @@
+[package]
+name = "braid-april-cal-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Create a multi-camera calibration using known intrinsics and the SQPnP algorithm"
+rust-version = "1.85"
+
+[dependencies]
+eyre.workspace = true
+base64.workspace = true
+clap.workspace = true
+nalgebra.workspace = true
+serde_yaml.workspace = true
+tracing.workspace = true
+camino.workspace = true
+levenberg-marquardt.workspace = true
+re_sdk.workspace = true
+re_types.workspace = true
+opencv-ros-camera.workspace = true
+convert-image.workspace = true
+image.workspace = true
+
+ads-webasm = { workspace = true, features = ["csv-widget"] }
+braid-april-cal.workspace = true
+mvg.workspace = true
+basic-frame.workspace = true
+bundle-adj.workspace = true
+flydra-mvg.workspace = true
+env-tracing-logger.workspace = true
+cam-geom.workspace = true
+undistort-image.workspace = true

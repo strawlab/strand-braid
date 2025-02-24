@@ -52,6 +52,8 @@ pub struct FlydraDistortionModel<R: RealField + serde::Serialize> {
     pub k2: R,
     pub p1: R,
     pub p2: R,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub k3: R,
     pub alpha_c: R,
     #[serde(default, skip_serializing)]
     pub fc1p: Option<R>,
@@ -61,6 +63,11 @@ pub struct FlydraDistortionModel<R: RealField + serde::Serialize> {
     pub cc1p: Option<R>,
     #[serde(default, skip_serializing)]
     pub cc2p: Option<R>,
+}
+
+fn is_zero<R: RealField>(val: &R) -> bool {
+    let zero: R = na::convert(0.0);
+    val == &zero
 }
 
 pub(crate) fn serialize_recon<R>(

@@ -22,13 +22,21 @@ tempfile.workspace = true
 image.workspace = true
 include_dir.workspace = true
 zip.workspace = true
+nalgebra.workspace = true
+camino.workspace = true
+re_sdk.workspace = true
+levenberg-marquardt.workspace = true
+cam-geom.workspace = true
+approx.workspace = true
 
-env-tracing-logger.workspace = true
 braidz-parser.workspace = true
+bundle-adj.workspace = true
+env-tracing-logger.workspace = true
+flydra-mvg.workspace = true
 flydra-types.workspace = true
 mcsc-structs.workspace = true
 zip-or-dir.workspace = true
-flydra-mvg.workspace = true
+mvg.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true

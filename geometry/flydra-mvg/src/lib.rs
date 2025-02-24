@@ -6,12 +6,11 @@ use serde::de::DeserializeOwned;
 
 use num_traits::{One, Zero};
 
-use na::core::dimension::{U2, U3, U4};
-use na::core::{Matrix3, OMatrix, Vector3, Vector5};
-use na::geometry::Point3;
-use na::RealField;
-use na::{allocator::Allocator, DefaultAllocator, U1};
 use nalgebra as na;
+use nalgebra::{
+    allocator::Allocator, geometry::Point3, DefaultAllocator, Dyn, Matrix3, OMatrix, RealField,
+    Vector3, Vector5, U1, U2, U3, U4,
+};
 
 use cam_geom::ExtrinsicParameters;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
@@ -674,7 +673,18 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
     }
 }
 
-fn loadtxt<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, U3, U4>>
+fn loadtxt_3x4<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, U3, U4>>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    let mat = loadtxt_dyn::<R>(p)?;
+    if mat.nrows() != 3 || mat.ncols() != 4 {
+        return Err(MvgError::ParseError.into());
+    }
+    Ok(OMatrix::<R, U3, U4>::from_column_slice(mat.as_slice()))
+}
+
+fn loadtxt_dyn<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, Dyn, Dyn>>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
@@ -684,17 +694,35 @@ where
         .into_iter()
         .filter(|line| !line.trim().starts_with('#'))
         .collect();
-    if lines.len() != 3 {
+    let mut result = Vec::new();
+    let mut n_cols = None;
+    for line in lines.iter() {
+        let mut this_line: Vec<R> = Vec::new();
+        for val_str in line.split_ascii_whitespace() {
+            let val: f64 = val_str.parse().map_err(|_| MvgError::ParseError)?;
+            this_line.push(na::convert(val));
+        }
+        if n_cols.is_none() {
+            n_cols = Some(this_line.len());
+        }
+        if n_cols != Some(this_line.len()) {
+            return Err(MvgError::ParseError.into());
+        }
+        result.push(this_line);
+    }
+    let n_rows = result.len();
+    if n_rows < 1 {
         return Err(MvgError::ParseError.into());
     }
-    let mut result = OMatrix::<R, U3, U4>::zeros();
-    for (i, line) in lines.iter().enumerate() {
-        for (j, val_str) in line.split_ascii_whitespace().enumerate() {
-            let val: f64 = val_str.parse().map_err(|_| MvgError::ParseError)?;
-            result[(i, j)] = na::convert(val);
+    let n_cols = n_cols.unwrap();
+
+    let mut rmat = OMatrix::<R, Dyn, Dyn>::zeros(n_rows, n_cols);
+    for (i, this_row) in result.into_iter().enumerate() {
+        for (j, this_el) in this_row.into_iter().enumerate() {
+            rmat[(i, j)] = this_el;
         }
     }
-    Ok(result)
+    Ok(rmat)
 }
 
 fn loadrad<R>(p: impl AsRef<std::path::Path>) -> Result<FlydraDistortionModel<R>>
@@ -729,6 +757,7 @@ where
         k2: vars["kc2"],
         p1: vars["kc3"],
         p2: vars["kc4"],
+        k3: na::convert(0.0),
         fc1p: None,
         fc2p: None,
         cc1p: None,
@@ -736,9 +765,9 @@ where
     })
 }
 
-pub fn read_cameras_from_mcsc_dir<R, P: AsRef<std::path::Path>>(
+pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(
     mcsc_dir: P,
-) -> Result<Vec<SingleCameraCalibration<R>>>
+) -> Result<(Vec<SingleCameraCalibration<R>>, Vec<OMatrix<f64, Dyn, Dyn>>)>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
@@ -752,6 +781,7 @@ where
     let res_lines: Vec<&str> = res_dat_buf.trim().split("\n").collect();
     assert_eq!(cam_ids.len(), res_lines.len());
     let mut cameras = Vec::new();
+    let mut points4cals = Vec::new();
     for (i, (cam_id, res_row)) in cam_ids.iter().zip(res_lines.iter()).enumerate() {
         let wh: Vec<&str> = res_row.split(" ").collect();
         assert_eq!(wh.len(), 2);
@@ -759,7 +789,7 @@ where
         let h = wh[1].parse().unwrap();
 
         let pmat_fname = mcsc_dir.join(format!("camera{}.Pmat.cal", (i + 1)));
-        let pmat = loadtxt(&pmat_fname)?; // 3 rows x 4 columns
+        let pmat = loadtxt_3x4(&pmat_fname)?; // 3 rows x 4 columns
 
         let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
         if !rad_fname.exists() {
@@ -775,9 +805,15 @@ where
             non_linear_parameters,
         };
         cameras.push(cam);
+
+        let points4cal_fname = mcsc_dir.join(format!("cam{}.points4cal.dat", (i + 1)));
+        if points4cal_fname.exists() {
+            let points4cal = loadtxt_dyn(&points4cal_fname)?;
+            points4cals.push(points4cal);
+        }
     }
 
-    Ok(cameras)
+    Ok((cameras, points4cals))
 }
 
 impl<R> FlydraMultiCameraSystem<R>
@@ -788,7 +824,7 @@ where
     where
         P: AsRef<std::path::Path>,
     {
-        let cameras = read_cameras_from_mcsc_dir(mcsc_dir)?;
+        let (cameras, _) = read_mcsc_dir(mcsc_dir)?;
         let recon = flydra_xml_support::FlydraReconstructor {
             cameras,
             ..Default::default()
@@ -846,11 +882,6 @@ pub trait FlydraCamera<R: RealField + Copy + serde::Serialize> {
 impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>> {
         let cam_id = name.to_string();
-        if self.intrinsics().distortion.radial3() != na::convert(0.0) {
-            return Err(FlydraMvgError::FailedFlydraXmlConversion {
-                msg: "3rd term of radial distortion not supported",
-            });
-        }
         let k = self.intrinsics().k;
         let distortion = &self.intrinsics().distortion;
         let alpha_c = k[(0, 1)] / k[(0, 0)];
@@ -865,6 +896,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
             k2: distortion.radial2(),
             p1: distortion.tangential1(),
             p2: distortion.tangential2(),
+            k3: distortion.radial3(),
             fc1p: None,
             fc2p: None,
             cc1p: None,
@@ -943,9 +975,6 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
             msg: "skew not supported",
         });
     }
-
-    // TODO: turn all these `unimplemented!()` calls into
-    // proper error returns.
 
     if let Some(fc1p) = cam.non_linear_parameters.fc1p {
         if fc1p != cam.non_linear_parameters.fc1 {

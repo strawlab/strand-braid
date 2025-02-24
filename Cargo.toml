@@ -11,9 +11,6 @@ members = [
     "braid/braid-run/braid_frontend",
     "braid/braidz-writer",
     "braid/braidz-writer/cli",
-    "braid-april-cal",
-    "braid-april-cal/braid-april-cal-webapp",
-    "braid-april-cal/flytrax-apriltags-calibration",
     "braid-config-data",
     "braid-offline",
     "braid-process-video",
@@ -51,6 +48,10 @@ members = [
     "freemovr-calibration/freemovr-calibration-cli",
     "freemovr-calibration/freemovr-calibration-webapp",
     "freemovr-calibration/ncollide-geom",
+    "geometry/braid-april-cal",
+    "geometry/braid-april-cal/braid-april-cal-cli",
+    "geometry/braid-april-cal/braid-april-cal-webapp",
+    "geometry/braid-april-cal/flytrax-apriltags-calibration",
     "geometry/braidz-mcsc",
     "geometry/bundle-adj",
     "geometry/camcal",
@@ -269,7 +270,7 @@ basic-frame = { path = "basic-frame" }
 bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
-braid-april-cal = { path = "braid-april-cal" }
+braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
@@ -306,7 +307,7 @@ flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
 flydra-types = { path = "flydra-types", default-features = false }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "flydra2", default-features = false }
-flytrax-apriltags-calibration = { path = "braid-april-cal/flytrax-apriltags-calibration" }
+flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
 flytrax-io = { path = "strand-cam/flytrax-io" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }

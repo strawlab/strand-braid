@@ -16,7 +16,6 @@ test_crates:
   image: ubuntu:focal
   script:
     - _packaging/setup-ubuntu-base.sh
-    - _packaging/setup-opencv-4.9.0-static.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
@@ -51,12 +50,19 @@ test_crates:
     - cargo test --release
 
     # Test braid-april-cal
-    - cd $CI_PROJECT_DIR/braid-april-cal
-    # run test in release mode, otherwise slow
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal
+    - cargo test --release
+
+    # Test bundle-adj
+    - cd $CI_PROJECT_DIR/geometry/bundle-adj
+    - cargo test --release
+
+    # Test braid-april-cal-cli
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
     - cargo test --release
 
     # Test flytrax-apriltags-calibration
-    - cd $CI_PROJECT_DIR/braid-april-cal/flytrax-apriltags-calibration
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/flytrax-apriltags-calibration
     - cargo test --release
 
     # Test flytrax-csv-to-braidz
@@ -64,9 +70,12 @@ test_crates:
     - cargo test --release --features "with_apriltags"
     - cd ..
 
+    # Install opencv
+    - cd $CI_PROJECT_DIR
+    - _packaging/setup-opencv-4.9.0-static.sh
+
     # Test freemovr-calibration, which requires opencv
     - cd freemovr-calibration
-    # run test in release mode, otherwise slow
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
     - cd ..
 
@@ -159,7 +168,7 @@ test_crates_rust_stable:
     - cargo test --features rerun-io
 
     # Test braid-april-cal-webapp
-    - cd $CI_PROJECT_DIR/braid-april-cal/braid-april-cal-webapp
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
     - cargo test
 
     # Test datetime-conversion
@@ -767,12 +776,10 @@ braid-webapps:
     - cd braidz-viewer
     - cargo update -p wasm-bindgen --precise 0.2.100
     - ./build.sh
-    - cd ..
 
-    - cd braid-april-cal/braid-april-cal-webapp
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
     - cargo update -p wasm-bindgen --precise 0.2.100
     - ./build.sh
-    - cd ../..
 
 braid-run-binary:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with

@@ -19,19 +19,6 @@ where
     }
 }
 
-// trait ToF64 {
-//     fn f64(&self) -> f64;
-// }
-
-// impl<R> ToF64 for R
-// where
-//     R: RealField,
-// {
-//     fn f64(&self) -> f64 {
-//         self.to_subset().unwrap()
-//     }
-// }
-
 trait ToR<T: RealField> {
     #[allow(non_snake_case)]
     fn R(&self) -> T;
