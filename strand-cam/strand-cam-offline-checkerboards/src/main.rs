@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         unsafe { std::env::set_var("RUST_LOG", "info") };
     }
 
-    env_logger::init();
+    env_tracing_logger::init();
     let cli = Cli::parse();
     run_cal(cli)?;
     Ok(())

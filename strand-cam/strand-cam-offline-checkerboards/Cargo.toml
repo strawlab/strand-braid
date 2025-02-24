@@ -8,7 +8,6 @@ rust-version = "1.85"
 [dependencies]
 eyre.workspace = true
 clap.workspace = true
-env_logger.workspace = true
 glob.workspace = true
 tracing.workspace = true
 image.workspace = true
@@ -17,6 +16,7 @@ serde_yaml.workspace = true
 chrono.workspace = true
 camino.workspace = true
 
+env-tracing-logger.workspace = true
 strand-cam-storetype.workspace = true
 opencv-calibrate.workspace = true
 camcal.workspace = true

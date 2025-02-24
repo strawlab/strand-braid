@@ -22,7 +22,7 @@ Options:
 For example, running `strand-cam-offline-checkerboards
 checkerboard_debug_20240222_164128 18 8` where
 `checkerboard_debug_20240222_164128` is the sample data from
-[here](http://strawlab-cdn.com/assets/checkerboard_debug_20240222_164128.zip)
+[here](https://strawlab-cdn.com/assets/checkerboard_debug_20240222_164128.zip)
 should result in command-line output like the following. Importantly, the file
 `checkerboard_debug_20240222_164128.yaml` is created with the calibration
 results.
