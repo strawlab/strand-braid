@@ -7,10 +7,10 @@ A wrapper of OpenCV `cvCalibrateCamera2` and `findChessboardCorners` functions.
 On macOS, I found that I had to compile and install OpenCV statically. To do so
 (installing into `$HOME/devroot`), I did the following:
 
-    # expand opencv source 4.5.5 and enter into its dir
+    # expand opencv source 4.11.0 and enter into its dir
     mkdir build
     cd build
-    cmake -DCMAKE_INSTALL_PREFIX=$HOME/devroot -DWITH_FFMPEG=OFF -DWITH_TIFF=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_opencv_highgui=OFF -DWITH_GSTREAMER=OFF -DBUILD_DOCS=OFF -DBUILD_opencv_python=OFF -DWITH_1394=OFF -DWITH_CUDA=OFF -DWITH_CUFFT=OFF -DWITH_JASPER=OFF -DWITH_LIBV4L=OFF -DWITH_OPENCL=OFF -DWITH_EIGEN=OFF -DWITH_JPEG=OFF -DWITH_PNG=OFF -DWITH_OPENEXR=OFF -DBUILD_ZLIB=OFF -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_FAT_JAVA_LIB=OFF -DWITH_GTK=OFF DBUILD_ZLIB=ON -DBUILD_opencv_contrib=OFF -DBUILD_opencv_gpu=OFF -DBUILD_opencv_stitching=OFF -DBUILD_opencv_nonfree=OFF -DBUILD_opencv_stitching=OFF -DBUILD_opencv_nonfree=OFF -DBUILD_opencv_legacy=OFF -DBUILD_opencv_superres=OFF -DBUILD_ITT=OFF -DBUILD_IPP_IW=OFF -DWITH_IPP=OFF -DWITH_ITT=OFF -DOPENCV_GENERATE_PKGCONFIG=YES ..
+    cmake -DCMAKE_INSTALL_PREFIX=$HOME/devroot -DWITH_FFMPEG=OFF -DWITH_TIFF=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_opencv_highgui=OFF -DWITH_GSTREAMER=OFF -DBUILD_DOCS=OFF -DBUILD_opencv_python=OFF -DWITH_1394=OFF -DWITH_CUDA=OFF -DWITH_CUFFT=OFF -DWITH_JASPER=OFF -DWITH_LIBV4L=OFF -DWITH_OPENCL=OFF -DWITH_EIGEN=OFF -DWITH_JPEG=OFF -DWITH_PNG=OFF -DWITH_OPENEXR=OFF -DBUILD_ZLIB=OFF -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_FAT_JAVA_LIB=OFF -DWITH_GTK=OFF -DBUILD_opencv_contrib=OFF -DBUILD_opencv_gpu=OFF -DBUILD_opencv_stitching=OFF -DBUILD_opencv_nonfree=OFF -DBUILD_opencv_stitching=OFF -DBUILD_opencv_nonfree=OFF -DBUILD_opencv_legacy=OFF -DBUILD_opencv_superres=OFF -DBUILD_ITT=OFF -DBUILD_IPP_IW=OFF -DWITH_IPP=OFF -DWITH_ITT=OFF -DOPENCV_GENERATE_PKGCONFIG=YES -DWITH_CAROTENE=OFF -DWITH_LAPACK=OFF ..
     rm -rf $HOME/devroot/lib/libopencv_* # remove any pre-existing libs (see below)
     make install
 
