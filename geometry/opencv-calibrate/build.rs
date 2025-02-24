@@ -44,7 +44,9 @@ fn main() {
 
             let mut include_paths = vec![];
             if let Some(include_dir) = env::var_os("OPENCV_INCLUDE_DIR") {
-                include_paths.push(include_dir.into());
+                for path in std::env::split_paths(&include_dir) {
+                    include_paths.push(path);
+                }
             }
 
             println!("cargo:rustc-link-search=native={}", libdir.display());
