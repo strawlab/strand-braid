@@ -1556,10 +1556,15 @@ where
     match &trigger_type {
         Some(TriggerType::PtpSync(ptpcfg)) => {
             if let Some(period) = ptpcfg.periodic_signal_period_usec {
-                cam.feature_float_set(PERIOD_NAME, period)?;
-                tracing::debug!("Set camera parameter {PERIOD_NAME} to {period} microseconds");
+                if cam.feature_float(PERIOD_NAME)? != period {
+                    cam.feature_float_set(PERIOD_NAME, period)?;
+                    tracing::debug!("Set camera parameter {PERIOD_NAME} to {period} microseconds.");
+                }
             }
-            cam.feature_bool_set("PtpEnable", true)?;
+            if !cam.feature_bool("PtpEnable")? {
+                tracing::debug!("Enabling PTP.");
+                cam.feature_bool_set("PtpEnable", true)?;
+            }
             // Wait until we are within 1 msec from master.
             const THRESHOLD: i64 = 1_000_000; // Should make this a runtime parameter.
             loop {
