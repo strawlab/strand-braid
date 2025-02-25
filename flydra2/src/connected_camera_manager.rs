@@ -138,6 +138,11 @@ impl ConnectedCamerasManager {
             launch_time_ptp = PtpStamp::new(n_ticks * periodic_signal_period_nsec);
         }
 
+        let launch_time_ptp_utc: chrono::DateTime<chrono::Utc> =
+            launch_time_ptp.clone().try_into().unwrap();
+        let launch_time_ptp_local: chrono::DateTime<chrono::Local> = launch_time_ptp_utc.into();
+        tracing::debug!("launch_time_ptp_local: {launch_time_ptp_local}");
+
         Self {
             signal_all_cams_present,
             signal_all_cams_synced,
@@ -541,12 +546,19 @@ impl ConnectedCamerasManager {
                     .device_timestamp
                     .expect("could not get device_timestamp for frame"),
             );
+
+            let device_timestamp_utc: chrono::DateTime<chrono::Utc> =
+                device_timestamp.clone().try_into().unwrap();
+            let device_timestamp_local: chrono::DateTime<chrono::Local> =
+                device_timestamp_utc.into();
+            tracing::trace!("{cam}: device_timestamp_local: {device_timestamp_local}");
+
             let elapsed_since_launch = if let Some(dur) =
                 device_timestamp.duration_since(&self.launch_time_ptp)
             {
                 dur
             } else {
-                tracing::warn!("Launch time precedes device timestamp. Is time running backwards?");
+                tracing::warn!("Launch time precedes device timestamp {raw_cam_name}. Is time running backwards?");
                 // This would happen if time runs backwards. I have not
                 // seen this scenario, but it shouldn't cause a panic.
                 return None;
