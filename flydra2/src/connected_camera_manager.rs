@@ -127,12 +127,15 @@ impl ConnectedCamerasManager {
         let mut launch_time_ptp = PtpStamp::try_from(launch_time).unwrap();
 
         if let Some(periodic_signal_period_usec) = periodic_signal_period_usec.as_ref() {
-            // Round to period so that calculation of frame number in PTP mode are
-            // are not at knife edge between .4999 and 0.5001 of the period.
+            // This a) rounds to period so that calculation of frame number in
+            // PTP mode are are not at knife edge between .4999 and 0.5001 of
+            // the period and b) subtracts one tick from the launch time to
+            // avoid the case where the first frame of the camera having a
+            // slightly faster clock will result in an impossible negative frame
+            // number.
             let periodic_signal_period_nsec = (periodic_signal_period_usec * 1000.0) as u64;
-            launch_time_ptp = PtpStamp::new(
-                (launch_time_ptp.get() / periodic_signal_period_nsec) * periodic_signal_period_nsec,
-            );
+            let n_ticks = launch_time_ptp.get() / periodic_signal_period_nsec - 1;
+            launch_time_ptp = PtpStamp::new(n_ticks * periodic_signal_period_nsec);
         }
 
         Self {
