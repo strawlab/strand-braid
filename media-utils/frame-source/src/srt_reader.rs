@@ -58,10 +58,10 @@ pub(crate) struct Stanza {
 
 fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
     trace("parse_stanza", move |input: &mut &BStr| {
-        let num = dec_uint::<_, usize, ContextError>;
+        let mut num = dec_uint::<_, usize, ContextError>;
 
         // first line: count
-        let count_res: ModalResult<(usize,)> = seq!(num, _: line_ending).parse_next(input);
+        let count_res: winnow::Result<(usize,)> = seq!(num, _: line_ending).parse_next(input);
         let count = count_res.unwrap().0;
 
         // "00:00:00,100 --> 00:00:00,210"

@@ -19,7 +19,7 @@ h264-reader.workspace = true
 openh264 = { workspace = true, optional = true }
 memchr.workspace = true
 bytes.workspace = true
-winnow = "0.6.25"
+winnow = "0.7.3"
 uuid.workspace = true
 
 basic-frame.workspace = true
