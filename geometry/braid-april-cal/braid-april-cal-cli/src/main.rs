@@ -9,7 +9,7 @@ use std::{
     net::ToSocketAddrs,
 };
 
-use ads_webasm::components::{parse_csv, MaybeCsvData};
+use ads_webasm::components::{MaybeCsvData, parse_csv};
 use braid_april_cal::*;
 
 const MIN_NUM_BA_CAMS: usize = 3;
@@ -30,7 +30,8 @@ pub struct Cli {
     #[arg(long)]
     pub camera_info_dir: Utf8PathBuf,
 
-    /// Directory containing `<cam-name>.png` PNG files with camera images.
+    /// Directory containing `<cam-name>.png` PNG files with camera images. Only
+    /// used when logging data to rerun.
     #[arg(long)]
     pub image_dir: Option<Utf8PathBuf>,
 
