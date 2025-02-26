@@ -1386,6 +1386,119 @@ where
 
     let settings_on_start = cam.node_map_save()?;
 
+    let res_braid = match (&braid_info, &args.standalone_or_braid) {
+        (Some(bi), StandaloneOrBraid::Braid(_)) => Ok(bi),
+        (None, StandaloneOrBraid::Standalone(a)) => Err(a),
+        (Some(_), StandaloneOrBraid::Standalone(_)) | (None, StandaloneOrBraid::Braid(_)) => {
+            unreachable!()
+        }
+    };
+
+    let force_camera_sync_mode = match &res_braid {
+        Ok(bi) => bi.config_from_braid.force_camera_sync_mode,
+        Err(a) => a.force_camera_sync_mode,
+    };
+
+    let camdata_udp_addr = match &res_braid {
+        Ok(bi) => Some(bi.camdata_udp_addr),
+        Err(_a) => None,
+    };
+
+    let software_limit_framerate = match &res_braid {
+        Ok(bi) => bi.config_from_braid.software_limit_framerate.clone(),
+        Err(a) => a.software_limit_framerate.clone(),
+    };
+
+    #[cfg(feature = "flydra_feat_detect")]
+    let tracker_cfg_src = match &res_braid {
+        Ok(bi) => bi.tracker_cfg_src.clone(),
+        Err(a) => a.tracker_cfg_src.clone(),
+    };
+
+    // Here we just create some default, it does not matter what, because it
+    // will not be used for anything.
+    #[cfg(not(feature = "flydra_feat_detect"))]
+    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
+
+    #[cfg(feature = "flydra_feat_detect")]
+    let im_pt_detect_cfg = match &tracker_cfg_src {
+        ImPtDetectCfgSource::ChangedSavedToDisk(src) => {
+            // Retrieve the saved preferences
+            let (app_info, ref prefs_key) = src;
+            match ImPtDetectCfg::load(app_info, prefs_key) {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    info!(
+                        "Failed loading image detection config ({}), using defaults.",
+                        e
+                    );
+                    default_im_pt_detect()
+                }
+            }
+        }
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
+    };
+
+    let (mut mainbrain_session, trigger_type) = match braid_info {
+        Some(bi) => (
+            Some(bi.mainbrain_session),
+            Some(bi.config_from_braid.trig_config),
+        ),
+        None => (None, None),
+    };
+
+    // Setup PTP and let clocks converge prior to starting acquisition.
+    if let Some(TriggerType::PtpSync(ptpcfg)) = &trigger_type {
+        let mut clock_sync_threshold_usecs = None;
+        if let Some(period_usec) = ptpcfg.periodic_signal_period_usec {
+            let period_usec_int = period_usec as i64;
+            if period_usec - period_usec_int as f64 > 1.0 {
+                eyre::bail!("period cannot be specified to sub-microsecond precision");
+            }
+            clock_sync_threshold_usecs = Some(period_usec_int / 2);
+            if cam.feature_float(PERIOD_NAME)? != period_usec {
+                cam.feature_float_set(PERIOD_NAME, period_usec)?;
+                tracing::debug!(
+                    "Set camera parameter {PERIOD_NAME} to {period_usec} microseconds."
+                );
+            }
+        };
+        if !cam.feature_bool("PtpEnable")? {
+            tracing::debug!("Enabling PTP.");
+            cam.feature_bool_set("PtpEnable", true)?;
+        }
+        // If period not set, default to 1 millisecond.
+        let clock_sync_threshold_nanos = clock_sync_threshold_usecs.unwrap_or(1_000) * 1_000;
+        loop {
+            cam.command_execute("PtpDataSetLatch", true)?;
+            let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
+            // Basler docs: "PtpOffsetFromMaster: Indicates the estimated
+            // temporal offset between the master clock and the clock of the
+            // current PTP device in ticks (1 tick = 1 nanosecond)."
+            tracing::debug!("PTP clock offset {ptp_offset_from_master} nanoseconds.");
+            if ptp_offset_from_master.abs() < clock_sync_threshold_nanos {
+                // if within threshold from master, call it good enough.
+                break;
+            }
+            tracing::info!(
+                "PTP clock offset {ptp_offset_from_master} nanoseconds (threshold \
+                        {clock_sync_threshold_nanos}), waiting 1 second for convergence."
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        }
+        tracing::info!(
+            "PTP clock within threshold {clock_sync_threshold_nanos} nanoseconds from master."
+        );
+
+        if cam.feature_enum("TriggerMode")? != "On" {
+            cam.feature_enum_set("TriggerMode", "On")?;
+        }
+        if cam.feature_enum("TriggerSource")? != "PeriodicSignal1" {
+            cam.feature_enum_set("TriggerSource", "PeriodicSignal1")?;
+        }
+    };
+
+    // Start the camera.
     cam.acquisition_start()?;
     // Buffer 20 frames to be processed before dropping them.
     let (tx_frame, rx_frame) = tokio::sync::mpsc::channel::<Msg>(20);
@@ -1468,59 +1581,6 @@ where
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)?
     });
 
-    #[cfg(feature = "flydra_feat_detect")]
-    let tracker_cfg_src = match &res_braid {
-        Ok(bi) => bi.tracker_cfg_src.clone(),
-        Err(a) => a.tracker_cfg_src.clone(),
-    };
-
-    // Here we just create some default, it does not matter what, because it
-    // will not be used for anything.
-    #[cfg(not(feature = "flydra_feat_detect"))]
-    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
-
-    #[cfg(feature = "flydra_feat_detect")]
-    let im_pt_detect_cfg = match &tracker_cfg_src {
-        ImPtDetectCfgSource::ChangedSavedToDisk(src) => {
-            // Retrieve the saved preferences
-            let (app_info, ref prefs_key) = src;
-            match ImPtDetectCfg::load(app_info, prefs_key) {
-                Ok(cfg) => cfg,
-                Err(e) => {
-                    info!(
-                        "Failed loading image detection config ({}), using defaults.",
-                        e
-                    );
-                    default_im_pt_detect()
-                }
-            }
-        }
-        ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
-    };
-
-    let force_camera_sync_mode = match &res_braid {
-        Ok(bi) => bi.config_from_braid.force_camera_sync_mode,
-        Err(a) => a.force_camera_sync_mode,
-    };
-
-    let camdata_udp_addr = match &res_braid {
-        Ok(bi) => Some(bi.camdata_udp_addr),
-        Err(_a) => None,
-    };
-
-    let software_limit_framerate = match &res_braid {
-        Ok(bi) => bi.config_from_braid.software_limit_framerate.clone(),
-        Err(a) => a.software_limit_framerate.clone(),
-    };
-
-    let (mut mainbrain_session, trigger_type) = match braid_info {
-        Some(bi) => (
-            Some(bi.mainbrain_session),
-            Some(bi.config_from_braid.trig_config),
-        ),
-        None => (None, None),
-    };
-
     // spawn channel to send data to mainbrain
     let (mainbrain_msg_tx, mut mainbrain_msg_rx) = tokio::sync::mpsc::channel(10);
 
@@ -1553,87 +1613,49 @@ where
     let mut cam_time0 = None;
     let mut device_clock_model = None;
 
-    match &trigger_type {
-        Some(TriggerType::PtpSync(ptpcfg)) => {
-            if let Some(period) = ptpcfg.periodic_signal_period_usec {
-                cam.feature_float_set(PERIOD_NAME, period)?;
-                tracing::debug!("Set camera parameter {PERIOD_NAME} to {period} microseconds");
-            }
-            cam.feature_bool_set("PtpEnable", true)?;
-            // Wait until we are within 1 msec from master.
-            const THRESHOLD: i64 = 1_000_000; // Should make this a runtime parameter.
-            loop {
-                cam.command_execute("PtpDataSetLatch", true)?;
-                let ptp_offset_from_master = cam.feature_int("PtpOffsetFromMaster")?;
-                // Basler docs: "PtpOffsetFromMaster: Indicates the estimated
-                // temporal offset between the master clock and the clock of the
-                // current PTP device in ticks (1 tick = 1 nanosecond)."
-                tracing::debug!("PTP clock offset {ptp_offset_from_master} nanoseconds.");
-                if ptp_offset_from_master.abs() < THRESHOLD {
-                    // if within 1 millisecond from master, call it good enough.
-                    break;
-                }
-                tracing::warn!(
-                    "PTP clock offset {ptp_offset_from_master} nanoseconds (threshold \
-                        {THRESHOLD}), waiting 1 second for convergence."
-                );
+    if trigger_type == Some(TriggerType::DeviceTimestamp) {
+        // Attempt to relate camera timestamps to our clock
+        tracing::info!("Reading camera timestamps to fit initial clock model.");
+
+        let n_pts = 5;
+        let mut tmp_debug_device_timestamp = None;
+        for i in 0..n_pts {
+            let (local, cam_time) = measure_times(&cam)?;
+            tmp_debug_device_timestamp.get_or_insert(cam_time);
+            let local_time_nanos = flydra_types::PtpStamp::try_from(local).unwrap().get();
+            local_time0.get_or_insert(local_time_nanos);
+            let cam_time_ts = flydra_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
+            cam_time0.get_or_insert(cam_time_ts);
+
+            let this_local_time0 = local_time0.as_ref().unwrap();
+            let this_cam_time0 = cam_time0.as_ref().unwrap();
+            // dbg!(&local_time_nanos);
+            // dbg!(&local_time_secs);
+            let local_elapsed_nanos = local_time_nanos - this_local_time0;
+            let device_elapsed_nanos = cam_time_ts - this_cam_time0;
+            local_remote.push((device_elapsed_nanos as f64, local_elapsed_nanos as f64));
+            // local_remote.push((cam_time_ts as f64, local_ts as f64));
+            if i < n_pts - 1 {
                 tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
             }
-            tracing::info!("PTP clock within threshold {THRESHOLD} nanoseconds from master.");
-
-            if cam.feature_enum("TriggerMode")? != "On" {
-                cam.feature_enum_set("TriggerMode", "On")?;
-            }
-            if cam.feature_enum("TriggerSource")? != "PeriodicSignal1" {
-                cam.feature_enum_set("TriggerSource", "PeriodicSignal1")?;
-            }
         }
-        Some(TriggerType::DeviceTimestamp) => {
-            // Attempt to relate camera timestamps to our clock
-            tracing::info!("Reading camera timestamps to fit initial clock model.");
+        let (gain, offset, residuals) = clock_model::fit_time_model(&local_remote)?;
+        dbg!((gain, offset, residuals));
 
-            let n_pts = 5;
-            let mut tmp_debug_device_timestamp = None;
-            for i in 0..n_pts {
-                let (local, cam_time) = measure_times(&cam)?;
-                tmp_debug_device_timestamp.get_or_insert(cam_time);
-                let local_time_nanos = flydra_types::PtpStamp::try_from(local).unwrap().get();
-                local_time0.get_or_insert(local_time_nanos);
-                let cam_time_ts = flydra_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
-                cam_time0.get_or_insert(cam_time_ts);
+        let cm = rust_cam_bui_types::ClockModel {
+            gain,
+            offset,
+            residuals,
+            n_measurements: local_remote.len().try_into().unwrap(),
+        };
 
-                let this_local_time0 = local_time0.as_ref().unwrap();
-                let this_cam_time0 = cam_time0.as_ref().unwrap();
-                // dbg!(&local_time_nanos);
-                // dbg!(&local_time_secs);
-                let local_elapsed_nanos = local_time_nanos - this_local_time0;
-                let device_elapsed_nanos = cam_time_ts - this_cam_time0;
-                local_remote.push((device_elapsed_nanos as f64, local_elapsed_nanos as f64));
-                // local_remote.push((cam_time_ts as f64, local_ts as f64));
-                if i < n_pts - 1 {
-                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                }
-            }
-            let (gain, offset, residuals) = clock_model::fit_time_model(&local_remote)?;
-            dbg!((gain, offset, residuals));
+        let device_timestamp: u64 = tmp_debug_device_timestamp.unwrap().try_into().unwrap();
+        let this_cam_time0 = cam_time0.as_ref().unwrap();
+        let device_elapsed_nanos = device_timestamp - this_cam_time0;
+        let local_estimate_elapsed_nanos: f64 = (device_elapsed_nanos as f64) * cm.gain + cm.offset;
 
-            let cm = rust_cam_bui_types::ClockModel {
-                gain,
-                offset,
-                residuals,
-                n_measurements: local_remote.len().try_into().unwrap(),
-            };
-
-            let device_timestamp: u64 = tmp_debug_device_timestamp.unwrap().try_into().unwrap();
-            let this_cam_time0 = cam_time0.as_ref().unwrap();
-            let device_elapsed_nanos = device_timestamp - this_cam_time0;
-            let local_estimate_elapsed_nanos: f64 =
-                (device_elapsed_nanos as f64) * cm.gain + cm.offset;
-
-            dbg!((local_estimate_elapsed_nanos, device_timestamp, &cm));
-            device_clock_model = Some(cm);
-        }
-        _ => {}
+        dbg!((local_estimate_elapsed_nanos, device_timestamp, &cm));
+        device_clock_model = Some(cm);
     }
 
     let local_and_cam_time0 = if let Some(ct0) = cam_time0 {
