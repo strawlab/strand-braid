@@ -6,6 +6,7 @@ braid-run usr/bin
 braid-show-config usr/bin
 braidz-cli usr/bin
 braidz-mcsc usr/bin
+braid-april-cal-cli usr/bin
 braidz-export-rrd usr/bin
 cal-to-xml usr/bin
 align-calibration usr/bin

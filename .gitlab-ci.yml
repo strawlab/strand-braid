@@ -713,6 +713,10 @@ extra-programs:
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
+    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
+    - cargo build --release
+    - cp $CI_PROJECT_DIR/target/release/braid-april-cal-cli $CI_PROJECT_DIR/build
+
     - cd $CI_PROJECT_DIR/braidz-export-rrd
     - cargo build --release
     - ldd -v $CI_PROJECT_DIR/target/release/braidz-export-rrd
@@ -884,6 +888,7 @@ strand-braid-ubuntu-2404:
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
     - ldd -v $CI_PROJECT_DIR/build/align-calibration
     - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
@@ -940,6 +945,7 @@ strand-braid-ubuntu-2004:
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
     - ldd -v $CI_PROJECT_DIR/build/align-calibration
     - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
@@ -996,6 +1002,7 @@ strand-braid-ubuntu-2204:
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
     - ldd -v $CI_PROJECT_DIR/build/align-calibration
     - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
     - make
