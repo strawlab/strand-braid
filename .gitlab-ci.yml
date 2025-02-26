@@ -372,7 +372,7 @@ build-freemovr-calibration-webapp:
     - wasm-bindgen --version
 
     - cd freemovr-calibration/freemovr-calibration-webapp
-    - cargo update -p wasm-bindgen --precise 0.2.100
+    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
     - mkdir -p $CI_PROJECT_DIR/freemovr-cal-webapp
     - cp -a pkg/* $CI_PROJECT_DIR/freemovr-cal-webapp
@@ -778,11 +778,11 @@ braid-webapps:
     - wasm-bindgen --version
 
     - cd braidz-viewer
-    - cargo update -p wasm-bindgen --precise 0.2.100
+    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
 
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
-    - cargo update -p wasm-bindgen --precise 0.2.100
+    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
 
 braid-run-binary:
