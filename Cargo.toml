@@ -212,8 +212,8 @@ obj = { version = "0.10", features = ["genmesh"] }
 opencv-ros-camera = { version = "0.15.1", features = ["serde-serialize"] }
 openh264 = "0.7.1"
 ordered-float = { version = "3.4", features = ["serde"] }
-parry2d-f64 = "0.17"
-parry3d-f64 = "0.17"
+parry2d-f64 = "0.18"
+parry3d-f64 = "0.18"
 pin-project = "1.0.11"
 preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
