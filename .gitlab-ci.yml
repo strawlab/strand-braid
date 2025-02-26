@@ -59,7 +59,7 @@ test_crates:
 
     # Test braid-april-cal-cli
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
-    - cargo test --release
+    - cargo test --release -- --nocapture
 
     # Test flytrax-apriltags-calibration
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/flytrax-apriltags-calibration
