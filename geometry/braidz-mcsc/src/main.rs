@@ -834,6 +834,7 @@ mod test {
         let opt = Cli {
             input,
             checkerboard_cal_dir,
+            no_bundle_adjustment: true,
             ..Default::default()
         };
         let _xml_out_name = braiz_mcsc(opt)?;
@@ -870,6 +871,7 @@ mod test {
             checkerboard_cal_dir,
             use_nth_observation: Some(10),
             keep: true,
+            no_bundle_adjustment: true,
             ..Default::default()
         };
         let _xml_out_name = braiz_mcsc(opt)?;
