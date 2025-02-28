@@ -178,6 +178,12 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         if labels3d.len() != points0.ncols() {
             return Err(Error::InconsistentData("3d label shape"));
         }
+        if cams0.len() != cam_names.len() {
+            return Err(Error::InconsistentData("cam_names shape"));
+        }
+        if cams0.len() != cam_dims.len() {
+            return Err(Error::InconsistentData("cam_dims shape"));
+        }
         let nresid = nobs * 2;
 
         let num_cam_params = model_type.info().num_cam_params();
@@ -553,19 +559,19 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             )
             .unwrap();
 
-            // Log cameras
+            // For each camera
             for ((cam, cam_name), cam_dims) in cams
                 .iter()
                 .zip(self.cam_names.iter())
                 .zip(self.cam_dims.iter())
             {
+                // Log pinhole in rerun 3D space.
                 use mvg::rerun_io::AsRerunTransform3D;
                 let base_path = format!("{RR_CAM_BASE_PATH}/{cam_name}");
+                let extrinsics = cam.extrinsics();
                 rec.log(
                     base_path.as_str(),
-                    &extrinsics_f64(cam.extrinsics())
-                        .as_rerun_transform3d()
-                        .into(),
+                    &extrinsics_f64(&extrinsics).as_rerun_transform3d().into(),
                 )
                 .unwrap();
                 let raw_path = format!("{base_path}/raw");
@@ -583,17 +589,67 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                     tracing::warn!("Camera has skew, but rerun cameras do not support skew");
                 }
                 let params = cam_geom::PerspectiveParams {
-                    fx: i.fx().to_f64().unwrap(),
-                    fy: i.fy().to_f64().unwrap(),
-                    skew: 0.0,
-                    cx: i.cx().to_f64().unwrap(),
-                    cy: i.cy().to_f64().unwrap(),
+                    fx: i.fx(),
+                    fy: i.fy(),
+                    skew: na::convert(0.0),
+                    cx: i.cx(),
+                    cy: i.cy(),
                 };
-                let intrinsics: cam_geom::IntrinsicParametersPerspective<_> = params.into();
-                // TODO: confirm that `intrinsics` is equal to `cam.intrinsics()`.
+
+                let intrinsics_linear: cam_geom::IntrinsicParametersPerspective<_> = params.into();
+                // TODO: confirm that `intrinsics_linear` is equal to
+                // `cam.intrinsics()`. Probably it won't be while 2499 is open.
                 let pinhole =
-                    mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(&intrinsics, *w, *h).unwrap();
-                rec.log(raw_path, &pinhole).unwrap();
+                    mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(&intrinsics_linear, *w, *h)
+                        .unwrap();
+                rec.log(raw_path.as_str(), &pinhole).unwrap();
+                let cam_linear = cam_geom::Camera::new(intrinsics_linear, extrinsics.clone());
+
+                // Log reprojections in rerun 2D space.
+                let mut xy: Vec<(f32, f32)> = vec![];
+                let mut labels: Vec<String> = vec![];
+                let mut vecs: Vec<(f32, f32)> = vec![];
+                for ((obs, cam_idx), pt_idx) in self
+                    .observed
+                    .column_iter()
+                    .zip(self.cam_idx.iter())
+                    .zip(self.pt_idx.iter())
+                {
+                    let this_cam_name = &self.cam_names[usize(*cam_idx)];
+                    if this_cam_name != cam_name {
+                        continue;
+                    }
+
+                    let pt = self.points.column(*pt_idx);
+                    let label = &self.labels3d[*pt_idx];
+                    let pts = cam_geom::Points::new(pt.transpose());
+                    let predicted = cam_linear.world_to_pixel(&pts).data.transpose();
+                    xy.push((
+                        predicted[(0, 0)].to_f32().unwrap(),
+                        predicted[(1, 0)].to_f32().unwrap(),
+                    ));
+                    labels.push(label.clone());
+
+                    let delta = obs - predicted;
+                    vecs.push((
+                        delta[(0, 0)].to_f32().unwrap(),
+                        delta[(1, 0)].to_f32().unwrap(),
+                    ));
+                }
+
+                let ent_path = format!("{raw_path}/predicted");
+                rec.log(
+                    ent_path.as_str(),
+                    &re_types::archetypes::Points2D::new(&xy).with_labels(labels),
+                )
+                .unwrap();
+
+                let ent_path = format!("{raw_path}/delta");
+                rec.log(
+                    ent_path.as_str(),
+                    &re_types::archetypes::Arrows2D::from_vectors(vecs).with_origins(xy),
+                )
+                .unwrap();
             }
         }
 
