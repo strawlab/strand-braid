@@ -76,11 +76,27 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     rr_tick: i64,
 }
 
+/// What parameters are optimized during bundle adjustment.
 #[derive(Clone, Debug, PartialEq, Copy, clap::ValueEnum, Default)]
 pub enum ModelType {
+    /// Tunes the 3D world points, the camera extrinsic parameters, and the
+    /// camera intrinsic parameters including all 5 distortion terms (3 radial
+    /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady
+    /// distortion model. The intrinsic model has a single focal length (not fx
+    /// and fy).
     OpenCV5,
+    /// Tunes the 3D world points, the camera extrinsic parameters, and the
+    /// camera intrinsic parameters including 4 distortion terms (2 radial
+    /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady distortion
+    /// model. The intrinsic model has a single focal length (not fx
+    /// and fy).
     OpenCV4,
+    /// Tunes the 3D world points and the camera extrinsic parameters, and the
+    /// camera intrinsic parameters with no distortion terms model. The intrinsic
+    /// model has a single focal length (not fx and fy).
     Linear,
+    /// Tunes the 3D world points and the camera extrinsic parameters.  The
+    /// intrinsic model has a separate focal length for x and y directions.
     ExtrinsicsOnly,
     #[default]
     FxFyExtrinsicsOnly,
