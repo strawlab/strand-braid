@@ -183,8 +183,20 @@ optical axis, and the radial and tangential parameters of a &quot;plumb bob&quot
 distortion model (also called the Brown-Conrady distortion model).</p>
 <h2><a class="header" href="#xml-calibration-files-in-braid" id="xml-calibration-files-in-braid">XML calibration files in Braid</a></h2>
 <p>The XML calibration files used in Braid are backwards-compatible with those from
-Braid's predecessor, Flydra. Several of the steps described here also use tools
-from Flydra.</p>
+Braid's predecessor, Flydra. A braid XML calibration file contains multiple
+individual camera calibrations and potentially and &quot;global&quot; information, such as
+whether there is an air-water interface for use in the case when cameras are
+looking down into water.</p>
+<p>While the format of the XML file is specific to Braid, the actual camera
+calibration parameters are conventional and could be obtained via other
+workflows than that described here. For example, the &quot;traditional&quot; calibration
+method from <a href="https://github.com/strawlab/flydra">flydra</a> uses the
+<a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal (MCSC) library</a>.
+There is also the simple <a href="https://strawlab.org/braid-april-cal-webapp/">Braid April Tag Calibration
+Tool</a> tool. There is <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">a tutorial
+Jupyter
+notebook</a>
+for a manual approach involving April Tags.</p>
 <h2><a class="header" href="#step-0-setup-cameras-zoom-focus-aperture-gain-and-lights" id="step-0-setup-cameras-zoom-focus-aperture-gain-and-lights">Step 0: setup cameras (zoom, focus, aperture, gain) and lights</a></h2>
 <p>Setup camera position, zoom, focus (using an object in the tracking volume) and
 aperture (slightly stopped down from wide-open). Exposure times and gains are
@@ -193,21 +205,10 @@ at 100 frames per second, exposure times must be less than 10 milliseconds.
 These settings (exposure time and gain) are (unfortunately) currently not saved
 in any file, and can be set only in the camera settings GUI (in the browser).
 The camera keeps these values persistently when it is on, but if it has been
-power cycled, it will reset to new values.</p>
-<p>Try to a luminance distribution which extends across the entire dynamic range of
-your sensor (from intensity values 0 to 255) with very little clipping.</p>
-<h2><a class="header" href="#methods-for-calibration" id="methods-for-calibration">Methods for calibration</a></h2>
-<p>The &quot;traditional&quot; calibration method, inherited from
-<a href="https://github.com/strawlab/flydra">flydra</a>, uses the <a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal MCSC
-library</a>.</p>
-<p>Other methods of calibration are in development. For example, the <a href="https://strawlab.org/braid-april-cal-webapp/">Braid April
-Tag Calibration Tool</a>. There is
-also <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">a tutorial Jupyter
-notebook</a>
-for a manual approach involving April Tags. These April Tag approaches may be
-particularly interesting in a setting where Braid is used for tracking in a
-Virtual Reality setup where computer displays can be used to show April Tags.</p>
-<h2><a class="header" href="#mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters" id="mcsc-method-step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters">MCSC Method, Step 1: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters</a></h2>
+power cycled, these values will be reset.</p>
+<p>Try to obtain a luminance distribution which extends across the entire dynamic
+range of your sensor (from intensity values 0 to 255) with very little clipping.</p>
+<h2><a class="header" href="#step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters-for-each-camera" id="step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters-for-each-camera">Step 1: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters for each camera</a></h2>
 <p>(There is a script to draw checkerboards as SVG files:
 <a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py"><code>draw_checkerboard_svg.py</code></a>.)</p>
 <p>In Strand Cam, there is a region called &quot;Checkerboard Calibration&quot; which allows
@@ -224,141 +225,40 @@ results of this calibration are saved to the directory
 <p>As an alternative to running this procedure live with Strand Camera, you may
 operate on a directory of PNG images and <a href="https://github.com/strawlab/strand-braid/tree/main/strand-cam/strand-cam-offline-checkerboards">the <code>strand-cam-offline-checkerboards</code>
 program</a>.</p>
-<p>Repeat this for all cameras before proceeding to the next step.</p>
-<h2><a class="header" href="#mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc" id="mcsc-method-step-2-collect-calibration-data-and-run-multicamselfcal-mcsc">MCSC Method, Step 2: collect calibration data and run MultiCamSelfCal (MCSC)</a></h2>
-<p>To calibrate Braid, we use
-<a href="https://github.com/strawlab/MultiCamSelfCal">MultiCamSelfCal</a>. This is a
-software package which takes simultaneously captured images of an LED moving
-through a volume to create a single calibration for all cameras.</p>
-<h3><a class="header" href="#acquire-a-dataset-for-multicamselfcal" id="acquire-a-dataset-for-multicamselfcal">Acquire a dataset for MultiCamSelfCal</a></h3>
-<p>Room lights should be off.</p>
-<p>Synchronize your cameras and start saving data and begin to collect data by
-moving a LED in the arena (try move the LED in the whole arena volume, also turn
-it off and on sometimes to validate synchronization). When you are done, stop
-saving.</p>
-<h3><a class="header" href="#run-multicamselfcal-on-data-collected-with-braid" id="run-multicamselfcal-on-data-collected-with-braid">Run MultiCamSelfCal on data collected with Braid</a></h3>
-<p>Collect data and calibrate similar to <a href="https://github.com/strawlab/flydra/blob/main/docs/flydra-sphinx-docs/calibrating.md">the description for
-Flydra</a></p>
-<p>We will run the <code>braidz-mcsc</code> program to export the data for MCSC and then to
-run MCSC. Use something like the following, updating for your specific case:</p>
-<pre><code class="language-ignore">braidz-mcsc --input 20241017_164418.braidz --checkerboard-cal-dir ~/.config/strand-cam/camera_info --use-nth-observation 4
+<p>Regardless of whether you create the YAML file containing the camera intrinsic
+parameters, the first lines of the YAML file will contain a comment like the following showing the mean reprojection distance.</p>
+<pre><code class="language-text"># Mean reprojection distance: 0.49
 </code></pre>
-<p>Here:</p>
-<ul>
-<li><code>--input 20241017_164418.braidz</code> specifieds the name of the file, saved by
-Braid, containing the collected data to be used by MCSC.</li>
-<li><code>--checkerboard-cal-dir ~/.config/strand-cam/camera_info</code> specifies the
-directory containing <code>.yaml</code> files saved by
-<code>strand-cam-offline-checkerboards</code>.</li>
-<li><code>--use-nth-observation 4</code> indicates that only every 4th frame of data should
-be exported. See below.</li>
-</ul>
-<p>This will print various pieces of information to the console when it runs. First it will print something like this:</p>
-<pre><code class="language-ignore">851 points
-by camera id:
- Basler_40022057: 802
- Basler_40025037: 816
- Basler_40025042: 657
- Basler_40025383: 846
-by n points:
- 3: 283
- 4: 568
-Saved to directory &quot;20241017_164418.braidz.mcsc&quot;.
+<p>The mean reprojection distance is a measure of how well the checkerboard
+calibration procedure functioned and shows the mean distance between the images
+of the checkerboard corners in the saved images compared to a (re)projection of
+the calibration's model of the checkerboard into a synthetic image, and is
+measured in units of pixels. The theoretical optimal distance is zero. Typically
+one can expect mean reprojection distances of one or two pixels at most.</p>
+<p>Repeat this procedure for all cameras before proceeding to the next step.</p>
+<h2><a class="header" href="#step-2-place-april-tags-at-known-3d-locations-in-the-scene" id="step-2-place-april-tags-at-known-3d-locations-in-the-scene">Step 2: place April Tags at known 3D locations in the scene</a></h2>
+<p>We need to place fiducial markers with known locations in our scene such that
+each camera sees several of them. Three markers visible per camera is a
+mathematical bare minimum, but more is better. If multiple cameras can see a
+single marker, this can be helpful to ensure the calibration of all cameras is
+internally consistent.</p>
+<p>Store the 3D location of the center of each tag in a <code>markers-3d-coords.csv</code>
+file like the following:</p>
+<pre><code class="language-csv">id,x,y,z
+10,0.265,0.758,0.112
+15,-0.520,0.773,0.770
+20,-0.241,0.509,0.060
+22,-0.501,1.025,1.388
 </code></pre>
-<p>This means that 851 frames were acquired in which 3 or more cameras detected exactly one point.
-The contribution from each camera is listed. In this example, all cameras had between 657 and
-846 points. Then, the number of points detected by exactly 3 cameras is shown (283 such frames)
-and exactly 4 cameras (568 frames).</p>
-<p>Important things to watch for are listed here. These may be useful, but are rather
-rough guidelines to provide some orientation:</p>
-<ul>
-<li>
-<p>No camera should have very few points, otherwise this camera will not contribute much to
-the overall calibration and will likely have a bad calibration itself.</p>
-</li>
-<li>
-<p>The number of points used should be somewhere between 300 and 1000. Fewer than 300 points
-often results in poor quality calibrations. More than 1000 points results in the calibration
-procedure being very slow. The <code>--use-nth-observation</code> command line argument can be used
-to change the number of points used.</p>
-</li>
-</ul>
-<p>After running successfully, the console output should look something like this:</p>
-<pre><code class="language-ignore">********** After 0 iteration *******************************************
-RANSAC validation step running with tolerance threshold: 10.00 ...
-RANSAC: 1 samples, 811 inliers out of 811 points
-RANSAC: 2 samples, 811 inliers out of 811 points
-RANSAC: 2 samples, 762 inliers out of 762 points
-RANSAC: 1 samples, 617 inliers out of 617 points
-811 points/frames have survived validations so far
-Filling of missing points is running ...
-Repr. error in proj. space (no fact./fact.) is ...  0.386139 0.379033
-************************************************************
-Number of detected outliers:   0
-About cameras (Id, 2D reprojection error, #inliers):
-CamId    std       mean  #inliers
-  1      0.41      0.41    762
-  2      0.33      0.33    811
-  3      0.49      0.41    617
-  4      0.33      0.37    811
-***************************************************************
-**************************************************************
-Refinement by using Bundle Adjustment
-Repr. error in proj. space (no fact./fact./BA) is ...  0.388949 0.381359 0.358052
-2D reprojection error
-All points: mean  0.36 pixels, std is 0.31
-
-Unaligned calibration XML saved to 20241017_164418-unaligned.xml
-</code></pre>
-<p>Important things to watch for:</p>
-<ul>
-<li>
-<p>There should only be one iteration (numbered <code>0</code>).</p>
-</li>
-<li>
-<p>The mean reprojection error should be low. Certainly less than
-1 pixel and ideally less than 0.5 pixels as shown here.</p>
-</li>
-<li>
-<p>The reprojection error should be low across all cameras.</p>
-</li>
-</ul>
-<p>The above example calibration is a good one.</p>
-<p>In the example above, the file <code>20241017_164418-unaligned.xml</code> was created. You
-may now use this new calibration, saved as an XML file, as the calibration for
-Braid. Specify the filename of your new XML file as <code>cal_fname</code> in the
-<code>[mainbrain]</code> section of your Braid configuration <code>.toml</code> file.</p>
-<h3><a class="header" href="#with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate" id="with-the-new-calibration-perform-offline-tracking-the-data-used-to-calibrate">With the new calibration, perform offline tracking the data used to calibrate.</a></h3>
-<p>Now you have a working calibration, which is NOT aligned or scaled to any
-coordinate system, but in an undefined coordinate system that the MCSC code
-picked. We can use this calibration to do tracking, although in general having
-correct scaling is important for good tracking. The reason correct scaling is
-important for good quality tracking is because Braid tracks using a dynamic
-model of movement in which maneuverability is parameterized and performance is
-best when the actual maneuverability matches the expected statistical
-paramterization.</p>
-<p>Now we will take our existing &quot;unaligned&quot; calibration, and despite the scaling
-and alignment issue, track some points so that we have 3D coordinates. We will
-use these 3D coordinates to &quot;align&quot; our calibration -- to adjust its scaling,
-rotation, and translation to arrive at a final calibration which outputs
-coordinates in the desired frame.</p>
-<p>(TODO: add more detail here.) Using the unaligned calibration from above,
-collect a dataset which contains known 3D reference locations. Using the Braid
-browser UI, note the 3D location of each 3D reference location as founded by
-Braid using the unaligned calibration. Save the unaligned and reference 3D
-locations to <code>.csv</code> files with the following schema:</p>
-<pre><code class="language-csv">x,y,z
-1,2,3
-4,5,6
-</code></pre>
-<p>Now run the <code>align-calibration</code> script like so:</p>
-<pre><code class="language-ignore">align-calibration --ground-truth-3d reference.csv --unaligned-3d unaligned.csv --unaligned-cal unaligned-calibration.xml --output-aligned-cal aligned-calibration.xml
-</code></pre>
-<p>If succesful, this will print various diagnostic information concluding with a
-section <code>Mean distance between ground truth and transformed points</code>. This can be
-interpreted as the quality of the alignment where smaller numbers are better and
-zero is perfect. As with all usage of braid, distances are specified in meters.</p>
-<h3><a class="header" href="#calibration-with-water" id="calibration-with-water">Calibration with water</a></h3>
+<p>This is a CSV file giving the April Tag ID number and the X, Y and Z coordinates
+of each marker. The coordinate system must be right-handed and the units of each
+coordinate are meters.</p>
+<h2><a class="header" href="#step-3-record-detections-of-april-tags-from-each-camera" id="step-3-record-detections-of-april-tags-from-each-camera">Step 3: record detections of April Tags from each camera</a></h2>
+<p>TODO: write this. Quick hint: use Strand Cam to record an april tag detection
+CSV file for each camera.</p>
+<h2><a class="header" href="#step-4-estimate-extrinsic-parameters-and-save-braid-xml-calibration-file" id="step-4-estimate-extrinsic-parameters-and-save-braid-xml-calibration-file">Step 4: Estimate extrinsic parameters and save Braid .xml calibration file</a></h2>
+<p>TODO: write this. Quick hint: Use <code>braid-april-cal-cli</code> script.</p>
+<h3><a class="header" href="#optional-calibration-with-water" id="optional-calibration-with-water">Optional: Calibration with water</a></h3>
 <p>As described
 <a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid
 can track objects in water. To enable this, place the string
