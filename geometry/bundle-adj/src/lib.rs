@@ -79,10 +79,10 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
 #[derive(Clone, Debug, PartialEq, Copy, clap::ValueEnum, Default)]
 pub enum ModelType {
     OpenCV5,
-    #[default]
     OpenCV4,
     Linear,
     ExtrinsicsOnly,
+    #[default]
     FxFyExtrinsicsOnly,
 }
 

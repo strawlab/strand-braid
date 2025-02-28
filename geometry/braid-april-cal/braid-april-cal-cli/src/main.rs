@@ -57,6 +57,10 @@ struct Cli {
     #[arg(long, default_value_t = 1)]
     bundle_adjustment_min_cams_per_point: usize,
 
+    /// If performing bundle adjustment, specify the model type.
+    #[arg(long, value_enum, default_value_t)]
+    bundle_adjustment_model_type: bundle_adj::ModelType,
+
     /// Log data to rerun viewer at this socket address. (The typical address is
     /// "127.0.0.1:9876".)
     #[arg(long)]
@@ -92,6 +96,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         rerun,
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
+        bundle_adjustment_model_type,
     } = cli;
 
     let fiducial_3d_coords_buf = std::fs::read(apriltags_3d_fiducial_coords.as_std_path())
@@ -504,7 +509,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         &points0,
     )?;
 
-    let model_type = bundle_adj::ModelType::FxFyExtrinsicsOnly;
+    let model_type = bundle_adjustment_model_type;
     let ba = {
         // Initialize structures for bundle adjustment. We initialize
         // `bundle_adj::BundleAdjuster`, even if we don't want to run bundle
