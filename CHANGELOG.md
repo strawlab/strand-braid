@@ -19,7 +19,9 @@
   driver. In the braid .toml configuration file, specify the camera with
   `start_backend = "vimba"`.
 * Implementation of Rust-based calibration programs, eliminating the need to use
-  Python flydra scripts.
+  Python flydra scripts. Updated
+  https://strawlab.github.io/strand-braid/braid_calibration.html to describe the
+  new tools.
 * Braidz Viewer website at https://braidz.strawlab.org/ can be installed as a
   [Progressive Web App
   (PWA)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app).
