@@ -323,7 +323,7 @@ fn normalize_point(
     (x, y)
 }
 
-fn solve_extrinsics<'a>(
+fn run_sqpnp<'a>(
     points: &'a [AprilTagCorrespondingPoint<f64>],
     intrinsics: &NamedIntrinsicParameters<f64>,
 ) -> Result<CamSolution<'a>, MyError> {
@@ -458,8 +458,16 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
         };
 
         let sln = if let Some(kgi) = src_data.known_good_intrinsics.as_ref() {
+            if points.len() < 4 {
+                return Err(MyError {
+                    cam_name: Some(cam_name.clone()),
+                    msg:
+                        "For camera \"{cam_name}\": Need minimum 4 corresponding 3D and 2D points to run SQPnP."
+                            .to_string(),
+                });
+            }
             let known_good_intrinsics = kgi.get(cam_name).unwrap();
-            match solve_extrinsics(&points, known_good_intrinsics) {
+            match run_sqpnp(&points, known_good_intrinsics) {
                 Ok(sln) => sln,
                 Err(my_error) => {
                     let corr_ids: Vec<_> = points.iter().map(|x| x.id).collect();
@@ -477,7 +485,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
                     return Err(MyError {
                         cam_name: Some(cam_name.clone()),
                         msg: format!(
-                            "While running solve_extrinsics for camera \"{cam_name}\": {}. Check input 3d points, 2d points, and intrinsics.",
+                            "While running run_sqpnp for camera \"{cam_name}\": {}. Check input 3d points, 2d points, and intrinsics.",
                             my_error.msg
                         ),
                     });

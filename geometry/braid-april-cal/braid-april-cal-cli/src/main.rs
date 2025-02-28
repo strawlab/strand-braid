@@ -504,10 +504,11 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         &points0,
     )?;
 
-    let multi_cam_system = if !bundle_adjustment {
-        flydra_mvg::FlydraMultiCameraSystem::from_system(cal_result.cam_system.clone(), None)
-    } else {
-        // Initialize structures for bundle adjustment.
+    let model_type = bundle_adj::ModelType::FxFyExtrinsicsOnly;
+    let ba = {
+        // Initialize structures for bundle adjustment. We initialize
+        // `bundle_adj::BundleAdjuster`, even if we don't want to run bundle
+        // adjustment because it draws our 3D cameras in rerun.
         let mut cams0 = Vec::new();
         for name in cam_names.iter() {
             let cam = cal_result.cam_system.cam_by_name(name).unwrap();
@@ -521,14 +522,12 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             };
             cams0.push(cam);
         }
-        let model_type = bundle_adj::ModelType::FxFyExtrinsicsOnly;
         // Reshape observations to 2xN matrix.
         let observed = nalgebra::Matrix2xX::<f64>::from_column_slice(&observed);
         assert_eq!(observed.ncols(), cam_idx.len());
         assert_eq!(pt_idx.len(), cam_idx.len());
 
-        // Perform bundle adjustment.
-        let ba = bundle_adj::BundleAdjuster::new(
+        bundle_adj::BundleAdjuster::new(
             observed,
             cam_idx,
             pt_idx,
@@ -539,8 +538,13 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             labels3d,
             model_type,
             rec,
-        )?;
+        )?
+    };
 
+    let multi_cam_system = if !bundle_adjustment {
+        flydra_mvg::FlydraMultiCameraSystem::from_system(cal_result.cam_system.clone(), None)
+    } else {
+        // Perform bundle adjustment.
         let residuals_pre = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
         tracing::debug!("residuals prior to bundle adjustment: {residuals_pre}");
 
