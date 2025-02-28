@@ -1525,31 +1525,13 @@ impl AprilTagWriter {
         let mut fd: Box<dyn std::io::Write + Send> =
             Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
 
-        let april_config = AprilConfig {
+        let april_config = apriltag_detection_writer::AprilConfig {
             created_at: local,
             camera_name: camera_name.to_string(),
             camera_width_pixels,
             camera_height_pixels,
         };
-        let cfg_yaml = serde_yaml::to_string(&april_config).unwrap();
-        writeln!(
-            fd,
-            "# The homography matrix entries (h00,...) are described in the April Tags paper"
-        )?;
-        writeln!(
-            fd,
-            "# https://dx.doi.org/10.1109/ICRA.2011.5979561 . Entry h22 is not saved because"
-        )?;
-        writeln!(
-            fd,
-            "# it always has value 1. The center pixel of the detection is (h02,h12)."
-        )?;
-        writeln!(fd, "# -- start of yaml config --")?;
-        for line in cfg_yaml.lines() {
-            writeln!(fd, "# {}", line)?;
-        }
-        writeln!(fd, "# -- end of yaml config --")?;
-
+        apriltag_detection_writer::write_header(&mut fd, Some(&april_config))?;
         let wtr = csv::Writer::from_writer(fd);
 
         Ok(Self { wtr, t0: now })
@@ -1601,15 +1583,6 @@ fn frame2april(frame: &DynamicFrame) -> Result<Box<dyn apriltag::ImageU8>> {
             Ok(Box::new(im))
         }
     }
-}
-
-#[cfg(feature = "fiducial")]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct AprilConfig {
-    created_at: chrono::DateTime<chrono::Local>,
-    camera_name: String,
-    camera_width_pixels: usize,
-    camera_height_pixels: usize,
 }
 
 // The center pixel of the detection is (h02,h12)

@@ -1,5 +1,7 @@
 // Copyright 2021-2024 Scott Lamb <slamb@slamb.org>
 
+use serde::{Deserialize, Serialize};
+
 /// The Unix epoch as an [`NtpTimestamp`].
 pub(crate) const UNIX_EPOCH: NtpTimestamp = NtpTimestamp((2_208_988_800) << 32);
 
@@ -20,7 +22,8 @@ pub(crate) const UNIX_EPOCH: NtpTimestamp = NtpTimestamp((2_208_988_800) << 32);
 /// nonsense.
 ///
 /// The NTP timestamp of the Unix epoch is available via the constant [`UNIX_EPOCH`].
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub(crate) struct NtpTimestamp(pub u64);
 
 impl std::fmt::Display for NtpTimestamp {

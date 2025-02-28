@@ -32,8 +32,9 @@ fn main() -> eyre::Result<()> {
         output
     });
 
-    let do_decode_h264 = false;
-    let mut src = frame_source::from_path(&opt.input, do_decode_h264)
+    let mut src = frame_source::FrameSourceBuilder::new(&opt.input)
+        .do_decode_h264(false)
+        .build_source()
         .with_context(|| format!("while opening path {}", opt.input.display()))?;
 
     let start_time = src

@@ -4,21 +4,37 @@ use std::{
     process::{Child, ChildStdout, Command, Stdio},
 };
 
-use anyhow::{Context, Result};
+use camino::Utf8PathBuf;
 use clap::Parser;
+use eyre::{Context, Result};
 use machine_vision_formats::pixel_format::Mono8;
 use serde::{Deserialize, Serialize};
 
 use ads_apriltag as apriltag;
 use y4m_writer::Y4MFrame;
 
-#[derive(Parser)]
-#[command(version)]
+#[derive(Parser, Default)]
+#[command(version, about, long_about = None)]
 pub struct Cli {
-    /// The input video filename
-    pub input_video: std::path::PathBuf,
+    #[arg(long)]
+    /// The input video filename.
+    pub input: Utf8PathBuf,
 
-    /// Maximum number of frames to analyze
+    #[arg(long)]
+    /// The output csv filename, e.g. <input_base>.apriltag.csv
+    pub output: Utf8PathBuf,
+
+    #[arg(long)]
+    /// Camera name. This is optional. If set, a YAML header with the camera
+    /// name will be saved.
+    pub cam_name: Option<String>,
+
+    #[arg(long)]
+    /// Force overwriting output.
+    pub force: bool,
+
+    #[arg(long)]
+    /// Maximum number of frames to analyze.
     pub max_num_frames: Option<usize>,
 }
 
@@ -50,15 +66,32 @@ impl FfmpegFrameIterator {
     fn new<P: AsRef<Path>>(fname: P) -> Result<(Self, Child)> {
         #[rustfmt::skip]
         let args = [
-            "-nostdin",
-            "-i", &format!("{}", fname.as_ref().display()),
-            "-vsync", "0",
-            "-f", "yuv4mpegpipe",
-            "pipe:",
+            "-nostats".as_ref(),
+            "-hide_banner".as_ref(),
+            "-nostdin".as_ref(),
+            "-i".as_ref(), fname.as_ref().as_os_str(),
+            "-f".as_ref(), "yuv4mpegpipe".as_ref(),
+            "pipe:".as_ref(),
         ];
-        let mut ffmpeg_child = Command::new("ffmpeg")
-            .args(args)
-            .stdout(Stdio::piped())
+
+        let show_ffmpeg = match std::env::var_os("FFMPEG_SHOW") {
+            Some(v) => &v != "0",
+            None => false,
+        };
+
+        if show_ffmpeg {
+            println!("ffmpeg {}", args.map(|x| x.to_str().unwrap()).join(" "));
+        }
+        let mut cmd0 = Command::new("ffmpeg");
+        let cmd = cmd0.args(args);
+
+        let cmd = if show_ffmpeg {
+            cmd
+        } else {
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped())
+        };
+
+        let mut ffmpeg_child = cmd
             .spawn()
             .with_context(|| format!("When spawning: ffmpeg {:?}", args))?;
         let ffmpeg_out = ffmpeg_child.stdout.take().unwrap();
@@ -128,16 +161,15 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     raw_td.refine_edges = 1;
     raw_td.decode_sharpening = 0.25;
 
-    let csv_output_fname = format!("{}.csv", cli.input_video.display());
+    let csv_output_fname = cli.output;
 
-    println!("Decoding input: {}", cli.input_video.display());
-    println!("Will output to:");
-    println!("{}", &csv_output_fname);
-    let (mut frames, mut ffmpeg_child) = FfmpegFrameIterator::new(&cli.input_video)?;
+    println!("Decoding input: {}", cli.input);
+    println!("Will output to: {csv_output_fname}");
+    let (mut frames, mut ffmpeg_child) = FfmpegFrameIterator::new(&cli.input)?;
 
     let mut frame_store;
 
-    let frame_iter: &mut dyn Iterator<Item = Result<Y4MFrame, anyhow::Error>> =
+    let frame_iter: &mut dyn Iterator<Item = eyre::Result<Y4MFrame>> =
         if let Some(max_num_frames) = cli.max_num_frames {
             frame_store = Some(frames.take(max_num_frames));
             frame_store.as_mut().unwrap()
@@ -167,19 +199,26 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         if !detections.is_empty() {
             if wtr.is_none() {
-                let mut fd = std::fs::File::create(&csv_output_fname)?;
-                writeln!(
-                    fd,
-                    "# The homography matrix entries (h00,...) are described in the April Tags paper"
-                )?;
-                writeln!(
-                    fd,
-                    "# https://dx.doi.org/10.1109/ICRA.2011.5979561 . Entry h22 is not saved because"
-                )?;
-                writeln!(
-                    fd,
-                    "# it always has value 1. The center pixel of the detection is (h02,h12)."
-                )?;
+                let create_file = if cli.force {
+                    std::fs::File::create
+                } else {
+                    std::fs::File::create_new
+                };
+
+                let mut fd = create_file(&csv_output_fname)
+                    .with_context(|| format!("when creating {csv_output_fname}"))?;
+                let april_config = if let Some(cam_name) = &cli.cam_name {
+                    Some(apriltag_detection_writer::AprilConfig {
+                        created_at: chrono::Local::now(),
+                        camera_name: cam_name.clone(),
+                        camera_width_pixels: y4m_frame.width.try_into().unwrap(),
+                        camera_height_pixels: y4m_frame.height.try_into().unwrap(),
+                    })
+                } else {
+                    None
+                };
+
+                apriltag_detection_writer::write_header(&mut fd, april_config.as_ref())?;
                 wtr = Some(csv::Writer::from_writer(fd));
             }
 

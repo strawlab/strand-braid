@@ -1,3 +1,4 @@
+#[derive(PartialEq, Eq)]
 pub(crate) struct Peek2<I: std::iter::Iterator> {
     inner: I,
     slot1: Option<I::Item>,

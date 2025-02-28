@@ -151,6 +151,7 @@ impl<R: Read + Seek> BraidzArchive<R> {
     }
 }
 
+#[derive(PartialEq)]
 pub struct D2DInfo {
     pub qz: BTreeMap<CamNum, Seq2d>,
     pub frame_lim: [u64; 2],
@@ -160,7 +161,7 @@ pub struct D2DInfo {
 
 impl std::fmt::Debug for D2DInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        f.debug_struct("KalmanEstimatesInfo")
+        f.debug_struct("D2DInfo")
             .field("frame_lim", &self.frame_lim)
             .field("time_limits", &self.time_limits)
             .field("num_rows", &self.num_rows)
@@ -171,6 +172,7 @@ impl std::fmt::Debug for D2DInfo {
 /// Column store for 2D detections for a single camera.
 ///
 /// Note that these are not filled when there is no detection.
+#[derive(PartialEq)]
 pub struct Seq2d {
     /// The frame number in the synchronized, global frame count.
     pub frame: Vec<i64>,

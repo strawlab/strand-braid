@@ -129,13 +129,12 @@ fn main() -> Result<()> {
             eprintln!("Performing initial open of \"{}\".", input_path.display());
         }
 
-        let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-        let mut src = frame_source::from_path_with_srt_timestamp_source(
-            &input_path,
-            do_decode_h264,
-            cli.timestamp_source.into(),
-            srt_file_path,
-        )?;
+        let mut src = frame_source::FrameSourceBuilder::new(&input_path)
+            .do_decode_h264(false) // no need to decode h264 to get timestamps.
+            .timestamp_source(cli.timestamp_source.into())
+            .srt_file_path(srt_file_path)
+            .show_progress(cli.progress)
+            .build_source()?;
 
         if cli.progress {
             eprintln!("Done with initial open.");
@@ -146,7 +145,9 @@ fn main() -> Result<()> {
 
             // Custom progress bar with space at right end to prevent obscuring last
             // digit with cursor.
-            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+            let style = ProgressStyle::with_template(
+                "Loading timestamps {wide_bar} {pos}/{len} ETA: {eta} ",
+            )?;
             Some(ProgressBar::new(lower_bound.try_into().unwrap()).with_style(style))
         } else {
             None
@@ -242,6 +243,10 @@ fn main() -> Result<()> {
             count += 1;
         }
 
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
+        }
+
         match cli.output {
             OutputFormat::EveryFrame | OutputFormat::Summary => {
                 if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp {
@@ -257,9 +262,6 @@ fn main() -> Result<()> {
                 }
             }
             _ => {}
-        }
-        if let Some(pb) = pb {
-            pb.finish_and_clear();
         }
     }
 

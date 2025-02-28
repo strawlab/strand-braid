@@ -127,15 +127,12 @@ impl FfmpegReWriter {
         tracing::debug!("Done creating original .mp4 and .srt files.");
 
         // Create reader for h264 data from .mp4 and timestamps from .srt.
-        let timestamp_source = frame_source::TimestampSource::SrtFile;
-        let do_decode_h264 = false;
-        tracing::debug!("Opening original .mp4 and .srt files for reading.");
-        let mut frame_src = frame_source::mp4_source::from_path_with_timestamp_source(
-            &self.mp4_filename,
-            do_decode_h264,
-            timestamp_source,
-            Some(PathBuf::from(&self.srt_file_path)),
-        )?;
+        let mut frame_src = frame_source::FrameSourceBuilder::new(&self.mp4_filename)
+            .do_decode_h264(false)
+            .timestamp_source(frame_source::TimestampSource::SrtFile)
+            .srt_file_path(Some(PathBuf::from(&self.srt_file_path)))
+            .build_h264_in_mp4_source()?;
+
         let frame0_time = frame_src.frame0_time().unwrap();
 
         // Create new .mp4 file, also with original h264 metadata.
@@ -275,13 +272,10 @@ mod test {
             wtr.close()?;
         }
 
-        let do_decode_h264 = false;
-        let timestamp_source = frame_source::TimestampSource::MispMicrosectime;
-        let mut frame_src = frame_source::from_path_with_timestamp_source(
-            &mp4_fname,
-            do_decode_h264,
-            timestamp_source,
-        )?;
+        let mut frame_src = frame_source::FrameSourceBuilder::new(&mp4_fname)
+            .do_decode_h264(false)
+            .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+            .build_source()?;
 
         let frame0_time = frame_src.frame0_time().unwrap();
         assert_eq!(frame0_time, timestamps[0]);

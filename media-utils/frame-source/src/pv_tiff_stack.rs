@@ -76,6 +76,9 @@ impl FrameDataSource for PvTiffStack {
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
         Some(self.frame0_time)
     }
+    fn average_framerate(&self) -> Option<f64> {
+        None
+    }
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         // take 5 images or all of them, whatever is less.
         let n_images = self.paths.len().min(5);

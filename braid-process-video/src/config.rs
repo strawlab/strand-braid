@@ -82,7 +82,7 @@ impl Validate for BraidzOutputConfig {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ProcessingConfig {
     pub feature_detection_method: FeatureDetectionMethod,
@@ -90,7 +90,7 @@ pub struct ProcessingConfig {
     pub tracking_parameters_source: TrackingParametersSource,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, tag = "type")]
 #[derive(Default)]
 pub enum FeatureDetectionMethod {
@@ -99,10 +99,9 @@ pub enum FeatureDetectionMethod {
     CopyExisting,
     // #[serde(rename = "bright-point")]
     // BrightPoint(BrightPointOptions),
-    // #[serde(rename = "flydra")]
-    // Flydra,
+    #[serde(rename = "flydra")]
+    Flydra(std::collections::BTreeMap<String, flydra_feature_detector::ImPtDetectCfg>),
 }
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -127,7 +126,6 @@ pub enum CameraCalibrationSource {
     CopyExisting,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
 #[derive(Default)]
@@ -138,7 +136,6 @@ pub enum TrackingParametersSource {
     #[default]
     Default,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -191,7 +188,7 @@ impl Default for VideoOutputConfig {
     }
 }
 
-pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv", ".mp4"];
+pub const VALID_VIDEO_SOURCES: &[&str] = &[".fmf", ".fmf.gz", ".mkv", ".mp4", ".h264"];
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
@@ -275,6 +272,8 @@ pub struct BraidRetrackVideoConfig {
     /// The interval between adjacent frames. Defaults to the value detected in
     /// the first frames of the given video inputs.
     pub frame_duration_microsecs: Option<u64>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub disable_local_time: bool,
     /// The first output frame to render, skipping prior frames
     pub skip_n_first_output_frames: Option<usize>,
     /// maximum number of frames to render
@@ -294,6 +293,7 @@ impl Default for BraidRetrackVideoConfig {
         Self {
             sync_threshold_microseconds: None,
             frame_duration_microsecs: None,
+            disable_local_time: false,
             skip_n_first_output_frames: None,
             max_num_frames: None,
             log_interval_frames: None,
@@ -356,13 +356,24 @@ impl Validate for BraidRetrackVideoConfig {
 pub struct VideoSourceConfig {
     pub filename: String,
     pub camera_name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub timestamp_source: frame_source::TimestampSource,
+}
+
+/// returns `true` if the value is equal to
+/// `Default::default()`.
+fn is_default<T>(value: &T) -> bool
+where
+    T: PartialEq + Default,
+{
+    value == &T::default()
 }
 
 impl VideoSourceConfig {
     fn new(filename: &str) -> Self {
         Self {
             filename: filename.to_string(),
-            camera_name: None,
+            ..Default::default()
         }
     }
 }

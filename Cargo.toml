@@ -73,7 +73,9 @@ members = [
     "led-box/led-box",
     "led-box/led-box-comms",
     "led-box/led-box-standalone",
+    "media-utils/apriltag-detection-writer",
     "media-utils/bg-movie-writer",
+    "media-utils/create-timelapse",
     "media-utils/dump-frame",
     "media-utils/ffmpeg-writer",
     "media-utils/ffmpeg-rewriter",
@@ -271,6 +273,7 @@ zip = { version = "2.2.2", default-features = false, features = [
 
 ads-apriltag = { path = "ads-apriltag" }
 ads-webasm = { path = "ads-webasm" }
+apriltag-detection-writer = { path = "media-utils/apriltag-detection-writer" }
 basic-frame = { path = "basic-frame" }
 bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }

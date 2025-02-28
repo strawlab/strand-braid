@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use opencv_ros_camera::NamedIntrinsicParameters;
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,8 @@ use nalgebra::{
 };
 
 use argmin::core::{CostFunction, Error as ArgminError};
+
+use apriltag_detection_writer::AprilConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AprilTagCorrespondingPoint<R: RealField> {
@@ -44,12 +46,12 @@ fn cam_with_params(orig: &mvg::Camera<f64>, param: &[f64]) -> Result<mvg::Camera
     Ok(this_cam)
 }
 
-struct CalibProblem {
+struct CalibProblem<'a> {
     linear_cam: mvg::Camera<f64>,
-    points: Vec<AprilTagCorrespondingPoint<f64>>,
+    points: &'a [AprilTagCorrespondingPoint<f64>],
 }
 
-impl CostFunction for CalibProblem {
+impl<'a> CostFunction for CalibProblem<'a> {
     type Param = Vec<f64>;
     type Output = f64;
 
@@ -63,40 +65,42 @@ impl CostFunction for CalibProblem {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MyError {
+    pub cam_name: Option<String>,
     pub msg: String,
+}
+
+impl MyError {
+    pub fn new(msg: String) -> Self {
+        Self {
+            cam_name: None,
+            msg,
+        }
+    }
 }
 
 impl std::error::Error for MyError {}
 
 impl From<std::io::Error> for MyError {
     fn from(orig: std::io::Error) -> MyError {
-        MyError {
-            msg: format!("std::io::Error: {}", orig),
-        }
+        MyError::new(format!("std::io::Error: {}", orig))
     }
 }
 
 impl From<serde_yaml::Error> for MyError {
     fn from(orig: serde_yaml::Error) -> MyError {
-        MyError {
-            msg: format!("serde_yaml::Error: {}", orig),
-        }
+        MyError::new(format!("serde_yaml::Error: {}", orig))
     }
 }
 
 impl From<serde_json::Error> for MyError {
     fn from(orig: serde_json::Error) -> MyError {
-        MyError {
-            msg: format!("serde_json::Error: {}", orig),
-        }
+        MyError::new(format!("serde_json::Error: {}", orig))
     }
 }
 
 impl From<mvg::MvgError> for MyError {
     fn from(orig: mvg::MvgError) -> MyError {
-        MyError {
-            msg: format!("mvg::MvgError: {}", orig),
-        }
+        MyError::new(format!("mvg::MvgError: {}", orig))
     }
 }
 
@@ -120,18 +124,11 @@ pub struct Fiducial3DCoords {
 /// those as they are not necessary for our purposes here.
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct AprilDetection {
+    pub frame: u64,
+    pub hamming: i32,
     pub id: i32,
     pub h02: f64,
     pub h12: f64,
-}
-
-/// This matches the definition in strand-cam.rs. TODO: fix DRY violation.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AprilConfig {
-    pub created_at: chrono::DateTime<chrono::Local>,
-    pub camera_name: String,
-    pub camera_width_pixels: usize,
-    pub camera_height_pixels: usize,
 }
 
 pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError> {
@@ -149,9 +146,7 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
         match state {
             ReaderState::JustStarted => {
                 if !line.starts_with("# ") {
-                    return Err(MyError {
-                        msg: "File did not start with comment '# '".into(),
-                    });
+                    return Err(MyError::new("No YAML config at start of file".into()));
                 }
                 if line == "# -- start of yaml config --" {
                     state = ReaderState::InYaml(Vec::new());
@@ -168,9 +163,9 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
                         yaml_lines.push(cleaned.to_string());
                     }
                 } else {
-                    return Err(MyError {
-                        msg: "YAML section started but never finished".into(),
-                    });
+                    return Err(MyError::new(
+                        "YAML section started but never finished".into(),
+                    ));
                 }
             }
         }
@@ -184,9 +179,9 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
         let cfg: AprilConfig = serde_yaml::from_reader(yaml_buf.as_slice())?;
         Ok(cfg)
     } else {
-        Err(MyError {
-            msg: "YAML section started but never finished".into(),
-        })
+        Err(MyError::new(
+            "YAML section started but never finished".into(),
+        ))
     }
 }
 
@@ -222,10 +217,23 @@ impl CalibrationResult {
     }
 }
 
+#[derive(Default, Debug)]
+struct NoCorresp {
+    #[allow(dead_code)]
+    ids_3d: BTreeSet<u32>,
+    ids_2d: BTreeSet<i32>,
+}
+
 fn gather_points_per_cam(
     object_points: &BTreeMap<u32, [f64; 3]>,
     cam_data: &[AprilDetection],
-) -> Result<Vec<AprilTagCorrespondingPoint<f64>>, MyError> {
+) -> Result<Vec<AprilTagCorrespondingPoint<f64>>, NoCorresp> {
+    let ids_3d = object_points.keys().map(Clone::clone).collect();
+    let mut err = NoCorresp {
+        ids_3d,
+        ids_2d: Default::default(),
+    };
+
     // Iterate through all rows of detection data to collect all detections
     // per marker.
     let mut uv_per_id = BTreeMap::new();
@@ -234,6 +242,7 @@ fn gather_points_per_cam(
             .entry(row.id as u32)
             .or_insert_with(Vec::new)
             .push((row.h02, row.h12)); // The (x,y) pixel coord of detection.
+        err.ids_2d.insert(row.id);
     }
 
     let mut points = Vec::new();
@@ -256,12 +265,16 @@ fn gather_points_per_cam(
         }
     }
 
-    Ok(points)
+    if !points.is_empty() {
+        Ok(points)
+    } else {
+        Err(err)
+    }
 }
 
-struct CamSolution {
+struct CamSolution<'a> {
     final_cam: mvg::Camera<f64>,
-    points: Vec<AprilTagCorrespondingPoint<f64>>,
+    points: &'a [AprilTagCorrespondingPoint<f64>],
 }
 
 fn dlt(
@@ -271,7 +284,7 @@ fn dlt(
     // Compute linear calibration here
     let epsilon = 1e-10;
     let dlt_pmat =
-        dlt::dlt_corresponding(points, epsilon).map_err(|msg| MyError { msg: msg.into() })?;
+        dlt::dlt_corresponding(points, epsilon).map_err(|msg| MyError::new(msg.into()))?;
 
     let cam1 =
         mvg::Camera::from_pmat(cfg.camera_width_pixels, cfg.camera_height_pixels, &dlt_pmat)?;
@@ -310,10 +323,10 @@ fn normalize_point(
     (x, y)
 }
 
-fn solve_extrinsics(
-    points: Vec<AprilTagCorrespondingPoint<f64>>,
+fn solve_extrinsics<'a>(
+    points: &'a [AprilTagCorrespondingPoint<f64>],
     intrinsics: &NamedIntrinsicParameters<f64>,
-) -> Result<CamSolution, MyError> {
+) -> Result<CamSolution<'a>, MyError> {
     use glam::f32::{Vec2, Vec3};
 
     let p2ds: Vec<(f64, f64)> = points
@@ -364,17 +377,15 @@ fn solve_extrinsics(
 
         Ok(CamSolution { final_cam, points })
     } else {
-        Err(MyError {
-            msg: "sqpnp failed to find solution".to_string(),
-        })
+        Err(MyError::new("sqpnp failed to find solution".to_string()))
     }
 }
 
-fn dlt_then_distortion(
+fn dlt_then_distortion<'a>(
     cfg: &AprilConfig,
-    points: Vec<AprilTagCorrespondingPoint<f64>>,
-) -> Result<CamSolution, MyError> {
-    let dlt_points: Vec<_> = points.clone().into_iter().map(|x| x.into()).collect();
+    points: &'a [AprilTagCorrespondingPoint<f64>],
+) -> Result<CamSolution<'a>, MyError> {
+    let dlt_points: Vec<_> = points.iter().map(|x| x.clone().into()).collect();
     // First, calculate "linear" (no distortion) camera model using DLT.
     let linear_cam = dlt(cfg, &dlt_points)?;
 
@@ -413,16 +424,17 @@ fn dlt_then_distortion(
     Ok(CamSolution { final_cam, points })
 }
 
-pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyError> {
+pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError> {
     let mut object_points = BTreeMap::new();
     for row in src_data.fiducial_3d_coords.iter() {
         if object_points
             .insert(row.id, [row.x, row.y, row.z])
             .is_some()
         {
-            return Err(MyError {
-                msg: format!("multiple entries for ID {} in 3D data file", row.id),
-            });
+            return Err(MyError::new(format!(
+                "multiple entries for ID {} in 3D data file",
+                row.id
+            )));
         }
     }
 
@@ -430,20 +442,49 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
     let mut cams = BTreeMap::new();
     let mut cam_points = BTreeMap::new();
 
+    if src_data.per_camera_2d.is_empty() {
+        return Err(MyError::new(format!("No camera has 2D detections.")));
+    }
+
     for (cam_name, all_cam_data) in src_data.per_camera_2d.iter() {
         let (cfg, cam_data) = all_cam_data;
         assert_eq!(&cfg.camera_name, cam_name);
 
-        let points = gather_points_per_cam(&object_points, cam_data)?;
-        if points.is_empty() {
-            return Err(MyError{msg:format!("Camera {}: could not compute reprojection distance. Are there marker detections also in 3D data?", cam_name)});
-        }
+        let points = match gather_points_per_cam(&object_points, cam_data) {
+            Ok(points) => points,
+            Err(err) => {
+                return Err(MyError{cam_name: Some(cam_name.clone()), msg:format!("Camera {cam_name}: no matching April Tags in 3D coords and 2D detections {err:?}")});
+            }
+        };
 
         let sln = if let Some(kgi) = src_data.known_good_intrinsics.as_ref() {
             let known_good_intrinsics = kgi.get(cam_name).unwrap();
-            solve_extrinsics(points, known_good_intrinsics)?
+            match solve_extrinsics(&points, known_good_intrinsics) {
+                Ok(sln) => sln,
+                Err(my_error) => {
+                    let corr_ids: Vec<_> = points.iter().map(|x| x.id).collect();
+                    tracing::info!(
+                        "for camera \"{cam_name}\": 3d and 2d corresponding point ids: {corr_ids:?}"
+                    );
+                    tracing::info!(
+                        "for camera \"{cam_name}\": fx: {:.1}, fy: {:.1}, cx: {:.1}, cy: {:.1}, distortion: {:?}",
+                        known_good_intrinsics.intrinsics.fx(),
+                        known_good_intrinsics.intrinsics.fy(),
+                        known_good_intrinsics.intrinsics.cx(),
+                        known_good_intrinsics.intrinsics.cy(),
+                        known_good_intrinsics.intrinsics.distortion,
+                    );
+                    return Err(MyError {
+                        cam_name: Some(cam_name.clone()),
+                        msg: format!(
+                            "While running solve_extrinsics for camera \"{cam_name}\": {}. Check input 3d points, 2d points, and intrinsics.",
+                            my_error.msg
+                        ),
+                    });
+                }
+            }
         } else {
-            dlt_then_distortion(cfg, points)?
+            dlt_then_distortion(cfg, &points)?
         };
 
         let CamSolution { final_cam, points } = sln;
@@ -451,7 +492,7 @@ pub fn do_calibrate_system(src_data: &CalData) -> Result<CalibrationResult, MyEr
 
         cams.insert(cam_name.clone(), final_cam);
         mean_reproj_dist.insert(cam_name.clone(), mean_dist);
-        cam_points.insert(cam_name.clone(), points);
+        cam_points.insert(cam_name.clone(), points.to_vec());
     }
 
     let cam_system = mvg::MultiCameraSystem::new(cams);

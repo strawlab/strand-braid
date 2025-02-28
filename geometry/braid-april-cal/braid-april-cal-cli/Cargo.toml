@@ -34,3 +34,4 @@ undistort-image.workspace = true
 tempfile.workspace = true
 zip.workspace = true
 download-verify.workspace = true
+tracing-test.workspace = true

@@ -21,6 +21,8 @@ memchr.workspace = true
 bytes.workspace = true
 winnow = "0.7.3"
 uuid.workspace = true
+indicatif.workspace = true
+eyre.workspace = true
 
 basic-frame.workspace = true
 ci2-remote-control.workspace = true

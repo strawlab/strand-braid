@@ -52,6 +52,8 @@ fn test_h264_precision_timestamps() -> Result<()> {
         do_decode_h264,
         crate::TimestampSource::BestGuess,
         None,
+        false,
+        None,
     )?;
 
     assert_eq!(src.width(), W);

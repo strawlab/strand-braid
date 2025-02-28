@@ -23,6 +23,7 @@ glam = "0.29.2"
 
 mvg = { workspace = true, features = ["serde-serialize"] }
 flydra-mvg.workspace = true
+apriltag-detection-writer.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true

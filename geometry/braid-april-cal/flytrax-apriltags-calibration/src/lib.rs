@@ -9,11 +9,14 @@ use opencv_ros_camera::NamedIntrinsicParameters;
 use ads_apriltag as apriltag;
 use ads_webasm::components::{parse_csv, MaybeCsvData};
 
+use apriltag_detection_writer::AprilConfig;
+
 mod img_write;
 mod tiny_skia_frame;
 
 struct AprilTagCoords2D {
     id: i32,
+    hamming: i32,
     x: f64,
     y: f64,
 }
@@ -60,6 +63,7 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
             let c = det.center();
             AprilTagCoords2D {
                 id: det.id(),
+                hamming: det.hamming(),
                 x: c[0],
                 y: c[1],
             }
@@ -188,7 +192,9 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
         let detections2: Vec<_> = detections
             .iter()
             .map(|d| AprilDetection {
+                frame: 0,
                 id: d.id,
+                hamming: d.hamming,
                 h02: d.x,
                 h12: d.y,
             })
@@ -215,7 +221,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
         known_good_intrinsics,
     };
 
-    let cal_result = braid_april_cal::do_calibrate_system(&src_data)?;
+    let cal_result = braid_april_cal::run_sqpnp_or_dlt(&src_data)?;
 
     tracing::info!(
         "Calibration result for {}: {:.2} pixel mean reprojection distance",

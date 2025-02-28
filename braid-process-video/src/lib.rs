@@ -136,6 +136,7 @@ pub(crate) struct BraidzFrameInfo {
     kalman_estimates: Vec<KalmanEstimatesRow>,
 }
 
+/// advance the iterators in `readers` so that they are all start around `approx_start_time`.
 fn synchronize_readers_from(
     approx_start_time: DateTime<FixedOffset>,
     readers: &mut [Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>],
@@ -374,9 +375,20 @@ impl CameraSource {
             CameraIdentifier::BraidzOnly(_) => None,
         }
     }
+    fn camsrc_framerate(
+        &self,
+        braidz_archive: Option<&braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>>,
+    ) -> Option<f64> {
+        match &self.cam_id {
+            CameraIdentifier::MovieOnly(ref m) => m.framerate(),
+            CameraIdentifier::BraidzOnly(_) | CameraIdentifier::Both((_, _)) => {
+                Some(braidz_archive.unwrap().expected_fps)
+            }
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, Eq, PartialEq)]
 enum CameraIdentifier {
     MovieOnly(MovieCamId),
     BraidzOnly(BraidzCamId),
@@ -389,13 +401,16 @@ impl CameraIdentifier {
             CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
                 // Prefer:
                 // 1) configured name
-                // 2) camera name saved in file metadata
-                // 3) filename
+                // 2) camera name saved as title in file metadata
+                // 3) cam_from_filename
+                // 4) filename
                 m.cfg_name.as_ref().cloned().unwrap_or_else(|| {
-                    m.title
-                        .as_ref()
-                        .cloned()
-                        .unwrap_or_else(|| m.filename.clone())
+                    m.title.as_ref().cloned().unwrap_or_else(|| {
+                        m.cam_from_filename
+                            .as_ref()
+                            .cloned()
+                            .unwrap_or_else(|| m.filename.clone())
+                    })
                 })
             }
             CameraIdentifier::BraidzOnly(b) => b.cam_id_str.clone(),
@@ -416,6 +431,7 @@ struct MovieCamId {
     _full_path: std::path::PathBuf,
     /// The file reader
     reader: Option<Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>>,
+    my_framerate: Option<f64>,
     /// File name of the movie (without directory path)
     filename: String,
     /// Source of timestamp data in the video file
@@ -429,7 +445,28 @@ struct MovieCamId {
     frame0_time: chrono::DateTime<chrono::FixedOffset>,
 }
 
+impl PartialEq for MovieCamId {
+    fn eq(&self, other: &Self) -> bool {
+        self._full_path == other._full_path
+            && self.filename == other.filename
+            && self.timestamp_source == other.timestamp_source
+    }
+}
+
+impl Eq for MovieCamId {}
+
+impl std::hash::Hash for MovieCamId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self._full_path.hash(state);
+        self.filename.hash(state);
+        self.timestamp_source.hash(state);
+    }
+}
+
 impl MovieCamId {
+    fn framerate(&self) -> Option<f64> {
+        self.my_framerate
+    }
     fn raw_name(&self) -> Option<String> {
         if let Some(title) = &self.title {
             return Some(title.clone());
@@ -454,26 +491,31 @@ impl std::fmt::Debug for MovieCamId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 struct BraidzCamId {
     cam_id_str: String,
     camn: flydra_types::CamNum,
 }
 
-pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std::path::PathBuf>> {
+pub async fn run_config(
+    cfg: &Valid<BraidRetrackVideoConfig>,
+    show_progress: bool,
+) -> Result<Vec<std::path::PathBuf>> {
     let cfg = cfg.valid();
 
-    let mut braid_archive = cfg
-        .input_braidz
-        .as_ref()
-        .map(braidz_parser::braidz_parse_path)
-        .transpose()
-        .with_context(|| {
-            format!(
-                "opening braidz archive {}",
-                cfg.input_braidz.as_ref().unwrap()
-            )
-        })?;
+    let mut braid_archive = if let Some(input_braidz) = cfg.input_braidz.as_ref() {
+        tracing::debug!("parsing braidz file");
+        Some(
+            braidz_parser::braidz_parse_path(&input_braidz).with_context(|| {
+                format!(
+                    "opening braidz archive {}",
+                    cfg.input_braidz.as_ref().unwrap()
+                )
+            })?,
+        )
+    } else {
+        None
+    };
 
     let braidz_summary = braid_archive.as_ref().map(|archive| {
         let path = archive.path();
@@ -482,7 +524,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         braidz_parser::summarize_braidz(archive, filename, attr.len())
     });
 
-    let tracking_parameters = braid_archive.as_ref().and_then(|archive| {
+    let braidz_tracking_params = braid_archive.as_ref().and_then(|archive| {
         archive
             .kalman_estimates_info
             .as_ref()
@@ -497,17 +539,18 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         .as_ref()
         .map(|archive| archive.expected_fps as f32);
 
+    tracing::debug!("Opening {} frame sources", cfg.input_video.len());
     let frame_sources: Vec<_> = cfg
         .input_video
         .iter()
         .map(|s| {
-            let do_decode_h264 = true;
-            frame_source::from_path(&s.filename, do_decode_h264)
+            tracing::debug!("Opening frame source {}", s.filename);
+            frame_source::FrameSourceBuilder::new(&s.filename)
+                .timestamp_source(s.timestamp_source.clone())
+                .build_source()
         })
-        .collect();
-    let frame_sources = frame_sources
-        .into_iter()
-        .collect::<frame_source::Result<Vec<_>>>()?;
+        .collect::<frame_source::Result<Vec<Box<dyn FrameDataSource>>>>()?;
+    tracing::debug!("Frame sources opened");
 
     let frame_sources = Box::new(frame_sources);
     let frame_sources: &'static mut [Box<dyn FrameDataSource>] = frame_sources.leak();
@@ -518,7 +561,24 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         .iter()
         .zip(frame_sources.iter_mut())
         .map(|(s, frame_source)| {
-            let frame0_time = frame_source.frame0_time().unwrap();
+            let frame0_time = frame_source.frame0_time().ok_or_else(|| {
+                eyre::eyre!(
+                    "could not determine first frame timestamp for {}",
+                    s.filename
+                )
+            })?;
+
+            let frame0_time = if !cfg.disable_local_time {
+                // convert to local timezone
+                let frame0_local: DateTime<chrono::Local> = frame0_time.into();
+                // convert back to fixed offset
+                frame0_local.into()
+            } else {
+                frame0_time
+            };
+
+            let my_framerate = frame_source
+                .average_framerate();
             let timestamp_source: String = frame_source.timestamp_source().into();
 
             let title: Option<String> = frame_source.camera_name().map(Into::into);
@@ -528,11 +588,12 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             let full_path = std::path::PathBuf::from(&s.filename);
 
             let (filename, cam_from_filename) = braidz_types::camera_name_from_filename(&full_path);
-            tracing::debug!(
-                "Video source {}: timestamp_source {}",
-                filename,
-                timestamp_source
-            );
+            let av_fps_str = if let Some(av_fps) = &my_framerate {
+                format!("{av_fps:.2}")
+            } else {
+                "<unknown>".to_string()
+            };
+            tracing::info!("Video source: {filename}, timestamp_source: {timestamp_source}, average framerate: {av_fps_str}");
 
             let cam_id = CameraIdentifier::MovieOnly(MovieCamId {
                 _full_path: full_path,
@@ -543,6 +604,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                 cam_from_filename,
                 frame0_time,
                 reader,
+                my_framerate,
             });
 
             let per_cam_render = PerCamRender::from_reader(&cam_id);
@@ -642,12 +704,12 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
     let camera_names: Vec<String> = sources
         .iter()
         .map(|s| match &s.cam_id {
-            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
-                m.raw_name().unwrap()
-            }
-            CameraIdentifier::BraidzOnly(b) => b.cam_id_str.clone(),
+            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => m
+                .raw_name()
+                .ok_or_else(|| eyre::eyre!("no raw_name for {m:?}")),
+            CameraIdentifier::BraidzOnly(b) => Ok(b.cam_id_str.clone()),
         })
-        .collect();
+        .collect::<Result<_>>()?;
 
     // Build iterator to iterate over output frames. This is equivalent to
     // iterating over synchronized input frames.
@@ -667,6 +729,15 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         let braid_archive = braidz_iter::BraidArchiveNoVideoData::new(statik, camns)?;
         Box::new(braid_archive)
     } else {
+        let framerates = sources
+            .iter()
+            .map(|r| {
+                r.camsrc_framerate(braid_archive.as_ref()).ok_or_else(|| {
+                    eyre::eyre!("no framerate determined for {}", r.cam_id.best_name())
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let mut frame_readers: Vec<_> = sources
             .iter_mut()
             .map(|s| s.take_reader().unwrap())
@@ -687,38 +758,21 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             .frame_duration_microsecs
             .map(|x| chrono::Duration::from_std(std::time::Duration::from_micros(x)).unwrap())
             .unwrap_or_else(|| {
-                chrono::TimeDelta::from_std(
-                    frame_readers
-                        .iter()
-                        .map(|reader| {
-                            let p1_pts = reader
-                                .peek1()
-                                .unwrap()
-                                .as_ref()
-                                .unwrap()
-                                .timestamp()
-                                .unwrap_duration();
-                            let p2_pts = reader
-                                .peek2()
-                                .unwrap()
-                                .as_ref()
-                                .unwrap()
-                                .timestamp()
-                                .unwrap_duration();
-                            p2_pts - p1_pts
-                        })
-                        .min()
-                        .unwrap(),
-                )
-                .unwrap()
+                // Take average framerate of all cameras.
+                let avg_fps = framerates.iter().sum::<f64>() / framerates.len() as f64;
+                let dt = 1.0 / avg_fps;
+                chrono::TimeDelta::from_std(std::time::Duration::from_secs_f64(dt)).unwrap()
             });
+        tracing::debug!(
+            "frame_duration: {} microseconds",
+            frame_duration.num_microseconds().unwrap()
+        );
 
         let sync_threshold = cfg
             .sync_threshold_microseconds
             .map(|x| chrono::TimeDelta::from_std(std::time::Duration::from_micros(x)).unwrap())
             .unwrap_or(frame_duration / 2);
-
-        tracing::info!(
+        tracing::debug!(
             "sync_threshold: {} microseconds",
             sync_threshold.num_microseconds().unwrap()
         );
@@ -766,7 +820,8 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
             // Create output dirs if needed.
             let output_filename = std::path::PathBuf::from(output.filename());
             if let Some(dest_dir) = output_filename.parent() {
-                std::fs::create_dir_all(dest_dir)?;
+                std::fs::create_dir_all(dest_dir)
+                    .with_context(|| format!("while creating directory {}", dest_dir.display()))?;
             }
 
             match output {
@@ -781,7 +836,7 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
                     let braidz_storage = output_braidz::BraidStorage::new(
                         cfg,
                         &b,
-                        tracking_parameters.clone(),
+                        braidz_tracking_params.clone(),
                         &sources,
                         all_expected_cameras.clone(),
                         expected_framerate,
@@ -803,19 +858,27 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         None => moment_iter,
     };
 
-    let pb = match moment_iter.size_hint().1 {
-        Some(n_expected) => {
-            // Custom progress bar with space at right end to prevent obscuring last
-            // digit with cursor.
-            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
-            ProgressBar::new(n_expected.try_into().unwrap()).with_style(style)
+    let mut pb = if show_progress {
+        match moment_iter.size_hint().1 {
+            Some(n_expected) => {
+                // Custom progress bar with space at right end to prevent obscuring last
+                // digit with cursor.
+                let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+                Some(ProgressBar::new(n_expected.try_into().unwrap()).with_style(style))
+            }
+            None => Some(ProgressBar::new_spinner()),
         }
-        None => ProgressBar::new_spinner(),
+    } else {
+        None
     };
+
+    let mut history_state = HistoryState::new();
 
     // Iterate over all output frames.
     for (out_fno, synced_data) in moment_iter.enumerate() {
-        pb.set_position(out_fno.try_into().unwrap());
+        if let Some(pb) = pb.as_mut() {
+            pb.set_position(out_fno.try_into().unwrap());
+        }
         let synced_data = synced_data?;
 
         if let Some(start_frame) = cfg.skip_n_first_output_frames {
@@ -835,8 +898,14 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         }
 
         // --- Collect input data for this timepoint. -----
-        let all_cam_render_data =
-            gather_frame_data(&synced_data, &sources, &mut output_storage, cfg)?;
+        let all_cam_render_data = gather_frame_data(
+            out_fno,
+            &synced_data,
+            &sources,
+            &mut output_storage,
+            cfg,
+            &mut history_state,
+        )?;
 
         // --- Done collecting input data for this timepoint. -----
         for output in output_storage.iter_mut() {
@@ -846,7 +915,9 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
         }
     }
 
-    pb.finish_and_clear();
+    if let Some(pb) = pb.as_mut() {
+        pb.finish_and_clear();
+    }
 
     // collect output filenames
     let outputs = output_storage
@@ -861,11 +932,29 @@ pub async fn run_config(cfg: &Valid<BraidRetrackVideoConfig>) -> Result<Vec<std:
     Ok(outputs)
 }
 
+/// This stores all persistent state across all cameras.
+struct HistoryState<'a> {
+    flydra_feature_detectors: std::collections::HashMap<
+        &'a CameraIdentifier,
+        flydra_feature_detector::FlydraFeatureDetector,
+    >,
+}
+
+impl<'a> HistoryState<'a> {
+    fn new() -> Self {
+        Self {
+            flydra_feature_detectors: Default::default(),
+        }
+    }
+}
+
 fn gather_frame_data<'a>(
+    out_fno: usize,
     synced_data: &SyncedPictures,
     sources: &'a [CameraSource],
     output_storage: &mut [OutputStorage],
     cfg: &BraidRetrackVideoConfig,
+    history_state: &mut HistoryState<'a>,
 ) -> Result<Vec<PerCamRenderFrame<'a>>> {
     let synced_pics: &[OutTimepointPerCamera] = &synced_data.camera_pictures;
 
@@ -873,49 +962,103 @@ fn gather_frame_data<'a>(
     let mut all_cam_render_data = Vec::with_capacity(n_pics);
     assert_eq!(n_pics, sources.len());
     for (per_cam, source) in synced_pics.iter().zip(sources.iter()) {
+        let mut wrote_debug = false;
+
         // Copy the default information for this camera and then we will
         // start adding information relevant for this frame in time.
         let mut cam_render_data = source.per_cam_render.new_render_data(per_cam.timestamp);
 
-        // Did we get an image from the MP4 file?
-        if let Some(pic) = &per_cam.image {
-            cam_render_data.set_original_image(pic)?;
-        }
-        let mut wrote_debug = false;
-
-        cam_render_data.pts_chrono = per_cam.timestamp;
-
-        cam_render_data
-            .reprojected_points
-            .extend(synced_data.project_kests(source, &synced_data.recon));
-
-        for row_data2d in per_cam.this_cam_this_frame.iter() {
-            {
-                for output in output_storage.iter_mut() {
-                    if let OutputStorage::Debug(d) = output {
-                        writeln!(
-                            d.fd,
-                            "   Collect {}: {}, frame {}, {}, {}",
-                            source.cam_id.best_name(),
-                            per_cam.timestamp,
-                            row_data2d.frame,
-                            row_data2d.x,
-                            row_data2d.y,
-                        )?;
-                        wrote_debug = true;
+        match &cfg.processing_config.feature_detection_method {
+            FeatureDetectionMethod::CopyExisting => {
+                // Copy existing data
+                for row_data2d in per_cam.this_cam_this_frame.iter() {
+                    // Debug output.
+                    {
+                        for output in output_storage.iter_mut() {
+                            if let OutputStorage::Debug(d) = output {
+                                writeln!(
+                                    d.fd,
+                                    "   Collect {}: {}, frame {}, {}, {}",
+                                    source.cam_id.best_name(),
+                                    per_cam.timestamp,
+                                    row_data2d.frame,
+                                    row_data2d.x,
+                                    row_data2d.y,
+                                )?;
+                                wrote_debug = true;
+                            }
+                        }
                     }
-                }
-            }
 
-            match &cfg.processing_config.feature_detection_method {
-                FeatureDetectionMethod::CopyExisting => {
+                    // Camera render data
                     if let Ok(x) = NotNan::new(row_data2d.x) {
                         let y = NotNan::new(row_data2d.y).unwrap();
                         cam_render_data.append_2d_point(x, y)?;
                     }
                 }
             }
+            FeatureDetectionMethod::Flydra(per_cam_cfg) => {
+                if let Some(pic) = &per_cam.image {
+                    let entry = history_state
+                        .flydra_feature_detectors
+                        .entry(&source.cam_id)
+                        .or_insert_with(|| {
+                            // create new FlydraFeatureDetector
+                            let best_name = source.cam_id.best_name();
+                            let im_pt_cfg = per_cam_cfg
+                                .get(&best_name)
+                                .map(Clone::clone)
+                                .unwrap_or_else(|| {
+                                    tracing::info!("for {}: creating default flydra feature detector configuration",
+                                        source.cam_id.best_name());
+                                    flydra_pt_detect_cfg::default_absdiff()
+                                });
+                            let raw_cam_name = RawCamName::new(source.cam_id.best_name());
+                            flydra_feature_detector::FlydraFeatureDetector::new(
+                                &raw_cam_name,
+                                pic.width(),
+                                pic.height(),
+                                im_pt_cfg,
+                                None,
+                                None,
+                            )
+                            .unwrap()
+                        });
+
+                    tracing::warn!("converting image to MONO8");
+                    let mono8 = pic
+                        .clone()
+                        .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
+                    let dyn_mono8 = basic_frame::DynamicFrame::from(mono8);
+
+                    let (detections, _) = entry.process_new_frame(
+                        &dyn_mono8,
+                        out_fno,
+                        per_cam.timestamp.into(),
+                        flydra_feature_detector::UfmfState::Stopped,
+                        None,
+                        None,
+                        None,
+                    )?;
+                    for point in detections.points.into_iter() {
+                        let x = NotNan::new(point.x0_abs)?;
+                        let y = NotNan::new(point.y0_abs)?;
+                        cam_render_data.append_2d_point(x, y)?;
+                    }
+                }
+            }
         }
+
+        // Did we get an image from the MP4 file?
+        if let Some(pic) = &per_cam.image {
+            cam_render_data.set_original_image(pic)?;
+        }
+
+        cam_render_data.pts_chrono = per_cam.timestamp;
+
+        cam_render_data
+            .reprojected_points
+            .extend(synced_data.project_kests(source, &synced_data.recon));
 
         if !wrote_debug {
             for output in output_storage.iter_mut() {

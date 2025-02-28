@@ -62,8 +62,6 @@ impl Iterator for SyncedIter {
 
         let mut have_more_data = false;
 
-        let mut stamps = Vec::with_capacity(self.frame_readers.len());
-
         let camera_pictures: Vec<frame_source::Result<crate::OutTimepointPerCamera>> = self
             .frame_readers
             .iter_mut()
@@ -74,30 +72,20 @@ impl Iterator for SyncedIter {
                 let mp4_frame = if let Some(timestamp1) = timestamp1 {
                     have_more_data = true;
                     if min_threshold <= timestamp1 && timestamp1 <= max_threshold {
-                        stamps.push(timestamp1);
                         frame_reader.next()
-                    } else {
-                        // The next frame is not within the range expected.
-                        if timestamp1 > max_threshold {
-                            // A frame was skipped and the next frame is too far in
-                            // the future.
-                            None
-                        } else if timestamp1 < min_threshold {
-                            // Just skip a frame in the file? Not sure about this.
-                            // tracing::warn!(
-                            //     "Two frames within minimum threshold file {}. Skipping frame with timestamp {}.",
-                            //     frame_reader.as_ref().filename().display(), timestamp1,
-                            // );
-                            tracing::warn!(
-                                "Two frames within minimum threshold. Skipping frame with timestamp {}.",
-                                timestamp1,
-                            );
-                            frame_reader.next();
-                            frame_reader.next()
-                        } else {
-                            // Hmmm
-                            todo!();
-                        }
+                    } else if timestamp1 > max_threshold {
+                        tracing::warn!(
+                            "The next frame is too far in the future."
+                        );
+                        None
+                    } else  {
+                        assert!(timestamp1 < min_threshold);
+                        tracing::warn!(
+                            "Two frames within minimum threshold. Skipping frame with timestamp {}.",
+                            timestamp1,
+                        );
+                        frame_reader.next();
+                        frame_reader.next()
                     }
                 } else {
                     // end of stream:
@@ -124,17 +112,6 @@ impl Iterator for SyncedIter {
             })
             .collect();
 
-        self.previous_min = stamps
-            .iter()
-            .min()
-            .copied()
-            .unwrap_or_else(|| self.previous_min + self.frame_duration);
-        self.previous_max = stamps
-            .iter()
-            .max()
-            .copied()
-            .unwrap_or_else(|| self.previous_max + self.frame_duration);
-
         if have_more_data {
             let camera_pictures: frame_source::Result<Vec<crate::OutTimepointPerCamera>> =
                 camera_pictures.into_iter().collect();
@@ -145,6 +122,20 @@ impl Iterator for SyncedIter {
                     return Some(Err(e.into()));
                 }
             };
+
+            let stamps: Vec<DateTime<FixedOffset>> =
+                camera_pictures.iter().map(|x| x.timestamp).collect();
+
+            self.previous_min = stamps
+                .iter()
+                .min()
+                .copied()
+                .unwrap_or_else(|| self.previous_min + self.frame_duration);
+            self.previous_max = stamps
+                .iter()
+                .max()
+                .copied()
+                .unwrap_or_else(|| self.previous_max + self.frame_duration);
 
             let timestamp = stamps[0];
 

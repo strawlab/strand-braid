@@ -51,6 +51,16 @@ impl SrtData {
     }
 }
 
+pub trait H264Preparser {
+    fn put_seq_param_set(&mut self, nalu: &RefNal<'_>) -> eyre::Result<()>;
+    fn put_pic_param_set(&mut self, nalu: &RefNal<'_>) -> eyre::Result<()>;
+    fn put_sei_nalu(&mut self, nalu: &RefNal<'_>) -> eyre::Result<()>;
+    fn put_slice_layer_nalu(&mut self, nalu: &RefNal<'_>, is_i_frame: bool) -> eyre::Result<()>;
+    fn set_num_positions(&mut self, num_positions: usize) -> eyre::Result<()>;
+    fn set_position(&mut self, pos: usize) -> eyre::Result<()>;
+    fn close(self) -> eyre::Result<()>;
+}
+
 // Found in libx264-encoded h264 streams. See
 // https://code.videolan.org/videolan/x264/-/blob/da14df5535/encoder/set.c#L598
 const X264_UUID: &[u8; 16] = uuid::uuid!("dc45e9bd-e6d9-48b7-962c-d820d923eeef").as_bytes();
@@ -107,18 +117,35 @@ pub struct H264Source<H: SeekableH264Source> {
     frame_time_info: Vec<FrameTimeInfo>,
     pub h264_metadata: Option<H264Metadata>,
     frame0_precision_time: Option<chrono::DateTime<chrono::FixedOffset>>,
-    frame0_frameinfo_recv_ntp: Option<NtpTimestamp>,
+    frame0_frameinfo: Option<FrameInfo>,
     width: u32,
     height: u32,
     do_decode_h264: bool,
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
     srt_data: Option<SrtData>,
+    average_fps: Option<f64>,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
     pub fn as_seekable_h264_source(&self) -> &H {
         &self.seekable_h264_source
+    }
+
+    fn create_iter_unchecked<'a>(
+        &'a mut self,
+        frame_idx: usize,
+    ) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
+        let openh264_decoder_state = if self.do_decode_h264 {
+            Some(crate::opt_openh264_decoder::DecoderType::new().unwrap())
+        } else {
+            None
+        };
+        Box::new(RawH264Iter {
+            parent: self,
+            frame_idx,
+            openh264_decoder_state,
+        })
     }
 }
 
@@ -131,7 +158,7 @@ pub struct FrameTimeInfo {
     /// files, each index corresponds to multiple NAL units.
     nal_location_index: usize,
     precise_timestamp: Option<DateTime<Utc>>,
-    frameinfo_recv_ntp: Option<NtpTimestamp>,
+    frameinfo: Option<FrameInfo>,
 }
 
 impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
@@ -152,13 +179,25 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
         match &self.timestamp_source {
             Some(TimestampSource::BestGuess) => unreachable!(),
+            Some(TimestampSource::FixedFramerate) => {
+                if let Some(t) = &self.frame0_precision_time {
+                    Some(*t)
+                } else if let Some(fi) = &self.frame0_frameinfo {
+                    Some(fi.recv.into())
+                } else {
+                    None
+                }
+            }
             Some(TimestampSource::MispMicrosectime) => self.frame0_precision_time,
-            Some(TimestampSource::FrameInfoRecvTime) => {
-                Some(self.frame0_frameinfo_recv_ntp.unwrap().into())
+            Some(TimestampSource::FrameInfoRecvTime) | Some(TimestampSource::FrameInfoRtp) => {
+                Some(self.frame0_frameinfo.as_ref().unwrap().recv.into())
             }
             Some(TimestampSource::Mp4Pts) | None => None,
             Some(TimestampSource::SrtFile) => self.srt_data.as_ref().map(|x| x.frame0_time()),
         }
+    }
+    fn average_framerate(&self) -> Option<f64> {
+        self.average_fps
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 {
@@ -175,17 +214,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
         Err(Error::NotImplemented("h264 luminance scanning"))
     }
     fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
-        let openh264_decoder_state = if self.do_decode_h264 {
-            Some(crate::opt_openh264_decoder::DecoderType::new().unwrap())
-        } else {
-            None
-        };
-        Box::new(RawH264Iter {
-            parent: self,
-            frame_idx: 0,
-            next_nal_idx: 0,
-            openh264_decoder_state,
-        })
+        self.create_iter_unchecked(0)
     }
     fn timestamp_source(&self) -> &str {
         self.timestamp_source.as_str()
@@ -286,6 +315,8 @@ where
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
         srt_file_path: Option<std::path::PathBuf>,
+        show_progress: bool,
+        mut preparser: Option<Box<dyn H264Preparser>>,
     ) -> Result<Self> {
         let nal_locations: Vec<H::NalLocation> = seekable_h264_source.nal_boundaries().to_vec();
 
@@ -320,6 +351,11 @@ where
 
                 let isps =
                     h264_reader::nal::sps::SeqParameterSet::from_bits(sps_nal.rbsp_bits()).unwrap();
+                if let Some(preparser) = preparser.as_mut() {
+                    preparser
+                        .put_seq_param_set(&sps_nal)
+                        .map_err(Error::PreParserError)?;
+                }
                 parsing_ctx.put_seq_param_set(isps);
             }
 
@@ -335,18 +371,24 @@ where
                     pps_nal.rbsp_bits(),
                 )
                 .unwrap();
+                if let Some(preparser) = preparser.as_mut() {
+                    preparser
+                        .put_pic_param_set(&pps_nal)
+                        .map_err(Error::PreParserError)?;
+                }
                 parsing_ctx.put_pic_param_set(ipps);
             }
         }
 
         // iterate through all NAL units.
-        let (
-            frame_time_info,
-            frame0_precision_time,
-            frame0_frameinfo_recv_ntp,
-            h264_metadata,
-            tz_offset,
-        ) = load_timing_data(&nal_locations, &mut seekable_h264_source, &mut parsing_ctx)?;
+        let (frame_time_info, frame0_precision_time, frame0_frameinfo, h264_metadata, tz_offset) =
+            load_timing_data(
+                &nal_locations,
+                &mut seekable_h264_source,
+                &mut parsing_ctx,
+                show_progress,
+                preparser,
+            )?;
 
         let mut widthheight = None;
         for sps in parsing_ctx.sps() {
@@ -367,18 +409,19 @@ where
             crate::TimestampSource::BestGuess => {
                 if frame0_precision_time.is_some() {
                     (Some(crate::TimestampSource::MispMicrosectime), true)
-                } else if frame0_frameinfo_recv_ntp.is_some() {
-                    (Some(crate::TimestampSource::FrameInfoRecvTime), true)
+                } else if frame0_frameinfo.is_some() {
+                    (Some(crate::TimestampSource::FrameInfoRtp), true)
                 } else if mp4_pts.is_some() {
                     (Some(crate::TimestampSource::Mp4Pts), true)
                 } else {
                     (None, false)
                 }
             }
-            crate::TimestampSource::FrameInfoRecvTime => {
-                if frame0_frameinfo_recv_ntp.is_none() {
+            crate::TimestampSource::FixedFramerate => (Some(timestamp_source), true),
+            crate::TimestampSource::FrameInfoRecvTime | crate::TimestampSource::FrameInfoRtp => {
+                if frame0_frameinfo.is_none() {
                     return Err(Error::H264TimestampError(
-                        "Requested timestamp source FrameInfoRecvTime, but FrameInfo not present."
+                        "Requested timestamp that requires FrameInfo, but this information is not present."
                             .into(),
                     ));
                 }
@@ -413,6 +456,7 @@ where
                 )));
             }
         }
+        let average_fps = calc_avg_fps(&frame_time_info[..]);
 
         Ok(Self {
             seekable_h264_source,
@@ -421,14 +465,38 @@ where
             frame_time_info,
             h264_metadata,
             frame0_precision_time,
-            frame0_frameinfo_recv_ntp,
+            frame0_frameinfo,
             width,
             height,
             do_decode_h264,
             timestamp_source,
             has_timestamps,
             srt_data,
+            average_fps,
         })
+    }
+}
+
+fn calc_avg_fps(fti: &[FrameTimeInfo]) -> Option<f64> {
+    if fti.len() <= 1 {
+        return None;
+    }
+    let frames = (fti.len() - 1) as f64;
+    if let Some(t0) = fti[0].precise_timestamp {
+        // prefer precise_timestamps
+        let tend = fti[fti.len() - 1].precise_timestamp.unwrap();
+        let secs = (tend - t0).to_std().unwrap().as_secs_f64();
+        Some(frames / secs)
+    } else if let Some(fi) = &fti[0].frameinfo {
+        // else use FrameInfo
+        let t0: chrono::DateTime<chrono::Utc> = fi.recv.into();
+        let tend: chrono::DateTime<chrono::Utc> =
+            fti[fti.len() - 1].frameinfo.as_ref().unwrap().recv.into();
+        let secs = (tend - t0).to_std().unwrap().as_secs_f64();
+        Some(frames / secs)
+    } else {
+        // final resort
+        None
     }
 }
 
@@ -436,10 +504,12 @@ fn load_timing_data<H>(
     nal_locations: &[H::NalLocation],
     seekable_h264_source: &mut H,
     parsing_ctx: &mut H264ParsingContext,
+    show_progress: bool,
+    mut preparser: Option<Box<dyn H264Preparser>>,
 ) -> Result<(
     Vec<FrameTimeInfo>,
     Option<DateTime<Utc>>,
-    Option<NtpTimestamp>,
+    Option<FrameInfo>,
     Option<H264Metadata>,
     Option<FixedOffset>,
 )>
@@ -459,22 +529,50 @@ where
     let mut frame_time_info = Vec::new();
 
     let mut frame0_precision_time = None;
-    let mut frame0_frameinfo_recv_ntp = None;
+    let mut frame0_frameinfo = None;
 
     tracing::debug!(
         "Iterating through NAL units at {} locations to load timing data.",
         nal_locations.len()
     );
+
+    let mut pb = if show_progress {
+        // Custom progress bar with space at right end to prevent obscuring last
+        // digit with cursor.
+        let style = indicatif::ProgressStyle::with_template(
+            "Iterating NAL units in h264 source {wide_bar} {pos}/{len} ETA: {eta} ",
+        )
+        .unwrap();
+        Some(indicatif::ProgressBar::new(nal_locations.len().try_into().unwrap()).with_style(style))
+    } else {
+        None
+    };
+
+    if let Some(preparser) = preparser.as_mut() {
+        preparser
+            .set_num_positions(nal_locations.len())
+            .map_err(Error::PreParserError)?;
+    }
     // Cached value of MISP time data for the frame whose data is being accumulated.
     let mut precise_timestamp = None;
     // Cached value of frame number as we accumluate data.
     let mut next_frame_num = 0;
 
-    // Cached value of NTP received time data for the frame whose data is
-    // being accumulated.
-    let mut frameinfo_recv_ntp = None;
+    // Cached value of FrameInfo time data for the frame whose data is being
+    // accumulated.
+    let mut frameinfo = None;
 
     for (nal_location_index, nal_location) in nal_locations.iter().enumerate() {
+        if let Some(preparser) = preparser.as_mut() {
+            preparser
+                .set_position(nal_location_index)
+                .map_err(Error::PreParserError)?;
+        }
+
+        if let Some(pb) = pb.as_mut() {
+            pb.set_position(nal_location_index.try_into().unwrap());
+        }
+
         // Read all NAL units from this location. (For MP4 files, this means
         // read all NAL units from this sample. For H264 AnnexB files, this
         // will read a single NAL unit.)
@@ -488,6 +586,11 @@ where
             tracing::trace!("NAL unit location index {nal_location_index}, {nal_unit_type:?}");
             match nal_unit_type {
                 UnitType::SEI => {
+                    if let Some(preparser) = preparser.as_mut() {
+                        preparser
+                            .put_sei_nalu(&nal)
+                            .map_err(Error::PreParserError)?;
+                    }
                     let mut sei_reader = SeiReader::from_rbsp_bytes(nal.rbsp_bytes(), &mut scratch);
                     loop {
                         match sei_reader.next() {
@@ -538,9 +641,9 @@ where
                                             b"strawlab.org/89H" => {
                                                 let fi: FrameInfo =
                                                     serde_json::from_slice(udu.payload)?;
-                                                frameinfo_recv_ntp = Some(NtpTimestamp(fi.recv));
+                                                frameinfo = Some(fi.clone());
                                                 if next_frame_num == 0 {
-                                                    frame0_frameinfo_recv_ntp = frameinfo_recv_ntp;
+                                                    frame0_frameinfo = Some(fi);
                                                 }
                                             }
                                             _uuid => {
@@ -581,6 +684,11 @@ where
                 UnitType::SeqParameterSet => {
                     let isps =
                         h264_reader::nal::sps::SeqParameterSet::from_bits(nal.rbsp_bits()).unwrap();
+                    if let Some(preparser) = preparser.as_mut() {
+                        preparser
+                            .put_seq_param_set(&nal)
+                            .map_err(Error::PreParserError)?;
+                    }
                     parsing_ctx.put_seq_param_set(isps);
                 }
                 UnitType::PicParameterSet => {
@@ -589,6 +697,11 @@ where
                         nal.rbsp_bits(),
                     ) {
                         Ok(ipps) => {
+                            if let Some(preparser) = preparser.as_mut() {
+                                preparser
+                                    .put_pic_param_set(&nal)
+                                    .map_err(Error::PreParserError)?;
+                            }
                             parsing_ctx.put_pic_param_set(ipps);
                         }
                         Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
@@ -604,28 +717,39 @@ where
                 }
                 UnitType::SliceLayerWithoutPartitioningIdr
                 | UnitType::SliceLayerWithoutPartitioningNonIdr => {
+                    let is_i_frame = nal_unit_type == UnitType::SliceLayerWithoutPartitioningIdr;
+                    if let Some(preparser) = preparser.as_mut() {
+                        preparser
+                            .put_slice_layer_nalu(&nal, is_i_frame)
+                            .map_err(Error::PreParserError)?;
+                    }
                     // The NAL unit with the video frames comes after the
                     // timing into NAL unit(s) so we gather them now.
                     frame_time_info.push(FrameTimeInfo {
                         nal_location_index,
                         precise_timestamp,
-                        frameinfo_recv_ntp,
+                        frameinfo,
                     });
                     // Reset temporary values.
                     precise_timestamp = None;
-                    frameinfo_recv_ntp = None;
+                    frameinfo = None;
                     next_frame_num += 1;
                 }
                 _nal_unit_type => {}
             }
         }
     }
+
+    if let Some(pb) = pb.as_mut() {
+        pb.finish_and_clear();
+    }
+
     tracing::debug!("Done iterating through all NAL units.");
 
     Ok((
         frame_time_info,
         frame0_precision_time,
-        frame0_frameinfo_recv_ntp,
+        frame0_frameinfo,
         h264_metadata,
         tz_offset,
     ))
@@ -635,7 +759,6 @@ struct RawH264Iter<'parent, H: SeekableH264Source> {
     parent: &'parent mut H264Source<H>,
     /// frame index (not NAL unit index)
     frame_idx: usize,
-    next_nal_idx: usize,
     openh264_decoder_state: Option<crate::opt_openh264_decoder::DecoderType>,
 }
 
@@ -648,12 +771,9 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
 
         res.map(|nti| {
             // create slice of all NAL units up and including NALU for the frame
-            let nal_locations =
-                &self.parent.nal_locations[self.next_nal_idx..=(nti.nal_location_index)];
-            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[self.next_nal_idx]); // one per mp4 sample
-            let fraction_done = self.next_nal_idx as f32 / self.parent.nal_locations.len() as f32;
-
-            self.next_nal_idx = nti.nal_location_index + 1;
+            let nal_locations = &self.parent.nal_locations[frame_number..=(nti.nal_location_index)];
+            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[frame_number]); // one per mp4 sample
+            let fraction_done = frame_number as f32 / self.parent.nal_locations.len() as f32;
 
             let frame_timestamp = match self.parent.timestamp_source {
                 Some(TimestampSource::BestGuess) => unreachable!(),
@@ -668,11 +788,23 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                     )
                 }
                 Some(TimestampSource::FrameInfoRecvTime) => {
-                    let t0 = self.parent.frame0_frameinfo_recv_ntp.as_ref().unwrap();
-                    let t0: chrono::DateTime<chrono::Utc> = (*t0).into();
+                    let t0 = self.parent.frame0_frameinfo.as_ref().unwrap().recv;
+                    let t0: chrono::DateTime<chrono::Utc> = t0.into();
                     let this_frame: chrono::DateTime<chrono::Utc> =
-                        nti.frameinfo_recv_ntp.unwrap().into();
+                        nti.frameinfo.as_ref().unwrap().recv.into();
                     Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
+                }
+                Some(TimestampSource::FrameInfoRtp) => {
+                    let fi0 = self.parent.frame0_frameinfo.as_ref().unwrap();
+                    let rtp0 = fi0.rtp;
+                    let rtp_now = nti.frameinfo.as_ref().unwrap().rtp;
+                    let rtp_dur = rtp_now.wrapping_sub(rtp0);
+                    let rtp_dur_secs = rtp_dur as f64 / 90000.0; // nominally 90 kHz
+                    Timestamp::Duration(std::time::Duration::from_secs_f64(rtp_dur_secs))
+                }
+                Some(TimestampSource::FixedFramerate) => {
+                    let dur_secs = nti.nal_location_index as f64 / self.parent.average_fps.unwrap();
+                    Timestamp::Duration(std::time::Duration::from_secs_f64(dur_secs))
                 }
                 Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
                 Some(TimestampSource::SrtFile) => {
@@ -774,6 +906,7 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
+    show_progress: bool,
 ) -> Result<H264Source<H264AnnexBSource>> {
     let rdr = std::fs::File::open(path.as_ref())?;
     let seekable_h264_source = H264AnnexBSource::from_file(rdr)?;
@@ -782,6 +915,7 @@ pub(crate) fn from_annexb_path_with_timestamp_source<P: AsRef<Path>>(
         do_decode_h264,
         timestamp_source,
         srt_file_path,
+        show_progress,
     )
 }
 
@@ -790,6 +924,7 @@ fn from_annexb_reader_with_timestamp_source(
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
+    show_progress: bool,
 ) -> Result<H264Source<H264AnnexBSource>> {
     H264Source::from_seekable_h264_source_with_timestamp_source(
         annex_b_source,
@@ -798,6 +933,8 @@ fn from_annexb_reader_with_timestamp_source(
         None,
         timestamp_source,
         srt_file_path,
+        show_progress,
+        None,
     )
 }
 
@@ -886,7 +1023,7 @@ fn copy_nalus_to_annex_b(nalus: &[Vec<u8>]) -> Vec<u8> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FrameInfo {
     /// Receive timestamp as NTP (Network Time Protocol) timestamp
-    recv: u64,
+    recv: NtpTimestamp,
     /// RTP (Real Time Protocol) timestamp as reported by the sender
     rtp: u32,
 }
@@ -911,6 +1048,7 @@ mod test {
                 do_decode_h264,
                 TimestampSource::BestGuess,
                 None,
+                false,
             )?;
             assert_eq!(h264_src.width(), 15);
             assert_eq!(h264_src.height(), 14);
@@ -928,6 +1066,7 @@ mod test {
                 do_decode_h264,
                 TimestampSource::BestGuess,
                 None,
+                false,
             )?;
             assert_eq!(h264_src.width(), 16);
             assert_eq!(h264_src.height(), 16);

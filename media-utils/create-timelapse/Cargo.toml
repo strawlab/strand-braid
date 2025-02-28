@@ -1,0 +1,17 @@
+[package]
+name = "create-timelapse"
+version = "0.1.0"
+edition = "2021"
+description = "create timelapse video from mp4 h264 source without transcoding"
+
+[dependencies]
+clap.workspace = true
+indicatif.workspace = true
+eyre.workspace = true
+h264-reader.workspace = true
+chrono.workspace = true
+
+ci2-remote-control.workspace = true
+mp4-writer.workspace = true
+frame-source.workspace = true
+env-tracing-logger.workspace = true

@@ -94,6 +94,9 @@ impl FrameDataSource for FmfSource {
         self.frame0_time_utc = frame_time_utc;
         Ok(())
     }
+    fn average_framerate(&self) -> Option<f64> {
+        None
+    }
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         // FMF reader does not support seek because we may read .gz files.
         Err(crate::Error::UnsupportedForEsimatingLuminangeRange)

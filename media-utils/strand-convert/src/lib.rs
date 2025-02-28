@@ -15,10 +15,7 @@ use ordered_float::NotNan;
 use ci2_remote_control::H264Metadata;
 
 use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
-use frame_source::{
-    fmf_source, mp4_source, pv_tiff_stack, strand_cam_mkv_source, FrameData, FrameDataSource,
-    ImageData,
-};
+use frame_source::{fmf_source, pv_tiff_stack, FrameData, FrameDataSource, ImageData};
 use tiff_decoder::HdrConfig;
 
 const N_FRAMES_TO_COMPUTE_FPS: usize = 100;
@@ -452,11 +449,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {
             Some("mkv") => {
-                let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
-                    &input_path,
-                    do_decode_h264,
-                    frame_source::TimestampSource::BestGuess,
-                )?;
+                let mkv_video = frame_source::FrameSourceBuilder::new(&input_path)
+                    .do_decode_h264(do_decode_h264)
+                    .build_mkv_source()?;
                 let metadata = &mkv_video.parsed.metadata;
                 camera_name = metadata.camera_name.clone();
                 gamma = metadata.gamma;
@@ -470,13 +465,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 default_encoder = encoder;
             }
             Some("mp4") => {
-                let srt_file_path = None;
-                let mp4_video = mp4_source::from_path_with_timestamp_source(
-                    &input_path,
-                    do_decode_h264,
-                    frame_source::TimestampSource::BestGuess,
-                    srt_file_path,
-                )?;
+                let mp4_video = frame_source::FrameSourceBuilder::new(&input_path)
+                    .do_decode_h264(do_decode_h264)
+                    .build_h264_in_mp4_source()?;
                 if let Some(metadata) = &mp4_video.h264_metadata {
                     camera_name = metadata.camera_name.clone();
                     gamma = metadata.gamma;

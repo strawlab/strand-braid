@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::{
-    h264_source::{H264Source, SeekRead, SeekableH264Source},
+    h264_source::{H264Preparser, H264Source, SeekRead, SeekableH264Source},
     Result,
 };
 use mp4::MediaType;
@@ -70,6 +70,8 @@ pub(crate) fn from_reader_with_timestamp_source(
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
+    show_progress: bool,
+    preparser: Option<Box<dyn H264Preparser>>,
 ) -> Result<H264Source<Mp4Source>> {
     let timescale = mp4_reader.timescale();
     let mut video_track = None;
@@ -129,15 +131,19 @@ pub(crate) fn from_reader_with_timestamp_source(
         Some(data_from_mp4_track),
         timestamp_source,
         srt_file_path,
+        show_progress,
+        preparser,
     )?;
     Ok(h264_source)
 }
 
-pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
+pub(crate) fn open_h264_in_mp4<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
+    show_progress: bool,
+    preparser: Option<Box<dyn H264Preparser>>,
 ) -> Result<H264Source<Mp4Source>> {
     let rdr = std::fs::File::open(path.as_ref())?;
     let size = rdr.metadata()?.len();
@@ -149,6 +155,8 @@ pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
         do_decode_h264,
         timestamp_source,
         srt_file_path,
+        show_progress,
+        preparser,
     )?;
     Ok(result)
 }

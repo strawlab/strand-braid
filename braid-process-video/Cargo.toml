@@ -33,12 +33,14 @@ braidz-parser.workspace = true
 braidz-types.workspace = true
 ci2-remote-control.workspace = true
 env-tracing-logger.workspace = true
+flydra-feature-detector = { workspace = true, features = ["do_not_use_ipp"] }
+flydra-pt-detect-cfg.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 braid-config-data.workspace = true
 flydra-types.workspace = true
 convert-image.workspace = true
 datetime-conversion.workspace = true
-basic-frame.workspace = true
+basic-frame = { workspace = true, features = ["convert-image"] }
 fmf.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true

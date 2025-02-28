@@ -40,7 +40,7 @@ fn gen_cal() -> CalibrationResult {
         known_good_intrinsics: None,
     };
 
-    let cal_result = do_calibrate_system(&src_data).unwrap();
+    let cal_result = run_sqpnp_or_dlt(&src_data).unwrap();
     assert_eq!(
         cal_result.cam_system.cams_by_name().len(),
         src_data.per_camera_2d.len()
@@ -159,7 +159,7 @@ fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
         known_good_intrinsics: Some(all_intrinsics),
     };
 
-    let cal_result = do_calibrate_system(&src_data)?;
+    let cal_result = run_sqpnp_or_dlt(&src_data)?;
 
     dbg!(&cal_result.mean_reproj_dist);
     assert_eq!(cal_result.mean_reproj_dist.keys().len(), 1);

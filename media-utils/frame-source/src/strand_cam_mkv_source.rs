@@ -63,6 +63,9 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>> {
         Some(self.parsed.metadata.creation_time)
     }
+    fn average_framerate(&self) -> Option<f64> {
+        None
+    }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
         if n_frames > 0 && self.src_format == Format::H264 {
             if self.keyframes_cache.is_none() {
@@ -326,7 +329,7 @@ impl<R: Read + Seek> Iterator for StrandCamMkvSourceIter<'_, R> {
     }
 }
 
-pub fn from_path_with_timestamp_source<P: AsRef<Path>>(
+pub(crate) fn mkv_source_from_path_with_timestamp_source<P: AsRef<Path>>(
     path: P,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,

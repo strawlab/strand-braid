@@ -135,12 +135,10 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         }
 
         // check timestamp
-        let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-        let src = frame_source::from_path_with_timestamp_source(
-            &output_name,
-            do_decode_h264,
-            frame_source::TimestampSource::MispMicrosectime,
-        )?;
+        let src = frame_source::FrameSourceBuilder::new(&output_name)
+            .do_decode_h264(false) // no need to decode h264 to get timestamps.
+            .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+            .build_source()?;
         let loaded_timestamp = src.frame0_time().unwrap();
         assert_eq!(start, loaded_timestamp);
     }

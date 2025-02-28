@@ -121,6 +121,17 @@ struct TrackingState {
     frames_since_background_update: u32,
 }
 
+impl std::fmt::Debug for TrackingState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TrackingState")
+            .field(
+                "frames_since_background_update",
+                &self.frames_since_background_update,
+            )
+            .finish_non_exhaustive()
+    }
+}
+
 impl TrackingState {
     /// Allocate new TrackingState
     fn new<S>(
@@ -372,6 +383,7 @@ impl TrackingState {
     }
 }
 
+#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 enum BackgroundAcquisitionState {
     Initialization,
@@ -385,6 +397,14 @@ struct StartupState {
     n_frames: usize,
     running_mean: FastImageData<Chan1, f32>,
     mean_squared_im: FastImageData<Chan1, f32>, // "running_sumsq" in realtime_image_analysis
+}
+
+impl std::fmt::Debug for StartupState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StartupState")
+            .field("n_frames", &self.n_frames)
+            .finish_non_exhaustive()
+    }
 }
 
 #[inline]

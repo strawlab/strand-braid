@@ -5,6 +5,7 @@ use basic_frame::DynamicFrame;
 
 pub mod pv_tiff_stack;
 use pv_tiff_stack::TiffImage;
+use serde::{Deserialize, Serialize};
 pub mod fmf_source;
 mod h264_annexb_splitter;
 pub mod h264_source;
@@ -74,6 +75,8 @@ pub enum Error {
     StrandMkvSourceError(#[from] strand_cam_mkv_source::StrandMkvSourceError),
     #[error("srt file given, but not supported for this file type")]
     NoSrtSupportForFileType,
+    #[error("unsupported option")]
+    UnsupportedOption,
     #[error("input {0} is a file, but the extension was not recognized.")]
     UnknownExtensionForFile(PathBuf),
     #[error("Attempting to open \"{0}\" as directory with TIFF stack failed because it is not a directory.")]
@@ -107,6 +110,8 @@ pub enum Error {
     OpenH264Error(#[from] openh264::Error),
     #[error("Mp4Error: {0}")]
     Mp4Error(#[from] mp4::Error),
+    #[error("PreParserError: {0}")]
+    PreParserError(eyre::Report),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -140,6 +145,10 @@ pub trait FrameDataSource {
     /// of the first frame rather than the creation time
     /// in the metadata.
     fn frame0_time(&self) -> Option<chrono::DateTime<chrono::FixedOffset>>;
+    /// Get the average framerate
+    ///
+    /// Value in frames per second.
+    fn average_framerate(&self) -> Option<f64>;
     /// Set source to skip the first N frames.
     ///
     /// Note that this resets frame0_time accordingly.
@@ -286,13 +295,27 @@ pub struct EncodedH264 {
     pub has_precision_timestamp: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum TimestampSource {
+    #[default]
     BestGuess,
+    /// H264 contains FrameInfo (`strawlab.org/89H`) supplemental enhancement
+    /// information NAL units and this source uses the receive time of the
+    /// receiving computer. (Note the RTP time of the sender is unused.)
     FrameInfoRecvTime,
+    /// H264 contains FrameInfo (`strawlab.org/89H`) supplemental enhancement
+    /// information NAL units and this source uses the RTP time of the
+    /// sending camera with best-guess offset to receiving computer.
+    FrameInfoRtp,
+    /// Use the Presentation Time Stamp (PTS) of the MP4 data.
     Mp4Pts,
+    /// H264 contains "MISPmicrosectime" supplemental enhancement information
+    /// NAL units and this source uses it.
     MispMicrosectime,
+    /// Using timing from a specific schema of .srt files.
     SrtFile,
+    /// Simply multiply frame number by average framerate
+    FixedFramerate,
 }
 
 trait MyAsStr {
@@ -305,49 +328,120 @@ impl MyAsStr for Option<TimestampSource> {
         match self {
             Some(BestGuess) => "(best guess)",
             Some(FrameInfoRecvTime) => "FrameInfo receive time",
+            Some(FrameInfoRtp) => "FrameInfo RTP",
             Some(Mp4Pts) => "MP4 PTS",
             Some(MispMicrosectime) => "MISPmicrosectime",
             Some(SrtFile) => "SRT file",
+            Some(FixedFramerate) => "frame number multiplied by average frame rate",
             None => "(no timestamps)",
         }
     }
 }
 
-/// Create a [FrameDataSource] from a path.
-///
-/// The `do_decode_h264` argument specifies that an H264 source will be decoded
-/// (e.g. to extract individual images).
-pub fn from_path<P: AsRef<std::path::Path>>(
-    input: P,
-    do_decode_h264: bool,
-) -> Result<Box<dyn FrameDataSource>> {
-    from_path_with_srt_timestamp_source(input, do_decode_h264, TimestampSource::BestGuess, None)
-}
-
-/// Create a [FrameDataSource] from a path with defined timestamp source
-///
-/// The `do_decode_h264` argument specifies that an H264 source will be decoded
-/// (e.g. to extract individual images).
-pub fn from_path_with_timestamp_source<P: AsRef<std::path::Path>>(
-    input: P,
-    do_decode_h264: bool,
-    timestamp_source: TimestampSource,
-) -> Result<Box<dyn FrameDataSource>> {
-    from_path_with_srt_timestamp_source(input, do_decode_h264, timestamp_source, None)
-}
-
-/// Create a [FrameDataSource] from a path with defined timestamp source
-///
-/// The `do_decode_h264` argument specifies that an H264 source will be decoded
-/// (e.g. to extract individual images).
-pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
-    input: P,
+/// Builder for frame sources. Use this to set various options on the frame
+/// source.
+pub struct FrameSourceBuilder {
+    input: PathBuf,
     do_decode_h264: bool,
     timestamp_source: TimestampSource,
     srt_file_path: Option<PathBuf>,
+    show_progress: bool,
+}
+
+impl FrameSourceBuilder {
+    pub fn new<P: AsRef<std::path::Path>>(input: P) -> Self {
+        Self {
+            input: PathBuf::from(input.as_ref()),
+            do_decode_h264: true,
+            timestamp_source: TimestampSource::BestGuess,
+            srt_file_path: None,
+            show_progress: false,
+        }
+    }
+    pub fn do_decode_h264(self, do_decode_h264: bool) -> Self {
+        Self {
+            do_decode_h264,
+            ..self
+        }
+    }
+    pub fn timestamp_source(self, timestamp_source: TimestampSource) -> Self {
+        Self {
+            timestamp_source,
+            ..self
+        }
+    }
+    pub fn srt_file_path(self, srt_file_path: Option<PathBuf>) -> Self {
+        Self {
+            srt_file_path,
+            ..self
+        }
+    }
+    pub fn show_progress(self, show_progress: bool) -> Self {
+        Self {
+            show_progress,
+            ..self
+        }
+    }
+    /// Create a [FrameDataSource]
+    pub fn build_source(self) -> Result<Box<dyn FrameDataSource>> {
+        build_frame_source(
+            self.input,
+            self.do_decode_h264,
+            self.timestamp_source,
+            self.srt_file_path,
+            self.show_progress,
+        )
+    }
+    pub fn build_h264_in_mp4_source(
+        self,
+    ) -> Result<h264_source::H264Source<mp4_source::Mp4Source>> {
+        mp4_source::open_h264_in_mp4(
+            self.input,
+            self.do_decode_h264,
+            self.timestamp_source,
+            self.srt_file_path,
+            self.show_progress,
+            None,
+        )
+    }
+    pub fn build_h264_in_mp4_source_with_preparser(
+        self,
+        preparser: Box<dyn h264_source::H264Preparser>,
+    ) -> Result<h264_source::H264Source<mp4_source::Mp4Source>> {
+        mp4_source::open_h264_in_mp4(
+            self.input,
+            self.do_decode_h264,
+            self.timestamp_source,
+            self.srt_file_path,
+            self.show_progress,
+            Some(preparser),
+        )
+    }
+    pub fn build_mkv_source(
+        self,
+    ) -> Result<strand_cam_mkv_source::StrandCamMkvSource<std::io::BufReader<std::fs::File>>> {
+        if self.srt_file_path.is_some() {
+            return Err(Error::NoSrtSupportForFileType);
+        }
+        if self.show_progress {
+            return Err(Error::UnsupportedOption);
+        }
+        strand_cam_mkv_source::mkv_source_from_path_with_timestamp_source(
+            self.input,
+            self.do_decode_h264,
+            self.timestamp_source,
+        )
+    }
+}
+
+fn build_frame_source(
+    input_path: PathBuf,
+    do_decode_h264: bool,
+    timestamp_source: TimestampSource,
+    srt_file_path: Option<PathBuf>,
+    show_progress: bool,
 ) -> Result<Box<dyn FrameDataSource>> {
-    let input_path = PathBuf::from(input.as_ref());
-    let is_file = std::fs::metadata(input.as_ref())?.is_file();
+    let is_file = std::fs::metadata(&input_path)?.is_file();
     if is_file {
         if let Some(extension) = input_path.extension() {
             match extension.to_str() {
@@ -355,19 +449,25 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
                     if srt_file_path.is_some() {
                         return Err(Error::NoSrtSupportForFileType);
                     }
-                    let mkv_video = strand_cam_mkv_source::from_path_with_timestamp_source(
-                        &input,
-                        do_decode_h264,
-                        timestamp_source,
-                    )?;
+                    if show_progress {
+                        return Err(Error::UnsupportedOption);
+                    }
+                    let mkv_video =
+                        strand_cam_mkv_source::mkv_source_from_path_with_timestamp_source(
+                            &input_path,
+                            do_decode_h264,
+                            timestamp_source,
+                        )?;
                     return Ok(Box::new(mkv_video));
                 }
                 Some("mp4") => {
-                    let mp4_video = mp4_source::from_path_with_timestamp_source(
-                        &input,
+                    let mp4_video = mp4_source::open_h264_in_mp4(
+                        &input_path,
                         do_decode_h264,
                         timestamp_source,
                         srt_file_path,
+                        show_progress,
+                        None,
                     )?;
                     return Ok(Box::new(mp4_video));
                 }
@@ -376,10 +476,11 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
                         return Err(Error::NoSrtSupportForFileType);
                     }
                     let h264_video = h264_source::from_annexb_path_with_timestamp_source(
-                        &input,
+                        &input_path,
                         do_decode_h264,
                         timestamp_source,
                         None,
+                        show_progress,
                     )?;
                     return Ok(Box::new(h264_video));
                 }
@@ -388,12 +489,10 @@ pub fn from_path_with_srt_timestamp_source<P: AsRef<std::path::Path>>(
         }
         let fname_lower = input_path.to_string_lossy().to_lowercase();
         if fname_lower.ends_with(".fmf") || fname_lower.ends_with(".fmf.gz") {
-            let fmf_video = fmf_source::from_path(&input)?;
+            let fmf_video = fmf_source::from_path(&input_path)?;
             return Ok(Box::new(fmf_video));
         }
-        Err(Error::UnknownExtensionForFile(PathBuf::from(
-            input.as_ref(),
-        )))
+        Err(Error::UnknownExtensionForFile(input_path))
     } else {
         let dirname = input_path;
 

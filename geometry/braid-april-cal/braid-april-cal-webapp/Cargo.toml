@@ -27,5 +27,6 @@ chrono.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true
+apriltag-detection-writer.workspace = true
 
 [features]

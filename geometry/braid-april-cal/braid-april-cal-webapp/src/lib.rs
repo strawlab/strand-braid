@@ -7,6 +7,8 @@ use yew_tincture::components::Button;
 
 use ads_webasm::components::{CsvData, CsvDataField, MaybeCsvData};
 
+use apriltag_detection_writer::AprilConfig;
+
 use braid_april_cal::*;
 
 // TODO: update webpage to allow uploading intrinsic calibration YAML files
@@ -66,7 +68,7 @@ impl Component for Model {
             }
             Msg::ComputeCal => match self.get_cal_data() {
                 Ok(src_data) => {
-                    match do_calibrate_system(&src_data) {
+                    match run_sqpnp_or_dlt(&src_data) {
                         Ok(cal) => {
                             self.computed_calibration = Some(cal);
                         }
@@ -237,9 +239,9 @@ impl Model {
 
     fn get_cal_data(&self) -> Result<CalData, MyError> {
         if !self.can_compute_xml_calibration() {
-            return Err(MyError {
-                msg: "insufficient data loaded to compute calibration".into(),
-            });
+            return Err(MyError::new(
+                "insufficient data loaded to compute calibration".into(),
+            ));
         }
         let fiducial_3d_coords = if let MaybeCsvData::Valid(csv_data) = &self.fiducial_3d_coords {
             // Make a copy of the data.

@@ -269,8 +269,8 @@ impl OfflineBraidzRerunLogger {
             None
         };
 
-        let do_decode_h264 = true;
-        let mut src = frame_source::from_path(&mp4_filename, do_decode_h264)?;
+        let mut src = frame_source::FrameSourceBuilder::new(&mp4_filename).build_source()?;
+
         tracing::info!("Frame size: {}x{}", src.width(), src.height());
         let start_time = src.frame0_time().unwrap();
         let frametimes = self.frametimes.get(&cam_data.camn).unwrap();

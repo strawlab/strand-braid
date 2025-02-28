@@ -1,10 +1,22 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use eyre::{self as anyhow, Result, WrapErr};
 
 use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig, Validate};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
+
+struct Cli {
+    /// The command to run
+    #[command(subcommand)]
+    command: Commands,
+
+    /// Set to disable showing progress bar
+    #[arg(long)]
+    no_progress: bool,
+}
+
+#[derive(Subcommand, Clone)]
 enum Commands {
     /// Process video using a TOML file as configuration.
     ConfigToml {
@@ -45,7 +57,8 @@ async fn main() -> Result<()> {
 
     env_tracing_logger::init();
 
-    let command = Commands::parse();
+    let cli = Cli::parse();
+    let command = cli.command;
 
     let cfg = match &command {
         Commands::ConfigToml { config_toml } => {
@@ -90,6 +103,6 @@ async fn main() -> Result<()> {
         cfg_as_string
     );
 
-    run_config(&cfg).await?;
+    run_config(&cfg, !cli.no_progress).await?;
     Ok(())
 }

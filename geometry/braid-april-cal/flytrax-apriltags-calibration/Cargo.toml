@@ -25,6 +25,7 @@ flytrax-io.workspace = true
 mvg.workspace = true
 opencv-ros-camera.workspace = true
 env_logger.workspace = true
+apriltag-detection-writer.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true

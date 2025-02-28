@@ -72,8 +72,7 @@ fn main() -> eyre::Result<()> {
         output.into()
     });
 
-    let do_decode_h264 = true;
-    let mut src = frame_source::from_path(&opt.input, do_decode_h264)?;
+    let mut src = frame_source::FrameSourceBuilder::new(&opt.input).build_source()?;
 
     let entity_path = if let Some(p) = opt.entity_path.as_ref() {
         p.clone()

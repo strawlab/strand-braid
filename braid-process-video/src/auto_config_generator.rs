@@ -32,7 +32,7 @@ pub fn auto_config<P: AsRef<std::path::Path>>(
                 if filename.to_lowercase().ends_with(extension) {
                     input_video.push(VideoSourceConfig {
                         filename,
-                        camera_name: None,
+                        ..Default::default()
                     });
                     break;
                 }

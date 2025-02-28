@@ -4,6 +4,8 @@ use opencv_ros_camera::RosOpenCvIntrinsics;
 
 type NCamsType = u8;
 
+pub const RR_CAM_BASE_PATH: &str = "world/camera";
+
 #[inline]
 fn usize(v: NCamsType) -> usize {
     v as usize
@@ -14,8 +16,6 @@ pub enum Error {
     #[error("inconsistent data: {0}")]
     InconsistentData(&'static str),
 }
-
-const CAMERA_BASE_PATH: &str = "world/camera";
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -166,6 +166,9 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
 
         // Validate shape of data
         let nobs = observed.ncols();
+        if nobs == 0 {
+            return Err(Error::InconsistentData("No observations"));
+        }
         if nobs != cam_idx.len() {
             return Err(Error::InconsistentData("cam index shape"));
         }
@@ -557,7 +560,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 .zip(self.cam_dims.iter())
             {
                 use mvg::rerun_io::AsRerunTransform3D;
-                let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
+                let base_path = format!("{RR_CAM_BASE_PATH}/{cam_name}");
                 rec.log(
                     base_path.as_str(),
                     &extrinsics_f64(cam.extrinsics())

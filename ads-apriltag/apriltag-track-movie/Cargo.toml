@@ -2,18 +2,22 @@
 name = "apriltag-track-movie"
 version = "0.1.2"
 edition = "2021"
+description = "use ffmpeg to decode input movie and output csv file with april tag detections"
 
 [dependencies]
-anyhow.workspace = true
+eyre.workspace = true
 machine-vision-formats.workspace = true
 clap.workspace = true
 serde.workspace = true
 csv.workspace = true
 y4m.workspace = true
+chrono.workspace = true
+camino.workspace = true
 
 ads-apriltag.workspace = true
 convert-image.workspace = true
 y4m-writer.workspace = true
+apriltag-detection-writer.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true

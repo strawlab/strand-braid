@@ -114,6 +114,7 @@ braid-http-session.workspace = true
 bui-backend-session.workspace = true
 event-stream-types.workspace = true
 cookie_store.workspace = true
+apriltag-detection-writer = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 v4l = "0.14"
@@ -125,7 +126,13 @@ build-util.workspace = true
 default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 eframe-gui = ["eframe"]
-fiducial = ["ads-apriltag", "csv", "libflate", "basic-frame/convert-image"]
+fiducial = [
+    "ads-apriltag",
+    "csv",
+    "libflate",
+    "basic-frame/convert-image",
+    "apriltag-detection-writer",
+]
 
 checkercal = ["opencv-calibrate", "camcal", "mvg"]
 
