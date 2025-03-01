@@ -616,7 +616,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
             let ba = bundle_adj::BundleAdjuster::new(
                 observed, cam_idx, pt_idx, cam_names, cam_dims, cams0, points0, labels3d,
-                model_type, rec,
+                model_type, rec, false,
             )?;
             (visibility, observations, ba, start_ba_system)
         };

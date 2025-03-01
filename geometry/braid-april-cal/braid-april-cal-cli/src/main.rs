@@ -65,6 +65,12 @@ struct Cli {
     /// "127.0.0.1:9876".)
     #[arg(long)]
     rerun: Option<String>,
+
+    /// Force rerun to show original, distorted camera coordinates. Because
+    /// Rerun does not currently support distorted camera models this option
+    /// disables use of several rerun features.
+    #[arg(long)]
+    force_rerun_distorted: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -97,6 +103,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
         bundle_adjustment_model_type,
+        force_rerun_distorted,
     } = cli;
 
     let fiducial_3d_coords_buf = std::fs::read(apriltags_3d_fiducial_coords.as_std_path())
@@ -293,10 +300,12 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         observed_per_cam
     };
 
+    let allow_rerun_undistortion = !force_rerun_distorted && RERUN_2499_OPEN;
+
     // If we are using Rerun and rerun does not support distortion, we eliminate
     // all distortion prior to sending to bundle-adjust. This is because
     // bundle-adjust sends data to rerun.
-    let undistort_prior_to_bundle_adj = RERUN_2499_OPEN && rerun.is_some();
+    let undistort_prior_to_bundle_adj = allow_rerun_undistortion && rerun.is_some();
 
     if undistort_prior_to_bundle_adj {
         tracing::warn!(
@@ -362,7 +371,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         for (icam_idx, cam_fname) in image_fnames.iter() {
             let cam_name = cam_names[usize::from(*icam_idx)].as_str();
             let ent_path = format!("{RR_CAM_BASE_PATH}/{cam_name}/raw");
-            if RERUN_2499_OPEN {
+            if allow_rerun_undistortion {
                 let intrinsics = known_good_intrinsics
                     .as_ref()
                     .map(|x| x.get(cam_name))
@@ -402,7 +411,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             let mut xy: Vec<(f32, f32)> = vec![];
             let mut labels = vec![];
             for (id, uv) in observed_per_id_this_cam.iter() {
-                if RERUN_2499_OPEN {
+                if allow_rerun_undistortion {
                     let intrinsics = known_good_intrinsics
                         .as_ref()
                         .map(|x| x.get(cam_name))
@@ -543,6 +552,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             labels3d,
             model_type,
             rec,
+            force_rerun_distorted,
         )?
     };
 
