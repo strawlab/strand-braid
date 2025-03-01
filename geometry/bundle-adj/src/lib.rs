@@ -89,19 +89,18 @@ pub enum ModelType {
     OpenCV5,
     /// Tunes the 3D world points, the camera extrinsic parameters, and the
     /// camera intrinsic parameters including 4 distortion terms (2 radial
-    /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady distortion
-    /// model. The intrinsic model has a single focal length (not fx
+    /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady
+    /// distortion model. The intrinsic model has a single focal length (not fx
     /// and fy).
     OpenCV4,
-    /// Tunes the 3D world points and the camera extrinsic parameters, and the
-    /// camera intrinsic parameters with no distortion terms model. The intrinsic
+    /// Tunes the 3D world points, the camera extrinsic parameters, and the
+    /// camera intrinsic parameters with no distortion terms. The intrinsic
     /// model has a single focal length (not fx and fy).
     Linear,
     /// Tunes the 3D world points and the camera extrinsic parameters.  The
     /// intrinsic model has a separate focal length for x and y directions.
-    ExtrinsicsOnly,
     #[default]
-    FxFyExtrinsicsOnly,
+    ExtrinsicsOnly,
 }
 
 struct ModelTypeInfo {
@@ -139,12 +138,6 @@ impl ModelType {
                 num_fixed_params: 0,
             },
             ModelType::ExtrinsicsOnly => ModelTypeInfo {
-                num_distortion_params: 0,
-                num_intrinsic_params: 0,
-                num_extrinsic_params: 6,
-                num_fixed_params: 8, // f, cx, cy + 5 distortion
-            },
-            ModelType::FxFyExtrinsicsOnly => ModelTypeInfo {
                 num_distortion_params: 0,
                 num_intrinsic_params: 0,
                 num_extrinsic_params: 6,
@@ -240,7 +233,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         let params_cache = {
             let mut params_cache = Vec::new();
             for cam in cams0.iter() {
-                if model_type != ModelType::FxFyExtrinsicsOnly {
+                if model_type != ModelType::ExtrinsicsOnly {
                     if cam.intrinsics().fx() != cam.intrinsics().fy() {
                         return Err(Error::InconsistentData("fx must equal fy"));
                     }
@@ -309,11 +302,6 @@ fn to_fixed_params<F: na::RealField + Float>(
         ModelType::OpenCV5 | ModelType::OpenCV4 => Vec::with_capacity(0),
         ModelType::Linear => Vec::with_capacity(0),
         ModelType::ExtrinsicsOnly => {
-            let mut p = vec![i.fx(), i.cx(), i.cy()];
-            p.extend(i.distortion.opencv_vec().as_slice());
-            p
-        }
-        ModelType::FxFyExtrinsicsOnly => {
             let mut p = vec![i.fx(), i.fy(), i.cx(), i.cy()];
             p.extend(i.distortion.opencv_vec().as_slice());
             p
@@ -354,7 +342,7 @@ fn to_params<F: na::RealField + Float>(
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        ModelType::ExtrinsicsOnly | ModelType::FxFyExtrinsicsOnly => {
+        ModelType::ExtrinsicsOnly => {
             let mut p = vec![];
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
@@ -392,15 +380,6 @@ fn to_cam<F: na::RealField + Float>(
             (fx, fy, cx, cy)
         }
         ModelType::ExtrinsicsOnly => {
-            let fx = fixed_params[0];
-            let fy = fx;
-            let cx = fixed_params[1];
-            let cy = fixed_params[2];
-            let d = &fixed_params[3..];
-            distortion.copy_from_slice(&d);
-            (fx, fy, cx, cy)
-        }
-        ModelType::FxFyExtrinsicsOnly => {
             let fx = fixed_params[0];
             let fy = fixed_params[1];
             let cx = fixed_params[2];
@@ -457,16 +436,13 @@ fn test_fxcy_extrinsics_only() {
     for full_params in [[
         1.0, 1.1, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0,
     ]] {
-        let model_type = ModelType::FxFyExtrinsicsOnly;
+        let model_type = ModelType::ExtrinsicsOnly;
         let fixed_params = &full_params[..model_type.info().num_fixed_params];
         let params = &full_params[model_type.info().num_fixed_params..];
         // Part 1: roundtrip
-        let cam = to_cam::<f64>(&params, ModelType::FxFyExtrinsicsOnly, fixed_params);
-        let p2 = to_params::<f64>(&cam, ModelType::FxFyExtrinsicsOnly);
-        assert_eq!(
-            p2.len(),
-            ModelType::FxFyExtrinsicsOnly.info().num_cam_params()
-        );
+        let cam = to_cam::<f64>(&params, ModelType::ExtrinsicsOnly, fixed_params);
+        let p2 = to_params::<f64>(&cam, ModelType::ExtrinsicsOnly);
+        assert_eq!(p2.len(), ModelType::ExtrinsicsOnly.info().num_cam_params());
 
         let orig = na::DVector::from_column_slice(&params);
         let extracted = na::DVector::from_column_slice(&p2);
@@ -1642,130 +1618,6 @@ impl ModelType {
                 }
             }
             ModelType::ExtrinsicsOnly => {
-                let f = i.fx(); // we checked in the constructor that fx == fy
-                #[cfg_attr(any(), rustfmt::skip)]
-                {
-                    let x0 = p_x - w_x;
-                    let x1 = Float::powi(r_y, 2);
-                    let x2 = Float::powi(r_x, 2);
-                    let x3 = Float::powi(r_z, 2);
-                    let x4 = x1 + x2 + x3;
-                    let x5 = Float::sqrt(x4);
-                    let x6 = Float::sin(x5);
-                    let x7 = Float::powf(x4, -three/two);
-                    let x8 = x6*x7;
-                    let x9 = x1*x8;
-                    let x10 = r_x*x9;
-                    let x11 = x3*x8;
-                    let x12 = r_x*x11;
-                    let x13 = Float::cos(x5);
-                    let x14 = one - x13;
-                    let x15 = Float::powi(x4, -2);
-                    let x16 = two*x14*x15;
-                    let x17 = r_x*x16;
-                    let x18 = x1*x17;
-                    let x19 = x17*x3;
-                    let x20 = p_y - w_y;
-                    let x21 = Float::recip(x4);
-                    let x22 = x14*x21;
-                    let x23 = r_y*x22;
-                    let x24 = x2*x8;
-                    let x25 = r_y*x24;
-                    let x26 = x16*x2;
-                    let x27 = r_y*x26;
-                    let x28 = x25 - x27;
-                    let x29 = x23 + x28;
-                    let x30 = r_x*r_z;
-                    let x31 = x30*x8;
-                    let x32 = x13*x21;
-                    let x33 = x30*x32;
-                    let x34 = x31 - x33;
-                    let x35 = p_z - w_z;
-                    let x36 = r_z*x22;
-                    let x37 = r_z*x24;
-                    let x38 = r_z*x26;
-                    let x39 = x37 - x38;
-                    let x40 = x36 + x39;
-                    let x41 = r_x*r_y;
-                    let x42 = x32*x41;
-                    let x43 = x41*x8;
-                    let x44 = x42 - x43;
-                    let x45 = x6/x5;
-                    let x46 = r_x*x45;
-                    let x47 = r_z*x23 + x46;
-                    let x48 = r_y*x45;
-                    let x49 = r_x*x36;
-                    let x50 = -x48 + x49;
-                    let x51 = x2*x22;
-                    let x52 = x1*x22 - one;
-                    let x53 = -x51 - x52;
-                    let x54 = x0*x50 + x20*x47 + x35*x53;
-                    let x55 = f/x54;
-                    let x56 = r_y*x16;
-                    let x57 = x30*x56;
-                    let x58 = r_y*x31 + x45 - x57;
-                    let x59 = x2*x32 - x24;
-                    let x60 = -x42 + x43;
-                    let x61 = x10 - x18;
-                    let x62 = Float::powi(r_x, 3);
-                    let x63 = r_x*x22;
-                    let x64 = -two*x14*x15*x62 + x62*x8 + two*x63;
-                    let x65 = -x0*(x40 + x60) - x20*(x58 + x59) - x35*(-x61 - x64);
-                    let x66 = x48 + x49;
-                    let x67 = r_z*x45;
-                    let x68 = r_x*x23;
-                    let x69 = -x67 + x68;
-                    let x70 = x22*x3;
-                    let x71 = x52 + x70;
-                    let x72 = f/Float::powi(x54, 2);
-                    let x73 = x72*(-x0*x71 + x20*x69 + x35*x66);
-                    let x74 = x1*x32 - x9;
-                    let x75 = x61 + x63;
-                    let x76 = r_y*r_z;
-                    let x77 = x76*x8;
-                    let x78 = x32*x76;
-                    let x79 = x77 - x78;
-                    let x80 = r_y*x11;
-                    let x81 = x3*x56;
-                    let x82 = x80 - x81;
-                    let x83 = Float::powi(r_y, 3);
-                    let x84 = -two*x14*x15*x83 + two*x23 + x8*x83;
-                    let x85 = -r_x*r_y*r_z*x6*x7 + x45 + x57;
-                    let x86 = r_z*x9;
-                    let x87 = r_z*x1*x16;
-                    let x88 = x86 - x87;
-                    let x89 = x36 + x88;
-                    let x90 = -x0*(-x74 - x85) - x20*(x44 + x89) - x35*(-x28 - x84);
-                    let x91 = -x11 + x3*x32;
-                    let x92 = -x77 + x78;
-                    let x93 = x12 - x19;
-                    let x94 = x63 + x93;
-                    let x95 = Float::powi(r_z, 3);
-                    let x96 = -two*x14*x15*x95 + two*x36 + x8*x95;
-                    let x97 = -x31 + x33;
-                    let x98 = x23 + x82;
-                    let x99 = -x0*(x79 + x94) - x20*(x97 + x98) - x35*(-x37 + x38 - x86 + x87);
-                    let x100 = x67 + x68;
-                    let x101 = -r_y*r_z*x14*x21 + x46;
-                    let x102 = x51 + x70 - one;
-                    let x103 = x72*(x0*x100 - x101*x35 - x102*x20);
-                    //final jacobian: (shape: 2 x 6)
-                    j[(0,0)] = -x55*(x0*(-x10 - x12 + x18 + x19) + x20*(x29 + x34) + x35*(x40 + x44)) - x65*x73;
-                    j[(0,1)] = -x55*(x0*(-x82 - x84) + x20*(x75 + x79) + x35*(x58 + x74)) - x73*x90;
-                    j[(0,2)] = -x55*(x0*(-x88 - x96) + x20*(-x85 - x91) + x35*(x92 + x94)) - x73*x99;
-                    j[(0,3)] = -x50*x73 - x55*x71;
-                    j[(0,4)] = -x47*x73 + x55*x69;
-                    j[(0,5)] = -x53*x73 + x55*x66;
-                    j[(1,0)] = -x103*x65 - x55*(x0*(x29 + x97) + x20*(-x64 - x93) + x35*(-x59 - x85));
-                    j[(1,1)] = -x103*x90 - x55*(x0*(x75 + x92) + x20*(-x25 + x27 - x80 + x81) + x35*(x60 + x89));
-                    j[(1,2)] = -x103*x99 - x55*(x0*(x58 + x91) + x20*(-x39 - x96) + x35*(x34 + x98));
-                    j[(1,3)] = x100*x55 - x103*x50;
-                    j[(1,4)] = -x102*x55 - x103*x47;
-                    j[(1,5)] = -x101*x55 - x103*x53;
-                }
-            }
-
-            ModelType::FxFyExtrinsicsOnly => {
                 let fx = i.fx();
                 let fy = i.fy();
                 #[cfg_attr(any(), rustfmt::skip)]
