@@ -7,7 +7,6 @@ rust-version = "1.85"
 
 [dependencies]
 eyre.workspace = true
-base64.workspace = true
 clap.workspace = true
 nalgebra.workspace = true
 serde_yaml.workspace = true
