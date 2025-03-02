@@ -634,7 +634,7 @@ impl FlydraFeatureDetector {
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn process_new_frame(
         &mut self,
-        frame: &DynamicFrame,
+        orig_frame: &DynamicFrame,
         fno: usize,
         timestamp_utc: DateTime<Utc>,
         ufmf_state: UfmfState,
@@ -642,7 +642,6 @@ impl FlydraFeatureDetector {
         block_id: Option<u64>,
         braid_ts: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
-        let pixel_format = frame.pixel_format();
         let mut saved_bg_image = None;
         let process_new_frame_start = Utc::now();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);
@@ -677,10 +676,10 @@ impl FlydraFeatureDetector {
                 let f = std::fs::File::create(path)?;
                 let ufmf_writer = UFMFWriter::new(
                     f,
-                    cast::u16(frame.width())?,
-                    cast::u16(frame.height())?,
-                    frame.pixel_format(),
-                    Some((frame, timestamp_utc)),
+                    cast::u16(orig_frame.width())?,
+                    cast::u16(orig_frame.height())?,
+                    orig_frame.pixel_format(),
+                    Some((orig_frame, timestamp_utc)),
                 )?;
                 // save current background state when starting ufmf save.
                 do_save_ufmf_bg = true;
@@ -693,8 +692,16 @@ impl FlydraFeatureDetector {
             }
         };
 
+        use machine_vision_formats::ImageData;
+
+        let frame = orig_frame
+            .into_pixel_format2::<formats::pixel_format::Mono8>()
+            .unwrap();
+        let pixel_format =
+            machine_vision_formats::pixel_format::pixfmt::<formats::pixel_format::Mono8>().unwrap();
+
         let raw_im_full = FastImageView::view_raw(
-            frame.image_data_without_format(),
+            frame.image_data(),
             frame.stride() as ipp_ctypes::c_int,
             frame.width() as ipp_ctypes::c_int,
             frame.height() as ipp_ctypes::c_int,
@@ -819,7 +826,7 @@ impl FlydraFeatureDetector {
                     if self.cfg.do_update_background_model {
                         packet.image_processing_steps |= ImageProcessingSteps::BGUPDATE;
                         // defer processing bg images until after this frame data sent
-                        saved_bg_image = Some(frame);
+                        saved_bg_image = Some(orig_frame);
                     }
                     state.frames_since_background_update = 0;
                 } else {
@@ -848,7 +855,7 @@ impl FlydraFeatureDetector {
                     .map(|p| p.to_ufmf_region(radius * 2))
                     .collect();
                 if let UfmfState::Saving(ref mut ufmf_writer) = new_ufmf_state {
-                    ufmf_writer.add_frame(frame, timestamp_utc, &point_data)?;
+                    ufmf_writer.add_frame(orig_frame, timestamp_utc, &point_data)?;
                     if do_save_ufmf_bg || got_new_bg_data {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }
@@ -881,13 +888,13 @@ impl FlydraFeatureDetector {
         };
         self.background_update_state = next_background_update_state;
 
-        if let Some(frame) = saved_bg_image {
+        if let Some(orig_frame) = saved_bg_image {
             if let BackgroundAcquisitionState::NormalUpdates(ref mut state) =
                 self.background_update_state
             {
                 state
                     .background
-                    .start_bg_update(frame, &self.cfg, timestamp_utc)?;
+                    .start_bg_update(orig_frame, &self.cfg, timestamp_utc)?;
             } else {
                 panic!("unreachable");
             }

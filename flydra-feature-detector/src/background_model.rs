@@ -89,19 +89,13 @@ impl BackgroundModel {
                             break;
                         }
                     };
-                    let (frame, ts, cfg) = x;
-                    let data = match &frame {
-                        DynamicFrame::Mono8(x) => x.image_data(),
-                        DynamicFrame::BayerRG8(x) => x.image_data(),
-                        DynamicFrame::BayerGB8(x) => x.image_data(),
-                        DynamicFrame::BayerGR8(x) => x.image_data(),
-                        DynamicFrame::BayerBG8(x) => x.image_data(),
-                        other => {
-                            panic!("unsupported format: {}", other.pixel_format());
-                        }
-                    };
+                    let (orig_frame, ts, cfg) = x;
+                    let frame = orig_frame
+                        .into_pixel_format2::<formats::pixel_format::Mono8>()
+                        .unwrap();
+
                     let raw_im_full = FastImageView::view_raw(
-                        data,
+                        frame.image_data(),
                         frame.stride() as ipp_ctypes::c_int,
                         frame.width() as ipp_ctypes::c_int,
                         frame.height() as ipp_ctypes::c_int,
