@@ -1567,22 +1567,14 @@ fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
 
 #[cfg(feature = "fiducial")]
 fn frame2april(frame: &DynamicFrame) -> Result<Box<dyn apriltag::ImageU8>> {
-    match frame {
-        DynamicFrame::Mono8(mono8) => Ok(Box::new(apriltag::ImageU8Borrowed::view(mono8))),
-        other_fmt => {
-            let mono8 = other_fmt
-                .clone()
-                .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
-            let im = apriltag::ImageU8Owned::new(
-                mono8.width.try_into().unwrap(),
-                mono8.height.try_into().unwrap(),
-                mono8.stride.try_into().unwrap(),
-                mono8.into(),
-            )
-            .unwrap();
-            Ok(Box::new(im))
-        }
-    }
+    use machine_vision_formats::{ImageData, Stride};
+    let mono8 = frame.into_pixel_format2::<machine_vision_formats::pixel_format::Mono8>()?;
+    let w = mono8.width().try_into().unwrap();
+    let h = mono8.height().try_into().unwrap();
+    let stride = mono8.stride().try_into().unwrap();
+    let buf = mono8.buffer();
+    let im = apriltag::ImageU8Owned::new(w, h, stride, buf.data).unwrap();
+    Ok(Box::new(im))
 }
 
 // The center pixel of the detection is (h02,h12)
