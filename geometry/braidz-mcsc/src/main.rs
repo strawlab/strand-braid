@@ -43,29 +43,17 @@ struct Cli {
     no_bundle_adjustment: bool,
 
     /// Type of bundle adjustment to perform
-    #[arg(long, default_value = "open-cv4")] // keep synced with check_defaults().
+    #[arg(long, value_enum, default_value_t)]
     bundle_adjustment_model: ModelType,
 
     /// Source of camera intrinsics when initializing bundle adjustment
-    #[arg(long, default_value = "mcsc-no-skew")] // keep synced with check_defaults().
+    #[arg(long, value_enum, default_value_t)]
     bundle_adjustment_intrinsics_source: BAIntrinsicsSource,
 
     /// Log data to rerun viewer at this socket address. (The typical address is
     /// "127.0.0.1:9876".)
     #[arg(long)]
     rerun: Option<String>,
-}
-
-#[test]
-fn check_defaults() {
-    // Ensure we keep the Default implementation of these enums in sync with the
-    // default_value given to clap above. TODO: is there a way to pull this info
-    // from clap?
-    assert_eq!(ModelType::default(), ModelType::OpenCV4);
-    assert_eq!(
-        BAIntrinsicsSource::default(),
-        BAIntrinsicsSource::MCSCNoSkew
-    );
 }
 
 #[derive(Debug, Clone, clap::ValueEnum, Default, PartialEq)]
