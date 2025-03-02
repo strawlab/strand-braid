@@ -128,7 +128,7 @@ impl DynamicFrame {
 }
 
 impl DynamicFrame {
-    /// Return the image as a `BasicFrame` of the given pixel format.
+    /// Return the image as a [BasicFrame] of the given pixel format.
     ///
     /// This is done by moving the data. No copy is made.
     ///
@@ -159,7 +159,7 @@ impl DynamicFrame {
     }
 
     #[cfg(feature = "convert-image")]
-    /// Return the image as a `BasicFrame` converting the data to the requested
+    /// Return the image as a [BasicFrame] converting the data to the requested
     /// pixel format as necessary.
     ///
     /// If the requested pixel format is the current pixel format, this moves
@@ -167,13 +167,13 @@ impl DynamicFrame {
     /// converted.
     ///
     /// To avoid converting the data, use [Self::as_basic].
+    ///
+    /// Consider using [Self::into_pixel_format2], which returns a view of the
+    /// original data if no conversion is necessary.
     pub fn into_pixel_format<FMT>(self) -> Result<BasicFrame<FMT>, convert_image::Error>
     where
         FMT: PixelFormat,
     {
-        // TODO: return a CowImage that views data when it doesn't need to be
-        // converted and allocates new data when it does.
-
         let pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
         if pixfmt == self.pixel_format() {
             // Fast path. Simply return the data.
@@ -223,6 +223,60 @@ impl DynamicFrame {
         }
     }
 
+    #[cfg(feature = "convert-image")]
+    /// Return the image as a [CowImage] converting the data to the requested
+    /// pixel format as necessary.
+    ///
+    /// If the requested pixel format is the current pixel format, this borrows
+    /// the data (without reallocation or copying). Otherwise, the data is
+    /// converted and copied.
+    ///
+    /// To avoid converting the data, use [Self::as_basic].
+    pub fn into_pixel_format2<FMT>(&self) -> Result<CowImage<FMT>, convert_image::Error>
+    where
+        FMT: PixelFormat,
+    {
+        let pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
+        if pixfmt == self.pixel_format() {
+            // Fast path. Simply return the data.
+            Ok(CowImage::Borrowed(
+                ImageRef::new(
+                    self.width(),
+                    self.height(),
+                    self.stride(),
+                    self.image_data_without_format(),
+                )
+                .unwrap(),
+            ))
+        } else {
+            let width = self.width();
+            let height = self.height();
+
+            let dest_fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
+
+            // Allocate buffer for new image.
+            let dest_stride = dest_fmt.bits_per_pixel() as usize * width as usize / 8;
+            let dest_size = height as usize * dest_stride;
+            let mut dest_buf = vec![0u8; dest_size];
+
+            {
+                let mut dest = formats::image_ref::ImageRefMut::<FMT>::new(
+                    width,
+                    height,
+                    dest_stride,
+                    &mut dest_buf,
+                )
+                .unwrap();
+
+                match_all_dynamic_fmts!(&self, x, convert_image::convert_into(x, &mut dest)?);
+            }
+
+            Ok(CowImage::Owned(
+                OImage::new(self.width(), self.height(), self.stride(), dest_buf).unwrap(),
+            ))
+        }
+    }
+
     pub fn pixel_format(&self) -> PixFmt {
         use DynamicFrame::*;
         match self {
@@ -269,5 +323,62 @@ impl From<DynamicFrame> for Vec<u8> {
 impl Stride for DynamicFrame {
     fn stride(&self) -> usize {
         match_all_dynamic_fmts!(self, x, { x.stride() })
+    }
+}
+
+// ----------------
+use machine_vision_formats::{image_ref::ImageRef, owned::OImage, ImageBuffer, ImageBufferRef};
+
+pub enum CowImage<'a, F: PixelFormat> {
+    Borrowed(ImageRef<'a, F>),
+    Owned(OImage<F>),
+}
+
+impl<'a, F: PixelFormat> From<ImageRef<'a, F>> for CowImage<'a, F> {
+    fn from(frame: ImageRef<'a, F>) -> CowImage<'a, F> {
+        CowImage::Borrowed(frame)
+    }
+}
+
+impl<'a, F: PixelFormat> From<OImage<F>> for CowImage<'a, F> {
+    fn from(frame: OImage<F>) -> CowImage<'a, F> {
+        CowImage::Owned(frame)
+    }
+}
+
+impl<F: PixelFormat> Stride for CowImage<'_, F> {
+    fn stride(&self) -> usize {
+        match self {
+            CowImage::Borrowed(im) => im.stride(),
+            CowImage::Owned(im) => im.stride(),
+        }
+    }
+}
+
+impl<F: PixelFormat> ImageData<F> for CowImage<'_, F> {
+    fn width(&self) -> u32 {
+        match self {
+            CowImage::Borrowed(im) => im.width(),
+            CowImage::Owned(im) => im.width(),
+        }
+    }
+    fn height(&self) -> u32 {
+        match self {
+            CowImage::Borrowed(im) => im.height(),
+            CowImage::Owned(im) => im.height(),
+        }
+    }
+    fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
+        let image_data = match self {
+            CowImage::Borrowed(im) => im.image_data(),
+            CowImage::Owned(im) => im.image_data(),
+        };
+        ImageBufferRef::new(image_data)
+    }
+    fn buffer(self) -> ImageBuffer<F> {
+        match self {
+            CowImage::Borrowed(im) => ImageBuffer::new(im.image_data().to_vec()),
+            CowImage::Owned(im) => ImageBuffer::new(im.into()),
+        }
     }
 }

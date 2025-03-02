@@ -3,7 +3,10 @@ use machine_vision_formats::{
 };
 
 mod dynamic_frame;
-pub use dynamic_frame::DynamicFrame;
+pub use dynamic_frame::{CowImage, DynamicFrame};
+
+// TODO: get rid of BasicFrame and use `machine_vision_formats::owned::OImage`
+// instead.
 
 /// Convert a BasicFrame into another BasicFrame with a new pixel_format.
 #[macro_export]
