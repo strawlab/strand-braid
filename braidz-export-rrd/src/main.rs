@@ -43,7 +43,7 @@ struct Opt {
     export_linearized_mp4s: bool,
 
     /// If exporting MP4 files, which MP4 encoder should be be used?
-    #[arg(long, default_value = "less-avc")]
+    #[arg(long, value_enum, default_value_t)]
     encoder: Encoder,
 
     /// Print version
