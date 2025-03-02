@@ -169,7 +169,7 @@ pub trait FrameDataSource {
 }
 
 /// A single frame of data, including `image` and `timestamp` fields.
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct FrameData {
     /// This is often called "PTS" (presentation time stamp).
     timestamp: Timestamp,
@@ -244,7 +244,7 @@ impl FrameData {
 }
 
 /// The image data
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum ImageData {
     Decoded(DynamicFrame),
     Tiff(TiffImage),

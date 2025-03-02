@@ -86,42 +86,6 @@ pub struct BasicFrame<F> {
     pub pixel_format: std::marker::PhantomData<F>,
 }
 
-impl<F> PartialEq for BasicFrame<F>
-where
-    F: machine_vision_formats::PixelFormat,
-{
-    fn eq(&self, other: &BasicFrame<F>) -> bool {
-        if self.width != other.width {
-            return false;
-        }
-        if self.height != other.height {
-            return false;
-        }
-
-        // We do enforce that `stride` is equal
-
-        // We know `pixel_format` is the same due to type F.
-
-        // Finally, check the buffers for equality in all regions where the pixels should be equal.
-        let valid_size =
-            usize::try_from(self.height).unwrap() * usize::try_from(self.stride).unwrap();
-        let a_row_iter =
-            self.image_data[..valid_size].chunks_exact(self.stride.try_into().unwrap());
-        let b_row_iter =
-            other.image_data[..valid_size].chunks_exact(other.stride.try_into().unwrap());
-
-        let fmt = machine_vision_formats::pixel_format::pixfmt::<F>().unwrap();
-        let valid_stride = fmt.bits_per_pixel() as usize * self.width as usize / 8;
-
-        for (a_row, b_row) in a_row_iter.zip(b_row_iter) {
-            if a_row[..valid_stride] != b_row[..valid_stride] {
-                return false;
-            }
-        }
-        true
-    }
-}
-
 fn _test_basic_frame_is_send<F: Send>() {
     // Compile-time test to ensure BasicFrame implements Send trait.
     fn implements<T: Send>() {}

@@ -63,7 +63,7 @@ macro_rules! convert_to_dynamic2 {
 /// Note that we do not implement `ImageData<FMT>` trait because the pixel
 /// format (parameterized by FMT) is not known at compile-time for DynamicFrame.
 #[allow(non_camel_case_types)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum DynamicFrame {
     Mono8(BasicFrame<formats::pixel_format::Mono8>),
     Mono32f(BasicFrame<formats::pixel_format::Mono32f>),
