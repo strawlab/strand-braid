@@ -417,7 +417,8 @@ impl OfflineBraidzRerunLogger {
             }
             self.rec.log(
                 format!("world/obj_id/{}", row.obj_id),
-                &Points3D::new([(row.x as f32, row.y as f32, row.z as f32)]),
+                &Points3D::new([(row.x as f32, row.y as f32, row.z as f32)])
+                    .with_labels([format!("{}", row.obj_id)]),
             )?;
             last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
 
@@ -428,13 +429,14 @@ impl OfflineBraidzRerunLogger {
                     let pt3d = mvg::PointWorldFrame {
                         coords: nalgebra::Point3::new(row.x, row.y, row.z),
                     };
+                    let labels = vec![format!("{}", row.obj_id)];
                     if let Some(cam_cal) = cam_cal {
                         let arch = if cam_data.image_is_undistorted {
                             let pt2d = cam_cal.project_3d_to_pixel(&pt3d).coords;
-                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)]).with_labels(labels)
                         } else {
                             let pt2d = cam_cal.project_3d_to_distorted_pixel(&pt3d).coords;
-                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)]).with_labels(labels)
                         };
                         let ent_path = &cam_data.image_ent_path;
                         self.rec.log(format!("{ent_path}/reproj"), &arch)?;
