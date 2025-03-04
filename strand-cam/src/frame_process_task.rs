@@ -525,8 +525,20 @@ pub(crate) async fn frame_process_task<'a>(
                     let val = 2;
                     let clipped_width = (frame.width() / val as u32) * val as u32;
                     match_all_dynamic_fmts!(&mut frame.image, x, { x.width = clipped_width });
-                    let ts = frame.host_timing.datetime;
-                    raw.write(frame.image, ts)?;
+
+                    // Use Braid timestamp if possible, otherwise host timestamp.
+                    let braid_ts = calc_braid_timestamp(
+                        &frame,
+                        trigger_type.as_ref(),
+                        triggerbox_clock_model.as_ref(),
+                        &opt_frame_offset,
+                        device_clock_model.as_ref(),
+                        local_and_cam_time0.as_ref(),
+                    );
+                    let mp4_timestamp = braid_ts
+                        .map(Into::into)
+                        .unwrap_or(frame.host_timing.datetime);
+                    raw.write(frame.image, mp4_timestamp)?;
                 }
                 my_mp4_writer = Some(raw);
 
@@ -584,55 +596,15 @@ pub(crate) async fn frame_process_task<'a>(
                     }
                 }
 
-                // Compute, as cleverly as possible, a timestamp.
-                let braid_ts = match &trigger_type {
-                    Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
-                        flydra_types::triggerbox_time(
-                            triggerbox_clock_model.as_ref(),
-                            opt_frame_offset,
-                            frame.host_timing.fno,
-                        )
-                    }
-                    Some(TriggerType::PtpSync(ptpcfg)) => {
-                        let ptp_stamp = PtpStamp::new(device_timestamp.unwrap());
-                        if tracing::Level::TRACE <= tracing::level_filters::STATIC_MAX_LEVEL {
-                            // Only run run this block if we compiled with
-                            // trace-level logging enabled.
-                            if let Some(periodic_signal_period_usec) =
-                                &ptpcfg.periodic_signal_period_usec
-                            {
-                                let nanos = ptp_stamp.get();
-                                let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
-                                let device_timestamp_chrono =
-                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
-                                        .unwrap();
-                                tracing::trace!(
-                                    "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
-                                );
-                            }
-                        }
-                        Some(ptp_stamp.try_into().unwrap())
-                    }
-                    Some(TriggerType::DeviceTimestamp) => {
-                        let cm = device_clock_model.as_ref().unwrap();
-                        let this_local_and_cam_time0 = local_and_cam_time0.as_ref().unwrap();
-                        let (local_time0, cam_time0) = this_local_and_cam_time0;
-                        let device_timestamp = device_timestamp.unwrap();
-                        let device_elapsed_nanos = device_timestamp - cam_time0;
-                        let local_elapsed_nanos: f64 =
-                            (device_elapsed_nanos as f64) * cm.gain + cm.offset;
-                        // let ts: f64 = (device_timestamp as f64) * cm.gain + cm.offset;
-                        dbg!((local_elapsed_nanos, device_timestamp, &cm));
-
-                        let local_nanos = local_time0 + local_elapsed_nanos.round() as u64;
-                        let local: chrono::DateTime<chrono::Utc> =
-                            PtpStamp::new(local_nanos).try_into().unwrap();
-                        let x = FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(local);
-                        dbg!(&x);
-                        Some(x)
-                    }
-                    None => None,
-                };
+                let braid_ts = calc_braid_timestamp(
+                    &frame,
+                    trigger_type.as_ref(),
+                    triggerbox_clock_model.as_ref(),
+                    &opt_frame_offset,
+                    device_clock_model.as_ref(),
+                    local_and_cam_time0.as_ref(),
+                );
+                // Use Braid timestamp if possible, otherwise host timestamp.
                 let (timestamp_source, save_mp4_fmf_stamp) = if let Some(stamp) = &braid_ts {
                     (TimestampSource::BraidTrigger, stamp.into())
                 } else {
@@ -1651,4 +1623,57 @@ fn extract_backend_data(frame: &ci2::DynamicFrameWithInfo) -> (Option<u64>, Opti
         }
     }
     (None, None)
+}
+
+/// Compute the final timestamp that braid will save for this frame?
+fn calc_braid_timestamp(
+    frame: &ci2::DynamicFrameWithInfo,
+    trigger_type: Option<&TriggerType>,
+    triggerbox_clock_model: Option<&rust_cam_bui_types::ClockModel>,
+    opt_frame_offset: &Option<u64>,
+    device_clock_model: Option<&rust_cam_bui_types::ClockModel>,
+    local_and_cam_time0: Option<&(u64, u64)>,
+) -> Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>> {
+    let (device_timestamp, _block_id) = extract_backend_data(&frame);
+    match &trigger_type {
+        Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
+            flydra_types::triggerbox_time(
+                triggerbox_clock_model,
+                *opt_frame_offset,
+                frame.host_timing.fno,
+            )
+        }
+        Some(TriggerType::PtpSync(ptpcfg)) => {
+            let ptp_stamp = PtpStamp::new(device_timestamp.unwrap());
+            if tracing::Level::TRACE <= tracing::level_filters::STATIC_MAX_LEVEL {
+                // Only run run this block if we compiled with
+                // trace-level logging enabled.
+                if let Some(periodic_signal_period_usec) = &ptpcfg.periodic_signal_period_usec {
+                    let nanos = ptp_stamp.get();
+                    let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
+                    let device_timestamp_chrono =
+                        chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone()).unwrap();
+                    tracing::trace!(
+                        "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
+                    );
+                }
+            }
+            Some(ptp_stamp.try_into().unwrap())
+        }
+        Some(TriggerType::DeviceTimestamp) => {
+            let cm = device_clock_model.as_ref().unwrap();
+            let this_local_and_cam_time0 = local_and_cam_time0.as_ref().unwrap();
+            let (local_time0, cam_time0) = this_local_and_cam_time0;
+            let device_timestamp = device_timestamp.unwrap();
+            let device_elapsed_nanos = device_timestamp - cam_time0;
+            let local_elapsed_nanos: f64 = (device_elapsed_nanos as f64) * cm.gain + cm.offset;
+            // let ts: f64 = (device_timestamp as f64) * cm.gain + cm.offset;
+            let local_nanos = local_time0 + local_elapsed_nanos.round() as u64;
+            let local: chrono::DateTime<chrono::Utc> =
+                PtpStamp::new(local_nanos).try_into().unwrap();
+            let x = FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(local);
+            Some(x)
+        }
+        None => None,
+    }
 }
