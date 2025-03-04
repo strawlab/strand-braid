@@ -322,7 +322,7 @@ impl OfflineBraidzRerunLogger {
             .by_camn
             .get(&row.camn)
             .ok_or_else(|| eyre::eyre!("camn {} not known", row.camn))?;
-        let dt = row.cam_received_timestamp.as_f64();
+        let dt = row.timestamp.as_ref().unwrap().as_f64();
         self.frametimes
             .entry(cam_data.camn)
             .or_default()
