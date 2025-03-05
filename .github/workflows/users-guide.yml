@@ -30,6 +30,13 @@ jobs:
         run: |
           mdbook build
 
+      - name: Add canonical link to help with SEO
+        # Google complains about duplicate pages at https://strawlab.github.io/strand-braid/ and
+        # https://strawlab.github.io/strand-braid/index.html. So we make the later one the
+        # canonical link. This is also the link in the sitemap.
+        run: |
+          sed -i -e 's/<!-- Custom HTML head -->/<link rel="canonical" href="index.html">/' book/index.html
+
       - name: Generate sitemap
         run: |
           cd book
