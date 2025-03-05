@@ -1,7 +1,7 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
 use clap::{Parser, ValueEnum};
-use eyre::WrapErr;
+use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::AsRerunTransform3D;
@@ -152,7 +152,10 @@ impl OfflineBraidzRerunLogger {
         cam_name: &str,
         cam: &mvg::Camera<f64>,
     ) -> eyre::Result<()> {
-        let camn = self.camid2camn.get(cam_name).unwrap();
+        let camn = self
+            .camid2camn
+            .get(cam_name)
+            .ok_or_eyre("No camera number found in cam_info table")?;
         let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
         // convert camera pose to rerun transform3d
         self.rec.log_static(
@@ -569,7 +572,12 @@ fn main() -> eyre::Result<()> {
             tracing::error!("omitting water");
         }
         for (cam_name, cam) in cal.cameras.cams_by_name().iter() {
-            rrd_logger.add_camera_calibration(cam_name, cam)?;
+            match rrd_logger.add_camera_calibration(cam_name, cam) {
+                Ok(()) => {}
+                Err(e) => {
+                    tracing::error!("Could not add calibration for camera \"{cam_name}\": {e}");
+                }
+            }
         }
     } else {
         rrd_logger.add_camera_info(&archive.cam_info)?;
