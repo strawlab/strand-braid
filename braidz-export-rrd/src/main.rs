@@ -319,13 +319,21 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_data2d_distorted(&mut self, row: &braidz_types::Data2dDistortedRow) -> eyre::Result<()> {
+    fn log_data2d_distorted(
+        &mut self,
+        row: &braidz_types::Data2dDistortedRow,
+        has_braid_timestamps: bool,
+    ) -> eyre::Result<()> {
         // Always cache timing data.
         let cam_data = self
             .by_camn
             .get(&row.camn)
             .ok_or_else(|| eyre::eyre!("camn {} not known", row.camn))?;
-        let dt = row.timestamp.as_ref().unwrap().as_f64();
+        let dt = if has_braid_timestamps {
+            row.timestamp.as_ref().unwrap().as_f64()
+        } else {
+            row.cam_received_timestamp.as_f64()
+        };
         self.frametimes
             .entry(cam_data.camn)
             .or_default()
@@ -583,10 +591,18 @@ fn main() -> eyre::Result<()> {
         rrd_logger.add_camera_info(&archive.cam_info)?;
     }
 
+    // Do braid timestamps exist? Assume first row is representative of entire
+    // dataset.
+    let row0 = archive.iter_data2d_distorted()?.next().unwrap()?;
+    let has_braid_timestamps = row0.timestamp.is_some();
+    if !has_braid_timestamps {
+        tracing::warn!("No braid timestamps in 2D data");
+    }
+
     // Process 2D point detections
     for row in archive.iter_data2d_distorted()? {
         let row = row?;
-        rrd_logger.log_data2d_distorted(&row)?;
+        rrd_logger.log_data2d_distorted(&row, has_braid_timestamps)?;
     }
 
     // Process 3D kalman estimates
