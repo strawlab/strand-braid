@@ -1,55 +1,26 @@
 use basic_frame::DynamicFrame;
 use braidz_types::{camera_name_from_filename, CamNum};
-use clap::{Parser, ValueEnum};
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
 use mvg::rerun_io::AsRerunTransform3D;
-use rayon::prelude::*;
 use re_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
+    external::anyhow,
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::io::{Read, Seek};
+
+use re_sdk::external::re_data_loader;
+
+use std::collections::BTreeMap;
 
 const SECONDS_TIMELINE: &str = "wall_clock";
 const FRAMES_TIMELINE: &str = "frame";
 const DETECT_NAME: &str = "detect";
-const UNDIST_NAME: &str = ".linearized.mp4";
+pub const UNDIST_NAME: &str = ".linearized.mp4";
 
 const CAMERA_BASE_PATH: &str = "world/camera";
-
-#[derive(Debug, Default, Clone, PartialEq, ValueEnum)]
-enum Encoder {
-    #[default]
-    LessAVC,
-    OpenH264,
-}
-
-#[derive(Debug, Parser)]
-#[command(author)]
-struct Opt {
-    /// Output rrd filename. Defaults to "<INPUT>.rrd"
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    /// Input filenames (.braidz and .mp4 files)
-    inputs: Vec<PathBuf>,
-
-    /// Should "linearized" (undistorted) MP4s be made from the original MP4s?
-    ///
-    /// If not, no MP4 is exported.
-    #[arg(short, long)]
-    export_linearized_mp4s: bool,
-
-    /// If exporting MP4 files, which MP4 encoder should be be used?
-    #[arg(long, value_enum, default_value_t)]
-    encoder: Encoder,
-
-    /// Print version
-    #[arg(short, long)]
-    version: bool,
-}
 
 const CAN_UNDISTORT_IMAGES: bool = true;
 
@@ -74,7 +45,7 @@ struct CachedCamData {
     cam_name: String,
 }
 
-struct OfflineBraidzRerunLogger {
+pub struct OfflineBraidzRerunLogger {
     rec: re_sdk::RecordingStream,
     camid2camn: BTreeMap<String, CamNum>,
     by_camn: BTreeMap<CamNum, CachedCamData>,
@@ -94,7 +65,7 @@ struct OfflineBraidzRerunLogger {
 }
 
 impl OfflineBraidzRerunLogger {
-    fn new(
+    pub fn new(
         rec: re_sdk::RecordingStream,
         camid2camn: BTreeMap<String, CamNum>,
         inter_frame_interval_f64: f64,
@@ -115,7 +86,11 @@ impl OfflineBraidzRerunLogger {
         }
     }
 
-    fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> eyre::Result<()> {
+    pub fn close(self) -> re_sdk::RecordingStream {
+        self.rec
+    }
+
+    pub fn add_camera_info(&mut self, cam_info: &braidz_types::CamInfo) -> eyre::Result<()> {
         for (cam_name, camn) in cam_info.camid2camn.iter() {
             let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
             let raw_path = format!("{base_path}/raw");
@@ -147,7 +122,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn add_camera_calibration(
+    pub fn add_camera_calibration(
         &mut self,
         cam_name: &str,
         cam: &mvg::Camera<f64>,
@@ -247,7 +222,7 @@ impl OfflineBraidzRerunLogger {
     }
 
     #[tracing::instrument(skip(self, my_mp4_writer))]
-    fn log_video(
+    pub fn log_video(
         &self,
         mp4_filename: &str,
         mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
@@ -319,7 +294,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_data2d_distorted(
+    pub fn log_data2d_distorted(
         &mut self,
         row: &braidz_types::Data2dDistortedRow,
         has_braid_timestamps: bool,
@@ -398,7 +373,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn add_empty3d(&self) -> eyre::Result<()> {
+    pub fn add_empty3d(&self) -> eyre::Result<()> {
         // fake 3d data so rerun viewer 0.14 setups up blueprint nicely for us.
         if let (Some(frame), Some(timestamp)) = (&self.last_frame, &self.last_timestamp) {
             self.rec.set_time_sequence(FRAMES_TIMELINE, *frame);
@@ -411,7 +386,7 @@ impl OfflineBraidzRerunLogger {
         Ok(())
     }
 
-    fn log_kalman_estimates(
+    pub fn log_kalman_estimates(
         &self,
         kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
         log_reprojected_2d: bool,
@@ -500,78 +475,19 @@ fn to_rr_image(
     Ok((EncodedImage::from_file_contents(contents), decoded))
 }
 
-fn main() -> eyre::Result<()> {
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info");
-    }
-    env_tracing_logger::init();
-    let opt = Opt::parse();
-
-    if opt.version {
-        println!(
-            "{name} {version} (rerun {rrvers})",
-            name = env!("CARGO_PKG_NAME"),
-            version = env!("CARGO_PKG_VERSION"),
-            rrvers = re_sdk::build_info().version,
-        );
-        return Ok(());
-    }
-
-    let output = opt.output;
-    let inputs = opt.inputs;
-    let mut inputs: std::collections::HashSet<_> = inputs.into_iter().collect();
-    let input_braidz = {
-        let braidz_inputs: Vec<_> = inputs
-            .iter()
-            .filter(|x| x.as_os_str().to_string_lossy().ends_with(".braidz"))
-            .collect();
-        let n_braidz_files = braidz_inputs.len();
-        if n_braidz_files != 1 {
-            eyre::bail!("expected exactly one .braidz file, found {n_braidz_files}");
-        } else {
-            braidz_inputs[0].clone()
-        }
-    };
-    inputs.remove(&input_braidz);
-
-    let mut archive = braidz_parser::braidz_parse_path(&input_braidz)
-        .with_context(|| format!("Parsing file {}", input_braidz.display()))?;
-
+pub fn braidz_into_rec<R: Read + Seek>(
+    mut archive: braidz_parser::BraidzArchive<R>,
+    rec: re_sdk::RecordingStream,
+    have_image_data: bool,
+) -> eyre::Result<OfflineBraidzRerunLogger> {
     let inter_frame_interval_f64 = 1.0 / archive.expected_fps;
-
-    let output = output.unwrap_or_else(|| {
-        let mut output = input_braidz.as_os_str().to_owned();
-        output.push(".rrd");
-        output.into()
-    });
-
-    // Exclude expected output (e.g. from prior run) from inputs.
-    inputs.remove(&output);
-    // Exclude .linearized.mp4 files
-    let inputs: Vec<_> = inputs
-        .iter()
-        .filter(|x| !x.as_os_str().to_string_lossy().ends_with(UNDIST_NAME))
-        .collect();
-
-    let mp4_inputs: Vec<_> = inputs
-        .iter()
-        .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
-        .collect();
-    if mp4_inputs.len() != inputs.len() {
-        eyre::bail!("expected only mp4 inputs beyond one .braidz file.");
-    }
-
-    // Initiate recording
-    let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
-        .save(&output)
-        .with_context(|| format!("Creating output file {}", output.display()))?;
 
     // Create logger
     let mut rrd_logger = OfflineBraidzRerunLogger::new(
         rec,
         archive.cam_info.camid2camn.clone(),
         inter_frame_interval_f64,
-        !mp4_inputs.is_empty(),
+        have_image_data,
     );
 
     // Process camera calibrations
@@ -612,69 +528,7 @@ fn main() -> eyre::Result<()> {
         rrd_logger.add_empty3d()?;
     }
 
-    // Process videos
-    mp4_inputs
-        .as_slice()
-        .par_iter()
-        .try_for_each(|mp4_filename| {
-            let my_mp4_writer = if opt.export_linearized_mp4s {
-                let linearized_mp4_output: PathBuf = {
-                    let output = mp4_filename.as_os_str().to_owned();
-                    let output = output.to_str().unwrap().to_string();
-                    let o2 = output.trim_end_matches(".mp4");
-                    let output_ref: &std::ffi::OsStr = o2.as_ref();
-                    let mut output = output_ref.to_os_string();
-                    output.push(UNDIST_NAME);
-                    output.into()
-                };
-
-                tracing::info!(
-                    "linearize (undistort) {} -> {}",
-                    mp4_filename.display(),
-                    linearized_mp4_output.display()
-                );
-                let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
-                    format!(
-                        "Creating MP4 output file {}",
-                        linearized_mp4_output.display()
-                    )
-                })?;
-
-                let codec = if opt.encoder == Encoder::OpenH264 {
-                    #[cfg(feature = "openh264-encode")]
-                    {
-                        use ci2_remote_control::OpenH264Preset;
-                        ci2_remote_control::Mp4Codec::H264OpenH264(
-                            ci2_remote_control::OpenH264Options {
-                                debug: false,
-                                preset: OpenH264Preset::AllFrames,
-                            },
-                        )
-                    }
-                    #[cfg(not(feature = "openh264-encode"))]
-                    panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
-                } else {
-                    ci2_remote_control::Mp4Codec::H264LessAvc
-                };
-
-                let cfg = ci2_remote_control::Mp4RecordingConfig {
-                    codec,
-                    max_framerate: Default::default(),
-                    h264_metadata: None,
-                };
-
-                let my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, None)?;
-                Some(my_mp4_writer)
-            } else {
-                None
-            };
-
-            let mp4_filename = mp4_filename.to_str().unwrap();
-            rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
-            Ok::<(), eyre::ErrReport>(())
-        })?;
-    tracing::info!("Exported to Rerun RRD file: {}", output.display());
-    Ok(())
+    Ok(rrd_logger)
 }
 
 fn argmin(arr: &[f64]) -> Option<usize> {
@@ -696,4 +550,97 @@ fn argmin(arr: &[f64]) -> Option<usize> {
 fn test_argmin() {
     assert_eq!(argmin(&[1.0, -1.0, 10.0]), Some(1));
     assert_eq!(argmin(&[]), None);
+}
+
+/// A custom [`re_data_loader::DataLoader`] that loads a .braidz file.
+pub struct BraidzLoader;
+
+const NAME: &str = "strawlab.rerun.data_loaders.braidz";
+impl re_data_loader::DataLoader for BraidzLoader {
+    fn name(&self) -> re_data_loader::DataLoaderName {
+        NAME.into()
+    }
+
+    fn load_from_path(
+        &self,
+        settings: &re_sdk::DataLoaderSettings,
+        filepath: std::path::PathBuf,
+        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+    ) -> Result<(), re_sdk::DataLoaderError> {
+        self.ensure_path(&filepath)?;
+
+        let archive =
+            anyhow::Context::with_context(braidz_parser::braidz_parse_path(&filepath), || {
+                format!("Parsing file {}", filepath.display())
+            })?;
+
+        self.load_from_archive(archive, settings, tx)
+    }
+
+    fn load_from_file_contents(
+        &self,
+        settings: &re_sdk::DataLoaderSettings,
+        filepath: std::path::PathBuf,
+        contents: std::borrow::Cow<'_, [u8]>,
+        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+    ) -> Result<(), re_sdk::DataLoaderError> {
+        self.ensure_path(&filepath)?;
+        let rdr = std::io::Cursor::new(contents);
+        let display_name = format!("{}", filepath.display());
+
+        let archive = braidz_parser::braidz_parse_reader(rdr, display_name)
+            .with_context(|| format!("Parsing file {}", filepath.display()))
+            .map_err(e2a)?;
+
+        self.load_from_archive(archive, settings, tx)
+    }
+}
+
+impl BraidzLoader {
+    fn ensure_path(&self, filepath: &std::path::PathBuf) -> Result<(), re_sdk::DataLoaderError> {
+        if filepath.is_dir() {
+            return Err(re_sdk::DataLoaderError::Incompatible(filepath.clone()));
+        }
+        let extension = filepath.extension();
+        if extension.map(|x| x.to_str()) != Some(Some("braidz")) {
+            return Err(re_data_loader::DataLoaderError::Incompatible(
+                filepath.clone(),
+            ));
+        }
+
+        Ok(())
+    }
+    fn load_from_archive<R: Read + Seek>(
+        &self,
+        archive: braidz_parser::BraidzArchive<R>,
+        settings: &re_sdk::DataLoaderSettings,
+        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+    ) -> Result<(), re_sdk::DataLoaderError> {
+        let store_id = settings
+            .opened_store_id
+            .clone()
+            .unwrap_or_else(|| settings.store_id.clone());
+
+        // Initiate recording to memory store
+        let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
+            .store_id(store_id)
+            .buffered()
+            .map_err(|e| anyhow::anyhow!("failed to create RecordingStream: {e}"))?;
+        let memory_store = rec.memory();
+
+        braidz_into_rec(archive, rec, false).map_err(e2a)?;
+
+        // Send the messages in the memory store.
+        for msg in memory_store.take().into_iter() {
+            let data = re_sdk::LoadedData::LogMsg(NAME.into(), msg);
+            if tx.send(data).is_err() {
+                break; // The other end has decided to hang up, not our problem.
+            }
+        }
+        Ok(())
+    }
+}
+
+fn e2a(err: eyre::Report) -> anyhow::Error {
+    anyhow::anyhow!("eyre::Report {err}")
 }

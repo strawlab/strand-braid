@@ -14,11 +14,13 @@ members = [
     "braid-config-data",
     "braid-offline",
     "braid-process-video",
-    "braidz-export-rrd",
     "braidz-parser",
     "braidz-parser/braidz-chunked-iter",
     "braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
     "braidz-parser/braidz-cli",
+    "braidz-rerun",
+    "braidz-rerun/braidz-export-rrd",
+    "braidz-rerun/rerun-braidz-viewer",
     "braidz-types",
     "braidz-viewer",
     "bui-backend-session",
@@ -228,6 +230,10 @@ qrcodegen = "1.4"
 regex = "1.10.3"
 re_sdk = { version = "0.22", default-features = false }
 re_types = { version = "0.22", default-features = false }
+re_build_info = { version = "0.22", default-features = false }
+re_build_tools = { version = "0.22", default-features = false }
+rerun = { version = "0.22", default-features = false }
+
 resvg = "0.19"
 rusttype = "0.9.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -283,6 +289,7 @@ braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
 braidz-parser = { path = "braidz-parser" }
+braidz-rerun = { path = "braidz-rerun" }
 braidz-types = { path = "braidz-types" }
 braidz-writer = { path = "braid/braidz-writer" }
 bui-backend-session = { path = "bui-backend-session" }

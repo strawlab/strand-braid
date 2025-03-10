@@ -1,40 +1,29 @@
 [package]
-name = "braidz-export-rrd"
-description = "Export a .braidz file to an .rrd rerun file"
-version = "0.12.0-alpha.9"                                  # braid release synchronized
+name = "braidz-rerun"
+version = "0.0.1"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
-clap.workspace = true
-serde_yaml.workspace = true
 eyre.workspace = true
 
 tracing.workspace = true
 re_types.workspace = true
-re_sdk.workspace = true
+re_sdk = { workspace = true, features = ["data_loaders"] }
+
 image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
 nalgebra.workspace = true
-regex.workspace = true
 machine-vision-formats.workspace = true
-rayon = "1.9.0"
+convert-image.workspace = true
 
 braidz-parser.workspace = true
-env-tracing-logger.workspace = true
 mvg = { workspace = true, features = ["rerun-io"] }
 braidz-types.workspace = true
 flydra-types.workspace = true
-convert-image.workspace = true
 frame-source.workspace = true
 basic-frame = { workspace = true, features = ["convert-image"] }
-ci2-remote-control.workspace = true
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 undistort-image.workspace = true
-
-[features]
-default = ["openh264-encode"]
-
-openh264-encode = ["mp4-writer/openh264-encode", "frame-source/openh264"]
