@@ -22,6 +22,7 @@ macro_rules! thread_try {
         match $result {
             Ok(val) => val,
             Err(e) => {
+                tracing::error!("{e}");
                 // Clarify type
                 let x: Arc<Mutex<Option<_>>> = $xx;
                 // Send error. Panic if lock fails or previous error not sent.
