@@ -51,7 +51,7 @@ impl MyFfmpegWriter {
     /// It is expected that the filename ends with '.mp4'.
     fn new<P: AsRef<Path>>(mp4_filename: P, cfg: &FfmpegRecordingConfig) -> Result<Self> {
         let mp4_filename: &Path = mp4_filename.as_ref();
-        if mp4_filename.extension().and_then(|x| x.to_str()) != Some(".mp4") {
+        if mp4_filename.extension().and_then(|x| x.to_str()) != Some("mp4") {
             return Err(Error::FilenameDoesNotEndWithMp4);
         }
         let args = &cfg.codec_args;
