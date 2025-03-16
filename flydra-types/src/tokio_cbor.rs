@@ -5,7 +5,6 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(feature = "with-tokio-codec")]
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
@@ -53,7 +52,6 @@ impl Decoder for CborPacketCodec {
     }
 }
 
-#[cfg(feature = "with-tokio-codec")]
 impl Encoder<FlydraRawUdpPacket> for CborPacketCodec {
     type Error = std::io::Error;
 
