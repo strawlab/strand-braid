@@ -209,9 +209,8 @@ pub(crate) fn writer_thread_loop(
         let mut last_saved_stamp: Option<chrono::DateTime<chrono::Local>> = None;
 
         loop {
-            let msg = thread_try!(err_tx, rx.recv());
-            match msg {
-                Msg::Write((frame, stamp)) => {
+            match rx.recv() {
+                Ok(Msg::Write((frame, stamp))) => {
                     let raw_ref = if let Some(raw_ref) = raw.as_mut() {
                         raw_ref
                     } else {
@@ -237,7 +236,9 @@ pub(crate) fn writer_thread_loop(
                         );
                     }
                 }
-                Msg::Finish => {
+                Ok(Msg::Finish) | Err(std::sync::mpsc::RecvError) => {
+                    // Either an explicit Finish message was sent or the sender
+                    // closed the channel. In either case, close the MP4 file.
                     if let Some(raw_ref) = raw.as_mut() {
                         thread_try!(err_tx, finish_writer(raw_ref));
                         tracing::info!("MP4 saving complete.");
