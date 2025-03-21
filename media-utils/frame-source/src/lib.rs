@@ -444,7 +444,8 @@ fn build_frame_source(
     let is_file = std::fs::metadata(&input_path)?.is_file();
     if is_file {
         if let Some(extension) = input_path.extension() {
-            match extension.to_str() {
+            let lower_ext = extension.to_str().map(|x| x.to_string().to_lowercase());
+            match lower_ext.as_ref().map(String::as_str) {
                 Some("mkv") => {
                     if srt_file_path.is_some() {
                         return Err(Error::NoSrtSupportForFileType);
