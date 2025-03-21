@@ -77,11 +77,14 @@ pub(crate) fn from_reader_with_timestamp_source(
     let mut video_track = None;
     for (track_id, track) in mp4_reader.tracks().iter() {
         // ignore all tracks except H264
-        if track.media_type()? == MediaType::H264 {
-            if video_track.is_some() {
-                return Err(Mp4SourceError::SingleH264TrackOnly.into());
+        match track.media_type() {
+            Ok(MediaType::H264) => {
+                if video_track.is_some() {
+                    return Err(Mp4SourceError::SingleH264TrackOnly.into());
+                }
+                video_track = Some((track_id, track));
             }
-            video_track = Some((track_id, track));
+            _ => {}
         }
     }
 
