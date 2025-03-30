@@ -1,5 +1,5 @@
 use basic_frame::DynamicFrame;
-use braidz_types::{camera_name_from_filename, CamNum};
+use braidz_types::{CamNum, camera_name_from_filename};
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
@@ -21,8 +21,6 @@ const DETECT_NAME: &str = "detect";
 pub const UNDIST_NAME: &str = ".linearized.mp4";
 
 const CAMERA_BASE_PATH: &str = "world/camera";
-
-const CAN_UNDISTORT_IMAGES: bool = true;
 
 #[derive(Clone, Debug)]
 struct CachedCamData {
@@ -52,7 +50,7 @@ pub struct OfflineBraidzRerunLogger {
     by_camname: BTreeMap<String, CachedCamData>,
     frametimes: BTreeMap<CamNum, Vec<(i64, f64)>>,
     inter_frame_interval_f64: f64,
-    have_image_data: bool,
+    _have_image_data: bool,
     did_show_2499_warning: bool,
     /// Caches the frame number of the last data drawn for a given entity path.
     ///
@@ -78,7 +76,7 @@ impl OfflineBraidzRerunLogger {
             by_camname: Default::default(),
             frametimes: Default::default(),
             inter_frame_interval_f64,
-            have_image_data,
+            _have_image_data: have_image_data,
             did_show_2499_warning: false,
             last_data2d: Default::default(),
             last_frame: None,
@@ -96,7 +94,9 @@ impl OfflineBraidzRerunLogger {
             let raw_path = format!("{base_path}/raw");
 
             {
-                tracing::warn!("Creating wrong pinhole transform for camera {cam_name} to enable better auto-view in rerun.");
+                tracing::warn!(
+                    "Creating wrong pinhole transform for camera {cam_name} to enable better auto-view in rerun."
+                );
                 let pinhole =
                     Pinhole::new(PinholeProjection::from_focal_length_and_principal_point(
                         (1.0, 1.0),
@@ -180,23 +180,10 @@ impl OfflineBraidzRerunLogger {
 
                 let use_intrinsics = Some(cam.intrinsics().clone());
 
-                let mut image_ent_path = lin_path.clone();
-                let mut image_is_undistorted = true;
+                let image_ent_path = lin_path.clone();
+                let image_is_undistorted = true;
 
-                let log_raw_2d_points = if self.have_image_data && !CAN_UNDISTORT_IMAGES {
-                    // If we cannot undistort the images, also show the original
-                    // image detection coordinates.
-                    tracing::warn!(
-                        "Cannot undistort images for {cam_name}. Logged images will contain \
-                    distortion, but not logging distorted camera models. There will be some \
-                    inconsistencies in the logged data."
-                    );
-                    image_ent_path = raw_path.clone();
-                    image_is_undistorted = false;
-                    Some(raw_path)
-                } else {
-                    None
-                };
+                let log_raw_2d_points = None;
 
                 // Always log the linear (a.k.a. undistorted) points.
                 let log_undistorted_2d_points = Some(lin_path);
