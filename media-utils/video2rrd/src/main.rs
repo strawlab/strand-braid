@@ -57,6 +57,34 @@ fn to_rr_image(im: ImageData) -> eyre::Result<re_types::archetypes::EncodedImage
     ))
 }
 
+/// A guard to remove incomplete file.
+///
+/// Create this and call [Self::keep_file] when the file is correctly written.
+///
+/// [Self::keep_file] is not called, the file will be automatically deleted when
+/// this goes out of scope.
+struct DeleteIfDropped {
+    fname: Option<PathBuf>,
+}
+
+impl Drop for DeleteIfDropped {
+    fn drop(&mut self) {
+        if let Some(fname) = self.fname.take() {
+            std::fs::remove_file(fname).unwrap()
+        }
+    }
+}
+
+impl DeleteIfDropped {
+    fn new(fname: PathBuf) -> Self {
+        Self { fname: Some(fname) }
+    }
+
+    fn keep_file(mut self) {
+        self.fname = None;
+    }
+}
+
 fn main() -> eyre::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "info");
@@ -114,6 +142,7 @@ fn main() -> eyre::Result<()> {
     let rec = rec_builder
         .save(&output)
         .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
+    let delete_if_dropped = DeleteIfDropped::new(output);
 
     let src_iter = src.iter();
 
@@ -164,5 +193,7 @@ fn main() -> eyre::Result<()> {
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }
+
+    delete_if_dropped.keep_file();
     Ok(())
 }
