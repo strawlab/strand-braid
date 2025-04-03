@@ -705,7 +705,7 @@ where
                             parsing_ctx.put_pic_param_set(ipps);
                         }
                         Err(h264_reader::nal::pps::PpsError::BadPicParamSetId(
-                            h264_reader::nal::pps::ParamSetIdError::IdTooLarge(_id),
+                            h264_reader::nal::pps::PicParamSetIdError::IdTooLarge(_id),
                         )) => {
                             // While this is open, ignore the error.
                             // https://github.com/dholroyd/h264-reader/issues/56
