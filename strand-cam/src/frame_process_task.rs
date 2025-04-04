@@ -812,12 +812,7 @@ pub(crate) async fn frame_process_task<'a>(
                                 let mu00 = imops::spatial_moment_00(&thresholded);
                                 let mu01 = imops::spatial_moment_01(&thresholded);
                                 let mu10 = imops::spatial_moment_10(&thresholded);
-                                let mc = if mu00 != 0.0 {
-                                    let x = mu10 / mu00;
-                                    let y = mu01 / mu00;
-
-                                    // If mu00 is 0.0, these will be NaN. CBOR explicitly can represent NaNs.
-
+                                let mc = {
                                     let mc = CentroidToDevice::Centroid(MomentCentroid {
                                         schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
                                         framenumber,
@@ -830,16 +825,20 @@ pub(crate) async fn frame_process_task<'a>(
                                         center_y: store_cache_ref.im_ops_state.center_y,
                                         cam_name: cam_name.as_str().to_string(),
                                     });
-                                    all_points.push(video_streaming::Point {
-                                        x,
-                                        y,
-                                        area: None,
-                                        theta: None,
-                                    });
+                                    if mu00 != 0.0 {
+                                        // If mu00 is 0.0, these will be NaN.
+                                        let x = mu10 / mu00;
+                                        let y = mu01 / mu00;
 
-                                    Some(mc)
-                                } else {
-                                    None
+                                        all_points.push(video_streaming::Point {
+                                            x,
+                                            y,
+                                            area: None,
+                                            theta: None,
+                                        });
+                                    }
+
+                                    mc
                                 };
 
                                 let need_new_socket = if let Some(socket) = &im_ops_socket {
@@ -865,15 +864,13 @@ pub(crate) async fn frame_process_task<'a>(
                                 }
 
                                 if let Some(socket) = &mut im_ops_socket {
-                                    if let Some(mc) = mc {
-                                        let buf = serde_cbor::to_vec(&mc).unwrap();
-                                        match socket
-                                            .send_to(&buf, store_cache_ref.im_ops_state.destination)
-                                        {
-                                            Ok(_n_bytes) => {}
-                                            Err(e) => {
-                                                error!("Unable to send image moment data. {}", e);
-                                            }
+                                    let buf = serde_cbor::to_vec(&mc).unwrap();
+                                    match socket
+                                        .send_to(&buf, store_cache_ref.im_ops_state.destination)
+                                    {
+                                        Ok(_n_bytes) => {}
+                                        Err(e) => {
+                                            error!("Unable to send image moment data. {}", e);
                                         }
                                     }
                                 }
