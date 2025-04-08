@@ -410,7 +410,9 @@ impl CodecSelection {
     pub fn requires(&self, what: &str) -> bool {
         use CodecSelection::*;
         match self {
-            H264Nvenc => true,
+            H264Nvenc => {
+                what == "nvenc"
+            },
             H264OpenH264 => false,
             Ffmpeg(args) => {
                 if let Some(codec) = &args.codec {
