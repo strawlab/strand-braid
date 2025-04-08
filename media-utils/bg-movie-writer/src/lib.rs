@@ -15,7 +15,7 @@ pub enum Error {
         #[from]
         source: std::io::Error,
     },
-    #[error("webm writer error: {0}")]
+    #[error("mp4 writer error: {0}")]
     Mp4WriterError(#[from] mp4_writer::Error),
     #[error("WorkerDisconnected")]
     WorkerDisconnected,
