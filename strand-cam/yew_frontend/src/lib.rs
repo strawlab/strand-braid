@@ -745,16 +745,15 @@ impl Model {
         if let Some(ref shared) = self.server_state {
             let available_codecs = shared.available_codecs();
 
-            let selected_codec =
-                if let Some(codec) = match_avail(&available_codecs, &shared.mp4_codec) {
-                    format!("{codec}")
-                } else {
-                    log_warn(&format!(
-                        "Could not find codec {:?} among available {:?}",
-                        shared.mp4_codec, available_codecs,
-                    ));
-                    "".to_string()
-                };
+            let selected_codec = if available_codecs.contains(&shared.mp4_codec) {
+                format!("{}", shared.mp4_codec)
+            } else {
+                log_warn(&format!(
+                    "Could not find codec {:?} among available {:?}",
+                    shared.mp4_codec, available_codecs,
+                ));
+                "".to_string()
+            };
 
             // TODO: should we bother showing devices if only 1?
             let cuda_select_div = if !shared.cuda_devices.is_empty() {
@@ -1427,14 +1426,6 @@ impl HasAvail for ServerState {
         } else {
             result
         }
-    }
-}
-
-fn match_avail(avail: &[CodecSelection], selected: &CodecSelection) -> Option<CodecSelection> {
-    if avail.contains(selected) {
-        Some(selected.clone())
-    } else {
-        None
     }
 }
 
