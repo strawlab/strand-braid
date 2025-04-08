@@ -613,7 +613,7 @@ impl Default for StrandCamArgs {
 fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
     let cfg = Mp4RecordingConfig {
         codec: Mp4Codec::H264NvEnc(NvidiaH264Options {
-            bitrate: 1000,
+            bitrate: None,
             cuda_device: 0,
         }),
         h264_metadata: None,
@@ -629,8 +629,8 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
         }
     };
 
-    let opts = ci2_remote_control::NvidiaH264Options {
-        bitrate: 10000,
+    let opts = NvidiaH264Options {
+        bitrate: None,
         ..Default::default()
     };
 
@@ -3499,9 +3499,9 @@ async fn send_cam_settings_to_braid(
     transmit_msg_tx.send(msg).await
 }
 
-fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
+fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> Option<u32> {
     use ci2_remote_control::BitrateSelection::*;
-    match br {
+    Some(match br {
         Bitrate500 => 500,
         Bitrate1000 => 1000,
         Bitrate2000 => 2000,
@@ -3509,8 +3509,8 @@ fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> u32 {
         Bitrate4000 => 4000,
         Bitrate5000 => 5000,
         Bitrate10000 => 10000,
-        BitrateUnlimited => u32::MAX,
-    }
+        BitrateUnlimited => return None,
+    })
 }
 
 struct FinalMp4RecordingConfig {

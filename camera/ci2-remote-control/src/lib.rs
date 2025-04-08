@@ -167,7 +167,7 @@ pub enum OpenH264RateControlMode {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct NvidiaH264Options {
     /// The bitrate (used in association with the framerate).
-    pub bitrate: u32,
+    pub bitrate: Option<u32>,
     /// The device number of the CUDA device to use.
     pub cuda_device: i32,
 }
@@ -175,7 +175,7 @@ pub struct NvidiaH264Options {
 impl Default for NvidiaH264Options {
     fn default() -> Self {
         Self {
-            bitrate: 1000,
+            bitrate: None,
             cuda_device: 0,
         }
     }

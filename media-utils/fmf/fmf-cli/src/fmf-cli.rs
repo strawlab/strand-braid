@@ -478,9 +478,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     let (codec, nv_enc) = match x.codec {
         Codec::NvencH264 => {
             let mut opts = NvidiaH264Options::default();
-            if let Some(bitrate) = x.bitrate {
-                opts.bitrate = bitrate;
-            }
+            opts.bitrate = x.bitrate;
             let nv_enc = Some(nvenc::NvEnc::new(libs.as_ref().unwrap())?);
             (ci2_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
         }

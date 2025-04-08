@@ -431,8 +431,10 @@ where
                                 let mut encoder_config =
                                     encoder.get_encode_preset_config(encode, preset)?;
                                 encoder_config.set_rate_control_mode(RateControlMode::Vbr);
-                                encoder_config.set_average_bit_rate(opts.bitrate * 1000);
-                                encoder_config.set_max_bit_rate(opts.bitrate * 1000);
+                                if let Some(bitrate) = opts.bitrate.as_ref() {
+                                    encoder_config.set_average_bit_rate(bitrate * 1000);
+                                    encoder_config.set_max_bit_rate(bitrate * 1000);
+                                }
 
                                 let params =
                                     param_builder.set_encode_config(encoder_config).build()?;
