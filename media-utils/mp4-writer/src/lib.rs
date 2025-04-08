@@ -41,7 +41,6 @@ mod h264_annexb_split;
 use h264_annexb_split::h264_annexb_split;
 
 // The number of time units that pass in one second.
-// const MOVIE_TIMESCALE: u32 = 1_000_000;
 const MOVIE_TIMESCALE: u32 = 90_000;
 const TRACK_ID: u32 = 1;
 

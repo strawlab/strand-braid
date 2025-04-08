@@ -10,6 +10,7 @@ fn next16(x: IType) -> IType {
 }
 
 fn main() -> eyre::Result<()> {
+    env_tracing_logger::init();
     let n_frames = 1;
 
     let start = chrono::DateTime::from_timestamp(61, 0).unwrap();

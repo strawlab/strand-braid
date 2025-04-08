@@ -28,7 +28,7 @@ enum Encoder {
 }
 
 fn main() -> eyre::Result<()> {
-    env_logger::init();
+    env_tracing_logger::init();
     let cli = Cli::parse();
 
     // 1970-01-01 01:00:00 UTC
