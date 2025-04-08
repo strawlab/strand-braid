@@ -296,7 +296,7 @@ impl<'lib> Encoder<'lib> {
     }
 }
 
-pub const H264_RATE: u32 = 1_000_000;
+const H264_RATE: u32 = 90_000;
 
 // same as std::time::Duration::from_secs_f64 in rust 1.38
 fn from_secs_f64(secs: f64) -> std::time::Duration {
