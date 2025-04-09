@@ -10,7 +10,7 @@ byteorder.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 structure = "0.1.2"
-cast = "0.2.2"
+cast.workspace = true
 
 basic-frame.workspace = true
 machine-vision-formats.workspace = true

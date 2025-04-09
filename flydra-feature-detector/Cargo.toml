@@ -12,7 +12,7 @@ thiserror.workspace = true
 machine-vision-formats.workspace = true
 basic-frame = { workspace = true, features = ["convert-image"] }
 num-traits.workspace = true
-cast = "0.2.2"
+cast.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 tokio.workspace = true

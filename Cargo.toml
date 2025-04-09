@@ -146,6 +146,7 @@ byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.15", features = ["serde-serialize"] }
 camino = "1.1.9"
+cast = { version = "0.3", features = ["std"] }
 # chrono 0.4.40 introduced Datelike::quarter which conflicts with arrow-arith
 # 53.4.0, specifically its ChronoDateExt::quarter. Here we pin chrono to prevent
 # updating to chrono 0.4.40. We can remove this pin when
@@ -233,7 +234,6 @@ re_types = { version = "0.22", default-features = false }
 re_build_info = { version = "0.22", default-features = false }
 re_build_tools = { version = "0.22", default-features = false }
 rerun = { version = "0.22", default-features = false }
-
 resvg = "0.19"
 rusttype = "0.9.2"
 serde = { version = "1.0", features = ["derive"] }
