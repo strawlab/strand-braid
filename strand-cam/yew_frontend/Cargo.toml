@@ -12,7 +12,6 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow.workspace = true
 wasm-logger.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
@@ -23,7 +22,6 @@ yew.workspace = true
 serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
 serde_yaml.workspace = true
-http = "0.2"
 yew-tincture.workspace = true
 gloo-timers = "0.3.0"
 uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] }
