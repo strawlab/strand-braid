@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -13,7 +12,7 @@ chrono.workspace = true
 machine-vision-formats.workspace = true
 glob.workspace = true
 tiff.workspace = true
-kamadak-exif = "0.5.5"
+kamadak-exif = "0.6.1"
 mp4.workspace = true
 h264-reader.workspace = true
 openh264 = { workspace = true, optional = true }
