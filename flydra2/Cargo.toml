@@ -25,7 +25,6 @@ toml.workspace = true
 dyn-clone.workspace = true
 nalgebra.workspace = true
 parry3d-f64.workspace = true
-configure.workspace = true
 itertools.workspace = true
 axum.workspace = true
 http.workspace = true
@@ -47,7 +46,6 @@ iana-time-zone.workspace = true
 tower-http = { workspace = true, optional = true }
 tower-serve-static = { workspace = true, optional = true }
 include_dir = { workspace = true, optional = true }
-const_format = "0.2.32"
 approx.workspace = true
 re_types.workspace = true
 re_sdk.workspace = true
@@ -63,10 +61,8 @@ flydra-mvg.workspace = true
 http-video-streaming-types.workspace = true
 flydra-types.workspace = true
 tracking.workspace = true
-groupby.workspace = true
 withkey.workspace = true
 convert-image.workspace = true
-strand-cam-csv-config-types.workspace = true
 event-stream-types.workspace = true
 
 [dev-dependencies]

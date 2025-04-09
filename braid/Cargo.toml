@@ -8,7 +8,6 @@ homepage = "https://strawlab.org/braid"
 default-run = "braid"
 
 [dependencies]
-configure.workspace = true
 toml.workspace = true
 clap.workspace = true
 tracing.workspace = true
