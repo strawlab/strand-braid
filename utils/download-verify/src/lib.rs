@@ -42,15 +42,16 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
         }
 
         // If the file does not exist, download the contents,
-        let agent = ureq::builder()
-            .timeout_connect(std::time::Duration::from_secs(10)) // max 10 seconds
-            .build();
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_connect(Some(std::time::Duration::from_secs(10))) // max 10 seconds
+            .build()
+            .into();
         let response = agent.get(url).call().map_err(|source| DlError::UreqError {
             source,
             url: url.into(),
         })?;
 
-        let mut rdr = response.into_reader();
+        let mut rdr = response.into_body().into_reader();
 
         let mut bytes = vec![];
         rdr.read_to_end(&mut bytes)?;
