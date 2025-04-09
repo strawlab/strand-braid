@@ -38,7 +38,8 @@ mod app {
     use usb_device::{class_prelude::*, prelude::*};
     use usbd_serial::SerialPort;
 
-    use embedded_hal::{digital::v2::OutputPin, PwmPin};
+    use embedded_hal::digital::OutputPin;
+    use embedded_hal_0_2::PwmPin;
     use rp2040_hal::{
         self as hal,
         clocks::init_clocks_and_plls,
@@ -129,10 +130,14 @@ mod app {
         )));
         let usb_serial = SerialPort::new(usb_bus.as_ref().unwrap());
 
-        let usb_dev = UsbDeviceBuilder::new(usb_bus.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+        let strings = StringDescriptors::new(usb_device::descriptor::lang_id::LangID::EN)
             .manufacturer("Straw Lab")
             .product("LED Box")
-            .serial_number("TEST")
+            .serial_number("TEST");
+
+        let usb_dev = UsbDeviceBuilder::new(usb_bus.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+            .strings(&[strings])
+            .unwrap()
             .device_class(2) // USB_CLASS_CDC
             .build();
 
