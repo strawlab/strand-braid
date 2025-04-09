@@ -115,8 +115,6 @@ fn cbor_roundtrip() {
 
 #[allow(dead_code)]
 fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
-    use crate::ImageProcessingSteps;
-
     let cam_name = "cam_id".to_string();
     let timestamp = 12.34;
     let timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(timestamp));
@@ -124,7 +122,6 @@ fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
     let cam_received_time = FlydraFloatTimestampLocal::<HostClock>::from_f64(123.456);
     let device_timestamp = Some(123456);
     let block_id = Some(987654);
-    let n_frames_skipped = 6;
 
     let points: Vec<FlydraRawUdpPoint> = vec![];
 
@@ -135,10 +132,6 @@ fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
         device_timestamp,
         block_id,
         framenumber,
-        n_frames_skipped,
-        done_camnode_processing: 0.0,
-        preprocess_stamp: 0.0,
-        image_processing_steps: ImageProcessingSteps::empty(),
         points,
     }
 }

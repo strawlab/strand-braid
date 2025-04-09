@@ -14,7 +14,6 @@ serde.workspace = true
 serde_cbor = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
-bitflags = "1.0"
 ordered-float.workspace = true
 static_assertions = "1.1.0"
 num-integer = "0.1"

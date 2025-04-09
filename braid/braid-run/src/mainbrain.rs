@@ -438,57 +438,8 @@ struct RawPacketLogRow {
     device_timestamp: Option<u64>,
     block_id: Option<u64>,
     framenumber: i32,
-    n_frames_skipped: u32,
-    done_camnode_processing: f64,
-    preprocess_stamp: f64,
     cam_num: Option<flydra_types::CamNum>,
     synced_frame: Option<SyncFno>,
-}
-
-/// Logger for debugging raw packet data direct from Strand Cam.
-struct RawPacketLogger {
-    fd: Option<csv::Writer<std::fs::File>>,
-}
-
-impl RawPacketLogger {
-    /// Create a new logger for debugging raw packet data.
-    ///
-    /// If `fname` argument is None, this does very little.
-    fn new(fname: Option<&std::path::Path>) -> Result<Self> {
-        let fd = fname
-            .map(std::fs::File::create)
-            .transpose()?
-            .map(csv::Writer::from_writer);
-        Ok(Self { fd })
-    }
-
-    /// Log debug data for raw packets.
-    ///
-    /// If no filename was given to `Self::new`, this does very little.
-    fn log_raw_packets(
-        &mut self,
-        packet: &flydra_types::FlydraRawUdpPacket,
-        cam_num: Option<flydra_types::CamNum>,
-        synced_frame: Option<SyncFno>,
-    ) -> Result<()> {
-        if let Some(ref mut fd) = self.fd {
-            let row = RawPacketLogRow {
-                cam_name: packet.cam_name.clone(),
-                timestamp: packet.timestamp.clone(),
-                cam_received_time: packet.cam_received_time.clone(),
-                device_timestamp: packet.device_timestamp,
-                block_id: packet.block_id,
-                framenumber: packet.framenumber,
-                n_frames_skipped: packet.n_frames_skipped,
-                done_camnode_processing: packet.done_camnode_processing,
-                preprocess_stamp: packet.preprocess_stamp,
-                cam_num,
-                synced_frame,
-            };
-            fd.serialize(row)?;
-        }
-        Ok(())
-    }
 }
 
 pub(crate) async fn do_run_forever(
@@ -1023,10 +974,6 @@ pub(crate) async fn do_run_forever(
         let cam_manager2 = cam_manager2.clone();
         let sync_pulse_pause_started_arc = sync_pulse_pause_started_arc.clone();
         let cam_manager = cam_manager.clone();
-        // This creates a debug logger when `packet_capture_dump_fname` is not
-        // `None`.
-        let mut raw_packet_logger =
-            RawPacketLogger::new(mainbrain_config.packet_capture_dump_fname.as_deref()).unwrap();
         let time_model_arc = time_model_arc.clone();
         async move {
             // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -1078,10 +1025,6 @@ pub(crate) async fn do_run_forever(
             );
 
             let cam_num = cam_manager.cam_num(&raw_cam_name);
-
-            raw_packet_logger
-                .log_raw_packets(&packet, cam_num, synced_frame)
-                .unwrap();
 
             let cam_num = match cam_num {
                 Some(cam_num) => cam_num,

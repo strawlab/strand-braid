@@ -6,8 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 #[macro_use]
-extern crate bitflags;
-#[macro_use]
 extern crate static_assertions;
 
 use ordered_float::NotNan;
@@ -1041,6 +1039,7 @@ pub struct PerCam<T> {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FlydraRawUdpPacket {
     /// The name of the camera
     ///
@@ -1058,13 +1057,6 @@ pub struct FlydraRawUdpPacket {
     /// frame number from the camera
     pub block_id: Option<u64>,
     pub framenumber: i32,
-    pub n_frames_skipped: u32,
-    /// this will always be 0.0 for flydra1 custom serialized packets
-    pub done_camnode_processing: f64,
-    /// this will always be 0.0 for flydra1 custom serialized packets
-    pub preprocess_stamp: f64,
-    /// this will always be 0 for flydra1 custom serialized packets
-    pub image_processing_steps: ImageProcessingSteps,
     pub points: Vec<FlydraRawUdpPoint>,
 }
 
@@ -1117,17 +1109,6 @@ pub struct TriggerClockInfoRow {
     pub tcnt: u8,
     #[serde(with = "crate::timestamp_f64")]
     pub stop_timestamp: FlydraFloatTimestampLocal<HostClock>,
-}
-
-bitflags! {
-    #[derive(Serialize, Deserialize)]
-    pub struct ImageProcessingSteps: u8 {
-        const BGINIT    = 0b00000001;
-        const BGSTARTUP = 0b00000010;
-        const BGCLEARED = 0b00000100;
-        const BGUPDATE  = 0b00001000;
-        const BGNORMAL  = 0b00010000;
-    }
 }
 
 /// TriggerboxV1 configuration

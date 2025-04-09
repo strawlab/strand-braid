@@ -9,19 +9,16 @@ pub enum Error {
     ShellExpandLookupVarError {
         #[from]
         source: shellexpand::LookupError<std::env::VarError>,
-
     },
     #[error("IO error: {source}")]
     IoError {
         #[from]
         source: std::io::Error,
-
     },
     #[error("TOML deserialization error: {source}")]
     TomlDeError {
         #[from]
         source: toml::de::Error,
-
     },
 }
 
@@ -139,8 +136,6 @@ pub struct MainbrainConfig {
     pub save_empty_data2d: bool,
     /// Secret to use for signing HTTP cookies (base64 encoded)
     pub secret_base64: Option<String>,
-    /// For debugging: filename to store captured packet data.
-    pub packet_capture_dump_fname: Option<std::path::PathBuf>,
     /// Threshold duration before logging error (msec).
     ///
     /// If the image acquisition timestamp precedes the computed trigger
@@ -169,7 +164,6 @@ impl std::default::Default for MainbrainConfig {
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,
             secret_base64: None,
-            packet_capture_dump_fname: None,
             acquisition_duration_allowed_imprecision_msec:
                 flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
             write_buffer_size_num_messages: default_write_buffer_size_num_messages(),

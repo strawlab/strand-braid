@@ -7,7 +7,7 @@
 
 use flydra_types::{
     FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock,
-    ImageProcessingSteps, TriggerClockInfoRow, Triggerbox,
+    TriggerClockInfoRow, Triggerbox,
 };
 
 fn make_test_packet() -> FlydraRawUdpPacket {
@@ -18,7 +18,6 @@ fn make_test_packet() -> FlydraRawUdpPacket {
     let device_timestamp = Some(123456);
     let block_id = Some(987654);
     let framenumber = 42;
-    let n_frames_skipped = 6;
 
     let points: Vec<FlydraRawUdpPoint> = vec![];
 
@@ -29,10 +28,6 @@ fn make_test_packet() -> FlydraRawUdpPacket {
         device_timestamp,
         block_id,
         framenumber,
-        n_frames_skipped,
-        done_camnode_processing: 0.0,
-        preprocess_stamp: 0.0,
-        image_processing_steps: ImageProcessingSteps::empty(),
         points,
     }
 }

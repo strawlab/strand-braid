@@ -83,6 +83,7 @@
   camera name.
 * Rename command line program `strand-cam-offline-kalmanize` to
   `flytrax-csv-to-braidz`.
+* Removed `packet_capture_dump_fname` Braid configuration parameter.
 
 ### Fixed
 

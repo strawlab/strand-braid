@@ -914,15 +914,9 @@ pub(crate) async fn frame_process_task<'a>(
 
                     #[cfg(not(feature = "flydra_feat_detect"))]
                     {
-                        use flydra_types::ImageProcessingSteps;
-
                         // In case we are not doing flydra feature detection, send frame data to braid anyway.
-                        let process_new_frame_start = chrono::Utc::now();
                         let acquire_stamp =
                             FlydraFloatTimestampLocal::from_dt(&frame.host_timing.datetime);
-
-                        let preprocess_stamp =
-                            datetime_conversion::datetime_to_f64(&process_new_frame_start);
 
                         let tracker_annotation = flydra_types::FlydraRawUdpPacket {
                             cam_name: raw_cam_name.as_str().to_string(),
@@ -931,10 +925,6 @@ pub(crate) async fn frame_process_task<'a>(
                             device_timestamp,
                             block_id,
                             framenumber: frame.host_timing.fno as i32,
-                            n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
-                            done_camnode_processing: 0.0,
-                            preprocess_stamp,
-                            image_processing_steps: ImageProcessingSteps::empty(),
                             points: vec![],
                         };
                         if let Some(ref coord_socket) = coord_socket {

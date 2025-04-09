@@ -29,10 +29,7 @@ use fastim_mod::{
 use formats::{pixel_format::Mono32f, Stride};
 
 use basic_frame::DynamicFrame;
-use flydra_types::{
-    FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, ImageProcessingSteps,
-    RawCamName,
-};
+use flydra_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
 use ufmf::UFMFWriter;
 
 pub use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
@@ -407,11 +404,6 @@ impl std::fmt::Debug for StartupState {
     }
 }
 
-#[inline]
-fn to_f64(dtl: DateTime<Utc>) -> f64 {
-    datetime_conversion::datetime_to_f64(&dtl)
-}
-
 fn save_bg_data(
     ufmf_writer: &mut ufmf::UFMFWriter<std::fs::File>,
     state_background: &background_model::BackgroundModel,
@@ -643,7 +635,6 @@ impl FlydraFeatureDetector {
         braid_ts: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let mut saved_bg_image = None;
-        let process_new_frame_start = Utc::now();
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);
         let acquire_duration = match braid_ts {
             Some(ref trigger_stamp) => {
@@ -664,9 +655,6 @@ impl FlydraFeatureDetector {
                 self.acquisition_duration_allowed_imprecision_msec,
             );
         }
-
-        let preprocess_stamp = to_f64(process_new_frame_start);
-        // let preprocess_duration = preprocess_stamp - acquire_stamp;
 
         let mut do_save_ufmf_bg = false;
         let mut new_ufmf_state = match ufmf_state {
@@ -725,10 +713,6 @@ impl FlydraFeatureDetector {
             device_timestamp,
             block_id,
             framenumber: fno as i32,
-            n_frames_skipped: 0, // FIXME TODO XXX FIX THIS, should be n_frames_skipped
-            done_camnode_processing: 0.0,
-            preprocess_stamp,
-            image_processing_steps: ImageProcessingSteps::empty(),
             points: vec![],
         };
 
@@ -748,7 +732,6 @@ impl FlydraFeatureDetector {
                     running_mean,
                     mean_squared_im,
                 };
-                packet.image_processing_steps |= ImageProcessingSteps::BGINIT;
                 (
                     packet,
                     BackgroundAcquisitionState::StartupMode(startup_state),
@@ -774,7 +757,6 @@ impl FlydraFeatureDetector {
                 )?;
 
                 startup_state.n_frames += 1;
-                packet.image_processing_steps |= ImageProcessingSteps::BGSTARTUP;
                 let complete_stamp = timestamp_utc;
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
@@ -816,7 +798,6 @@ impl FlydraFeatureDetector {
                     complete_stamp,
                 )?;
                 debug!("cleared background model to value {}", value);
-                packet.image_processing_steps |= ImageProcessingSteps::BGCLEARED;
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }
             BackgroundAcquisitionState::NormalUpdates(mut state) => {
@@ -824,7 +805,6 @@ impl FlydraFeatureDetector {
 
                 if state.frames_since_background_update >= self.cfg.bg_update_interval {
                     if self.cfg.do_update_background_model {
-                        packet.image_processing_steps |= ImageProcessingSteps::BGUPDATE;
                         // defer processing bg images until after this frame data sent
                         saved_bg_image = Some(orig_frame);
                     }
@@ -860,15 +840,11 @@ impl FlydraFeatureDetector {
                         save_bg_data(ufmf_writer, &state.background)?;
                     }
                 }
-                packet.image_processing_steps |= ImageProcessingSteps::BGNORMAL;
 
                 let inner_points: Vec<FlydraRawUdpPoint> =
                     points.iter().map(|pt| pt.inner.clone()).collect();
 
-                let utc_now = Utc::now();
-
                 packet.points = inner_points;
-                packet.done_camnode_processing = to_f64(utc_now);
 
                 // let process_duration = to_f64(utc_now) - preprocess_stamp;
                 // trace!("cam {}, frame {}, {} frames since bg update, \
