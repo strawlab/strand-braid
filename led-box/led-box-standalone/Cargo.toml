@@ -11,7 +11,7 @@ tokio-util.workspace = true
 tokio-serial.workspace = true
 anyhow.workspace = true
 byteorder.workspace = true
-eframe = { version = "0.22.0", default-features = false, features = [
+eframe = { version = "0.31.1", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
