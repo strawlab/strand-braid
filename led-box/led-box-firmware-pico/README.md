@@ -6,7 +6,7 @@ To build the ELF executable, install the following:
 
     # In the directory with Cargo.toml for led-box-firmware-pico
     rustup component add rust-src
-    rustup target add thumbv7em-none-eabihf
+    rustup target add thumbv6m-none-eabi
 
 To convert the ELF executable to a .bin file which can be copied onto the
 nucleo, install the following:
@@ -16,9 +16,9 @@ nucleo, install the following:
 
 To build the ELF executable and convert it to a .bin file, do this:
 
-    cargo objcopy --bin led-box-firmware-pico --release -- -O binary ./target/thumbv7em-none-eabihf/release/led-box-firmware-pico.bin
+    cargo objcopy --bin led-box-firmware-pico --release -- -O binary ./target/thumbv6m-none-eabi/release/led-box-firmware-pico.bin
 
-The file at `./target/thumbv7em-none-eabihf/release/led-box-firmware-pico.bin` can
+The file at `./target/thumbv6m-none-eabi/release/led-box-firmware-pico.bin` can
 now be copied onto the emulated USB mass storage device of the Nucleo board.
 
 ## Debugging with Knurling (`probe-rs`)
