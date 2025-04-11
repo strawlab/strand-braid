@@ -8,8 +8,6 @@ rust-version = "1.76"
 eyre.workspace = true
 lazy_static.workspace = true
 tracing.workspace = true
-# Even though we do not directly depend on winit, include it here for default features.
-winit = { version = "0.30.9", default-features = true }
 
 ipp-sys = { workspace = true, optional = true }
 
