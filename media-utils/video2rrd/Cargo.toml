@@ -16,6 +16,8 @@ regex.workspace = true
 machine-vision-formats.workspace = true
 chrono.workspace = true
 indicatif.workspace = true
+undistort-image.workspace = true
+opencv-ros-camera.workspace = true
 
 env-tracing-logger.workspace = true
 convert-image.workspace = true

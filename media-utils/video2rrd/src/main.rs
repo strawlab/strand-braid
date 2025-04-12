@@ -38,17 +38,32 @@ struct Opt {
     /// Disable display of progress indicator
     #[arg(long)]
     no_progress: bool,
+
+    /// Filename with camera parameters. When given, used to remove distortion in output movie.
+    ///
+    /// This allows working around https://github.com/rerun-io/rerun/issues/2499.
+    #[arg(long)]
+    undistort_with_calibration: Option<String>,
 }
 
-fn to_rr_image(im: ImageData) -> eyre::Result<re_types::archetypes::EncodedImage> {
+fn to_rr_image(
+    im: ImageData,
+    undist_cache: Option<&undistort_image::UndistortionCache>,
+) -> eyre::Result<re_types::archetypes::EncodedImage> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => eyre::bail!("image not decoded"),
     };
 
+    let to_save = if let Some(undist_cache) = undist_cache {
+        undistort_image::undistort_image(decoded, &undist_cache)?
+    } else {
+        decoded
+    };
+
     // jpeg compression TODO: give option to save uncompressed?
     let contents = basic_frame::match_all_dynamic_fmts!(
-        &decoded,
+        &to_save,
         x,
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)
     )?;
@@ -117,6 +132,25 @@ fn main() -> eyre::Result<()> {
         movie_filename
     };
 
+    let undist_cache = if let Some(yaml_intrinsics_fname) = &opt.undistort_with_calibration {
+        let yaml_buf = std::fs::read_to_string(&yaml_intrinsics_fname)
+            .with_context(|| format!("while reading {yaml_intrinsics_fname}"))?;
+
+        let intrinsics: opencv_ros_camera::RosCameraInfo<f64> = serde_yaml::from_str(&yaml_buf)
+            .with_context(|| format!("while parsing {yaml_intrinsics_fname}"))?;
+
+        let intrinsics: opencv_ros_camera::NamedIntrinsicParameters<f64> =
+            intrinsics.try_into().unwrap();
+        let undist_cache = undistort_image::UndistortionCache::new(
+            &intrinsics.intrinsics,
+            intrinsics.width,
+            intrinsics.height,
+        )?;
+        Some(undist_cache)
+    } else {
+        None
+    };
+
     tracing::info!("Frame size: {}x{}", src.width(), src.height());
 
     let start_time = if let Some(t) = opt.start_time.as_ref() {
@@ -182,7 +216,7 @@ fn main() -> eyre::Result<()> {
             flydra_types::FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(stamp_chrono);
         let stamp_f64 = stamp_flydra.as_f64();
         rec.set_time_seconds("wall_clock", stamp_f64);
-        let image = to_rr_image(frame.into_image())?;
+        let image = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
 
         rec.log(entity_path.as_str(), &image)?;
         if let Some(pb) = &pb {
