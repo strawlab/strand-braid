@@ -29,6 +29,14 @@ struct Opt {
     #[arg(short, long)]
     start_time: Option<chrono::DateTime<chrono::FixedOffset>>,
 
+    /// Exclude frames before this time.
+    #[arg(long)]
+    exclude_before: Option<chrono::DateTime<chrono::FixedOffset>>,
+
+    /// Exclude frames after this time.
+    #[arg(long)]
+    exclude_after: Option<chrono::DateTime<chrono::FixedOffset>>,
+
     /// Force the video to be interpreted as having this frame rate (in frames per second).
     ///
     /// By default, timestamps in the video itself will be used.
@@ -183,10 +191,19 @@ fn main() -> eyre::Result<()> {
     let pb = if !opt.no_progress {
         let (_, max_size) = src_iter.size_hint();
         if let Some(max_size) = max_size {
-            // Custom progress bar with space at right end to prevent obscuring last
-            // digit with cursor.
-            let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
-            Some(ProgressBar::new(max_size.try_into().unwrap()).with_style(style))
+            if opt.exclude_before.is_none() && opt.exclude_after.is_none() {
+                // Custom progress bar with space at right end to prevent obscuring last
+                // digit with cursor.
+                let style = ProgressStyle::with_template("{wide_bar} {pos}/{len} ETA: {eta} ")?;
+                Some(ProgressBar::new(max_size.try_into().unwrap()).with_style(style))
+            } else {
+                // Have not computed number of frames, so cannot have progress bar.
+                tracing::info!(
+                    "Not showing progress bar due to use of exclude_before or \
+                exclude_after options."
+                );
+                None
+            }
         } else {
             None
         }
@@ -215,6 +232,19 @@ fn main() -> eyre::Result<()> {
         let stamp_flydra =
             flydra_types::FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(stamp_chrono);
         let stamp_f64 = stamp_flydra.as_f64();
+
+        if let Some(first_time) = opt.exclude_before {
+            if stamp_chrono < first_time {
+                continue;
+            }
+        }
+
+        if let Some(last_time) = opt.exclude_after {
+            if stamp_chrono > last_time {
+                continue;
+            }
+        }
+
         rec.set_time_seconds("wall_clock", stamp_f64);
         let image = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
 
