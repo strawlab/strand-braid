@@ -588,12 +588,14 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         if !report.termination.was_successful() {
             eyre::bail!("Bundle adjustment did not succeed.");
         };
-        // let residuals_post = ba.residuals().unwrap();
-        // println!(
-        //     "pre: {}, post: {}",
-        //     residuals_pre.abs().row_sum()[(0, 0)],
-        //     residuals_post.abs().row_sum()[(0, 0)]
-        // );
+
+        let residuals_post = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
+        tracing::debug!("residuals after bundle adjustment: {residuals_post}");
+        tracing::debug!(
+            "residual abs sum before BA : {:.2}, after BA: {:.2}",
+            residuals_pre.abs().row_sum()[(0, 0)],
+            residuals_post.abs().row_sum()[(0, 0)]
+        );
 
         let mut cams_by_name = std::collections::BTreeMap::new();
 
