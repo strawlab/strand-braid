@@ -220,7 +220,7 @@ num-traits = "0.2"
 obj = { version = "0.10", features = ["genmesh"] }
 opencv-ros-camera = { version = "0.15.1", features = ["serde-serialize"] }
 openh264 = "0.8.0"
-ordered-float = { version = "3.4", features = ["serde"] }
+ordered-float = { version = "4.6", features = ["serde"] }
 parry2d-f64 = "0.18"
 parry3d-f64 = "0.18"
 pin-project = "1.0.11"
