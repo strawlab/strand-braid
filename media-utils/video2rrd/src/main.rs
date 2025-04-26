@@ -229,9 +229,6 @@ fn main() -> eyre::Result<()> {
         };
 
         let stamp_chrono = start_time + pts;
-        let stamp_flydra =
-            flydra_types::FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(stamp_chrono);
-        let stamp_f64 = stamp_flydra.as_f64();
 
         if let Some(first_time) = opt.exclude_before {
             if stamp_chrono < first_time {
@@ -245,7 +242,11 @@ fn main() -> eyre::Result<()> {
             }
         }
 
-        rec.set_time_seconds("wall_clock", stamp_f64);
+        {
+            let time: std::time::SystemTime = stamp_chrono.into();
+            let time: re_sdk::TimeCell = time.try_into().map_err(|_| eyre::eyre!("ts fail"))?;
+            rec.set_time("wall_clock", time);
+        }
         let image = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
 
         rec.log(entity_path.as_str(), &image)?;

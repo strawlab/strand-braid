@@ -185,15 +185,12 @@ pub async fn new_model_server(
     let new_data_processor_future = async move {
         let app_state = app_state2;
 
-        const ENV_KEY: &str = "RERUN_VIEWER_ADDR";
-        let rec = std::env::var_os(ENV_KEY).map(|addr_str| {
-            let socket_addr = std::net::ToSocketAddrs::to_socket_addrs(addr_str.to_str().unwrap())
-                .unwrap()
-                .next()
-                .unwrap();
-            tracing::info!("Streaming data to rerun at {socket_addr}");
+        const ENV_KEY: &str = "RERUN_VIEWER_URL";
+        let rec = std::env::var_os(ENV_KEY).map(|url_str| {
+            let url = url_str.to_str().unwrap();
+            tracing::info!("Streaming data to rerun at {url}");
             re_sdk::RecordingStreamBuilder::new("braid")
-                .connect_tcp_opts(socket_addr, None)
+                .connect_grpc_opts(url, None)
                 .unwrap()
         });
 
@@ -201,7 +198,7 @@ pub async fn new_model_server(
             tracing::info!(
                 "No Rerun viewer address specified with environment variable \
             \"{ENV_KEY}\", not logging data to Rerun. (Hint: the Rerun Viewer \
-                listens by default on port 9876.)"
+                listens by default at \"rerun+http://127.0.0.1:9876/proxy\".)"
             );
         }
 

@@ -31,7 +31,7 @@
   Furthermore, additional support for post-triggering of all cameras can be
   done.
 * Support for [Rerun](https://www.rerun.io) to visualize data. If the
-  environment variable `RERUN_VIEWER_ADDR` is set, Braid will attempt to connect
+  environment variable `RERUN_VIEWER_URL` is set, Braid will attempt to connect
   to the rerun viewer at this address. A new utility (`braidz-export-rrd`)
   converts .braidz files (and, if specified, also multi-camera .mp4 videos) into
   a .rrd file for viewing with the Rerun viewer.

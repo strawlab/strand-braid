@@ -51,9 +51,14 @@ struct Cli {
     bundle_adjustment_intrinsics_source: BAIntrinsicsSource,
 
     /// Log data to rerun viewer at this socket address. (The typical address is
-    /// "127.0.0.1:9876".)
-    #[arg(long)]
+    /// "127.0.0.1:9876".) DEPRECATED. Use `rerun_url` instead.
+    #[arg(long, hide = true)]
     rerun: Option<String>,
+
+    /// Log data to rerun viewer at this URL. (A typical url is
+    /// "rerun+http://127.0.0.1:9876/proxy\".)
+    #[arg(long)]
+    rerun_url: Option<String>,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum, Default, PartialEq)]
@@ -400,13 +405,23 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
     // Connect to rerun prior to running Octave.
 
-    let rec = if let Some(socket_addr_str) = opt.rerun {
+    let rerun_url = if let Some(socket_addr_str) = opt.rerun {
+        tracing::warn!("'--rerun' CLI argument is deprecated in favor of '--rerun-url'.");
+        if opt.rerun_url.is_some() {
+            eyre::bail!("Cannot set both rerun and rerun_url CLI args.");
+        }
         let mut addrs_iter = socket_addr_str.to_socket_addrs()?;
         let socket_addr = addrs_iter.next().unwrap();
-        tracing::info!("Streaming data to rerun at {socket_addr}");
+        Some(format!("rerun+http://{socket_addr}/proxy"))
+    } else {
+        opt.rerun_url
+    };
+
+    let rec = if let Some(rerun_url) = rerun_url {
+        tracing::info!("Streaming data to rerun at {rerun_url}");
         Some(
             re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
-                .connect_tcp_opts(socket_addr, None)?,
+                .connect_grpc_opts(rerun_url, None)?,
         )
     } else {
         None

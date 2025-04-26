@@ -62,9 +62,14 @@ struct Cli {
     bundle_adjustment_model_type: bundle_adj::ModelType,
 
     /// Log data to rerun viewer at this socket address. (The typical address is
-    /// "127.0.0.1:9876".)
-    #[arg(long)]
+    /// "127.0.0.1:9876".) DEPRECATED. Use rerun_url instead.
+    #[arg(long, hide = true)]
     rerun: Option<String>,
+
+    /// Log data to rerun viewer at this URL. (A typical url is
+    /// "rerun+http://127.0.0.1:9876/proxy\".)
+    #[arg(long)]
+    rerun_url: Option<String>,
 
     /// Force rerun to show original, distorted camera coordinates. Because
     /// Rerun does not currently support distorted camera models this option
@@ -100,6 +105,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         output_xml,
         bundle_adjustment,
         rerun,
+        mut rerun_url,
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
         bundle_adjustment_model_type,
@@ -360,12 +366,20 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         }
     }
 
-    let rec = if let Some(socket_addr_str) = rerun {
+    if let Some(socket_addr_str) = rerun {
+        tracing::warn!("'--rerun' CLI argument is deprecated in favor of '--rerun-url'.");
+        if rerun_url.is_some() {
+            eyre::bail!("Cannot set both rerun and rerun_url CLI args.");
+        }
         let mut addrs_iter = socket_addr_str.to_socket_addrs()?;
         let socket_addr = addrs_iter.next().unwrap();
-        tracing::info!("Streaming data to rerun at {socket_addr}");
+        rerun_url = Some(format!("rerun+http://{socket_addr}/proxy"));
+    };
+
+    let rec = if let Some(rerun_url) = rerun_url {
+        tracing::info!("Streaming data to rerun at {rerun_url}");
         let rec = re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
-            .connect_tcp_opts(socket_addr, None)?;
+            .connect_grpc_opts(rerun_url, None)?;
 
         // Log 2D images to rerun
         for (icam_idx, cam_fname) in image_fnames.iter() {

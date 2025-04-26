@@ -271,7 +271,8 @@ impl OfflineBraidzRerunLogger {
                 );
                 self.rec.disable_timeline(FRAMES_TIMELINE);
             }
-            self.rec.set_time_seconds(SECONDS_TIMELINE, stamp_f64);
+            self.rec
+                .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, stamp_f64);
             let (image, decoded) = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
             if let Some(my_mp4_writer) = my_mp4_writer.as_mut() {
@@ -301,7 +302,8 @@ impl OfflineBraidzRerunLogger {
             .or_default()
             .push((row.frame, dt));
 
-        self.rec.set_time_seconds(SECONDS_TIMELINE, dt);
+        self.rec
+            .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, dt);
         self.rec.set_time_sequence(FRAMES_TIMELINE, row.frame);
 
         self.last_frame = Some(row.frame);
@@ -364,7 +366,8 @@ impl OfflineBraidzRerunLogger {
         // fake 3d data so rerun viewer 0.14 setups up blueprint nicely for us.
         if let (Some(frame), Some(timestamp)) = (&self.last_frame, &self.last_timestamp) {
             self.rec.set_time_sequence(FRAMES_TIMELINE, *frame);
-            self.rec.set_time_seconds(SECONDS_TIMELINE, *timestamp);
+            self.rec
+                .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, *timestamp);
             self.rec.log(
                 format!("world/obj_id/origin"),
                 &Points3D::new([(0.0 as f32, 0.0 as f32, 0.0 as f32)]),
@@ -386,7 +389,7 @@ impl OfflineBraidzRerunLogger {
                 .set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
             if let Some(timestamp) = &row.timestamp {
                 self.rec
-                    .set_time_seconds(SECONDS_TIMELINE, timestamp.as_f64());
+                    .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, timestamp.as_f64());
             }
             self.rec.log(
                 format!("world/obj_id/{}", row.obj_id),
@@ -424,7 +427,7 @@ impl OfflineBraidzRerunLogger {
             self.rec
                 .set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
             if let Some(timestamp) = &timestamp {
-                self.rec.set_time_seconds(
+                self.rec.set_timestamp_secs_since_epoch(
                     SECONDS_TIMELINE,
                     timestamp.as_f64() + self.inter_frame_interval_f64,
                 );
