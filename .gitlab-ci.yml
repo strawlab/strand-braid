@@ -106,42 +106,40 @@ test_crates:
 test_flydra2:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-  image: ubuntu:focal
+  image: ubuntu:noble
   script:
     - _packaging/setup-ubuntu-base.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
 
     # Install python and pip, but let pip install everything from there.
-    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python-is-python3 libcairo2-dev
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-full python3-pip python-is-python3 libcairo2-dev
 
-    - pip3 install --upgrade pip
+    # Create venv
+    - python3 -m venv $CI_PROJECT_DIR/flydra2env
 
-    # # Install flydra from pip
-    - python -m pip install flydra_core>=0.7.20
-    - python -m pip install flydra_analysis>=0.7.20
+    # Install flydra from pip
+    - $CI_PROJECT_DIR/flydra2env/bin/python -m pip install flydra_core
+    - $CI_PROJECT_DIR//flydra2env/bin/python -m pip install flydra_analysis
 
     # Install required python packages
-    - python -m pip install imageio
+    - $CI_PROJECT_DIR/flydra2env/bin/python -m pip install imageio
 
     - export RUSTFLAGS="-D warnings"
 
-    - cd braid-offline
+    - cd $CI_PROJECT_DIR/braid-offline
     - cargo build --release
-    - cd ..
-    - cd flydra2
+    - cd $CI_PROJECT_DIR/flydra2
     - cargo build --release
-    - PATH="../target/release:$PATH" cargo test --release
-    - cd ..
-    - cd strand-cam-pseudo-cal
+    - PATH="$CI_PROJECT_DIR/target/release:$PATH" cargo test --release
+    - cd $CI_PROJECT_DIR/strand-cam-pseudo-cal
     - cargo test --release
-    - cd ..
-    - cd braid-offline
+    - cd $CI_PROJECT_DIR/braid-offline
     # test 3D retracking
-    - PATH="../target/release:$PATH" cargo test --release
+    - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release
     # test 2D retracking
-    - PATH="../target/release:$PATH" cargo run --no-default-features --features "flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
+    - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo run --no-default-features --features "flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
     # run retracking script
-    - MPLBACKEND=AGG ./test_data/retrack-demo.sh
+    - MPLBACKEND=AGG PATH="$CI_PROJECT_DIR/flydra2env/bin:$PATH" ./test_data/retrack-demo.sh
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
