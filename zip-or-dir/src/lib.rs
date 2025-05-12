@@ -673,7 +673,7 @@ mod tests {
 
         // create tmp dir
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.into_path(); // must manually cleanup now
+        let root = tempdir.keep(); // must manually cleanup now
 
         // // create dir in known location
         // let root = PathBuf::from("sourcetmp");

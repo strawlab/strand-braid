@@ -239,7 +239,7 @@ shellexpand = "2.0"
 simba = { version = "0.9", default-features = false }
 stream-cancel = "0.8"
 tagger = "4.0"
-tempfile = "3.4.0"
+tempfile = "3.20.0"
 thiserror = "2.0.11"
 tiff = "0.9.0"
 tiny-skia = "0.6.1"

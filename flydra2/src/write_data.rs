@@ -657,7 +657,7 @@ mod test {
     #[test]
     fn test_save_braidz_on_drop() {
         // create temporary dir to hold everything here.
-        let root = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+        let root = tempfile::tempdir().unwrap().keep(); // must manually cleanup
 
         let braid_root = root.join("test.braid");
         let braidz_name = root.join("test.braidz");

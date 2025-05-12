@@ -390,7 +390,7 @@ async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let untracked_dir = tempfile::tempdir()?.into_path(); // must manually cleanup
+    let untracked_dir = tempfile::tempdir()?.keep(); // must manually cleanup
 
     run_test(FNAME, untracked_dir.clone()).await?;
 
@@ -419,7 +419,7 @@ async fn test_braid_vs_old_flydra_with_water() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let untracked_dir = tempfile::tempdir().unwrap().into_path(); // must manually cleanup
+    let untracked_dir = tempfile::tempdir().unwrap().keep(); // must manually cleanup
 
     run_test(FNAME, untracked_dir.clone()).await?;
     // TODO: check that results are similar to original.
