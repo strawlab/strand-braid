@@ -132,10 +132,6 @@ impl eframe::App for StrandCamEguiApp {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
 
-                if let Some(tex) = self.screen_texture.as_ref() {
-                    ui.add(egui::Image::new(tex).shrink_to_fit());
-                }
-
                 {
                     if ui.button("Quit").clicked() {
                         // Ignore only possible error of SendError which we could
@@ -157,6 +153,11 @@ impl eframe::App for StrandCamEguiApp {
 
                     ui.label(version_string.as_str());
                 }
+
+                if let Some(tex) = self.screen_texture.as_ref() {
+                    ui.add(egui::Image::new(tex).shrink_to_fit());
+                }
+
             });
         });
     }

@@ -58,14 +58,6 @@ struct DerivedArgs {
     /// If set, .mp4 videos and log files are saved to this directory.
     #[arg(long)]
     data_dir: Option<PathBuf>,
-
-    #[cfg(feature = "eframe-gui")]
-    /// windowed means "not fullscreen"
-    ///
-    /// Set to `Some(true)` to prevent fullscreen. The default (`None`)
-    /// will be fullscreen, as would `Some(false)`.
-    #[arg(long, action = clap::ArgAction::SetTrue)]
-    pub windowed: Option<bool>,
 }
 
 fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
@@ -384,8 +376,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         #[cfg(target_os = "linux")]
         v4l2loopback: derived_matches.v4l2loopback,
         data_dir: derived_matches.data_dir,
-        #[cfg(feature = "eframe-gui")]
-        windowed: derived_matches.windowed,
         ..Default::default()
     })
 }
