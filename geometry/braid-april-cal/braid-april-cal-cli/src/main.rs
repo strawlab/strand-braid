@@ -90,6 +90,38 @@ fn main() -> eyre::Result<()> {
     perform_calibration(opt)
 }
 
+struct LineBuf {
+    buf: Vec<String>,
+}
+
+impl LineBuf {
+    fn xml_comment_buf(self) -> eyre::Result<Vec<u8>> {
+        let mut result: Vec<u8> = Vec::new();
+        result.extend_from_slice(b"<!--\n");
+        for line in self.buf.into_iter() {
+            if line.contains("-->") {
+                eyre::bail!("cannot contain xml comment");
+            }
+            result.extend(line.into_bytes());
+            result.push(b'\n');
+        }
+        result.extend_from_slice(b"-->\n");
+        Ok(result)
+    }
+    fn push(&mut self, line: String) {
+        println!("{}", line);
+        self.buf.push(line);
+    }
+}
+
+impl Default for LineBuf {
+    fn default() -> Self {
+        Self {
+            buf: Default::default(),
+        }
+    }
+}
+
 /// Perform the calibration
 ///
 /// - Step 1: solve PnP with prior intrinsics. Inputs: 3d world coords of april
@@ -278,10 +310,19 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             "No April Tag detections loaded from directory \"{apriltags_2d_detections_dir}\"."
         );
     }
+    let mut lines = LineBuf::default();
+
+    lines.push(format!(
+        "Results from \"{}\", run at {}.",
+        env!["CARGO_PKG_NAME"],
+        chrono::Local::now()
+    ));
 
     if !seen_ids_without_3d.is_empty() {
         let ids = seen_ids_without_3d.iter().collect::<Vec<_>>();
-        println!("The following ids were seen but have no 3d point: {ids:?}");
+        lines.push(format!(
+            "The following ids were seen but have no 3d point: {ids:?}"
+        ));
     }
 
     let observed_per_cam = {
@@ -511,18 +552,20 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                 points_new.push(wc.z);
             }
         }
-        println!("Newly triangulated 3d point locations:");
+        lines.push(format!("Newly triangulated 3d point locations:"));
         let points_new = nalgebra::Matrix3xX::<f64>::from_column_slice(&points_new);
-        show_points_csv(&points_new, &ids3d_new[..]);
+        show_points_csv(&points_new, &ids3d_new[..], &mut lines);
     }
 
-    println!("Given 3d point locations:");
+    lines.push(format!("Given 3d point locations:"));
     let points0 = nalgebra::Matrix3xX::<f64>::from_column_slice(&points0);
-    show_points(&points0, &ids3d[..]);
+    show_points(&points0, &ids3d[..], &mut lines);
 
-    println!("Results from SQPnP algorithm using prior intrinsics:");
+    lines.push(format!(
+        "Results from SQPnP algorithm using prior intrinsics:"
+    ));
 
-    show_cams(&cam_names, &cal_result.cam_system)?;
+    show_cams(&cam_names, &cal_result.cam_system, &mut lines)?;
 
     show_reproj_matrix(
         &cam_names,
@@ -530,6 +573,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         &observed_per_cam,
         &tag_id_to_pt_idx,
         &points0,
+        &mut lines,
     )?;
 
     let model_type = bundle_adjustment_model_type;
@@ -584,7 +628,6 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         let (ba, report) = levenberg_marquardt::LevenbergMarquardt::new()
             .with_stepbound(0.001)
             .minimize(ba);
-        // println!("{model_type:?} {report:?}");
         if !report.termination.was_successful() {
             eyre::bail!("Bundle adjustment did not succeed.");
         };
@@ -611,21 +654,26 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             cams_by_name.insert(name.clone(), cam);
         }
         let ba_system = flydra_mvg::FlydraMultiCameraSystem::new(cams_by_name, None);
-        println!("Results after refinement with bundle adjustment model \"{model_type:?}\":");
+        lines.push(format!(
+            "Results after refinement with bundle adjustment model \"{model_type:?}\":"
+        ));
 
-        show_points(ba.points(), &ids3d);
-        show_cams(&cam_names, ba_system.system())?;
+        // TODO: save these values to a file alongside calibration output.
+        show_points(ba.points(), &ids3d, &mut lines);
+        show_points_distances(ba.points(), &points0, &ids3d, &mut lines);
+        show_cams(&cam_names, ba_system.system(), &mut lines)?;
         show_reproj_matrix(
             &cam_names,
             ba_system.system(),
             &observed_per_cam,
             &tag_id_to_pt_idx,
             ba.points(),
+            &mut lines,
         )?;
         ba_system
     };
 
-    let mut xml_buf: Vec<u8> = Vec::new();
+    let mut xml_buf: Vec<u8> = lines.xml_comment_buf()?;
     multi_cam_system
         .to_flydra_xml(&mut xml_buf)
         .expect("to_flydra_xml");
@@ -636,7 +684,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
     Ok(())
 }
 
-fn show_points(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32]) {
+fn show_points(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut LineBuf) {
     // sort points
     let mut x = BTreeMap::new();
     for i in 0..points.ncols() {
@@ -644,31 +692,65 @@ fn show_points(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32]) {
         let pt = points.column(i);
         x.insert(*id, pt);
     }
-    println!(" 3d point locations:");
-    println!("     id        x       y       z");
+    lines.push(format!(" 3d point locations:"));
+    lines.push(format!("     id        x       y       z"));
     for (id, pt) in x.iter() {
-        println!("  {id:>5}: {:7.3} {:7.3} {:7.3}", pt.x, pt.y, pt.z);
+        lines.push(format!("  {id:>5}: {:7.3} {:7.3} {:7.3}", pt.x, pt.y, pt.z));
     }
 }
 
-fn show_points_csv(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32]) {
-    println!("id,x,y,z");
+fn show_points_distances(
+    points1: &nalgebra::Matrix3xX<f64>,
+    points0: &nalgebra::Matrix3xX<f64>,
+    ids3d: &[u32],
+    lines: &mut LineBuf,
+) {
+    assert_eq!(points1.ncols(), points0.ncols());
+    assert_eq!(ids3d.len(), points1.ncols());
+    // sort points
+    let mut x = BTreeMap::new();
+    for i in 0..points1.ncols() {
+        let id = &ids3d[i];
+        let pt1 = points1.column(i);
+        let pt0 = points0.column(i);
+        let dist = (pt1 - pt0).norm();
+        x.insert(*id, dist);
+    }
+    lines.push(format!(
+        " 3d distance between original and updated point locations:"
+    ));
+    lines.push(format!("     id     dist"));
+    for (id, dist) in x.iter() {
+        lines.push(format!("  {id:>5}: {:7.4}", dist));
+    }
+}
+
+fn show_points_csv(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut LineBuf) {
+    lines.push(format!("id,x,y,z"));
     for i in 0..points.ncols() {
         let id = &ids3d[i];
         let pt = points.column(i);
-        println!("{id},{},{},{}", pt.x, pt.y, pt.z);
+        lines.push(format!("{id},{},{},{}", pt.x, pt.y, pt.z));
     }
 }
 
-fn show_cams(cam_names: &[String], system: &mvg::MultiCameraSystem<f64>) -> eyre::Result<()> {
-    println!(" Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z");
+fn show_cams(
+    cam_names: &[String],
+    system: &mvg::MultiCameraSystem<f64>,
+    lines: &mut LineBuf,
+) -> eyre::Result<()> {
+    lines.push(format!(
+        " Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z"
+    ));
     for cam_name in cam_names.iter() {
         let cam = system.cam_by_name(cam_name).unwrap();
         let cc = cam.extrinsics().camcenter();
         let (x, y, z) = (cc.x, cc.y, cc.z);
         let rot = cam.extrinsics().pose().rotation.scaled_axis();
         let (rx, ry, rz) = (rot.x, rot.y, rot.z);
-        println!(" {cam_name:>20}:  {x:8.3} {y:8.3} {z:8.3} {rx:8.3} {ry:8.3} {rz:8.3}");
+        lines.push(format!(
+            " {cam_name:>20}:  {x:8.3} {y:8.3} {z:8.3} {rx:8.3} {ry:8.3} {rz:8.3}"
+        ));
     }
     Ok(())
 }
@@ -679,8 +761,9 @@ fn show_reproj_matrix(
     observed_per_cam: &BTreeMap<String, BTreeMap<u32, (f64, f64)>>,
     tag_id_to_pt_idx: &BTreeMap<u32, usize>,
     points: &nalgebra::Matrix3xX<f64>,
+    lines: &mut LineBuf,
 ) -> eyre::Result<()> {
-    println!(" Reprojection distance:");
+    lines.push(format!(" Reprojection distance:"));
     {
         let mut bits = vec!["      id".to_string()];
         for cam_name in cam_names.iter() {
@@ -696,8 +779,8 @@ fn show_reproj_matrix(
         bits.push(format!("{:>7}", "mean"));
         let joined = bits.join(" ");
         let space = " ".repeat((joined.len() - 6) / 2);
-        println!("{}Camera{}", space, space);
-        println!("{}", joined);
+        lines.push(format!("{}Camera{}", space, space));
+        lines.push(format!("{}", joined));
     }
     let mut dists: BTreeMap<_, Vec<_>> = Default::default();
     for (id, ipt_idx) in tag_id_to_pt_idx.iter() {
@@ -721,7 +804,7 @@ fn show_reproj_matrix(
         }
         let mean_id = id_dists.iter().sum::<f64>() / id_dists.len() as f64;
         bits.push(format!("{mean_id:7.2}"));
-        println!("{}", bits.join(" "));
+        lines.push(format!("{}", bits.join(" ")));
     }
     {
         let mut bits = vec!["    mean".to_string()];
@@ -737,7 +820,7 @@ fn show_reproj_matrix(
         }
         let mean_dist = all_dist.iter().sum::<f64>() / all_dist.len() as f64;
         bits.push(format!("{mean_dist:7.2}"));
-        println!("{}", bits.join(" "));
+        lines.push(format!("{}", bits.join(" ")));
     }
     Ok(())
 }

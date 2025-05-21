@@ -18,6 +18,7 @@ re_types.workspace = true
 opencv-ros-camera.workspace = true
 convert-image.workspace = true
 image.workspace = true
+chrono.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true
