@@ -30,7 +30,8 @@ use tracing::{debug, error};
 use machine_vision_formats as formats;
 
 use ci2::{DynamicFrameWithInfo, Result};
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub enum FrameResult {
     Frame(DynamicFrameWithInfo),
@@ -108,7 +109,7 @@ where
                 // We need to release and re-acquire the lock every cycle to
                 // allow other threads the chance to grab the lock.
                 {
-                    let mut cam = cam_arc.lock().unwrap();
+                    let mut cam = cam_arc.lock();
                     let msg = match cam.next_frame() {
                         Ok(frame) => FrameResult::Frame(frame),
                         Err(ci2::Error::SingleFrameError(s)) => FrameResult::SingleFrameError(s),
@@ -221,198 +222,198 @@ where
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
-    //     let c = self.camera.lock().unwrap();
+    //     let c = self.camera.lock();
     //     c.feature_access_query(name)
     // }
 
     fn command_execute(&self, name: &str, verify: bool) -> ci2::Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.command_execute(name, verify)
     }
 
     fn feature_bool(&self, name: &str) -> ci2::Result<bool> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_bool(name)
     }
 
     fn feature_bool_set(&self, name: &str, value: bool) -> ci2::Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_bool_set(name, value)
     }
 
     fn feature_enum(&self, name: &str) -> ci2::Result<String> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_enum(name)
     }
 
     fn feature_enum_set(&self, name: &str, value: &str) -> ci2::Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_enum_set(name, value)
     }
 
     fn feature_float(&self, name: &str) -> ci2::Result<f64> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_float(name)
     }
 
     fn feature_float_set(&self, name: &str, value: f64) -> ci2::Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_float_set(name, value)
     }
 
     fn feature_int(&self, name: &str) -> ci2::Result<i64> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_int(name)
     }
 
     fn feature_int_set(&self, name: &str, value: i64) -> ci2::Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.feature_int_set(name, value)
     }
 
     // ----- end: weakly typed but easier to implement API -----
 
     fn node_map_load(&self, settings: &str) -> Result<()> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.node_map_load(settings)
     }
     fn node_map_save(&self) -> Result<String> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.node_map_save()
     }
 
     fn width(&self) -> ci2::Result<u32> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.width()
     }
     fn height(&self) -> ci2::Result<u32> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.height()
     }
     fn pixel_format(&self) -> ci2::Result<formats::PixFmt> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.pixel_format()
     }
     fn possible_pixel_formats(&self) -> ci2::Result<Vec<formats::PixFmt>> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.possible_pixel_formats()
     }
     fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_pixel_format(pixel_format)
     }
     fn exposure_time(&self) -> ci2::Result<f64> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.exposure_time()
     }
     fn exposure_time_range(&self) -> ci2::Result<(f64, f64)> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.exposure_time_range()
     }
     fn set_exposure_time(&mut self, value: f64) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_exposure_time(value)
     }
     fn gain(&self) -> ci2::Result<f64> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.gain()
     }
     fn gain_range(&self) -> ci2::Result<(f64, f64)> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.gain_range()
     }
     fn set_gain(&mut self, value: f64) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_gain(value)
     }
     fn exposure_auto(&self) -> ci2::Result<ci2::AutoMode> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.exposure_auto()
     }
     fn set_exposure_auto(&mut self, value: ci2::AutoMode) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_exposure_auto(value)
     }
     fn gain_auto(&self) -> ci2::Result<ci2::AutoMode> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.gain_auto()
     }
     fn set_gain_auto(&mut self, value: ci2::AutoMode) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_gain_auto(value)
     }
 
     fn start_default_external_triggering(&mut self) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.start_default_external_triggering()
     }
 
     fn set_software_frame_rate_limit(&mut self, fps_limit: f64) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_software_frame_rate_limit(fps_limit)
     }
 
     fn trigger_mode(&self) -> ci2::Result<ci2::TriggerMode> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.trigger_mode()
     }
     fn set_trigger_mode(&mut self, value: ci2::TriggerMode) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_trigger_mode(value)
     }
 
     fn acquisition_frame_rate_enable(&self) -> ci2::Result<bool> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.acquisition_frame_rate_enable()
     }
     fn set_acquisition_frame_rate_enable(&mut self, value: bool) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_acquisition_frame_rate_enable(value)
     }
 
     fn acquisition_frame_rate(&self) -> ci2::Result<f64> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.acquisition_frame_rate()
     }
     fn acquisition_frame_rate_range(&self) -> ci2::Result<(f64, f64)> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.acquisition_frame_rate_range()
     }
     fn set_acquisition_frame_rate(&mut self, value: f64) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_acquisition_frame_rate(value)
     }
 
     fn trigger_selector(&self) -> ci2::Result<ci2::TriggerSelector> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.trigger_selector()
     }
     fn set_trigger_selector(&mut self, value: ci2::TriggerSelector) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_trigger_selector(value)
     }
 
     fn acquisition_mode(&self) -> ci2::Result<ci2::AcquisitionMode> {
-        let c = self.camera.lock().unwrap();
+        let c = self.camera.lock();
         c.acquisition_mode()
     }
     fn set_acquisition_mode(&mut self, value: ci2::AcquisitionMode) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.set_acquisition_mode(value)
     }
 
     fn acquisition_start(&mut self) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.acquisition_start()
     }
     fn acquisition_stop(&mut self) -> ci2::Result<()> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.acquisition_stop()
     }
 
     /// blocks forever.
     fn next_frame(&mut self) -> ci2::Result<DynamicFrameWithInfo> {
-        let mut c = self.camera.lock().unwrap();
+        let mut c = self.camera.lock();
         c.next_frame()
     }
 }

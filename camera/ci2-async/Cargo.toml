@@ -8,6 +8,7 @@ rust-version = "1.76"
 [dependencies]
 futures.workspace = true
 tracing.workspace = true
+parking_lot = "0.12"
 thread-control = "0.1.2"
 
 ci2 = { path = "../ci2" }
