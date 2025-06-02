@@ -206,18 +206,27 @@ impl WritingState {
 
         // open textlog and write initial message
         let textlog_wtr = {
-            let timestamp = datetime_conversion::datetime_to_f64(&chrono::Local::now());
+            let local_datetime = chrono::Local::now();
+            let mainbrain_timestamp = datetime_conversion::datetime_to_f64(&local_datetime);
+            let (tzname_str, tzname) = match iana_time_zone::get_timezone() {
+                Ok(tzname) => ("time_tzname0", tzname),
+                Err(_err) => {
+                    tracing::debug!("Could not get timezone, using UTC offset instead.");
+                    let offset = local_datetime.offset();
+                    use chrono::offset::Offset;
+                    let offset_secs = offset.fix().local_minus_utc();
+                    ("UTC_offset_secs", format!("{}", offset_secs))
+                }
+            };
 
             let fps = match fps {
                 Some(fps) => format!("{}", fps),
                 None => "unknown".to_string(),
             };
             let version = "2.0.0";
-            let tzname = iana_time_zone::get_timezone()?;
             let message = format!(
-                "MainBrain running at {} fps, (\
-                flydra_version {}, git_revision {}, time_tzname0 {})",
-                fps, version, git_revision, tzname
+                "MainBrain running at {fps} fps, (\
+                flydra_version {version}, git_revision {git_revision}, {tzname_str} {tzname})",
             );
 
             let tps = TrackingParamsSaver {
@@ -228,15 +237,15 @@ impl WritingState {
 
             let textlog: Vec<TextlogRow> = vec![
                 TextlogRow {
-                    mainbrain_timestamp: timestamp,
+                    mainbrain_timestamp,
                     cam_id: "mainbrain".to_string(),
-                    host_timestamp: timestamp,
+                    host_timestamp: mainbrain_timestamp,
                     message,
                 },
                 TextlogRow {
-                    mainbrain_timestamp: timestamp,
+                    mainbrain_timestamp,
                     cam_id: "mainbrain".to_string(),
-                    host_timestamp: timestamp,
+                    host_timestamp: mainbrain_timestamp,
                     message: message2,
                 },
             ];
