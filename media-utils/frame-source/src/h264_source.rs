@@ -15,7 +15,7 @@ use h264_reader::{
 };
 use serde::{Deserialize, Serialize};
 
-use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
+use strand_cam_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
 #[cfg(feature = "openh264")]
 use machine_vision_formats::owned::OImage;

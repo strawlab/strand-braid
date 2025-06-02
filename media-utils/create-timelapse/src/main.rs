@@ -47,7 +47,7 @@ struct MyPreParser<'a> {
     cur_seis: Vec<EbspNal>,
     pb: Option<indicatif::ProgressBar>,
     do_save_next: bool,
-    mp4_cfg: Option<ci2_remote_control::Mp4RecordingConfig>,
+    mp4_cfg: Option<strand_cam_remote_control::Mp4RecordingConfig>,
     wtr: Option<mp4_writer::Mp4Writer<'a, std::fs::File>>,
 }
 
@@ -164,8 +164,8 @@ fn main() -> Result<()> {
         eyre::bail!("can only save to mp4");
     }
 
-    let cfg = ci2_remote_control::Mp4RecordingConfig {
-        codec: ci2_remote_control::Mp4Codec::H264RawStream,
+    let cfg = strand_cam_remote_control::Mp4RecordingConfig {
+        codec: strand_cam_remote_control::Mp4Codec::H264RawStream,
         max_framerate: Default::default(),
         h264_metadata: None,
     };

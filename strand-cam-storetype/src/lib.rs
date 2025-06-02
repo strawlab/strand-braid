@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use http_video_streaming_types::{CircleParams, Shape};
 
-use ci2_remote_control::{BitrateSelection, CodecSelection, RecordingFrameRate, TagFamily};
 use flydra_feature_detector_types::ImPtDetectCfg;
+use strand_cam_remote_control::{BitrateSelection, CodecSelection, RecordingFrameRate, TagFamily};
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -59,15 +59,15 @@ pub struct StoreType {
     pub mp4_codec: CodecSelection,
     /// CUDA device number (only used if using nvidia encoder)
     pub mp4_cuda_device: String,
-    pub gain_auto: Option<ci2_types::AutoMode>,
+    pub gain_auto: Option<strand_cam_types::AutoMode>,
     pub gain: RangedValue,
-    pub exposure_auto: Option<ci2_types::AutoMode>,
+    pub exposure_auto: Option<strand_cam_types::AutoMode>,
     pub exposure_time: RangedValue,
     pub frame_rate_limit_enabled: bool,
     /// None when frame_rate_limit is not supported
     pub frame_rate_limit: Option<RangedValue>,
-    pub trigger_mode: ci2_types::TriggerMode,
-    pub trigger_selector: ci2_types::TriggerSelector,
+    pub trigger_mode: strand_cam_types::TriggerMode,
+    pub trigger_selector: strand_cam_types::TriggerSelector,
     pub image_width: u32,
     pub image_height: u32,
     /// Whether object detection with image-tracker crate is compiled.
@@ -216,7 +216,7 @@ impl Default for CheckerboardCalState {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub enum CallbackType {
-    ToCamera(ci2_remote_control::CamArg),
+    ToCamera(strand_cam_remote_control::CamArg),
     FirehoseNotify(bui_backend_session_types::ConnectionKey),
     // used only with image-tracker crate
     TakeCurrentImageAsBackground,

@@ -35,7 +35,7 @@ fn main() -> eyre::Result<()> {
                 let ffmpeg_codec_args = ffmpeg_writer::platform_hardware_encoder()?;
 
                 let rate = None;
-                let h264_metadata = Some(ci2_remote_control::H264Metadata::new(
+                let h264_metadata = Some(strand_cam_remote_control::H264Metadata::new(
                     "ffmpeg-rewriter/save-animation",
                     start.into(),
                 ));

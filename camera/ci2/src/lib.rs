@@ -1,5 +1,5 @@
 use strand_dynamic_frame::DynamicFrame;
-pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
+pub use strand_cam_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
 
 // TODO add binning support

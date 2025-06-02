@@ -22,7 +22,7 @@ nvenc = { workspace = true, optional = true }
 dynlink-cuda = { workspace = true, optional = true }
 dynlink-nvidia-encode = { workspace = true, optional = true }
 
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 convert-image.workspace = true
 strand-dynamic-frame.workspace = true
 less-avc-wrapper.workspace = true
@@ -40,7 +40,7 @@ rusttype.workspace = true
 tempfile.workspace = true
 clap.workspace = true
 
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 font-drawing.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 

@@ -11,7 +11,7 @@ eyre.workspace = true
 h264-reader.workspace = true
 chrono.workspace = true
 
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 mp4-writer.workspace = true
 frame-source.workspace = true
 env-tracing-logger.workspace = true

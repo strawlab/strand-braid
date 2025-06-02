@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use ci2_remote_control::CamArg;
+use strand_cam_remote_control::CamArg;
 
 use enum_iter::EnumIter;
 use led_box_comms::ToDevice as ToLedBoxDevice;
@@ -23,15 +23,15 @@ use ads_webasm::components::{EnumToggle, VecToggle};
 
 use http_video_streaming_types::ToClient as FirehoseImageData;
 
-use ci2_remote_control::{BitrateSelection, CodecSelection};
+use strand_cam_remote_control::{BitrateSelection, CodecSelection};
 use strand_cam_storetype::{
     CallbackType, KalmanTrackingConfig, LedProgramConfig, StoreType as ServerState,
 };
 
 use yew_tincture::components::CheckboxLabel;
 
-use ci2_remote_control::{RecordingFrameRate, TagFamily};
-use ci2_types::AutoMode;
+use strand_cam_remote_control::{RecordingFrameRate, TagFamily};
+use strand_cam_types::AutoMode;
 
 use flydra_feature_detector_types::ImPtDetectCfg;
 use yew_tincture::components::{TypedInput, TypedInputStorage};
@@ -409,9 +409,11 @@ impl Component for Model {
             // only used when image-tracker crate used
             Msg::ToggleObjDetectionSaveCsv(v) => {
                 let cfg = if v {
-                    ci2_remote_control::CsvSaveConfig::Saving(to_rate(&self.csv_recording_rate))
+                    strand_cam_remote_control::CsvSaveConfig::Saving(to_rate(
+                        &self.csv_recording_rate,
+                    ))
                 } else {
-                    ci2_remote_control::CsvSaveConfig::NotSaving
+                    strand_cam_remote_control::CsvSaveConfig::NotSaving
                 };
                 self.send_cam_message(CamArg::SetIsSavingObjDetectionCsv(cfg), ctx);
                 return false; // don't update DOM, do that on return

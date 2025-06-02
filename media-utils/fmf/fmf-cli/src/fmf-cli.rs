@@ -1,11 +1,11 @@
 use anyhow::Result;
 use tracing::{debug, info};
 
-use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use clap::Parser;
 use convert_image::EncoderOptions;
 use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
+use strand_cam_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use y4m::Colorspace;
 
@@ -482,21 +482,24 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
             let mut opts = NvidiaH264Options::default();
             opts.bitrate = x.bitrate;
             let nv_enc = Some(nvenc::NvEnc::new(libs.as_ref().unwrap())?);
-            (ci2_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
+            (strand_cam_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
         }
         Codec::OpenH264 => {
             let opts = match x.bitrate {
                 None => OpenH264Options {
                     debug: false,
-                    preset: ci2_remote_control::OpenH264Preset::AllFrames,
+                    preset: strand_cam_remote_control::OpenH264Preset::AllFrames,
                 },
                 Some(bitrate) => OpenH264Options {
                     debug: false,
-                    preset: ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate),
+                    preset: strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate),
                 },
             };
             dbg!(&opts);
-            (ci2_remote_control::Mp4Codec::H264OpenH264(opts), None)
+            (
+                strand_cam_remote_control::Mp4Codec::H264OpenH264(opts),
+                None,
+            )
         }
     };
 
@@ -527,7 +530,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
 
     let cfg = Mp4RecordingConfig {
         codec,
-        max_framerate: ci2_remote_control::RecordingFrameRate::Unlimited,
+        max_framerate: strand_cam_remote_control::RecordingFrameRate::Unlimited,
         h264_metadata: None,
     };
 

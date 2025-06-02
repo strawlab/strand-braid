@@ -8,7 +8,7 @@ use machine_vision_formats::{
 };
 use tracing::info;
 
-use ci2_remote_control::Mp4RecordingConfig;
+use strand_cam_remote_control::Mp4RecordingConfig;
 
 use rusttype::Font;
 
@@ -60,13 +60,13 @@ fn main() -> eyre::Result<()> {
                 #[allow(unused_variables)]
                 let (codec, libs_and_nv_enc) = match cli.encoder {
                     Encoder::OpenH264 => {
-                        let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
+                        let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                             let preset = if let Some(bitrate) = h264_bitrate {
-                                ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
+                                strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
                             } else {
-                                ci2_remote_control::OpenH264Preset::AllFrames
+                                strand_cam_remote_control::OpenH264Preset::AllFrames
                             };
-                            ci2_remote_control::OpenH264Options {
+                            strand_cam_remote_control::OpenH264Options {
                                 preset,
                                 debug: false,
                             }
@@ -80,7 +80,7 @@ fn main() -> eyre::Result<()> {
                     #[cfg(feature = "nv-encode")]
                     Encoder::NvEnc => {
                         nvenc_libs = Some(nvenc::Dynlibs::new()?);
-                        let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
+                        let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
                         (
                             codec,
                             Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
@@ -90,7 +90,7 @@ fn main() -> eyre::Result<()> {
                     Encoder::NvEnc => {
                         panic!("NvEnc support not compiled");
                     }
-                    Encoder::LessAvc => (ci2_remote_control::Mp4Codec::H264LessAvc, None),
+                    Encoder::LessAvc => (strand_cam_remote_control::Mp4Codec::H264LessAvc, None),
                 };
 
                 let dt_msec = 5;

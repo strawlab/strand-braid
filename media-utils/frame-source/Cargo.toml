@@ -24,7 +24,7 @@ indicatif.workspace = true
 eyre.workspace = true
 
 strand-dynamic-frame.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 fmf.workspace = true
 mkv-strand-reader.workspace = true
 

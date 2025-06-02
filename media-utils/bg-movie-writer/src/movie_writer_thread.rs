@@ -11,7 +11,7 @@ use std::{
 
 use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use chrono::{DateTime, Local};
-use ci2_remote_control::FfmpegRecordingConfig;
+use strand_cam_remote_control::FfmpegRecordingConfig;
 use machine_vision_formats::{ImageStride, PixelFormat};
 use mp4_writer::Mp4Writer;
 
@@ -61,7 +61,7 @@ impl MyFfmpegWriter {
             pre_codec_args: args.pre_codec_args.clone(),
             post_codec_args: args.post_codec_args.clone(),
         };
-        use ci2_remote_control::RecordingFrameRate::*;
+        use strand_cam_remote_control::RecordingFrameRate::*;
         let rate = match cfg.max_framerate {
             Fps1 => Some((1, 1)),
             Fps2 => Some((2, 1)),
@@ -112,16 +112,16 @@ impl MyFfmpegWriter {
 /// Create a RawWriter. Runs inside writer thread loop.
 fn create_writer<'a>(
     libs_result: &'a std::result::Result<nvenc::Dynlibs, nvenc::NvEncError>,
-    recording_config: &ci2_remote_control::RecordingConfig,
+    recording_config: &strand_cam_remote_control::RecordingConfig,
     mp4_path: &'a Path,
 ) -> Result<RawWriter<'a, File>> {
-    use ci2_remote_control::RecordingConfig::*;
+    use strand_cam_remote_control::RecordingConfig::*;
     let raw: RawWriter<'_, File> = match &recording_config {
         Mp4(mp4_recording_config) => {
             let mp4_file = std::fs::File::create(&mp4_path)?;
 
             let nv_enc = match &mp4_recording_config.codec {
-                ci2_remote_control::Mp4Codec::H264NvEnc(_opts) => {
+                strand_cam_remote_control::Mp4Codec::H264NvEnc(_opts) => {
                     // Now we know nvidia-encode is wanted, so
                     // here we panic if this is not possible. In
                     // the UI, users should not be able to choose
@@ -198,7 +198,7 @@ fn finish_writer(raw: &mut RawWriter<'_, File>) -> Result<()> {
 }
 
 pub(crate) fn writer_thread_loop(
-    recording_config: ci2_remote_control::RecordingConfig,
+    recording_config: strand_cam_remote_control::RecordingConfig,
     err_tx: Arc<Mutex<Option<Error>>>,
     rx: std::sync::mpsc::Receiver<Msg>,
     mp4_path: PathBuf,

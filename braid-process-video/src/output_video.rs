@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use eyre::{self as anyhow, Result};
 use std::io::Write;
 
-use ci2_remote_control::{Mp4Codec, Mp4RecordingConfig};
+use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig};
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
@@ -49,9 +49,9 @@ impl<'lib> VideoStorage<'lib> {
 
         let mp4_cfg = match v.video_options.codec {
             crate::config::VideoCodecConfig::OpenH264 => {
-                use ci2_remote_control::OpenH264Preset;
+                use strand_cam_remote_control::OpenH264Preset;
                 let preset = OpenH264Preset::AllFrames;
-                let codec = Mp4Codec::H264OpenH264(ci2_remote_control::OpenH264Options {
+                let codec = Mp4Codec::H264OpenH264(strand_cam_remote_control::OpenH264Options {
                     debug: false,
                     preset,
                 });

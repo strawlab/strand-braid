@@ -31,7 +31,7 @@ indicatif.workspace = true
 
 braidz-parser.workspace = true
 braidz-types.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 env-tracing-logger.workspace = true
 flydra-feature-detector = { workspace = true, features = ["do_not_use_ipp"] }
 flydra-pt-detect-cfg.workspace = true

@@ -66,7 +66,7 @@ impl BgMovieWriter {
     /// - `data_dir`, if specified, will be the directory location of the saved
     ///   file.
     pub fn new(
-        recording_config: ci2_remote_control::RecordingConfig,
+        recording_config: strand_cam_remote_control::RecordingConfig,
         queue_size: usize,
         mp4_path: PathBuf,
     ) -> Self {

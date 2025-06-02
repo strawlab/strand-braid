@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 machine-vision-formats.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
 serde.workspace = true

@@ -145,9 +145,9 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
                 let codec = if opt.encoder == Encoder::OpenH264 {
                     #[cfg(feature = "openh264-encode")]
                     {
-                        use ci2_remote_control::OpenH264Preset;
-                        ci2_remote_control::Mp4Codec::H264OpenH264(
-                            ci2_remote_control::OpenH264Options {
+                        use strand_cam_remote_control::OpenH264Preset;
+                        strand_cam_remote_control::Mp4Codec::H264OpenH264(
+                            strand_cam_remote_control::OpenH264Options {
                                 debug: false,
                                 preset: OpenH264Preset::AllFrames,
                             },
@@ -156,10 +156,10 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
                     #[cfg(not(feature = "openh264-encode"))]
                     panic!("requested OpenH264 codec, but support for OpenH264 was not compiled.");
                 } else {
-                    ci2_remote_control::Mp4Codec::H264LessAvc
+                    strand_cam_remote_control::Mp4Codec::H264LessAvc
                 };
 
-                let cfg = ci2_remote_control::Mp4RecordingConfig {
+                let cfg = strand_cam_remote_control::Mp4RecordingConfig {
                     codec,
                     max_framerate: Default::default(),
                     h264_metadata: None,

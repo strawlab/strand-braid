@@ -31,8 +31,8 @@ eyre.workspace = true
 ipp-sys = { workspace = true, optional = true }
 ci2.workspace = true
 ci2-async.workspace = true
-ci2-types.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-types.workspace = true
+strand-cam-remote-control.workspace = true
 machine-vision-formats.workspace = true
 strand-dynamic-frame.workspace = true
 fmf.workspace = true

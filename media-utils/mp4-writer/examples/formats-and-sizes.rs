@@ -1,6 +1,6 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
-use ci2_remote_control::Mp4RecordingConfig;
+use strand_cam_remote_control::Mp4RecordingConfig;
 
 type IType = usize;
 
@@ -50,13 +50,13 @@ fn main() -> eyre::Result<()> {
         #[allow(unused_variables)]
         let (codec, libs_and_nv_enc) = match codec_str.as_str() {
             "open-h264" => {
-                let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
+                let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                     let preset = if let Some(bitrate) = h264_bitrate {
-                        ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
+                        strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
                     } else {
-                        ci2_remote_control::OpenH264Preset::AllFrames
+                        strand_cam_remote_control::OpenH264Preset::AllFrames
                     };
-                    ci2_remote_control::OpenH264Options {
+                    strand_cam_remote_control::OpenH264Options {
                         preset,
                         debug: false,
                     }
@@ -70,13 +70,13 @@ fn main() -> eyre::Result<()> {
             #[cfg(feature = "nv-encode")]
             "nv-h264" => {
                 nvenc_libs = Some(nvenc::Dynlibs::new()?);
-                let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
+                let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
                 (
                     codec,
                     Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
                 )
             }
-            "less_avc" => (ci2_remote_control::Mp4Codec::H264LessAvc, None),
+            "less_avc" => (strand_cam_remote_control::Mp4Codec::H264LessAvc, None),
             _ => {
                 panic!("unknown codec str");
             }

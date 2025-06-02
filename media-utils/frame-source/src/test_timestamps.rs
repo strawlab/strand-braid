@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
 
 use crate::{h264_source::SeekRead, FrameDataSource, Result};
-use ci2_remote_control::Mp4RecordingConfig;
+use strand_cam_remote_control::Mp4RecordingConfig;
 
 #[test]
 fn test_h264_precision_timestamps() -> Result<()> {
@@ -11,7 +11,7 @@ fn test_h264_precision_timestamps() -> Result<()> {
     let dt_msec = 5;
 
     let cfg = Mp4RecordingConfig {
-        codec: ci2_remote_control::Mp4Codec::H264LessAvc,
+        codec: strand_cam_remote_control::Mp4Codec::H264LessAvc,
         max_framerate: Default::default(),
         h264_metadata: None,
     };

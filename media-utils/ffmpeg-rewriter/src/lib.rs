@@ -4,7 +4,7 @@ use machine_vision_formats as formats;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use ci2_remote_control::{H264Metadata, Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
+use strand_cam_remote_control::{H264Metadata, Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 use ffmpeg_writer::{FfmpegCodecArgs, FfmpegWriter};
 
 #[derive(thiserror::Error, Debug)]

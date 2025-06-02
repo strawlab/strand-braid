@@ -9,14 +9,14 @@
 //
 // This code should ensure that an MP4 file with H264 video data should ideally
 // have the creation time in the start metadata
-// (`ci2_remote_control::H264Metadata`) equal to the precision time stamp of the
+// (`strand_cam_remote_control::H264Metadata`) equal to the precision time stamp of the
 // initial frame. (Although, to specify the timezone, the creation time may be
 // in a timezone other than UTC.)
 
 #[cfg(feature = "nv-encode")]
 use std::rc::Rc;
 
-use ci2_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
+use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
 #[cfg(feature = "nv-encode")]
 use convert_image::convert_into;
 #[cfg(feature = "nv-encode")]
@@ -371,15 +371,15 @@ where
                 let mut opt_nv_h264_encoder = None;
 
                 match &cfg.codec {
-                    ci2_remote_control::Mp4Codec::H264RawStream => {}
-                    ci2_remote_control::Mp4Codec::H264LessAvc => {}
-                    ci2_remote_control::Mp4Codec::H264OpenH264(_) => {}
+                    strand_cam_remote_control::Mp4Codec::H264RawStream => {}
+                    strand_cam_remote_control::Mp4Codec::H264LessAvc => {}
+                    strand_cam_remote_control::Mp4Codec::H264OpenH264(_) => {}
                     #[cfg(not(feature = "nv-encode"))]
-                    ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
+                    strand_cam_remote_control::Mp4Codec::H264NvEnc(_) => {
                         return Err(Error::NoNvencCompiledError)
                     }
                     #[cfg(feature = "nv-encode")]
-                    ci2_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
+                    strand_cam_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
                             Some(ref nv_enc) => {
@@ -486,11 +486,11 @@ where
                 };
 
                 let my_encoder = match cfg.codec {
-                    ci2_remote_control::Mp4Codec::H264RawStream => MyEncoder::CopyRawH264 {
+                    strand_cam_remote_control::Mp4Codec::H264RawStream => MyEncoder::CopyRawH264 {
                         // metadata,
                         h264_parser,
                     },
-                    ci2_remote_control::Mp4Codec::H264LessAvc => {
+                    strand_cam_remote_control::Mp4Codec::H264LessAvc => {
                         MyEncoder::LessH264(LessEncoderWrapper {
                             encoder: Default::default(),
                             h264_parser,
@@ -498,7 +498,7 @@ where
                         })
                     }
                     #[allow(unused_variables)]
-                    ci2_remote_control::Mp4Codec::H264OpenH264(opts) => {
+                    strand_cam_remote_control::Mp4Codec::H264OpenH264(opts) => {
                         #[cfg(feature = "openh264")]
                         {
                             let cfg = openh264::encoder::EncoderConfig::new()
@@ -525,12 +525,12 @@ where
                         }
                     }
                     #[cfg(feature = "nv-encode")]
-                    ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
+                    strand_cam_remote_control::Mp4Codec::H264NvEnc(_) => {
                         let enc = opt_nv_h264_encoder.unwrap();
                         MyEncoder::Nvidia(enc)
                     }
                     #[cfg(not(feature = "nv-encode"))]
-                    ci2_remote_control::Mp4Codec::H264NvEnc(_) => {
+                    strand_cam_remote_control::Mp4Codec::H264NvEnc(_) => {
                         return Err(Error::NoNvencCompiledError);
                     }
                 };
@@ -1380,9 +1380,9 @@ fn timestamp_to_sei_payload(timestamp: chrono::DateTime<chrono::Utc>, payload: &
 
 #[cfg(feature = "openh264")]
 fn convert_openh264_rc_mode(
-    orig: ci2_remote_control::OpenH264RateControlMode,
+    orig: strand_cam_remote_control::OpenH264RateControlMode,
 ) -> openh264::encoder::RateControlMode {
-    use ci2_remote_control::OpenH264RateControlMode as mode;
+    use strand_cam_remote_control::OpenH264RateControlMode as mode;
     use openh264::encoder::RateControlMode::*;
     match orig {
         mode::Quality => Quality,

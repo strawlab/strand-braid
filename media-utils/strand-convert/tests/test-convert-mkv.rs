@@ -1,7 +1,7 @@
 use std::path::Path;
 use tracing_test::traced_test;
 
-use ci2_remote_control::H264Metadata;
+use strand_cam_remote_control::H264Metadata;
 use eyre::Result;
 use frame_source::FrameDataSource;
 
@@ -68,7 +68,7 @@ fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
             let gamma = metadata.gamma;
             let creation_time = mkv_video.frame0_time().unwrap();
             Ok(H264Metadata {
-                version: ci2_remote_control::H264_METADATA_VERSION.into(),
+                version: strand_cam_remote_control::H264_METADATA_VERSION.into(),
                 writing_app: metadata.writing_app.clone(),
                 camera_name,
                 gamma,

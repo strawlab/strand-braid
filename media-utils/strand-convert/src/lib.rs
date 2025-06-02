@@ -12,7 +12,7 @@ use eyre::{self as anyhow, Result, WrapErr};
 use indicatif::{HumanBytes, HumanDuration, ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
-use ci2_remote_control::H264Metadata;
+use strand_cam_remote_control::H264Metadata;
 
 use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use frame_source::{fmf_source, pv_tiff_stack, FrameData, FrameDataSource, ImageData};
@@ -657,16 +657,16 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     };
 
     let (codec, libs_and_nv_enc) = match encoder {
-        Encoder::NoneCopyExistingH264 => (ci2_remote_control::Mp4Codec::H264RawStream, None),
-        Encoder::LessAvc => (ci2_remote_control::Mp4Codec::H264LessAvc, None),
+        Encoder::NoneCopyExistingH264 => (strand_cam_remote_control::Mp4Codec::H264RawStream, None),
+        Encoder::LessAvc => (strand_cam_remote_control::Mp4Codec::H264LessAvc, None),
         Encoder::OpenH264 => {
-            let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
+            let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                 let preset = if let Some(bitrate) = h264_bitrate {
-                    ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
+                    strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
                 } else {
-                    ci2_remote_control::OpenH264Preset::AllFrames
+                    strand_cam_remote_control::OpenH264Preset::AllFrames
                 };
-                ci2_remote_control::OpenH264Options {
+                strand_cam_remote_control::OpenH264Options {
                     preset,
                     debug: false,
                 }
@@ -675,7 +675,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         }
         Encoder::NvEnc => {
             nvenc_libs = Some(nvenc::Dynlibs::new()?);
-            let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
+            let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
             (
                 codec,
                 Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
@@ -768,7 +768,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             _ => Some(h264_metadata),
         };
 
-        let mp4_cfg = ci2_remote_control::Mp4RecordingConfig {
+        let mp4_cfg = strand_cam_remote_control::Mp4RecordingConfig {
             codec,
             max_framerate: Default::default(),
             h264_metadata,

@@ -1,5 +1,5 @@
 [package]
-name = "ci2-remote-control"
+name = "strand-cam-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
@@ -7,7 +7,4 @@ rust-version = "1.76"
 
 [dependencies]
 serde.workspace = true
-ci2-types.workspace = true
-rust-cam-bui-types.workspace = true
 enum-iter.workspace = true
-chrono.workspace = true

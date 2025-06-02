@@ -94,7 +94,7 @@ impl FfmpegCodecArgs {
 
     fn from_str(s: &str) -> Option<Self> {
         match s {
-            // Keep these in sync with the list in ci2-remote-control.
+            // Keep these in sync with the list in strand-cam-remote-control.
             "vaapi" => Some(Self {
                 device_args: Some(vec![("-vaapi_device".into(), "/dev/dri/renderD128".into())]),
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),

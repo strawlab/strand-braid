@@ -29,7 +29,7 @@ strand-dynamic-frame.workspace = true
 
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 y4m-writer.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 
 nvenc.workspace = true
 

@@ -180,7 +180,7 @@ pub(crate) async fn frame_process_task<'a>(
     let mut april_td = apriltag::Detector::new();
 
     #[cfg(feature = "fiducial")]
-    let mut current_tag_family = ci2_remote_control::TagFamily::default();
+    let mut current_tag_family = strand_cam_remote_control::TagFamily::default();
     #[cfg(feature = "fiducial")]
     let april_tf = make_family(&current_tag_family);
     #[cfg(feature = "fiducial")]
@@ -1322,7 +1322,7 @@ pub(crate) async fn frame_process_task<'a>(
                     "setting object detection CSV save state to: {:?}",
                     new_value
                 );
-                if let ci2_remote_control::CsvSaveConfig::Saving(fps_limit) = new_value {
+                if let strand_cam_remote_control::CsvSaveConfig::Saving(fps_limit) = new_value {
                     if !store_cache
                         .map(|s| s.is_doing_object_detection)
                         .unwrap_or(false)
@@ -1456,8 +1456,8 @@ pub(crate) async fn frame_process_task<'a>(
 }
 
 #[cfg(feature = "fiducial")]
-fn make_family(family: &ci2_remote_control::TagFamily) -> apriltag::Family {
-    use ci2_remote_control::TagFamily::*;
+fn make_family(family: &strand_cam_remote_control::TagFamily) -> apriltag::Family {
+    use strand_cam_remote_control::TagFamily::*;
     match family {
         Family36h11 => apriltag::Family::new_tag_36h11(),
         FamilyStandard41h12 => apriltag::Family::new_tag_standard_41h12(),

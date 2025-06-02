@@ -2,7 +2,7 @@
 
 use eyre::{Context, Result};
 
-use ci2_remote_control::Mp4RecordingConfig;
+use strand_cam_remote_control::Mp4RecordingConfig;
 use machine_vision_formats::{pixel_format::Mono8, ImageData};
 
 #[test]
@@ -63,13 +63,13 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         #[allow(unused_variables)]
         let (codec, libs_and_nv_enc, max_diff) = match codec_str.as_str() {
             "open-h264" => {
-                let codec = ci2_remote_control::Mp4Codec::H264OpenH264({
+                let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                     let preset = if let Some(bitrate) = h264_bitrate {
-                        ci2_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
+                        strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
                     } else {
-                        ci2_remote_control::OpenH264Preset::AllFrames
+                        strand_cam_remote_control::OpenH264Preset::AllFrames
                     };
-                    ci2_remote_control::OpenH264Options {
+                    strand_cam_remote_control::OpenH264Options {
                         preset,
                         debug: false,
                     }
@@ -83,14 +83,14 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
             #[cfg(feature = "nv-encode")]
             "nv-h264" => {
                 nvenc_libs = Some(nvenc::Dynlibs::new()?);
-                let codec = ci2_remote_control::Mp4Codec::H264NvEnc(Default::default());
+                let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
                 (
                     codec,
                     Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
                     22,
                 )
             }
-            "less_avc" => (ci2_remote_control::Mp4Codec::H264LessAvc, None, 0),
+            "less_avc" => (strand_cam_remote_control::Mp4Codec::H264LessAvc, None, 0),
             _ => {
                 panic!("unknown codec str");
             }

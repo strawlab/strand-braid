@@ -40,8 +40,8 @@ use std::{path::PathBuf, result::Result as StdResult};
 use std::fs::File;
 
 #[cfg(feature = "flydra_feat_detect")]
-use ci2_remote_control::CsvSaveConfig;
-use ci2_remote_control::{
+use strand_cam_remote_control::CsvSaveConfig;
+use strand_cam_remote_control::{
     CamArg, CodecSelection, FfmpegRecordingConfig, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options,
     RecordingFrameRate,
 };
@@ -630,7 +630,7 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
         ..Default::default()
     };
 
-    nv_cfg_test.codec = ci2_remote_control::Mp4Codec::H264NvEnc(opts);
+    nv_cfg_test.codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(opts);
 
     // Temporary variable to hold file data. This will be dropped
     // at end of scope.
@@ -3487,8 +3487,8 @@ async fn send_cam_settings_to_braid(
     transmit_msg_tx.send(msg).await
 }
 
-fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> Option<u32> {
-    use ci2_remote_control::BitrateSelection::*;
+fn bitrate_to_u32(br: &strand_cam_remote_control::BitrateSelection) -> Option<u32> {
+    use strand_cam_remote_control::BitrateSelection::*;
     Some(match br {
         Bitrate500 => 500,
         Bitrate1000 => 1000,
@@ -3502,7 +3502,7 @@ fn bitrate_to_u32(br: &ci2_remote_control::BitrateSelection) -> Option<u32> {
 }
 
 struct FinalMp4RecordingConfig {
-    final_cfg: ci2_remote_control::RecordingConfig,
+    final_cfg: strand_cam_remote_control::RecordingConfig,
 }
 
 impl FinalMp4RecordingConfig {
@@ -3521,12 +3521,12 @@ impl FinalMp4RecordingConfig {
                 }))
             }
             CodecSelection::H264OpenH264 => {
-                let preset = ci2_remote_control::OpenH264Preset::AllFrames;
-                if shared.mp4_bitrate != ci2_remote_control::BitrateSelection::BitrateUnlimited {
+                let preset = strand_cam_remote_control::OpenH264Preset::AllFrames;
+                if shared.mp4_bitrate != strand_cam_remote_control::BitrateSelection::BitrateUnlimited {
                     warn!("ignoring mp4 bitrate with OpenH264 codec");
                 }
                 Some(Mp4Codec::H264OpenH264(
-                    ci2_remote_control::OpenH264Options {
+                    strand_cam_remote_control::OpenH264Options {
                         debug: false,
                         preset,
                     },
@@ -3536,7 +3536,7 @@ impl FinalMp4RecordingConfig {
         };
         let h264_metadata = {
             let mut h264_metadata =
-                ci2_remote_control::H264Metadata::new("strand-cam", creation_time.into());
+                strand_cam_remote_control::H264Metadata::new("strand-cam", creation_time.into());
             h264_metadata.camera_name = Some(shared.camera_name.clone());
             h264_metadata.gamma = shared.camera_gamma;
             Some(h264_metadata)
@@ -3547,16 +3547,16 @@ impl FinalMp4RecordingConfig {
                 max_framerate: shared.mp4_max_framerate.clone(),
                 h264_metadata,
             };
-            ci2_remote_control::RecordingConfig::Mp4(final_cfg)
+            strand_cam_remote_control::RecordingConfig::Mp4(final_cfg)
         } else {
-            use ci2_remote_control::CodecSelection::*;
+            use strand_cam_remote_control::CodecSelection::*;
             let codec = match &shared.mp4_codec {
                 H264Nvenc | H264OpenH264 => {
                     unreachable!();
                 }
                 Ffmpeg(args) => args.clone(),
             };
-            ci2_remote_control::RecordingConfig::Ffmpeg(FfmpegRecordingConfig {
+            strand_cam_remote_control::RecordingConfig::Ffmpeg(FfmpegRecordingConfig {
                 codec_args: codec,
                 max_framerate: shared.mp4_max_framerate.clone(),
                 h264_metadata,

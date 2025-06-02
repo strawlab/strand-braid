@@ -110,7 +110,7 @@ impl StrandCamHttpSessionHandler {
     async fn post(
         &self,
         cam_name: &RawCamName,
-        args: ci2_remote_control::CamArg,
+        args: strand_cam_remote_control::CamArg,
     ) -> Result<(), MainbrainError> {
         let session = self.get_or_open_session(cam_name).await?;
 
@@ -158,13 +158,13 @@ impl StrandCamHttpSessionHandler {
             cam_name.as_str(),
             frame_offset
         );
-        let args = ci2_remote_control::CamArg::SetFrameOffset(frame_offset);
+        let args = strand_cam_remote_control::CamArg::SetFrameOffset(frame_offset);
         self.post(cam_name, args).await
     }
 
     async fn send_quit(&mut self, cam_name: &RawCamName) -> Result<(), MainbrainError> {
         info!("for cam {}, sending quit", cam_name.as_str());
-        let args = ci2_remote_control::CamArg::DoQuit;
+        let args = strand_cam_remote_control::CamArg::DoQuit;
 
         let cam_result = self.post(cam_name, args).await;
 
@@ -243,7 +243,7 @@ impl StrandCamHttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::SetIsRecordingMp4(start_saving);
+        let args = strand_cam_remote_control::CamArg::SetIsRecordingMp4(start_saving);
         self.post(&cam_name, args).await?;
         Ok(())
     }
@@ -272,7 +272,7 @@ impl StrandCamHttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::SetTriggerboxClockModel(clock_model);
+        let args = strand_cam_remote_control::CamArg::SetTriggerboxClockModel(clock_model);
         self.post(&cam_name, args).await
     }
 
@@ -299,7 +299,7 @@ impl StrandCamHttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::SetPostTriggerBufferSize(num_frames);
+        let args = strand_cam_remote_control::CamArg::SetPostTriggerBufferSize(num_frames);
         self.post(&cam_name, args).await?;
         Ok(())
     }
@@ -322,7 +322,7 @@ impl StrandCamHttpSessionHandler {
         );
         let cam_name = cam_name.clone();
 
-        let args = ci2_remote_control::CamArg::PostTrigger;
+        let args = strand_cam_remote_control::CamArg::PostTrigger;
         self.post(&cam_name, args).await?;
         Ok(())
     }

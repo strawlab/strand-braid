@@ -1,4 +1,4 @@
-extern crate ci2_types;
+extern crate strand_cam_types;
 extern crate enum_iter;
 extern crate rust_cam_bui_types;
 extern crate serde;
@@ -492,11 +492,11 @@ pub enum CamArg {
     SetIngoreFutureFrameProcessingErrors(Option<i64>),
 
     SetExposureTime(f64),
-    SetExposureAuto(ci2_types::AutoMode),
+    SetExposureAuto(strand_cam_types::AutoMode),
     SetFrameRateLimitEnabled(bool),
     SetFrameRateLimit(f64),
     SetGain(f64),
-    SetGainAuto(ci2_types::AutoMode),
+    SetGainAuto(strand_cam_types::AutoMode),
     SetRecordingFps(RecordingFrameRate),
     SetMp4Bitrate(BitrateSelection),
     SetMp4Codec(CodecSelection),

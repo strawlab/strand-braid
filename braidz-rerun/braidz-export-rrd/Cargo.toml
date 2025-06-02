@@ -17,7 +17,7 @@ braidz-parser.workspace = true
 braidz-rerun.workspace = true
 env-tracing-logger.workspace = true
 frame-source.workspace = true
-ci2-remote-control.workspace = true
+strand-cam-remote-control.workspace = true
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 
 [features]
