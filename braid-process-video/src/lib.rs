@@ -8,7 +8,7 @@ use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 
-use machine_vision_formats::{owned::OImage, pixel_format::Mono8, ImageData};
+use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 
 use flydra_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
 
@@ -17,7 +17,7 @@ use peek2::Peek2;
 
 mod argmin;
 
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 mod braidz_iter;
 mod synced_iter;
@@ -54,7 +54,7 @@ pub(crate) const DEFAULT_REPROJECTED_STYLE: &str = "fill: none; stroke: white; s
 pub(crate) struct OutTimepointPerCamera {
     timestamp: DateTime<FixedOffset>,
     /// Camera image from MP4, MKV, or FMF file (if available).
-    image: Option<DynamicFrame>,
+    image: Option<DynamicFrameOwned>,
     /// Braidz data. Empty if no braidz data available.
     this_cam_this_frame: Vec<Data2dDistortedRow>,
 }
@@ -62,7 +62,7 @@ pub(crate) struct OutTimepointPerCamera {
 impl OutTimepointPerCamera {
     pub(crate) fn new(
         timestamp: DateTime<FixedOffset>,
-        image: Option<DynamicFrame>,
+        image: Option<DynamicFrameOwned>,
         this_cam_this_frame: Vec<Data2dDistortedRow>,
     ) -> Self {
         Self {
@@ -237,39 +237,15 @@ impl PerCamRender {
                 panic!("")
             }
         };
-        let frame_ref: &DynamicFrame = rdr.peek1().unwrap().as_ref().unwrap().decoded().unwrap();
+        let frame_ref: &DynamicFrame = &rdr.peek1().unwrap().as_ref().unwrap().decoded().unwrap();
 
-        let (frame0_png_buf, width, height) = match frame_ref {
-            DynamicFrame::Mono8(frame_mono8) => {
-                let frame0_png_buf = convert_image::frame_to_encoded_buffer(
-                    frame_mono8,
-                    convert_image::EncoderOptions::Png,
-                )
-                .unwrap()
-                .into();
-                (
-                    frame0_png_buf,
-                    frame_mono8.width().try_into().unwrap(),
-                    frame_mono8.height().try_into().unwrap(),
-                )
-            }
-            DynamicFrame::RGB8(frame_rgb8) => {
-                let frame0_png_buf = convert_image::frame_to_encoded_buffer(
-                    frame_rgb8,
-                    convert_image::EncoderOptions::Png,
-                )
-                .unwrap()
-                .into();
-                (
-                    frame0_png_buf,
-                    frame_rgb8.width().try_into().unwrap(),
-                    frame_rgb8.height().try_into().unwrap(),
-                )
-            }
-            _ => {
-                panic!("only mono8 or rgb8 supported");
-            }
-        };
+        let frame0_png_buf = frame_ref
+            .to_encoded_buffer(convert_image::EncoderOptions::Png)
+            .unwrap()
+            .into();
+
+        let width = frame_ref.width().try_into().unwrap();
+        let height = frame_ref.height().try_into().unwrap();
 
         Self {
             best_name,
@@ -333,19 +309,7 @@ pub(crate) struct PerCamRenderFrame<'a> {
 
 impl PerCamRenderFrame<'_> {
     pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
-        let png_buf = match frame {
-            DynamicFrame::Mono8(frame_mono8) => convert_image::frame_to_encoded_buffer(
-                frame_mono8,
-                convert_image::EncoderOptions::Png,
-            )?,
-            DynamicFrame::RGB8(frame_rgb8) => convert_image::frame_to_encoded_buffer(
-                frame_rgb8,
-                convert_image::EncoderOptions::Png,
-            )?,
-            _ => {
-                panic!("only rgb8 and mono8 supported");
-            }
-        };
+        let png_buf = frame.to_encoded_buffer(convert_image::EncoderOptions::Png)?;
         self.png_buf = Some(png_buf);
         Ok(())
     }
@@ -1012,10 +976,11 @@ fn gather_frame_data<'a>(
                                     flydra_pt_detect_cfg::default_absdiff()
                                 });
                             let raw_cam_name = RawCamName::new(source.cam_id.best_name());
+                            let pic_ref = pic.borrow();
                             flydra_feature_detector::FlydraFeatureDetector::new(
                                 &raw_cam_name,
-                                pic.width(),
-                                pic.height(),
+                                pic_ref.width(),
+                                pic_ref.height(),
                                 im_pt_cfg,
                                 None,
                                 None,
@@ -1024,10 +989,10 @@ fn gather_frame_data<'a>(
                         });
 
                     tracing::warn!("converting image to MONO8");
-                    let mono8 = pic
-                        .clone()
+                    let frame_ref = pic.borrow();
+                    let mono8 = frame_ref
                         .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
-                    let dyn_mono8 = DynamicFrame::from(mono8);
+                    let dyn_mono8 = DynamicFrame::from_static_ref(&mono8);
 
                     let (detections, _) = entry.process_new_frame(
                         &dyn_mono8,
@@ -1049,7 +1014,7 @@ fn gather_frame_data<'a>(
 
         // Did we get an image from the MP4 file?
         if let Some(pic) = &per_cam.image {
-            cam_render_data.set_original_image(pic)?;
+            cam_render_data.set_original_image(&pic.borrow())?;
         }
 
         cam_render_data.pts_chrono = per_cam.timestamp;

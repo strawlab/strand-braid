@@ -4,7 +4,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 use chrono::{DateTime, Utc};
 use formats::PixFmt;
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 use crate::{pixel_formats, FMFError, FMFResult};
 
@@ -116,7 +116,7 @@ impl FMFReader {
         self.n_frames
     }
 
-    fn next_frame(&mut self) -> FMFResult<(DynamicFrame, DateTime<Utc>)> {
+    fn next_frame(&mut self) -> FMFResult<(DynamicFrameOwned, DateTime<Utc>)> {
         // Private function to actually read next frame.
         if self.count >= self.n_frames {
             return Err(FMFError::ReadingPastEnd);
@@ -141,7 +141,7 @@ impl FMFReader {
         self.count += 1;
 
         if let Some(dframe) =
-            DynamicFrame::new(width, height, stride as usize, image_data, pixel_format)
+            DynamicFrameOwned::from_buf(width, height, stride as usize, image_data, pixel_format)
         {
             Ok((dframe, dt))
         } else {
@@ -151,7 +151,7 @@ impl FMFReader {
 }
 
 impl Iterator for FMFReader {
-    type Item = FMFResult<(DynamicFrame, DateTime<Utc>)>;
+    type Item = FMFResult<(DynamicFrameOwned, DateTime<Utc>)>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.did_error {
             // Encountered error. Do not read more.

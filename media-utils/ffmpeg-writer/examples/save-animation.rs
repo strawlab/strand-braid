@@ -66,34 +66,36 @@ fn main() -> eyre::Result<()> {
 
                     match *format_str {
                         "mono8" => {
-                            // convert to farget format, keeping full size
+                            // convert to target format, keeping full size
                             let mono = convert_image::convert_ref::<_, Mono8>(&frame)?;
 
-                            let out_size_bytes = mono.stride() * final_height as usize;
-                            let trimmed = OImage::<Mono8>::new(
-                                final_width,
-                                final_height,
-                                mono.stride(),
-                                mono.image_data()[..out_size_bytes].to_vec(),
-                            )
-                            .unwrap();
+                            let trimmed = strand_dynamic_frame::DynamicFrameOwned::from_static(
+                                OImage::<Mono8>::new(
+                                    final_width,
+                                    final_height,
+                                    mono.stride(),
+                                    mono.image_data().to_vec(),
+                                )
+                                .unwrap(),
+                            );
 
                             my_ffmpeg_writer
-                                .write_frame(&trimmed)
+                                .write_dynamic_frame(&trimmed.borrow())
                                 .map_err(better_error)?;
                         }
                         "rgb8" => {
-                            let out_size_bytes = frame.stride() * final_height as usize;
                             let trimmed = ImageRef::<RGB8>::new(
                                 final_width,
                                 final_height,
                                 frame.stride(),
-                                &frame.image_data()[..out_size_bytes],
+                                frame.image_data(),
                             )
                             .unwrap();
+                            let dy_trimmed =
+                                strand_dynamic_frame::DynamicFrame::from_static_ref(&trimmed);
 
                             my_ffmpeg_writer
-                                .write_frame(&trimmed)
+                                .write_dynamic_frame(&dy_trimmed)
                                 .map_err(better_error)?;
                         }
                         _ => {

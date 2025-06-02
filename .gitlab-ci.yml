@@ -31,7 +31,10 @@ test_crates:
     # Test ffmpeg-rewriter
     - cd media-utils/ffmpeg-rewriter
     - cargo test --release
-    - cd ../..
+
+    # Test mp4-writer
+    - cd $CI_PROJECT_DIR/media-utils/mp4-writer
+    - cargo test --release
 
     # Test fmf-cli
     - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli

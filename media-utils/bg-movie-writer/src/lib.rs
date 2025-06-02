@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 mod movie_writer_thread;
 
@@ -92,7 +92,7 @@ impl BgMovieWriter {
     ///
     /// If the background writer thread has previously encountered an error,
     /// this will return that previously-encountered error.
-    pub fn write<TS>(&mut self, frame: DynamicFrame, timestamp: TS) -> Result<()>
+    pub fn write<TS>(&mut self, frame: DynamicFrameOwned, timestamp: TS) -> Result<()>
     where
         TS: Into<chrono::DateTime<chrono::Local>>,
     {
@@ -137,6 +137,6 @@ impl BgMovieWriter {
 }
 
 pub(crate) enum Msg {
-    Write((DynamicFrame, chrono::DateTime<chrono::Local>)),
+    Write((DynamicFrameOwned, chrono::DateTime<chrono::Local>)),
     Finish,
 }

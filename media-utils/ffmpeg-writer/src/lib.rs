@@ -1,4 +1,3 @@
-use machine_vision_formats as formats;
 use std::{
     collections::VecDeque,
     process::{Child, Command, Stdio},
@@ -209,14 +208,11 @@ impl FfmpegWriter {
     }
 
     /// Write a frame. Return the presentation timestamp (PTS).
-    pub fn write_frame<F>(
+    pub fn write_dynamic_frame(
         &mut self,
-        frame: &dyn formats::iter::HasRowChunksExact<F>,
-    ) -> Result<std::time::Duration>
-    where
-        F: formats::pixel_format::PixelFormat,
-    {
-        match self.wtr.write_frame(frame) {
+        frame: &strand_dynamic_frame::DynamicFrame,
+    ) -> Result<std::time::Duration> {
+        match self.wtr.write_dynamic_frame(frame) {
             Ok(()) => {}
             Err(y4m_writer::Error::Y4mError(y4m::Error::IoError(e)))
                 if e.kind() == std::io::ErrorKind::BrokenPipe =>

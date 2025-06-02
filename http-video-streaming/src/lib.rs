@@ -6,9 +6,9 @@ use std::{
 
 use tokio_stream::StreamExt;
 
-use strand_dynamic_frame::DynamicFrame;
 use bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
+use strand_dynamic_frame::DynamicFrameOwned;
 
 pub use http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
 
@@ -26,7 +26,7 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct AnnotatedFrame {
-    pub frame: DynamicFrame,
+    pub frame: DynamicFrameOwned,
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
     pub annotations: Vec<DrawableShape>,
@@ -97,14 +97,10 @@ impl PerSender {
                 let sent_time = chrono::Local::now();
                 let tc = {
                     let most_recent_frame_data = most_recent_frame_data.lock().unwrap();
-                    let bytes = strand_dynamic_frame::match_all_dynamic_fmts!(
-                        &most_recent_frame_data.frame,
-                        x,
-                        convert_image::frame_to_encoded_buffer(
-                            x,
-                            convert_image::EncoderOptions::Jpeg(80),
-                        )
-                    )?;
+                    let bytes = &most_recent_frame_data
+                        .frame
+                        .borrow()
+                        .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
                     let firehose_frame_base64 = base64::encode(&bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
                     // most_recent_frame_data.data_url = Some(data_url.clone()); // todo: cache like this

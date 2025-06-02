@@ -4,7 +4,7 @@ use std::io::Cursor;
 use eyre::{self as anyhow, Result};
 
 use frame_source::pv_tiff_stack::TiffImage;
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 /// Configuration describing how to handle high dynamic range source material.
 #[allow(non_camel_case_types)]
@@ -75,7 +75,7 @@ pub fn read_tiff_image(
     hdr_cfg: &HdrConfig,
     hdr_lum_range: Option<(u16, u16)>,
     histogram: &mut ValHistogram,
-) -> Result<DynamicFrame> {
+) -> Result<DynamicFrameOwned> {
     use tiff::decoder::DecodingResult;
 
     let TiffImage { buf, metadata, .. } = tiff_image;
@@ -149,7 +149,7 @@ pub fn read_tiff_image(
     }
     let stride = width.try_into().unwrap();
 
-    Ok(DynamicFrame::new(
+    Ok(DynamicFrameOwned::from_buf(
         width,
         height,
         stride,

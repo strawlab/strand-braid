@@ -262,7 +262,8 @@ fn info(path: PathBuf) -> Result<()> {
     }
     let reader = fmf::FMFReader::new(&path)?;
     for (fno, res_frame) in reader.enumerate() {
-        let (frame, timestamp) = res_frame?;
+        let (frame_o, timestamp) = res_frame?;
+        let frame = frame_o.borrow();
         let i = Info {
             width: frame.width(),
             stride: frame.stride(),
@@ -303,7 +304,8 @@ fn export_fmf(
     let mut writer = fmf::FMFWriter::new(f)?;
 
     for res_frame in reader {
-        let (frame, fts) = res_frame?;
+        let (frame_o, fts) = res_frame?;
+        let frame = frame_o.borrow();
         let frame: DynamicFrame = match forced_input_pixel_format {
             Some(forced_input_pixel_format) => {
                 frame.force_pixel_format(forced_input_pixel_format).unwrap()
@@ -316,7 +318,12 @@ fn export_fmf(
             None => frame.pixel_format(),
         };
 
-        match_all_dynamic_fmts!(frame, x, convert_and_write_fmf!(fmt, writer, &x, fts));
+        match_all_dynamic_fmts!(
+            frame,
+            x,
+            convert_and_write_fmf!(fmt, writer, &x, fts),
+            anyhow::anyhow!("unimplemented pixel format {}", fmt)
+        );
     }
     Ok(())
 }
@@ -361,11 +368,11 @@ fn export_images(path: PathBuf, opts: EncoderOptions) -> Result<()> {
     let reader = fmf::FMFReader::new(&path)?;
 
     for (i, res_frame) in reader.enumerate() {
-        let (frame, _) = res_frame?;
+        let (frame_o, _) = res_frame?;
+        let frame = frame_o.borrow();
         let file = format!("frame{:05}.{}", i, ext);
         let fname = dirname.join(&file);
-        let buf =
-            match_all_dynamic_fmts!(frame, x, convert_image::frame_to_encoded_buffer(&x, opts))?;
+        let buf = frame.to_encoded_buffer(opts)?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
     }
@@ -540,9 +547,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     for (fno, res_frame) in buffered_first.into_iter().chain(reader).enumerate() {
         let (fmf_frame, ts) = res_frame?;
         debug!("saving frame {}", fno);
-        match_all_dynamic_fmts!(fmf_frame, frame, {
-            my_mp4_writer.write(&frame, ts)?;
-        });
+        my_mp4_writer.write_dynamic(&fmf_frame.borrow(), ts)?;
     }
 
     debug!("finishing file");
@@ -578,9 +583,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
     for res_frame in reader {
         let (frame, _) = res_frame?;
-        strand_dynamic_frame::match_all_dynamic_fmts!(frame, f, {
-            y4m_writer.write_frame(&f)?;
-        });
+        y4m_writer.write_dynamic_frame(&frame.borrow())?;
     }
     Ok(())
 }

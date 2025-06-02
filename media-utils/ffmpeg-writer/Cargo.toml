@@ -9,6 +9,7 @@ convert-image.workspace = true
 thiserror.workspace = true
 y4m-writer.workspace = true
 y4m.workspace = true
+strand-dynamic-frame.workspace = true
 
 [dev-dependencies]
 eyre.workspace = true

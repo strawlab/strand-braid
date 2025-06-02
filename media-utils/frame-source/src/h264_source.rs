@@ -884,7 +884,7 @@ fn yuv2rgb(
     let mut image_data = vec![0u8; stride * dim.1];
     decoded_yuv.write_rgb8(&mut image_data);
 
-    let dynamic_frame = strand_dynamic_frame::DynamicFrame::RGB8(
+    let dynamic_frame = strand_dynamic_frame::DynamicFrameOwned::from_static(
         OImage::<machine_vision_formats::pixel_format::RGB8>::new(
             dim.0.try_into().unwrap(),
             dim.1.try_into().unwrap(),

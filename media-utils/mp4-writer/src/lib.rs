@@ -16,21 +16,17 @@
 #[cfg(feature = "nv-encode")]
 use std::rc::Rc;
 
-use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
 #[cfg(feature = "nv-encode")]
-use convert_image::convert_into;
+use machine_vision_formats::image_ref::ImageRefMut;
+use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
 #[cfg(feature = "nv-encode")]
 use tracing::info;
 use tracing::{debug, error, trace};
 
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::DynamicFrame;
 
 #[cfg(feature = "nv-encode")]
-use machine_vision_formats::{image_ref::ImageRefMut, pixel_format};
-
-use machine_vision_formats::{
-    ImageBuffer, ImageBufferRef, ImageData, ImageStride, PixelFormat, Stride,
-};
+use machine_vision_formats::pixel_format;
 
 #[cfg(feature = "nv-encode")]
 use nvenc::{InputBuffer, OutputBuffer, RateControlMode};
@@ -121,44 +117,6 @@ enum MyEncoder<'lib> {
     #[cfg(feature = "openh264")]
     OpenH264(OpenH264Encoder),
     LessH264(LessEncoderWrapper),
-}
-
-/// A view of image to have new width
-pub struct TrimmedImage<'a, FMT> {
-    pub orig: &'a dyn ImageStride<FMT>,
-    pub width: u32,
-    pub height: u32,
-}
-
-impl<FMT> ImageData<FMT> for TrimmedImage<'_, FMT> {
-    fn width(&self) -> u32 {
-        self.width
-    }
-    fn height(&self) -> u32 {
-        self.height
-    }
-    fn buffer_ref(&self) -> ImageBufferRef<'_, FMT> {
-        self.orig.buffer_ref()
-    }
-    fn buffer(self) -> ImageBuffer<FMT> {
-        // copy the buffer
-        self.orig.buffer_ref().to_buffer()
-    }
-}
-
-impl<FMT> Stride for TrimmedImage<'_, FMT> {
-    fn stride(&self) -> usize {
-        self.orig.stride()
-    }
-}
-
-/// Trim input image to be divisible by 2 width and height.
-pub fn trim_image<FMT>(orig: &dyn ImageStride<FMT>, width: u32, height: u32) -> TrimmedImage<FMT> {
-    TrimmedImage {
-        orig,
-        width: (width / 2) * 2,
-        height: (height / 2) * 2,
-    }
 }
 
 pub struct Mp4Writer<'lib, T>
@@ -340,20 +298,8 @@ where
         Ok(())
     }
 
-    pub fn write_dynamic<TS>(&mut self, frame: &DynamicFrame, timestamp: TS) -> Result<()>
+    pub fn write_dynamic<'a, TS>(&'a mut self, frame: &DynamicFrame, timestamp: TS) -> Result<()>
     where
-        TS: Into<chrono::DateTime<chrono::Local>>,
-    {
-        match_all_dynamic_fmts!(frame, x, {
-            self.write(x, timestamp)?;
-        });
-        Ok(())
-    }
-
-    pub fn write<'a, IM, FMT, TS>(&'a mut self, frame: &IM, timestamp: TS) -> Result<()>
-    where
-        IM: ImageStride<FMT>,
-        FMT: PixelFormat,
         TS: Into<chrono::DateTime<chrono::Local>>,
     {
         let timestamp: chrono::DateTime<chrono::Local> = timestamp.into();
@@ -362,7 +308,6 @@ where
         match inner {
             Some(WriteState::Configured(mybox)) => {
                 let (fd, cfg, h264_parser) = *mybox;
-                let frame = trim_image(frame, frame.width(), frame.height());
 
                 let width = frame.width();
                 let height = frame.height();
@@ -552,7 +497,7 @@ where
                     inner: Some(inner),
                 };
 
-                write_frame(&mut state, &frame, timestamp)?;
+                write_dynamic_frame(&mut state, &frame, timestamp)?;
 
                 self.inner = Some(WriteState::Recording(Box::new(state)));
 
@@ -562,8 +507,9 @@ where
                 let frame = if let Some(state_inner) = &mut state.inner {
                     let interval = timestamp.signed_duration_since(state_inner.previous_timestamp);
                     if interval >= state_inner.interval_for_limiting_fps {
-                        let frame =
-                            trim_image(frame, state_inner.trim_width, state_inner.trim_height);
+                        let frame = frame
+                            .roi(0, 0, state_inner.trim_width, state_inner.trim_height)
+                            .unwrap();
                         debug!("Saving frame at {}: interval {}", timestamp, interval);
 
                         state_inner.previous_timestamp = timestamp;
@@ -579,7 +525,7 @@ where
                     return inconsistent_state_err();
                 };
                 if let Some(frame) = frame {
-                    write_frame(&mut state, &frame, timestamp)?;
+                    write_dynamic_frame(&mut state, &frame, timestamp)?;
                 }
                 self.inner = Some(WriteState::Recording(state));
 
@@ -698,22 +644,20 @@ where
     }
 }
 
-fn write_frame<T, FRAME, FMT>(
+fn write_dynamic_frame<T>(
     state: &mut RecordingState<'_, T>,
-    raw_frame: &FRAME,
+    raw_frame: &DynamicFrame,
     timestamp: chrono::DateTime<chrono::Local>,
 ) -> Result<()>
 where
     T: std::io::Write + std::io::Seek,
-    FRAME: ImageStride<FMT>,
-    FMT: PixelFormat,
 {
     match (&mut state.my_encoder, &state.inner) {
         (MyEncoder::CopyRawH264 { h264_parser: _ }, _) => {
             return Err(Error::RawH264CopyCannotEncodeFrame {});
         }
         (MyEncoder::LessH264(encoder), Some(state_inner)) => {
-            let nals = encoder.encoder.encode_to_nal_units(raw_frame)?;
+            let nals = encoder.encoder.encode_dynamic_to_nal_units(raw_frame)?;
 
             let is_keyframe = true;
 
@@ -738,7 +682,8 @@ where
         (MyEncoder::OpenH264(encoder), Some(state_inner)) => {
             // todo: bitrate, keyframes, timestamp check and duration finding.
 
-            let y4m = y4m_writer::encode_y4m_frame(raw_frame, y4m::Colorspace::C420paldv, None)?;
+            let y4m =
+                y4m_writer::encode_y4m_dynamic_frame(raw_frame, y4m::Colorspace::C420paldv, None)?;
 
             let encoded = encoder.encoder.encode(&YUVData::from(y4m)).unwrap();
 
@@ -811,7 +756,7 @@ where
                 )
                 .unwrap();
 
-                convert_into(raw_frame, &mut dest)?;
+                raw_frame.into_pixel_format_dest(&mut dest)?;
                 // Now vram_buf.in_buf has the nv12 encoded data.
                 dest_stride
             };
@@ -1382,8 +1327,8 @@ fn timestamp_to_sei_payload(timestamp: chrono::DateTime<chrono::Utc>, payload: &
 fn convert_openh264_rc_mode(
     orig: strand_cam_remote_control::OpenH264RateControlMode,
 ) -> openh264::encoder::RateControlMode {
-    use strand_cam_remote_control::OpenH264RateControlMode as mode;
     use openh264::encoder::RateControlMode::*;
+    use strand_cam_remote_control::OpenH264RateControlMode as mode;
     match orig {
         mode::Quality => Quality,
         mode::Bitrate => Bitrate,

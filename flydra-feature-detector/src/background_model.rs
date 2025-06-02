@@ -6,13 +6,13 @@ use chrono::{DateTime, Utc};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use machine_vision_formats::{self as formats, ImageData, Stride};
 
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 use fastim_mod::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
 
-type ToWorker = (DynamicFrame, DateTime<Utc>, ImPtDetectCfg);
+type ToWorker = (DynamicFrameOwned, DateTime<Utc>, ImPtDetectCfg);
 type FromWorker = (
     FastImageData<Chan1, f32>,
     FastImageData<Chan1, f32>,
@@ -90,8 +90,9 @@ impl BackgroundModel {
                         }
                     };
                     let (orig_frame, ts, cfg) = x;
-                    let frame = orig_frame
-                        .into_pixel_format2::<formats::pixel_format::Mono8>()
+                    let frame_ref = orig_frame.borrow();
+                    let frame = frame_ref
+                        .into_pixel_format::<formats::pixel_format::Mono8>()
                         .unwrap();
 
                     let raw_im_full = FastImageView::view_raw(
@@ -154,11 +155,12 @@ impl BackgroundModel {
     /// Update background model for new image
     pub(crate) fn start_bg_update(
         &mut self,
-        frame: &DynamicFrame,
+        frame: &DynamicFrame<'_>,
         cfg: &ImPtDetectCfg,
         ts: DateTime<Utc>,
     ) -> Result<()> {
-        match self.tx_to_worker.try_send((frame.clone(), ts, cfg.clone())) {
+        let frame_copy = frame.copy_to_owned();
+        match self.tx_to_worker.try_send((frame_copy, ts, cfg.clone())) {
             Ok(()) => {}
             Err(std::sync::mpsc::TrySendError::Full(_msg)) => {
                 error!("not updating background image because pipe full");

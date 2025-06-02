@@ -1,3 +1,4 @@
+use ci2::DynamicFrameWithInfo;
 use eyre::Result;
 #[cfg(feature = "fiducial")]
 use libflate::{finish::AutoFinishUnchecked, gzip::Encoder};
@@ -22,8 +23,11 @@ use flydra_feature_detector_types::ImPtDetectCfg;
 use flydra_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use fmf::FMFWriter;
 use http_video_streaming::AnnotatedFrame;
+use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 use rust_cam_bui_types::RecordingPath;
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::match_all_dynamic_fmts;
+#[cfg(feature = "fiducial")]
+use strand_dynamic_frame::DynamicFrame;
 
 use strand_cam_storetype::StoreType;
 
@@ -520,22 +524,23 @@ pub(crate) async fn frame_process_task<'a>(
                     frames.len() + 100,
                     mp4_path,
                 );
-                for mut frame in frames.into_iter() {
-                    // Force frame width to be power of 2.
-                    let val = 2;
-                    let clipped_width = (frame.width() / val as u32) * val as u32;
-                    use machine_vision_formats::{owned::OImage, ImageData, Stride};
-                    match_all_dynamic_fmts!(&mut frame.image, x, {
-                        let orig = std::mem::replace(x, OImage::new(0, 0, 1, vec![]).unwrap());
-                        let h = orig.height();
-                        let s = orig.stride();
-                        let buf: Vec<u8> = orig.into(); // move data
-                        *x = OImage::new(clipped_width, h, s, buf).unwrap();
-                    });
+                for frame in frames.into_iter() {
+                    let clipped = {
+                        // Force frame width to be power of 2.
+                        let val = 2;
+                        let clipped_width = (frame.width() / val as u32) * val as u32;
+                        let height = frame.height();
+                        let image = frame.image.roi(0, 0, clipped_width, height).unwrap();
+                        DynamicFrameWithInfo {
+                            image,
+                            host_timing: frame.host_timing,
+                            backend_data: frame.backend_data,
+                        }
+                    };
 
                     // Use Braid timestamp if possible, otherwise host timestamp.
                     let braid_ts = calc_braid_timestamp(
-                        &frame,
+                        &clipped,
                         trigger_type.as_ref(),
                         triggerbox_clock_model.as_ref(),
                         &opt_frame_offset,
@@ -544,8 +549,8 @@ pub(crate) async fn frame_process_task<'a>(
                     );
                     let mp4_timestamp = braid_ts
                         .map(Into::into)
-                        .unwrap_or(frame.host_timing.datetime);
-                    raw.write(frame.image, mp4_timestamp)?;
+                        .unwrap_or(clipped.host_timing.datetime);
+                    raw.write(clipped.image, mp4_timestamp)?;
                 }
                 my_mp4_writer = Some(raw);
 
@@ -641,7 +646,18 @@ pub(crate) async fn frame_process_task<'a>(
                 if let Some(v4l_out_stream) = v4l_out_stream.as_mut() {
                     let (buf_out, buf_out_meta) =
                         v4l::io::traits::OutputStream::next(v4l_out_stream)?;
-                    let buf_in = frame.image.image_data_without_format();
+
+                    let frame_ref = frame.image.borrow();
+                    let mono8 = frame_ref.as_static::<Mono8>().ok_or_else(|| {
+                        eyre::eyre!(
+                            "Currently unsupported pixel format for v4l2loopback: {:?}",
+                            frame.pixel_format()
+                        )
+                    })?;
+
+                    use machine_vision_formats::ImageData;
+                    let im_data2 = mono8.image_data();
+                    let buf_in = &im_data2[..];
                     let bytesused = buf_in.len().try_into()?;
 
                     let buf_out = &mut buf_out[0..buf_in.len()];
@@ -686,18 +702,15 @@ pub(crate) async fn frame_process_task<'a>(
                                     checkerboard_data.width, checkerboard_data.height
                                 );
                                 let stamped = debug_image_stamp.format(&format_str).to_string();
-                                let png_buf = match_all_dynamic_fmts!(&frame.image, x, {
-                                    convert_image::frame_to_encoded_buffer(
-                                        x,
-                                        convert_image::EncoderOptions::Png,
-                                    )?
-                                });
+                                let frame_ref = frame.image.borrow();
+                                let png_buf = frame_ref
+                                    .to_encoded_buffer(convert_image::EncoderOptions::Png)?;
 
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let image_path = debug_path.join(stamped);
 
                                 let mut f = File::create(&image_path).expect("create file");
-                                f.write_all(&png_buf).unwrap();
+                                std::io::Write::write_all(&mut f, &png_buf).unwrap();
                             }
 
                             let start_time = std::time::Instant::now();
@@ -707,14 +720,17 @@ pub(crate) async fn frame_process_task<'a>(
                                 checkerboard_data.width, checkerboard_data.height
                             );
 
-                            let corners =
-                                strand_dynamic_frame::match_all_dynamic_fmts!(&frame.image, x, {
+                            let frame_ref = frame.image.borrow();
+                            let corners = strand_dynamic_frame::match_all_dynamic_fmts!(
+                                &frame_ref,
+                                x,
+                                {
                                     let rgb: Box<
                                         dyn formats::ImageStride<formats::pixel_format::RGB8>,
                                     > = Box::new(convert_image::convert_ref::<
                                         _,
                                         formats::pixel_format::RGB8,
-                                    >(x)?);
+                                    >(&x)?);
                                     let corners = opencv_calibrate::find_chessboard_corners(
                                         rgb.image_data(),
                                         rgb.width(),
@@ -723,7 +739,9 @@ pub(crate) async fn frame_process_task<'a>(
                                         checkerboard_data.height as usize,
                                     )?;
                                     corners
-                                });
+                                },
+                                eyre::eyre!("unknown pixel format in checkerboard finder")
+                            );
 
                             let work_duration = start_time.elapsed();
                             if work_duration > checkerboard_loop_dur {
@@ -806,17 +824,21 @@ pub(crate) async fn frame_process_task<'a>(
                             if let (true, Some(framenumber)) =
                                 (store_cache_ref.im_ops_state.do_detection, block_id)
                             {
-                                let thresholded = if let DynamicFrame::Mono8(mono8) = &frame.image {
-                                    imops::threshold(
-                                        mono8.clone(),
-                                        imops::CmpOp::LessThan,
-                                        store_cache_ref.im_ops_state.threshold,
-                                        0,
-                                        255,
-                                    )
+                                let src = frame.image.borrow();
+                                let mono8 = if let Some(mono8) = src.as_static::<Mono8>() {
+                                    mono8
                                 } else {
-                                    panic!("imops only implemented for Mono8 pixel format");
+                                    eyre::bail!("imops only implemented for Mono8 pixel format");
                                 };
+
+                                let thresholded = imops::threshold(
+                                    OImage::copy_from(&mono8),
+                                    imops::CmpOp::LessThan,
+                                    store_cache_ref.im_ops_state.threshold,
+                                    0,
+                                    255,
+                                );
+
                                 let mu00 = imops::spatial_moment_00(&thresholded);
                                 let mu01 = imops::spatial_moment_01(&thresholded);
                                 let mu10 = imops::spatial_moment_10(&thresholded);
@@ -898,7 +920,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         april_td.add_family(april_tf);
                                     }
 
-                                    let mut im = frame2april(&frame.image)?;
+                                    let mut im = frame2april(&frame.image.borrow())?;
 
                                     let detections = april_td.detect(im.inner_mut());
 
@@ -953,7 +975,7 @@ pub(crate) async fn frame_process_task<'a>(
                             // mainbrain for 3D processing.
                             let (tracker_annotation, new_ufmf_state) = im_tracker
                                 .process_new_frame(
-                                    &frame.image,
+                                    &frame.image.borrow(),
                                     frame.host_timing.fno,
                                     frame.host_timing.datetime,
                                     inner_ufmf_state,
@@ -1063,12 +1085,10 @@ pub(crate) async fn frame_process_task<'a>(
                                         image_path.push(base.clone());
                                         image_path.set_extension("jpg");
 
-                                        let bytes = match_all_dynamic_fmts!(&frame.image, x, {
-                                            convert_image::frame_to_encoded_buffer(
-                                                x,
-                                                convert_image::EncoderOptions::Jpeg(99),
-                                            )?
-                                        });
+                                        let frame_ref = frame.image.borrow();
+                                        let bytes = frame_ref.to_encoded_buffer(
+                                            convert_image::EncoderOptions::Jpeg(99),
+                                        )?;
                                         File::create(image_path)?.write_all(&bytes)?;
                                     }
 
@@ -1246,9 +1266,13 @@ pub(crate) async fn frame_process_task<'a>(
                         }
                     };
                     if do_save {
-                        match_all_dynamic_fmts!(&frame.image, x, {
-                            inner.writer.write(x, save_mp4_fmf_stamp)?
-                        });
+                        let src_ref = frame.image.borrow();
+                        match_all_dynamic_fmts!(
+                            src_ref,
+                            x,
+                            inner.writer.write(&x, save_mp4_fmf_stamp)?,
+                            eyre::eyre!("unknown pixel format in fmf writer")
+                        );
                         inner.last_saved_stamp = Some(save_mp4_fmf_stamp);
                     }
                 }
@@ -1535,7 +1559,7 @@ fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
 #[cfg(feature = "fiducial")]
 fn frame2april(frame: &DynamicFrame) -> Result<Box<dyn apriltag::ImageU8>> {
     use machine_vision_formats::{ImageData, Stride};
-    let mono8 = frame.into_pixel_format2::<machine_vision_formats::pixel_format::Mono8>()?;
+    let mono8 = frame.into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
     let w = mono8.width().try_into().unwrap();
     let h = mono8.height().try_into().unwrap();
     let stride = mono8.stride().try_into().unwrap();

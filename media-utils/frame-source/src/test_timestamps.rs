@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 use crate::{h264_source::SeekRead, FrameDataSource, Result};
 use strand_cam_remote_control::Mp4RecordingConfig;
@@ -28,14 +29,15 @@ fn test_h264_precision_timestamps() -> Result<()> {
         const STRIDE: usize = W as usize * 3;
         let image_data = vec![0u8; STRIDE * H as usize];
 
-        let frame =
-            machine_vision_formats::owned::OImage::<RGB8>::new(W, H, STRIDE, image_data).unwrap();
+        let frame = DynamicFrameOwned::from_static(
+            machine_vision_formats::owned::OImage::<RGB8>::new(W, H, STRIDE, image_data).unwrap(),
+        );
 
         for fno in 0..=1000 {
             let pts = Duration::try_milliseconds(fno * dt_msec).unwrap();
             let ts = start + pts;
             ptss.push(pts.to_std().unwrap());
-            my_mp4_writer.write(&frame, ts).unwrap();
+            my_mp4_writer.write_dynamic(&frame.borrow(), ts).unwrap();
         }
         my_mp4_writer.finish().unwrap();
     }

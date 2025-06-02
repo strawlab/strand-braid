@@ -2,8 +2,8 @@
 
 use eyre::{Context, Result};
 
-use strand_cam_remote_control::Mp4RecordingConfig;
 use machine_vision_formats::{pixel_format::Mono8, ImageData};
+use strand_cam_remote_control::Mp4RecordingConfig;
 
 #[test]
 fn test_save_then_read_with_ffmpeg() -> Result<()> {
@@ -147,8 +147,8 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
 }
 
 fn are_images_similar<FMT>(
-    frame1: &dyn machine_vision_formats::ImageStride<FMT>,
-    frame2: &dyn machine_vision_formats::ImageStride<FMT>,
+    frame1: &dyn machine_vision_formats::iter::HasRowChunksExact<FMT>,
+    frame2: &dyn machine_vision_formats::iter::HasRowChunksExact<FMT>,
     max_diff: u8,
 ) -> bool
 where
@@ -168,11 +168,7 @@ where
     let fmt = machine_vision_formats::pixel_format::pixfmt::<FMT>().unwrap();
     let valid_stride = fmt.bits_per_pixel() as usize * width as usize / 8;
 
-    for (f1_row, f2_row) in frame1
-        .image_data()
-        .chunks_exact(frame1.stride())
-        .zip(frame2.image_data().chunks_exact(frame2.stride()))
-    {
+    for (f1_row, f2_row) in frame1.rowchunks_exact().zip(frame2.rowchunks_exact()) {
         let f1_valid = &f1_row[..valid_stride];
         let f2_valid = &f2_row[..valid_stride];
         for (f1val, f2val) in f1_valid.iter().zip(f2_valid.iter()) {
@@ -187,7 +183,11 @@ where
     true
 }
 
-fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<strand_dynamic_frame::DynamicFrame> {
+fn generate_image(
+    pixfmt_str: &str,
+    width: u32,
+    height: u32,
+) -> Result<strand_dynamic_frame::DynamicFrame> {
     let width = width as usize;
     let height = height as usize;
     let image = {
@@ -207,13 +207,14 @@ fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<strand_dy
                     let dest_row = &mut image_data[start_idx..(start_idx + width)];
                     dest_row.copy_from_slice(&image_row_mono8);
                 }
-                strand_dynamic_frame::DynamicFrame::new(
-                    (width).try_into().unwrap(),
+                strand_dynamic_frame::DynamicFrame::from_buf(
+                    width.try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),
                     image_data,
                     machine_vision_formats::PixFmt::Mono8,
                 )
+                .unwrap()
             }
             "rgb8" => {
                 let image_row_rgb8: Vec<u8> = (0..width)
@@ -237,13 +238,15 @@ fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<strand_dy
                     let dest_row = &mut image_data[start_idx..(start_idx + width * 3)];
                     dest_row.copy_from_slice(&image_row_rgb8[..]);
                 }
-                strand_dynamic_frame::DynamicFrame::new(
-                    (width).try_into().unwrap(),
+                // println!("image_data[..stride]: {:?}", &image_data[..stride]);
+                strand_dynamic_frame::DynamicFrame::from_buf(
+                    width.try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),
                     image_data,
                     machine_vision_formats::PixFmt::RGB8,
                 )
+                .unwrap()
             }
             _ => {
                 panic!("unknown pix format");

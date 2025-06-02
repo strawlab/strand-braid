@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use machine_vision_formats as formats;
+use strand_dynamic_frame::DynamicFrame;
 
 use formats::{
     iter::HasRowChunksExact,
@@ -93,12 +94,8 @@ impl Y4MWriter {
             info: None,
         }
     }
-    pub fn write_frame<F>(&mut self, frame: &dyn formats::iter::HasRowChunksExact<F>) -> Result<()>
-    where
-        F: formats::pixel_format::PixelFormat,
-    {
-        let this_fmt: formats::pixel_format::PixFmt = formats::pixel_format::pixfmt::<F>()
-            .map_err(|estr| Error::UnknownPixelFormat(estr.to_string()))?;
+    pub fn write_dynamic_frame(&mut self, frame: &DynamicFrame) -> Result<()> {
+        let this_fmt: formats::pixel_format::PixFmt = frame.pixel_format();
         let this_width: usize = frame.width().try_into().unwrap();
         let this_height: usize = frame.height().try_into().unwrap();
 
@@ -147,7 +144,7 @@ impl Y4MWriter {
 
         let encoder = self.wtr.encoder().unwrap();
 
-        let encoded = encode_y4m_frame(frame, colorspace, None)?;
+        let encoded = encode_y4m_dynamic_frame(frame, colorspace, None)?;
         let frame = (&encoded).into();
         encoder.write_frame(&frame)?;
 
@@ -504,6 +501,10 @@ where
     let full_chroma_size = halfstride * num_dest_allow_rows_chroma;
     let mut data = vec![EMPTY_BYTE; y_size + 2 * full_chroma_size];
 
+    // OK to use .chunks_exact() and .chunks_exact_mut() on `data` because we
+    // know even the last row has a full stride worth of bytes. However, this is
+    // not true for the source image.
+
     let (y_plane_dest, uv_data) = data.split_at_mut(y_size);
     debug_assert_eq!(2 * full_chroma_size, uv_data.len());
 
@@ -519,11 +520,9 @@ where
         (fullsize_u_plane_dest_row, (fullsize_v_plane_dest_row, src_yuv444_row)),
     ) in y_plane_dest.chunks_exact_mut(fullstride).zip(
         fullsize_u_plane.chunks_exact_mut(fullstride).zip(
-            fullsize_v_plane.chunks_exact_mut(fullstride).zip(
-                frame_yuv444
-                    .image_data()
-                    .chunks_exact(frame_yuv444.stride()),
-            ),
+            fullsize_v_plane
+                .chunks_exact_mut(fullstride)
+                .zip(frame_yuv444.rowchunks_exact()),
         ),
     ) {
         for (y_dest_pix, (fullsize_u_dest_pix, (fullsize_v_dest_pix, yuv444_pix))) in
@@ -672,9 +671,24 @@ where
     ))
 }
 
+/// Converts input frame into a [Y4MFrame].
+pub fn encode_y4m_dynamic_frame(
+    frame: &DynamicFrame,
+    out_colorspace: y4m::Colorspace,
+    forced_block_size: Option<u32>,
+) -> Result<Y4MFrame> {
+    let pixfmt = frame.pixel_format();
+    strand_dynamic_frame::match_all_dynamic_fmts!(
+        frame,
+        x,
+        encode_y4m_frame(&x, out_colorspace, forced_block_size),
+        Error::ConvertImageError(convert_image::Error::UnimplementedPixelFormat(pixfmt))
+    )
+}
+
 /// Converts input, a reference to a trait object implementing
 /// [`HasRowChunksExact<FMT>`], into a [Y4MFrame].
-pub fn encode_y4m_frame<FMT>(
+fn encode_y4m_frame<FMT>(
     frame: &dyn HasRowChunksExact<FMT>,
     out_colorspace: y4m::Colorspace,
     forced_block_size: Option<u32>,
@@ -739,7 +753,6 @@ where
     // at 128.
     let width: usize = frame.width().try_into().unwrap();
     let height: usize = frame.height().try_into().unwrap();
-    let src_stride = frame.stride();
 
     let (luma_stride, chroma_stride): (usize, usize) = if let Some(block_size) = forced_block_size {
         let w_mbs = div_ceil(frame.width(), block_size);
@@ -777,9 +790,10 @@ where
 
     for (dest_luma_row_slice, src) in data[..luma_fill_size]
         .chunks_exact_mut(luma_stride)
-        .zip(frame.image_data().chunks_exact(src_stride))
+        .zip(frame.rowchunks_exact())
     {
-        dest_luma_row_slice[..width].copy_from_slice(&src[..width]);
+        debug_assert_eq!(width, src.len());
+        dest_luma_row_slice[..width].copy_from_slice(src);
     }
 
     let stride = luma_stride.try_into().unwrap();

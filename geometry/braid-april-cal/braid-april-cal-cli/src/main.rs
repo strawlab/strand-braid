@@ -10,6 +10,7 @@ use std::{
     io::Write,
     net::ToSocketAddrs,
 };
+use strand_dynamic_frame::DynamicFrameOwned;
 
 use ads_webasm::components::{MaybeCsvData, parse_csv};
 use braid_april_cal::*;
@@ -438,18 +439,13 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                         intrinsics.height,
                     )?;
 
-                    use strand_dynamic_frame::DynamicFrame;
-
                     let image = image::open(&cam_fname)?;
                     let rgb8 = convert_image::image_to_rgb8(image).unwrap();
-                    let decoded = DynamicFrame::from(rgb8);
-                    let undistorted = undistort_image::undistort_image(decoded, &undist_cache)?;
+                    let decoded = DynamicFrameOwned::from_static(rgb8);
+                    let undistorted =
+                        undistort_image::undistort_image(decoded.borrow(), &undist_cache)?;
                     let opts = convert_image::EncoderOptions::Png;
-                    let png_buf = strand_dynamic_frame::match_all_dynamic_fmts!(
-                        &undistorted,
-                        x,
-                        convert_image::frame_to_encoded_buffer(x, opts)
-                    )?;
+                    let png_buf = undistorted.borrow().to_encoded_buffer(opts)?;
                     let im = re_types::archetypes::EncodedImage::from_file_contents(png_buf);
                     rec.log_static(ent_path, &im)?;
                 } else {

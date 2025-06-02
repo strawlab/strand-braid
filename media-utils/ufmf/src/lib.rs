@@ -170,8 +170,8 @@ pub struct RectFromCorner {
     h: u16,
 }
 
-struct Region<'a> {
-    origframe: &'a DynamicFrame,
+struct Region<'a, 'b> {
+    origframe: &'a DynamicFrame<'b>,
     rect: &'a RectFromCorner,
 }
 
@@ -233,9 +233,12 @@ where
         };
 
         if let Some((frame0, timestamp0)) = frame_timestamp0 {
-            match_all_dynamic_fmts!(frame0, x, {
-                result.add_keyframe(b"frame0", x, timestamp0)?
-            });
+            match_all_dynamic_fmts!(
+                frame0,
+                x,
+                result.add_keyframe(b"frame0", &x, timestamp0)?,
+                UFMFError::UnimplementedPixelFormat(pixel_format)
+            );
         }
 
         Ok(result)
@@ -302,9 +305,12 @@ where
                 region.rect.h,
             )?;
             self.pos += self_f.write(&this_str_head)?;
-            self.pos += match_all_dynamic_fmts!(region.origframe, frame, {
-                write_image(&mut self_f, frame, bytes_per_pixel, region.rect)?
-            });
+            self.pos += match_all_dynamic_fmts!(
+                region.origframe,
+                frame,
+                write_image(&mut self_f, &frame, bytes_per_pixel, region.rect)?,
+                UFMFError::UnimplementedPixelFormat(self.pixel_format)
+            );
         }
         Ok(())
     }
@@ -412,11 +418,14 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 mod tests {
     use crate::*;
     use byteorder::WriteBytesExt;
-    use formats::owned::OImage;
-    use strand_dynamic_frame::DynamicFrame;
+    use formats::{
+        owned::OImage,
+        pixel_format::{Mono32f, Mono8},
+    };
+    use strand_dynamic_frame::DynamicFrameOwned;
 
     #[allow(clippy::float_cmp)]
-    fn arange(start: u8, timestamp: f64) -> (DynamicFrame, DateTime<Utc>) {
+    fn arange(start: u8, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;
         let mut image_data = Vec::new();
@@ -434,13 +443,15 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         (
-            DynamicFrame::Mono8(OImage::new(w, h, w.try_into().unwrap(), image_data).unwrap()),
+            DynamicFrameOwned::from_static(
+                OImage::<Mono8>::new(w, h, w.try_into().unwrap(), image_data).unwrap(),
+            ),
             dt,
         )
     }
 
     #[allow(clippy::float_cmp)]
-    fn arange_float(start: f32, timestamp: f64) -> (DynamicFrame, DateTime<Utc>) {
+    fn arange_float(start: f32, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;
 
@@ -460,8 +471,8 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         (
-            DynamicFrame::Mono32f(
-                OImage::new(w, h, usize::try_from(w).unwrap() * 4, image_data).unwrap(),
+            DynamicFrameOwned::from_static(
+                OImage::<Mono32f>::new(w, h, usize::try_from(w).unwrap() * 4, image_data).unwrap(),
             ),
             ts_utc,
         )
@@ -518,7 +529,8 @@ mod tests {
     #[test]
     fn test_saving_regions() {
         let (arr, dt) = arange(0, 123.456);
-        let frame0 = Some((&arr, dt));
+        let frame0_owned = arr.borrow();
+        let frame0 = Some((&frame0_owned, dt));
         let w = 10;
         let h = 10;
         let pixel_format = formats::pixel_format::PixFmt::Mono8;
@@ -532,7 +544,7 @@ mod tests {
             RectFromCenter::from_xy_wh(9, 9, 4, 4),
         ];
 
-        writer.add_frame(&arr2, dt2, &point_data).unwrap();
+        writer.add_frame(&arr2.borrow(), dt2, &point_data).unwrap();
 
         let f = writer.close().unwrap();
 
@@ -626,7 +638,8 @@ mod tests {
         let mut writer = UFMFWriter::new(f, w, h, pixel_format, None).unwrap();
         let (running_mean, ts) = arange_float(0.1, 123.456);
 
-        let running_mean = running_mean.as_basic::<Mono32f>().unwrap();
+        let running_mean_owned = running_mean.borrow();
+        let running_mean = running_mean_owned.as_static::<Mono32f>().unwrap();
 
         writer.add_keyframe(b"mean", &running_mean, ts).unwrap();
         let f = writer.close().unwrap();

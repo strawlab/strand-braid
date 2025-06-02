@@ -243,7 +243,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 
         let image = match self.src_format {
             Format::UncompressedMono => super::ImageData::Decoded(
-                DynamicFrame::new(
+                DynamicFrameOwned::from_buf(
                     width,
                     height,
                     stride,
@@ -295,7 +295,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 }
 
 #[cfg(not(feature = "openh264"))]
-fn my_decode(_decoded_yuv: (), _width: u32, _height: u32) -> Result<DynamicFrame> {
+fn my_decode(_decoded_yuv: (), _width: u32, _height: u32) -> Result<DynamicFrameOwned> {
     Err(Error::H264Error("No H264 decoder support at compile time"))
 }
 
@@ -304,14 +304,14 @@ fn my_decode(
     decoded_yuv: openh264::decoder::DecodedYUV<'_>,
     width: u32,
     height: u32,
-) -> Result<DynamicFrame> {
+) -> Result<DynamicFrameOwned> {
     use openh264::formats::YUVSource;
     let dim = decoded_yuv.dimensions();
 
     let stride = dim.0 * 3;
     let mut image_data = vec![0u8; stride * dim.1];
     decoded_yuv.write_rgb8(&mut image_data);
-    Ok(strand_dynamic_frame::DynamicFrame::RGB8(
+    Ok(strand_dynamic_frame::DynamicFrameOwned::from_static(
         OImage::<machine_vision_formats::pixel_format::RGB8>::new(
             width, height, stride, image_data,
         )

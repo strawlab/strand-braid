@@ -1,6 +1,6 @@
-use strand_dynamic_frame::DynamicFrame;
-pub use strand_cam_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
+pub use strand_cam_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
+use strand_dynamic_frame::DynamicFrameOwned;
 
 // TODO add binning support
 
@@ -81,7 +81,7 @@ pub trait CameraModule: Send {
 #[derive(Clone)]
 pub struct DynamicFrameWithInfo {
     /// The image frame acquired from the camera.
-    pub image: DynamicFrame,
+    pub image: DynamicFrameOwned,
     /// Frame timing information acquired by the host.
     pub host_timing: HostTimingInfo,
     /// Backend-specific information about the frame.
@@ -109,13 +109,13 @@ dyn_clone::clone_trait_object!(BackendData);
 
 impl DynamicFrameWithInfo {
     pub fn width(&self) -> u32 {
-        self.image.width()
+        self.image.borrow().width()
     }
     pub fn height(&self) -> u32 {
-        self.image.height()
+        self.image.borrow().height()
     }
     pub fn pixel_format(&self) -> formats::PixFmt {
-        self.image.pixel_format()
+        self.image.borrow().pixel_format()
     }
 }
 

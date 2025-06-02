@@ -15,7 +15,7 @@ use ci2::{AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, Trigg
 use formats::PixFmt;
 
 use std::sync::mpsc::{Receiver, SyncSender};
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 // Number of frames to allocate for the Vimba driver.
 const N_BUFFER_FRAMES: usize = 10;
@@ -101,7 +101,7 @@ fn callback_rust(
                 // Compute minimum stride.
                 let min_stride = width as usize * pixel_format.bits_per_pixel() as usize / 8;
                 debug_assert!(min_stride * height as usize == image_data.len());
-                let image = DynamicFrame::new(
+                let image = DynamicFrameOwned::from_buf(
                     width,
                     height,
                     min_stride.try_into().unwrap(),

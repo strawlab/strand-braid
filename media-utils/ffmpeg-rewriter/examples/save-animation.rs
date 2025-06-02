@@ -91,15 +91,17 @@ fn main() -> eyre::Result<()> {
                             let mono = convert_image::convert_ref::<_, Mono8>(&frame)?;
 
                             let out_size_bytes = mono.stride() * final_height as usize;
-                            let trimmed = OImage::<Mono8>::new(
-                                final_width,
-                                final_height,
-                                mono.stride(),
-                                mono.image_data()[..out_size_bytes].to_vec(),
-                            )
-                            .unwrap();
+                            let trimmed = strand_dynamic_frame::DynamicFrameOwned::from_static(
+                                OImage::<Mono8>::new(
+                                    final_width,
+                                    final_height,
+                                    mono.stride(),
+                                    mono.image_data()[..out_size_bytes].to_vec(),
+                                )
+                                .unwrap(),
+                            );
 
-                            my_ffmpeg_writer.write_frame(&trimmed, ts)?;
+                            my_ffmpeg_writer.write_dynamic_frame(&trimmed.borrow(), ts)?;
                         }
                         "rgb8" => {
                             let out_size_bytes = frame.stride() * final_height as usize;
@@ -110,8 +112,10 @@ fn main() -> eyre::Result<()> {
                                 &frame.image_data()[..out_size_bytes],
                             )
                             .unwrap();
+                            let dy_trimmed =
+                                strand_dynamic_frame::DynamicFrame::from_static_ref(&trimmed);
 
-                            my_ffmpeg_writer.write_frame(&trimmed, ts)?;
+                            my_ffmpeg_writer.write_dynamic_frame(&dy_trimmed, ts)?;
                         }
                         _ => {
                             panic!("unknown format");

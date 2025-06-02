@@ -1,14 +1,11 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
 use clap::{Parser, ValueEnum};
-use machine_vision_formats::{
-    image_ref::ImageRef,
-    pixel_format::{Mono8, RGB8},
-    Stride,
-};
+use machine_vision_formats::pixel_format::{Mono8, RGB8};
 use tracing::info;
 
 use strand_cam_remote_control::Mp4RecordingConfig;
+use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 use rusttype::Font;
 
@@ -62,7 +59,9 @@ fn main() -> eyre::Result<()> {
                     Encoder::OpenH264 => {
                         let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                             let preset = if let Some(bitrate) = h264_bitrate {
-                                strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate)
+                                strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(
+                                    bitrate,
+                                )
                             } else {
                                 strand_cam_remote_control::OpenH264Preset::AllFrames
                             };
@@ -80,7 +79,8 @@ fn main() -> eyre::Result<()> {
                     #[cfg(feature = "nv-encode")]
                     Encoder::NvEnc => {
                         nvenc_libs = Some(nvenc::Dynlibs::new()?);
-                        let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
+                        let codec =
+                            strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
                         (
                             codec,
                             Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
@@ -140,39 +140,25 @@ fn main() -> eyre::Result<()> {
                     let mut frame = rgb.clone();
 
                     font_drawing::stamp_frame(&mut frame, &font, &text)?;
+                    let frame = DynamicFrameOwned::from_static(frame);
+                    let frame_ref = frame.borrow();
                     count += 1;
 
                     match *format_str {
                         "mono8" => {
-                            let mono = convert_image::convert_ref::<_, Mono8>(&frame)?;
-
-                            let out_size_bytes = mono.stride() * final_height as usize;
-                            let trimmed = ImageRef::<Mono8>::new(
-                                final_width,
-                                final_height,
-                                mono.stride(),
-                                &mono.image_data()[..out_size_bytes],
-                            )
-                            .unwrap();
-
-                            my_mp4_writer.write(&trimmed, ts)?;
+                            let frame = frame_ref.into_pixel_format::<Mono8>()?;
+                            DynamicFrame::from_static_ref(&frame)
                         }
                         "rgb8" => {
-                            let out_size_bytes = frame.stride() * final_height as usize;
-                            let trimmed = ImageRef::<RGB8>::new(
-                                final_width,
-                                final_height,
-                                frame.stride(),
-                                &frame.image_data()[..out_size_bytes],
-                            )
-                            .unwrap();
-
-                            my_mp4_writer.write(&trimmed, ts)?;
+                            let frame = frame_ref.into_pixel_format::<RGB8>()?;
+                            DynamicFrame::from_static_ref(&frame)
                         }
                         _ => {
                             panic!("unknown format");
                         }
-                    }
+                    };
+                    let trimmed = frame.roi(0, 0, final_width, final_height).unwrap();
+                    my_mp4_writer.write_dynamic(&trimmed.borrow(), ts)?;
                 }
 
                 my_mp4_writer.finish()?;

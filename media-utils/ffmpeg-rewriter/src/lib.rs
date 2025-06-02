@@ -1,11 +1,10 @@
 use chrono::{DateTime, Local};
 use frame_source::{h264_source::SeekableH264Source, FrameDataSource};
-use machine_vision_formats as formats;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use strand_cam_remote_control::{H264Metadata, Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 use ffmpeg_writer::{FfmpegCodecArgs, FfmpegWriter};
+use strand_cam_remote_control::{H264Metadata, Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -100,20 +99,19 @@ impl FfmpegReWriter {
     }
 
     /// Write a frame and timestamp.
-    pub fn write_frame<F, TS>(
+    pub fn write_dynamic_frame<TS>(
         &mut self,
-        frame: &dyn formats::iter::HasRowChunksExact<F>,
+        frame: &strand_dynamic_frame::DynamicFrame,
         timestamp: TS,
     ) -> Result<()>
     where
-        F: formats::pixel_format::PixelFormat,
         TS: Into<DateTime<Local>>,
     {
         let timestamp = timestamp.into();
 
         let mp4_pts = self
             .ffmpeg_wtr
-            .write_frame(frame)
+            .write_dynamic_frame(frame)
             .map_err(Error::FfmpegWriter)?;
 
         let msg = SrtMsg { timestamp };
@@ -196,39 +194,9 @@ impl FfmpegReWriter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use formats::{pixel_format::RGB8, ImageBuffer, ImageBufferRef, ImageData, Stride};
+    use machine_vision_formats::{owned::OImage, pixel_format::RGB8};
 
     use test_log::test;
-
-    /// Image data with a statically typed, strided pixel format.
-    #[derive(Clone)]
-    pub struct MyFrame<F> {
-        pub width: u32,
-        pub height: u32,
-        pub stride: usize,
-        pub image_data: Vec<u8>,
-        pub pixel_format: std::marker::PhantomData<F>,
-    }
-
-    impl<F> ImageData<F> for MyFrame<F> {
-        fn width(&self) -> u32 {
-            self.width
-        }
-        fn height(&self) -> u32 {
-            self.height
-        }
-        fn buffer_ref(&self) -> ImageBufferRef<'_, F> {
-            ImageBufferRef::new(&self.image_data)
-        }
-        fn buffer(self) -> ImageBuffer<F> {
-            ImageBuffer::new(self.image_data)
-        }
-    }
-    impl<F> Stride for MyFrame<F> {
-        fn stride(&self) -> usize {
-            self.stride
-        }
-    }
 
     #[test]
     fn test_ffmpeg_rewriter() -> Result<()> {
@@ -264,14 +232,15 @@ mod test {
 
             for (i, ts) in timestamps.iter().enumerate() {
                 let value = (i % 255) as u8;
-                let frame: MyFrame<RGB8> = MyFrame {
-                    width: w,
-                    height: h,
-                    stride: w as usize * 3,
-                    image_data: vec![value; w as usize * h as usize * 3],
-                    pixel_format: std::marker::PhantomData,
-                };
-                wtr.write_frame(&frame, *ts)?;
+                let frame: OImage<RGB8> = OImage::new(
+                    w,
+                    h,
+                    w as usize * 3,
+                    vec![value; w as usize * h as usize * 3],
+                )
+                .unwrap();
+                let frame = strand_dynamic_frame::DynamicFrameOwned::from_static(frame);
+                wtr.write_dynamic_frame(&frame.borrow(), *ts)?;
             }
             wtr.close()?;
         }

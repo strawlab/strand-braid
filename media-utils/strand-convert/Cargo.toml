@@ -14,7 +14,7 @@ indicatif.workspace = true
 chrono.workspace = true
 ordered-float.workspace = true
 
-strand-dynamic-frame.workspace = true
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 tiff-decoder.workspace = true

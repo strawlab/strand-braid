@@ -34,8 +34,15 @@ async fn track_fmf() -> anyhow::Result<()> {
         let (frame, timestamp) = res_frame_ts?;
         let ufmf_state = UfmfState::Stopped;
 
-        let maybe_found =
-            ft.process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?;
+        let maybe_found = ft.process_new_frame(
+            &frame.borrow(),
+            fno,
+            timestamp,
+            ufmf_state,
+            None,
+            None,
+            None,
+        )?;
         count += 1;
         n_pts += maybe_found.0.points.len();
     }

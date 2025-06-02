@@ -25,12 +25,12 @@ use tokio::sync::mpsc::error::SendError;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info, trace, warn};
 
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
 use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
+use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
 
@@ -1503,15 +1503,18 @@ where
 
     #[cfg(target_os = "linux")]
     let v4l_out_stream = {
-        let frame = &frame.image;
+        let frame_image = frame.image.borrow();
         use machine_vision_formats::Stride;
         if let Some(v4l_device) = &args.v4l2loopback {
-            if frame.pixel_format() != PixFmt::Mono8 {
-                eyre::bail!(
-                    "Currently unsupported pixel format for v4l2loopback: {:?}",
-                    frame.pixel_format()
-                );
-            }
+            use machine_vision_formats::ImageData;
+            let frame = frame_image
+                .as_static::<formats::pixel_format::Mono8>()
+                .ok_or_else(|| {
+                    eyre::eyre!(
+                        "Currently unsupported pixel format for v4l2loopback: {:?}",
+                        frame.pixel_format()
+                    )
+                })?;
             tracing::info!("Using v4l2loopback device {}", v4l_device.display());
             let out = v4l::device::Device::with_path(v4l_device).with_context(|| {
                 format!("opening V4L2 loopback device {}", v4l_device.display())
@@ -1535,7 +1538,7 @@ where
                 v4l::io::mmap::stream::Stream::new(&out, v4l::buffer::Type::VideoOutput)?;
 
             let (buf_out, buf_out_meta) = v4l::io::traits::OutputStream::next(&mut v4l_out_stream)?;
-            let buf_in = frame.image_data_without_format();
+            let buf_in = frame.image_data();
             let bytesused = buf_in.len().try_into()?;
 
             let buf_out = &mut buf_out[0..buf_in.len()];
@@ -1565,9 +1568,10 @@ where
     let image_width = frame.width();
     let image_height = frame.height();
 
-    let current_image_png = match_all_dynamic_fmts!(&frame.image, x, {
-        convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)?
-    });
+    let current_image_png = frame
+        .image
+        .borrow()
+        .to_encoded_buffer(convert_image::EncoderOptions::Png)?;
 
     // spawn channel to send data to mainbrain
     let (mainbrain_msg_tx, mut mainbrain_msg_rx) = tokio::sync::mpsc::channel(10);
@@ -1875,7 +1879,7 @@ where
         }
     };
 
-    let is_nvenc_functioning = test_nvenc_save(frame.image)?;
+    let is_nvenc_functioning = test_nvenc_save(frame.image.borrow())?;
 
     let mp4_codec = match is_nvenc_functioning {
         true => CodecSelection::H264Nvenc,
@@ -2214,7 +2218,7 @@ where
             while let Some(frame_msg) = frame_stream.next().await {
                 match &frame_msg {
                     ci2_async::FrameResult::Frame(fframe) => {
-                        let frame: &DynamicFrame = &fframe.image;
+                        let frame: &DynamicFrame = &fframe.image.borrow();
                         trace!(
                             "  got frame {}: {}x{}",
                             fframe.host_timing.fno,
@@ -2228,8 +2232,11 @@ where
                         #[cfg(feature = "eframe-gui")]
                         {
                             if let Some((gui_frame_tx, egui_ctx)) = gui_stuff2.as_ref() {
-                                if let DynamicFrame::Mono8(mono8_frame) = frame {
-                                    match gui_frame_tx.try_send(mono8_frame.clone()) {
+                                if let Some(mono8_frame) =
+                                    frame.as_static::<formats::pixel_format::Mono8>()
+                                {
+                                    let oimage = formats::owned::OImage::copy_from(&mono8_frame);
+                                    match gui_frame_tx.try_send(oimage) {
                                         Ok(()) => {
                                             egui_ctx.request_repaint();
                                         }
@@ -2241,7 +2248,7 @@ where
                                         }
                                     }
                                 } else {
-                                    tracing::warn!("only MONO8 supported to send to GUI");
+                                    tracing::warn!("only MONO8 currently supported to send to GUI");
                                 }
                             }
                         }
@@ -2284,13 +2291,11 @@ where
                         // Check if we need to send this frame to braid because our timer elapsed.
                         if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
                             // If yes, encode frame to png buffer.
-                            let current_image_png = match_all_dynamic_fmts!(&frame.image, x, {
-                                convert_image::frame_to_encoded_buffer(
-                                    x,
-                                    convert_image::EncoderOptions::Png,
-                                )
-                                .unwrap()
-                            });
+                            let current_image_png = frame
+                                .image
+                                .borrow()
+                                .to_encoded_buffer(convert_image::EncoderOptions::Png)
+                                .unwrap();
 
                             // Prepare and send message to Braid.
                             let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
@@ -3522,7 +3527,9 @@ impl FinalMp4RecordingConfig {
             }
             CodecSelection::H264OpenH264 => {
                 let preset = strand_cam_remote_control::OpenH264Preset::AllFrames;
-                if shared.mp4_bitrate != strand_cam_remote_control::BitrateSelection::BitrateUnlimited {
+                if shared.mp4_bitrate
+                    != strand_cam_remote_control::BitrateSelection::BitrateUnlimited
+                {
                     warn!("ignoring mp4 bitrate with OpenH264 codec");
                 }
                 Some(Mp4Codec::H264OpenH264(

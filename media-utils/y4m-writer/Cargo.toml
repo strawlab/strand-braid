@@ -8,3 +8,4 @@ machine-vision-formats.workspace = true
 thiserror.workspace = true
 convert-image.workspace = true
 y4m.workspace = true
+strand-dynamic-frame.workspace = true

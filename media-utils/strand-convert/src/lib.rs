@@ -14,8 +14,8 @@ use ordered_float::NotNan;
 
 use strand_cam_remote_control::H264Metadata;
 
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use frame_source::{fmf_source, pv_tiff_stack, FrameData, FrameDataSource, ImageData};
+use strand_dynamic_frame::DynamicFrame;
 use tiff_decoder::HdrConfig;
 
 const N_FRAMES_TO_COMPUTE_FPS: usize = 100;
@@ -155,11 +155,7 @@ impl ImageSequenceWriter {
 
         let file = format!("frame{:05}.png", self.index);
         let fname = self.dirname.join(file);
-        let buf = match_all_dynamic_fmts!(
-            frame,
-            x,
-            convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Png)
-        )?;
+        let buf = frame.to_encoded_buffer(convert_image::EncoderOptions::Png)?;
         let mut fd = std::fs::File::create(fname)?;
         fd.write_all(&buf)?;
         self.index += 1;
@@ -898,10 +894,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     hdr_lum_range,
                     &mut val_histogram,
                 )?;
-                output_writer.write_dynamic(&frame, frame_timestamp_utc)?;
+                output_writer.write_dynamic(&frame.borrow(), frame_timestamp_utc)?;
             }
             ImageData::Decoded(frame) => {
-                output_writer.write_dynamic(frame, frame_timestamp_utc)?;
+                output_writer.write_dynamic(&frame.borrow(), frame_timestamp_utc)?;
             }
             ImageData::EncodedH264(encoded_h264) => {
                 output_writer

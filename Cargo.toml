@@ -201,7 +201,7 @@ libc = "0.2"
 libflate = "2.1.0"
 log = "0.4"
 lstsq = "0.6.0"
-machine-vision-formats = { version = "0.1.3", default-features = false }
+machine-vision-formats = { version = "0.1.4", default-features = false }
 memchr = "2.7.2"
 mime = "0.3.17"
 mp4 = { git = "https://github.com/strawlab/mp4-rust", rev = "e6a68f68d3f662039ab28b2cc20c4c16134f2a8c" }

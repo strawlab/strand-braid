@@ -30,7 +30,7 @@ async fn track_small() -> anyhow::Result<()> {
 
     let buf = vec![0; stride * H as usize];
     let pixel_format = machine_vision_formats::PixFmt::Mono8;
-    let frame = DynamicFrame::new(W, H, stride, buf, pixel_format).unwrap();
+    let frame = DynamicFrame::from_buf(W, H, stride, buf, pixel_format).unwrap();
     let ufmf_state = UfmfState::Stopped;
     let fno = 0;
     let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
@@ -70,7 +70,7 @@ async fn track_moving_stride() -> anyhow::Result<()> {
         buf[buf_idx] = 255;
 
         let pixel_format = machine_vision_formats::PixFmt::Mono8;
-        let frame = DynamicFrame::new(W, H, STRIDE, buf, pixel_format).unwrap();
+        let frame = DynamicFrame::from_buf(W, H, STRIDE, buf, pixel_format).unwrap();
         let ufmf_state = UfmfState::Stopped;
         let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
         let found_points = ft

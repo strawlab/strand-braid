@@ -24,7 +24,7 @@ dynlink-nvidia-encode = { workspace = true, optional = true }
 
 strand-cam-remote-control.workspace = true
 convert-image.workspace = true
-strand-dynamic-frame.workspace = true
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 less-avc-wrapper.workspace = true
 frame-source.workspace = true
 y4m-writer.workspace = true

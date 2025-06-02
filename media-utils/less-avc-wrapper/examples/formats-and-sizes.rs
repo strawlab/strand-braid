@@ -45,13 +45,14 @@ fn main() -> eyre::Result<()> {
                         let dest_row = &mut image_data[start_idx..(start_idx + width)];
                         dest_row.copy_from_slice(&image_row_mono8);
                     }
-                    strand_dynamic_frame::DynamicFrame::new(
+                    strand_dynamic_frame::DynamicFrame::from_buf(
                         (width).try_into().unwrap(),
                         height.try_into().unwrap(),
                         stride.try_into().unwrap(),
                         image_data,
                         machine_vision_formats::PixFmt::Mono8,
                     )
+                    .unwrap()
                 }
                 "rgb8" => {
                     let image_row_rgb8: Vec<u8> = (0..width)
@@ -75,13 +76,14 @@ fn main() -> eyre::Result<()> {
                         let dest_row = &mut image_data[start_idx..(start_idx + width * 3)];
                         dest_row.copy_from_slice(&image_row_rgb8[..]);
                     }
-                    strand_dynamic_frame::DynamicFrame::new(
+                    strand_dynamic_frame::DynamicFrame::from_buf(
                         (width).try_into().unwrap(),
                         height.try_into().unwrap(),
                         stride.try_into().unwrap(),
                         image_data,
                         machine_vision_formats::PixFmt::RGB8,
                     )
+                    .unwrap()
                 }
                 _ => {
                     panic!("unknown pix format");
@@ -93,12 +95,7 @@ fn main() -> eyre::Result<()> {
             // Save .png to verify input image is OK.
             let png_fname = format!("frame-{}-{}x{}.png", pixfmt_str, width, height);
             let opts = convert_image::EncoderOptions::Png;
-            use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
-            let png_buf = match_all_dynamic_fmts!(
-                &image,
-                x,
-                convert_image::frame_to_encoded_buffer(x, opts)
-            )?;
+            let png_buf = image.to_encoded_buffer(opts)?;
             let mut fd = std::fs::File::create(png_fname)?;
             use std::io::Write;
             fd.write_all(&png_buf)?;

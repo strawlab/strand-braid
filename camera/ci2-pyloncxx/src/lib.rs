@@ -7,7 +7,7 @@ use ci2::{
     AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode, TriggerSelector,
 };
 use pylon_cxx::HasProperties;
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
@@ -983,7 +983,9 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             };
 
             let host_timing = HostTimingInfo { fno, datetime: now };
-            let image = DynamicFrame::new(width, height, stride, image_data, pixel_format).unwrap();
+            let image =
+                DynamicFrameOwned::from_buf(width, height, stride, image_data, pixel_format)
+                    .unwrap();
 
             Ok(DynamicFrameWithInfo {
                 image,

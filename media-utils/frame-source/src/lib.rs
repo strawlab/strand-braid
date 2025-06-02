@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 use std::path::PathBuf;
 
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 pub mod pv_tiff_stack;
 use pv_tiff_stack::TiffImage;
@@ -228,14 +228,14 @@ impl FrameData {
         self.idx
     }
 
-    pub fn decoded(&self) -> Option<&DynamicFrame> {
+    pub fn decoded<'a>(&'a self) -> Option<DynamicFrame<'a>> {
         match &self.image {
-            ImageData::Decoded(frame) => Some(frame),
+            ImageData::Decoded(frame) => Some(frame.borrow()),
             _ => None,
         }
     }
 
-    pub fn take_decoded(self) -> Option<DynamicFrame> {
+    pub fn take_decoded(self) -> Option<DynamicFrameOwned> {
         match self.image {
             ImageData::Decoded(frame) => Some(frame),
             _ => None,
@@ -246,7 +246,7 @@ impl FrameData {
 /// The image data
 #[derive(Clone)]
 pub enum ImageData {
-    Decoded(DynamicFrame),
+    Decoded(DynamicFrameOwned),
     Tiff(TiffImage),
     EncodedH264(EncodedH264),
 }

@@ -2,9 +2,7 @@
 #![deny(unsafe_code)]
 use std::io::Write;
 
-use machine_vision_formats::{ImageStride, PixelFormat};
-
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::DynamicFrame;
 
 use less_avc::ycbcr_image::*;
 
@@ -15,13 +13,11 @@ pub enum Error {
     LessAvcError {
         #[from]
         source: less_avc::Error,
-
     },
     #[error("convert image error: {source}")]
     ConvertImageError {
         #[from]
         source: convert_image::Error,
-
     },
     #[error("y4m writer error: {0}")]
     Y4mError(#[from] y4m_writer::Error),
@@ -29,14 +25,10 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-fn convert_to_y4m<FRAME, FMT>(frame: &FRAME) -> Result<y4m_writer::Y4MFrame>
-where
-    FRAME: ImageStride<FMT>,
-    FMT: PixelFormat,
-{
+fn convert_dynamic_to_y4m(frame: &DynamicFrame) -> Result<y4m_writer::Y4MFrame> {
     let out_colorspace = y4m::Colorspace::C420paldv;
     let forced_block_size = Some(16);
-    let y4m = y4m_writer::encode_y4m_frame(frame, out_colorspace, forced_block_size)?;
+    let y4m = y4m_writer::encode_y4m_dynamic_frame(frame, out_colorspace, forced_block_size)?;
     Ok(y4m)
 }
 
@@ -80,12 +72,11 @@ pub struct WrappedLessEncoder {
 }
 
 impl WrappedLessEncoder {
-    pub fn encode_to_nal_units<FRAME, FMT>(&mut self, frame: &FRAME) -> Result<Vec<Vec<u8>>>
-    where
-        FRAME: ImageStride<FMT>,
-        FMT: PixelFormat,
-    {
-        let y4m = convert_to_y4m(frame)?;
+    pub fn encode_dynamic_to_nal_units(
+        &mut self,
+        frame: &strand_dynamic_frame::DynamicFrame,
+    ) -> Result<Vec<Vec<u8>>> {
+        let y4m = convert_dynamic_to_y4m(frame)?;
         let y4m_ref = gen_y4m_ref(&y4m)?;
 
         let (nals, encoder) = match self.inner.take() {
@@ -107,13 +98,6 @@ impl WrappedLessEncoder {
 
         Ok(nals)
     }
-
-    pub fn encode_dynamic_to_nal_units(
-        &mut self,
-        frame: &strand_dynamic_frame::DynamicFrame,
-    ) -> Result<Vec<Vec<u8>>> {
-        strand_dynamic_frame::match_all_dynamic_fmts!(frame, f, { self.encode_to_nal_units(f) })
-    }
 }
 
 pub struct H264WriterWrapper<W> {
@@ -128,18 +112,7 @@ impl<W: Write> H264WriterWrapper<W> {
     }
 
     pub fn write_dynamic(&mut self, frame: &DynamicFrame) -> Result<()> {
-        match_all_dynamic_fmts!(frame, x, {
-            self.write(x)?;
-        });
-        Ok(())
-    }
-
-    pub fn write<IM, FMT>(&mut self, frame: &IM) -> Result<()>
-    where
-        IM: ImageStride<FMT>,
-        FMT: PixelFormat,
-    {
-        let y4m = convert_to_y4m(frame)?;
+        let y4m = convert_dynamic_to_y4m(frame)?;
         let y4m_ref = gen_y4m_ref(&y4m)?;
         self.inner.write(&y4m_ref)?;
         Ok(())

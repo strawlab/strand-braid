@@ -9,11 +9,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use chrono::{DateTime, Local};
-use strand_cam_remote_control::FfmpegRecordingConfig;
-use machine_vision_formats::{ImageStride, PixelFormat};
 use mp4_writer::Mp4Writer;
+use strand_cam_remote_control::FfmpegRecordingConfig;
+use strand_dynamic_frame::DynamicFrame;
 
 use crate::{Error, Msg, Result};
 
@@ -90,17 +89,13 @@ impl MyFfmpegWriter {
         }
         Ok(())
     }
-    fn write<IM, FMT>(
+    fn write_dynamic(
         &mut self,
-        frame: &IM,
+        frame: &DynamicFrame,
         timestamp: chrono::DateTime<chrono::Local>,
-    ) -> Result<()>
-    where
-        IM: ImageStride<FMT>,
-        FMT: PixelFormat,
-    {
+    ) -> Result<()> {
         if let Some(fwtr) = self.inner.as_mut() {
-            fwtr.write_frame(frame, timestamp)?;
+            fwtr.write_dynamic_frame(frame, timestamp)?;
         } else {
             return Err(Error::AlreadyClosed);
         };
@@ -167,17 +162,17 @@ fn create_writer<'a>(
 /// Save an image. Runs inside writer thread loop.
 fn save_frame(
     raw: &mut RawWriter<'_, File>,
-    frame: &DynamicFrame,
+    frame: &DynamicFrame<'_>,
     stamp: DateTime<Local>,
     last_saved_stamp: &mut Option<DateTime<Local>>,
 ) -> Result<()> {
     match raw {
         RawWriter::Mp4Writer(ref mut r) => {
-            match_all_dynamic_fmts!(&frame, x, r.write(x, stamp))?;
+            r.write_dynamic(frame, stamp)?;
             *last_saved_stamp = Some(stamp);
         }
         RawWriter::FfmpegReWriter(ref mut r) => {
-            match_all_dynamic_fmts!(&frame, x, r.write(x, stamp))?;
+            r.write_dynamic(frame, stamp)?;
             *last_saved_stamp = Some(stamp);
         }
     }
@@ -236,7 +231,7 @@ pub(crate) fn writer_thread_loop(
                     if do_save {
                         thread_try!(
                             err_tx,
-                            save_frame(raw_ref, &frame, stamp, &mut last_saved_stamp)
+                            save_frame(raw_ref, &frame.borrow(), stamp, &mut last_saved_stamp)
                         );
                     }
                 }

@@ -3,6 +3,7 @@ use eyre::{self as anyhow, Result};
 use std::io::Write;
 
 use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig};
+use strand_dynamic_frame::DynamicFrameOwned;
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
@@ -310,7 +311,8 @@ impl<'lib> VideoStorage<'lib> {
         }
 
         // Save the pixmap into the MP4 file being saved.
-        self.mp4_writer.write(&rasterized, save_ts)?;
+        let dyframe = DynamicFrameOwned::from_static_ref(&rasterized);
+        self.mp4_writer.write_dynamic(&dyframe.borrow(), save_ts)?;
 
         Ok(())
     }

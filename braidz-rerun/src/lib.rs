@@ -9,7 +9,7 @@ use re_types::{
     external::anyhow,
 };
 use std::io::{Read, Seek};
-use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 use re_sdk::external::re_data_loader;
 
@@ -276,7 +276,7 @@ impl OfflineBraidzRerunLogger {
             let (image, decoded) = to_rr_image(frame.into_image(), undist_cache.as_ref())?;
             self.rec.log(cam_data.image_ent_path.clone(), &image)?;
             if let Some(my_mp4_writer) = my_mp4_writer.as_mut() {
-                my_mp4_writer.write_dynamic(&decoded, stamp_chrono)?;
+                my_mp4_writer.write_dynamic(&decoded.borrow(), stamp_chrono)?;
             }
         }
         Ok(())
@@ -444,24 +444,22 @@ impl OfflineBraidzRerunLogger {
 fn to_rr_image(
     im: ImageData,
     undist_cache: Option<&undistort_image::UndistortionCache>,
-) -> eyre::Result<(EncodedImage, DynamicFrame)> {
+) -> eyre::Result<(EncodedImage, DynamicFrameOwned)> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => eyre::bail!("image not decoded"),
     };
 
-    let decoded: DynamicFrame = if let Some(undist_cache) = undist_cache {
-        undistort_image::undistort_image(decoded, undist_cache)?
+    let decoded = if let Some(undist_cache) = undist_cache {
+        undistort_image::undistort_image(decoded.borrow(), undist_cache)?
     } else {
         decoded
     };
 
     // jpeg compression TODO: give option to save uncompressed?
-    let contents = strand_dynamic_frame::match_all_dynamic_fmts!(
-        &decoded,
-        x,
-        convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)
-    )?;
+    let contents = decoded
+        .borrow()
+        .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
     Ok((EncodedImage::from_file_contents(contents), decoded))
 }
 

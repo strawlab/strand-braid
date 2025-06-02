@@ -1,5 +1,5 @@
-use machine_vision_formats::{pixel_format, PixFmt};
-use strand_dynamic_frame::DynamicFrame;
+use machine_vision_formats::{pixel_format, ImageData, PixFmt};
+use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
@@ -31,15 +31,15 @@ impl UndistortionCache {
 }
 
 pub fn undistort_image(
-    decoded: DynamicFrame,
+    decoded: DynamicFrame<'_>,
     undist_cache: &UndistortionCache,
-) -> eyre::Result<DynamicFrame> {
+) -> eyre::Result<DynamicFrameOwned> {
     let width = decoded.width().try_into().unwrap();
     let height = decoded.height().try_into().unwrap();
 
     match decoded.pixel_format() {
         PixFmt::Mono8 => {
-            // let mono8 = decoded.as_basic::<pixel_format::Mono8>().unwrap();
+            // let mono8 = decoded.as_static::<pixel_format::Mono8>().unwrap();
 
             // let data_u8: Vec<u8> = mono8.into();
             // let data_f32: Vec<f32> = data_u8.iter().map(|x| *x as f32).collect();
@@ -58,7 +58,7 @@ pub fn undistort_image(
         }
         _ => {
             let rgb8 = decoded.into_pixel_format::<pixel_format::RGB8>().unwrap();
-            let data_u8: Vec<u8> = rgb8.into();
+            let data_u8: &[u8] = rgb8.image_data();
             let data_f32: Vec<f32> = data_u8.iter().map(|x| *x as f32).collect();
             let image = kornia_image::image::Image::<f32, 3>::new(
                 kornia_image::image::ImageSize { width, height },
@@ -94,7 +94,7 @@ pub fn undistort_image(
                 data_u8,
             )
             .unwrap();
-            Ok(DynamicFrame::from(basic))
+            Ok(DynamicFrameOwned::from_static(basic))
         }
     }
 }

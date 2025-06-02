@@ -1,4 +1,4 @@
-# strand-dynamic-frame - Types for working with images from machine vision cameras used in Strand Camera.
+# strand-dynamic-frame - Images from machine vision cameras used in Strand Camera.
 
 [![Documentation](https://docs.rs/strand-dynamic-frame/badge.svg)](https://docs.rs/strand-dynamic-frame/)
 [![Crates.io](https://img.shields.io/crates/v/strand-dynamic-frame.svg)](https://crates.io/crates/strand-dynamic-frame)
