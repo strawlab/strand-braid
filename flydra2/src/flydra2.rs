@@ -764,7 +764,7 @@ impl CoordProcessor {
             tokio::sync::mpsc::channel(write_buffer_size_num_messages);
 
         let writer_join_handle = tokio::task::spawn_blocking(move || {
-            write_data::writer_task_main(
+            match write_data::writer_task_main(
                 braidz_write_rx,
                 cam_manager2,
                 recon2,
@@ -772,7 +772,19 @@ impl CoordProcessor {
                 save_empty_data2d,
                 metadata_builder,
                 ignore_latency,
-            )
+            ) {
+                Ok(()) => Ok(()),
+                Err(err) => {
+                    use std::error::Error;
+                    error!("Braidz writer task failed: {}", err);
+                    let mut outer = &err as &(dyn Error + 'static);
+                    while let Some(source) = outer.source() {
+                        error!("Cause: {source}");
+                        outer = source;
+                    }
+                    Err(err)
+                }
+            }
         });
 
         Ok(Self {

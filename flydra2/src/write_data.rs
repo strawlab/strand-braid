@@ -367,6 +367,7 @@ impl WritingState {
 
 impl Drop for WritingState {
     fn drop(&mut self) {
+        tracing::debug!("WritingState is being dropped, flushing all data to disk.");
         fn dummy_csv() -> csv::Writer<Box<dyn std::io::Write + Send>> {
             let fd = Box::new(Vec::with_capacity(0));
             csv::Writer::from_writer(fd)
@@ -471,6 +472,7 @@ impl Drop for WritingState {
             );
             std::fs::remove_dir_all(&output_dirname).unwrap();
         }
+        tracing::debug!("Done writing braidz data to disk.");
     }
 }
 
