@@ -427,21 +427,6 @@ fn display_qr_url(url: &str) {
     writeln!(stdout_handle).expect("write failed");
 }
 
-/// Format for debugging raw packet data direct from Strand Cam.
-#[derive(Serialize)]
-struct RawPacketLogRow {
-    cam_name: String,
-    #[serde(with = "flydra_types::timestamp_opt_f64")]
-    timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
-    #[serde(with = "flydra_types::timestamp_f64")]
-    cam_received_time: FlydraFloatTimestampLocal<HostClock>,
-    device_timestamp: Option<u64>,
-    block_id: Option<u64>,
-    framenumber: i32,
-    cam_num: Option<flydra_types::CamNum>,
-    synced_frame: Option<SyncFno>,
-}
-
 pub(crate) async fn do_run_forever(
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
