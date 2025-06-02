@@ -1,9 +1,7 @@
 #!/bin/bash -x
 set -o errexit
 
-if [[ -n "$APT_PROXY_CONFIG" ]]; then
-    echo "$APT_PROXY_CONFIG" > /etc/apt/apt.conf.d/01proxy
-fi
+_packaging/setup-ubuntu-apt-proxy.sh
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev

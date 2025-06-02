@@ -146,6 +146,7 @@ test_flydra2:
 test_crates_rust_stable:
   image: rust:1.85
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     - rustup target add thumbv7em-none-eabihf
@@ -441,6 +442,7 @@ build-api-docs:
 stage-api-docs:
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && apt-get install -y rsync openssh-client
     - mkdir ~/.ssh
     - chmod 0700 ~/.ssh
@@ -465,6 +467,7 @@ publish-api-docs:
   # screen will be available again.
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && apt-get install -y rsync openssh-client
     - mkdir ~/.ssh
     - chmod 0700 ~/.ssh
@@ -649,6 +652,7 @@ braid-process-video:
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git pkg-config libclang-dev libvpx-dev curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
@@ -671,6 +675,7 @@ slow-tests:
   image: ubuntu:focal
   when: manual
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config libclang-dev curl build-essential libvpx-dev zip octave
     - cc --version
 
@@ -692,6 +697,7 @@ extra-programs:
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
@@ -741,6 +747,7 @@ fmf-cli:
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl
 
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
@@ -824,6 +831,7 @@ braid-run-binary:
 led-box-linux:
   image: rust:1.85
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
     - export RUSTFLAGS="-D warnings"
@@ -861,6 +869,8 @@ led-box-firmware:
 strand-braid-ubuntu-2404:
   image: ubuntu:noble
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
+
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
@@ -918,6 +928,8 @@ strand-braid-ubuntu-2404:
 strand-braid-ubuntu-2004:
   image: ubuntu:focal
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
+
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
@@ -975,6 +987,8 @@ strand-braid-ubuntu-2004:
 strand-braid-ubuntu-2204:
   image: ubuntu:jammy
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
+
     # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
