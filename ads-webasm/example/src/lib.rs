@@ -66,7 +66,7 @@ impl std::fmt::Display for MySelection {
     }
 }
 
-impl enum_iter::EnumIter for MySelection {
+impl strand_cam_enum_iter::EnumIter for MySelection {
     fn variants() -> Vec<Self> {
         vec![
             MySelection::SelOne,

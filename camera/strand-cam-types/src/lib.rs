@@ -1,7 +1,7 @@
-extern crate enum_iter;
+extern crate strand_cam_enum_iter;
 
 use serde::{Serialize, Deserialize};
-use enum_iter::EnumIter;
+use strand_cam_enum_iter::EnumIter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum AutoMode {

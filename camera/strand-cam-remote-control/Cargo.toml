@@ -9,5 +9,5 @@ rust-version = "1.76"
 serde.workspace = true
 strand-cam-types.workspace = true
 rust-cam-bui-types.workspace = true
-enum-iter.workspace = true
+strand-cam-enum-iter.workspace = true
 chrono.workspace = true

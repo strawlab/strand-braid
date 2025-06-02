@@ -19,7 +19,7 @@ yew-tincture.workspace = true
 
 simple-obj-parse = { workspace = true, optional = true }
 textured-tri-mesh = { workspace = true, optional = true }
-enum-iter.workspace = true
+strand-cam-enum-iter.workspace = true
 rust-cam-bui-types.workspace = true
 
 [dependencies.web-sys]

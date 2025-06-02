@@ -108,7 +108,7 @@ impl std::fmt::Display for OnState {
 }
 
 #[cfg(feature = "std")]
-impl enum_iter::EnumIter for OnState {
+impl strand_cam_enum_iter::EnumIter for OnState {
     fn variants() -> Vec<Self> {
         vec![OnState::Off, OnState::ConstantOn]
     }

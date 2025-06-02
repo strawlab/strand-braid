@@ -1,9 +1,9 @@
 extern crate strand_cam_types;
-extern crate enum_iter;
+extern crate strand_cam_enum_iter;
 extern crate rust_cam_bui_types;
 extern crate serde;
 
-use enum_iter::EnumIter;
+use strand_cam_enum_iter::EnumIter;
 use rust_cam_bui_types::ClockModel;
 use serde::{Deserialize, Serialize};
 
@@ -351,7 +351,7 @@ impl std::fmt::Display for BitrateSelection {
     }
 }
 
-impl enum_iter::EnumIter for BitrateSelection {
+impl strand_cam_enum_iter::EnumIter for BitrateSelection {
     fn variants() -> Vec<Self> {
         vec![
             BitrateSelection::Bitrate500,
@@ -440,7 +440,7 @@ impl std::fmt::Display for CodecSelection {
     }
 }
 
-impl enum_iter::EnumIter for CodecSelection {
+impl strand_cam_enum_iter::EnumIter for CodecSelection {
     fn variants() -> Vec<Self> {
         use CodecSelection::*;
         vec![

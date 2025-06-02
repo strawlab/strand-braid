@@ -8,7 +8,7 @@ use std::{
 
 use strand_cam_remote_control::CamArg;
 
-use enum_iter::EnumIter;
+use strand_cam_enum_iter::EnumIter;
 use led_box_comms::ToDevice as ToLedBoxDevice;
 
 use gloo_events::EventListener;

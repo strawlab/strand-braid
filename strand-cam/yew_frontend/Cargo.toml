@@ -34,7 +34,7 @@ strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 
 led-box-comms = { path = "../../led-box/led-box-comms" }
-enum-iter = { path = "../../utils/enum-iter" }
+strand-cam-enum-iter = { path = "../../utils/strand-cam-enum-iter" }
 ads-webasm.workspace = true
 
 [dependencies.web-sys]

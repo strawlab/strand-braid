@@ -1,6 +1,6 @@
-use enum_iter::EnumIter;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use strand_cam_enum_iter::EnumIter;
 use yew::{html, Callback, Component, Context, Html, Properties};
 use yew_tincture::components::Button;
 
