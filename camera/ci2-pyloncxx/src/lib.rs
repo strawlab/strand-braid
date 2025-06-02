@@ -3,11 +3,11 @@ extern crate machine_vision_formats as formats;
 use anyhow::Context;
 use std::sync::{Arc, Mutex};
 
-use basic_frame::DynamicFrame;
 use ci2::{
     AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode, TriggerSelector,
 };
 use pylon_cxx::HasProperties;
+use strand_dynamic_frame::DynamicFrame;
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
@@ -967,7 +967,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
 
             let width = gr.width().map_pylon_err()?;
             let height = gr.height().map_pylon_err()?;
-            let stride = gr.stride().map_pylon_err()?.try_into()?;
+            let stride = gr.stride().map_pylon_err()?;
             let image_data = buffer.to_vec();
             let device_timestamp = gr.time_stamp().map_pylon_err()?;
 
@@ -983,7 +983,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             };
 
             let host_timing = HostTimingInfo { fno, datetime: now };
-            let image = DynamicFrame::new(width, height, stride, image_data, pixel_format);
+            let image = DynamicFrame::new(width, height, stride, image_data, pixel_format).unwrap();
 
             Ok(DynamicFrameWithInfo {
                 image,

@@ -14,4 +14,4 @@ machine-vision-formats.workspace = true
 itertools.workspace = true
 
 frame-source = { workspace = true, features = ["openh264"] }
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true

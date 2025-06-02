@@ -34,7 +34,7 @@ ci2-async.workspace = true
 ci2-types.workspace = true
 ci2-remote-control.workspace = true
 machine-vision-formats.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 fmf.workspace = true
 ufmf.workspace = true
 chrono.workspace = true
@@ -130,7 +130,7 @@ fiducial = [
     "ads-apriltag",
     "csv",
     "libflate",
-    "basic-frame/convert-image",
+    "strand-dynamic-frame/convert-image",
     "apriltag-detection-writer",
 ]
 

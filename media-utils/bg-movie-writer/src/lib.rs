@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 
 mod movie_writer_thread;
 

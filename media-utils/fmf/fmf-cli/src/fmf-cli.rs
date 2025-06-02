@@ -1,12 +1,12 @@
 use anyhow::Result;
 use tracing::{debug, info};
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use ci2_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use clap::Parser;
 use convert_image::EncoderOptions;
 use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
 use std::path::{Path, PathBuf};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use y4m::Colorspace;
 
 /*
@@ -281,7 +281,7 @@ fn info(path: PathBuf) -> Result<()> {
 ///
 /// If the `forced_input_pixel_format` argument is not None, it forces the
 /// interpretation of the original data into this format regardless of the pixel
-/// format specied in the header of the input file.
+/// format specified in the header of the input file.
 fn export_fmf(
     path: PathBuf,
     new_pixel_format: Option<PixFmt>,
@@ -305,7 +305,9 @@ fn export_fmf(
     for res_frame in reader {
         let (frame, fts) = res_frame?;
         let frame: DynamicFrame = match forced_input_pixel_format {
-            Some(forced_input_pixel_format) => frame.force_pixel_format(forced_input_pixel_format),
+            Some(forced_input_pixel_format) => {
+                frame.force_pixel_format(forced_input_pixel_format).unwrap()
+            }
             None => frame,
         };
 
@@ -573,7 +575,7 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
     for res_frame in reader {
         let (frame, _) = res_frame?;
-        basic_frame::match_all_dynamic_fmts!(frame, f, {
+        strand_dynamic_frame::match_all_dynamic_fmts!(frame, f, {
             y4m_writer.write_frame(&f)?;
         });
     }
@@ -650,13 +652,13 @@ fn test_y4m() -> anyhow::Result<()> {
             }
 
             // make mono8 image. Will covert to input_colorspace below.
-            let frame = basic_frame::BasicFrame {
+            let frame = machine_vision_formats::owned::OImage::<Mono8>::new(
                 width,
                 height,
-                stride: width,
-                pixel_format: std::marker::PhantomData::<Mono8>,
+                width.try_into().unwrap(),
                 image_data,
-            };
+            )
+            .unwrap();
             let orig_rgb8 = convert_image::convert_ref::<_, RGB8>(&frame)?;
 
             let fmf_fname = base_path.join("test.fmf");

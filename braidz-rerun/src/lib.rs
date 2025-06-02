@@ -1,4 +1,3 @@
-use basic_frame::DynamicFrame;
 use braidz_types::{CamNum, camera_name_from_filename};
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
@@ -10,6 +9,7 @@ use re_types::{
     external::anyhow,
 };
 use std::io::{Read, Seek};
+use strand_dynamic_frame::DynamicFrame;
 
 use re_sdk::external::re_data_loader;
 
@@ -457,7 +457,7 @@ fn to_rr_image(
     };
 
     // jpeg compression TODO: give option to save uncompressed?
-    let contents = basic_frame::match_all_dynamic_fmts!(
+    let contents = strand_dynamic_frame::match_all_dynamic_fmts!(
         &decoded,
         x,
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)

@@ -1,9 +1,14 @@
 [package]
-name = "basic-frame"
+name = "strand-dynamic-frame"
+description = "images from machine vision cameras used in Strand Camera"
 version = "0.1.0"
+repository = "https://github.com/strawlab/strand-braid"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
+
+[package.metadata.docs.rs]
+features = ["convert-image"]
 
 [dependencies]
 chrono.workspace = true

@@ -25,7 +25,7 @@ y4m.workspace = true
 
 fmf.workspace = true
 convert-image.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 y4m-writer.workspace = true

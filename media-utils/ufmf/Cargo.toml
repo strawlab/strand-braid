@@ -12,9 +12,9 @@ thiserror.workspace = true
 structure = "0.1.2"
 cast.workspace = true
 
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 machine-vision-formats.workspace = true
 datetime-conversion.workspace = true
 
 [dev-dependencies]
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true

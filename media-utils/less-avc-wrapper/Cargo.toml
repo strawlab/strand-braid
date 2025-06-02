@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 less-avc.workspace = true
 convert-image.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 y4m-writer.workspace = true
 
 machine-vision-formats.workspace = true

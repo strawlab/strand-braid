@@ -5,7 +5,7 @@ members = [
     "ads-apriltag/apriltag-track-movie",
     "ads-webasm",
     "ads-webasm/example",
-    "basic-frame",
+    "strand-dynamic-frame",
     "braid",
     "braid/braid-run",
     "braid/braid-run/braid_frontend",
@@ -273,7 +273,6 @@ zip = { version = "2.2.2", default-features = false, features = [
 ads-apriltag = { path = "ads-apriltag" }
 ads-webasm = { path = "ads-webasm" }
 apriltag-detection-writer = { path = "media-utils/apriltag-detection-writer" }
-basic-frame = { path = "basic-frame" }
 bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
@@ -342,6 +341,7 @@ strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
+strand-dynamic-frame = { path = "strand-dynamic-frame" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }

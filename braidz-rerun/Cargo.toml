@@ -24,6 +24,6 @@ mvg = { workspace = true, features = ["rerun-io"] }
 braidz-types.workspace = true
 flydra-types.workspace = true
 frame-source.workspace = true
-basic-frame = { workspace = true, features = ["convert-image"] }
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 undistort-image.workspace = true

@@ -23,7 +23,7 @@ chrono.workspace = true
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true
 mvg.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 bundle-adj.workspace = true
 flydra-mvg.workspace = true
 env-tracing-logger.workspace = true

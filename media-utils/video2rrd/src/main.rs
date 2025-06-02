@@ -3,7 +3,7 @@ use eyre::{self, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 use frame_source::{ImageData, Timestamp};
 
 #[derive(Debug, Parser)]
@@ -70,7 +70,7 @@ fn to_rr_image(
     };
 
     // jpeg compression TODO: give option to save uncompressed?
-    let contents = basic_frame::match_all_dynamic_fmts!(
+    let contents = strand_dynamic_frame::match_all_dynamic_fmts!(
         &to_save,
         x,
         convert_image::frame_to_encoded_buffer(x, convert_image::EncoderOptions::Jpeg(80),)

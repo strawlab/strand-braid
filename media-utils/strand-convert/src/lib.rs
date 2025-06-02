@@ -14,7 +14,7 @@ use ordered_float::NotNan;
 
 use ci2_remote_control::H264Metadata;
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use frame_source::{fmf_source, pv_tiff_stack, FrameData, FrameDataSource, ImageData};
 use tiff_decoder::HdrConfig;
 

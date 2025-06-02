@@ -4,7 +4,7 @@ use std::io::Write;
 
 use machine_vision_formats::{ImageStride, PixelFormat};
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 use less_avc::ycbcr_image::*;
 
@@ -110,9 +110,9 @@ impl WrappedLessEncoder {
 
     pub fn encode_dynamic_to_nal_units(
         &mut self,
-        frame: &basic_frame::DynamicFrame,
+        frame: &strand_dynamic_frame::DynamicFrame,
     ) -> Result<Vec<Vec<u8>>> {
-        basic_frame::match_all_dynamic_fmts!(frame, f, { self.encode_to_nal_units(f) })
+        strand_dynamic_frame::match_all_dynamic_fmts!(frame, f, { self.encode_to_nal_units(f) })
     }
 }
 

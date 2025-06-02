@@ -13,4 +13,3 @@ thread-control = "0.1.2"
 
 ci2 = { path = "../ci2" }
 machine-vision-formats.workspace = true
-basic-frame.workspace = true

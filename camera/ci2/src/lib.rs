@@ -1,4 +1,4 @@
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 pub use ci2_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use machine_vision_formats as formats;
 

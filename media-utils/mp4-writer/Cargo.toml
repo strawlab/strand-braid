@@ -24,7 +24,7 @@ dynlink-nvidia-encode = { workspace = true, optional = true }
 
 ci2-remote-control.workspace = true
 convert-image.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 less-avc-wrapper.workspace = true
 frame-source.workspace = true
 y4m-writer.workspace = true
@@ -42,7 +42,7 @@ clap.workspace = true
 
 ci2-remote-control.workspace = true
 font-drawing.workspace = true
-basic-frame = { workspace = true, features = ["convert-image"] }
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 
 [features]
 openh264-encode = ["openh264", "frame-source/openh264"]

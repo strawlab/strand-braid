@@ -20,7 +20,7 @@ vmbc-sys = "0.1"
 
 ci2.workspace = true
 ci2-vimba-types.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true

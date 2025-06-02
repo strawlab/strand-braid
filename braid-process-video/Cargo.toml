@@ -40,7 +40,7 @@ braid-config-data.workspace = true
 flydra-types.workspace = true
 convert-image.workspace = true
 datetime-conversion.workspace = true
-basic-frame = { workspace = true, features = ["convert-image"] }
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 fmf.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true

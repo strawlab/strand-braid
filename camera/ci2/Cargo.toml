@@ -13,4 +13,4 @@ dyn-clone.workspace = true
 
 machine-vision-formats.workspace = true
 ci2-types.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true

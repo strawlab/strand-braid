@@ -1,7 +1,7 @@
-extern crate basic_frame;
 extern crate byteorder;
 extern crate chrono;
 extern crate machine_vision_formats as formats;
+extern crate strand_dynamic_frame;
 
 extern crate datetime_conversion;
 
@@ -284,21 +284,14 @@ impl<F: Write + Seek> Drop for FMFWriterInner<F> {
 #[cfg(test)]
 mod tests {
     use super::FMFWriter;
-    use basic_frame::BasicFrame;
 
-    use machine_vision_formats::pixel_format::Mono8;
+    use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 
-    fn zeros(w: u32, h: u32) -> BasicFrame<Mono8> {
+    fn zeros(w: u32, h: u32) -> OImage<Mono8> {
         let mut image_data = Vec::new();
         image_data.resize((w * h) as usize, 0);
 
-        BasicFrame {
-            width: w,
-            height: h,
-            stride: w,
-            image_data,
-            pixel_format: std::marker::PhantomData,
-        }
+        OImage::new(w, h, w.try_into().unwrap(), image_data).unwrap()
     }
 
     #[test]

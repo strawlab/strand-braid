@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use chrono::{DateTime, Utc};
 use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
 use machine_vision_formats as formats;
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
@@ -411,8 +411,9 @@ impl<F: Write + Seek> Drop for UFMFWriter<F> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use basic_frame::{BasicFrame, DynamicFrame};
     use byteorder::WriteBytesExt;
+    use formats::owned::OImage;
+    use strand_dynamic_frame::DynamicFrame;
 
     #[allow(clippy::float_cmp)]
     fn arange(start: u8, timestamp: f64) -> (DynamicFrame, DateTime<Utc>) {
@@ -433,13 +434,7 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         (
-            DynamicFrame::Mono8(BasicFrame {
-                width: w,
-                height: h,
-                stride: w,
-                image_data,
-                pixel_format: std::marker::PhantomData,
-            }),
+            DynamicFrame::Mono8(OImage::new(w, h, w.try_into().unwrap(), image_data).unwrap()),
             dt,
         )
     }
@@ -465,13 +460,9 @@ mod tests {
                                           // by-byte comparison in the test will succeed.
 
         (
-            DynamicFrame::Mono32f(BasicFrame {
-                width: w,
-                height: h,
-                stride: w * 4,
-                image_data,
-                pixel_format: std::marker::PhantomData,
-            }),
+            DynamicFrame::Mono32f(
+                OImage::new(w, h, usize::try_from(w).unwrap() * 4, image_data).unwrap(),
+            ),
             ts_utc,
         )
     }

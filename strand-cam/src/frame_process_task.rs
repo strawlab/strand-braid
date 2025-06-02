@@ -18,12 +18,12 @@ use std::{
 use tracing::{debug, error, info, trace};
 
 use async_change_tracker::ChangeTracker;
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use flydra_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use fmf::FMFWriter;
 use http_video_streaming::AnnotatedFrame;
 use rust_cam_bui_types::RecordingPath;
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 use strand_cam_storetype::StoreType;
 
@@ -524,7 +524,14 @@ pub(crate) async fn frame_process_task<'a>(
                     // Force frame width to be power of 2.
                     let val = 2;
                     let clipped_width = (frame.width() / val as u32) * val as u32;
-                    match_all_dynamic_fmts!(&mut frame.image, x, { x.width = clipped_width });
+                    use machine_vision_formats::{owned::OImage, ImageData, Stride};
+                    match_all_dynamic_fmts!(&mut frame.image, x, {
+                        let orig = std::mem::replace(x, OImage::new(0, 0, 1, vec![]).unwrap());
+                        let h = orig.height();
+                        let s = orig.stride();
+                        let buf: Vec<u8> = orig.into(); // move data
+                        *x = OImage::new(clipped_width, h, s, buf).unwrap();
+                    });
 
                     // Use Braid timestamp if possible, otherwise host timestamp.
                     let braid_ts = calc_braid_timestamp(
@@ -700,22 +707,23 @@ pub(crate) async fn frame_process_task<'a>(
                                 checkerboard_data.width, checkerboard_data.height
                             );
 
-                            let corners = basic_frame::match_all_dynamic_fmts!(&frame.image, x, {
-                                let rgb: Box<
-                                    dyn formats::ImageStride<formats::pixel_format::RGB8>,
-                                > = Box::new(convert_image::convert_ref::<
-                                    _,
-                                    formats::pixel_format::RGB8,
-                                >(x)?);
-                                let corners = opencv_calibrate::find_chessboard_corners(
-                                    rgb.image_data(),
-                                    rgb.width(),
-                                    rgb.height(),
-                                    checkerboard_data.width as usize,
-                                    checkerboard_data.height as usize,
-                                )?;
-                                corners
-                            });
+                            let corners =
+                                strand_dynamic_frame::match_all_dynamic_fmts!(&frame.image, x, {
+                                    let rgb: Box<
+                                        dyn formats::ImageStride<formats::pixel_format::RGB8>,
+                                    > = Box::new(convert_image::convert_ref::<
+                                        _,
+                                        formats::pixel_format::RGB8,
+                                    >(x)?);
+                                    let corners = opencv_calibrate::find_chessboard_corners(
+                                        rgb.image_data(),
+                                        rgb.width(),
+                                        rgb.height(),
+                                        checkerboard_data.width as usize,
+                                        checkerboard_data.height as usize,
+                                    )?;
+                                    corners
+                                });
 
                             let work_duration = start_time.elapsed();
                             if work_duration > checkerboard_loop_dur {

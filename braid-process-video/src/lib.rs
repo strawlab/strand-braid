@@ -17,7 +17,7 @@ use peek2::Peek2;
 
 mod argmin;
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 
 mod braidz_iter;
 mod synced_iter;
@@ -334,13 +334,11 @@ pub(crate) struct PerCamRenderFrame<'a> {
 impl PerCamRenderFrame<'_> {
     pub(crate) fn set_original_image(&mut self, frame: &DynamicFrame) -> Result<()> {
         let png_buf = match frame {
-            basic_frame::DynamicFrame::Mono8(frame_mono8) => {
-                convert_image::frame_to_encoded_buffer(
-                    frame_mono8,
-                    convert_image::EncoderOptions::Png,
-                )?
-            }
-            basic_frame::DynamicFrame::RGB8(frame_rgb8) => convert_image::frame_to_encoded_buffer(
+            DynamicFrame::Mono8(frame_mono8) => convert_image::frame_to_encoded_buffer(
+                frame_mono8,
+                convert_image::EncoderOptions::Png,
+            )?,
+            DynamicFrame::RGB8(frame_rgb8) => convert_image::frame_to_encoded_buffer(
                 frame_rgb8,
                 convert_image::EncoderOptions::Png,
             )?,
@@ -1029,7 +1027,7 @@ fn gather_frame_data<'a>(
                     let mono8 = pic
                         .clone()
                         .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
-                    let dyn_mono8 = basic_frame::DynamicFrame::from(mono8);
+                    let dyn_mono8 = DynamicFrame::from(mono8);
 
                     let (detections, _) = entry.process_new_frame(
                         &dyn_mono8,

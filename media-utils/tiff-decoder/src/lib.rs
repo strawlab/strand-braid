@@ -3,8 +3,8 @@ use std::io::Cursor;
 
 use eyre::{self as anyhow, Result};
 
-use basic_frame::DynamicFrame;
 use frame_source::pv_tiff_stack::TiffImage;
+use strand_dynamic_frame::DynamicFrame;
 
 /// Configuration describing how to handle high dynamic range source material.
 #[allow(non_camel_case_types)]
@@ -147,7 +147,7 @@ pub fn read_tiff_image(
     if image_data.len() != expected_size as usize {
         anyhow::bail!("actual image size different than expected");
     }
-    let stride = width;
+    let stride = width.try_into().unwrap();
 
     Ok(DynamicFrame::new(
         width,
@@ -155,5 +155,6 @@ pub fn read_tiff_image(
         stride,
         image_data,
         machine_vision_formats::PixFmt::Mono8,
-    ))
+    )
+    .unwrap())
 }

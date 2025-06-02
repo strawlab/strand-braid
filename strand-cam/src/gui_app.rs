@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
 };
 
-pub(crate) type ImType = basic_frame::BasicFrame<Mono8>;
+pub(crate) type ImType = machine_vision_formats::owned::OImage<Mono8>;
 
 pub struct StrandCamEguiApp {
     cmd_tx: tokio::sync::mpsc::Sender<()>,
@@ -157,7 +157,6 @@ impl eframe::App for StrandCamEguiApp {
                 if let Some(tex) = self.screen_texture.as_ref() {
                     ui.add(egui::Image::new(tex).shrink_to_fit());
                 }
-
             });
         });
     }

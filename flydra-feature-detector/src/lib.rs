@@ -28,7 +28,7 @@ use fastim_mod::{
 
 use formats::{pixel_format::Mono32f, Stride};
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 use flydra_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
 use ufmf::UFMFWriter;
 

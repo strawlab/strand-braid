@@ -6,7 +6,7 @@ use std::{
 
 use tokio_stream::StreamExt;
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 use bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
 
@@ -97,7 +97,7 @@ impl PerSender {
                 let sent_time = chrono::Local::now();
                 let tc = {
                     let most_recent_frame_data = most_recent_frame_data.lock().unwrap();
-                    let bytes = basic_frame::match_all_dynamic_fmts!(
+                    let bytes = strand_dynamic_frame::match_all_dynamic_fmts!(
                         &most_recent_frame_data.frame,
                         x,
                         convert_image::frame_to_encoded_buffer(

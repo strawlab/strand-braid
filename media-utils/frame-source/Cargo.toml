@@ -23,7 +23,7 @@ uuid.workspace = true
 indicatif.workspace = true
 eyre.workspace = true
 
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 ci2-remote-control.workspace = true
 fmf.workspace = true
 mkv-strand-reader.workspace = true

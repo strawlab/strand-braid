@@ -12,4 +12,4 @@ machine-vision-formats.workspace = true
 nalgebra.workspace = true
 opencv-ros-camera.workspace = true
 
-basic-frame = { workspace = true, features = ["convert-image"] }
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }

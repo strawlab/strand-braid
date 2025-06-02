@@ -6,6 +6,9 @@ use std::{
 
 use mkv_strand_reader::ParsedStrandCamMkv;
 
+#[cfg(feature = "openh264")]
+use machine_vision_formats::owned::OImage;
+
 use super::*;
 
 #[derive(thiserror::Error, Debug)]
@@ -230,7 +233,7 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
 
         let width = self.parsed.width;
         let height = self.parsed.height;
-        let stride = self.parsed.width;
+        let stride = usize::try_from(self.parsed.width).unwrap();
 
         self.rdr.seek(std::io::SeekFrom::Start(bd.start_idx))?;
         let mut image_data = vec![0u8; bd.size];
@@ -239,13 +242,16 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         let pts = bd.pts;
 
         let image = match self.src_format {
-            Format::UncompressedMono => super::ImageData::Decoded(DynamicFrame::new(
-                width,
-                height,
-                stride,
-                image_data,
-                machine_vision_formats::PixFmt::Mono8,
-            )),
+            Format::UncompressedMono => super::ImageData::Decoded(
+                DynamicFrame::new(
+                    width,
+                    height,
+                    stride,
+                    image_data,
+                    machine_vision_formats::PixFmt::Mono8,
+                )
+                .unwrap(),
+            ),
             Format::H264 => {
                 // This is a hacky and imperfect way to check if the h264 stream
                 // has a timestamp. It is hacky because:
@@ -305,15 +311,12 @@ fn my_decode(
     let stride = dim.0 * 3;
     let mut image_data = vec![0u8; stride * dim.1];
     decoded_yuv.write_rgb8(&mut image_data);
-    Ok(basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
-        machine_vision_formats::pixel_format::RGB8,
-    > {
-        width,
-        height,
-        stride: u32::try_from(stride).unwrap(),
-        image_data,
-        pixel_format: std::marker::PhantomData,
-    }))
+    Ok(strand_dynamic_frame::DynamicFrame::RGB8(
+        OImage::<machine_vision_formats::pixel_format::RGB8>::new(
+            width, height, stride, image_data,
+        )
+        .unwrap(),
+    ))
 }
 
 impl<R: Read + Seek> Iterator for StrandCamMkvSourceIter<'_, R> {

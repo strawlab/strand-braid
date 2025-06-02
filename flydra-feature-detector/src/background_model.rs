@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use machine_vision_formats::{self as formats, ImageData, Stride};
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 
 use fastim_mod::{
     ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,

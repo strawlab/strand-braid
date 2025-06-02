@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 
 use ci2_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
 
+#[cfg(feature = "openh264")]
+use machine_vision_formats::owned::OImage;
+
 use crate::{
     ntp_timestamp::NtpTimestamp,
     srt_reader::{self, Stanza},
@@ -881,15 +884,15 @@ fn yuv2rgb(
     let mut image_data = vec![0u8; stride * dim.1];
     decoded_yuv.write_rgb8(&mut image_data);
 
-    let dynamic_frame = basic_frame::DynamicFrame::RGB8(basic_frame::BasicFrame::<
-        machine_vision_formats::pixel_format::RGB8,
-    > {
-        width: dim.0.try_into().unwrap(),
-        height: dim.1.try_into().unwrap(),
-        stride: u32::try_from(stride).unwrap(),
-        image_data,
-        pixel_format: std::marker::PhantomData,
-    });
+    let dynamic_frame = strand_dynamic_frame::DynamicFrame::RGB8(
+        OImage::<machine_vision_formats::pixel_format::RGB8>::new(
+            dim.0.try_into().unwrap(),
+            dim.1.try_into().unwrap(),
+            stride,
+            image_data,
+        )
+        .unwrap(),
+    );
 
     let buf_len = nal_units.iter().map(|x| x.len()).sum();
     // let buf_len = avcc_data.len();

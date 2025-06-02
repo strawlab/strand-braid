@@ -23,7 +23,7 @@ use convert_image::convert_into;
 use tracing::info;
 use tracing::{debug, error, trace};
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 
 #[cfg(feature = "nv-encode")]
 use machine_vision_formats::{image_ref::ImageRefMut, pixel_format};

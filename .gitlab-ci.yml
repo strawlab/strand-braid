@@ -189,8 +189,8 @@ test_crates_rust_stable:
     - cd $CI_PROJECT_DIR/geometry/simple-obj-parse
     - cargo test
 
-    # basic-frame
-    - cd $CI_PROJECT_DIR/basic-frame
+    # strand-dynamic-frame
+    - cd $CI_PROJECT_DIR/strand-dynamic-frame
     - cargo test
     - cargo test --features convert-image
     - cd ..

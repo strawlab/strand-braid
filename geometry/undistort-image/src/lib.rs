@@ -1,5 +1,5 @@
-use basic_frame::DynamicFrame;
 use machine_vision_formats::{pixel_format, PixFmt};
+use strand_dynamic_frame::DynamicFrame;
 
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
@@ -85,13 +85,15 @@ pub fn undistort_image(
                 eyre::bail!("unexpected output image size");
             }
 
-            let basic = basic_frame::BasicFrame::<machine_vision_formats::pixel_format::RGB8> {
-                width: width.try_into().unwrap(),
-                height: height.try_into().unwrap(),
-                stride: (width * 3).try_into().unwrap(),
-                image_data: data_u8,
-                pixel_format: std::marker::PhantomData,
-            };
+            let basic = machine_vision_formats::owned::OImage::<
+                machine_vision_formats::pixel_format::RGB8,
+            >::new(
+                width.try_into().unwrap(),
+                height.try_into().unwrap(),
+                (width * 3).try_into().unwrap(),
+                data_u8,
+            )
+            .unwrap();
             Ok(DynamicFrame::from(basic))
         }
     }

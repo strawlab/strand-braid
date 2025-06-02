@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 use std::path::PathBuf;
 
-use basic_frame::DynamicFrame;
+use strand_dynamic_frame::DynamicFrame;
 
 pub mod pv_tiff_stack;
 use pv_tiff_stack::TiffImage;

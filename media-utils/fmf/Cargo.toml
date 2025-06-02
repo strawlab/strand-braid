@@ -7,7 +7,7 @@ rust-version = "1.56"
 
 [dependencies]
 machine-vision-formats.workspace = true
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 byteorder.workspace = true
 chrono.workspace = true
 datetime-conversion.workspace = true

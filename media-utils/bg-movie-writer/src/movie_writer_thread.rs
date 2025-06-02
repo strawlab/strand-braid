@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use chrono::{DateTime, Local};
 use ci2_remote_control::FfmpegRecordingConfig;
 use machine_vision_formats::{ImageStride, PixelFormat};

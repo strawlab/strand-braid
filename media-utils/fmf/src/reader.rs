@@ -2,49 +2,13 @@ use std::{fs::File, io::Read, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 
-use basic_frame::{BasicFrame, DynamicFrame};
 use chrono::{DateTime, Utc};
 use formats::PixFmt;
+use strand_dynamic_frame::DynamicFrame;
 
 use crate::{pixel_formats, FMFError, FMFResult};
 
-macro_rules! bf {
-    ($width:expr, $height:expr, $stride:expr, $image_data:expr) => {{
-        BasicFrame {
-            width: $width,
-            height: $height,
-            stride: $stride,
-            image_data: $image_data,
-            pixel_format: std::marker::PhantomData,
-        }
-    }};
-}
-
 const TIMESTAMP_SIZE: usize = 8;
-
-/// Return an DynamicFrame variant according to $pixfmt.
-#[macro_export]
-macro_rules! to_dynamic {
-    ($pixfmt:expr, $w:expr, $h:expr, $s:expr, $data:expr) => {{
-        match $pixfmt {
-            PixFmt::Mono8 => DynamicFrame::Mono8(bf!($w, $h, $s, $data)),
-            PixFmt::Mono32f => DynamicFrame::Mono32f(bf!($w, $h, $s, $data)),
-            PixFmt::RGB8 => DynamicFrame::RGB8(bf!($w, $h, $s, $data)),
-            PixFmt::BayerRG8 => DynamicFrame::BayerRG8(bf!($w, $h, $s, $data)),
-            PixFmt::BayerRG32f => DynamicFrame::BayerRG32f(bf!($w, $h, $s, $data)),
-            PixFmt::BayerBG8 => DynamicFrame::BayerBG8(bf!($w, $h, $s, $data)),
-            PixFmt::BayerBG32f => DynamicFrame::BayerBG32f(bf!($w, $h, $s, $data)),
-            PixFmt::BayerGB8 => DynamicFrame::BayerGB8(bf!($w, $h, $s, $data)),
-            PixFmt::BayerGB32f => DynamicFrame::BayerGB32f(bf!($w, $h, $s, $data)),
-            PixFmt::BayerGR8 => DynamicFrame::BayerGR8(bf!($w, $h, $s, $data)),
-            PixFmt::BayerGR32f => DynamicFrame::BayerGR32f(bf!($w, $h, $s, $data)),
-            PixFmt::YUV422 => DynamicFrame::YUV422(bf!($w, $h, $s, $data)),
-            _ => {
-                panic!("unsupported pixel format {}", $pixfmt);
-            }
-        }
-    }};
-}
 
 fn open_buffered<P: AsRef<Path>>(p: &P) -> std::io::Result<std::io::BufReader<File>> {
     Ok(std::io::BufReader::new(File::open(p.as_ref())?))
@@ -176,10 +140,13 @@ impl FMFReader {
         let stride = (width * bpp) / 8;
         self.count += 1;
 
-        Ok((
-            to_dynamic!(pixel_format, width, height, stride, image_data),
-            dt,
-        ))
+        if let Some(dframe) =
+            DynamicFrame::new(width, height, stride as usize, image_data, pixel_format)
+        {
+            Ok((dframe, dt))
+        } else {
+            Err(FMFError::UnexpectedSize)
+        }
     }
 }
 

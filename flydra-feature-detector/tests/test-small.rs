@@ -1,5 +1,6 @@
 use chrono::DateTime;
 use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
+use strand_dynamic_frame::DynamicFrame;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -12,6 +13,7 @@ async fn track_small() -> anyhow::Result<()> {
 
     const W: u32 = 32;
     const H: u32 = 16;
+    let stride = usize::try_from(W).unwrap();
 
     init();
 
@@ -26,9 +28,9 @@ async fn track_small() -> anyhow::Result<()> {
         None,
     )?;
 
-    let buf = vec![0; (W * H) as usize];
+    let buf = vec![0; stride * H as usize];
     let pixel_format = machine_vision_formats::PixFmt::Mono8;
-    let frame = basic_frame::DynamicFrame::new(W, H, W, buf, pixel_format);
+    let frame = DynamicFrame::new(W, H, stride, buf, pixel_format).unwrap();
     let ufmf_state = UfmfState::Stopped;
     let fno = 0;
     let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
@@ -68,7 +70,7 @@ async fn track_moving_stride() -> anyhow::Result<()> {
         buf[buf_idx] = 255;
 
         let pixel_format = machine_vision_formats::PixFmt::Mono8;
-        let frame = basic_frame::DynamicFrame::new(W, H, STRIDE as u32, buf, pixel_format);
+        let frame = DynamicFrame::new(W, H, STRIDE, buf, pixel_format).unwrap();
         let ufmf_state = UfmfState::Stopped;
         let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
         let found_points = ft

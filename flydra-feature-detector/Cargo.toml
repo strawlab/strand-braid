@@ -10,7 +10,7 @@ license = "MIT/Apache-2.0"
 tracing.workspace = true
 thiserror.workspace = true
 machine-vision-formats.workspace = true
-basic-frame = { workspace = true, features = ["convert-image"] }
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 num-traits.workspace = true
 cast.workspace = true
 serde.workspace = true

@@ -14,8 +14,8 @@ use machine_vision_formats as formats;
 use ci2::{AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode};
 use formats::PixFmt;
 
-use basic_frame::DynamicFrame;
 use std::sync::mpsc::{Receiver, SyncSender};
+use strand_dynamic_frame::DynamicFrame;
 
 // Number of frames to allocate for the Vimba driver.
 const N_BUFFER_FRAMES: usize = 10;
@@ -107,7 +107,8 @@ fn callback_rust(
                     min_stride.try_into().unwrap(),
                     image_data,
                     pixel_format,
-                );
+                )
+                .unwrap();
 
                 Ok(InvalidHostFramenumber(DynamicFrameWithInfo {
                     image,

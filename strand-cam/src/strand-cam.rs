@@ -25,7 +25,7 @@ use tokio::sync::mpsc::error::SendError;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info, trace, warn};
 
-use basic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
 use bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
 use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;

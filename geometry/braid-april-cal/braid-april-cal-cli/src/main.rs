@@ -438,14 +438,14 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                         intrinsics.height,
                     )?;
 
-                    use basic_frame::DynamicFrame;
+                    use strand_dynamic_frame::DynamicFrame;
 
                     let image = image::open(&cam_fname)?;
                     let rgb8 = convert_image::image_to_rgb8(image).unwrap();
                     let decoded = DynamicFrame::from(rgb8);
                     let undistorted = undistort_image::undistort_image(decoded, &undist_cache)?;
                     let opts = convert_image::EncoderOptions::Png;
-                    let png_buf = basic_frame::match_all_dynamic_fmts!(
+                    let png_buf = strand_dynamic_frame::match_all_dynamic_fmts!(
                         &undistorted,
                         x,
                         convert_image::frame_to_encoded_buffer(x, opts)

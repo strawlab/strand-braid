@@ -187,7 +187,7 @@ where
     true
 }
 
-fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<basic_frame::DynamicFrame> {
+fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<strand_dynamic_frame::DynamicFrame> {
     let width = width as usize;
     let height = height as usize;
     let image = {
@@ -207,7 +207,7 @@ fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<basic_fra
                     let dest_row = &mut image_data[start_idx..(start_idx + width)];
                     dest_row.copy_from_slice(&image_row_mono8);
                 }
-                basic_frame::DynamicFrame::new(
+                strand_dynamic_frame::DynamicFrame::new(
                     (width).try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),
@@ -237,7 +237,7 @@ fn generate_image(pixfmt_str: &str, width: u32, height: u32) -> Result<basic_fra
                     let dest_row = &mut image_data[start_idx..(start_idx + width * 3)];
                     dest_row.copy_from_slice(&image_row_rgb8[..]);
                 }
-                basic_frame::DynamicFrame::new(
+                strand_dynamic_frame::DynamicFrame::new(
                     (width).try_into().unwrap(),
                     height.try_into().unwrap(),
                     stride.try_into().unwrap(),

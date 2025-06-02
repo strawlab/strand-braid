@@ -22,5 +22,5 @@ opencv-ros-camera.workspace = true
 env-tracing-logger.workspace = true
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
-basic-frame.workspace = true
+strand-dynamic-frame.workspace = true
 flydra-types.workspace = true
