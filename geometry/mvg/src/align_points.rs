@@ -18,13 +18,13 @@ pub enum Algorithm {
 /// The best (scale, rotation, translation) are returned.
 ///
 /// The Kabsch-Umeyama implementation is based on that in
-/// https://github.com/clementinboittiaux/umeyama-python/blob/main/umeyama.py.
+/// <https://github.com/clementinboittiaux/umeyama-python/blob/main/umeyama.py>.
 ///
 /// The robust Arun implementation is based on that in
-/// https://github.com/strawlab/MultiCamSelfCal/blob/main/MultiCamSelfCal/CoreFunctions/estsimt.m.
+/// <https://github.com/strawlab/MultiCamSelfCal/blob/main/MultiCamSelfCal/CoreFunctions/estsimt.m>.
 /// That code claims to be an implementation of the Arun, Huang, and Blostein
 /// algorithm, but contains an extra bit to determine scaling which works
-/// differently, and in my experience is more robust than the Kabsch-Umeyama
+/// differently, and in my experience is more robust than, the Kabsch-Umeyama
 /// algorithm.
 pub fn align_points<T>(
     x: &OMatrix<T, U3, Dyn>,
