@@ -113,7 +113,13 @@ pub struct ComputeExtrinsicsArgs {
 pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleCamCalResults> {
     // read all files for calibration -----
     // April Tag 3D coordinates file
-    let fiducial_coords_buf = std::fs::read(&cli.apriltags_3d_fiducial_coords)?;
+    let fiducial_coords_buf =
+        std::fs::read(&cli.apriltags_3d_fiducial_coords).with_context(|| {
+            format!(
+                "when reading April Tag 3D coordinates CSV file \"{}\"",
+                cli.apriltags_3d_fiducial_coords.display()
+            )
+        })?;
     let fiducial_coords = parse_csv::<Fiducial3DCoords>(
         format!("{}", cli.apriltags_3d_fiducial_coords.display()),
         &fiducial_coords_buf,
