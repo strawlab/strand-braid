@@ -912,7 +912,7 @@ strand-braid-ubuntu-2404:
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
 
-    - cp $CI_PROJECT_DIR/_packaging/ubuntu-2404-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/README.txt
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/README.txt
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -971,7 +971,7 @@ strand-braid-ubuntu-2004:
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
 
-    - cp $CI_PROJECT_DIR/_packaging/ubuntu-2004-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/README.txt
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/README.txt
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -1030,7 +1030,7 @@ strand-braid-ubuntu-2204:
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
 
-    - cp $CI_PROJECT_DIR/_packaging/ubuntu-2204-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/README.txt
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/README.txt
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/*.deb
   needs:
