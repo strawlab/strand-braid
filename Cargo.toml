@@ -95,7 +95,6 @@ members = [
     "media-utils/tiff-decoder",
     "media-utils/ufmf",
     "media-utils/video2rrd",
-    "media-utils/video2srt",
     "media-utils/y4m-writer",
     "nvenc",
     "nvenc/dynlink-cuda",
