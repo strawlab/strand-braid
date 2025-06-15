@@ -59,6 +59,8 @@ enum OutputFormat {
     EveryFrame,
     /// Print as comma-separated values with a row for every frame.
     Csv,
+    /// Print as SubRip subtitle file (.srt).
+    Srt,
 }
 
 #[derive(Default, Debug, Clone, Copy, ValueEnum, PartialEq)]
@@ -89,6 +91,7 @@ impl std::fmt::Display for OutputFormat {
             Self::EveryFrame => write!(f, "every frame (human-readable)"),
             Self::Summary => write!(f, "summary (human-readable)"),
             Self::Csv => write!(f, "CSV (Comma Separated Values)"),
+            Self::Srt => write!(f, "SRT (SubRip Subtitle)"),
         }
     }
 }
@@ -161,6 +164,7 @@ fn main() -> Result<()> {
             .as_ref()
             .map(|x| format!("{x}"))
             .unwrap_or_else(|| "(unknown)".to_string());
+        let mut srt_wtr = None;
         match cli.output {
             OutputFormat::EveryFrame | OutputFormat::Summary => {
                 println!("Path: {}", input_path.display());
@@ -187,6 +191,10 @@ fn main() -> Result<()> {
                     "fraction"
                 };
                 println!("frame_idx,{col_name}");
+            }
+            OutputFormat::Srt => {
+                let stdout = std::io::stdout();
+                srt_wtr = Some(srt_writer::BufferingSrtFrameWriter::new(Box::new(stdout)));
             }
         }
 
@@ -237,10 +245,33 @@ fn main() -> Result<()> {
                     };
                     println!("{},{time_val}", frame.idx());
                 }
+                OutputFormat::Srt => {
+                    match frame.timestamp() {
+                        frame_source::Timestamp::Duration(dur) => {
+                            if let Some(start_time) = start_time.as_ref() {
+                                let stamp_chrono = *start_time + dur;
+                                let time_val = format!("{stamp_chrono}");
+                                srt_wtr.as_mut().unwrap().add_frame(dur, time_val)?;
+                            } else {
+                                eyre::bail!("No start time available for SRT output.");
+                            }
+                        }
+                        frame_source::Timestamp::Fraction(_frac) => {
+                            eyre::bail!("SRT output does not support fractional timestamps.")
+                        }
+                    };
+                }
                 OutputFormat::Summary => {}
             }
             prev_timestamp = Some(frame.timestamp());
             count += 1;
+        }
+
+        if let Some(srt_wtr) = srt_wtr.take() {
+            // Finish writing SRT file. (This would happen anyway when srt_wtr
+            // goes out of scope, but this gives us a chance to catch errors
+            // without panicking.)
+            srt_wtr.close()?;
         }
 
         if let Some(pb) = pb {

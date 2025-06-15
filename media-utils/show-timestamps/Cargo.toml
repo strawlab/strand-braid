@@ -13,3 +13,4 @@ indicatif.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 env-tracing-logger.workspace = true
 datetime-conversion.workspace = true
+srt-writer.workspace = true
