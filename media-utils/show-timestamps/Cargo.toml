@@ -4,6 +4,8 @@ version = "0.12.0-alpha.9" # braid release synchronized
 edition = "2021"
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 clap.workspace = true
 eyre.workspace = true
 chrono.workspace = true

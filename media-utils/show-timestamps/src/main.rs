@@ -3,6 +3,7 @@
 use clap::{Parser, ValueEnum};
 use eyre::{self, Result};
 use indicatif::{ProgressBar, ProgressStyle};
+use serde::{Deserialize, Serialize};
 
 trait DisplayTimestamp {
     fn to_display(&self) -> String;
@@ -25,6 +26,12 @@ impl DisplayTimestamp for std::time::Duration {
     fn to_display(&self) -> String {
         frame_source::Timestamp::Duration(*self).to_display()
     }
+}
+
+// TODO: define SrtMsg only once in this codebase.
+#[derive(Serialize, Deserialize)]
+struct SrtMsg {
+    timestamp: chrono::DateTime<chrono::Local>,
 }
 
 #[derive(Parser, Debug)]
@@ -264,8 +271,11 @@ fn main() -> Result<()> {
                         frame_source::Timestamp::Duration(dur) => {
                             if let Some(start_time) = start_time.as_ref() {
                                 let stamp_chrono = *start_time + dur;
-                                let time_val = format!("{stamp_chrono}");
-                                srt_wtr.as_mut().unwrap().add_frame(dur, time_val)?;
+                                let msg = SrtMsg {
+                                    timestamp: stamp_chrono.into(),
+                                };
+                                let msg_str = serde_json::to_string(&msg)?;
+                                srt_wtr.as_mut().unwrap().add_frame(dur, msg_str)?;
                             } else {
                                 eyre::bail!("No start time available for SRT output.");
                             }

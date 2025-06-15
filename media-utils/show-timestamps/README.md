@@ -62,9 +62,13 @@ Options:
 
 ## Example usage
 
-To create a SubRip subtitle file which VLC will automatically open and use:
+### Create a SubRip (.srt) file to show timestamps as subtitles.
+
+This opens input video at `/some_path/movie.mp4`, prints to stdout a SubRip
+format stream, and pipes it into `/some_path/movie.srt`. When the .srt file is
+named as in this example (replacing `mp4` with `srt`), the VLC video player app
+will automatically find and use the subtitles.
 
 ```bash
 show-timestamps --output srt /some_path/movie.mp4  > /some_path/movie.srt
 ```
-
