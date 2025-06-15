@@ -76,8 +76,12 @@ impl MyFfmpegWriter {
             Fps100 => Some((100, 1)),
             Unlimited => None,
         };
-        let fwtr =
-            ffmpeg_rewriter::FfmpegReWriter::new(mp4_filename, ffmpeg_codec_args, rate, None)?;
+        let fwtr = ffmpeg_rewriter::FfmpegReWriter::new(
+            mp4_filename,
+            ffmpeg_codec_args,
+            rate,
+            cfg.h264_metadata.clone(),
+        )?;
         Ok(Self { inner: Some(fwtr) })
     }
     fn finish(&mut self) -> Result<()> {

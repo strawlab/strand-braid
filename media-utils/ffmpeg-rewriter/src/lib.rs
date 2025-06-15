@@ -54,6 +54,10 @@ impl FfmpegReWriter {
         rate: Option<(usize, usize)>,
         h264_metadata: Option<H264Metadata>,
     ) -> Result<Self> {
+        tracing::debug!(
+            "Creating FfmpegReWriter for {} with h264_metadata: {h264_metadata:?}",
+            mp4_path.as_ref().display()
+        );
         let mp4_filename = PathBuf::from(mp4_path.as_ref())
             .into_os_string()
             .into_string()
@@ -80,7 +84,7 @@ impl FfmpegReWriter {
         let mp4_cfg = Mp4RecordingConfig {
             codec: Mp4Codec::H264RawStream,
             max_framerate: RecordingFrameRate::Unlimited,
-            h264_metadata,
+            h264_metadata: h264_metadata.clone(),
         };
 
         let out_fd = std::fs::File::create(&srt_file_path)?;
@@ -138,7 +142,7 @@ impl FfmpegReWriter {
         // Create new .mp4 file, also with original h264 metadata.
         let fname2 = format!("{}-rewritten.mp4", self.mp4_filename);
         tracing::debug!(
-            "Copying original .mp4 file into new .mp4 files with timestamps and metadata."
+            "Copying original .mp4 file into new .mp4 files with timestamps and metadata. frame0_time: {frame0_time}, mp4_cfg: {:?}", self.mp4_cfg
         );
         let fd = std::fs::File::create(&fname2)?;
         let mut new_mp4 = mp4_writer::Mp4Writer::new(fd, self.mp4_cfg, None)?;

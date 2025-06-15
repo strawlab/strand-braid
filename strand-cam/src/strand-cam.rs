@@ -3534,15 +3534,18 @@ impl FinalMp4RecordingConfig {
             }
             _ => None,
         };
-        let final_cfg = if let Some(codec) = mp4_codec {
+        let h264_metadata = {
             let mut h264_metadata =
                 ci2_remote_control::H264Metadata::new("strand-cam", creation_time.into());
             h264_metadata.camera_name = Some(shared.camera_name.clone());
             h264_metadata.gamma = shared.camera_gamma;
+            Some(h264_metadata)
+        };
+        let final_cfg = if let Some(codec) = mp4_codec {
             let final_cfg = Mp4RecordingConfig {
                 codec,
                 max_framerate: shared.mp4_max_framerate.clone(),
-                h264_metadata: Some(h264_metadata),
+                h264_metadata,
             };
             ci2_remote_control::RecordingConfig::Mp4(final_cfg)
         } else {
@@ -3556,6 +3559,7 @@ impl FinalMp4RecordingConfig {
             ci2_remote_control::RecordingConfig::Ffmpeg(FfmpegRecordingConfig {
                 codec_args: codec,
                 max_framerate: shared.mp4_max_framerate.clone(),
+                h264_metadata,
             })
         };
         FinalMp4RecordingConfig { final_cfg }

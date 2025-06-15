@@ -35,7 +35,10 @@ fn main() -> eyre::Result<()> {
                 let ffmpeg_codec_args = ffmpeg_writer::platform_hardware_encoder()?;
 
                 let rate = None;
-                let h264_metadata = None;
+                let h264_metadata = Some(ci2_remote_control::H264Metadata::new(
+                    "ffmpeg-rewriter/save-animation",
+                    start.into(),
+                ));
 
                 let dt_msec = 5;
                 let sample_duration = chrono::Duration::try_milliseconds(dt_msec).unwrap();

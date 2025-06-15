@@ -614,6 +614,7 @@ where
                                                     ));
                                                 }
 
+                                                tracing::debug!("Found H264_METADATA_UUID: {md:?}");
                                                 tz_offset = Some(*md.creation_time.offset());
                                                 h264_metadata = Some(md);
                                             }
@@ -631,16 +632,17 @@ where
                                             );
                                             }
                                             b"MISPmicrosectime" => {
-                                                let precision_time =
-                                                    parse_precision_time(udu.payload)?;
-                                                precise_timestamp = Some(precision_time);
+                                                let ts = parse_precision_time(udu.payload)?;
+                                                tracing::trace!("Found MISPmicrosectime: {ts:?}");
+                                                precise_timestamp = Some(ts);
                                                 if next_frame_num == 0 {
-                                                    frame0_precision_time = Some(precision_time);
+                                                    frame0_precision_time = Some(ts);
                                                 }
                                             }
                                             b"strawlab.org/89H" => {
                                                 let fi: FrameInfo =
                                                     serde_json::from_slice(udu.payload)?;
+                                                tracing::trace!("Found 89H FrameInfo: {fi:?}");
                                                 frameinfo = Some(fi.clone());
                                                 if next_frame_num == 0 {
                                                     frame0_frameinfo = Some(fi);

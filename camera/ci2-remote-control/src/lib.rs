@@ -196,6 +196,7 @@ pub struct FfmpegRecordingConfig {
     pub codec_args: FfmpegCodecArgs,
     /// Limits the recording to a maximum frame rate.
     pub max_framerate: RecordingFrameRate,
+    pub h264_metadata: Option<H264Metadata>,
 }
 
 /// Specify recording method and configuration
