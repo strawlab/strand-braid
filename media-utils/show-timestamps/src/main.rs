@@ -97,6 +97,7 @@ impl std::fmt::Display for OutputFormat {
 }
 
 fn main() -> Result<()> {
+    // TODO: as we want stdout, configure tracing to log to stderr.
     env_tracing_logger::init();
     let cli = Cli::parse();
 
@@ -118,7 +119,20 @@ fn main() -> Result<()> {
                 let mut srt_path = input_path.clone();
                 srt_path.set_extension("srt");
                 if srt_path.exists() && std::fs::metadata(&srt_path)?.is_file() {
-                    srt_file_path = Some(srt_path);
+                    match cli.output {
+                        OutputFormat::Srt => {
+                            tracing::debug!(
+                                "Ignoring existing SRT file {} because output is \
+                            SRT and we may be piping to it.",
+                                srt_path.display()
+                            );
+                            // Presumably if the user wants an SRT file with
+                            // timestamps, they can use the original.
+                        }
+                        _ => {
+                            srt_file_path = Some(srt_path);
+                        }
+                    };
                 } else if cli.timestamp_source == TimestampSource::SrtFile {
                     eyre::bail!(
                         "Source specified as SRT file, but {} is not a file.",
