@@ -146,21 +146,32 @@ test_flydra2:
 test_crates_rust_stable:
   image: rust:1.85
   script:
+    # Fail on any compiler warnings.
+    - export RUSTFLAGS="-D warnings"
+
+    # First test the crates which do not require packages from the apt
+    # repository.
+
+    # Test media-utils/show-timestamps
+    - cd $CI_PROJECT_DIR/media-utils/show-timestamps
+    - cargo test
+
+    # Now test the crates which require a C compiler.
+
+    # Install LLVM and clang.
+    - cd $CI_PROJECT_DIR
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     - rustup target add thumbv7em-none-eabihf
-    - export RUSTFLAGS="-D warnings"
 
     # Test zip-or-dir
-    - cd zip-or-dir
+    - cd $CI_PROJECT_DIR/zip-or-dir
     - cargo test
-    - cd ..
 
     # Test fastfreeimage
-    - cd fastfreeimage
+    - cd $CI_PROJECT_DIR/fastfreeimage
     - cargo test
-    - cd ..
 
     # Test mvg
     - cd $CI_PROJECT_DIR/geometry/mvg
@@ -240,11 +251,6 @@ test_crates_rust_stable:
     # Test media-utils/strand-convert
     - cd media-utils/strand-convert
     - cargo test -- --test-threads 1
-    - cd ../..
-
-    # Test media-utils/show-timestamps
-    - cd media-utils/show-timestamps
-    - cargo test
     - cd ../..
 
     # Test media-utils/mkv-strand-reader
