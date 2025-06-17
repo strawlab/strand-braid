@@ -17,3 +17,4 @@ env-tracing-logger.workspace = true
 datetime-conversion.workspace = true
 srt-writer.workspace = true
 tracing.workspace = true
+camino.workspace = true

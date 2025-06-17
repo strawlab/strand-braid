@@ -1,7 +1,7 @@
 // Copyright 2022-2023 Andrew D. Straw.
 
 use clap::{Parser, ValueEnum};
-use eyre::{self, Result};
+use eyre::{self, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +42,7 @@ struct Cli {
     ///
     /// For a TIFF image directory, images will be ordered alphabetically.
     #[arg(required=true, num_args=1..)]
-    inputs: Vec<String>,
+    inputs: Vec<camino::Utf8PathBuf>,
 
     /// Output format.
     #[arg(long, value_enum, default_value_t)]
@@ -108,15 +108,14 @@ fn main() -> Result<()> {
     env_tracing_logger::init();
     let cli = Cli::parse();
 
-    for input in cli.inputs.iter() {
-        let mut input_path = std::path::PathBuf::from(input);
+    for mut input_path in cli.inputs.into_iter() {
         let mut srt_file_path = None;
-        let is_file = std::fs::metadata(&input_path)?.is_file();
+        let is_file = std::fs::metadata(&input_path)
+            .with_context(|| format!("While opening input {input_path}"))?
+            .is_file();
         if is_file {
-            let file_ext = input_path
-                .extension()
-                .and_then(|x| x.to_str())
-                .map(|x| x.to_lowercase());
+            let file_ext = input_path.extension().map(|x| x.to_lowercase());
+
             if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
                 // tif file - assume this is image sequence and use directory.
                 input_path.pop();
@@ -129,9 +128,8 @@ fn main() -> Result<()> {
                     match cli.output {
                         OutputFormat::Srt => {
                             tracing::debug!(
-                                "Ignoring existing SRT file {} because output is \
-                            SRT and we may be piping to it.",
-                                srt_path.display()
+                                "Ignoring existing SRT file {srt_path} because output is \
+                            SRT and we may be piping to it."
                             );
                             // Presumably if the user wants an SRT file with
                             // timestamps, they can use the original.
@@ -141,22 +139,19 @@ fn main() -> Result<()> {
                         }
                     };
                 } else if cli.timestamp_source == TimestampSource::SrtFile {
-                    eyre::bail!(
-                        "Source specified as SRT file, but {} is not a file.",
-                        srt_path.display()
-                    );
+                    eyre::bail!("Source specified as SRT file, but {srt_path} is not a file.");
                 }
             }
         }
 
         if cli.progress {
-            eprintln!("Performing initial open of \"{}\".", input_path.display());
+            eprintln!("Performing initial open of \"{input_path}\".");
         }
 
         let mut src = frame_source::FrameSourceBuilder::new(&input_path)
             .do_decode_h264(false) // no need to decode h264 to get timestamps.
             .timestamp_source(cli.timestamp_source.into())
-            .srt_file_path(srt_file_path)
+            .srt_file_path(srt_file_path.map(Into::into))
             .show_progress(cli.progress)
             .build_source()?;
 
@@ -188,7 +183,7 @@ fn main() -> Result<()> {
         let mut srt_wtr = None;
         match cli.output {
             OutputFormat::EveryFrame | OutputFormat::Summary => {
-                println!("Path: {}", input_path.display());
+                println!("Path: {input_path}");
                 println!(
                     "  Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
                     start_time_str,
@@ -199,12 +194,10 @@ fn main() -> Result<()> {
             }
             OutputFormat::Csv => {
                 println!(
-                    "# Path:{}, Start time: {}, Dimensions: {}x{}, Timestamp source: {:?}",
-                    input_path.display(),
-                    start_time_str,
-                    src.width(),
-                    src.height(),
-                    src.timestamp_source(),
+                    "# Path:{input_path}, Start time: {start_time_str}, Dimensions: {w}x{h}, Timestamp source: {tss:?}",
+                    w=src.width(),
+                    h=src.height(),
+                    tss=src.timestamp_source(),
                 );
                 let col_name = if has_timestamps {
                     "timestamp_msec"
