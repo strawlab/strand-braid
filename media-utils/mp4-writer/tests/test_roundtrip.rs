@@ -187,7 +187,7 @@ fn generate_image(
     pixfmt_str: &str,
     width: u32,
     height: u32,
-) -> Result<strand_dynamic_frame::DynamicFrame> {
+) -> Result<strand_dynamic_frame::DynamicFrame<'_>> {
     let width = width as usize;
     let height = height as usize;
     let image = {
