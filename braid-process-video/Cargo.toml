@@ -44,7 +44,7 @@ strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 fmf.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true
-mvg.workspace = true
+braid-mvg.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 
 [dev-dependencies]

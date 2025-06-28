@@ -3,13 +3,13 @@ extern crate nalgebra as na;
 extern crate num_iter;
 extern crate num_traits;
 
-extern crate mvg;
+extern crate braid_mvg;
 
 use nalgebra::geometry::Point3;
 
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
-use mvg::{Camera, DistortedPixel, PointWorldFrame};
+use braid_mvg::{Camera, DistortedPixel, PointWorldFrame};
 
 fn is_similar(cam1: &crate::Camera<f64>, cam2: &crate::Camera<f64>) -> bool {
     let world_pts = [
@@ -45,7 +45,7 @@ fn is_similar(cam1: &crate::Camera<f64>, cam2: &crate::Camera<f64>) -> bool {
 
 fn get_test_cameras() -> Vec<(String, Camera<f64>)> {
     let mut result = Vec::new();
-    let extrinsics = mvg::extrinsics::make_default_extrinsics();
+    let extrinsics = braid_mvg::extrinsics::make_default_extrinsics();
     for (int_name, intrinsics) in get_test_intrinsics().into_iter() {
         let name = format!("cam-{}", int_name);
         let cam = Camera::new(640, 480, extrinsics.clone(), intrinsics).unwrap();
@@ -87,7 +87,7 @@ fn get_test_intrinsics() -> Vec<(String, RosOpenCvIntrinsics<f64>)> {
         }
     }
 
-    result.push(("default".to_string(), mvg::make_default_intrinsics()));
+    result.push(("default".to_string(), braid_mvg::make_default_intrinsics()));
 
     result
 }

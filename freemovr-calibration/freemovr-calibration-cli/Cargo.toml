@@ -22,7 +22,7 @@ opencv-ros-camera.workspace = true
 chrono.workspace = true
 
 freemovr-calibration = { path = ".." }
-mvg.workspace = true
+braid-mvg.workspace = true
 
 [features]
 default = []

@@ -19,7 +19,7 @@ pub struct PseudoCameraCalibrationData {
 }
 
 impl PseudoCameraCalibrationData {
-    pub fn to_cam(&self) -> Result<mvg::Camera<MyFloat>, mvg::MvgError> {
+    pub fn to_cam(&self) -> Result<braid_mvg::Camera<MyFloat>, braid_mvg::MvgError> {
         use na::core::Vector3;
         use na::geometry::{Point3, UnitQuaternion};
 
@@ -47,7 +47,7 @@ impl PseudoCameraCalibrationData {
         let cy: MyFloat = na::convert(self.image_circle.center_y);
         let intrinsics = opencv_ros_camera::RosOpenCvIntrinsics::from_params(f, 0.0, f, cx, cy);
 
-        mvg::Camera::new(
+        braid_mvg::Camera::new(
             self.width as usize,
             self.height as usize,
             extrinsics,
@@ -57,7 +57,7 @@ impl PseudoCameraCalibrationData {
 
     pub fn to_camera_system(
         &self,
-    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, mvg::MvgError> {
+    ) -> Result<flydra_mvg::FlydraMultiCameraSystem<MyFloat>, braid_mvg::MvgError> {
         let cam_name = self.cam_name.clone();
         let cam = self.to_cam()?;
         let mut cams_by_name = std::collections::BTreeMap::new();
@@ -69,7 +69,7 @@ impl PseudoCameraCalibrationData {
         });
 
         let comment = serde_json::to_string(&data).unwrap();
-        let plain_vanilla = mvg::MultiCameraSystem::new_with_comment(cams_by_name, comment);
+        let plain_vanilla = braid_mvg::MultiCameraSystem::new_with_comment(cams_by_name, comment);
         let spicy = flydra_mvg::FlydraMultiCameraSystem::from_system(plain_vanilla, None);
         Ok(spicy)
     }
@@ -77,7 +77,7 @@ impl PseudoCameraCalibrationData {
 
 #[test]
 fn test_pseudo_cal() {
-    use mvg::{DistortedPixel, PointWorldFrame};
+    use braid_mvg::{DistortedPixel, PointWorldFrame};
     use na::geometry::{Point2, Point3};
 
     let pc = PseudoCameraCalibrationData {

@@ -16,7 +16,7 @@ serde-xml-rs.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
 
-mvg.workspace = true
+braid-mvg.workspace = true
 refraction.workspace = true
 
 [dev-dependencies]

@@ -52,13 +52,13 @@ members = [
     "geometry/braid-april-cal/braid-april-cal-cli",
     "geometry/braid-april-cal/braid-april-cal-webapp",
     "geometry/braid-april-cal/flytrax-apriltags-calibration",
+    "geometry/braid-mvg",
+    "geometry/braid-mvg/mvg-util",
     "geometry/braidz-mcsc",
     "geometry/bundle-adj",
     "geometry/camcal",
     "geometry/flydra-mvg",
     "geometry/mcsc-structs",
-    "geometry/mvg",
-    "geometry/mvg/mvg-util",
     "geometry/opencv-calibrate",
     "geometry/opencv-calibrate/find-chessboard",
     "geometry/parry-geom",
@@ -280,6 +280,7 @@ braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
+braid-mvg = { path = "geometry/braid-mvg", features = ["serde-serialize"] }
 braid-types = { path = "braid-types", default-features = false }
 braidz-parser = { path = "braidz-parser" }
 braidz-rerun = { path = "braidz-rerun" }
@@ -322,7 +323,6 @@ less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
 mcsc-structs = { path = "geometry/mcsc-structs" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
-mvg = { path = "geometry/mvg", features = ["serde-serialize"] }
 ncollide-geom = { path = "freemovr-calibration/ncollide-geom" }
 nvenc = { path = "nvenc" }
 opencv-calibrate = { path = "geometry/opencv-calibrate" }

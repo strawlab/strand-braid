@@ -15,7 +15,7 @@ use nalgebra::{
 use cam_geom::ExtrinsicParameters;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
-use mvg::{
+use braid_mvg::{
     rq_decomposition, vec_sum, Camera, DistortedPixel, MultiCameraSystem, MvgError,
     PointWorldFrame, PointWorldFrameMaybeWithSumReprojError, PointWorldFrameWithSumReprojError,
     UndistortedPixel, WorldCoordAndUndistorted2D,
@@ -36,10 +36,10 @@ pub enum FlydraMvgError {
     #[error("cannot convert to or from flydra xml: {msg}")]
     FailedFlydraXmlConversion { msg: &'static str },
     #[error("MVG error: {0}")]
-    MvgError(#[from] mvg::MvgError),
+    MvgError(#[from] braid_mvg::MvgError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("not implemented operation in mvg")]
+    #[error("not implemented operation in braid_mvg")]
     NotImplemented,
     #[error("no valid root found")]
     NoValidRootFound,
@@ -364,7 +364,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
         self.cam.intrinsics()
     }
 
-    pub fn undistort(&self, a: &mvg::DistortedPixel<R>) -> mvg::UndistortedPixel<R> {
+    pub fn undistort(&self, a: &braid_mvg::DistortedPixel<R>) -> braid_mvg::UndistortedPixel<R> {
         let a2: cam_geom::Pixels<R, U1, _> = a.into();
         let b1: opencv_ros_camera::UndistortedPixels<R, U1, _> =
             self.cam.intrinsics().undistort(&a2);
@@ -606,13 +606,13 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 ));
             }
         }
-        let pt = cam_geom::best_intersection_of_rays(&rays).map_err(mvg::MvgError::from)?;
+        let pt = cam_geom::best_intersection_of_rays(&rays).map_err(braid_mvg::MvgError::from)?;
         Ok(pt.into())
     }
 
     /// Find 3D coordinate using pixel coordinates from cameras
     fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
-        Ok(self.system.find3d(points).map_err(mvg::MvgError::from)?)
+        Ok(self.system.find3d(points).map_err(braid_mvg::MvgError::from)?)
     }
 
     /// Find reprojection error of 3D coordinate into pixel coordinates
@@ -688,7 +688,7 @@ fn loadtxt_dyn<R>(p: impl AsRef<std::path::Path>) -> Result<OMatrix<R, Dyn, Dyn>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
-    let buf = std::fs::read_to_string(p.as_ref()).map_err(mvg::MvgError::from)?;
+    let buf = std::fs::read_to_string(p.as_ref()).map_err(braid_mvg::MvgError::from)?;
     let lines: Vec<&str> = buf.trim().split("\n").collect();
     let lines: Vec<&str> = lines
         .into_iter()
@@ -863,7 +863,7 @@ where
             || cal_fname.extension() == Some(std::ffi::OsStr::new("pymvg"))
         {
             // Assume any .json or .pymvg file is a pymvg file.
-            let system = mvg::MultiCameraSystem::from_pymvg_json(cal_file)?;
+            let system = braid_mvg::MultiCameraSystem::from_pymvg_json(cal_file)?;
             Ok(Self::from_system(system, None))
         } else {
             // Otherwise, assume it is a flydra xml file.
@@ -874,7 +874,7 @@ where
 
 // FlydraCamera ----------------------------------------------
 
-/// A helper trait to implement conversions to and from `mvg::Camera`
+/// A helper trait to implement conversions to and from `braid_mvg::Camera`
 pub trait FlydraCamera<R: RealField + Copy + serde::Serialize> {
     fn to_flydra(&self, name: &str) -> Result<SingleCameraCalibration<R>>;
     fn from_flydra(cam: &SingleCameraCalibration<R>) -> Result<(String, Camera<R>)>;
@@ -1032,7 +1032,7 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
         };
     let distortion = Distortion::from_opencv_vec(distortion);
     let intrinsics = RosOpenCvIntrinsics::from_components(p, k, distortion, rect)
-        .map_err(mvg::MvgError::from)?;
+        .map_err(braid_mvg::MvgError::from)?;
     let camcenter = pmat2cam_center(&cam.calibration_matrix);
 
     let extrinsics = ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter);
@@ -1041,7 +1041,7 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
     Ok((name, cam2))
 }
 
-/// helper function (duplicated from mvg)
+/// helper function (duplicated from braid_mvg)
 #[allow(clippy::many_single_char_names)]
 fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = (*p).remove_column(0).determinant();

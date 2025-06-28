@@ -10,7 +10,7 @@ use nalgebra::{
     geometry::{Point2, Point3, Quaternion},
 };
 
-use mvg::{Camera, DistortedPixel, PointWorldFrame};
+use braid_mvg::{Camera, DistortedPixel, PointWorldFrame};
 
 fn generate_uv_raw(width: usize, height: usize) -> Vec<DistortedPixel<f64>> {
     let step = 5;
@@ -47,8 +47,8 @@ fn test_distortion_roundtrip() {
 //     let intrinsics = RosOpenCvIntrinsics::from_params_with_distortion(
 //         100.0, 1.0, 101.0, 320.0, 240.0, distortion,
 //     );
-//     let extrinsics = mvg::extrinsics::make_default_extrinsics();
-//     let cam = mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
+//     let extrinsics = braid_mvg::extrinsics::make_default_extrinsics();
+//     let cam = braid_mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
 //     let linearized = cam.linearize()?;
 //     assert!(linearized.intrinsics().distortion.is_linear());
 //     let uv_raws = generate_uv_raw(width, height);
@@ -89,8 +89,8 @@ fn test_linearized_cam_geom_camera() -> anyhow::Result<()> {
     let intrinsics = RosOpenCvIntrinsics::from_params_with_distortion(
         100.0, 1.0, 101.0, 320.0, 240.0, distortion,
     );
-    let extrinsics = mvg::extrinsics::make_default_extrinsics();
-    let cam = mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
+    let extrinsics = braid_mvg::extrinsics::make_default_extrinsics();
+    let cam = braid_mvg::Camera::new(width, height, extrinsics, intrinsics.clone())?;
     let linearized = cam.linearize_to_cam_geom();
     let uv_raws = generate_uv_raw(width, height);
     for distorted_orig in uv_raws.iter() {
@@ -113,10 +113,10 @@ fn test_linearized_cam_geom_camera() -> anyhow::Result<()> {
 #[test]
 fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
-    let system1 = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
+    let system1 = braid_mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     let mut buf2 = Vec::new();
     system1.to_pymvg_writer(&mut buf2)?;
-    let system2 = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
+    let system2 = braid_mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     assert_eq!(system1, system2);
 
     // Now check again by passing points. Note that if this fails while the
@@ -147,7 +147,7 @@ fn test_cam_system_pymvg_roundtrip() -> anyhow::Result<()> {
 #[test]
 fn test_load_pymvg() -> anyhow::Result<()> {
     let buf = include_str!("pymvg-example.json");
-    let system = mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
+    let system = braid_mvg::MultiCameraSystem::<f64>::from_pymvg_json(buf.as_bytes())?;
     assert_eq!(system.cams_by_name().len(), 1);
     let cam = system.cam_by_name("cam1").unwrap();
 
@@ -238,7 +238,7 @@ fn get_cam() -> Camera<f64> {
         0.644637681813,
     ));
     let translation = Point3::new(0.273485679077, 0.0707310128808, 0.0877802104531);
-    let extrinsics = mvg::extrinsics::from_rquat_translation(rquat, translation);
+    let extrinsics = braid_mvg::extrinsics::from_rquat_translation(rquat, translation);
 
     Camera::new(
         named_intrinsics.width,
@@ -270,7 +270,7 @@ fn test_project_3d_roundtrip() {
 fn test_dlt_mvg() {
     use nalgebra::{Dyn, OMatrix, U2, U3};
 
-    let cam = mvg::Camera::<f64>::default();
+    let cam = braid_mvg::Camera::<f64>::default();
 
     let mut x3d_data: Vec<f64> = Vec::new();
     let mut x2d_data: Vec<f64> = Vec::new();
@@ -281,7 +281,7 @@ fn test_dlt_mvg() {
     for x in [-1.0f64, 0.0, 1.0].iter() {
         for y in [-1.0f64, 0.0, 1.0].iter() {
             for z in [-1.0f64, 0.0, 1.0].iter() {
-                let pt = mvg::PointWorldFrame {
+                let pt = braid_mvg::PointWorldFrame {
                     coords: Point3::new(*x, *y, *z),
                 };
                 let uv = cam.project_3d_to_distorted_pixel(&pt);
@@ -303,7 +303,7 @@ fn test_dlt_mvg() {
     let dlt_results = dlt::dlt(&x3d, &x2d, 1e-10).unwrap();
 
     // create new camera from DLT results
-    let cam2 = mvg::Camera::from_pmat(cam.width(), cam.height(), &dlt_results).unwrap();
+    let cam2 = braid_mvg::Camera::from_pmat(cam.width(), cam.height(), &dlt_results).unwrap();
 
     // project original points again to 2D with the new camera
     let epsilon = 1e-7;

@@ -109,7 +109,7 @@ impl SyncedPictures {
                 .kalman_estimates
                 .iter()
                 .filter_map(|kest_row| {
-                    let pt3d = mvg::PointWorldFrame {
+                    let pt3d = braid_mvg::PointWorldFrame {
                         coords: nalgebra::Point3::new(kest_row.x, kest_row.y, kest_row.z),
                     };
                     let pix2d = cam.project_3d_to_distorted_pixel(&pt3d);

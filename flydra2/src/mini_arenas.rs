@@ -90,7 +90,7 @@ pub(crate) fn build_mini_arena_images(
 
                 for row in 0..cam.height() {
                     for col in 0..cam.width() {
-                        let pt = mvg::DistortedPixel {
+                        let pt = braid_mvg::DistortedPixel {
                             coords: Point2::new(col as f64, row as f64),
                         };
                         let ray = cam.project_distorted_pixel_to_ray(&pt);

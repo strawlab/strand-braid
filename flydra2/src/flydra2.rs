@@ -25,7 +25,7 @@ use nalgebra::{
 };
 
 #[allow(unused_imports)]
-use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
+use braid_mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
 pub use braidz_types::BraidMetadata;
 
@@ -264,7 +264,7 @@ fn to_world_point<R: RealField + Copy>(vec6: &OVector<R, U6>) -> PointWorldFrame
 /// image processing results from a single camera
 #[derive(Clone, Debug, PartialEq)]
 pub struct FrameData {
-    /// camera name as kept by mvg::MultiCamSystem
+    /// camera name as kept by braid_mvg::MultiCamSystem
     ///
     /// This can be any UTF-8 string.
     pub cam_name: RawCamName,

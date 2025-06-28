@@ -563,7 +563,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 .zip(self.cam_dims.iter())
             {
                 // Log pinhole in rerun 3D space.
-                use mvg::rerun_io::AsRerunTransform3D;
+                use braid_mvg::rerun_io::AsRerunTransform3D;
                 let base_path = format!("{RR_CAM_BASE_PATH}/{cam_name}");
                 let extrinsics = cam.extrinsics();
                 rec.log(
@@ -598,7 +598,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                     // TODO: confirm that `intrinsics_linear` is equal to
                     // `cam.intrinsics()`. Probably it won't be while 2499 is open.
                     let pinhole =
-                        mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(&intrinsics_linear, *w, *h)
+                        braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(&intrinsics_linear, *w, *h)
                             .unwrap();
                     rec.log(raw_path.as_str(), &pinhole).unwrap();
                 }

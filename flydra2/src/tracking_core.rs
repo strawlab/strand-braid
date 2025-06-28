@@ -336,7 +336,7 @@ impl LivingModel<ModelFramePosteriors> {
             .iter()
             .map(|x| x.reproj_dist)
             .collect();
-        let cum_reproj = mvg::vec_sum(&r);
+        let cum_reproj = braid_mvg::vec_sum(&r);
         let n_pts = r.len();
         let mean_reproj_dist_100x = if n_pts == 0 {
             None
@@ -512,7 +512,7 @@ where
 pub(crate) trait HypothesisTest: Send + dyn_clone::DynClone {
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, braid_mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult>;
 }
 
@@ -1074,7 +1074,7 @@ fn filter_points_and_take_first(
     // fdp_vec: &[FrameDataAndPoints],
     fdp_vec: &UnusedDataPerArena,
     minimum_pixel_abs_zscore: f64,
-) -> BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>> {
+) -> BTreeMap<RawCamName, braid_mvg::DistortedPixel<MyFloat>> {
     fdp_vec
         .0
         .per_cam
@@ -1108,8 +1108,8 @@ fn pixel_abszscore(pt: &FlydraRawUdpPoint) -> f64 {
     ((cur_val - pt.mean_val) / pt.sumsqf_val).abs()
 }
 
-fn convert_pt(input: &braid_types::FlydraRawUdpPoint) -> mvg::DistortedPixel<MyFloat> {
-    mvg::DistortedPixel {
+fn convert_pt(input: &braid_types::FlydraRawUdpPoint) -> braid_mvg::DistortedPixel<MyFloat> {
+    braid_mvg::DistortedPixel {
         coords: nalgebra::geometry::Point2::new(input.x0_abs, input.y0_abs),
     }
 }

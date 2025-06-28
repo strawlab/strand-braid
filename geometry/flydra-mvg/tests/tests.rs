@@ -5,7 +5,7 @@ use flydra_mvg::FlydraMultiCameraSystem;
 
 use nalgebra::geometry::{Point2, Point3};
 
-use mvg::{DistortedPixel, PointWorldFrame};
+use braid_mvg::{DistortedPixel, PointWorldFrame};
 
 macro_rules! check_project_3d_roundtrip {
     ($cam: expr) => {{

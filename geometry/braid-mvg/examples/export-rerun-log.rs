@@ -2,7 +2,7 @@ use cam_geom::ExtrinsicParameters;
 use na::{Matrix3xX, Vector3};
 use nalgebra as na;
 
-use mvg::rerun_io::AsRerunTransform3D;
+use braid_mvg::rerun_io::AsRerunTransform3D;
 
 fn main() -> eyre::Result<()> {
     // Create 3d points.
@@ -62,7 +62,7 @@ fn main() -> eyre::Result<()> {
     // Log camera intrinsics to rerun.
     rec.log(
         "/world/camera/cam1/raw",
-        &mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(cam.intrinsics(), width, height)?,
+        &braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(cam.intrinsics(), width, height)?,
     )
     .unwrap();
 

@@ -1,7 +1,7 @@
 use clap::Parser;
 use eyre::{bail, Context, Result};
 use flydra_mvg::FlydraMultiCameraSystem;
-use mvg::align_points::{align_points, Algorithm};
+use braid_mvg::align_points::{align_points, Algorithm};
 use nalgebra::{Dyn, OMatrix, U1, U3};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

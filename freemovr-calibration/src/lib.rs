@@ -195,7 +195,7 @@ pub struct PinholeCalData {
     data: crate::pinhole_wizard_yaml_support::SimplePinholeNoFile,
     // display: crate::types::SimpleDisplay,
     geom: TriMeshGeom,
-    pinhole_fits: Vec<(types::VirtualDisplayName, mvg::Camera<f64>)>,
+    pinhole_fits: Vec<(types::VirtualDisplayName, braid_mvg::Camera<f64>)>,
 }
 
 impl PinholeCalData {
@@ -227,7 +227,7 @@ pub struct ActualFiles {
     data: pinhole_wizard_yaml_support::LoadedPinholeInputFile,
     loaded_geom: Box<dyn DisplayGeometry>,
     trimesh: Option<TriMeshGeom>,
-    pinhole_fits: Vec<(types::VirtualDisplayName, mvg::Camera<f64>)>,
+    pinhole_fits: Vec<(types::VirtualDisplayName, braid_mvg::Camera<f64>)>,
 }
 
 impl ActualFiles {
@@ -257,7 +257,7 @@ impl ActualFiles {
 
 // TODO remove this trait
 pub trait PinholeCal {
-    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, mvg::Camera<f64>)];
+    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, braid_mvg::Camera<f64>)];
     fn display_width_height(&self) -> (usize, usize);
     fn vdisp_mask(
         &self,
@@ -269,7 +269,7 @@ pub trait PinholeCal {
 }
 
 impl PinholeCal for ActualFiles {
-    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, mvg::Camera<f64>)] {
+    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, braid_mvg::Camera<f64>)] {
         &self.pinhole_fits
     }
     fn display_width_height(&self) -> (usize, usize) {
@@ -294,7 +294,7 @@ impl PinholeCal for ActualFiles {
 }
 
 impl PinholeCal for PinholeCalData {
-    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, mvg::Camera<f64>)] {
+    fn pinhole_fits(&self) -> &[(types::VirtualDisplayName, braid_mvg::Camera<f64>)] {
         &self.pinhole_fits
     }
     fn display_width_height(&self) -> (usize, usize) {
@@ -491,7 +491,7 @@ pub enum Computed {
 
 /// Given a camera and a geometry, compute something (e.g. texture coordinates).
 pub fn compute_image_for_camera_view(
-    cam: &mvg::Camera<f64>,
+    cam: &braid_mvg::Camera<f64>,
     show: Computable,
     geom: &dyn DisplayGeometry,
     mask: &Mask,
@@ -522,7 +522,7 @@ pub fn compute_image_for_camera_view(
                 continue;
             }
 
-            let cam_px = mvg::DistortedPixel { coords };
+            let cam_px = braid_mvg::DistortedPixel { coords };
 
             // let undist_px = cam.intrinsics().undistort(&cam_px);
             // let pt_cam = cam.intrinsics().project_pixel_to_3d_camera_with_dist(&undist_px, 1.0);
@@ -759,7 +759,7 @@ struct CommentParams {
 /// them.
 pub fn export_to_csv<W, TZ>(
     mut wtr: &mut W,
-    cam: &mvg::Camera<f64>,
+    cam: &braid_mvg::Camera<f64>,
     geom: &TriMeshGeom,
     created_at: Option<chrono::DateTime<TZ>>,
 ) -> Result<()>
@@ -795,7 +795,7 @@ where
             let wc = geom.worldcoords().points()[*tri_idx];
             let tc = geom.texcoords().points()[*tri_idx];
 
-            let wc2 = mvg::PointWorldFrame { coords: wc };
+            let wc2 = braid_mvg::PointWorldFrame { coords: wc };
             let proj = cam.project_3d_to_pixel(&wc2);
             let wc2b: cam_geom::Points<_, _, nalgebra::U1, _> = (&wc2).into();
             let cam_frame = cam.extrinsics().world_to_camera(&wc2b);

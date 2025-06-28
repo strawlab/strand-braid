@@ -265,7 +265,7 @@ fn undistort_points_and_assign_arena(
                 MiniArenaLocator::OneArena
             };
 
-            let distorted = mvg::DistortedPixel {
+            let distorted = braid_mvg::DistortedPixel {
                 coords: Point2::new(pt.x0_abs, pt.y0_abs),
             };
             let undist = cam.undistort(&distorted);

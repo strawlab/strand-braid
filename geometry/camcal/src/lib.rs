@@ -47,7 +47,7 @@ pub fn save_yaml<P: AsRef<std::path::Path>>(
 ) -> eyre::Result<()> {
     let intrinsics = convert_to_cam_geom::<f64>(&raw_opencv_cal);
 
-    // Convert from mvg to ROS format.
+    // Convert from braid_mvg to ROS format.
     let ci: opencv_ros_camera::RosCameraInfo<_> = opencv_ros_camera::NamedIntrinsicParameters {
         intrinsics,
         width: raw_opencv_cal.image_width as usize,

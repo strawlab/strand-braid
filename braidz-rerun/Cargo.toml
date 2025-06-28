@@ -20,7 +20,7 @@ machine-vision-formats.workspace = true
 convert-image.workspace = true
 
 braidz-parser.workspace = true
-mvg = { workspace = true, features = ["rerun-io"] }
+braid-mvg = { workspace = true, features = ["rerun-io"] }
 braidz-types.workspace = true
 braid-types.workspace = true
 frame-source.workspace = true

@@ -81,7 +81,7 @@ pub struct CameraSummary {
 }
 
 impl CameraSummary {
-    pub fn new(name: &str, cam: &mvg::Camera<f64>) -> Self {
+    pub fn new(name: &str, cam: &braid_mvg::Camera<f64>) -> Self {
         let cc = cam.extrinsics().camcenter();
         let fx = cam.intrinsics().fx();
         let fy = cam.intrinsics().fy();
@@ -121,7 +121,7 @@ pub struct CalibrationInfo {
     /// If `Some(n)`, material with refractive index `n` at z<0.
     pub water: Option<f64>,
     /// All the cameras in this system.
-    pub cameras: mvg::MultiCameraSystem<f64>,
+    pub cameras: braid_mvg::MultiCameraSystem<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

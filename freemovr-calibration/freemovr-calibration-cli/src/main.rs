@@ -181,7 +181,7 @@ fn debug_obj2csv(c: DebugObj2Csv) -> anyhow::Result<()> {
     };
     let intrinsics: cam_geom::IntrinsicParametersPerspective<_> = params.into();
 
-    let cam = mvg::Camera::new(1024, 768, extrinsics, intrinsics.into())?;
+    let cam = braid_mvg::Camera::new(1024, 768, extrinsics, intrinsics.into())?;
 
     let out_fname = "out.csv";
     let mut file = std::fs::File::create(out_fname)?;

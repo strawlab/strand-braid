@@ -12,7 +12,7 @@ opencv-ros-camera.workspace = true
 cam-geom.workspace = true
 
 flydra-mvg.workspace = true
-mvg.workspace = true
+braid-mvg.workspace = true
 strand-http-video-streaming-types.workspace = true
 braid-types.workspace = true
 

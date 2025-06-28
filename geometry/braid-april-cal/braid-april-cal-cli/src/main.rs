@@ -1,7 +1,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::Context;
-use mvg::DistortedPixel;
+use braid_mvg::DistortedPixel;
 use nalgebra::Point2;
 // use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo, RosOpenCvIntrinsics};
@@ -646,7 +646,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                 // use original distortion
                 i.distortion = old_cam.intrinsics().distortion.clone();
             }
-            let cam = mvg::Camera::new(old_cam.width(), old_cam.height(), e, i)?;
+            let cam = braid_mvg::Camera::new(old_cam.width(), old_cam.height(), e, i)?;
             cams_by_name.insert(name.clone(), cam);
         }
         let ba_system = flydra_mvg::FlydraMultiCameraSystem::new(cams_by_name, None);
@@ -732,7 +732,7 @@ fn show_points_csv(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut
 
 fn show_cams(
     cam_names: &[String],
-    system: &mvg::MultiCameraSystem<f64>,
+    system: &braid_mvg::MultiCameraSystem<f64>,
     lines: &mut LineBuf,
 ) -> eyre::Result<()> {
     lines.push(format!(
@@ -753,7 +753,7 @@ fn show_cams(
 
 fn show_reproj_matrix(
     cam_names: &[String],
-    system: &mvg::MultiCameraSystem<f64>,
+    system: &braid_mvg::MultiCameraSystem<f64>,
     observed_per_cam: &BTreeMap<String, BTreeMap<u32, (f64, f64)>>,
     tag_id_to_pt_idx: &BTreeMap<u32, usize>,
     points: &nalgebra::Matrix3xX<f64>,

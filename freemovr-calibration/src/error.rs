@@ -1,7 +1,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("mvg error: {0}")]
-    Mvg(#[from] mvg::MvgError),
+    #[error("braid_mvg error: {0}")]
+    Mvg(#[from] braid_mvg::MvgError),
     #[error("{source}")]
     IoError {
         #[from]

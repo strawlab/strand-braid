@@ -3,7 +3,7 @@ use tracing::error;
 
 use braid_types::{RawCamName, TrackingParams};
 
-use mvg::{MvgError, PointWorldFrameWithSumReprojError};
+use braid_mvg::{MvgError, PointWorldFrameWithSumReprojError};
 
 use crate::{
     safe_u8, set_of_subsets, tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult,
@@ -76,7 +76,7 @@ impl HypothesisTest for NewObjectTestFull3D {
     /// framenumber and timestamp.
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, braid_mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         // TODO: convert this to use undistorted points and then remove
         // orig_distorted, also from the structure it is in.

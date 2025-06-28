@@ -250,7 +250,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
             }
 
             if let Some(found) = found {
-                let world_pt = mvg::PointWorldFrame {
+                let world_pt = braid_mvg::PointWorldFrame {
                     coords: nalgebra::Point3::from_slice(&found.object_point),
                 };
                 let projected_pixel = cam.project_3d_to_distorted_pixel(&world_pt);

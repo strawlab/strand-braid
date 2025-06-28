@@ -222,7 +222,7 @@ pub async fn new_model_server(
                                 let buf = std::io::Cursor::new(calib_xml);
                                 let system = FlydraMultiCameraSystem::<f64>::from_flydra_xml(buf)?;
                                 for (cam_name, cam) in system.system().cams_by_name().iter() {
-                                    use mvg::rerun_io::AsRerunTransform3D;
+                                    use braid_mvg::rerun_io::AsRerunTransform3D;
                                     const CAMERA_BASE_PATH: &str = "/world/camera";
                                     let base_path = format!("{CAMERA_BASE_PATH}/{cam_name}");
                                     rec.log(
@@ -256,7 +256,7 @@ pub async fn new_model_server(
                                     let intrinsics: cam_geom::IntrinsicParametersPerspective<_> =
                                         params.into();
                                     // TODO: confirm that `intrinsics` is equal to `cam.intrinsics()`.
-                                    let pinhole = mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                                    let pinhole = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
                                         &intrinsics,
                                         w,
                                         h,

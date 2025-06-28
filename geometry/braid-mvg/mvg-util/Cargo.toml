@@ -5,7 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 
 [dependencies]
-mvg.workspace = true
+braid-mvg.workspace = true
 flydra-mvg.workspace = true
 clap.workspace = true
 nalgebra.workspace = true

@@ -27,7 +27,7 @@ pub enum Error {
     #[error("{source}")]
     Mvg {
         #[from]
-        source: mvg::MvgError,
+        source: braid_mvg::MvgError,
     },
     #[error("{0}")]
     FlydraMvg(#[from] flydra_mvg::FlydraMvgError),

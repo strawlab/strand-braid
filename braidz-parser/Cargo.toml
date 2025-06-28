@@ -26,7 +26,7 @@ groupby.workspace = true
 braidz-types.workspace = true
 strand-datetime-conversion.workspace = true
 braid-types.workspace = true
-mvg.workspace = true
+braid-mvg.workspace = true
 flydra-mvg.workspace = true
 zip-or-dir.workspace = true
 

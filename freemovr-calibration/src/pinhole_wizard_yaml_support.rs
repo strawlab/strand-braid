@@ -450,7 +450,7 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
     data: &D,
     geom: &dyn DisplayGeometry,
     epsilon: f64,
-) -> Result<Vec<(VirtualDisplayName, mvg::Camera<f64>)>> {
+) -> Result<Vec<(VirtualDisplayName, braid_mvg::Camera<f64>)>> {
     // TODO: use checkerboards if available and share intrinsics across all virtual displays
     if data.checkerboards().is_some() {
         warn!("checkerboard data present, but using with no distortion.");
@@ -496,7 +496,7 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
 
         // println!("pmat: {}", pretty_print_nalgebra::pretty_print!(&dlt_pmat));
 
-        let cam1 = mvg::Camera::from_pmat(data.width(), data.height(), &dlt_pmat)?;
+        let cam1 = braid_mvg::Camera::from_pmat(data.width(), data.height(), &dlt_pmat)?;
         let cam2 = cam1.flip().expect("flip camera");
 
         // take whichever camera points towards objects
@@ -510,8 +510,8 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
     Ok(result)
 }
 
-fn mean_forward(cam: &mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {
-    use mvg::PointWorldFrame;
+fn mean_forward(cam: &braid_mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {
+    use braid_mvg::PointWorldFrame;
     let mut accum = 0.0;
     for pt in pts {
         let o = pt.object_point;
@@ -784,7 +784,7 @@ mod tests {
             cy,
         };
         let intrinsics: cam_geom::IntrinsicParametersPerspective<_> = params.into();
-        let cam = mvg::Camera::new(
+        let cam = braid_mvg::Camera::new(
             2 * cx as usize,
             2 * cy as usize,
             extrinsics,

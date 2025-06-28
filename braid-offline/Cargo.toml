@@ -33,7 +33,7 @@ zip-or-dir.workspace = true
 flydra-mvg.workspace = true
 braidz-parser.workspace = true
 flydra-pt-detect-cfg.workspace = true
-mvg.workspace = true
+braid-mvg.workspace = true
 flydra-feature-detector-types.workspace = true
 
 [dev-dependencies]

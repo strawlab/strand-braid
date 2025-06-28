@@ -7,7 +7,7 @@ edition = "2021"
 cam-geom.workspace = true
 clap.workspace = true
 levenberg-marquardt.workspace = true
-mvg = { workspace = true, features = ["rerun-io"] }
+braid-mvg = { workspace = true, features = ["rerun-io"] }
 nalgebra.workspace = true
 num-traits.workspace = true
 opencv-ros-camera.workspace = true

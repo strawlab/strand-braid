@@ -1,5 +1,5 @@
 use flydra_mvg::MultiCamera;
-use mvg::DistortedPixel;
+use braid_mvg::DistortedPixel;
 use nalgebra::{Point3, RealField, Vector3};
 
 pub(crate) fn ray_to_flat_3d(ray: &parry3d_f64::query::Ray) -> Option<Point3<f64>> {

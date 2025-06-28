@@ -56,7 +56,7 @@ braidz-types.workspace = true
 braidz-writer.workspace = true
 strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
-mvg = { workspace = true, features = ["rerun-io"] }
+braid-mvg = { workspace = true, features = ["rerun-io"] }
 flydra-mvg.workspace = true
 strand-http-video-streaming-types.workspace = true
 braid-types.workspace = true

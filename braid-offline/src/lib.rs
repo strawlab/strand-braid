@@ -276,9 +276,9 @@ where
                         new_cams.insert(raw_name, orig_value.clone());
                     }
                     cams = if let Some(comment) = cams.comment() {
-                        mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
+                        braid_mvg::MultiCameraSystem::new_with_comment(new_cams, comment.clone())
                     } else {
-                        mvg::MultiCameraSystem::new(new_cams)
+                        braid_mvg::MultiCameraSystem::new(new_cams)
                     };
                 }
                 let water = ci.water;

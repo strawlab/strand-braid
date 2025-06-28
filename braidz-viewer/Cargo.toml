@@ -36,7 +36,7 @@ plotters-canvas = "0.3"
 serde.workspace = true
 futures.workspace = true
 
-mvg.workspace = true
+braid-mvg.workspace = true
 zip-or-dir.workspace = true
 braidz-types.workspace = true
 braidz-parser.workspace = true

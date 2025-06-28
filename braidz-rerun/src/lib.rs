@@ -2,7 +2,7 @@ use braidz_types::{CamNum, camera_name_from_filename};
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
-use mvg::rerun_io::AsRerunTransform3D;
+use braid_mvg::rerun_io::AsRerunTransform3D;
 use re_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
@@ -33,7 +33,7 @@ struct CachedCamData {
     /// If present, the base path for logging the undistorted (linearized) 2D points.
     log_undistorted_2d_points: Option<String>,
     /// The camera calibration, if present.
-    calibration: Option<mvg::Camera<f64>>,
+    calibration: Option<braid_mvg::Camera<f64>>,
     /// non-linear intrinsics, if present
     nl_intrinsics: Option<opencv_ros_camera::RosOpenCvIntrinsics<f64>>,
     /// The camera number
@@ -125,7 +125,7 @@ impl OfflineBraidzRerunLogger {
     pub fn add_camera_calibration(
         &mut self,
         cam_name: &str,
-        cam: &mvg::Camera<f64>,
+        cam: &braid_mvg::Camera<f64>,
     ) -> eyre::Result<()> {
         let camn = self
             .camid2camn
@@ -155,7 +155,7 @@ impl OfflineBraidzRerunLogger {
                     cam_name: cam_name.to_string(),
                 }
             }
-            Err(mvg::MvgError::RerunUnsupportedIntrinsics) => {
+            Err(braid_mvg::MvgError::RerunUnsupportedIntrinsics) => {
                 let lin_path = format!("{base_path}/lin"); // undistorted = linear
                 if !self.did_show_2499_warning {
                     tracing::warn!(
@@ -171,7 +171,7 @@ impl OfflineBraidzRerunLogger {
                 let lin_cam = cam.linearize_to_cam_geom();
                 // This returns error in case of skew, because rerun's pinhole
                 // model does not support skew.
-                let re_cam = mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                let re_cam = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
                     lin_cam.intrinsics(),
                     cam.width(),
                     cam.height(),
@@ -402,7 +402,7 @@ impl OfflineBraidzRerunLogger {
                 for (_cam_name, cam_data) in self.by_camname.iter() {
                     // TODO: how to annotate this with row.obj_id?
                     let cam_cal = &cam_data.calibration;
-                    let pt3d = mvg::PointWorldFrame {
+                    let pt3d = braid_mvg::PointWorldFrame {
                         coords: nalgebra::Point3::new(row.x, row.y, row.z),
                     };
                     let labels = vec![format!("{}", row.obj_id)];

@@ -11,7 +11,7 @@ use strand_cam_storetype::{LedProgramConfig, StoreType, ToLedBoxDevice};
 // create a long-lived future that will process data from flydra and turn on
 // LEDs with it.
 pub async fn create_message_handler(
-    cam_cal: mvg::Camera<MyFloat>,
+    cam_cal: braid_mvg::Camera<MyFloat>,
     mut model_receiver: tokio::sync::mpsc::Receiver<(
         flydra2::SendType,
         flydra2::TimeDataPassthrough,
@@ -20,12 +20,12 @@ pub async fn create_message_handler(
     ssa2: Arc<RwLock<ChangeTracker<StoreType>>>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
 ) -> Result<()> {
-    use mvg::PointWorldFrame;
+    use braid_mvg::PointWorldFrame;
     use na::Point3;
 
     info!("starting new flydratrax message handler");
 
-    let mut cur_pos2d: Option<(u32, mvg::DistortedPixel<f64>)> = None;
+    let mut cur_pos2d: Option<(u32, braid_mvg::DistortedPixel<f64>)> = None;
 
     loop {
         let full_msg = match model_receiver.recv().await {
@@ -46,7 +46,7 @@ pub async fn create_message_handler(
                 // It is a bit strange to go back from 3D->2D coords, but the tracking
                 // is done in 3D, so here we take the tracking data and put back in 2D.
 
-                let next: Option<(u32, mvg::DistortedPixel<f64>)> = match cur_pos2d {
+                let next: Option<(u32, braid_mvg::DistortedPixel<f64>)> = match cur_pos2d {
                     None => {
                         // We are not tracking anything yet, track this obj_id.
                         Some((record.obj_id, pt2d))

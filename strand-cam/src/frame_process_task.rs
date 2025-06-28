@@ -288,7 +288,8 @@ pub(crate) async fn frame_process_task<'a>(
                                     }
                                     crate::CalSource::PymvgJsonFile(cal_fname) => {
                                         let rdr = std::fs::File::open(&cal_fname)?;
-                                        let sys = mvg::MultiCameraSystem::from_pymvg_json(rdr)?;
+                                        let sys =
+                                            braid_mvg::MultiCameraSystem::from_pymvg_json(rdr)?;
                                         flydra_mvg::FlydraMultiCameraSystem::from_system(sys, None)
                                     }
                                 };

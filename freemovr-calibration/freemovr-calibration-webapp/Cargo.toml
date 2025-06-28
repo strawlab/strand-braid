@@ -24,7 +24,7 @@ serde.workspace = true
 chrono.workspace = true
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 
-mvg.workspace = true
+braid-mvg.workspace = true
 strand-cam-enum-iter.workspace = true
 ads-webasm = { workspace = true, features = ["obj", "csv-widget"] }
 

@@ -22,7 +22,7 @@ impl NewObjectTestFlat3D {
 impl HypothesisTest for NewObjectTestFlat3D {
     fn hypothesis_test(
         &self,
-        good_points: &BTreeMap<RawCamName, mvg::DistortedPixel<MyFloat>>,
+        good_points: &BTreeMap<RawCamName, braid_mvg::DistortedPixel<MyFloat>>,
     ) -> Option<HypothesisTestResult> {
         let recon_ref = &self.recon;
         assert!(good_points.len() < 2, "cannot have >1 camera for Flat3D");

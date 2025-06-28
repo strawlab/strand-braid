@@ -592,7 +592,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                 cams0.push(cam_fixed.clone());
                 cams_by_name_ba.insert(
                     name.clone(),
-                    mvg::Camera::new_from_cam_geom(mcsc_cam.width(), mcsc_cam.height(), cam_fixed)?,
+                    braid_mvg::Camera::new_from_cam_geom(mcsc_cam.width(), mcsc_cam.height(), cam_fixed)?,
                 );
             }
             let start_ba_system = flydra_mvg::FlydraMultiCameraSystem::new(cams_by_name_ba, None);
@@ -652,7 +652,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         {
             let e = ba_cam.extrinsics().clone();
             let i = ba_cam.intrinsics().clone();
-            let cam = mvg::Camera::new(old_cam.width(), old_cam.height(), e, i)?;
+            let cam = braid_mvg::Camera::new(old_cam.width(), old_cam.height(), e, i)?;
             cams_by_name.insert(name.clone(), cam);
             cam_names.push(name.clone());
         }

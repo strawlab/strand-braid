@@ -92,7 +92,7 @@ fn test_calibration_pymvg() {
         .to_pymvg_writer(&mut pymvg_json_buf)
         .unwrap();
 
-    use mvg::MultiCameraSystem;
+    use braid_mvg::MultiCameraSystem;
     let loaded: MultiCameraSystem<f64> =
         MultiCameraSystem::from_pymvg_json(pymvg_json_buf.as_slice()).unwrap();
 

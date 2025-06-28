@@ -104,7 +104,7 @@ pub struct StoreType {
     pub format_str_apriltag_csv: String,
     pub had_frame_processing_error: bool,
     /// The camera calibration (does not contain potential information about water)
-    pub camera_calibration: Option<mvg::Camera<f64>>,
+    pub camera_calibration: Option<braid_mvg::Camera<f64>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]

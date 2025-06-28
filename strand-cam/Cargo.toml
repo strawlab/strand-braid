@@ -72,7 +72,7 @@ imops.workspace = true
 strand-led-box-comms.workspace = true
 braid-types = { workspace = true, features = ["start-listener", "build-urls"] }
 flydra2 = { workspace = true, optional = true }
-mvg = { workspace = true, optional = true }
+braid-mvg = { workspace = true, optional = true }
 flydra-mvg = { workspace = true, optional = true }
 tokio-serial.workspace = true
 bytes.workspace = true
@@ -134,7 +134,7 @@ fiducial = [
     "apriltag-detection-writer",
 ]
 
-checkercal = ["opencv-calibrate", "camcal", "mvg"]
+checkercal = ["opencv-calibrate", "camcal", "braid-mvg"]
 
 # Serve style
 ## Bundle files into executable
@@ -147,7 +147,7 @@ imtrack-absdiff = []
 
 flydratrax = [
     "braid-config-data",
-    "mvg",
+    "braid-mvg",
     "strand-cam-pseudo-cal",
     "flydra-mvg",
     "approx",

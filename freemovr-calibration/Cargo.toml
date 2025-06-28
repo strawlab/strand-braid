@@ -24,7 +24,7 @@ csv.workspace = true
 chrono.workspace = true
 
 dlt = { workspace = true, features = ["default"] }
-mvg.workspace = true
+braid-mvg.workspace = true
 camcal = { workspace = true, optional = true }
 opencv-calibrate = { workspace = true, optional = true }
 simple-obj-parse.workspace = true

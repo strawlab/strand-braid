@@ -12,5 +12,5 @@ serde.workspace = true
 chrono.workspace = true
 
 braid-types.workspace = true
-mvg.workspace = true
+braid-mvg.workspace = true
 regex.workspace = true

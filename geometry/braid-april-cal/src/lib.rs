@@ -30,14 +30,14 @@ impl<R: RealField> From<AprilTagCorrespondingPoint<R>> for dlt::CorrespondingPoi
     }
 }
 
-fn cam_with_params(orig: &mvg::Camera<f64>, param: &[f64]) -> Result<mvg::Camera<f64>, MyError> {
+fn cam_with_params(orig: &braid_mvg::Camera<f64>, param: &[f64]) -> Result<braid_mvg::Camera<f64>, MyError> {
     let this_distortion = opencv_ros_camera::Distortion::from_opencv_vec(Vector5::new(
         param[0], param[1], param[2], param[3], 0.0,
     ));
     let mut this_intrinsics = orig.intrinsics().clone();
     this_intrinsics.distortion = this_distortion;
 
-    let this_cam = mvg::Camera::new(
+    let this_cam = braid_mvg::Camera::new(
         orig.width(),
         orig.height(),
         orig.extrinsics().clone(),
@@ -47,7 +47,7 @@ fn cam_with_params(orig: &mvg::Camera<f64>, param: &[f64]) -> Result<mvg::Camera
 }
 
 struct CalibProblem<'a> {
-    linear_cam: mvg::Camera<f64>,
+    linear_cam: braid_mvg::Camera<f64>,
     points: &'a [AprilTagCorrespondingPoint<f64>],
 }
 
@@ -98,9 +98,9 @@ impl From<serde_json::Error> for MyError {
     }
 }
 
-impl From<mvg::MvgError> for MyError {
-    fn from(orig: mvg::MvgError) -> MyError {
-        MyError::new(format!("mvg::MvgError: {}", orig))
+impl From<braid_mvg::MvgError> for MyError {
+    fn from(orig: braid_mvg::MvgError) -> MyError {
+        MyError::new(format!("braid_mvg::MvgError: {}", orig))
     }
 }
 
@@ -194,7 +194,7 @@ pub struct CalData {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CalibrationResult {
-    pub cam_system: mvg::MultiCameraSystem<f64>,
+    pub cam_system: braid_mvg::MultiCameraSystem<f64>,
     pub mean_reproj_dist: BTreeMap<String, f64>,
     pub points: BTreeMap<String, Vec<AprilTagCorrespondingPoint<f64>>>,
 }
@@ -273,21 +273,21 @@ fn gather_points_per_cam(
 }
 
 struct CamSolution<'a> {
-    final_cam: mvg::Camera<f64>,
+    final_cam: braid_mvg::Camera<f64>,
     points: &'a [AprilTagCorrespondingPoint<f64>],
 }
 
 fn dlt(
     cfg: &AprilConfig,
     points: &[dlt::CorrespondingPoint<f64>],
-) -> Result<mvg::Camera<f64>, MyError> {
+) -> Result<braid_mvg::Camera<f64>, MyError> {
     // Compute linear calibration here
     let epsilon = 1e-10;
     let dlt_pmat =
         dlt::dlt_corresponding(points, epsilon).map_err(|msg| MyError::new(msg.into()))?;
 
     let cam1 =
-        mvg::Camera::from_pmat(cfg.camera_width_pixels, cfg.camera_height_pixels, &dlt_pmat)?;
+        braid_mvg::Camera::from_pmat(cfg.camera_width_pixels, cfg.camera_height_pixels, &dlt_pmat)?;
     let cam2 = cam1.flip().expect("flip camera");
 
     // take whichever camera points towards objects
@@ -367,7 +367,7 @@ fn run_sqpnp<'a>(
             cam_geom::ExtrinsicParameters::from_pose(&transform)
         };
 
-        let final_cam = mvg::Camera::new(
+        let final_cam = braid_mvg::Camera::new(
             intrinsics.width,
             intrinsics.height,
             extrin,
@@ -503,7 +503,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
         cam_points.insert(cam_name.clone(), points.to_vec());
     }
 
-    let cam_system = mvg::MultiCameraSystem::new(cams);
+    let cam_system = braid_mvg::MultiCameraSystem::new(cams);
 
     Ok(CalibrationResult {
         cam_system,
@@ -514,7 +514,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
 
 /// Compute reprojection distance.
 pub fn compute_mean_reproj_dist(
-    cam: &mvg::Camera<f64>,
+    cam: &braid_mvg::Camera<f64>,
     points: &[AprilTagCorrespondingPoint<f64>],
 ) -> f64 {
     assert!(!points.is_empty());
@@ -523,7 +523,7 @@ pub fn compute_mean_reproj_dist(
     let dists: Vec<f64> = points
         .iter()
         .map(|pt| {
-            let world_pt = mvg::PointWorldFrame {
+            let world_pt = braid_mvg::PointWorldFrame {
                 coords: Point3::from_slice(&pt.object_point),
             };
             let image_point = Point2::from_slice(&pt.image_point);
@@ -536,8 +536,8 @@ pub fn compute_mean_reproj_dist(
     sum_dist / dists.len() as f64
 }
 
-fn mean_forward(cam: &mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {
-    use mvg::PointWorldFrame;
+fn mean_forward(cam: &braid_mvg::Camera<f64>, pts: &[dlt::CorrespondingPoint<f64>]) -> f64 {
+    use braid_mvg::PointWorldFrame;
     let mut accum = 0.0;
     for pt in pts {
         let o = pt.object_point;
