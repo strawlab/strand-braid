@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use rust_cam_bui_types::RecordingPath;
 use serde::{Deserialize, Serialize};
 
-use http_video_streaming_types::{CircleParams, Shape};
+use strand_http_video_streaming_types::{CircleParams, Shape};
 
 use flydra_feature_detector_types::ImPtDetectCfg;
 use strand_cam_remote_control::{BitrateSelection, CodecSelection, RecordingFrameRate, TagFamily};

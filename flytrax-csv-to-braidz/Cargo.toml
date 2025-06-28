@@ -27,7 +27,7 @@ opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
 flydra-mvg.workspace = true
-http-video-streaming-types.workspace = true
+strand-http-video-streaming-types.workspace = true
 braid-types.workspace = true
 strand-cam-csv-config-types.workspace = true
 strand-cam-pseudo-cal.workspace = true

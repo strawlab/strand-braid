@@ -394,7 +394,7 @@ fn to_recon_func(
                 width: cfg.camera.width,
                 height: cfg.camera.height,
                 physical_diameter_meters: pseudo_cal_params.physical_diameter_meters,
-                image_circle: http_video_streaming_types::CircleParams {
+                image_circle: strand_http_video_streaming_types::CircleParams {
                     center_x: pseudo_cal_params.center_x,
                     center_y: pseudo_cal_params.center_y,
                     radius: pseudo_cal_params.radius,

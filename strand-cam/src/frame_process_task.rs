@@ -22,12 +22,12 @@ use async_change_tracker::ChangeTracker;
 use braid_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use fmf::FMFWriter;
-use http_video_streaming::AnnotatedFrame;
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 use rust_cam_bui_types::RecordingPath;
 use strand_dynamic_frame::match_all_dynamic_fmts;
 #[cfg(feature = "fiducial")]
 use strand_dynamic_frame::DynamicFrame;
+use strand_http_video_streaming::AnnotatedFrame;
 
 use strand_cam_storetype::StoreType;
 
@@ -174,7 +174,7 @@ pub(crate) async fn frame_process_task<'a>(
     let mut current_led_program_config_state: Option<strand_cam_storetype::LedProgramConfig> = None;
 
     #[cfg(feature = "flydratrax")]
-    let red_style = http_video_streaming_types::StrokeStyle::from_rgb(255, 100, 100);
+    let red_style = strand_http_video_streaming_types::StrokeStyle::from_rgb(255, 100, 100);
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
@@ -1287,7 +1287,7 @@ pub(crate) async fn frame_process_task<'a>(
                 let found_points = found_points
                     .iter()
                     .map(
-                        |pt: &http_video_streaming_types::Point| video_streaming::Point {
+                        |pt: &strand_http_video_streaming_types::Point| video_streaming::Point {
                             x: pt.x,
                             y: pt.y,
                             theta: pt.theta,
@@ -1314,11 +1314,13 @@ pub(crate) async fn frame_process_task<'a>(
 
                 #[cfg(feature = "flydratrax")]
                 let annotations = if let Some(ref clpcs) = current_led_program_config_state {
-                    vec![http_video_streaming_types::DrawableShape::from_shape(
-                        &clpcs.led_on_shape_pixels,
-                        &red_style,
-                        1.0,
-                    )]
+                    vec![
+                        strand_http_video_streaming_types::DrawableShape::from_shape(
+                            &clpcs.led_on_shape_pixels,
+                            &red_style,
+                            1.0,
+                        ),
+                    ]
                 } else {
                     vec![]
                 };
@@ -1553,7 +1555,7 @@ impl AprilTagWriter {
 }
 
 #[cfg(feature = "fiducial")]
-fn det2display(det: &apriltag::Detection) -> http_video_streaming_types::Point {
+fn det2display(det: &apriltag::Detection) -> strand_http_video_streaming_types::Point {
     let center = det.center();
     video_streaming::Point {
         x: center[0] as f32,

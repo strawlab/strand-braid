@@ -9,7 +9,7 @@ use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Propert
 
 use yew_tincture::components::{Button, CheckboxLabel};
 
-use http_video_streaming_types::{CanvasDrawableShape, CircleParams, StrokeStyle};
+use strand_http_video_streaming_types::{CanvasDrawableShape, CircleParams, StrokeStyle};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -221,7 +221,7 @@ impl Component for VideoField {
             let mut draw_shapes = in_msg.annotations.clone();
             if let Some(ref valid_display) = in_msg.valid_display {
                 let line_width = 5.0;
-                let green_shape = http_video_streaming_types::DrawableShape::from_shape(
+                let green_shape = strand_http_video_streaming_types::DrawableShape::from_shape(
                     valid_display,
                     &self.green_stroke,
                     line_width,
@@ -425,7 +425,7 @@ impl VideoField {
         for drawable_shape in in_msg.draw_shapes.iter() {
             ctx.set_stroke_style_str(&drawable_shape.stroke_style);
             ctx.set_line_width(drawable_shape.line_width as f64);
-            use http_video_streaming_types::Shape;
+            use strand_http_video_streaming_types::Shape;
             match &drawable_shape.shape {
                 Shape::Everything => {}
                 Shape::Circle(circle) => {

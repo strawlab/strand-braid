@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use http_video_streaming_types::Shape;
+use strand_http_video_streaming_types::Shape;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum ContrastPolarity {

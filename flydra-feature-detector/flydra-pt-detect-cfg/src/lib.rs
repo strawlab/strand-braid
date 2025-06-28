@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
-use http_video_streaming_types::Shape;
+use strand_http_video_streaming_types::Shape;
 
 fn my_default(polarity: ContrastPolarity, valid_region: Shape) -> ImPtDetectCfg {
     ImPtDetectCfg {
@@ -34,7 +34,7 @@ pub fn default_absdiff() -> ImPtDetectCfg {
 pub fn default_dark_circle() -> ImPtDetectCfg {
     my_default(
         ContrastPolarity::DetectDark,
-        Shape::Circle(http_video_streaming_types::CircleParams {
+        Shape::Circle(strand_http_video_streaming_types::CircleParams {
             center_x: 640,
             center_y: 512,
             radius: 512,

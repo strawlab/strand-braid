@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 use tracing::{debug, error, info};
 
 use crate::Result;
-use flydra2::{SendKalmanEstimatesRow, SendType};
 use braid_types::MyFloat;
+use flydra2::{SendKalmanEstimatesRow, SendType};
 use strand_cam_storetype::{LedProgramConfig, StoreType, ToLedBoxDevice};
 
 // create a long-lived future that will process data from flydra and turn on
@@ -102,16 +102,16 @@ pub async fn create_message_handler(
             );
 
             let circ_params = match led_program_config.led_on_shape_pixels {
-                http_video_streaming::Shape::Polygon(ref _points) => {
+                strand_http_video_streaming::Shape::Polygon(ref _points) => {
                     unimplemented!();
                 }
-                http_video_streaming::Shape::MultipleCircles(ref circles) => {
+                strand_http_video_streaming::Shape::MultipleCircles(ref circles) => {
                     circles.iter().map(|circ| to_circ_params(circ)).collect()
                 }
-                http_video_streaming::Shape::Circle(ref circ) => {
+                strand_http_video_streaming::Shape::Circle(ref circ) => {
                     vec![to_circ_params(circ)]
                 }
-                http_video_streaming::Shape::Everything => {
+                strand_http_video_streaming::Shape::Everything => {
                     // actually nothing
                     vec![]
                 }
@@ -192,7 +192,9 @@ pub async fn create_message_handler(
     Ok(())
 }
 
-fn to_circ_params(circ: &http_video_streaming_types::CircleParams) -> (na::Point2<f64>, f64) {
+fn to_circ_params(
+    circ: &strand_http_video_streaming_types::CircleParams,
+) -> (na::Point2<f64>, f64) {
     (
         na::Point2::new(circ.center_x as f64, circ.center_y as f64),
         circ.radius as f64,

@@ -6,6 +6,6 @@ edition = "2021"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-serde = {version = "1.0", default-features = false, features = [ "derive" ]}
-http-video-streaming-types = {path="../../http-video-streaming/http-video-streaming-types"}
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+strand-http-video-streaming-types = { path = "../../strand-http-video-streaming/strand-http-video-streaming-types" }
 serde_yaml = "0.9.25"

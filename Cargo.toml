@@ -67,8 +67,6 @@ members = [
     "geometry/simple-obj-parse",
     "geometry/textured-tri-mesh",
     "geometry/undistort-image",
-    "http-video-streaming",
-    "http-video-streaming/http-video-streaming-types",
     "imops",
     "led-box/led-box",
     "led-box/led-box-comms",
@@ -110,6 +108,8 @@ members = [
     "strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
+    "strand-http-video-streaming",
+    "strand-http-video-streaming/strand-http-video-streaming-types",
     "tracking",
     "utils/csv-eof",
     "utils/download-verify",
@@ -317,8 +317,6 @@ fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
 frame-source = { path = "media-utils/frame-source" }
 groupby = { path = "utils/groupby" }
-http-video-streaming = { path = "http-video-streaming" }
-http-video-streaming-types = { path = "http-video-streaming/http-video-streaming-types" }
 imops = { path = "imops" }
 led-box-comms = { path = "led-box/led-box-comms" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
@@ -342,6 +340,8 @@ strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
 strand-datetime-conversion = { path = "utils/strand-datetime-conversion" }
 strand-dynamic-frame = { path = "strand-dynamic-frame" }
+strand-http-video-streaming = { path = "strand-http-video-streaming" }
+strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }

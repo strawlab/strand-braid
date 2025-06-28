@@ -64,8 +64,8 @@ flydra-feature-detector = { workspace = true, optional = true }
 flydra-feature-detector-types.workspace = true
 flydra-pt-detect-cfg.workspace = true
 strand-datetime-conversion.workspace = true
-http-video-streaming-types.workspace = true
-http-video-streaming.workspace = true
+strand-http-video-streaming-types.workspace = true
+strand-http-video-streaming.workspace = true
 semver = { version = "1", features = ["serde"] }
 shellexpand.workspace = true
 imops.workspace = true

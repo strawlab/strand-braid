@@ -1,5 +1,5 @@
 [package]
-name = "http-video-streaming"
+name = "strand-http-video-streaming"
 version = "0.1.0"
 authors = ["strawlab"]
 edition = "2021"
@@ -19,7 +19,7 @@ http-body.workspace = true
 tracing.workspace = true
 
 convert-image.workspace = true
-http-video-streaming-types.workspace = true
+strand-http-video-streaming-types.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 rust-cam-bui-types.workspace = true
 event-stream-types.workspace = true

@@ -33,7 +33,7 @@ use strand_dynamic_frame::DynamicFrame;
 use ufmf::UFMFWriter;
 
 pub use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
-use http_video_streaming_types::Shape;
+use strand_http_video_streaming_types::Shape;
 
 mod borrow_fastimage;
 use crate::borrow_fastimage::borrow_fi;
@@ -952,7 +952,7 @@ pub fn compute_mask_image(
 #[test]
 fn test_mask_polygon() -> anyhow::Result<()> {
     let roi_sz = FastImageSize::new(12, 8);
-    let shape = Shape::Polygon(http_video_streaming_types::PolygonParams {
+    let shape = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
         points: vec![(1.0, 1.0), (10.0, 1.0), (10.0, 6.0), (1.0, 6.0)],
     });
     let mask = compute_mask_image(&roi_sz, &shape)?;
@@ -972,7 +972,7 @@ fn test_mask_polygon() -> anyhow::Result<()> {
 #[test]
 fn test_mask_circle() -> anyhow::Result<()> {
     let roi_sz = FastImageSize::new(13, 9);
-    let shape = Shape::Circle(http_video_streaming_types::CircleParams {
+    let shape = Shape::Circle(strand_http_video_streaming_types::CircleParams {
         center_x: 6,
         center_y: 4,
         radius: 5,
@@ -1005,12 +1005,12 @@ fn test_mask_circle() -> anyhow::Result<()> {
 fn test_mask_multiple_circles() -> anyhow::Result<()> {
     let roi_sz = FastImageSize::new(8, 3);
     let circles = vec![
-        http_video_streaming_types::CircleParams {
+        strand_http_video_streaming_types::CircleParams {
             center_x: 2,
             center_y: 1,
             radius: 1,
         },
-        http_video_streaming_types::CircleParams {
+        strand_http_video_streaming_types::CircleParams {
             center_x: 6,
             center_y: 1,
             radius: 1,

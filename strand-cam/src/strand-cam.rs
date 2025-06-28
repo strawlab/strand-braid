@@ -12,7 +12,7 @@ use event_stream_types::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use http::StatusCode;
-use http_video_streaming as video_streaming;
+use strand_http_video_streaming as video_streaming;
 
 use hyper_rustls::HttpsConnector;
 

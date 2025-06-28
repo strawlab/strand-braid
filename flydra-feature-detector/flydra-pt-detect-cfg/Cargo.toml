@@ -8,4 +8,4 @@ license = "MIT/Apache-2.0"
 
 [dependencies]
 flydra-feature-detector-types = { path = "../flydra-feature-detector-types" }
-http-video-streaming-types = { path = "../../http-video-streaming/http-video-streaming-types" }
+strand-http-video-streaming-types = { path = "../../strand-http-video-streaming/strand-http-video-streaming-types" }

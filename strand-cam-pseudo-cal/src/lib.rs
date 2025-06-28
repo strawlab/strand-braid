@@ -3,7 +3,7 @@ extern crate nalgebra as na;
 use braid_types::RawCamName;
 pub type MyFloat = f64;
 
-use http_video_streaming_types::CircleParams;
+use strand_http_video_streaming_types::CircleParams;
 
 // TODO check KalmanTrackingConfig
 // see:

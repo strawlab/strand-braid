@@ -1,4 +1,4 @@
-use http_video_streaming_types::StrokeStyle;
+use strand_http_video_streaming_types::StrokeStyle;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -10,7 +10,7 @@ use strand_bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
 use strand_dynamic_frame::DynamicFrameOwned;
 
-pub use http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
+pub use strand_http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -113,7 +113,7 @@ impl PerSender {
                             center_y: found_point.y.round() as i16,
                             radius: 10,
                         });
-                        let green_shape = http_video_streaming_types::DrawableShape::from_shape(
+                        let green_shape = strand_http_video_streaming_types::DrawableShape::from_shape(
                             &shape,
                             &self.green_stroke,
                             line_width,
@@ -132,7 +132,7 @@ impl PerSender {
                 let buf = serde_json::to_string(&tc).expect("encode");
                 let buf = format!(
                     "event: {}\ndata: {}\n\n",
-                    http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
+                    strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
                     buf
                 );
                 let hc = http_body::Frame::data(bytes::Bytes::from(buf));

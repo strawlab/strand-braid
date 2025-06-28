@@ -15,7 +15,7 @@ led-box-comms.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 flydra-feature-detector-types.workspace = true
-http-video-streaming-types.workspace = true
+strand-http-video-streaming-types.workspace = true
 rust-cam-bui-types.workspace = true
 mvg = { workspace = true, features = ["serde-serialize"] }
 

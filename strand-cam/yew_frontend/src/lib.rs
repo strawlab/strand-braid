@@ -21,7 +21,7 @@ use yew::prelude::*;
 
 use ads_webasm::components::{EnumToggle, VecToggle};
 
-use http_video_streaming_types::ToClient as FirehoseImageData;
+use strand_http_video_streaming_types::ToClient as FirehoseImageData;
 
 use strand_cam_remote_control::{BitrateSelection, CodecSelection};
 use strand_cam_storetype::{
@@ -245,7 +245,7 @@ impl Component for Model {
 
         _listeners.push(EventListener::new(
             &es,
-            http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
+            strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
             move |event: &Event| {
                 let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
                 let text = event.data().as_string().unwrap_throw();
