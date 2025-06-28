@@ -561,7 +561,7 @@ impl<'a> DynamicFrame<'a> {
     ///
     /// # Feature Requirements
     /// This method requires the `convert-image` feature to be enabled.
-    pub fn into_pixel_format<FMT>(&self) -> Result<CowImage<FMT>, convert_image::Error>
+    pub fn into_pixel_format<FMT>(&self) -> Result<CowImage<'_, FMT>, convert_image::Error>
     where
         FMT: PixelFormat,
     {
