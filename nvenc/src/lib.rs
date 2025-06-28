@@ -39,7 +39,7 @@ impl<'lib> NvEnc<'lib> {
     pub fn cuda_device_count(&self) -> Result<i32, NvEncError> {
         Ok(self.libcuda.device_get_count()?)
     }
-    pub fn new_cuda_device(&self, idx: i32) -> Result<dynlink_cuda::CudaDevice, NvEncError> {
+    pub fn new_cuda_device(&self, idx: i32) -> Result<dynlink_cuda::CudaDevice<'_>, NvEncError> {
         Ok(self.libcuda.new_device(idx)?)
     }
 }

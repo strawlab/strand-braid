@@ -544,7 +544,7 @@ impl<R: Read + Seek, S: ParseState> IncrementalParser<R, S> {
     }
 
     /// Display the path of the archive.
-    pub fn display(&self) -> std::path::Display {
+    pub fn display(&self) -> std::path::Display<'_> {
         self.archive.display()
     }
 
@@ -553,7 +553,7 @@ impl<R: Read + Seek, S: ParseState> IncrementalParser<R, S> {
     /// You should prefer to use information already parsed from the archive
     /// rather than resorting to this low-level function. Consider expanding the
     /// parser to provide this information if it is not already implemented.
-    pub fn path_starter(&mut self) -> zip_or_dir::PathLike<R> {
+    pub fn path_starter(&mut self) -> zip_or_dir::PathLike<'_, R> {
         self.archive.path_starter()
     }
 }

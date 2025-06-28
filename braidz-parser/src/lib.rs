@@ -141,7 +141,7 @@ impl<R: Read + Seek> BraidzArchive<R> {
     }
 
     /// Display the path to the archive.
-    pub fn display(&self) -> std::path::Display {
+    pub fn display(&self) -> std::path::Display<'_> {
         self.archive.display()
     }
 

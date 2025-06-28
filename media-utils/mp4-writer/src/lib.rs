@@ -1362,7 +1362,7 @@ impl<'a> Iterator for NalAvccBufIter<'a> {
     }
 }
 
-fn iter_avcc_bufs(buf: &[u8]) -> NalAvccBufIter {
+fn iter_avcc_bufs(buf: &[u8]) -> NalAvccBufIter<'_> {
     NalAvccBufIter { cur_buf: buf }
 }
 

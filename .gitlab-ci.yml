@@ -147,7 +147,7 @@ test_flydra2:
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_stable:
-  image: rust:1.85
+  image: rust:1.88
   script:
     # Fail on any compiler warnings.
     - export RUSTFLAGS="-D warnings"
@@ -272,7 +272,7 @@ test_crates_rust_stable:
     - cd ../..
 
 test_crates_rust_nightly:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -352,7 +352,7 @@ led-box-standalone-ubuntu2004-deb:
     name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -367,7 +367,7 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -774,7 +774,7 @@ fmf-cli:
     name: "fmf-cli-${CI_COMMIT_SHA}"
 
 braid-webapps:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
 
@@ -838,7 +838,7 @@ braid-run-binary:
     name: "braid-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update
@@ -855,7 +855,7 @@ led-box-linux:
     name: "led-box-linux-${CI_COMMIT_SHA}"
 
 led-box-firmware:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - rustc --version
     - cd led-box/led-box-firmware
@@ -1075,7 +1075,7 @@ build_simple:
     - cargo build --release
 
 test_user_guide:
-  image: rust:1.85
+  image: rust:1.88
   script:
     - cd strand-braid-user/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz

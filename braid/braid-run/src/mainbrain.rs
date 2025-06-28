@@ -16,7 +16,6 @@ use axum::{
 use futures::StreamExt;
 use http::{HeaderValue, StatusCode};
 use preferences_serde1::{AppInfo, Preferences};
-use serde::Serialize;
 use tokio::net::UdpSocket;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info};
@@ -27,8 +26,8 @@ use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamIt
 use flydra_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
     BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
-    FlydraFloatTimestampLocal, HostClock, PerCamSaveData, RawCamName, SyncFno, TriggerType,
-    Triggerbox, BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
+    FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox,
+    BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
 

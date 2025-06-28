@@ -148,7 +148,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
             zip_archive,
         })
     }
-    pub fn path_starter(&mut self) -> PathLike<R> {
+    pub fn path_starter(&mut self) -> PathLike<'_, R> {
         let parent = self;
         PathLike {
             parent,
@@ -183,7 +183,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     }
 
     /// Open relative path and return reader.
-    pub fn open<P: AsRef<Path>>(&mut self, relname: P) -> Result<FileReader> {
+    pub fn open<P: AsRef<Path>>(&mut self, relname: P) -> Result<FileReader<'_>> {
         let dirpath = self.rel(relname.as_ref());
         match &mut self.zip_archive {
             Some(zip_archive) => {
@@ -299,8 +299,8 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     /// Open raw file (e.g. `.csv`) or gz version (e.g. `.csv.gz`) of a file.
     ///
     /// This prefers to use the gz compressed file if it exists.
-    pub fn open_raw_or_gz(&mut self, src_fname: &str) -> Result<MaybeGzReader> {
-        let gz_fname = format!("{}.gz", src_fname);
+    pub fn open_raw_or_gz(&mut self, src_fname: &str) -> Result<MaybeGzReader<'_>> {
+        let gz_fname = format!("{src_fname}.gz");
         let gz_exists = self.path_starter().join(&gz_fname).exists();
 
         if gz_exists {
