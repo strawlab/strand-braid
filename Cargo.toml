@@ -331,7 +331,7 @@ refraction = { path = "geometry/refraction" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
 strand-bui-backend-session = { path = "strand-bui-backend-session" }
-strand-bui-backend-session-types = { path = "strand-bui-backend-session/types" }
+strand-bui-backend-session-types = { path = "strand-bui-backend-session/types", version = "0.1.0" }
 strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-bui-types = { path = "strand-cam-bui-types" }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
@@ -342,7 +342,7 @@ strand-dynamic-frame = { path = "strand-dynamic-frame" }
 strand-http-video-streaming = { path = "strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types" }
 strand-led-box-comms = { path = "led-box/strand-led-box-comms" }
-strand-withkey = { path = "utils/strand-withkey" }
+strand-withkey = { path = "utils/strand-withkey", version = "0.1.0" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }
