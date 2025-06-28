@@ -25,7 +25,7 @@ eyre = { workspace = true, optional = true }
 axum-token-auth = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 
-withkey.workspace = true
+strand-withkey.workspace = true
 strand-datetime-conversion.workspace = true
 strand-cam-bui-types.workspace = true
 flydra-pt-detect-cfg.workspace = true

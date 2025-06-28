@@ -118,7 +118,7 @@ members = [
     "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/strand-cam-enum-iter",
     "utils/strand-datetime-conversion",
-    "utils/withkey",
+    "utils/strand-withkey",
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
@@ -342,13 +342,13 @@ strand-datetime-conversion = { path = "utils/strand-datetime-conversion" }
 strand-dynamic-frame = { path = "strand-dynamic-frame" }
 strand-http-video-streaming = { path = "strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types" }
+strand-withkey = { path = "utils/strand-withkey" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
 tracking = { path = "tracking" }
 ufmf = { path = "media-utils/ufmf" }
 undistort-image = { path = "geometry/undistort-image" }
 vimba = { path = "camera/vimba" }
-withkey = { path = "utils/withkey" }
 y4m-writer = { path = "media-utils/y4m-writer" }
 zip-or-dir = { path = "zip-or-dir" }
 

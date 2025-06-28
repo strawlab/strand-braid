@@ -15,7 +15,7 @@ use strand_cam_bui_types::{ClockModel, RecordingPath};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use strand_bui_backend_session_types::AccessToken;
-use withkey::WithKey;
+use strand_withkey::WithKey;
 
 pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
 

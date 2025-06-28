@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
-use withkey::WithKey;
+use strand_withkey::WithKey;
 
 // TODO: better error handling. Do not wrap Result types, but handle Results automatically.
 

@@ -61,7 +61,7 @@ flydra-mvg.workspace = true
 strand-http-video-streaming-types.workspace = true
 braid-types.workspace = true
 tracking.workspace = true
-withkey.workspace = true
+strand-withkey.workspace = true
 convert-image.workspace = true
 event-stream-types.workspace = true
 
