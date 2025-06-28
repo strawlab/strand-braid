@@ -51,7 +51,7 @@ impl LibCuda<'_> {
         api_call!((*self.cuDeviceGetCount)(&mut value));
         Ok(value)
     }
-    pub fn new_device(&self, i: i32) -> Result<CudaDevice, CudaError> {
+    pub fn new_device(&self, i: i32) -> Result<CudaDevice<'_>, CudaError> {
         let inner = MaybeUninit::zeroed();
         let mut inner: CUdevice = unsafe { inner.assume_init() };
         api_call!((*self.cuDeviceGet)(&mut inner, i));
