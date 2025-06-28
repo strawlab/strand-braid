@@ -26,7 +26,7 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct AnnotatedFrame {
-    pub frame: DynamicFrameOwned,
+    pub frame: Arc<DynamicFrameOwned>,
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
     pub annotations: Vec<DrawableShape>,

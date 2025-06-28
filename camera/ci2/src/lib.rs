@@ -81,7 +81,7 @@ pub trait CameraModule: Send {
 #[derive(Clone)]
 pub struct DynamicFrameWithInfo {
     /// The image frame acquired from the camera.
-    pub image: DynamicFrameOwned,
+    pub image: std::sync::Arc<DynamicFrameOwned>,
     /// Frame timing information acquired by the host.
     pub host_timing: HostTimingInfo,
     /// Backend-specific information about the frame.

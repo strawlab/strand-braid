@@ -530,7 +530,15 @@ pub(crate) async fn frame_process_task<'a>(
                         let val = 2;
                         let clipped_width = (frame.width() / val as u32) * val as u32;
                         let height = frame.height();
-                        let image = frame.image.roi(0, 0, clipped_width, height).unwrap();
+                        let image = Arc::new(
+                            // clone the data from just the ROI
+                            frame
+                                .image
+                                .borrow()
+                                .roi(0, 0, clipped_width, height)
+                                .unwrap()
+                                .copy_to_owned(),
+                        );
                         DynamicFrameWithInfo {
                             image,
                             host_timing: frame.host_timing,
@@ -1251,7 +1259,7 @@ pub(crate) async fn frame_process_task<'a>(
                 };
 
                 if let Some(ref mut inner) = my_mp4_writer {
-                    let data = frame.image.clone(); // copy entire frame data
+                    let data = frame.image.clone(); // clones the Arc, not image data
                     inner.write(data, save_mp4_fmf_stamp)?;
                 }
 

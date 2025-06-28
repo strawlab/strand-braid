@@ -101,14 +101,16 @@ fn callback_rust(
                 // Compute minimum stride.
                 let min_stride = width as usize * pixel_format.bits_per_pixel() as usize / 8;
                 debug_assert!(min_stride * height as usize == image_data.len());
-                let image = DynamicFrameOwned::from_buf(
-                    width,
-                    height,
-                    min_stride.try_into().unwrap(),
-                    image_data,
-                    pixel_format,
-                )
-                .unwrap();
+                let image = Arc::new(
+                    DynamicFrameOwned::from_buf(
+                        width,
+                        height,
+                        min_stride.try_into().unwrap(),
+                        image_data,
+                        pixel_format,
+                    )
+                    .unwrap(),
+                );
 
                 Ok(InvalidHostFramenumber(DynamicFrameWithInfo {
                     image,

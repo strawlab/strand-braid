@@ -983,9 +983,10 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
             };
 
             let host_timing = HostTimingInfo { fno, datetime: now };
-            let image =
+            let image = Arc::new(
                 DynamicFrameOwned::from_buf(width, height, stride, image_data, pixel_format)
-                    .unwrap();
+                    .unwrap(),
+            );
 
             Ok(DynamicFrameWithInfo {
                 image,

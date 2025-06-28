@@ -92,7 +92,7 @@ impl BgMovieWriter {
     ///
     /// If the background writer thread has previously encountered an error,
     /// this will return that previously-encountered error.
-    pub fn write<TS>(&mut self, frame: DynamicFrameOwned, timestamp: TS) -> Result<()>
+    pub fn write<TS>(&mut self, frame: Arc<DynamicFrameOwned>, timestamp: TS) -> Result<()>
     where
         TS: Into<chrono::DateTime<chrono::Local>>,
     {
@@ -137,6 +137,6 @@ impl BgMovieWriter {
 }
 
 pub(crate) enum Msg {
-    Write((DynamicFrameOwned, chrono::DateTime<chrono::Local>)),
+    Write((Arc<DynamicFrameOwned>, chrono::DateTime<chrono::Local>)),
     Finish,
 }
