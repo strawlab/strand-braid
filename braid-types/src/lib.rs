@@ -9,8 +9,8 @@
 extern crate static_assertions;
 
 use ordered_float::NotNan;
-use rust_cam_bui_types::{ClockModel, RecordingPath};
 use std::net::SocketAddr;
+use strand_cam_bui_types::{ClockModel, RecordingPath};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -649,7 +649,9 @@ pub async fn start_listener(
     };
     let token = match token_config {
         None => strand_bui_backend_session_types::AccessToken::NoToken,
-        Some(cfg) => strand_bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
+        Some(cfg) => {
+            strand_bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone())
+        }
     };
     let http_camserver_info = BuiServerAddrInfo::new(listener_local_addr, token);
 

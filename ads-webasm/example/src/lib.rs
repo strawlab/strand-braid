@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 use yew::prelude::*;
 
 use ads_webasm::components::{

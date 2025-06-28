@@ -21,6 +21,6 @@ tracing.workspace = true
 convert-image.workspace = true
 strand-http-video-streaming-types.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
-rust-cam-bui-types.workspace = true
+strand-cam-bui-types.workspace = true
 event-stream-types.workspace = true
 strand-bui-backend-session-types.workspace = true

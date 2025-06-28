@@ -13,7 +13,7 @@ use web_sys::{EventSource, MessageEvent};
 use braid_types::{
     BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
 };
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 
 use yew::{html, Component, Context, Event, Html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};

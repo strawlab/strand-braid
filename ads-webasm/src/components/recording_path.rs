@@ -1,4 +1,4 @@
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 use yew::{classes, html, Callback, Component, Context, Html, Properties};
 
 pub struct RecordingPathWidget {}

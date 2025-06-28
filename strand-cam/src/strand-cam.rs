@@ -59,7 +59,7 @@ use strand_cam_storetype::{
     CallbackType, ImOpsState, RangedValue, StoreType, ToLedBoxDevice, STRAND_CAM_EVENT_NAME,
 };
 
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
 use std::{
@@ -153,7 +153,7 @@ pub(crate) enum Msg {
     #[cfg(feature = "flydra_feat_detect")]
     ClearBackground(f32),
     SetFrameOffset(u64),
-    SetTriggerboxClockModel(Option<rust_cam_bui_types::ClockModel>),
+    SetTriggerboxClockModel(Option<strand_cam_bui_types::ClockModel>),
     StartAprilTagRec(String),
     StopAprilTagRec,
 }
@@ -1634,7 +1634,7 @@ where
         let (gain, offset, residuals) = clock_model::fit_time_model(&local_remote)?;
         dbg!((gain, offset, residuals));
 
-        let cm = rust_cam_bui_types::ClockModel {
+        let cm = strand_cam_bui_types::ClockModel {
             gain,
             offset,
             residuals,

@@ -23,7 +23,7 @@ use braid_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use flydra_feature_detector_types::ImPtDetectCfg;
 use fmf::FMFWriter;
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 use strand_dynamic_frame::match_all_dynamic_fmts;
 #[cfg(feature = "fiducial")]
 use strand_dynamic_frame::DynamicFrame;
@@ -66,7 +66,7 @@ pub(crate) async fn frame_process_task<'a>(
         f64,
     >,
     #[cfg(feature = "flydra_feat_detect")] app_name: &'static str,
-    device_clock_model: Option<rust_cam_bui_types::ClockModel>,
+    device_clock_model: Option<strand_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<(u64, u64)>,
     trigger_type: Option<TriggerType>,
     #[cfg(target_os = "linux")] mut v4l_out_stream: Option<v4l::io::mmap::stream::Stream<'a>>,
@@ -1657,9 +1657,9 @@ fn extract_backend_data(frame: &ci2::DynamicFrameWithInfo) -> (Option<u64>, Opti
 fn calc_braid_timestamp(
     frame: &ci2::DynamicFrameWithInfo,
     trigger_type: Option<&TriggerType>,
-    triggerbox_clock_model: Option<&rust_cam_bui_types::ClockModel>,
+    triggerbox_clock_model: Option<&strand_cam_bui_types::ClockModel>,
     opt_frame_offset: &Option<u64>,
-    device_clock_model: Option<&rust_cam_bui_types::ClockModel>,
+    device_clock_model: Option<&strand_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<&(u64, u64)>,
 ) -> Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>> {
     let (device_timestamp, _block_id) = extract_backend_data(&frame);

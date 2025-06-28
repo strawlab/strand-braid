@@ -28,7 +28,7 @@ use braid_types::{
     FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox,
     BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
-use rust_cam_bui_types::{ClockModel, RecordingPath};
+use strand_cam_bui_types::{ClockModel, RecordingPath};
 use strand_bui_backend_session_types::AccessToken;
 
 use eyre::{self, Result, WrapErr};
@@ -750,7 +750,7 @@ pub(crate) async fn do_run_forever(
         Box::new(move |tm1: Option<braid_triggerbox::ClockModel>| {
             match &trigger_cfg {
                 TriggerType::FakeSync(_) | TriggerType::TriggerboxV1(_) => {
-                    let tm = tm1.map(|x| rust_cam_bui_types::ClockModel {
+                    let tm = tm1.map(|x| strand_cam_bui_types::ClockModel {
                         gain: x.gain,
                         offset: x.offset,
                         n_measurements: x.n_measurements,
@@ -1283,7 +1283,7 @@ async fn synchronize_cameras(
     fake_sync: bool,
     sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
-    time_model_arc: Arc<RwLock<Option<rust_cam_bui_types::ClockModel>>>,
+    time_model_arc: Arc<RwLock<Option<strand_cam_bui_types::ClockModel>>>,
 ) -> Result<()> {
     info!("preparing to synchronize cameras");
 

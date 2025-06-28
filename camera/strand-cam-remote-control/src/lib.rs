@@ -1,10 +1,10 @@
 extern crate strand_cam_types;
 extern crate strand_cam_enum_iter;
-extern crate rust_cam_bui_types;
+extern crate strand_cam_bui_types;
 extern crate serde;
 
 use strand_cam_enum_iter::EnumIter;
-use rust_cam_bui_types::ClockModel;
+use strand_cam_bui_types::ClockModel;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]

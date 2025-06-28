@@ -250,7 +250,7 @@ impl StrandCamHttpSessionHandler {
 
     pub(crate) async fn send_clock_model_to_all(
         &self,
-        clock_model: Option<rust_cam_bui_types::ClockModel>,
+        clock_model: Option<strand_cam_bui_types::ClockModel>,
     ) -> MainbrainResult<()> {
         let cam_names = self.cam_manager.all_raw_cam_names();
         for cam_name in cam_names.iter() {
@@ -263,7 +263,7 @@ impl StrandCamHttpSessionHandler {
     pub(crate) async fn send_triggerbox_clock_model(
         &self,
         cam_name: &RawCamName,
-        clock_model: Option<rust_cam_bui_types::ClockModel>,
+        clock_model: Option<strand_cam_bui_types::ClockModel>,
     ) -> MainbrainResult<()> {
         debug!(
             "for cam {}, sending clock model {:?}",

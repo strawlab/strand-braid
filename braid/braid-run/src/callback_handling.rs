@@ -4,7 +4,7 @@ use tracing::debug;
 use event_stream_types::TolerantJson;
 use braid_types::{BraidHttpApiCallback, PerCamSaveData};
 use http::StatusCode;
-use rust_cam_bui_types::RecordingPath;
+use strand_cam_bui_types::RecordingPath;
 
 use crate::mainbrain::*;
 

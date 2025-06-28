@@ -329,12 +329,12 @@ nvenc = { path = "nvenc" }
 opencv-calibrate = { path = "geometry/opencv-calibrate" }
 parry-geom = { path = "geometry/parry-geom" }
 refraction = { path = "geometry/refraction" }
-rust-cam-bui-types = { path = "rust-cam-bui-types" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
 strand-bui-backend-session = { path = "strand-bui-backend-session" }
 strand-bui-backend-session-types = { path = "strand-bui-backend-session/types" }
 strand-cam = { path = "strand-cam", default-features = false }
+strand-cam-bui-types = { path = "strand-cam-bui-types" }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
