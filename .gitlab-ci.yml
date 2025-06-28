@@ -225,8 +225,8 @@ test_crates_rust_stable:
     - cd $CI_PROJECT_DIR/media-utils/ufmf
     - cargo test
 
-    # Test braid-types
-    - cd $CI_PROJECT_DIR/braid-types
+    # Test braid/braid-types
+    - cd $CI_PROJECT_DIR/braid/braid-types
     - cargo test
 
     # Test braid-mvg/mvg-util

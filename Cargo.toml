@@ -11,10 +11,10 @@ members = [
     "braid/braid-run/braid_frontend",
     "braid/braidz-writer",
     "braid/braidz-writer/cli",
+    "braid/braid-types",
     "braid-config-data",
     "braid-offline",
     "braid-process-video",
-    "braid-types",
     "braidz-parser",
     "braidz-parser/braidz-chunked-iter",
     "braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
@@ -281,7 +281,7 @@ braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
 braid-mvg = { path = "geometry/braid-mvg", features = ["serde-serialize"] }
-braid-types = { path = "braid-types", default-features = false }
+braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz-parser" }
 braidz-rerun = { path = "braidz-rerun" }
 braidz-types = { path = "braidz-types" }
