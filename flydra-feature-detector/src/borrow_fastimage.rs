@@ -33,7 +33,7 @@ where
     fn height(&self) -> u32 {
         self.height
     }
-    fn buffer_ref(&self) -> ImageBufferRef<FMT> {
+    fn buffer_ref(&self) -> ImageBufferRef<'_, FMT> {
         self.buffer_ref.clone()
     }
     fn buffer(self) -> ImageBuffer<FMT> {
