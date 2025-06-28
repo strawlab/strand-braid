@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
+repository = "https://github.com/strawlab/strand-braid"
+description = "Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid"
+license = "MIT OR Apache-2.0"
+keywords = ["bui", "browser", "session"]
+categories = ["web-programming", "data-structures", "network-programming"]
+readme = "README.md"
 
 [dependencies]
 tracing.workspace = true
@@ -15,13 +21,13 @@ serde.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true
 thiserror.workspace = true
+axum.workspace = true
+cookie_store.workspace = true
+url.workspace = true
 
 strand-bui-backend-session-types.workspace = true
 strand-cam-bui-types.workspace = true
 braid-types.workspace = true
-axum.workspace = true
-cookie_store.workspace = true
-url.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
