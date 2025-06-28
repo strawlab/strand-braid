@@ -300,7 +300,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     ///
     /// This prefers to use the gz compressed file if it exists.
     pub fn open_raw_or_gz(&mut self, src_fname: &str) -> Result<MaybeGzReader> {
-        let gz_fname = format!("{}.gz", src_fname);
+        let gz_fname = format!("{src_fname}.gz");
         let gz_exists = self.path_starter().join(&gz_fname).exists();
 
         if gz_exists {
