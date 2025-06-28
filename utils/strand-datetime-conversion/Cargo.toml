@@ -4,7 +4,10 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.56"
-license = "MIT/Apache-2.0"
+repository = "https://github.com/strawlab/strand-braid"
+description = "Convert between chrono and f64 time. Used in Strand Camera and Braid."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
 
 [dependencies]
 chrono.workspace = true
