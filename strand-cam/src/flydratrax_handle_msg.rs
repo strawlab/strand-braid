@@ -141,14 +141,14 @@ pub async fn create_message_handler(
 
             if *led_state != next_led_state {
                 info!("switching LED to ON={:?}", next_led_state);
-                let device_state: Option<led_box_comms::DeviceState> = {
+                let device_state: Option<strand_led_box_comms::DeviceState> = {
                     let tracker = ssa2.read().unwrap();
                     tracker.as_ref().led_box_device_state.clone()
                 };
                 if let Some(mut device_state) = device_state {
                     let on_state = match next_led_state {
-                        true => led_box_comms::OnState::ConstantOn,
-                        false => led_box_comms::OnState::Off,
+                        true => strand_led_box_comms::OnState::ConstantOn,
+                        false => strand_led_box_comms::OnState::Off,
                     };
 
                     match led_program_config.led_channel_num {
@@ -182,7 +182,7 @@ pub async fn create_message_handler(
                             error!("unsupported LED channel: {:?}", other);
                         }
                     }
-                    let msg = led_box_comms::ToDevice::DeviceState(device_state);
+                    let msg = strand_led_box_comms::ToDevice::DeviceState(device_state);
                     led_box_tx_std.send(msg).await.unwrap();
                 }
                 *led_state = next_led_state;

@@ -18,5 +18,5 @@ eframe = { version = "0.31.1", default-features = false, features = [
 ] }
 json-lines.workspace = true
 
-led-box-comms.workspace = true
+strand-led-box-comms.workspace = true
 env-tracing-logger.workspace = true

@@ -33,7 +33,7 @@ strand-http-video-streaming-types = { path = "../../strand-http-video-streaming/
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 
-led-box-comms = { path = "../../led-box/led-box-comms" }
+strand-led-box-comms = { path = "../../led-box/strand-led-box-comms" }
 strand-cam-enum-iter = { path = "../../utils/strand-cam-enum-iter" }
 ads-webasm.workspace = true
 

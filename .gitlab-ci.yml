@@ -103,7 +103,7 @@ test_crates:
     - cd $CI_PROJECT_DIR/camera/ci2-cli
     - cargo test --features backend_pyloncxx
 
-    - cd $CI_PROJECT_DIR/led-box/led-box-comms
+    - cd $CI_PROJECT_DIR/led-box/strand-led-box-comms
     - cargo test
 
 test_flydra2:

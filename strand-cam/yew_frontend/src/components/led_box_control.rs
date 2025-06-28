@@ -1,4 +1,4 @@
-use led_box_comms::{ChannelState, DeviceState, ToDevice};
+use strand_led_box_comms::{ChannelState, DeviceState, ToDevice};
 use yew::prelude::*;
 use yew_tincture::components::CheckboxLabel;
 

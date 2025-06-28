@@ -35,7 +35,7 @@ use defmt::{error, info};
 
 use rtic::Mutex;
 
-use led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
+use strand_led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
 use stm32f3xx_hal::gpio::gpioa::PA5;
 
 use json_lines::accumulator::{FeedResult, NewlinesAccumulator};
@@ -96,8 +96,8 @@ mod app {
         // Device specific peripherals
         info!(
             "hello from f303, COMM_VERSION {}, BAUD_RATE {}, encoding {}",
-            led_box_comms::COMM_VERSION,
-            led_box_comms::BAUD_RATE,
+            strand_led_box_comms::COMM_VERSION,
+            strand_led_box_comms::BAUD_RATE,
             "JSON + newlines",
         );
 
@@ -118,7 +118,7 @@ mod app {
         let mut serial = Serial::new(
             c.device.USART2,
             (tx, rx),
-            led_box_comms::BAUD_RATE.Bd(),
+            strand_led_box_comms::BAUD_RATE.Bd(),
             clocks,
             &mut rcc.apb1,
         );
@@ -128,7 +128,7 @@ mod app {
             let pwm_freq_hz: Hertz = LED_PWM_FREQ.into();
             info!(
                 "setting pwm to have resolution {}, freq {} Hz",
-                led_box_comms::MAX_INTENSITY,
+                strand_led_box_comms::MAX_INTENSITY,
                 pwm_freq_hz.0,
             );
         }
@@ -137,7 +137,7 @@ mod app {
         info!("initializing tim3 for pwm");
         let tim3_channels = tim3(
             c.device.TIM3,
-            led_box_comms::MAX_INTENSITY, // resolution of duty cycle
+            strand_led_box_comms::MAX_INTENSITY, // resolution of duty cycle
             LED_PWM_FREQ,                 // frequency of period
             &clocks,                      // To get the timer's clock speed
         );
@@ -262,7 +262,7 @@ mod app {
                         defmt::debug!("echo");
                     }
                     ToDevice::VersionRequest => {
-                        response = FromDevice::VersionResponse(led_box_comms::COMM_VERSION);
+                        response = FromDevice::VersionResponse(strand_led_box_comms::COMM_VERSION);
                         defmt::debug!("version request");
                     }
                 }

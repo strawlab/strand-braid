@@ -10,17 +10,17 @@ use tracing::info;
 use clap::Parser;
 
 use json_lines::codec::JsonLinesCodec;
-use led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
+use strand_led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 /// this handles the serial port and therefore the interaction with the device
 async fn try_serial(serial_device: &str, next_state: &DeviceState) {
     info!(
         "opening serial port at {} baud. Using encoding '{}'",
-        led_box_comms::BAUD_RATE,
+        strand_led_box_comms::BAUD_RATE,
         "JSON + newlines"
     );
     #[allow(unused_mut)]
-    let mut port = tokio_serial::new(serial_device, led_box_comms::BAUD_RATE)
+    let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
         .open_native_async()
         .unwrap();
 
@@ -55,7 +55,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
                 }
                 msg = reader.next() => {
                     match msg {
-                        Some(Ok(led_box_comms::FromDevice::EchoResponse8(d))) => {
+                        Some(Ok(strand_led_box_comms::FromDevice::EchoResponse8(d))) => {
                             let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
                             let sent_tenth_millis: u64 = u64::from_le_bytes(buf);
                             let now = start.elapsed();
@@ -63,18 +63,18 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
                                 (now.as_micros() / 100 % (u64::MAX as u128)).try_into().unwrap();
                             info!("round trip time: {} msec", (now_tenth_millis - sent_tenth_millis)as f64/10.0);
                         }
-                        Some(Ok(led_box_comms::FromDevice::VersionResponse(found))) => {
+                        Some(Ok(strand_led_box_comms::FromDevice::VersionResponse(found))) => {
                             info!("Found comm version {found}.");
-                            let expected = led_box_comms::COMM_VERSION;
+                            let expected = strand_led_box_comms::COMM_VERSION;
                             if found != expected {
                                 tracing::error!("This program compiled to support comm version {expected}, but found version {found}.");
                                 return;
                             }
                         }
-                        Some(Ok(led_box_comms::FromDevice::StateWasSet)) => {
+                        Some(Ok(strand_led_box_comms::FromDevice::StateWasSet)) => {
                             info!("state was set");
                         }
-                        Some(Ok(led_box_comms::FromDevice::DeviceState(_))) => {}
+                        Some(Ok(strand_led_box_comms::FromDevice::DeviceState(_))) => {}
                         Some(Err(e)) => {
                             panic!("unexpected error: {}: {:?}", e, e);
                         }
@@ -92,7 +92,7 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
 }
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-    let intensity = led_box_comms::MAX_INTENSITY;
+    let intensity = strand_led_box_comms::MAX_INTENSITY;
     ChannelState {
         num,
         intensity,

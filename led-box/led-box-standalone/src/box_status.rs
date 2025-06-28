@@ -8,7 +8,7 @@ use tokio_util::codec::Decoder;
 use tracing::{debug, error, info};
 
 use json_lines::codec::JsonLinesCodec;
-use led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
+use strand_led_box_comms::{ChannelState, DeviceState, OnState, ToDevice};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Cmd {
@@ -57,7 +57,7 @@ pub enum BoxStatus {
 }
 
 fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-    let intensity = led_box_comms::MAX_INTENSITY;
+    let intensity = strand_led_box_comms::MAX_INTENSITY;
     ChannelState {
         num,
         intensity,
@@ -100,7 +100,7 @@ pub async fn handle_box(
     info!("connecting to {device_name}");
 
     #[allow(unused_mut)]
-    let mut port = tokio_serial::new(&device_name, led_box_comms::BAUD_RATE)
+    let mut port = tokio_serial::new(&device_name, strand_led_box_comms::BAUD_RATE)
         .open_native_async()
         .unwrap();
     debug!("connected to {device_name}");
@@ -132,18 +132,18 @@ pub async fn handle_box(
     tokio::spawn(mpsc_to_serial); // todo: keep join handle.
 
     to_box_writer
-        .send(led_box_comms::ToDevice::VersionRequest)
+        .send(strand_led_box_comms::ToDevice::VersionRequest)
         .await?;
 
     match serial_reader.next().await {
         Some(Ok(from_device_msg)) => {
             assert_eq!(
                 from_device_msg,
-                led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION)
+                strand_led_box_comms::FromDevice::VersionResponse(strand_led_box_comms::COMM_VERSION)
             );
             info!(
                 "Connected to firmware version {}",
-                led_box_comms::COMM_VERSION
+                strand_led_box_comms::COMM_VERSION
             );
         }
         Some(Err(e)) => {
@@ -175,7 +175,7 @@ pub async fn handle_box(
     let printer = async move {
         while let Some(msg) = serial_reader.next().await {
             match msg {
-                Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
+                Ok(strand_led_box_comms::FromDevice::EchoResponse8(d)) => {
                     let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
                     let sent_millis: u64 = byteorder::ReadBytesExt::read_u64::<
                         byteorder::LittleEndian,
@@ -186,11 +186,11 @@ pub async fn handle_box(
                         (now.as_millis() % (u64::MAX as u128)).try_into().unwrap();
                     debug!("round trip time: {} msec", now_millis - sent_millis);
                 }
-                Ok(led_box_comms::FromDevice::StateWasSet)
-                | Ok(led_box_comms::FromDevice::DeviceState(_)) => {}
-                Ok(led_box_comms::FromDevice::VersionResponse(found)) => {
+                Ok(strand_led_box_comms::FromDevice::StateWasSet)
+                | Ok(strand_led_box_comms::FromDevice::DeviceState(_)) => {}
+                Ok(strand_led_box_comms::FromDevice::VersionResponse(found)) => {
                     info!("Found comm version {found}.");
-                    let expected = led_box_comms::COMM_VERSION;
+                    let expected = strand_led_box_comms::COMM_VERSION;
                     if found != expected {
                         panic!("This program compiled to support comm version {expected}, but found version {found}.");
                     }

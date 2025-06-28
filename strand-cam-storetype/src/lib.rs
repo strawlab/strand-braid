@@ -18,9 +18,9 @@ pub struct RangedValue {
     pub max: f64,
 }
 
-use led_box_comms::DeviceState;
+use strand_led_box_comms::DeviceState;
 
-pub use led_box_comms::ToDevice as ToLedBoxDevice;
+pub use strand_led_box_comms::ToDevice as ToLedBoxDevice;
 
 // Note: this does not start with a slash because we do not want an absolute
 // root path in case we are in a case where we are proxied by braid. I.e. it

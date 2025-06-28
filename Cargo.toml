@@ -69,8 +69,8 @@ members = [
     "geometry/undistort-image",
     "imops",
     "led-box/led-box",
-    "led-box/led-box-comms",
     "led-box/led-box-standalone",
+    "led-box/strand-led-box-comms",
     "media-utils/apriltag-detection-writer",
     "media-utils/bg-movie-writer",
     "media-utils/create-timelapse",
@@ -318,7 +318,6 @@ font-drawing = { path = "media-utils/font-drawing" }
 frame-source = { path = "media-utils/frame-source" }
 groupby = { path = "utils/groupby" }
 imops = { path = "imops" }
-led-box-comms = { path = "led-box/led-box-comms" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
 mcsc-structs = { path = "geometry/mcsc-structs" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
@@ -342,6 +341,7 @@ strand-datetime-conversion = { path = "utils/strand-datetime-conversion" }
 strand-dynamic-frame = { path = "strand-dynamic-frame" }
 strand-http-video-streaming = { path = "strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types" }
+strand-led-box-comms = { path = "led-box/strand-led-box-comms" }
 strand-withkey = { path = "utils/strand-withkey" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }

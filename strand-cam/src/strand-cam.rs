@@ -292,16 +292,16 @@ fn open_braid_destination_addr(camdata_udp_addr: &SocketAddr) -> Result<UdpSocke
 }
 
 #[cfg(feature = "flydra_feat_detect")]
-fn get_intensity(device_state: &led_box_comms::DeviceState, chan_num: u8) -> u16 {
-    let ch: &led_box_comms::ChannelState = match chan_num {
+fn get_intensity(device_state: &strand_led_box_comms::DeviceState, chan_num: u8) -> u16 {
+    let ch: &strand_led_box_comms::ChannelState = match chan_num {
         1 => &device_state.ch1,
         2 => &device_state.ch2,
         3 => &device_state.ch3,
         c => panic!("unknown channel {c}"),
     };
     match ch.on_state {
-        led_box_comms::OnState::Off => 0,
-        led_box_comms::OnState::ConstantOn => ch.intensity,
+        strand_led_box_comms::OnState::Off => 0,
+        strand_led_box_comms::OnState::ConstantOn => ch.intensity,
     }
 }
 
@@ -3254,14 +3254,14 @@ where
         use tokio_util::codec::Decoder;
 
         use json_lines::codec::JsonLinesCodec;
-        use led_box_comms::{ChannelState, DeviceState, OnState};
+        use strand_led_box_comms::{ChannelState, DeviceState, OnState};
 
         let start_led_box_instant = std::time::Instant::now();
 
         // enqueue initial message
         {
             fn make_chan(num: u8, on_state: OnState) -> ChannelState {
-                let intensity = led_box_comms::MAX_INTENSITY;
+                let intensity = strand_led_box_comms::MAX_INTENSITY;
                 ChannelState {
                     num,
                     intensity,
@@ -3290,7 +3290,7 @@ where
                 info!("opening LED box \"{}\"", serial_device);
                 // open with default settings 9600 8N1
                 #[allow(unused_mut)]
-                let mut port = tokio_serial::new(serial_device, led_box_comms::BAUD_RATE)
+                let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
                     .open_native_async()
                     .unwrap();
 
@@ -3310,28 +3310,32 @@ where
             // Clear potential initially present bytes from stream...
             let _ = tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await;
 
-            writer.send(led_box_comms::ToDevice::VersionRequest).await?;
+            writer
+                .send(strand_led_box_comms::ToDevice::VersionRequest)
+                .await?;
 
             match tokio::time::timeout(std::time::Duration::from_millis(50), reader.next()).await {
                 Ok(Some(Ok(msg))) => match msg {
-                    led_box_comms::FromDevice::VersionResponse(led_box_comms::COMM_VERSION) => {
+                    strand_led_box_comms::FromDevice::VersionResponse(
+                        strand_led_box_comms::COMM_VERSION,
+                    ) => {
                         info!(
                             "Connected to firmware version {}",
-                            led_box_comms::COMM_VERSION
+                            strand_led_box_comms::COMM_VERSION
                         );
                     }
                     msg => {
                         eyre::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
-                            msg, led_box_comms::COMM_VERSION);
+                            msg, strand_led_box_comms::COMM_VERSION);
                     }
                 },
                 Err(_elapsed) => {
                     eyre::bail!("Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                        led_box_comms::COMM_VERSION);
+                        strand_led_box_comms::COMM_VERSION);
                 }
                 Ok(None) | Ok(Some(Err(_))) => {
                     eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                          led_box_comms::COMM_VERSION);
+                          strand_led_box_comms::COMM_VERSION);
                 }
             }
 
@@ -3340,7 +3344,7 @@ where
                 debug!("awaiting message from LED box");
                 while let Some(msg) = tokio_stream::StreamExt::next(&mut reader).await {
                     match msg {
-                        Ok(led_box_comms::FromDevice::EchoResponse8(d)) => {
+                        Ok(strand_led_box_comms::FromDevice::EchoResponse8(d)) => {
                             let buf = [d.0, d.1, d.2, d.3, d.4, d.5, d.6, d.7];
                             let sent_millis: u64 =
                                 byteorder::ReadBytesExt::read_u64::<byteorder::LittleEndian>(
@@ -3358,7 +3362,7 @@ where
                                 led_box_heartbeat_update_arc.write().unwrap();
                             *led_box_heartbeat_update = Some(std::time::Instant::now());
                         }
-                        Ok(led_box_comms::FromDevice::StateWasSet) => {}
+                        Ok(strand_led_box_comms::FromDevice::StateWasSet) => {}
                         Ok(msg) => {
                             todo!("Did not handle {:?}", msg);
                             // error!("unknown message received: {:?}", msg);

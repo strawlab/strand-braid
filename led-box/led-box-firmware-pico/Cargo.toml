@@ -31,7 +31,7 @@ rp2040-hal = { version = "0.10.2", features = [
 ] }
 
 json-lines = { version = "0.1.0", default-features = false }
-led-box-comms = { path = "../led-box-comms", default-features = false, features = [
+strand-led-box-comms = { path = "../strand-led-box-comms", default-features = false, features = [
     "print-defmt",
 ] }
 static_cell = "2.1.0"

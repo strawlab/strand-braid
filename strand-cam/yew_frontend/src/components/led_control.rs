@@ -1,5 +1,5 @@
 use ads_webasm::components::{EnumToggle, RangedValue};
-use led_box_comms::{ChannelState, OnState};
+use strand_led_box_comms::{ChannelState, OnState};
 use yew::prelude::*;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";

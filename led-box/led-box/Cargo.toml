@@ -18,4 +18,4 @@ tokio-serial.workspace = true
 tokio-util.workspace = true
 
 env-tracing-logger.workspace = true
-led-box-comms.workspace = true
+strand-led-box-comms.workspace = true

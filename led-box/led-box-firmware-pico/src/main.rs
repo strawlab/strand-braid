@@ -21,7 +21,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 use rtic::Mutex;
 
-use led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
+use strand_led_box_comms::{ChannelState, DeviceState, FromDevice, OnState, ToDevice};
 
 use json_lines::accumulator::{FeedResult, NewlinesAccumulator};
 
@@ -101,7 +101,7 @@ mod app {
         defmt::info!(
             "Hello from {}. (COMM_VERSION: {}, pwm_freq: {}, encoding {})",
             env!["CARGO_PKG_NAME"],
-            led_box_comms::COMM_VERSION,
+            strand_led_box_comms::COMM_VERSION,
             pwm_freq,
             "JSON + newlines",
         );
@@ -244,7 +244,7 @@ mod app {
                         defmt::debug!("echo");
                     }
                     ToDevice::VersionRequest => {
-                        response = FromDevice::VersionResponse(led_box_comms::COMM_VERSION);
+                        response = FromDevice::VersionResponse(strand_led_box_comms::COMM_VERSION);
                         defmt::debug!("version request");
                     }
                 }

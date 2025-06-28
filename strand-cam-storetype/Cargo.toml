@@ -11,7 +11,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 
 strand-bui-backend-session-types.workspace = true
-led-box-comms.workspace = true
+strand-led-box-comms.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 flydra-feature-detector-types.workspace = true
