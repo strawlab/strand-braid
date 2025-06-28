@@ -10,7 +10,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true
 led-box-comms.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true

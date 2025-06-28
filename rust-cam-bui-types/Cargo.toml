@@ -9,4 +9,4 @@ edition = "2021"
 serde.workspace = true
 chrono.workspace = true
 
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true

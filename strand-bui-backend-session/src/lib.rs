@@ -1,4 +1,4 @@
-use bui_backend_session_types::AccessToken;
+use strand_bui_backend_session_types::AccessToken;
 use http::{header::ACCEPT, HeaderValue};
 use std::sync::{Arc, RwLock};
 use thiserror::Error;

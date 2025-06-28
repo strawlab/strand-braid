@@ -217,7 +217,7 @@ impl Default for CheckerboardCalState {
 #[serde(deny_unknown_fields)]
 pub enum CallbackType {
     ToCamera(strand_cam_remote_control::CamArg),
-    FirehoseNotify(bui_backend_session_types::ConnectionKey),
+    FirehoseNotify(strand_bui_backend_session_types::ConnectionKey),
     // used only with image-tracker crate
     TakeCurrentImageAsBackground,
     // used only with image-tracker crate

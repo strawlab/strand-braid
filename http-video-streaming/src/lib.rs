@@ -6,7 +6,7 @@ use std::{
 
 use tokio_stream::StreamExt;
 
-use bui_backend_session_types::ConnectionKey;
+use strand_bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
 use strand_dynamic_frame::DynamicFrameOwned;
 

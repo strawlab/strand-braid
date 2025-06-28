@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;
-use bui_backend_session_types::ConnectionKey;
+use strand_bui_backend_session_types::ConnectionKey;
 use gloo_timers::callback::{Interval, Timeout};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};

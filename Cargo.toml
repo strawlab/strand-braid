@@ -23,8 +23,6 @@ members = [
     "braidz-rerun/rerun-braidz-viewer",
     "braidz-types",
     "braidz-viewer",
-    "bui-backend-session",
-    "bui-backend-session/types",
     "build-util",
     "camera/ci2",
     "camera/ci2-async",
@@ -100,6 +98,8 @@ members = [
     "nvenc/dynlink-cuda",
     "nvenc/dynlink-nvidia-encode",
     "nvenc/dynlink-nvidia-encode/gen-nvenc-bindings",
+    "strand-bui-backend-session",
+    "strand-bui-backend-session/types",
     "strand-cam",
     "strand-cam/flytrax-io",
     "strand-cam/strand-cam-offline-checkerboards",
@@ -284,8 +284,6 @@ braidz-parser = { path = "braidz-parser" }
 braidz-rerun = { path = "braidz-rerun" }
 braidz-types = { path = "braidz-types" }
 braidz-writer = { path = "braid/braidz-writer" }
-bui-backend-session = { path = "bui-backend-session" }
-bui-backend-session-types = { path = "bui-backend-session/types" }
 build-util = { path = "build-util" }
 bundle-adj = { path = "geometry/bundle-adj" }
 camcal = { path = "geometry/camcal" }
@@ -337,6 +335,8 @@ refraction = { path = "geometry/refraction" }
 rust-cam-bui-types = { path = "rust-cam-bui-types" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
+strand-bui-backend-session = { path = "strand-bui-backend-session" }
+strand-bui-backend-session-types = { path = "strand-bui-backend-session/types" }
 strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }

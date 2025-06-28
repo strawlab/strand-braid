@@ -1,4 +1,4 @@
-use bui_backend_session_types::{ConnectionKey, SessionKey};
+use strand_bui_backend_session_types::{ConnectionKey, SessionKey};
 use bytes::Bytes;
 use futures::StreamExt;
 use http::{header::ACCEPT, request::Parts, StatusCode};

@@ -1,5 +1,5 @@
-use bui_backend_session::HttpSession;
 use std::sync::{Arc, RwLock};
+use strand_bui_backend_session::HttpSession;
 use tracing::{debug, error};
 
 #[derive(thiserror::Error, Debug)]
@@ -11,7 +11,7 @@ pub enum Error {
     #[error("{0}")]
     HyperError(#[from] hyper::Error),
     #[error("{0}")]
-    BuiBackendSession(#[from] bui_backend_session::Error),
+    BuiBackendSession(#[from] strand_bui_backend_session::Error),
     #[error("HTTP error {0} when calling {1}")]
     HttpError(hyper::StatusCode, String),
 }
@@ -21,9 +21,9 @@ pub enum Error {
 pub async fn create_mainbrain_session(
     dest: flydra_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
-) -> Result<MainbrainSession, bui_backend_session::Error> {
+) -> Result<MainbrainSession, strand_bui_backend_session::Error> {
     debug!("requesting session with mainbrain at {:?}", dest);
-    let inner = bui_backend_session::create_session(&dest, jar).await?;
+    let inner = strand_bui_backend_session::create_session(&dest, jar).await?;
     Ok(MainbrainSession { inner })
 }
 

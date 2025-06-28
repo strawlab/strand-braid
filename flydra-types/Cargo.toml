@@ -30,7 +30,7 @@ datetime-conversion.workspace = true
 rust-cam-bui-types.workspace = true
 flydra-pt-detect-cfg.workspace = true
 flydra-feature-detector-types.workspace = true
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true
 tracing.workspace = true
 
 [features]

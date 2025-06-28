@@ -1,5 +1,5 @@
 [package]
-name = "bui-backend-session"
+name = "strand-bui-backend-session"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
@@ -16,7 +16,7 @@ hyper-util.workspace = true
 http-body-util.workspace = true
 thiserror.workspace = true
 
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true
 rust-cam-bui-types.workspace = true
 flydra-types.workspace = true
 axum.workspace = true

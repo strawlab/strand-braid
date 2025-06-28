@@ -8,8 +8,8 @@ use std::{
 
 use strand_cam_remote_control::CamArg;
 
-use strand_cam_enum_iter::EnumIter;
 use led_box_comms::ToDevice as ToLedBoxDevice;
+use strand_cam_enum_iter::EnumIter;
 
 use gloo_events::EventListener;
 use wasm_bindgen::prelude::*;
@@ -51,7 +51,7 @@ const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
 enum Msg {
     NewImageFrame(FirehoseImageData),
-    RenderedImage(bui_backend_session_types::ConnectionKey),
+    RenderedImage(strand_bui_backend_session_types::ConnectionKey),
 
     NewConnKey(String),
     NewServerState(Box<ServerState>),

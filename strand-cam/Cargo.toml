@@ -96,7 +96,7 @@ http-body.workspace = true
 http.workspace = true
 cookie.workspace = true
 
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true
 braid-config-data = { workspace = true, optional = true }
 ci2-pylon-types.workspace = true
 ci2-vimba-types.workspace = true
@@ -111,7 +111,7 @@ strand-cam-pseudo-cal = { workspace = true, optional = true }
 nvenc.workspace = true
 ads-apriltag = { workspace = true, optional = true }
 braid-http-session.workspace = true
-bui-backend-session.workspace = true
+strand-bui-backend-session.workspace = true
 event-stream-types.workspace = true
 cookie_store.workspace = true
 apriltag-detection-writer = { workspace = true, optional = true }

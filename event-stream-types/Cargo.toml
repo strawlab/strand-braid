@@ -16,4 +16,4 @@ futures.workspace = true
 tracing.workspace = true
 mime.workspace = true
 
-bui-backend-session-types.workspace = true
+strand-bui-backend-session-types.workspace = true

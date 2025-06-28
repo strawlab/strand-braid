@@ -25,11 +25,11 @@ use tokio::sync::mpsc::error::SendError;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info, trace, warn};
 
-use bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
 use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
+use strand_bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
 use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
@@ -344,7 +344,7 @@ struct StrandCamAppState {
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
 }
 
-type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, bui_backend_session::Error>;
+type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, strand_bui_backend_session::Error>;
 
 fn body_from_buf(body_buf: &[u8]) -> MyBody {
     let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));

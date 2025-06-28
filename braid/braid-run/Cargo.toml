@@ -50,8 +50,8 @@ shellexpand.workspace = true
 
 braid.workspace = true
 braid-config-data.workspace = true
-bui-backend-session-types.workspace = true
-bui-backend-session.workspace = true
+strand-bui-backend-session-types.workspace = true
+strand-bui-backend-session.workspace = true
 strand-cam-remote-control.workspace = true
 datetime-conversion.workspace = true
 env-tracing-logger.workspace = true

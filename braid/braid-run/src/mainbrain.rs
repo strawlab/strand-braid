@@ -20,7 +20,6 @@ use tokio::net::UdpSocket;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info};
 
-use bui_backend_session_types::AccessToken;
 use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
 use flydra_types::{
@@ -30,6 +29,7 @@ use flydra_types::{
     BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
 use rust_cam_bui_types::{ClockModel, RecordingPath};
+use strand_bui_backend_session_types::AccessToken;
 
 use eyre::{self, Result, WrapErr};
 
@@ -62,7 +62,7 @@ pub(crate) enum MainbrainError {
     #[error("{source}")]
     BuiBackendSessionError {
         #[from]
-        source: bui_backend_session::Error,
+        source: strand_bui_backend_session::Error,
     },
     #[error("{source}")]
     PreferencesError {

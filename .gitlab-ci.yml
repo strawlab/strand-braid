@@ -48,8 +48,8 @@ test_crates:
     - cd $CI_PROJECT_DIR/ads-apriltag/apriltag-track-movie
     - cargo test --release
 
-    # Test bui-backend-session
-    - cd $CI_PROJECT_DIR/bui-backend-session
+    # Test strand-bui-backend-session
+    - cd $CI_PROJECT_DIR/strand-bui-backend-session
     - cargo test --release
 
     # Test braid-april-cal

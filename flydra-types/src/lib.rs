@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use bui_backend_session_types::AccessToken;
+use strand_bui_backend_session_types::AccessToken;
 use withkey::WithKey;
 
 pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
@@ -648,8 +648,8 @@ pub async fn start_listener(
         None
     };
     let token = match token_config {
-        None => bui_backend_session_types::AccessToken::NoToken,
-        Some(cfg) => bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
+        None => strand_bui_backend_session_types::AccessToken::NoToken,
+        Some(cfg) => strand_bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone()),
     };
     let http_camserver_info = BuiServerAddrInfo::new(listener_local_addr, token);
 
