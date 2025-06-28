@@ -6,6 +6,7 @@
     non_camel_case_types,
     non_snake_case,
     unnecessary_transmutes,
+    unpredictable_function_pointer_comparisons,
     unused_imports
 )]
 
