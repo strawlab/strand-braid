@@ -1,36 +1,131 @@
-use strand_bui_backend_session_types::AccessToken;
+//! Backend session management for the BUI (Browser User Interface) used by [Strand
+//! Camera](https://strawlab.org/strand-cam) and
+//! [Braid](https://strawlab.org/braid).
+//!
+//! This crate provides HTTP session management functionality for web-based user
+//! interfaces, including cookie handling, authentication tokens, and request/response
+//! processing. It's designed to work with browser-based frontends that communicate
+//! with Rust backend services.
+//!
+//! # Features
+//!
+//! - HTTP session management with automatic cookie handling
+//! - Support for pre-shared authentication tokens
+//! - Async/await support for all HTTP operations
+//! - Integration with the Strand Camera and Braid ecosystems
+//!
+//! # Examples
+//!
+//! ```rust,no_run
+//! use strand_bui_backend_session::{HttpSession, create_session};
+//! use std::sync::{Arc, RwLock};
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a cookie store for session management
+//! let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
+//!
+//! // Server information with authentication token
+//! let server_info = braid_types::BuiServerAddrInfo::new(
+//!     "127.0.0.1:8080".parse()?,
+//!     strand_bui_backend_session_types::AccessToken::NoToken
+//! );
+//!
+//! // Create an authenticated session
+//! let mut session = create_session(&server_info, jar).await?;
+//!
+//! // Make requests using the session
+//! let response = session.get("api/status").await?;
+//! # Ok(())
+//! # }
+//! ```
+
+// Copyright 2016-2025 Andrew D. Straw.
+//
+// Licensed under the Apache License, Version 2.0
+// <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 use http::{header::ACCEPT, HeaderValue};
 use std::sync::{Arc, RwLock};
+use strand_bui_backend_session_types::AccessToken;
 use thiserror::Error;
 
 const SET_COOKIE: &str = "set-cookie";
 const COOKIE: &str = "cookie";
 
-// pub type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, Error>;
+/// Type alias for the HTTP body type used throughout the crate.
+///
+/// This uses Axum's body type for compatibility with the web framework.
 pub type MyBody = axum::body::Body;
 
-/// Possible errors
+/// Errors that can occur during HTTP session operations.
 #[derive(Error, Debug)]
 pub enum Error {
-    /// A wrapped error from the hyper crate
+    /// A wrapped error from the hyper HTTP client crate.
     #[error("hyper error `{0}`")]
     Hyper(#[from] hyper::Error),
-    /// A wrapped error from the hyper-util crate
+    /// A wrapped error from the hyper-util HTTP utilities crate.
     #[error("hyper-util error `{0}`")]
     HyperUtil(#[from] hyper_util::client::legacy::Error),
-    /// The request was not successful.
+    /// The HTTP request was not successful.
+    ///
+    /// This error occurs when the server returns a non-success status code
+    /// (anything other than 2xx).
     #[error("request not successful. status code: `{0}`")]
     RequestFailed(http::StatusCode),
 }
 
-/// A session for a single server.
+/// An HTTP session for communicating with a single server.
+///
+/// This struct manages cookies, authentication, and provides methods for making
+/// HTTP requests to a specific server. All requests made through this session
+/// will automatically include appropriate cookies and authentication tokens.
 #[derive(Clone, Debug)]
 pub struct HttpSession {
+    /// The base URI for all requests made by this session
     base_uri: hyper::Uri,
+    /// Thread-safe cookie store for managing session cookies
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 }
 
-/// Create an `HttpSession` which has already made a request
+/// Creates an authenticated `HttpSession` by making an initial request with the provided token.
+///
+/// This function establishes a session with the server by making an initial authenticated
+/// request, which typically results in the server setting session cookies that will be
+/// used for subsequent requests.
+///
+/// # Arguments
+///
+/// * `server_info` - Server address and authentication information
+/// * `jar` - Thread-safe cookie store for managing session cookies
+///
+/// # Returns
+///
+/// An authenticated `HttpSession` ready for making requests, or an error if the
+/// initial authentication request fails.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use strand_bui_backend_session::create_session;
+/// use strand_bui_backend_session_types::AccessToken;
+/// use std::sync::{Arc, RwLock};
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
+/// let server_info = braid_types::BuiServerAddrInfo::new(
+///     "127.0.0.1:8080".parse()?,
+///     AccessToken::PreSharedToken("secret123".to_string())
+/// );
+///
+/// let session = create_session(&server_info, jar).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[tracing::instrument(level = "debug", skip(server_info, jar))]
 pub async fn create_session(
     server_info: &braid_types::BuiServerAddrInfo,
@@ -44,6 +139,16 @@ pub async fn create_session(
 }
 
 impl HttpSession {
+    /// Creates a new HTTP session for the specified base URI.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_uri` - The base URI for all requests (must end with "/")
+    /// * `jar` - Thread-safe cookie store for managing session cookies
+    ///
+    /// # Panics
+    ///
+    /// Panics if the base URI cannot be parsed or doesn't end with "/".
     fn new(base_uri: &str, jar: Arc<RwLock<cookie_store::CookieStore>>) -> Self {
         let base_uri: hyper::Uri = base_uri.parse().expect("failed to parse uri");
         if let Some(pq) = base_uri.path_and_query() {
@@ -52,9 +157,19 @@ impl HttpSession {
         }
         Self { base_uri, jar }
     }
-    /// get a relative url to the base url
-    fn get_rel_uri(&self, rel: &str, token1: Option<AccessToken>) -> hyper::Uri {
-        let token = if let Some(tok1) = token1 {
+
+    /// Constructs a full URI from a relative path and optional access token.
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path to append to the base URI
+    /// * `token` - Optional access token to include as a query parameter
+    ///
+    /// # Returns
+    ///
+    /// A complete URI ready for making HTTP requests.
+    fn get_rel_uri(&self, rel: &str, token: Option<AccessToken>) -> hyper::Uri {
+        let token = if let Some(tok1) = token {
             match tok1 {
                 AccessToken::NoToken => None,
                 AccessToken::PreSharedToken(t) => Some(t),
@@ -79,6 +194,16 @@ impl HttpSession {
             .build()
             .expect("build url")
     }
+
+    /// Internal method for making HTTP requests with full control over parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path for the request
+    /// * `token` - Optional access token
+    /// * `accepts` - Array of Accept header values
+    /// * `method` - HTTP method to use
+    /// * `body` - Request body
     async fn inner_req(
         &mut self,
         rel: &str,
@@ -98,6 +223,28 @@ impl HttpSession {
         let response = self.make_request(req).await?;
         Ok(response)
     }
+
+    /// Makes a GET request to the specified relative path.
+    ///
+    /// This method automatically includes session cookies and handles authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path to request (e.g., "api/status")
+    ///
+    /// # Returns
+    ///
+    /// The HTTP response from the server, or an error if the request fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # async fn example(mut session: strand_bui_backend_session::HttpSession) -> Result<(), Box<dyn std::error::Error>> {
+    /// let response = session.get("api/status").await?;
+    /// println!("Status: {}", response.status());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get(
         &mut self,
         rel: &str,
@@ -105,6 +252,22 @@ impl HttpSession {
         self.inner_req(rel, None, &[], http::Method::GET, axum::body::Body::empty())
             .await
     }
+
+    /// Makes an HTTP request with custom Accept headers and method.
+    ///
+    /// This method provides more control over the HTTP request, allowing you to
+    /// specify Accept headers and HTTP method.
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path to request
+    /// * `accepts` - Array of Accept header values to include
+    /// * `method` - HTTP method to use (GET, POST, PUT, etc.)
+    /// * `body` - Request body
+    ///
+    /// # Returns
+    ///
+    /// The HTTP response from the server, or an error if the request fails.
     pub async fn req_accepts(
         &mut self,
         rel: &str,
@@ -114,6 +277,16 @@ impl HttpSession {
     ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         self.inner_req(rel, None, accepts, method, body).await
     }
+
+    /// Makes a GET request with an authentication token.
+    ///
+    /// This method is used internally for authenticated requests, typically
+    /// during session establishment.
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path to request
+    /// * `token` - Access token for authentication
     async fn get_with_token(
         &mut self,
         rel: &str,
@@ -129,6 +302,29 @@ impl HttpSession {
         .await
     }
 
+    /// Makes a POST request to the specified relative path.
+    ///
+    /// This method automatically includes session cookies and sets the
+    /// Content-Type header to "application/json".
+    ///
+    /// # Arguments
+    ///
+    /// * `rel` - Relative path to post to (e.g., "api/submit")
+    /// * `body` - Request body containing the data to post
+    ///
+    /// # Returns
+    ///
+    /// The HTTP response from the server, or an error if the request fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # async fn example(mut session: strand_bui_backend_session::HttpSession) -> Result<(), Box<dyn std::error::Error>> {
+    /// let body = axum::body::Body::from(r#"{"key": "value"}"#);
+    /// let response = session.post("api/data", body).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[tracing::instrument(skip_all)]
     pub async fn post(
         &mut self,
@@ -143,6 +339,19 @@ impl HttpSession {
         self.make_request(req).await
     }
 
+    /// Internal method that actually executes HTTP requests.
+    ///
+    /// This method handles cookie management, sets appropriate headers,
+    /// and processes the response including cookie updates.
+    ///
+    /// # Arguments
+    ///
+    /// * `req` - The complete HTTP request to execute
+    ///
+    /// # Returns
+    ///
+    /// The HTTP response, or an error if the request fails or returns
+    /// a non-success status code.
     #[tracing::instrument(skip_all)]
     async fn make_request(
         &mut self,
@@ -191,9 +400,24 @@ impl HttpSession {
     }
 }
 
+/// Processes HTTP response headers to extract and store cookies.
+///
+/// This function examines the response for Set-Cookie headers and updates
+/// the cookie store accordingly. It's called automatically by the session
+/// to maintain cookie state across requests.
+///
+/// # Arguments
+///
+/// * `url` - The URL that generated this response (for cookie domain matching)
+/// * `jar` - Thread-safe cookie store to update
+/// * `response` - The HTTP response to process
+///
+/// # Returns
+///
+/// The same HTTP response, or an error if cookie processing fails.
 fn handle_response(
     url: &url::Url,
-    jar2: Arc<RwLock<cookie_store::CookieStore>>,
+    jar: Arc<RwLock<cookie_store::CookieStore>>,
     mut response: hyper::Response<hyper::body::Incoming>,
 ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
     tracing::trace!("starting to handle cookies in response {:?}", response);
@@ -202,7 +426,7 @@ fn handle_response(
     match response.headers_mut().entry(SET_COOKIE) {
         Occupied(e) => {
             let (_key, drain) = e.remove_entry_mult();
-            let mut jar = jar2.write().unwrap();
+            let mut jar = jar.write().unwrap();
             jar.store_response_cookies(
                 drain.map(|cookie_raw| {
                     cookie_store::RawCookie::parse(cookie_raw.to_str().unwrap().to_string())

@@ -36,7 +36,7 @@ use chrono::{DateTime, TimeZone, Utc};
 /// let dt = Utc.with_ymd_and_hms(2023, 12, 25, 15, 30, 45).unwrap()
 ///     .with_nanosecond(123456789).unwrap();
 /// let timestamp = datetime_to_f64(&dt);
-/// // timestamp will be something like 1703518245.123456789
+/// assert!( (timestamp - 1703518245.123456789).abs() < 1e-9 );
 /// ```
 pub fn datetime_to_f64<TZ>(dt: &DateTime<TZ>) -> f64
 where
