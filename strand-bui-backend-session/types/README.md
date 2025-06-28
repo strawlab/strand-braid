@@ -1,6 +1,7 @@
 # strand-bui-backend-session-types
 
-Types for Strand Camera BUI (Browser User Interface) backend session management.
+Types for [Strand Camera](https://strawlab.org/strand-cam) BUI (Browser User
+Interface) backend session management.
 
 This crate provides the core data types used for communication between
 a web browser frontend and a Rust backend application through session-based
