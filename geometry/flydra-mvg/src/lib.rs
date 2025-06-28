@@ -52,12 +52,12 @@ pub type Result<T> = std::result::Result<T, FlydraMvgError>;
 // MultiCameraIter -------------------------------------------------------
 
 /// implements an `Iterator` which returns cameras as `MultiCamera`s.
-pub struct MultiCameraIter<'a, 'b, R: RealField + Copy + Default + serde::Serialize> {
-    name_iter: CamNameIter<'b, R>,
+pub struct MultiCameraIter<'a, R: RealField + Copy + Default + serde::Serialize> {
+    name_iter: CamNameIter<'a, R>,
     flydra_system: &'a FlydraMultiCameraSystem<R>,
 }
 
-impl<R: RealField + Copy + Default + serde::Serialize> Iterator for MultiCameraIter<'_, '_, R> {
+impl<R: RealField + Copy + Default + serde::Serialize> Iterator for MultiCameraIter<'_, R> {
     type Item = MultiCamera<R>;
     fn next(&mut self) -> Option<Self::Item> {
         self.name_iter
@@ -442,7 +442,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         CamNameIter(self.system.cams_by_name().keys())
     }
 
-    pub fn cameras(&self) -> MultiCameraIter<R> {
+    pub fn cameras<'a>(&'a self) -> MultiCameraIter<'a, R> {
         let name_iter = self.cam_names();
         MultiCameraIter {
             name_iter,
