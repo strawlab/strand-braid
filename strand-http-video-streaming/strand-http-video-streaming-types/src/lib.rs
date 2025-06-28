@@ -165,7 +165,7 @@ pub const VIDEO_STREAM_EVENT_NAME: &str = "http-video-streaming";
 
 #[test]
 fn test_polygon_from_yaml() {
-    let mystr = "Polygon:
+    let mystr = "!Polygon
     points:
       - [510.0, 520.0]
       - [520.0, 530.0]
