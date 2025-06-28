@@ -184,8 +184,8 @@ test_crates_rust_stable:
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
     - cargo test
 
-    # Test datetime-conversion
-    - cd $CI_PROJECT_DIR/utils/datetime-conversion
+    # Test strand-datetime-conversion
+    - cd $CI_PROJECT_DIR/utils/strand-datetime-conversion
     - cargo test
 
     # Test geometry/simple-obj-parse

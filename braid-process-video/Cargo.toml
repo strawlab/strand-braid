@@ -39,7 +39,7 @@ mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 braid-config-data.workspace = true
 braid-types.workspace = true
 convert-image.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 fmf.workspace = true
 flydra2 = { workspace = true, default-features = true }

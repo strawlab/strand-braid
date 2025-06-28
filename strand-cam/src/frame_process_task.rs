@@ -1025,7 +1025,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         .collect();
 
                                     let cam_received_timestamp =
-                                        datetime_conversion::datetime_to_f64(
+                                        strand_datetime_conversion::datetime_to_f64(
                                             &frame.host_timing.datetime,
                                         );
 

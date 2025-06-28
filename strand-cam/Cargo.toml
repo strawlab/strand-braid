@@ -63,7 +63,7 @@ strand-cam-storetype.workspace = true
 flydra-feature-detector = { workspace = true, optional = true }
 flydra-feature-detector-types.workspace = true
 flydra-pt-detect-cfg.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 http-video-streaming-types.workspace = true
 http-video-streaming.workspace = true
 semver = { version = "1", features = ["serde"] }

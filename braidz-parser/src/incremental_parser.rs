@@ -169,8 +169,9 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                             }
 
                             if metadata.is_none() {
-                                let timestamp =
-                                    datetime_conversion::f64_to_datetime(row.mainbrain_timestamp);
+                                let timestamp = strand_datetime_conversion::f64_to_datetime(
+                                    row.mainbrain_timestamp,
+                                );
 
                                 let local: chrono::DateTime<chrono::Local> =
                                     timestamp.with_timezone(&chrono::Local);
@@ -270,14 +271,12 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let reprojection_distance_hlog = {
-            let reprojection_distance_hlog = match self
-                .archive
-                .open(braid_types::REPROJECTION_DIST_HLOG_FNAME)
-            {
-                Ok(rdr) => get_hlog(rdr).unwrap(),
-                Err(zip_or_dir::Error::FileNotFound) => None,
-                Err(e) => return Err(e.into()),
-            };
+            let reprojection_distance_hlog =
+                match self.archive.open(braid_types::REPROJECTION_DIST_HLOG_FNAME) {
+                    Ok(rdr) => get_hlog(rdr).unwrap(),
+                    Err(zip_or_dir::Error::FileNotFound) => None,
+                    Err(e) => return Err(e.into()),
+                };
             reprojection_distance_hlog
         };
 

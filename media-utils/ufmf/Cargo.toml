@@ -14,7 +14,7 @@ cast.workspace = true
 
 strand-dynamic-frame.workspace = true
 machine-vision-formats.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 
 [dev-dependencies]
 strand-dynamic-frame.workspace = true

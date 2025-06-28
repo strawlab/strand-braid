@@ -112,12 +112,12 @@ members = [
     "strand-cam-storetype",
     "tracking",
     "utils/csv-eof",
-    "utils/datetime-conversion",
     "utils/download-verify",
     "utils/groupby",
     "utils/env-tracing-logger",
     "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/strand-cam-enum-iter",
+    "utils/strand-datetime-conversion",
     "utils/withkey",
     "write-debian-changelog",
     "zip-or-dir",
@@ -297,7 +297,6 @@ strand-cam-types = { path = "camera/strand-cam-types" }
 ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
 csv-eof = { path = "utils/csv-eof" }
-datetime-conversion = { path = "utils/datetime-conversion" }
 download-verify = { path = "utils/download-verify" }
 dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
@@ -341,6 +340,7 @@ strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
+strand-datetime-conversion = { path = "utils/strand-datetime-conversion" }
 strand-dynamic-frame = { path = "strand-dynamic-frame" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }

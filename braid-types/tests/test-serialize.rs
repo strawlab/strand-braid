@@ -88,10 +88,10 @@ fn test_serialize_timestamps_to_csv() -> eyre::Result<()> {
     )
     .as_f64();
     let row_orig = TriggerClockInfoRow {
-        start_timestamp: datetime_conversion::f64_to_datetime(t1_orig).into(),
+        start_timestamp: strand_datetime_conversion::f64_to_datetime(t1_orig).into(),
         framecount: 123,
         tcnt: 45,
-        stop_timestamp: datetime_conversion::f64_to_datetime(t2_orig).into(),
+        stop_timestamp: strand_datetime_conversion::f64_to_datetime(t2_orig).into(),
     };
 
     let mut wtr = csv::Writer::from_writer(vec![]);

@@ -60,7 +60,7 @@ impl TryFrom<PtpStamp> for FlydraFloatTimestampLocal<Triggerbox> {
 
 impl<'a, S> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
-        datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
+        strand_datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())
     }
 }
 
@@ -74,7 +74,7 @@ assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
 
 impl<S> FlydraFloatTimestampLocal<S> {
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
-        let value_f64 = datetime_conversion::datetime_to_f64(dt);
+        let value_f64 = strand_datetime_conversion::datetime_to_f64(dt);
         let value_f64 = value_f64.try_into().unwrap();
         let source = std::marker::PhantomData;
         Self { value_f64, source }

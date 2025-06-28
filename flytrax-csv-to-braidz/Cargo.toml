@@ -24,7 +24,7 @@ eyre.workspace = true
 image.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
 flydra-mvg.workspace = true
 http-video-streaming-types.workspace = true

@@ -253,7 +253,7 @@ where
         if origframe.pixel_format() != self.pixel_format {
             return Err(UFMFError::FormatChanged);
         }
-        let timestamp = datetime_conversion::datetime_to_f64(&timestamp);
+        let timestamp = strand_datetime_conversion::datetime_to_f64(&timestamp);
 
         let rects: Vec<RectFromCorner> = point_data
             .iter()
@@ -337,7 +337,7 @@ where
             .bits_per_pixel()
             / 8;
 
-        let timestamp = datetime_conversion::datetime_to_f64(&timestamp_dt);
+        let timestamp = strand_datetime_conversion::datetime_to_f64(&timestamp_dt);
         let dtype = get_dtype(formats::pixel_format::pixfmt::<FMT>().unwrap())?;
         let width = cast::u16(frame.width())?;
         let height = cast::u16(frame.height())?;
@@ -347,7 +347,7 @@ where
                 .index_keyframes
                 .entry(keyframe_type.to_vec())
                 .or_default();
-            let timestamp = datetime_conversion::datetime_to_f64(&timestamp_dt);
+            let timestamp = strand_datetime_conversion::datetime_to_f64(&timestamp_dt);
             entry.push(TimestampLoc {
                 timestamp,
                 loc: self.pos as u64,
@@ -433,10 +433,10 @@ mod tests {
             image_data.push(start + i as u8);
         }
 
-        let dt = datetime_conversion::f64_to_datetime(timestamp);
+        let dt = strand_datetime_conversion::f64_to_datetime(timestamp);
         let host_timestamp = dt.with_timezone(&chrono::Utc);
 
-        let roundtrip = datetime_conversion::datetime_to_f64(&host_timestamp);
+        let roundtrip = strand_datetime_conversion::datetime_to_f64(&host_timestamp);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-
@@ -462,9 +462,9 @@ mod tests {
         }
         let image_data = f.into_inner();
 
-        let ts_utc = datetime_conversion::f64_to_datetime(timestamp);
+        let ts_utc = strand_datetime_conversion::f64_to_datetime(timestamp);
 
-        let roundtrip = datetime_conversion::datetime_to_f64(&ts_utc);
+        let roundtrip = strand_datetime_conversion::datetime_to_f64(&ts_utc);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
                                           // not guaranteed in general to roundtrip without change, it must pass
                                           // through the roundtrip without change in order to hope that the byte-

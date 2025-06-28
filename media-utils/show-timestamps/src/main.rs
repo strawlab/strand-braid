@@ -233,7 +233,7 @@ fn main() -> Result<()> {
                                 format!(
                                     " datetime {}, since 1970-01-01 {}",
                                     stamp_chrono,
-                                    datetime_conversion::datetime_to_f64(&stamp_chrono)
+                                    strand_datetime_conversion::datetime_to_f64(&stamp_chrono)
                                 )
                             } else {
                                 String::new()

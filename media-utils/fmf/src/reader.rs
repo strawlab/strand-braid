@@ -131,7 +131,7 @@ impl FMFReader {
         self.file_pos += self.image_data_size;
 
         let timestamp_f64 = timestamp_data.as_slice().read_f64::<LittleEndian>()?;
-        let dt = datetime_conversion::f64_to_datetime(timestamp_f64);
+        let dt = strand_datetime_conversion::f64_to_datetime(timestamp_f64);
 
         let width = self.width;
         let height = self.height;

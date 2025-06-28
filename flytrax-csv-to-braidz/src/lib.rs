@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use braid_offline::KalmanizeOptions;
+use braid_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
 use flydra2::Data2dDistortedRow;
 use flydra_mvg::FlydraMultiCameraSystem;
-use braid_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 
@@ -336,7 +336,7 @@ where
         let n_frames = ts1_f1.1 - ts0_f0.1 + 1;
         let dur = ts1_f1.0 - ts0_f0.0;
         let fps = n_frames as f64 / dur;
-        let timestamp = datetime_conversion::datetime_to_f64(&cfg.created_at);
+        let timestamp = strand_datetime_conversion::datetime_to_f64(&cfg.created_at);
         let textlog_path = braid_csv_temp_dir
             .as_ref()
             .to_path_buf()

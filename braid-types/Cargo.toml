@@ -26,7 +26,7 @@ axum-token-auth = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 
 withkey.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 rust-cam-bui-types.workspace = true
 flydra-pt-detect-cfg.workspace = true
 flydra-feature-detector-types.workspace = true

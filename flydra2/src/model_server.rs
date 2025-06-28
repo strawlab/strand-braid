@@ -336,7 +336,7 @@ fn extrinsics_f64<F: nalgebra::RealField + Float>(
 fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {
     let (msg, tdpt) = data;
     let latency: f64 = if let Some(ref tt) = tdpt.trigger_timestamp() {
-        let now_f64 = datetime_conversion::datetime_to_f64(&chrono::Local::now());
+        let now_f64 = strand_datetime_conversion::datetime_to_f64(&chrono::Local::now());
         now_f64 - tt.as_f64()
     } else {
         f64::NAN

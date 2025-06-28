@@ -10,6 +10,6 @@ machine-vision-formats.workspace = true
 strand-dynamic-frame.workspace = true
 byteorder.workspace = true
 chrono.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 thiserror.workspace = true
 libflate.workspace = true

@@ -15,6 +15,6 @@ camino.workspace = true
 
 frame-source.workspace = true
 env-tracing-logger.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 srt-writer.workspace = true
 tracing.workspace = true

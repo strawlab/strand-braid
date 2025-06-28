@@ -207,7 +207,7 @@ impl WritingState {
         // open textlog and write initial message
         let textlog_wtr = {
             let local_datetime = chrono::Local::now();
-            let mainbrain_timestamp = datetime_conversion::datetime_to_f64(&local_datetime);
+            let mainbrain_timestamp = strand_datetime_conversion::datetime_to_f64(&local_datetime);
             let (tzname_str, tzname) = match iana_time_zone::get_timezone() {
                 Ok(tzname) => ("time_tzname0", tzname),
                 Err(_err) => {

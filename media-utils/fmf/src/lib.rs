@@ -3,7 +3,7 @@ extern crate chrono;
 extern crate machine_vision_formats as formats;
 extern crate strand_dynamic_frame;
 
-extern crate datetime_conversion;
+extern crate strand_datetime_conversion;
 
 use std::f64;
 use std::io::{Seek, SeekFrom, Write};
@@ -120,7 +120,7 @@ impl<F: Write + Seek> FMFWriter<F> {
         TZ: chrono::TimeZone,
         FMT: PixelFormat,
     {
-        let timestamp = datetime_conversion::datetime_to_f64(&dtl);
+        let timestamp = strand_datetime_conversion::datetime_to_f64(&dtl);
 
         // We need this dance with InconsistentState to prevent moving out of
         // borrowed struct. TODO: remove it.

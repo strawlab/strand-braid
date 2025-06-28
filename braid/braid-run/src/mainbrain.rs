@@ -861,7 +861,7 @@ pub(crate) async fn do_run_forever(
             let gain = 1.0 / framerate;
 
             let now: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-            let offset = datetime_conversion::datetime_to_f64(&now);
+            let offset = strand_datetime_conversion::datetime_to_f64(&now);
 
             (on_new_clock_model)(Some(braid_triggerbox::ClockModel {
                 gain,

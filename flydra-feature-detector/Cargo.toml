@@ -29,7 +29,7 @@ byteorder.workspace = true
 chrono.workspace = true
 flydra-feature-detector-types.workspace = true
 http-video-streaming-types.workspace = true
-datetime-conversion.workspace = true
+strand-datetime-conversion.workspace = true
 
 parry-geom.workspace = true
 

@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 extern crate chrono;
-extern crate datetime_conversion;
+extern crate strand_datetime_conversion;
 
-use datetime_conversion::{datetime_to_f64, f64_to_datetime};
+use strand_datetime_conversion::{datetime_to_f64, f64_to_datetime};
 
 fn main() {
     let now = chrono::Local::now();

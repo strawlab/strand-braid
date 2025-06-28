@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use chrono::TimeZone;
-use datetime_conversion::{datetime_to_f64, f64_to_datetime};
+use strand_datetime_conversion::{datetime_to_f64, f64_to_datetime};
 
 #[test]
 fn test_roundtrip_local() {
