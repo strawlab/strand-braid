@@ -1,3 +1,21 @@
+//! Types for Strand Camera BUI (Browser User Interface) backend session
+//! management.
+//!
+//! This crate provides the core data types used for communication between a web
+//! browser frontend and a Rust backend application through session-based
+//! messaging. It defines the protocol for bidirectional communication using
+//! JSON-serialized messages.
+
+// Copyright 2016-2025 Andrew D. Straw.
+//
+// Licensed under the Apache License, Version 2.0
+// <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 use serde::{Deserialize, Serialize};
 
 /// Identifier for each session (one per client browser).
@@ -16,6 +34,7 @@ impl SessionKey {
 /// Identifier for each connected event stream listener (one per client tab).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct ConnectionKey {
+    /// The address from which the connection was made.
     pub addr: std::net::SocketAddr,
 }
 
