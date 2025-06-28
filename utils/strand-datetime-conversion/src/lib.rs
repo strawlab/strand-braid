@@ -1,3 +1,7 @@
+//! Convert between [chrono::DateTime] and f64 representation as used in [Strand
+//! Camera](https://strawlab.org/strand-cam) and
+//! [Braid](https://strawlab.org/braid).
+
 // Copyright 2020-2023 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -7,6 +11,33 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 
+/// Converts a [chrono::DateTime] to an f64 timestamp representation.
+///
+/// This function converts a datetime with any timezone to a floating-point
+/// timestamp where the integer part represents seconds since Unix epoch
+/// and the fractional part represents nanoseconds as a decimal fraction.
+///
+/// # Arguments
+///
+/// * `dt` - A reference to a [DateTime] with any timezone
+///
+/// # Returns
+///
+/// Returns an f64 timestamp where:
+/// - Integer part: seconds since Unix epoch (1970-01-01 00:00:00 UTC)
+/// - Fractional part: nanoseconds expressed as a decimal (e.g., 0.123456789)
+///
+/// # Example
+///
+/// ```rust
+/// use chrono::{DateTime, Utc, TimeZone, Timelike};
+/// use strand_datetime_conversion::datetime_to_f64;
+///
+/// let dt = Utc.with_ymd_and_hms(2023, 12, 25, 15, 30, 45).unwrap()
+///     .with_nanosecond(123456789).unwrap();
+/// let timestamp = datetime_to_f64(&dt);
+/// // timestamp will be something like 1703518245.123456789
+/// ```
 pub fn datetime_to_f64<TZ>(dt: &DateTime<TZ>) -> f64
 where
     TZ: TimeZone,
@@ -16,10 +47,70 @@ where
     (secs as f64) + (nsecs as f64 * 1e-9)
 }
 
+/// Converts an f64 timestamp to a [chrono::DateTime] in UTC timezone.
+///
+/// This is a convenience function that converts a floating-point timestamp
+/// to a UTC datetime. For timezone-specific conversion, use [f64_to_datetime_any].
+///
+/// # Arguments
+///
+/// * `timestamp_f64` - A floating-point timestamp where the integer part
+///   represents seconds since Unix epoch and the fractional part represents
+///   nanoseconds as a decimal fraction
+///
+/// # Returns
+///
+/// Returns a [DateTime] representing the timestamp in UTC timezone.
+///
+/// # Panics
+///
+/// Panics if the timestamp is invalid or out of range for the chrono library.
+///
+/// # Example
+///
+/// ```rust
+/// use strand_datetime_conversion::f64_to_datetime;
+///
+/// let timestamp = 1703518245.123456789;
+/// let dt = f64_to_datetime(timestamp);
+/// // dt will be 2023-12-25 15:30:45.123456789 UTC
+/// ```
 pub fn f64_to_datetime(timestamp_f64: f64) -> DateTime<Utc> {
     f64_to_datetime_any(timestamp_f64, Utc)
 }
 
+/// Converts an f64 timestamp to a [chrono::DateTime] in the specified timezone.
+///
+/// This function provides full control over the target timezone for the
+/// converted datetime. The input timestamp is interpreted as seconds since
+/// Unix epoch (always in UTC), but the resulting DateTime will be in the
+/// specified timezone.
+///
+/// # Arguments
+///
+/// * `timestamp_f64` - A floating-point timestamp where the integer part
+///   represents seconds since Unix epoch and the fractional part represents
+///   nanoseconds as a decimal fraction
+/// * `tz` - The target timezone for the resulting DateTime
+///
+/// # Returns
+///
+/// Returns a [DateTime] representing the timestamp in the specified timezone.
+///
+/// # Panics
+///
+/// Panics if the timestamp is invalid or out of range for the chrono library.
+///
+/// # Example
+///
+/// ```rust
+/// use chrono::Utc;
+/// use strand_datetime_conversion::f64_to_datetime_any;
+///
+/// let timestamp = 1703518245.123456789;
+/// let dt_utc = f64_to_datetime_any(timestamp, Utc);
+/// // dt_utc will be 2023-12-25 15:30:45.123456789 UTC
+/// ```
 pub fn f64_to_datetime_any<TZ>(timestamp_f64: f64, tz: TZ) -> DateTime<TZ>
 where
     TZ: chrono::TimeZone,
