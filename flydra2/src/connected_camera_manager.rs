@@ -6,7 +6,7 @@ use std::sync::{
 use tracing::{debug, error, info};
 
 use crate::{safe_u8, CamInfoRow, MyFloat};
-use flydra_types::{
+use braid_types::{
     BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, PtpStamp, PtpSyncConfig, RawCamName,
     RecentStats, SyncFno, TriggerType, TRIGGERBOX_SYNC_SECONDS,
 };
@@ -383,7 +383,7 @@ impl ConnectedCamerasManager {
     /// Returns synced frame number
     pub fn got_new_frame_live<F>(
         &self,
-        packet: &flydra_types::FlydraRawUdpPacket,
+        packet: &braid_types::FlydraRawUdpPacket,
         sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
         send_new_frame_offset: F,
         trigger_cfg: &TriggerType,
@@ -411,7 +411,7 @@ impl ConnectedCamerasManager {
     /// Register that a new frame was received if we are using the triggerbox (or fake sync).
     fn got_new_frame_live_triggerbox(
         &self,
-        packet: &flydra_types::FlydraRawUdpPacket,
+        packet: &braid_types::FlydraRawUdpPacket,
         sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
         sync_time_min_sec: u64,
     ) -> SyncData {
@@ -523,7 +523,7 @@ impl ConnectedCamerasManager {
     /// Register that a new frame was received if we are using PTP
     fn got_new_frame_live_ptp(
         &self,
-        packet: &flydra_types::FlydraRawUdpPacket,
+        packet: &braid_types::FlydraRawUdpPacket,
         ptpcfg: &PtpSyncConfig,
     ) -> Option<SyncData> {
         let raw_cam_name = RawCamName::new(packet.cam_name.clone());

@@ -5,7 +5,7 @@ use tracing::{debug, error, info};
 
 use crate::Result;
 use flydra2::{SendKalmanEstimatesRow, SendType};
-use flydra_types::MyFloat;
+use braid_types::MyFloat;
 use strand_cam_storetype::{LedProgramConfig, StoreType, ToLedBoxDevice};
 
 // create a long-lived future that will process data from flydra and turn on

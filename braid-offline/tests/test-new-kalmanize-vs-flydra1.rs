@@ -90,10 +90,10 @@ where
         expected_num_rows
     );
 
-    use flydra_types::{KalmanEstimatesRow, SyncFno};
+    use braid_types::{KalmanEstimatesRow, SyncFno};
 
     let kest_reader = {
-        let csv_path = src.as_ref().join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
+        let csv_path = src.as_ref().join(braid_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
@@ -237,10 +237,10 @@ where
     let braid_metadata_path = dest_dir
         .as_ref()
         .to_path_buf()
-        .join(flydra_types::BRAID_METADATA_YML_FNAME);
+        .join(braid_types::BRAID_METADATA_YML_FNAME);
 
     let metadata = braidz_types::BraidMetadata {
-        schema: flydra_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
+        schema: braid_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
         git_revision: env!("GIT_HASH").to_string(),
         original_recording_time: None,
         save_empty_data2d: false, // We do filtering below, but is this correct?
@@ -327,7 +327,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
 
     let expected_fps = None;
 
-    let tracking_params = flydra_types::default_tracking_params_full_3d();
+    let tracking_params = braid_types::default_tracking_params_full_3d();
     println!("tracking with default 3D tracking parameters");
 
     let data_src = braidz_parser::incremental_parser::IncrementalParser::open_dir(&untracked_dir)

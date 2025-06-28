@@ -27,7 +27,7 @@ env-tracing-logger.workspace = true
 csv-eof.workspace = true
 flydra2 = { workspace = true, features = ["bundle_files"] }
 braid-config-data.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 groupby.workspace = true
 zip-or-dir.workspace = true
 flydra-mvg.workspace = true

@@ -7,7 +7,7 @@ use std::{
 use hdrhistogram::serialization::interval_log;
 use ordered_float::NotNan;
 
-use flydra_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams, Triggerbox};
+use braid_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams, Triggerbox};
 
 use braidz_types::{
     BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, CamInfoRow, CamNum, Data2dDistortedRow,
@@ -345,7 +345,7 @@ impl<'a, R: Read + Seek> BraidzArchive<R> {
         let data_fname = self
             .archive
             .path_starter()
-            .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
         let rdr = open_maybe_gzipped(data_fname)?;
         let rdr2 = csv::Reader::from_reader(rdr);
         Ok(rdr2.into_deserialize().early_eof_ok())
@@ -363,7 +363,7 @@ impl<'a, R: Read + Seek> BraidzArchive<R> {
         include_nan_data: bool,
         bufsize: usize,
     ) -> Result<
-        impl Iterator<Item = Result<GroupedRows<i64, flydra_types::Data2dDistortedRow>, Error>> + 'a,
+        impl Iterator<Item = Result<GroupedRows<i64, braid_types::Data2dDistortedRow>, Error>> + 'a,
         Error,
     > {
         let single_iter = self

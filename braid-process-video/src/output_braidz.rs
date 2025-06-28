@@ -1,7 +1,7 @@
 use eyre::{self as anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 
-use flydra_types::{PerCamSaveData, RawCamName};
+use braid_types::{PerCamSaveData, RawCamName};
 
 use crate::{
     config::{BraidRetrackVideoConfig, CameraCalibrationSource, TrackingParametersSource},
@@ -19,7 +19,7 @@ impl BraidStorage {
     pub(crate) async fn new(
         cfg: &BraidRetrackVideoConfig,
         b: &crate::config::BraidzOutputConfig,
-        tracking_parameters: Option<flydra_types::TrackingParams>,
+        tracking_parameters: Option<braid_types::TrackingParams>,
         sources: &[crate::CameraSource],
         all_expected_cameras: BTreeSet<RawCamName>,
         expected_framerate: Option<f32>,
@@ -45,13 +45,13 @@ impl BraidStorage {
             }
         };
 
-        let tracking_params: flydra_types::TrackingParams = match cfg
+        let tracking_params: braid_types::TrackingParams = match cfg
             .processing_config
             .tracking_parameters_source
         {
             TrackingParametersSource::Default => match cfg.input_video.len() {
-                1 => flydra_types::default_tracking_params_flat_3d(),
-                _ => flydra_types::default_tracking_params_full_3d(),
+                1 => braid_types::default_tracking_params_flat_3d(),
+                _ => braid_types::default_tracking_params_full_3d(),
             },
             TrackingParametersSource::CopyExisting => {
                 if let Some(tracking_parameters) = tracking_parameters.as_ref() {
@@ -94,7 +94,7 @@ impl BraidStorage {
         );
 
         for raw_cam_name in all_expected_cameras.iter() {
-            let no_server = flydra_types::BuiServerInfo::NoServer;
+            let no_server = braid_types::BuiServerInfo::NoServer;
             cam_manager
                 .register_new_camera(raw_cam_name, &no_server, None)
                 .map_err(|msg| anyhow::anyhow!("Error registering new camera: {msg}"))?;
@@ -166,7 +166,7 @@ impl BraidStorage {
             let frame_data = flydra2::FrameData::new(
                 raw_cam_name,
                 cam_num,
-                flydra_types::SyncFno(out_fno.try_into().unwrap()),
+                braid_types::SyncFno(out_fno.try_into().unwrap()),
                 trigger_timestamp,
                 cam_render_data.pts_chrono.into(),
                 None,
@@ -178,7 +178,7 @@ impl BraidStorage {
                 .iter()
                 .enumerate()
                 .map(|(idx, xy)| {
-                    let pt = flydra_types::FlydraRawUdpPoint {
+                    let pt = braid_types::FlydraRawUdpPoint {
                         x0_abs: *xy.0,
                         y0_abs: *xy.1,
                         area: f64::NAN,

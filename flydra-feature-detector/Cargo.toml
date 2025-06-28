@@ -23,7 +23,7 @@ ipp-sys = { workspace = true, optional = true }
 fastimage = { path = "../fastimage", optional = true }
 fastfreeimage = { workspace = true, optional = true }
 rust-cam-bui-types.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 ufmf.workspace = true
 byteorder.workspace = true
 chrono.workspace = true

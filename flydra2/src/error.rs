@@ -3,7 +3,7 @@ pub enum Error {
     #[error("{source}")]
     FlydraTypes {
         #[from]
-        source: flydra_types::FlydraTypesError,
+        source: braid_types::FlydraTypesError,
     },
     #[error("{source}")]
     Mvg {

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 use tracing::error;
 
-use flydra_types::{RawCamName, TrackingParams};
+use braid_types::{RawCamName, TrackingParams};
 
 use mvg::{MvgError, PointWorldFrameWithSumReprojError};
 

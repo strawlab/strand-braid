@@ -2,7 +2,7 @@ use axum::response::IntoResponse;
 use tracing::debug;
 
 use event_stream_types::TolerantJson;
-use flydra_types::{BraidHttpApiCallback, PerCamSaveData};
+use braid_types::{BraidHttpApiCallback, PerCamSaveData};
 use http::StatusCode;
 use rust_cam_bui_types::RecordingPath;
 

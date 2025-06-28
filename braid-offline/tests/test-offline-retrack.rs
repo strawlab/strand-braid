@@ -26,7 +26,7 @@ async fn test_min_two_rays_needed() {
 
     // let output_root = std::path::PathBuf::from("test-output");
 
-    let tracking_params: flydra_types::TrackingParams = data_src
+    let tracking_params: braid_types::TrackingParams = data_src
         .basic_info()
         .tracking_params
         .as_ref()

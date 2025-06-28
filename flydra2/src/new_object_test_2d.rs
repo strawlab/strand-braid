@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult};
-use flydra_types::{MyFloat, RawCamName, TrackingParams};
+use braid_types::{MyFloat, RawCamName, TrackingParams};
 
 #[derive(Clone)]
 pub(crate) struct NewObjectTestFlat3D {

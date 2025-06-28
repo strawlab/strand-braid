@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 
-use flydra_types::RawCamName;
+use braid_types::RawCamName;
 pub type MyFloat = f64;
 
 use http_video_streaming_types::CircleParams;
@@ -81,7 +81,7 @@ fn test_pseudo_cal() {
     use na::geometry::{Point2, Point3};
 
     let pc = PseudoCameraCalibrationData {
-        cam_name: flydra_types::RawCamName::new("pseudo-cam".to_string()),
+        cam_name: braid_types::RawCamName::new("pseudo-cam".to_string()),
         width: 640,
         height: 480,
         physical_diameter_meters: 0.03,

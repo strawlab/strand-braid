@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 
-use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, Triggerbox};
+use braid_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, Triggerbox};
 
 type KItem = std::result::Result<KalmanEstimatesRow, csv::Error>;
 

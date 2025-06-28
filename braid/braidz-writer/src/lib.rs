@@ -37,7 +37,7 @@ pub fn dir_to_braidz<P1: AsRef<Path>, P2: AsRef<Path>>(
 
     let mut files = Vec::new();
     for entry in walkdir.into_iter().filter_map(|e| e.ok()) {
-        if entry.file_name() == flydra_types::README_MD_FNAME {
+        if entry.file_name() == braid_types::README_MD_FNAME {
             readme_entry = Some(entry);
         } else {
             files.push(entry);

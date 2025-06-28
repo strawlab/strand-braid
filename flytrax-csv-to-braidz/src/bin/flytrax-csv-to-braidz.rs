@@ -4,7 +4,7 @@ extern crate lazy_static;
 use eyre::{self as anyhow, Context};
 use tracing::info;
 
-use flydra_types::{MiniArenaConfig, XYGridConfig};
+use braid_types::{MiniArenaConfig, XYGridConfig};
 use flytrax_csv_to_braidz::{parse_configs_and_run, PseudoCalParams, RowFilter};
 
 use clap::Parser;
@@ -19,7 +19,7 @@ lazy_static! {
         };
         let simple_cal_toml_buf = toml::to_string(&example_simple_cal).unwrap();
 
-        let mut tracking_example = flydra_types::default_tracking_params_flat_3d();
+        let mut tracking_example = braid_types::default_tracking_params_flat_3d();
         tracking_example.mini_arena_config =
             MiniArenaConfig::XYGrid(XYGridConfig::new(&[0.1, 0.2, 0.3], &[0.1, 0.2, 0.3], 0.05));
         let tracking_example_buf = toml::to_string(&tracking_example).unwrap();

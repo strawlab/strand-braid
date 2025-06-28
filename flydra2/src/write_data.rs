@@ -3,7 +3,7 @@ use tracing::info;
 
 use std::io::Write;
 
-use flydra_types::{
+use braid_types::{
     BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
 
@@ -85,7 +85,7 @@ impl WritingState {
         // condition where another process could also open this directory.
 
         let readme_fd = {
-            let readme_path = output_dirname.join(flydra_types::README_MD_FNAME);
+            let readme_path = output_dirname.join(braid_types::README_MD_FNAME);
 
             let mut fd = std::fs::File::create(readme_path)?;
 
@@ -101,7 +101,7 @@ impl WritingState {
         };
 
         {
-            let braid_metadata_path = output_dirname.join(flydra_types::BRAID_METADATA_YML_FNAME);
+            let braid_metadata_path = output_dirname.join(braid_types::BRAID_METADATA_YML_FNAME);
 
             let metadata = match metadata_builder {
                 BraidMetadataBuilder::GenerateNew(parts) => {
@@ -186,7 +186,7 @@ impl WritingState {
         // write cam info (pairs of CamNum and cam name)
         {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(format!("{}.gz", flydra_types::CAM_INFO_CSV_FNAME));
+            csv_path.push(format!("{}.gz", braid_types::CAM_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write + Send> =
                 Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
@@ -199,7 +199,7 @@ impl WritingState {
         // write calibration
         if let Some(ref recon) = recon {
             let mut cal_path = output_dirname.clone();
-            cal_path.push(flydra_types::CALIBRATION_XML_FNAME);
+            cal_path.push(braid_types::CALIBRATION_XML_FNAME);
             let fd = std::fs::File::create(&cal_path)?;
             recon.to_flydra_xml(fd)?;
         }
@@ -253,7 +253,7 @@ impl WritingState {
             // We do not stream this to .gz because we want to maximize chances
             // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
-            csv_path.push(flydra_types::TEXTLOG_CSV_FNAME);
+            csv_path.push(braid_types::TEXTLOG_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
             let mut textlog_wtr =
                 csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>);
@@ -268,7 +268,7 @@ impl WritingState {
         // kalman estimates
         let kalman_estimates_wtr = if let Some(ref _recon) = recon {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(format!("{}.gz", flydra_types::KALMAN_ESTIMATES_CSV_FNAME));
+            csv_path.push(format!("{}.gz", braid_types::KALMAN_ESTIMATES_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write + Send> =
                 Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
@@ -279,7 +279,7 @@ impl WritingState {
 
         let trigger_clock_info_wtr = {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(format!("{}.gz", flydra_types::TRIGGER_CLOCK_INFO_CSV_FNAME));
+            csv_path.push(format!("{}.gz", braid_types::TRIGGER_CLOCK_INFO_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write + Send> =
                 Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
@@ -290,14 +290,14 @@ impl WritingState {
             // We do not stream this to .gz because we want to maximize chances
             // that it is completely flushed to disk even in event of a panic.
             let mut csv_path = output_dirname.clone();
-            csv_path.push(flydra_types::EXPERIMENT_INFO_CSV_FNAME);
+            csv_path.push(braid_types::EXPERIMENT_INFO_CSV_FNAME);
             let fd = std::fs::File::create(&csv_path)?;
             csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>)
         };
 
         let data_assoc_wtr = if let Some(ref _recon) = recon {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(format!("{}.gz", flydra_types::DATA_ASSOCIATE_CSV_FNAME));
+            csv_path.push(format!("{}.gz", braid_types::DATA_ASSOCIATE_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write + Send> =
                 Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
@@ -308,7 +308,7 @@ impl WritingState {
 
         let data_2d_wtr = {
             let mut csv_path = output_dirname.clone();
-            csv_path.push(format!("{}.gz", flydra_types::DATA2D_DISTORTED_CSV_FNAME));
+            csv_path.push(format!("{}.gz", braid_types::DATA2D_DISTORTED_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
             let fd: Box<dyn std::io::Write + Send> =
                 Box::new(AutoFinishUnchecked::new(Encoder::new(fd)?));
@@ -691,7 +691,7 @@ mod test {
                 Arc::new(AtomicBool::new(true)),
                 None,
             );
-            let tracking_params = Arc::new(flydra_types::default_tracking_params_full_3d());
+            let tracking_params = Arc::new(braid_types::default_tracking_params_full_3d());
             let save_empty_data2d = false;
 
             let ws = WritingState::new(
@@ -777,7 +777,7 @@ mod test {
                 Arc::new(AtomicBool::new(true)),
                 None,
             );
-            let tracking_params = Arc::new(flydra_types::default_tracking_params_full_3d());
+            let tracking_params = Arc::new(braid_types::default_tracking_params_full_3d());
 
             let mut ws = WritingState::new(
                 cfg,
@@ -822,7 +822,7 @@ mod test {
         let zip_reader = std::fs::File::open(braidz_name)?;
         let mut zip_archive = zip::ZipArchive::new(zip_reader).unwrap();
 
-        let data2d_fname = format!("{}.gz", flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+        let data2d_fname = format!("{}.gz", braid_types::DATA2D_DISTORTED_CSV_FNAME);
 
         let gz_rdr = zip_archive.by_name(&data2d_fname).unwrap();
 

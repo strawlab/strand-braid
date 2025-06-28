@@ -14,7 +14,7 @@ cam-geom.workspace = true
 flydra-mvg.workspace = true
 mvg.workspace = true
 http-video-streaming-types.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

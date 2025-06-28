@@ -22,7 +22,7 @@ use tracing::{debug, error, info};
 
 use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
-use flydra_types::{
+use braid_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
     BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
     FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox,
@@ -81,11 +81,11 @@ pub(crate) struct BraidAppState {
     pub(crate) shared_store: SharedStore,
     lowlatency_camdata_udp_addr: SocketAddr,
     force_camera_sync_mode: bool,
-    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    software_limit_framerate: braid_types::StartSoftwareFrameRateLimit,
     event_broadcaster: EventBroadcaster<usize>,
     pub(crate) per_cam_data_arc: Arc<RwLock<BTreeMap<RawCamName, PerCamSaveData>>>,
     pub(crate) expected_framerate_arc: Arc<RwLock<Option<f32>>>,
-    camera_configs: BTreeMap<RawCamName, flydra_types::BraidCameraConfig>,
+    camera_configs: BTreeMap<RawCamName, braid_types::BraidCameraConfig>,
     next_connection_id: Arc<RwLock<usize>>,
     pub(crate) strand_cam_http_session_handler: StrandCamHttpSessionHandler,
     pub(crate) cam_manager: flydra2::ConnectedCamerasManager,
@@ -147,7 +147,7 @@ async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
 /// Note that this does not change the state of the mainbrain to register
 /// anything about the camera but only queries for its configuration.
 /// Registration of a new camera is done by
-/// [flydra_types::BraidHttpApiCallback::NewCamera].
+/// [braid_types::BraidHttpApiCallback::NewCamera].
 async fn remote_camera_info_handler(
     State(app_state): State<BraidAppState>,
     session_key: axum_token_auth::SessionKey,
@@ -169,7 +169,7 @@ async fn remote_camera_info_handler(
             .trigger_type
             .clone();
 
-        let msg = flydra_types::RemoteCameraInfoResponse {
+        let msg = braid_types::RemoteCameraInfoResponse {
             camdata_udp_port: app_state.lowlatency_camdata_udp_addr.port(),
             config: config.clone(),
             force_camera_sync_mode: app_state.force_camera_sync_mode,
@@ -370,7 +370,7 @@ async fn launch_braid_http_backend(
     let urls = mainbrain_server_info.build_urls()?;
     for url in urls.iter() {
         info!("Predicted URL: {url}");
-        if !flydra_types::is_loopback(url) {
+        if !braid_types::is_loopback(url) {
             println!("QR code for {url}");
             display_qr_url(&format!("{url}"));
         }
@@ -429,13 +429,13 @@ fn display_qr_url(url: &str) {
 pub(crate) async fn do_run_forever(
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
-    camera_configs: BTreeMap<RawCamName, flydra_types::BraidCameraConfig>,
+    camera_configs: BTreeMap<RawCamName, braid_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
     mainbrain_config: braid_config_data::MainbrainConfig,
     secret_base64: Option<String>,
     all_expected_cameras: std::collections::BTreeSet<RawCamName>,
     force_camera_sync_mode: bool,
-    software_limit_framerate: flydra_types::StartSoftwareFrameRateLimit,
+    software_limit_framerate: braid_types::StartSoftwareFrameRateLimit,
     saving_program_name: &str,
     listener: tokio::net::TcpListener,
     mainbrain_server_info: BuiServerAddrInfo,
@@ -443,7 +443,7 @@ pub(crate) async fn do_run_forever(
 ) -> Result<()> {
     let cal_fname: Option<std::path::PathBuf> = mainbrain_config.cal_fname.clone();
     let output_base_dirname: std::path::PathBuf = mainbrain_config.output_base_dirname.clone();
-    let tracking_params: flydra_types::TrackingParams = mainbrain_config.tracking_params.clone();
+    let tracking_params: braid_types::TrackingParams = mainbrain_config.tracking_params.clone();
 
     let lowlatency_camdata_udp_port = &mainbrain_config.lowlatency_camdata_udp_port;
     let mut ensure_camdata_ip = None;
@@ -509,7 +509,7 @@ pub(crate) async fn do_run_forever(
         StrandCamHttpSessionHandler::new(cam_manager.clone(), jar);
 
     if show_tracking_params {
-        let t2: flydra_types::TrackingParams = tracking_params;
+        let t2: braid_types::TrackingParams = tracking_params;
         let buf = toml::to_string(&t2)?;
         println!("{}", buf);
         std::process::exit(0);
@@ -716,7 +716,7 @@ pub(crate) async fn do_run_forever(
                         info!("triggerbox is connected.");
                         signal_triggerbox_connected.store(true, Ordering::SeqCst);
                     }
-                    let msg2 = flydra_types::TriggerClockInfoRow {
+                    let msg2 = braid_types::TriggerClockInfoRow {
                         start_timestamp: msg.start_timestamp.into(),
                         framecount: msg.framecount,
                         tcnt: msg.tcnt,
@@ -802,7 +802,7 @@ pub(crate) async fn do_run_forever(
 
             let max_triggerbox_measurement_error =
                 cfg.max_triggerbox_measurement_error.unwrap_or_else(|| {
-                    flydra_types::TriggerboxConfig::default()
+                    braid_types::TriggerboxConfig::default()
                         .max_triggerbox_measurement_error
                         .unwrap()
                 });
@@ -967,7 +967,7 @@ pub(crate) async fn do_run_forever(
 
             // Let's be sure about the type of our input.
             let r: std::result::Result<
-                (flydra_types::FlydraRawUdpPacket, std::net::SocketAddr),
+                (braid_types::FlydraRawUdpPacket, std::net::SocketAddr),
                 std::io::Error,
             > = r;
 
@@ -1043,7 +1043,7 @@ pub(crate) async fn do_run_forever(
                             // cameras should have this same timestamp, so it
                             // shouldn't matter which camera we use.
                             packet.device_timestamp.map(|device_timestamp| {
-                                let ptp_stamp = flydra_types::PtpStamp::new(device_timestamp);
+                                let ptp_stamp = braid_types::PtpStamp::new(device_timestamp);
                                 let device_timestamp_chrono =
                                     chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
                                         .unwrap();
@@ -1159,8 +1159,8 @@ impl LiveStatsAccum {
         self.n_frames += 1;
         self.n_points += n_points;
     }
-    fn get_results_and_reset(&mut self) -> flydra_types::RecentStats {
-        let recent = flydra_types::RecentStats {
+    fn get_results_and_reset(&mut self) -> braid_types::RecentStats {
+        let recent = braid_types::RecentStats {
             total_frames_collected: 0,
             frames_collected: self.n_frames,
             points_detected: self.n_points,

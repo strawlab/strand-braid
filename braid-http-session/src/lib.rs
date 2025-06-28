@@ -5,7 +5,7 @@ use tracing::{debug, error};
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
-    FlydraTypesError(#[from] flydra_types::FlydraTypesError),
+    FlydraTypesError(#[from] braid_types::FlydraTypesError),
     #[error("{0}")]
     JsonError(#[from] serde_json::Error),
     #[error("{0}")]
@@ -19,7 +19,7 @@ pub enum Error {
 /// Create a `MainbrainSession` which has already made a request
 #[tracing::instrument(level = "info")]
 pub async fn create_mainbrain_session(
-    dest: flydra_types::BuiServerAddrInfo,
+    dest: braid_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<MainbrainSession, strand_bui_backend_session::Error> {
     debug!("requesting session with mainbrain at {:?}", dest);
@@ -54,12 +54,12 @@ impl MainbrainSession {
 
     pub async fn get_remote_info(
         &mut self,
-        raw_cam_name: &flydra_types::RawCamName,
-    ) -> Result<flydra_types::RemoteCameraInfoResponse, Error> {
+        raw_cam_name: &braid_types::RawCamName,
+    ) -> Result<braid_types::RemoteCameraInfoResponse, Error> {
         let path = format!(
             "{}/{}",
-            flydra_types::braid_http::REMOTE_CAMERA_INFO_PATH,
-            flydra_types::braid_http::encode_cam_name(raw_cam_name)
+            braid_types::braid_http::REMOTE_CAMERA_INFO_PATH,
+            braid_types::braid_http::encode_cam_name(raw_cam_name)
         );
 
         debug!(
@@ -84,14 +84,14 @@ impl MainbrainSession {
 
         // parse data
         Ok(serde_json::from_slice::<
-            flydra_types::RemoteCameraInfoResponse,
+            braid_types::RemoteCameraInfoResponse,
         >(&data)?)
     }
 
     #[tracing::instrument(skip_all)]
     pub async fn post_callback_message(
         &mut self,
-        msg: flydra_types::BraidHttpApiCallback,
+        msg: braid_types::BraidHttpApiCallback,
     ) -> Result<(), Error> {
         let bytes = serde_json::to_vec(&msg).unwrap();
         self.do_post(bytes).await

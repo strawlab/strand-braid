@@ -6,7 +6,7 @@ use std::{
 use tracing::{debug, error, info, warn};
 
 use strand_bui_backend_session::HttpSession;
-use flydra_types::{BuiServerInfo, RawCamName};
+use braid_types::{BuiServerInfo, RawCamName};
 use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.

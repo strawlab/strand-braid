@@ -10,5 +10,5 @@ shellexpand.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
-flydra-types.workspace = true
+braid-types.workspace = true
 serde.workspace = true

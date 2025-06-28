@@ -12,7 +12,7 @@ use tracing::info;
 use braid_offline::KalmanizeOptions;
 use flydra2::Data2dDistortedRow;
 use flydra_mvg::FlydraMultiCameraSystem;
-use flydra_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
+use braid_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;
 
@@ -186,8 +186,8 @@ where
 pub enum RowFilter {
     /// Row is in time interval between start and stop
     InTimeInterval(
-        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
-        flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock>,
+        braid_types::FlydraFloatTimestampLocal<braid_types::HostClock>,
+        braid_types::FlydraFloatTimestampLocal<braid_types::HostClock>,
     ),
     /// Row is in region of calibration
     InPseudoCalRegion,
@@ -212,7 +212,7 @@ where
 
     // -------------------------------------------------
     let mut cal_path: std::path::PathBuf = braid_csv_temp_dir.as_ref().to_path_buf();
-    cal_path.push(flydra_types::CALIBRATION_XML_FNAME);
+    cal_path.push(braid_types::CALIBRATION_XML_FNAME);
 
     // let cam_name: String = recon.cams().keys().next().unwrap().clone();
 
@@ -224,7 +224,7 @@ where
     // save cam_info.csv
 
     let mut csv_path = braid_csv_temp_dir.as_ref().to_path_buf();
-    csv_path.push(flydra_types::CAM_INFO_CSV_FNAME);
+    csv_path.push(braid_types::CAM_INFO_CSV_FNAME);
     let fd = std::fs::File::create(&csv_path)?;
     let mut cam_info_wtr = csv::Writer::from_writer(fd);
 
@@ -232,7 +232,7 @@ where
 
     let cam_info_rows: Vec<CamInfoRow> = vec![CamInfoRow {
         cam_id: cam_name.to_string(),
-        camn: flydra_types::CamNum(0),
+        camn: braid_types::CamNum(0),
     }];
     for row in cam_info_rows.iter() {
         cam_info_wtr.serialize(row)?;
@@ -243,7 +243,7 @@ where
 
     {
         let mut image_path = braid_csv_temp_dir.as_ref().to_path_buf();
-        image_path.push(flydra_types::IMAGES_DIRNAME);
+        image_path.push(braid_types::IMAGES_DIRNAME);
         std::fs::create_dir_all(&image_path)?;
 
         for (cam_name, data) in images.iter() {
@@ -260,10 +260,10 @@ where
         let braid_metadata_path = braid_csv_temp_dir
             .as_ref()
             .to_path_buf()
-            .join(flydra_types::BRAID_METADATA_YML_FNAME);
+            .join(braid_types::BRAID_METADATA_YML_FNAME);
 
         let metadata = braidz_types::BraidMetadata {
-            schema: flydra_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
+            schema: braid_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
             git_revision,
             original_recording_time: Some(cfg.created_at),
             save_empty_data2d: false, // We do filtering below, but is this correct?
@@ -283,7 +283,7 @@ where
         .from_reader(point_detection_csv_reader);
 
     let mut d2d_path = braid_csv_temp_dir.as_ref().to_path_buf();
-    d2d_path.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+    d2d_path.push(braid_types::DATA2D_DISTORTED_CSV_FNAME);
     let fd = std::fs::File::create(&d2d_path)?;
     let mut writer = csv::Writer::from_writer(fd);
     let mut row_state = RowState::new();
@@ -340,7 +340,7 @@ where
         let textlog_path = braid_csv_temp_dir
             .as_ref()
             .to_path_buf()
-            .join(flydra_types::TEXTLOG_CSV_FNAME);
+            .join(braid_types::TEXTLOG_CSV_FNAME);
 
         let message = format!("MainBrain running at {} fps, ()", fps);
 
@@ -390,7 +390,7 @@ fn to_recon_func(
     let system = match cal_type {
         CalibrationType::SimpleCal(pseudo_cal_params) => {
             let cal_data = PseudoCameraCalibrationData {
-                cam_name: flydra_types::RawCamName::new(cam_name.to_string()),
+                cam_name: braid_types::RawCamName::new(cam_name.to_string()),
                 width: cfg.camera.width,
                 height: cfg.camera.height,
                 physical_diameter_meters: pseudo_cal_params.physical_diameter_meters,
@@ -437,10 +437,10 @@ impl RowState {
 fn get_timestamp(
     strand_cam_row: &Fview2CsvRecord,
     ts0: &chrono::DateTime<chrono::Utc>,
-) -> flydra_types::FlydraFloatTimestampLocal<flydra_types::HostClock> {
+) -> braid_types::FlydraFloatTimestampLocal<braid_types::HostClock> {
     let toffset = chrono::Duration::microseconds(strand_cam_row.time_microseconds);
     let dt = *ts0 + toffset;
-    flydra_types::FlydraFloatTimestampLocal::from_dt(&dt)
+    braid_types::FlydraFloatTimestampLocal::from_dt(&dt)
 }
 
 // maybe use Data2dDistortedRowF32 ?
@@ -459,7 +459,7 @@ fn convert_row(
         cam_received_timestamp: get_timestamp(&strand_cam_row, ts0),
         device_timestamp: None,
         block_id: None,
-        camn: flydra_types::CamNum(0),
+        camn: braid_types::CamNum(0),
         cur_val: 255,
         frame: strand_cam_row.frame,
         eccentricity,
@@ -467,7 +467,7 @@ fn convert_row(
         mean_val: f64::NAN,
         slope,
         sumsqf_val: f64::NAN,
-        timestamp: None, //flydra_types::FlydraFloatTimestampLocal::from_dt(&dt),
+        timestamp: None, //braid_types::FlydraFloatTimestampLocal::from_dt(&dt),
         x: strand_cam_row.x_px,
         y: strand_cam_row.y_px,
     }
@@ -520,11 +520,11 @@ where
 {
     let tracking_params = match tracking_params_buf {
         Some(buf) => {
-            let tracking_params: flydra_types::TrackingParams =
+            let tracking_params: braid_types::TrackingParams =
                 toml::from_str(buf).map_err(anyhow::Error::from)?;
             tracking_params
         }
-        None => flydra_types::default_tracking_params_flat_3d(),
+        None => braid_types::default_tracking_params_flat_3d(),
     };
 
     kalmanize_2d(

@@ -22,7 +22,7 @@ convert-image.workspace = true
 braidz-parser.workspace = true
 mvg = { workspace = true, features = ["rerun-io"] }
 braidz-types.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 frame-source.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 mp4-writer = { workspace = true, features = ["nv-encode"] }

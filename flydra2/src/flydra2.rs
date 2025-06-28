@@ -29,12 +29,12 @@ use mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
 pub use braidz_types::BraidMetadata;
 
-use flydra_types::{
+use braid_types::{
     CamInfoRow, CamNum, ConnectedCameraSyncState, DataAssocRow, FlydraFloatTimestampLocal,
     HostClock, KalmanEstimatesRow, RawCamName, SyncFno, TextlogRow, TrackingParams,
     TriggerClockInfoRow, Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
 };
-pub use flydra_types::{Data2dDistortedRow, Data2dDistortedRowF32};
+pub use braid_types::{Data2dDistortedRow, Data2dDistortedRowF32};
 
 mod connected_camera_manager;
 pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
@@ -61,7 +61,7 @@ use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
 pub use crate::frame_bundler::StreamItem;
 
-pub type MyFloat = flydra_types::MyFloat; // todo: remove that this is public
+pub type MyFloat = braid_types::MyFloat; // todo: remove that this is public
 
 mod error;
 pub use error::{file_error, wrap_error, Error};
@@ -173,12 +173,12 @@ pub struct NumberedRawUdpPoint {
     /// the original index of the detected point
     pub idx: u8,
     /// the actual detected point
-    pub pt: flydra_types::FlydraRawUdpPoint,
+    pub pt: braid_types::FlydraRawUdpPoint,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TrackingParamsSaver {
-    tracking_params: flydra_types::TrackingParams,
+    tracking_params: braid_types::TrackingParams,
     git_revision: String,
 }
 
@@ -661,7 +661,7 @@ pub struct StartSavingCsvConfig {
     pub local: Option<chrono::DateTime<chrono::Local>>,
     pub git_rev: String,
     pub fps: Option<f32>,
-    pub per_cam_data: BTreeMap<RawCamName, flydra_types::PerCamSaveData>,
+    pub per_cam_data: BTreeMap<RawCamName, braid_types::PerCamSaveData>,
     pub print_stats: bool,
     pub save_performance_histograms: bool,
 }

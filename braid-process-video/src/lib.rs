@@ -10,7 +10,7 @@ use ordered_float::NotNan;
 
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 
-use flydra_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
+use braid_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
 
 mod peek2;
 use peek2::Peek2;
@@ -132,7 +132,7 @@ impl SyncedPictures {
 #[derive(Debug)]
 pub(crate) struct BraidzFrameInfo {
     frame_num: i64,
-    trigger_timestamp: Option<flydra_types::FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
+    trigger_timestamp: Option<braid_types::FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
     kalman_estimates: Vec<KalmanEstimatesRow>,
 }
 
@@ -219,7 +219,7 @@ fn synchronize_readers_from(
 struct PerCamRender {
     best_name: String,
     raw_name: RawCamName,
-    frame0_png_buf: flydra_types::PngImageData,
+    frame0_png_buf: braid_types::PngImageData,
     width: usize,
     height: usize,
 }
@@ -456,7 +456,7 @@ impl std::fmt::Debug for MovieCamId {
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 struct BraidzCamId {
     cam_id_str: String,
-    camn: flydra_types::CamNum,
+    camn: braid_types::CamNum,
 }
 
 pub async fn run_config(
@@ -680,7 +680,7 @@ pub async fn run_config(
         let boxed = Box::new(braid_archive);
         let statik: &'static mut _ = Box::leak(boxed);
 
-        let camns: Vec<flydra_types::CamNum> = sources
+        let camns: Vec<braid_types::CamNum> = sources
             .iter()
             .map(|s| match &s.cam_id {
                 CameraIdentifier::BraidzOnly(b) => b.camn,

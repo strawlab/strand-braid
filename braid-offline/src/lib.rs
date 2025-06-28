@@ -16,7 +16,7 @@ use flydra2::{
     new_model_server, CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData,
     FrameDataAndPoints, NumberedRawUdpPoint, StreamItem,
 };
-use flydra_types::{
+use braid_types::{
     CamInfoRow, PerCamSaveData, RawCamName, SyncFno, TrackingParams,
     FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
 };
@@ -75,7 +75,7 @@ fn to_point_info(row: &Data2dDistortedRow, idx: u8) -> NumberedRawUdpPoint {
     };
     NumberedRawUdpPoint {
         idx,
-        pt: flydra_types::FlydraRawUdpPoint {
+        pt: braid_types::FlydraRawUdpPoint {
             x0_abs: row.x,
             y0_abs: row.y,
             area: row.area,
@@ -301,7 +301,7 @@ where
         let data_src_name = format!("{}", data_src.display());
         let data_fname = data_src
             .path_starter()
-            .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
 
         warn!(
             "File \"{}\" does not have FPS saved directly. Will \
@@ -450,7 +450,7 @@ where
                     PerCamSaveData {
                         current_image_png: current_image_png.into(),
                         cam_settings_data: None,
-                        feature_detect_settings: Some(flydra_types::UpdateFeatureDetectSettings {
+                        feature_detect_settings: Some(braid_types::UpdateFeatureDetectSettings {
                             current_feature_detect_settings,
                         }),
                     },
@@ -463,15 +463,15 @@ where
 
     // read the cam_info CSV file
     let mut cam_info_fname = data_src.path_starter();
-    cam_info_fname.push(flydra_types::CAM_INFO_CSV_FNAME);
+    cam_info_fname.push(braid_types::CAM_INFO_CSV_FNAME);
     let cam_info_file = open_maybe_gzipped(cam_info_fname)?;
-    let mut orig_camn_to_cam_name: BTreeMap<flydra_types::CamNum, RawCamName> = BTreeMap::new();
+    let mut orig_camn_to_cam_name: BTreeMap<braid_types::CamNum, RawCamName> = BTreeMap::new();
     let rdr = csv::Reader::from_reader(cam_info_file);
     for row in rdr.into_deserialize::<CamInfoRow>() {
         let row = row?;
 
         let orig_cam_name = RawCamName::new(row.cam_id.to_string());
-        let no_server = flydra_types::BuiServerInfo::NoServer;
+        let no_server = braid_types::BuiServerInfo::NoServer;
 
         orig_camn_to_cam_name.insert(row.camn, orig_cam_name.clone());
 
@@ -516,11 +516,11 @@ where
         } else {
             tracing::info!(
                 "Parsing {} file to determine frame count.",
-                flydra_types::DATA2D_DISTORTED_CSV_FNAME
+                braid_types::DATA2D_DISTORTED_CSV_FNAME
             );
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
-            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            data_fname.push(braid_types::DATA2D_DISTORTED_CSV_FNAME);
 
             tracing::trace!("loading data from {}", data_fname.display());
 
@@ -567,7 +567,7 @@ where
         let data_row_frame_iter = {
             // open the data2d CSV file
             let mut data_fname = data_src.path_starter();
-            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            data_fname.push(braid_types::DATA2D_DISTORTED_CSV_FNAME);
 
             tracing::trace!("loading data from {}", data_fname.display());
 
@@ -771,13 +771,13 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
 
     let cam_info = &data_src.basic_info().cam_info;
 
-    let tracking_params: flydra_types::TrackingParams = match opt.tracking_params {
+    let tracking_params: braid_types::TrackingParams = match opt.tracking_params {
         Some(ref fname) => {
             info!("reading tracking parameters from file {}", fname.display());
             // read the traking parameters
             let buf = std::fs::read_to_string(fname)
                 .context(format!("loading tracking parameters {}", fname.display()))?;
-            let tracking_params: flydra_types::TrackingParams = toml::from_str(&buf)?;
+            let tracking_params: braid_types::TrackingParams = toml::from_str(&buf)?;
             let is_multicam = cam_info.camid2camn.keys().len() > 1;
             if is_multicam == tracking_params.hypothesis_test_params.is_none() {
                 anyhow::bail!(
@@ -802,8 +802,8 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
                             data_src, and no default is reasonable because zero cameras present."
                             )
                         }
-                        1 => flydra_types::default_tracking_params_flat_3d(),
-                        _ => flydra_types::default_tracking_params_full_3d(),
+                        1 => braid_types::default_tracking_params_flat_3d(),
+                        _ => braid_types::default_tracking_params_full_3d(),
                     }
                 }
             }

@@ -33,7 +33,7 @@ pub struct HttpSession {
 /// Create an `HttpSession` which has already made a request
 #[tracing::instrument(level = "debug", skip(server_info, jar))]
 pub async fn create_session(
-    server_info: &flydra_types::BuiServerAddrInfo,
+    server_info: &braid_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<HttpSession, Error> {
     let base_uri = format!("http://{}/", server_info.addr());

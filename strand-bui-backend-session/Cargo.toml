@@ -18,7 +18,7 @@ thiserror.workspace = true
 
 strand-bui-backend-session-types.workspace = true
 rust-cam-bui-types.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 axum.workspace = true
 cookie_store.workspace = true
 url.workspace = true

@@ -20,7 +20,7 @@ async fn track_small() -> anyhow::Result<()> {
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let mut ft = FlydraFeatureDetector::new(
-        &flydra_types::RawCamName::new("small-test-image".to_string()),
+        &braid_types::RawCamName::new("small-test-image".to_string()),
         W,
         H,
         cfg,
@@ -52,7 +52,7 @@ async fn track_moving_stride() -> anyhow::Result<()> {
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let mut ft = FlydraFeatureDetector::new(
-        &flydra_types::RawCamName::new("moving".to_string()),
+        &braid_types::RawCamName::new("moving".to_string()),
         W,
         H,
         cfg,

@@ -2,7 +2,7 @@ use chrono::Local;
 use std::time::Instant;
 
 use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
-use flydra_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
+use braid_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     }
     let _tracing_guard = env_tracing_logger::init();
 
-    let addr: std::net::SocketAddr = flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
+    let addr: std::net::SocketAddr = braid_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap();
     tracing::info!("starting send_pose server at {addr}");
 
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);

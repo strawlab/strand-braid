@@ -5,7 +5,7 @@ use chrono::{DateTime, FixedOffset, Utc};
 use eyre::{self as anyhow, Result};
 
 use flydra_mvg::FlydraMultiCameraSystem;
-use flydra_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
+use braid_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
 use frame_source::FrameData;
 
 use crate::{argmin::Argmin, peek2::Peek2, SyncedPictures};

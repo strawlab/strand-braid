@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use flydra_types::{BraidCameraConfig, FakeSyncConfig, TriggerType, TriggerboxConfig};
+use braid_types::{BraidCameraConfig, FakeSyncConfig, TriggerType, TriggerboxConfig};
 
 /// The Braid configuration error type.
 #[derive(thiserror::Error, Debug)]
@@ -39,7 +39,7 @@ fn default_output_base_dirname() -> std::path::PathBuf {
 }
 
 fn default_model_server_addr() -> std::net::SocketAddr {
-    flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap()
+    braid_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap()
 }
 
 fn default_true() -> bool {
@@ -90,8 +90,8 @@ pub struct MainbrainConfig {
     #[serde(default = "default_output_base_dirname")]
     pub output_base_dirname: std::path::PathBuf,
     /// Parameters for Kalman filter and data association
-    #[serde(default = "flydra_types::default_tracking_params_full_3d")]
-    pub tracking_params: flydra_types::TrackingParams,
+    #[serde(default = "braid_types::default_tracking_params_full_3d")]
+    pub tracking_params: braid_types::TrackingParams,
     // Raising the mainbrain thread priority is currently disabled.
     // /// Parameters to potentially raise the mainbrain thread priority.
     // sched_policy_priority: Option<(i32, i32)>,
@@ -155,7 +155,7 @@ impl std::default::Default for MainbrainConfig {
         Self {
             cal_fname: None,
             output_base_dirname: default_output_base_dirname(),
-            tracking_params: flydra_types::default_tracking_params_full_3d(),
+            tracking_params: braid_types::default_tracking_params_full_3d(),
             // Raising the mainbrain thread priority is currently disabled.
             // sched_policy_priority: None,
             lowlatency_camdata_udp_addr: None,
@@ -165,7 +165,7 @@ impl std::default::Default for MainbrainConfig {
             save_empty_data2d: true,
             secret_base64: None,
             acquisition_duration_allowed_imprecision_msec:
-                flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
+                braid_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
             write_buffer_size_num_messages: default_write_buffer_size_num_messages(),
         }
     }

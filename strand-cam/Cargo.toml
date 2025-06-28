@@ -70,7 +70,7 @@ semver = { version = "1", features = ["serde"] }
 shellexpand.workspace = true
 imops.workspace = true
 led-box-comms.workspace = true
-flydra-types = { workspace = true, features = ["start-listener", "build-urls"] }
+braid-types = { workspace = true, features = ["start-listener", "build-urls"] }
 flydra2 = { workspace = true, optional = true }
 mvg = { workspace = true, optional = true }
 flydra-mvg = { workspace = true, optional = true }

@@ -19,8 +19,8 @@ use std::{
 use tracing::{debug, error, info, trace};
 
 use async_change_tracker::ChangeTracker;
+use braid_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use flydra_feature_detector_types::ImPtDetectCfg;
-use flydra_types::{FlydraFloatTimestampLocal, PtpStamp, RawCamName, TriggerType};
 use fmf::FMFWriter;
 use http_video_streaming::AnnotatedFrame;
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
@@ -56,8 +56,8 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<crate::ToLedBoxDevice>,
-    #[cfg(feature = "flydratrax")] http_camserver_info: flydra_types::BuiServerAddrInfo,
-    transmit_msg_tx: Option<tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>>,
+    #[cfg(feature = "flydratrax")] http_camserver_info: braid_types::BuiServerAddrInfo,
+    transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
@@ -320,9 +320,8 @@ pub(crate) async fn frame_process_task<'a>(
 
                                 let expected_framerate_arc2 = expected_framerate_arc.clone();
                                 let cam_name2 = cam_name.clone();
-                                let http_camserver = flydra_types::BuiServerInfo::Server(
-                                    http_camserver_info.clone(),
-                                );
+                                let http_camserver =
+                                    braid_types::BuiServerInfo::Server(http_camserver_info.clone());
                                 let recon2 = recon.clone();
                                 let model_server_data_tx2 = model_server_data_tx.clone();
 
@@ -333,7 +332,7 @@ pub(crate) async fn frame_process_task<'a>(
                                     None,
                                 );
                                 let tracking_params =
-                                    flydra_types::default_tracking_params_flat_3d();
+                                    braid_types::default_tracking_params_flat_3d();
                                 let ignore_latency = false;
                                 let mut coord_processor = flydra2::CoordProcessor::new(
                                     flydra2::CoordProcessorConfig {
@@ -953,7 +952,7 @@ pub(crate) async fn frame_process_task<'a>(
                         let acquire_stamp =
                             FlydraFloatTimestampLocal::from_dt(&frame.host_timing.datetime);
 
-                        let tracker_annotation = flydra_types::FlydraRawUdpPacket {
+                        let tracker_annotation = braid_types::FlydraRawUdpPacket {
                             cam_name: raw_cam_name.as_str().to_string(),
                             timestamp: braid_ts,
                             cam_received_time: acquire_stamp,
@@ -1034,14 +1033,14 @@ pub(crate) async fn frame_process_task<'a>(
                                     // timesource is Triggerbox. This is just for
                                     // single-camera flydratrax, though.
                                     let trigger_timestamp = Some(FlydraFloatTimestampLocal::<
-                                        flydra_types::Triggerbox,
+                                        braid_types::Triggerbox,
                                     >::from_f64(
                                         cam_received_timestamp
                                     ));
 
                                     // This is not a lie.
                                     let cam_received_timestamp = FlydraFloatTimestampLocal::<
-                                        flydra_types::HostClock,
+                                        braid_types::HostClock,
                                     >::from_f64(
                                         cam_received_timestamp
                                     );
@@ -1050,7 +1049,7 @@ pub(crate) async fn frame_process_task<'a>(
                                     let frame_data = flydra2::FrameData::new(
                                         raw_cam_name.clone(),
                                         cam_num,
-                                        flydra_types::SyncFno(
+                                        braid_types::SyncFno(
                                             frame.host_timing.fno.try_into().unwrap(),
                                         ),
                                         trigger_timestamp,
@@ -1660,11 +1659,11 @@ fn calc_braid_timestamp(
     opt_frame_offset: &Option<u64>,
     device_clock_model: Option<&rust_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<&(u64, u64)>,
-) -> Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>> {
+) -> Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>> {
     let (device_timestamp, _block_id) = extract_backend_data(&frame);
     match &trigger_type {
         Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
-            flydra_types::triggerbox_time(
+            braid_types::triggerbox_time(
                 triggerbox_clock_model,
                 *opt_frame_offset,
                 frame.host_timing.fno,
@@ -1698,7 +1697,7 @@ fn calc_braid_timestamp(
             let local_nanos = local_time0 + local_elapsed_nanos.round() as u64;
             let local: chrono::DateTime<chrono::Utc> =
                 PtpStamp::new(local_nanos).try_into().unwrap();
-            let x = FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(local);
+            let x = FlydraFloatTimestampLocal::<braid_types::Triggerbox>::from(local);
             Some(x)
         }
         None => None,

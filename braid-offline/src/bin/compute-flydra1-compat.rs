@@ -10,7 +10,7 @@ use tracing::{error, info, trace};
 use flydra2::Result;
 use groupby::AscendingGroupIter;
 
-use flydra_types::{DataAssocRow, KalmanEstimatesRow, SyncFno};
+use braid_types::{DataAssocRow, KalmanEstimatesRow, SyncFno};
 
 use braid_offline::pick_csvgz_or_csv;
 
@@ -69,7 +69,7 @@ fn compute_contiguous_kests(dirname: &std::path::Path) -> Result<()> {
     );
 
     let kalman_estimates_reader = {
-        let csv_path = dirpath.join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
+        let csv_path = dirpath.join(braid_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
@@ -307,13 +307,13 @@ fn add_ml_estimates_tables(dirname: &std::path::Path) -> Result<()> {
     );
 
     let data_assoc_reader = {
-        let csv_path = dirpath.join(flydra_types::DATA_ASSOCIATE_CSV_FNAME);
+        let csv_path = dirpath.join(braid_types::DATA_ASSOCIATE_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };
 
     let kalman_estimates_reader = {
-        let csv_path = dirpath.join(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
+        let csv_path = dirpath.join(braid_types::KALMAN_ESTIMATES_CSV_FNAME);
         let rdr = pick_csvgz_or_csv(&csv_path)?;
         csv::Reader::from_reader(rdr)
     };

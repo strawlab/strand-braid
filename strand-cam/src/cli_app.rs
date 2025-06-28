@@ -183,7 +183,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                     Arg::new("model_server_addr")
                         .long("model-server-addr")
                         .help("The address of the model server.")
-                        .default_value(flydra_types::DEFAULT_MODEL_SERVER_ADDR),
+                        .default_value(braid_types::DEFAULT_MODEL_SERVER_ADDR),
                 )
         };
 
@@ -278,7 +278,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
             "http_server_addr",
         ] {
             // These values are not relevant or are set via
-            // [flydra_types::RemoteCameraInfoResponse].
+            // [braid_types::RemoteCameraInfoResponse].
             if matches.contains_id(argname) {
                 eyre::bail!(
                     "'{argname}' cannot be set from the command line when calling \
@@ -306,10 +306,10 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         // not braid
         let pixel_format = matches.get_one::<String>("pixel_format").map(Into::into);
         let force_camera_sync_mode = !matches!(matches.get_count("force_camera_sync_mode"), 0);
-        let software_limit_framerate = flydra_types::StartSoftwareFrameRateLimit::NoChange;
+        let software_limit_framerate = braid_types::StartSoftwareFrameRateLimit::NoChange;
 
         let acquisition_duration_allowed_imprecision_msec =
-            flydra_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC;
+            braid_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC;
 
         let tracker_cfg_src = get_tracker_cfg(&matches)?;
 

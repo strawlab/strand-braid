@@ -46,7 +46,7 @@ use strand_cam_remote_control::{
     RecordingFrameRate,
 };
 
-use flydra_types::{BuiServerInfo, RawCamName, StartSoftwareFrameRateLimit, TriggerType};
+use braid_types::{BuiServerInfo, RawCamName, StartSoftwareFrameRateLimit, TriggerType};
 
 use flydra_feature_detector_types::ImPtDetectCfg;
 
@@ -247,13 +247,13 @@ async fn convert_stream(
     mut transmit_feature_detect_settings_rx: tokio::sync::mpsc::Receiver<
         flydra_feature_detector_types::ImPtDetectCfg,
     >,
-    transmit_msg_tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
+    transmit_msg_tx: tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
 ) -> Result<()> {
     while let Some(val) = transmit_feature_detect_settings_rx.recv().await {
         let msg =
-            flydra_types::BraidHttpApiCallback::UpdateFeatureDetectSettings(flydra_types::PerCam {
+            braid_types::BraidHttpApiCallback::UpdateFeatureDetectSettings(braid_types::PerCam {
                 raw_cam_name: raw_cam_name.clone(),
-                inner: flydra_types::UpdateFeatureDetectSettings {
+                inner: braid_types::UpdateFeatureDetectSettings {
                     current_feature_detect_settings: val,
                 },
             });
@@ -595,7 +595,7 @@ impl Default for StrandCamArgs {
             #[cfg(feature = "flydratrax")]
             save_empty_data2d: true,
             #[cfg(feature = "flydratrax")]
-            model_server_addr: flydra_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
+            model_server_addr: braid_types::DEFAULT_MODEL_SERVER_ADDR.parse().unwrap(),
             #[cfg(feature = "flydratrax")]
             write_buffer_size_num_messages:
                 braid_config_data::default_write_buffer_size_num_messages(),
@@ -831,31 +831,31 @@ struct BraidInfo {
     camdata_udp_addr: SocketAddr,
     #[cfg_attr(not(feature = "flydra_feat_detect"), expect(dead_code))]
     tracker_cfg_src: ImPtDetectCfgSource,
-    config_from_braid: flydra_types::RemoteCameraInfoResponse,
+    config_from_braid: braid_types::RemoteCameraInfoResponse,
 }
 
 /// Wrapper to enforce that first message is fixed to be
-/// [flydra_types::RegisterNewCamera].
+/// [braid_types::RegisterNewCamera].
 struct FirstMsgForced {
-    tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
+    tx: tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
 }
 
 impl FirstMsgForced {
     /// Wrap a sender.
-    fn new(tx: tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>) -> Self {
+    fn new(tx: tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>) -> Self {
         Self { tx }
     }
 
     /// Send the first message and return the Sender.
     async fn send_first_msg(
         self,
-        new_cam_data: flydra_types::RegisterNewCamera,
+        new_cam_data: braid_types::RegisterNewCamera,
     ) -> std::result::Result<
-        tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
-        tokio::sync::mpsc::error::SendError<flydra_types::BraidHttpApiCallback>,
+        tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
+        tokio::sync::mpsc::error::SendError<braid_types::BraidHttpApiCallback>,
     > {
         self.tx
-            .send(flydra_types::BraidHttpApiCallback::NewCamera(new_cam_data))
+            .send(braid_types::BraidHttpApiCallback::NewCamera(new_cam_data))
             .await?;
         Ok(self.tx)
     }
@@ -1011,7 +1011,7 @@ struct GuiAppStuff {
 async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
     info!("Will connect to braid at \"{}\"", braid_args.braid_url);
     let mainbrain_bui_loc =
-        flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+        braid_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
     let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
         Ok(jar) => {
@@ -1035,9 +1035,9 @@ async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
         tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
     }
 
-    let camera_name = flydra_types::RawCamName::new(braid_args.camera_name.clone());
+    let camera_name = braid_types::RawCamName::new(braid_args.camera_name.clone());
 
-    let config_from_braid: flydra_types::RemoteCameraInfoResponse =
+    let config_from_braid: braid_types::RemoteCameraInfoResponse =
         mainbrain_session.get_remote_info(&camera_name).await?;
 
     let camdata_udp_ip = mainbrain_bui_loc.addr().ip();
@@ -1097,7 +1097,7 @@ where
             };
             let http_server_addr = braid_info.config_from_braid.config.http_server_addr.clone();
             let braid_info =
-                flydra_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+                braid_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
             if braid_info.addr().ip().is_loopback() {
                 http_server_addr.unwrap_or_else(|| "127.0.0.1:0".to_string())
@@ -1614,9 +1614,9 @@ where
         for i in 0..n_pts {
             let (local, cam_time) = measure_times(&cam)?;
             tmp_debug_device_timestamp.get_or_insert(cam_time);
-            let local_time_nanos = flydra_types::PtpStamp::try_from(local).unwrap().get();
+            let local_time_nanos = braid_types::PtpStamp::try_from(local).unwrap().get();
             local_time0.get_or_insert(local_time_nanos);
-            let cam_time_ts = flydra_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
+            let cam_time_ts = braid_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
             cam_time0.get_or_insert(cam_time_ts);
 
             let this_local_time0 = local_time0.as_ref().unwrap();
@@ -1708,15 +1708,15 @@ where
     let current_cam_settings_extension = settings_file_ext.to_string();
 
     let (listener, http_camserver_info) =
-        flydra_types::start_listener(&strand_cam_bui_http_address_string).await?;
+        braid_types::start_listener(&strand_cam_bui_http_address_string).await?;
     let listen_addr = listener.local_addr()?;
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
-        let new_cam_data = flydra_types::RegisterNewCamera {
+        let new_cam_data = braid_types::RegisterNewCamera {
             raw_cam_name: raw_cam_name.clone(),
             http_camserver_info: Some(BuiServerInfo::Server(http_camserver_info.clone())),
-            cam_settings_data: Some(flydra_types::UpdateCamSettings {
+            cam_settings_data: Some(braid_types::UpdateCamSettings {
                 current_cam_settings_buf: settings_on_start,
                 current_cam_settings_extension: settings_file_ext,
             }),
@@ -2124,7 +2124,7 @@ where
 
         for url in urls.iter() {
             info!(" * predicted URL {url}");
-            if !flydra_types::is_loopback(url) {
+            if !braid_types::is_loopback(url) {
                 println!("QR code for {url}");
                 display_qr_url(&format!("{url}"));
             }
@@ -2298,10 +2298,10 @@ where
                                 .unwrap();
 
                             // Prepare and send message to Braid.
-                            let msg = flydra_types::BraidHttpApiCallback::UpdateCurrentImage(
-                                flydra_types::PerCam {
+                            let msg = braid_types::BraidHttpApiCallback::UpdateCurrentImage(
+                                braid_types::PerCam {
                                     raw_cam_name: raw_cam_name.clone(),
-                                    inner: flydra_types::UpdateImage {
+                                    inner: braid_types::UpdateImage {
                                         current_image_png: current_image_png.into(),
                                     },
                                 },
@@ -3473,18 +3473,18 @@ fn open_browser(url: String) -> Result<()> {
 
 async fn send_cam_settings_to_braid(
     cam_settings: &str,
-    transmit_msg_tx: &tokio::sync::mpsc::Sender<flydra_types::BraidHttpApiCallback>,
+    transmit_msg_tx: &tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
     current_cam_settings_extension: &str,
     raw_cam_name: &RawCamName,
-) -> StdResult<(), tokio::sync::mpsc::error::SendError<flydra_types::BraidHttpApiCallback>> {
+) -> StdResult<(), tokio::sync::mpsc::error::SendError<braid_types::BraidHttpApiCallback>> {
     let current_cam_settings_buf = cam_settings.to_string();
     let current_cam_settings_extension = current_cam_settings_extension.to_string();
     let raw_cam_name = raw_cam_name.clone();
     let transmit_msg_tx = transmit_msg_tx.clone();
 
-    let msg = flydra_types::BraidHttpApiCallback::UpdateCamSettings(flydra_types::PerCam {
+    let msg = braid_types::BraidHttpApiCallback::UpdateCamSettings(braid_types::PerCam {
         raw_cam_name,
-        inner: flydra_types::UpdateCamSettings {
+        inner: braid_types::UpdateCamSettings {
             current_cam_settings_buf,
             current_cam_settings_extension,
         },

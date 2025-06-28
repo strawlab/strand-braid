@@ -16,7 +16,7 @@ dotenv.workspace = true
 chrono.workspace = true
 
 env-tracing-logger.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 flydra-feature-detector-types.workspace = true
 flydra-pt-detect-cfg.workspace = true
 braid-config-data.workspace = true

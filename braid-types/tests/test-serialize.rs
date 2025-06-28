@@ -5,7 +5,7 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use flydra_types::{
+use braid_types::{
     FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock,
     TriggerClockInfoRow, Triggerbox,
 };

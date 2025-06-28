@@ -9,7 +9,7 @@ libflate.workspace = true
 zip.workspace = true
 thiserror.workspace = true
 
-flydra-types.workspace = true
+braid-types.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

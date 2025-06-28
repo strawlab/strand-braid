@@ -16,7 +16,7 @@ csv.workspace = true
 chrono.workspace = true
 
 csv-eof.workspace = true
-flydra-types.workspace = true
+braid-types.workspace = true
 zip-or-dir.workspace = true
 
 braidz-chunked-iter = { path = ".." }

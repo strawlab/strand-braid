@@ -105,13 +105,13 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
     /// Parse the basic data which can be quickly read from the archive.
     pub fn parse_basics(mut self) -> Result<IncrementalParser<R, BasicInfoParsed>, Error> {
         let mut metadata: Option<BraidMetadata> = {
-            match self.archive.open(flydra_types::BRAID_METADATA_YML_FNAME) {
+            match self.archive.open(braid_types::BRAID_METADATA_YML_FNAME) {
                 Ok(rdr) => Some(serde_yaml::from_reader(rdr)?),
                 Err(zip_or_dir::Error::FileNotFound) => None,
                 Err(e) => {
                     return Err(Error::FileError {
                         source: Box::new(e),
-                        filename: flydra_types::BRAID_METADATA_YML_FNAME.into(),
+                        filename: braid_types::BRAID_METADATA_YML_FNAME.into(),
                         what: "opening metadata file",
                     })
                 }
@@ -134,7 +134,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let mut expected_fps = f64::NAN;
         let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::TEXTLOG_CSV_FNAME);
+            fname.push(braid_types::TEXTLOG_CSV_FNAME);
             let tracking_parameters = match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
@@ -144,7 +144,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
                         tracing::debug!(
                             "Line in {} (row {}): {}",
-                            flydra_types::TEXTLOG_CSV_FNAME,
+                            braid_types::TEXTLOG_CSV_FNAME,
                             rownum,
                             row.message
                         );
@@ -179,7 +179,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                                     git_revision,
                                     original_recording_time: Some(local),
                                     saving_program_name: "flydra".to_string(),
-                                    schema: flydra_types::BRAID_SCHEMA,
+                                    schema: braid_types::BRAID_SCHEMA,
                                     save_empty_data2d: false,
                                 });
                             }
@@ -234,7 +234,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let calibration_info = {
-            match self.archive.open(flydra_types::CALIBRATION_XML_FNAME) {
+            match self.archive.open(braid_types::CALIBRATION_XML_FNAME) {
                 Ok(rdr) => {
                     let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
                         serde_xml_rs::from_reader(rdr)?;
@@ -250,7 +250,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                 Err(e) => {
                     return Err(Error::FileError {
                         source: Box::new(e),
-                        filename: flydra_types::CALIBRATION_XML_FNAME.into(),
+                        filename: braid_types::CALIBRATION_XML_FNAME.into(),
                         what: "opening calibration file",
                     })
                 }
@@ -260,7 +260,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let reconstruction_latency_hlog = {
             let reconstruction_latency_hlog = match self
                 .archive
-                .open(flydra_types::RECONSTRUCT_LATENCY_HLOG_FNAME)
+                .open(braid_types::RECONSTRUCT_LATENCY_HLOG_FNAME)
             {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
@@ -272,7 +272,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let reprojection_distance_hlog = {
             let reprojection_distance_hlog = match self
                 .archive
-                .open(flydra_types::REPROJECTION_DIST_HLOG_FNAME)
+                .open(braid_types::REPROJECTION_DIST_HLOG_FNAME)
             {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
@@ -283,7 +283,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
         let cam_info = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::CAM_INFO_CSV_FNAME);
+            fname.push(braid_types::CAM_INFO_CSV_FNAME);
             let rdr = open_maybe_gzipped(fname)?;
             let caminfo_rdr = csv::Reader::from_reader(rdr);
             let mut camn2camid = BTreeMap::new();
@@ -333,7 +333,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
         let qz = {
             // Open main 2D data.
             let mut data_fname = self.archive.path_starter();
-            data_fname.push(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+            data_fname.push(braid_types::DATA2D_DISTORTED_CSV_FNAME);
             let rdr = open_maybe_gzipped(data_fname)?;
             let d2d_reader = csv::Reader::from_reader(rdr);
             let mut qz = BTreeMap::new();
@@ -380,7 +380,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
 
         let (kalman_estimates_info, kalman_estimates_table) = {
             let mut fname = self.archive.path_starter();
-            fname.push(flydra_types::KALMAN_ESTIMATES_CSV_FNAME);
+            fname.push(braid_types::KALMAN_ESTIMATES_CSV_FNAME);
             let mut kalman_estimates_table = Vec::new();
             match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
@@ -484,7 +484,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             let mut result: BTreeMap<String, (usize, usize)> = Default::default();
             let mut failed = false;
             for cam_id in basics.cam_info.camid2camn.keys() {
-                let relname = format!("{}/{cam_id}.png", flydra_types::IMAGES_DIRNAME);
+                let relname = format!("{}/{cam_id}.png", braid_types::IMAGES_DIRNAME);
                 match self.archive.open(relname) {
                     Ok(mut rdr) => {
                         let mut buf = Vec::new();

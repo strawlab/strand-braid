@@ -28,7 +28,7 @@ use fastim_mod::{
 
 use formats::{pixel_format::Mono32f, Stride};
 
-use flydra_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
+use braid_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
 use strand_dynamic_frame::DynamicFrame;
 use ufmf::UFMFWriter;
 
@@ -93,7 +93,7 @@ enum ImageTrackerState {
 
 #[derive(Debug, PartialEq)]
 struct PointInfo {
-    inner: flydra_types::FlydraRawUdpPoint,
+    inner: braid_types::FlydraRawUdpPoint,
     index_x: ipp_ctypes::c_int,
     index_y: ipp_ctypes::c_int,
     max_value: u8,
@@ -356,7 +356,7 @@ impl TrackingState {
                             as f64;
 
                         all_points_found.push(PointInfo {
-                            inner: flydra_types::FlydraRawUdpPoint {
+                            inner: braid_types::FlydraRawUdpPoint {
                                 x0_abs,
                                 y0_abs,
                                 area,
@@ -632,7 +632,7 @@ impl FlydraFeatureDetector {
         ufmf_state: UfmfState,
         device_timestamp: Option<u64>,
         block_id: Option<u64>,
-        braid_ts: Option<FlydraFloatTimestampLocal<flydra_types::Triggerbox>>,
+        braid_ts: Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
         let mut saved_bg_image = None;
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);

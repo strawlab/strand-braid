@@ -107,7 +107,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         let cursor = {
             let data_fname = archive
                 .path_starter()
-                .join(flydra_types::CAM_INFO_CSV_FNAME);
+                .join(braid_types::CAM_INFO_CSV_FNAME);
             let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
             let mut buf = Vec::new();
             rdr.read_to_end(&mut buf)?;
@@ -130,7 +130,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
         let image_fname = archive
             .path_starter()
-            .join(flydra_types::IMAGES_DIRNAME)
+            .join(braid_types::IMAGES_DIRNAME)
             .join(format!("{cam_id}.png"));
 
         let mut rdr = braidz_parser::open_maybe_gzipped(image_fname)?;
@@ -206,7 +206,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         let cursor = {
             let data_fname = archive
                 .path_starter()
-                .join(flydra_types::DATA2D_DISTORTED_CSV_FNAME);
+                .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
             let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
             let mut buf = Vec::new();
             rdr.read_to_end(&mut buf)?;

@@ -252,7 +252,7 @@ impl OfflineBraidzRerunLogger {
 
             let stamp_chrono = start_time + pts;
             let stamp_flydra =
-                flydra_types::FlydraFloatTimestampLocal::<flydra_types::Triggerbox>::from(
+                braid_types::FlydraFloatTimestampLocal::<braid_types::Triggerbox>::from(
                     stamp_chrono,
                 );
             let stamp_f64 = stamp_flydra.as_f64();
@@ -378,7 +378,7 @@ impl OfflineBraidzRerunLogger {
 
     pub fn log_kalman_estimates(
         &self,
-        kalman_estimates_table: &[flydra_types::KalmanEstimatesRow],
+        kalman_estimates_table: &[braid_types::KalmanEstimatesRow],
         log_reprojected_2d: bool,
     ) -> eyre::Result<()> {
         let mut last_detection_per_obj = BTreeMap::new();

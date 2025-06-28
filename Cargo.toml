@@ -14,6 +14,7 @@ members = [
     "braid-config-data",
     "braid-offline",
     "braid-process-video",
+    "braid-types",
     "braidz-parser",
     "braidz-parser/braidz-chunked-iter",
     "braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
@@ -41,7 +42,6 @@ members = [
     "flydra-feature-detector",
     "flydra-feature-detector/flydra-feature-detector-types",
     "flydra-feature-detector/flydra-pt-detect-cfg",
-    "flydra-types",
     "flydra2",
     "flytrax-csv-to-braidz",
     "freemovr-calibration",
@@ -280,6 +280,7 @@ braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
+braid-types = { path = "braid-types", default-features = false }
 braidz-parser = { path = "braidz-parser" }
 braidz-rerun = { path = "braidz-rerun" }
 braidz-types = { path = "braidz-types" }
@@ -309,7 +310,6 @@ ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
 flydra-feature-detector = { path = "flydra-feature-detector" }
 flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }
 flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
-flydra-types = { path = "flydra-types", default-features = false }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "flydra2", default-features = false }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }

@@ -6,13 +6,13 @@ use std::{
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 
-use flydra_types::MiniArenaConfig;
+use braid_types::MiniArenaConfig;
 
 use crate::{bundled_data::BundledAllCamsOneFrameUndistorted, MyFloat, Result};
 
 /// Into a mini arena.
 ///
-/// This is different from [flydra_types::MiniArenaLocator] because the mini
+/// This is different from [braid_types::MiniArenaLocator] because the mini
 /// arena must exist.
 ///
 /// Newtype wrapper around [u8].

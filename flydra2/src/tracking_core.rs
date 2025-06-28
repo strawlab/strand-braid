@@ -16,7 +16,7 @@ use tracking::motion_model_3d::ConstantVelocity3DModel;
 use adskalman::ObservationModel as ObservationModelTrait;
 use adskalman::{StateAndCovariance, TransitionModelLinearNoControl};
 
-use flydra_types::{
+use braid_types::{
     CamNum, DataAssocRow, FlydraFloatTimestampLocal, FlydraRawUdpPoint, KalmanEstimatesRow,
     RawCamName, SyncFno, TrackingParams, Triggerbox,
 };
@@ -1108,7 +1108,7 @@ fn pixel_abszscore(pt: &FlydraRawUdpPoint) -> f64 {
     ((cur_val - pt.mean_val) / pt.sumsqf_val).abs()
 }
 
-fn convert_pt(input: &flydra_types::FlydraRawUdpPoint) -> mvg::DistortedPixel<MyFloat> {
+fn convert_pt(input: &braid_types::FlydraRawUdpPoint) -> mvg::DistortedPixel<MyFloat> {
     mvg::DistortedPixel {
         coords: nalgebra::geometry::Point2::new(input.x0_abs, input.y0_abs),
     }

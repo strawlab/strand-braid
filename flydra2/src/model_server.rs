@@ -10,7 +10,7 @@ use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 
 use crate::{Result, TimeDataPassthrough};
 
-use flydra_types::{FlydraFloatTimestampLocal, SyncFno, Triggerbox};
+use braid_types::{FlydraFloatTimestampLocal, SyncFno, Triggerbox};
 
 const EVENTS_PATH: &str = "/events";
 
@@ -93,8 +93,8 @@ pub struct SendKalmanEstimatesRow {
     pub P55: f64,
 }
 
-impl From<flydra_types::KalmanEstimatesRow> for SendKalmanEstimatesRow {
-    fn from(orig: flydra_types::KalmanEstimatesRow) -> SendKalmanEstimatesRow {
+impl From<braid_types::KalmanEstimatesRow> for SendKalmanEstimatesRow {
+    fn from(orig: braid_types::KalmanEstimatesRow) -> SendKalmanEstimatesRow {
         SendKalmanEstimatesRow {
             obj_id: orig.obj_id,
             frame: orig.frame,
@@ -139,7 +139,7 @@ pub struct ToListener {
     msg: SendType,
     latency: f64,
     synced_frame: SyncFno,
-    #[serde(with = "flydra_types::timestamp_opt_f64")]
+    #[serde(with = "braid_types::timestamp_opt_f64")]
     trigger_timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
 }
 

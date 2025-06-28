@@ -28,7 +28,7 @@ serde_yaml.workspace = true
 uuid = { workspace = true, features = ["js"] }
 yew-tincture.workspace = true
 
-flydra-types.workspace = true
+braid-types.workspace = true
 rust-cam-bui-types.workspace = true
 ads-webasm.workspace = true
 

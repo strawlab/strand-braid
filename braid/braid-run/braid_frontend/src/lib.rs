@@ -10,7 +10,7 @@ use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{EventSource, MessageEvent};
 
-use flydra_types::{
+use braid_types::{
     BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
 };
 use rust_cam_bui_types::RecordingPath;
@@ -100,7 +100,7 @@ impl Component for Model {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let es = EventSource::new(flydra_types::BRAID_EVENTS_URL_PATH)
+        let es = EventSource::new(braid_types::BRAID_EVENTS_URL_PATH)
             .map_err(|js_value: JsValue| {
                 let err: js_sys::Error = js_value.dyn_into().unwrap_throw();
                 err
@@ -114,7 +114,7 @@ impl Component for Model {
             });
         let mut _listeners = vec![EventListener::new(
             &es,
-            flydra_types::BRAID_EVENT_NAME,
+            braid_types::BRAID_EVENT_NAME,
             move |event: &Event| {
                 let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
                 let text = event.data().as_string().unwrap_throw();
@@ -408,8 +408,8 @@ fn view_cam_list(cams: &[CamInfo]) -> Html {
                 BuiServerInfo::Server(_) => {
                     format!(
                         "/{}/{}/",
-                        flydra_types::braid_http::CAM_PROXY_PATH,
-                        flydra_types::braid_http::encode_cam_name(&cci.name)
+                        braid_types::braid_http::CAM_PROXY_PATH,
+                        braid_types::braid_http::encode_cam_name(&cci.name)
                     )
                 }
             };

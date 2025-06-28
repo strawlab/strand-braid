@@ -4,7 +4,7 @@ use tracing::debug;
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
-use flydra_types::{
+use braid_types::{
     BraidCameraConfig, BuiServerAddrInfo, RawCamName, StartCameraBackend, TriggerType,
 };
 
@@ -45,7 +45,7 @@ fn launch_strand_cam(
     mainbrain_internal_addr: &BuiServerAddrInfo,
 ) -> Result<()> {
     // On initial startup strand cam queries for
-    // [flydra_types::RemoteCameraInfoResponse] and thus we do not need to
+    // [braid_types::RemoteCameraInfoResponse] and thus we do not need to
     // provide much info.
 
     let braid_run_exe = std::env::current_exe().unwrap();
@@ -127,13 +127,13 @@ async fn main() -> Result<()> {
     let trig_cfg = cfg.trigger;
 
     let (force_camera_sync_mode, software_limit_framerate) = match &trig_cfg {
-        TriggerType::TriggerboxV1(_) => (true, flydra_types::StartSoftwareFrameRateLimit::NoChange),
+        TriggerType::TriggerboxV1(_) => (true, braid_types::StartSoftwareFrameRateLimit::NoChange),
         TriggerType::FakeSync(cfg) => (
             false,
-            flydra_types::StartSoftwareFrameRateLimit::Enable(cfg.framerate),
+            braid_types::StartSoftwareFrameRateLimit::Enable(cfg.framerate),
         ),
         TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => {
-            (false, flydra_types::StartSoftwareFrameRateLimit::NoChange)
+            (false, braid_types::StartSoftwareFrameRateLimit::NoChange)
         }
     };
     let show_tracking_params = false;
@@ -146,7 +146,7 @@ async fn main() -> Result<()> {
         .collect();
 
     let address_string: String = cfg.mainbrain.http_api_server_addr.clone();
-    let (listener, mainbrain_server_info) = flydra_types::start_listener(&address_string).await?;
+    let (listener, mainbrain_server_info) = braid_types::start_listener(&address_string).await?;
     let mainbrain_internal_addr = mainbrain_server_info.clone();
 
     let cfg_cameras = cfg.cameras;

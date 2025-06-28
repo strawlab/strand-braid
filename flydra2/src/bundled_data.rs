@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use flydra_types::{MiniArenaConfig, RawCamName};
+use braid_types::{MiniArenaConfig, RawCamName};
 use nalgebra::Point2;
 
 use crate::connected_camera_manager::CameraList;

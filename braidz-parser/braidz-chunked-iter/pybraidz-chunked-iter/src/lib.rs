@@ -34,7 +34,7 @@ impl KalmanEstimatesChunker {
         let archive: &'static mut ZipDirArchive<_> = Box::leak(Box::new(archive));
 
         let mut first_row = None;
-        let src_fname = flydra_types::KALMAN_ESTIMATES_CSV_FNAME;
+        let src_fname = braid_types::KALMAN_ESTIMATES_CSV_FNAME;
 
         {
             let rdr = archive.open_raw_or_gz(src_fname).map_err(|e| {
