@@ -47,7 +47,7 @@ fn get_test_cameras() -> Vec<(String, Camera<f64>)> {
     let mut result = Vec::new();
     let extrinsics = braid_mvg::extrinsics::make_default_extrinsics();
     for (int_name, intrinsics) in get_test_intrinsics().into_iter() {
-        let name = format!("cam-{}", int_name);
+        let name = format!("cam-{int_name}");
         let cam = Camera::new(640, 480, extrinsics.clone(), intrinsics).unwrap();
         result.push((name, cam));
     }
@@ -83,7 +83,7 @@ fn get_test_intrinsics() -> Vec<(String, RosOpenCvIntrinsics<f64>)> {
                 cy,
                 dist.clone(),
             );
-            result.push((format!("dist-{}_skew{}", name, skew), cam));
+            result.push((format!("dist-{name}_skew{skew}"), cam));
         }
     }
 
@@ -95,20 +95,20 @@ fn get_test_intrinsics() -> Vec<(String, RosOpenCvIntrinsics<f64>)> {
 #[test]
 fn test_from_pmat2() {
     for (name, cam1) in get_test_cameras().iter() {
-        println!("testing camera {}", name);
+        println!("testing camera {name}");
         if name != "cam-dist-linear_skew0" {
             continue;
         }
         let pmat = match cam1.as_pmat() {
             Some(pmat) => pmat,
             None => {
-                println!("skipping camera {}: no pmat", name);
+                println!("skipping camera {name}: no pmat");
                 continue;
             }
         };
         let cam2 = crate::Camera::from_pmat(cam1.width(), cam1.height(), pmat).unwrap();
-        println!("cam1 {:?}", cam1);
-        println!("cam2 {:?}", cam2);
+        println!("cam1 {cam1:?}");
+        println!("cam2 {cam2:?}");
         assert!(is_similar(cam1, &cam2));
     }
 }

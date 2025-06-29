@@ -173,10 +173,7 @@ impl<R: RealField + Copy> Camera<R> {
         let up2 = -up;
 
         let extrinsics2 = crate::ExtrinsicParameters::from_view(&cc.coords, &la2, &up2);
-        let mut intinsics2 = match mirror(self.intrinsics(), LeftRight) {
-            Some(mirrored) => mirrored,
-            None => return None,
-        };
+        let mut intinsics2 = mirror(self.intrinsics(), LeftRight)?;
 
         intinsics2.p[(0, 1)] = -intinsics2.p[(0, 1)];
         intinsics2.k[(0, 1)] = -intinsics2.k[(0, 1)];
@@ -454,7 +451,7 @@ fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4,
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {}", e),
+            error: format!("inserve_failed {e}"),
         })
 }
 
@@ -463,7 +460,7 @@ fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R,
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {}", e),
+            error: format!("inserve_failed {e}"),
         })
 }
 
@@ -615,14 +612,14 @@ mod tests {
         let epsilon = 1e-10;
 
         for (im1, im2) in pts1.iter().zip(pts2) {
-            println!("im1: {:?}", im1);
-            println!("im2: {:?}", im2);
+            println!("im1: {im1:?}");
+            println!("im2: {im2:?}");
             let diff = im1.coords - im2.coords;
             let dist_squared = diff.dot(&diff);
             if dist_squared.is_nan() {
                 continue;
             }
-            println!("dist_squared: {:?}", dist_squared);
+            println!("dist_squared: {dist_squared:?}");
             if dist_squared > epsilon {
                 return false;
             }
@@ -668,11 +665,11 @@ mod tests {
     #[test]
     fn test_to_from_pmat() {
         for (name, cam1) in crate::tests::get_test_cameras().iter() {
-            println!("\n\n\ntesting camera {}", name);
+            println!("\n\n\ntesting camera {name}");
             let pmat = match cam1.as_pmat() {
                 Some(pmat) => pmat,
                 None => {
-                    println!("skipping camera {}: no pmat", name);
+                    println!("skipping camera {name}: no pmat");
                     continue;
                 }
             };
@@ -685,10 +682,10 @@ mod tests {
     #[test]
     fn test_flipped_camera() {
         for (name, cam1) in crate::tests::get_test_cameras().iter() {
-            println!("testing camera {}", name);
+            println!("testing camera {name}");
             let cam2 = cam1.flip().expect("flip cam");
             if !is_similar(cam1, &cam2) {
-                panic!("results not similar for cam {}", name);
+                panic!("results not similar for cam {name}");
             }
         }
     }
@@ -697,13 +694,13 @@ mod tests {
     fn test_rq() {
         let a = na::Matrix3::new(1.2, 3.4, 5.6, 7.8, 9.8, 7.6, 5.4, 3.2, 1.0);
         let (r, q) = crate::camera::rq(a);
-        println!("r {:?}", r);
-        println!("q {:?}", q);
+        println!("r {r:?}");
+        println!("q {q:?}");
 
         // check it is a real decomposition
         let a2 = r * q;
-        println!("a {:?}", a);
-        println!("a2 {:?}", a2);
+        println!("a {a:?}");
+        println!("a2 {a2:?}");
 
         approx::assert_abs_diff_eq!(a, a2, epsilon = 1e-10);
 
@@ -740,14 +737,14 @@ mod tests {
         let delta = rquat.rotation_to(&rquat2);
         let my_angle = crate::camera::my_quat_angle(&delta);
 
-        println!("r1 {:?}", r1);
-        println!("rotmat {:?}", rotmat);
-        println!("rquat {:?}", rquat);
-        println!("rotmat2 {:?}", rotmat2);
-        println!("rquat2 {:?}", rquat2);
-        println!("angle: {:?}", angle);
-        println!("delta {:?}", delta);
-        println!("my_angle: {:?}", my_angle);
+        println!("r1 {r1:?}");
+        println!("rotmat {rotmat:?}");
+        println!("rquat {rquat:?}");
+        println!("rotmat2 {rotmat2:?}");
+        println!("rquat2 {rquat2:?}");
+        println!("angle: {angle:?}");
+        println!("delta {delta:?}");
+        println!("my_angle: {my_angle:?}");
 
         let q = na::Quaternion::new(
             -0.000000000000000000000000000000002756166576353432,
@@ -756,8 +753,8 @@ mod tests {
             0.5590169943749475,
         );
         let uq = UnitQuaternion::from_quaternion(q); // hmm, this conversion doesn't give me the delta from above :(
-        println!("q: {:?}", q);
-        println!("uq: {:?}", uq);
+        println!("q: {q:?}");
+        println!("uq: {uq:?}");
         println!("uq.angle(): {:?}", uq.angle());
     }
 

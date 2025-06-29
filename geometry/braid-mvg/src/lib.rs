@@ -402,7 +402,7 @@ mod tests {
                     cy,
                     dist.clone(),
                 );
-                result.push((format!("dist-{}_skew{}", name, skew), cam));
+                result.push((format!("dist-{name}_skew{skew}"), cam));
             }
         }
 
@@ -426,7 +426,7 @@ mod tests {
 
         let extrinsics = crate::extrinsics::make_default_extrinsics();
         for (int_name, intrinsics) in get_test_intrinsics().into_iter() {
-            let name = format!("cam-{}", int_name);
+            let name = format!("cam-{int_name}");
             let cam = Camera::new(640, 480, extrinsics.clone(), intrinsics).unwrap();
             result.push((name, cam));
         }

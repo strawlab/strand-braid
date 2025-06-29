@@ -1,5 +1,6 @@
 use nalgebra::{
-    allocator::Allocator, DefaultAllocator, Dyn, Matrix, OMatrix, RealField, VecStorage, U1, U3,
+    allocator::Allocator, DefaultAllocator, Dyn, Matrix, Matrix3, Matrix3x1, OMatrix, RealField,
+    VecStorage, U1, U3,
 };
 use num_traits::float::TotalOrder;
 
@@ -30,7 +31,7 @@ pub fn align_points<T>(
     x: &OMatrix<T, U3, Dyn>,
     y: &OMatrix<T, U3, Dyn>,
     algorithm: Algorithm,
-) -> Result<(T, OMatrix<T, U3, U3>, OMatrix<T, U3, U1>)>
+) -> Result<(T, Matrix3<T>, Matrix3x1<T>)>
 where
     T: RealField + Copy + TotalOrder,
 {
@@ -237,10 +238,12 @@ fn test_align_points() {
     for algorithm in [Algorithm::KabschUmeyama, Algorithm::RobustArun] {
         // Test in noise-free conditions with generated data.
         let c_expected = 0.1;
-        let r_expected =
-            nalgebra::geometry::Rotation3::from_euler_angles(std::f64::consts::FRAC_PI_4, 0.0, 0.0)
-                .matrix()
-                .clone();
+        let r_expected = *nalgebra::geometry::Rotation3::from_euler_angles(
+            std::f64::consts::FRAC_PI_4,
+            0.0,
+            0.0,
+        )
+        .matrix();
         let t_expected = Vector3::new(-0.2, 0.3, -0.4);
 
         let x2 = c_expected * r_expected * &x1 + bcast(&t_expected, 8);

@@ -83,7 +83,7 @@ mod tests {
                 let orig_pixels = cam.camera_to_pixel(&pts);
                 let lr_pixels = lr_mirror.camera_to_pixel(&pts);
 
-                println!("{}, axis: {:?}", name, axis);
+                println!("{name}, axis: {axis:?}");
                 for i in 0..orig_pixels.data.nrows() {
                     let expected = match axis {
                         LeftRight => {

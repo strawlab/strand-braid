@@ -103,7 +103,7 @@ fn test_linearized_cam_geom_camera() -> anyhow::Result<()> {
         // The coordinates from the linear camera should be the same (within
         // floating point numerical error) as the undistorted variant from the
         // original camera.
-        let distorted_orig2 = (&*distorted_orig).into();
+        let distorted_orig2 = distorted_orig.into();
         let undistorted_orig = intrinsics.undistort(&distorted_orig2);
         approx::assert_relative_eq!(undistorted_orig.data, linear_2d.data, epsilon = 1e-6);
     }
