@@ -182,9 +182,9 @@ impl HttpSession {
         };
 
         let pq: String = if let Some(token) = token {
-            format!("/{}?token={}", rel, token)
+            format!("/{rel}?token={token}")
         } else {
-            format!("/{}", rel)
+            format!("/{rel}")
         };
         let pqs: &str = &pq;
 
