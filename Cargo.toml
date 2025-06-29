@@ -334,7 +334,7 @@ srt-writer = { path = "media-utils/srt-writer" }
 strand-bui-backend-session = { path = "strand-bui-backend-session" }
 strand-bui-backend-session-types = { path = "strand-bui-backend-session/types", version = "0.1.1" }
 strand-cam = { path = "strand-cam", default-features = false }
-strand-cam-bui-types = { path = "strand-cam-bui-types" }
+strand-cam-bui-types = { path = "strand-cam-bui-types", version = "0.1.0" }
 strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype" }
