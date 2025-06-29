@@ -808,6 +808,7 @@ pub enum MiniArenaConfig {
     XYGrid(XYGridConfig),
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl MiniArenaConfig {
     fn is_none(&self) -> bool {
         self == &Self::NoMiniArena
