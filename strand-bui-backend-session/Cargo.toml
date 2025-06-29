@@ -28,7 +28,6 @@ url.workspace = true
 
 strand-bui-backend-session-types.workspace = true
 strand-cam-bui-types.workspace = true
-braid-types.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
