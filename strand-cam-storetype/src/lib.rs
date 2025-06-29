@@ -14,7 +14,7 @@
 //! ## Key Components
 //!
 //! - [StoreType]: The main state container for all camera configuration and
-//!       status
+//!   status
 //! - Recording management for MP4, FMF, and UFMF formats
 //! - Feature detection and tracking configuration
 //! - LED control and triggering systems
