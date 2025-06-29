@@ -1,9 +1,11 @@
 [package]
 name = "strand-cam-storetype"
+description = "Type definitions for Strand Camera's state management and browser UI communication."
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde.workspace = true
