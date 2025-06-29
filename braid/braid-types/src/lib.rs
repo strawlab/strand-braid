@@ -14,7 +14,7 @@ use strand_cam_bui_types::{ClockModel, RecordingPath};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use strand_bui_backend_session_types::AccessToken;
+use strand_bui_backend_session_types::BuiServerAddrInfo;
 use strand_withkey::WithKey;
 
 pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
@@ -493,92 +493,6 @@ pub enum BuiServerInfo {
     Server(BuiServerAddrInfo),
 }
 
-/// HTTP API server access information
-///
-/// This contains the address and access token.
-///
-/// This is used for both the Strand Camera BUI and the Braid BUI.
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct BuiServerAddrInfo {
-    /// The listen address of the HTTP server.
-    ///
-    /// Note that this can be unspecified (i.e. `0.0.0.0` for IPv4).
-    addr: SocketAddr,
-    /// The token for initial connection to the HTTP server.
-    token: AccessToken,
-}
-
-impl BuiServerAddrInfo {
-    pub fn new(addr: SocketAddr, token: AccessToken) -> Self {
-        Self { addr, token }
-    }
-
-    pub fn addr(&self) -> &SocketAddr {
-        &self.addr
-    }
-
-    pub fn token(&self) -> &AccessToken {
-        &self.token
-    }
-
-    #[cfg(feature = "build-urls")]
-    pub fn build_urls(&self) -> std::io::Result<Vec<http::Uri>> {
-        let query = match &self.token {
-            AccessToken::NoToken => "".to_string(),
-            AccessToken::PreSharedToken(tok) => format!("?token={tok}"),
-        };
-        Ok(expand_unspecified_addr(self.addr())?
-            .into_iter()
-            .map(|specified_addr| {
-                let addr = specified_addr.addr();
-                http::uri::Builder::new()
-                    .scheme("http")
-                    .authority(format!("{}:{}", addr.ip(), addr.port()))
-                    .path_and_query(format!("/{query}"))
-                    .build()
-                    .unwrap()
-            })
-            .collect())
-    }
-
-    pub fn parse_url_with_token(url: &str) -> Result<Self, FlydraTypesError> {
-        // TODO: replace this ugly implementation...
-        let stripped = url
-            .strip_prefix("http://")
-            .ok_or(FlydraTypesError::UrlParseError)?;
-        let first_slash = stripped.find('/');
-        let (addr_str, token) = if let Some(slash_idx) = first_slash {
-            let path = &stripped[slash_idx..];
-            if path == "/" || path == "/?" {
-                (&stripped[..slash_idx], AccessToken::NoToken)
-            } else {
-                let token_str = path[1..]
-                    .strip_prefix("?token=")
-                    .ok_or(FlydraTypesError::UrlParseError)?;
-                (
-                    &stripped[..slash_idx],
-                    AccessToken::PreSharedToken(token_str.to_string()),
-                )
-            }
-        } else {
-            (stripped, AccessToken::NoToken)
-        };
-        let addr = std::net::ToSocketAddrs::to_socket_addrs(addr_str)?
-            .next()
-            .ok_or(FlydraTypesError::UrlParseError)?;
-        if addr.ip().is_unspecified() {
-            // An unspecified IP (e.g. 0.0.0.0) is not a valid remotely visible
-            // address.
-            return Err(FlydraTypesError::UrlParseError);
-        }
-        Ok(Self::new(addr, token))
-    }
-
-    pub fn base_url(&self) -> String {
-        format!("http://{}", self.addr)
-    }
-}
-
 pub fn is_loopback(url: &http::Uri) -> bool {
     let authority = match url.authority() {
         None => return false,
@@ -592,45 +506,6 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 }
 
 // -----
-
-/// A newtype wrapping a [SocketAddr] which ensures that it is specified.
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(transparent)]
-pub struct SpecifiedSocketAddr(SocketAddr);
-
-impl std::fmt::Display for SpecifiedSocketAddr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        std::fmt::Display::fmt(&self.0, f)
-    }
-}
-
-impl SpecifiedSocketAddr {
-    fn make_err() -> std::io::Error {
-        std::io::ErrorKind::AddrNotAvailable.into()
-    }
-    pub fn new(addr: SocketAddr) -> std::io::Result<Self> {
-        if addr.ip().is_unspecified() {
-            return Err(Self::make_err());
-        }
-        Ok(Self(addr))
-    }
-    pub fn ip(&self) -> std::net::IpAddr {
-        self.0.ip()
-    }
-    pub fn addr(&self) -> &std::net::SocketAddr {
-        &self.0
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for SpecifiedSocketAddr {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<SpecifiedSocketAddr, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let addr: SocketAddr = std::net::SocketAddr::deserialize(deserializer)?;
-        SpecifiedSocketAddr::new(addr).map_err(|_e| serde::de::Error::custom(Self::make_err()))
-    }
-}
 
 #[cfg(feature = "start-listener")]
 pub async fn start_listener(
@@ -659,39 +534,6 @@ pub async fn start_listener(
 }
 
 // -----
-
-#[cfg(feature = "build-urls")]
-fn expand_unspecified_ip(ip: std::net::IpAddr) -> std::io::Result<Vec<std::net::IpAddr>> {
-    if ip.is_unspecified() {
-        // Get all interfaces if IP is unspecified.
-        Ok(if_addrs::get_if_addrs()?
-            .iter()
-            .filter_map(|x| {
-                let this_ip = x.addr.ip();
-                // Take only IP addresses from correct family.
-                if ip.is_ipv4() == this_ip.is_ipv4() {
-                    Some(this_ip)
-                } else {
-                    None
-                }
-            })
-            .collect())
-    } else {
-        Ok(vec![ip])
-    }
-}
-
-#[cfg(feature = "build-urls")]
-pub fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SpecifiedSocketAddr>> {
-    if addr.ip().is_unspecified() {
-        expand_unspecified_ip(addr.ip())?
-            .into_iter()
-            .map(|ip| SpecifiedSocketAddr::new(SocketAddr::new(ip, addr.port())))
-            .collect()
-    } else {
-        Ok(vec![SpecifiedSocketAddr::new(*addr).unwrap()])
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextlogRow {

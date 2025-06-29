@@ -60,7 +60,6 @@ flydra-feature-detector-types.workspace = true
 flydra-mvg.workspace = true
 flydra-pt-detect-cfg.workspace = true
 braid-types = { workspace = true, features = [
-    "build-urls",
     "start-listener",
     "with-tokio-codec",
 ] }

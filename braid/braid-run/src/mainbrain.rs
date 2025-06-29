@@ -20,16 +20,17 @@ use tokio::net::UdpSocket;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info};
 
-use event_stream_types::{AcceptsEventStream, EventBroadcaster};
-use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
 use braid_types::{
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
-    BraidHttpApiSharedState, BuiServerAddrInfo, CamInfo, CborPacketCodec, FakeSyncConfig,
-    FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox,
-    BRAID_EVENTS_URL_PATH, BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
+    BraidHttpApiSharedState, CamInfo, CborPacketCodec, FakeSyncConfig, FlydraFloatTimestampLocal,
+    PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox, BRAID_EVENTS_URL_PATH,
+    BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
-use strand_cam_bui_types::{ClockModel, RecordingPath};
+use event_stream_types::{AcceptsEventStream, EventBroadcaster};
+use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
 use strand_bui_backend_session_types::AccessToken;
+use strand_bui_backend_session_types::BuiServerAddrInfo;
+use strand_cam_bui_types::{ClockModel, RecordingPath};
 
 use eyre::{self, Result, WrapErr};
 
@@ -367,7 +368,7 @@ async fn launch_braid_http_backend(
         mainbrain_server_info.addr()
     );
 
-    let urls = mainbrain_server_info.build_urls()?;
+    let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
     for url in urls.iter() {
         info!("Predicted URL: {url}");
         if !braid_types::is_loopback(url) {

@@ -17,4 +17,5 @@ http-body-util.workspace = true
 cookie_store.workspace = true
 
 braid-types.workspace = true
-strand-bui-backend-session = { path = "../strand-bui-backend-session" }
+strand-bui-backend-session.workspace = true
+strand-bui-backend-session-types.workspace = true

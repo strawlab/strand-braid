@@ -56,7 +56,8 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
     #[cfg(feature = "flydratrax")] led_box_tx_std: tokio::sync::mpsc::Sender<crate::ToLedBoxDevice>,
-    #[cfg(feature = "flydratrax")] http_camserver_info: braid_types::BuiServerAddrInfo,
+    #[cfg(feature = "flydratrax")]
+    http_camserver_info: strand_bui_backend_session_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,

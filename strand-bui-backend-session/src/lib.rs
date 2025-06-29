@@ -25,7 +25,7 @@
 //! let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
 //!
 //! // Server information with authentication token
-//! let server_info = braid_types::BuiServerAddrInfo::new(
+//! let server_info = strand_bui_backend_session_types::BuiServerAddrInfo::new(
 //!     "127.0.0.1:8080".parse()?,
 //!     strand_bui_backend_session_types::AccessToken::NoToken
 //! );
@@ -50,8 +50,11 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 use http::{header::ACCEPT, HeaderValue};
-use std::sync::{Arc, RwLock};
-use strand_bui_backend_session_types::AccessToken;
+use std::{
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+};
+use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo};
 use thiserror::Error;
 
 const SET_COOKIE: &str = "set-cookie";
@@ -117,7 +120,7 @@ pub struct HttpSession {
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
-/// let server_info = braid_types::BuiServerAddrInfo::new(
+/// let server_info = strand_bui_backend_session_types::BuiServerAddrInfo::new(
 ///     "127.0.0.1:8080".parse()?,
 ///     AccessToken::PreSharedToken("secret123".to_string())
 /// );
@@ -128,7 +131,7 @@ pub struct HttpSession {
 /// ```
 #[tracing::instrument(level = "debug", skip(server_info, jar))]
 pub async fn create_session(
-    server_info: &braid_types::BuiServerAddrInfo,
+    server_info: &strand_bui_backend_session_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<HttpSession, Error> {
     let base_uri = format!("http://{}/", server_info.addr());
@@ -466,4 +469,98 @@ fn test_serialized_cookie_store() {
     let loaded_json: serde_json::Value = serde_json::to_value(&loaded).unwrap();
     let expected_json: serde_json::Value = serde_json::to_value(&expected).unwrap();
     assert_eq!(&loaded_json, &expected_json);
+}
+
+/// Builds a list of HTTP URIs for the server address.
+pub fn build_urls(bui_server_info: &BuiServerAddrInfo) -> std::io::Result<Vec<http::Uri>> {
+    let query = match &bui_server_info.token() {
+        AccessToken::NoToken => "".to_string(),
+        AccessToken::PreSharedToken(tok) => format!("?token={tok}"),
+    };
+    Ok(expand_unspecified_addr(bui_server_info.addr())?
+        .into_iter()
+        .map(|specified_addr| {
+            let addr = specified_addr.addr();
+            http::uri::Builder::new()
+                .scheme("http")
+                .authority(format!("{}:{}", addr.ip(), addr.port()))
+                .path_and_query(format!("/{query}"))
+                .build()
+                .unwrap()
+        })
+        .collect())
+}
+
+/// A newtype wrapping a [SocketAddr] which ensures that it is specified.
+#[derive(Debug, PartialEq, Clone, serde::Serialize)]
+#[serde(transparent)]
+pub struct SpecifiedSocketAddr(SocketAddr);
+
+impl std::fmt::Display for SpecifiedSocketAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl SpecifiedSocketAddr {
+    fn make_err() -> std::io::Error {
+        std::io::ErrorKind::AddrNotAvailable.into()
+    }
+    /// Creates a new `SpecifiedSocketAddr` from a `SocketAddr`.
+    pub fn new(addr: SocketAddr) -> std::io::Result<Self> {
+        if addr.ip().is_unspecified() {
+            return Err(Self::make_err());
+        }
+        Ok(Self(addr))
+    }
+    /// Get the underlying IP address of the socket.
+    pub fn ip(&self) -> std::net::IpAddr {
+        self.0.ip()
+    }
+    /// Get the underlying socket address.
+    pub fn addr(&self) -> &std::net::SocketAddr {
+        &self.0
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SpecifiedSocketAddr {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<SpecifiedSocketAddr, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let addr: SocketAddr = std::net::SocketAddr::deserialize(deserializer)?;
+        SpecifiedSocketAddr::new(addr).map_err(|_e| serde::de::Error::custom(Self::make_err()))
+    }
+}
+
+/// Expands an unspecified address into a list of specified addresses.
+fn expand_unspecified_addr(addr: &SocketAddr) -> std::io::Result<Vec<SpecifiedSocketAddr>> {
+    if addr.ip().is_unspecified() {
+        expand_unspecified_ip(addr.ip())?
+            .into_iter()
+            .map(|ip| SpecifiedSocketAddr::new(SocketAddr::new(ip, addr.port())))
+            .collect()
+    } else {
+        Ok(vec![SpecifiedSocketAddr::new(*addr).unwrap()])
+    }
+}
+
+fn expand_unspecified_ip(ip: std::net::IpAddr) -> std::io::Result<Vec<std::net::IpAddr>> {
+    if ip.is_unspecified() {
+        // Get all interfaces if IP is unspecified.
+        Ok(if_addrs::get_if_addrs()?
+            .iter()
+            .filter_map(|x| {
+                let this_ip = x.addr.ip();
+                // Take only IP addresses from correct family.
+                if ip.is_ipv4() == this_ip.is_ipv4() {
+                    Some(this_ip)
+                } else {
+                    None
+                }
+            })
+            .collect())
+    } else {
+        Ok(vec![ip])
+    }
 }

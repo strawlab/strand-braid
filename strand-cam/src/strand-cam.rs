@@ -29,7 +29,7 @@ use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
-use strand_bui_backend_session_types::{AccessToken, ConnectionKey, SessionKey};
+use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, ConnectionKey, SessionKey};
 use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
@@ -1010,8 +1010,7 @@ struct GuiAppStuff {
 
 async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
     info!("Will connect to braid at \"{}\"", braid_args.braid_url);
-    let mainbrain_bui_loc =
-        braid_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+    let mainbrain_bui_loc = BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
     let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, BRAID_COOKIE_KEY) {
         Ok(jar) => {
@@ -1096,8 +1095,7 @@ where
                 }
             };
             let http_server_addr = braid_info.config_from_braid.config.http_server_addr.clone();
-            let braid_info =
-                braid_types::BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+            let braid_info = BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
 
             if braid_info.addr().ip().is_loopback() {
                 http_server_addr.unwrap_or_else(|| "127.0.0.1:0".to_string())
@@ -2086,7 +2084,7 @@ where
         .into_future()
     };
 
-    let urls = http_camserver_info.build_urls()?;
+    let urls = strand_bui_backend_session::build_urls(&http_camserver_info)?;
 
     #[cfg(feature = "eframe-gui")]
     {

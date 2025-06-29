@@ -1,12 +1,11 @@
 use clap::Parser;
-use eyre::{self, WrapErr, Result};
+use eyre::{self, Result, WrapErr};
 use tracing::debug;
 
 use braid::braid_start;
 use braid_config_data::parse_config_file;
-use braid_types::{
-    BraidCameraConfig, BuiServerAddrInfo, RawCamName, StartCameraBackend, TriggerType,
-};
+use braid_types::{BraidCameraConfig, RawCamName, StartCameraBackend, TriggerType};
+use strand_bui_backend_session_types::BuiServerAddrInfo;
 
 mod callback_handling;
 mod mainbrain;
@@ -26,7 +25,7 @@ fn compute_strand_cam_args(
     camera: &BraidCameraConfig,
     mainbrain_internal_addr: &BuiServerAddrInfo,
 ) -> Result<Vec<String>> {
-    let urls = mainbrain_internal_addr.build_urls()?;
+    let urls = strand_bui_backend_session::build_urls(&mainbrain_internal_addr)?;
     let url = urls
         .first()
         .ok_or_else(|| eyre::eyre!("need at least one URL"))?;

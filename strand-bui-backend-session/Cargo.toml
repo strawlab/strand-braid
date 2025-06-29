@@ -20,6 +20,7 @@ bytes.workspace = true
 serde.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true
+if-addrs = { workspace = true }
 thiserror.workspace = true
 axum.workspace = true
 cookie_store.workspace = true

@@ -19,7 +19,7 @@ pub enum Error {
 /// Create a `MainbrainSession` which has already made a request
 #[tracing::instrument(level = "info")]
 pub async fn create_mainbrain_session(
-    dest: braid_types::BuiServerAddrInfo,
+    dest: strand_bui_backend_session_types::BuiServerAddrInfo,
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<MainbrainSession, strand_bui_backend_session::Error> {
     debug!("requesting session with mainbrain at {:?}", dest);
