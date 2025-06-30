@@ -179,7 +179,7 @@ pub enum MvgError {
 
 pub type Result<M> = std::result::Result<M, MvgError>;
 
-mod pymvg_support;
+pub mod pymvg_support;
 
 pub mod intrinsics;
 
