@@ -1,3 +1,109 @@
+//! Camera geometry and multi-view geometry (MVG) types and algorithms for the
+//! [Braid](https://strawlab.org/braid) tracking system.
+//!
+//! This crate provides camera modeling, geometric transformations, and
+//! multi-camera system support for 3D computer vision applications. It's
+//! specifically designed for use in the Braid multi-camera tracking system but
+//! can be used for general computer vision tasks.
+//!
+//! ## Features
+//!
+//! - Camera modeling with intrinsic and extrinsic parameters based on
+//!   [`cam-geom`](https://crates.io/crates/cam-geom)
+//! - Lens distortion correction using OpenCV-compatible models based on
+//!   [`opencv-ros-camera`](https://crates.io/crates/opencv-ros-camera)
+//! - Multi-camera system management and calibration
+//! - 3D point triangulation from multiple camera views
+//! - Point alignment algorithms (Kabsch-Umeyama, robust Arun)
+//! - Coordinate frame transformations between world, camera, and pixel spaces
+//! - [rerun.io](https://rerun.io) integration for 3D visualization (optional)
+//!
+//! ## Core Types
+//!
+//! - [`Camera`]: Individual camera with intrinsics and extrinsics
+//! - [`MultiCameraSystem`]: Collection of calibrated cameras
+//! - [`DistortedPixel`], [`UndistortedPixel`]: Pixel coordinate types
+//! - [`PointWorldFrame`], [`PointCameraFrame`]: 3D point types in different
+//!       coordinate systems
+//!
+//! ## Coordinate Systems
+//!
+//! The crate uses three main coordinate systems:
+//! - **World Frame**: Global 3D coordinate system
+//! - **Camera Frame**: 3D coordinates relative to individual cameras
+//! - **Pixel Coordinates**: 2D image coordinates (distorted and undistorted)
+//!
+//! ## Example
+//!
+//! This example demonstrates a complete round-trip workflow: projecting a 3D point
+//! to 2D pixel coordinates in each camera, then reconstructing the 3D point from
+//! these 2D observations and comparing it to the original.
+//!
+//! ```rust
+//! use braid_mvg::{Camera, MultiCameraSystem, PointWorldFrame, extrinsics, make_default_intrinsics};
+//! use std::collections::BTreeMap;
+//! use nalgebra::Point3;
+//!
+//! // Create a multi-camera system with two cameras for triangulation
+//!
+//! // Camera 1: use default extrinsics (positioned at (1,2,3))
+//! let extrinsics1 = extrinsics::make_default_extrinsics::<f64>();
+//! let camera1 = Camera::new(640, 480, extrinsics1, make_default_intrinsics()).unwrap();
+//!
+//! // Camera 2: positioned with sufficient baseline for triangulation
+//! let translation2 = nalgebra::Point3::new(3.0, 2.0, 3.0);
+//! let rotation2 = nalgebra::UnitQuaternion::identity();
+//! let extrinsics2 = extrinsics::from_rquat_translation(rotation2, translation2);
+//! let camera2 = Camera::new(640, 480, extrinsics2, make_default_intrinsics()).unwrap();
+//!
+//! // Build the multi-camera system
+//! let mut cameras = BTreeMap::new();
+//! cameras.insert("cam1".to_string(), camera1);
+//! cameras.insert("cam2".to_string(), camera2);
+//! let system = MultiCameraSystem::new(cameras);
+//!
+//! // Define an original 3D point in world coordinates
+//! // Place it in front of both cameras at a reasonable distance
+//! let original_point = PointWorldFrame {
+//!     coords: Point3::new(2.0, 2.0, 8.0)
+//! };
+//! println!("Original 3D point: {:?}", original_point.coords);
+//!
+//! // Step 1: Project the 3D point to 2D pixels in each camera
+//! let mut observations = Vec::new();
+//! println!("\nProjecting to 2D pixels:");
+//! for (cam_name, camera) in system.cams_by_name() {
+//!     let pixel = camera.project_3d_to_pixel(&original_point);
+//!     println!("  {}: pixel ({:.2}, {:.2})", cam_name, pixel.coords.x, pixel.coords.y);
+//!     observations.push((cam_name.clone(), pixel));
+//! }
+//!
+//! // Step 2: Reconstruct the 3D point from the 2D observations
+//! println!("\nReconstructing 3D point from 2D observations...");
+//! let reconstructed_point = system.find3d(&observations)
+//!     .expect("Triangulation should succeed with good observations");
+//!
+//! // Step 3: Compare original and reconstructed points
+//! println!("Reconstructed 3D point: {:?}", reconstructed_point.coords);
+//!
+//! let error = (original_point.coords - reconstructed_point.coords).norm();
+//! println!("3D reconstruction error: {error:.2e}");
+//!
+//! // With perfect cameras and no noise, reconstruction should be very accurate
+//! assert!(error < 1e-6, "Reconstruction error too large: {error:.2e}");
+//!
+//! // Verify that reprojection works correctly
+//! println!("\nVerifying reprojection accuracy:");
+//! for (cam_name, camera) in system.cams_by_name() {
+//!     let reprojected_pixel = camera.project_3d_to_pixel(&reconstructed_point);
+//!     let original_pixel = camera.project_3d_to_pixel(&original_point);
+//!     let pixel_error = (reprojected_pixel.coords - original_pixel.coords).norm();
+//!     println!("  {cam_name}: reprojection error {pixel_error:.2e} pixels");
+//!     assert!(pixel_error < 1e-6, "Reprojection error too large for {cam_name}");
+//! }
+//!
+//! println!("✓ Round-trip 3D→2D→3D reconstruction successful!");
+//! ```
 #![deny(rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 use thiserror::Error;
