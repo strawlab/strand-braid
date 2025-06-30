@@ -453,7 +453,7 @@ fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4,
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {e}"),
+            error: format!("inverse failed {e}"),
         })
 }
 
@@ -462,7 +462,7 @@ fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R,
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
-            error: format!("inserve_failed {e}"),
+            error: format!("inverse failed {e}"),
         })
 }
 
