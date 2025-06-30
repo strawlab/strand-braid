@@ -178,7 +178,7 @@ test_crates_rust_stable:
 
     # Test mvg
     - cd $CI_PROJECT_DIR/geometry/braid-mvg
-    - cargo test --features rerun-io
+    - cargo test --all-features
 
     # Test braid-april-cal-webapp
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
