@@ -116,33 +116,6 @@ use cam_geom::ExtrinsicParameters;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
 /// Error types that can occur during multi-view geometry operations.
-///
-/// This enum encompasses all possible errors that can arise during camera calibration,
-/// 3D reconstruction, coordinate transformations, and other geometric computations.
-///
-/// # Categories
-///
-/// - **Model Errors**: Issues with distortion models or camera parameters
-/// - **Geometric Errors**: Problems with mathematical operations (SVD, matrix operations)
-/// - **I/O Errors**: File reading/writing and serialization failures
-/// - **Validation Errors**: Invalid input data or insufficient constraints
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::{MvgError, Result};
-///
-/// fn triangulate_points() -> Result<()> {
-///     // Function that might fail with various MVG errors
-///     Err(MvgError::NotEnoughPoints)
-/// }
-///
-/// match triangulate_points() {
-///     Ok(_) => println!("Triangulation successful"),
-///     Err(MvgError::NotEnoughPoints) => println!("Need at least 2 cameras for triangulation"),
-///     Err(e) => println!("Other error: {}", e),
-/// }
-/// ```
 #[derive(Error, Debug)]
 pub enum MvgError {
     /// Unknown or unsupported lens distortion model encountered.
@@ -268,20 +241,6 @@ pub enum MvgError {
 }
 
 /// Convenience type alias for results in multi-view geometry operations.
-///
-/// This is a standard Rust `Result<T, E>` type where the error type is fixed
-/// to [`MvgError`]. Most functions in this crate return this type.
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::{Result, MvgError};
-///
-/// fn some_mvg_operation() -> Result<f64> {
-///     // Some operation that might fail
-///     Ok(42.0)
-/// }
-/// ```
 pub type Result<M> = std::result::Result<M, MvgError>;
 
 pub mod pymvg_support;

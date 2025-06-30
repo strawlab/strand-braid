@@ -22,7 +22,8 @@ use crate::{
 /// A calibrated camera with both intrinsic and extrinsic parameters.
 ///
 /// This structure represents a complete camera model including:
-/// - **Intrinsic parameters**: focal length, principal point, distortion coefficients
+/// - **Intrinsic parameters**: focal length, principal point, distortion
+///   coefficients
 /// - **Extrinsic parameters**: position and orientation in 3D space
 /// - **Image dimensions**: width and height in pixels
 ///
@@ -45,11 +46,7 @@ use crate::{
 ///
 /// # Lens Distortion
 ///
-/// The camera supports OpenCV-compatible lens distortion models including:
-/// - Radial distortion (k1, k2, k3, k4, k5, k6)
-/// - Tangential distortion (p1, p2)
-/// - Thin prism distortion (s1, s2, s3, s4)
-/// - Tilted sensor distortion (τx, τy)
+/// The camera supports OpenCV-compatible Brown-Conrady lens distortion.
 ///
 /// # Example
 ///
