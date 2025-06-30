@@ -5,6 +5,35 @@ use nalgebra::RealField;
 
 use cam_geom::ExtrinsicParameters;
 
+/// Creates default extrinsic parameters for testing and prototyping.
+///
+/// This function generates reasonable default extrinsic parameters that place
+/// the camera at a specific location with no rotation. The defaults are:
+///
+/// - **Camera center**: (1, 2, 3) in world coordinates
+/// - **Rotation**: Identity (no rotation from world coordinate system)
+///
+/// These parameters are useful for algorithm testing, unit tests, and as
+/// starting points for calibration procedures.
+///
+/// # ⚠️ Important Note
+///
+/// These parameters are **not suitable for real applications** - always perform
+/// proper camera calibration for production use. The default position is arbitrary
+/// and chosen only for testing convenience.
+///
+/// # Returns
+///
+/// [`ExtrinsicParameters`] with the default camera position and orientation.
+///
+/// # Example
+///
+/// ```rust
+/// use braid_mvg::extrinsics::make_default_extrinsics;
+///
+/// let extrinsics = make_default_extrinsics::<f64>();
+/// println!("Default camera center: {:?}", extrinsics.camcenter());
+/// ```
 pub fn make_default_extrinsics<R: RealField + Copy>() -> ExtrinsicParameters<R> {
     let axis = na::core::Unit::new_normalize(Vector3::x());
     let angle = na::convert(0.0);
@@ -14,6 +43,41 @@ pub fn make_default_extrinsics<R: RealField + Copy>() -> ExtrinsicParameters<R> 
     ExtrinsicParameters::from_rotation_and_camcenter(rquat, camcenter)
 }
 
+/// Creates extrinsic parameters from a rotation quaternion and translation vector.
+///
+/// This function constructs camera extrinsic parameters from a rotation represented
+/// as a unit quaternion and a translation vector. This is a common parameterization
+/// used in robotics and SLAM applications.
+///
+/// # Mathematical Details
+///
+/// The relationship between camera center `C` and translation vector `t` is:
+/// ```text
+/// t = -R * C
+/// C = -R^T * t
+/// ```
+/// where `R` is the rotation matrix corresponding to `rquat`.
+///
+/// # Arguments
+///
+/// * `rquat` - Unit quaternion representing the camera rotation
+/// * `translation` - Translation vector from world origin to camera position
+///
+/// # Returns
+///
+/// [`ExtrinsicParameters`] constructed from the rotation and translation
+///
+/// # Example
+///
+/// ```rust
+/// use braid_mvg::extrinsics::from_rquat_translation;
+/// use nalgebra::{UnitQuaternion, Point3, Vector3};
+///
+/// let rotation = UnitQuaternion::from_axis_angle(&Vector3::z_axis(), 0.5);
+/// let translation = Point3::new(1.0, 2.0, 3.0);
+///
+/// let extrinsics = from_rquat_translation(rotation, translation);
+/// ```
 pub fn from_rquat_translation<R: RealField + Copy>(
     rquat: UnitQuaternion<R>,
     translation: Point3<R>,

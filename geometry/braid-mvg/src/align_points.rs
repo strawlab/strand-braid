@@ -6,10 +6,23 @@ use num_traits::float::TotalOrder;
 
 use crate::{MvgError, Result};
 
+/// Algorithm selection for point cloud alignment.
+///
+/// This enum specifies which algorithm to use when aligning two sets of 3D points.
+/// Different algorithms have different robustness characteristics and computational
+/// requirements.
 pub enum Algorithm {
-    /// The Kabsch-Umeyama algorithm
+    /// The Kabsch-Umeyama algorithm for point set alignment.
+    ///
+    /// This is a classic algorithm that finds the optimal similarity transformation
+    /// (scale, rotation, translation) between two point sets. It's mathematically
+    /// elegant but can be sensitive to outliers.
     KabschUmeyama,
-    /// A robustly-sclaed variant of the Arun, Huang, and Blostein algorithm
+    /// A robustly-scaled variant of the Arun, Huang, and Blostein algorithm.
+    ///
+    /// This algorithm provides more robust scaling estimation compared to
+    /// Kabsch-Umeyama, making it more suitable for real-world data that may
+    /// contain noise or outliers.
     RobustArun,
 }
 
