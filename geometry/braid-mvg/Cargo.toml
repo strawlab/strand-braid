@@ -33,6 +33,10 @@ serde-serialize = []
 
 rerun-io = ["dep:re_types"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [[example]]
 name = "export-rerun-log"
 required-features = ["rerun-io"]
