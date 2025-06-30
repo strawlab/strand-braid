@@ -70,17 +70,6 @@ pub enum MvgError {
     },
 }
 
-#[derive(Debug)]
-pub struct CubicRootArgs {
-    pub p4: f64,
-    pub p3: f64,
-    pub p2: f64,
-    pub p1: f64,
-    pub p0: f64,
-    pub maxval: f64,
-    pub eps: f64,
-}
-
 pub type Result<M> = std::result::Result<M, MvgError>;
 
 mod pymvg_support;
