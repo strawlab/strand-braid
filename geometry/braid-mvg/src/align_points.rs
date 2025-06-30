@@ -75,9 +75,15 @@ where
     };
 
     // Decomposition of covariance matrix.
-    let svd = if let Some(svd) =
-        nalgebra::linalg::SVD::try_new(cov_xy, true, true, nalgebra::convert(1e-7), 0)
-    {
+    const SVD_MAX_ITERATIONS: usize = 1_000_000;
+
+    let svd = if let Some(svd) = nalgebra::linalg::SVD::try_new(
+        cov_xy,
+        true,
+        true,
+        nalgebra::convert(1e-7),
+        SVD_MAX_ITERATIONS,
+    ) {
         svd
     } else {
         return Err(MvgError::SvdFailed);

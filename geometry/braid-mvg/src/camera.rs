@@ -446,8 +446,10 @@ pub(crate) struct CameraCache<R: RealField> {
     pub(crate) pinv: OMatrix<R, U4, U3>,
 }
 
+const SVD_MAX_ITERATIONS: usize = 1_000_000;
+
 fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4, U3>> {
-    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), SVD_MAX_ITERATIONS)
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
@@ -456,7 +458,7 @@ fn my_pinv<R: RealField + Copy>(m: &OMatrix<R, U3, U4>) -> Result<OMatrix<R, U4,
 }
 
 fn my_pinv_4x4<R: RealField + Copy>(m: &OMatrix<R, U4, U4>) -> Result<OMatrix<R, U4, U4>> {
-    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), 0)
+    na::linalg::SVD::try_new(*m, true, true, na::convert(1e-7), SVD_MAX_ITERATIONS)
         .ok_or(MvgError::SvdFailed)?
         .pseudo_inverse(na::convert(1.0e-7))
         .map_err(|e| MvgError::PinvError {
