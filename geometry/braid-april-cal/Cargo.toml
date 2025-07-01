@@ -21,7 +21,7 @@ argmin-math = "0.4.0"
 sqpnp = "0.2.0"
 glam = "0.29.2"
 
-braid-mvg = { workspace = true, features = ["serde-serialize"] }
+braid-mvg.workspace = true
 flydra-mvg.workspace = true
 apriltag-detection-writer.workspace = true
 

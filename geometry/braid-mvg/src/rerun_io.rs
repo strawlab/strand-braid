@@ -60,7 +60,30 @@ fn rr_translation_and_rotation<R: RealField>(
     (translation, rquat)
 }
 
+/// Trait for converting camera extrinsic parameters to rerun.io Transform3D format.
+///
+/// This trait provides a standardized way to convert camera pose information
+/// into rerun.io's Transform3D archetype for 3D visualization. It handles the
+/// coordinate system conversions and data format transformations required
+/// by the rerun.io ecosystem.
+///
+/// # Example
+///
+/// ```rust
+/// use braid_mvg::rerun_io::AsRerunTransform3D;
+/// use braid_mvg::extrinsics;
+///
+/// let extrinsics = extrinsics::make_default_extrinsics::<f64>();
+/// let transform = extrinsics.as_rerun_transform3d();
+/// // Can now be logged to rerun.io
+/// ```
 pub trait AsRerunTransform3D {
+    /// Convert the camera extrinsics to a rerun.io Transform3D.
+    ///
+    /// # Returns
+    ///
+    /// An object that implements `Into<re_types::archetypes::Transform3D>`,
+    /// suitable for logging to rerun.io for 3D visualization.
     fn as_rerun_transform3d(&self) -> impl Into<re_types::archetypes::Transform3D>;
 }
 
@@ -153,6 +176,47 @@ fn pinhole_projection_component<R: RealField>(
     )
 }
 
+/// Convert cam-geom intrinsic parameters to a rerun.io Pinhole archetype.
+///
+/// This function converts camera intrinsic parameters from the cam-geom format
+/// to rerun.io's Pinhole archetype format for 3D visualization. It performs
+/// validation to ensure the camera model is compatible with rerun.io's
+/// simplified pinhole representation.
+///
+/// # Limitations
+///
+/// - Only supports linear (undistorted) camera models
+/// - Requires standard pinhole projection matrix format
+/// - Does not support rectification matrices or complex distortion models
+///
+/// # Arguments
+///
+/// * `intrinsics` - Camera intrinsic parameters in cam-geom format
+/// * `width` - Image width in pixels
+/// * `height` - Image height in pixels
+///
+/// # Returns
+///
+/// A rerun.io `Pinhole` archetype on success, or [`MvgError::RerunUnsupportedIntrinsics`]
+/// if the camera model is not compatible with rerun.io.
+///
+/// # Errors
+///
+/// Returns [`MvgError::RerunUnsupportedIntrinsics`] if:
+/// - The camera has lens distortion
+/// - The projection matrix has non-standard structure
+/// - The camera model cannot be represented as a simple pinhole camera
+///
+/// # Example
+///
+/// ```rust
+/// use braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype;
+/// use cam_geom::IntrinsicParametersPerspective;
+///
+/// let intrinsics = cam_geom::PerspectiveParams {fx: 100.0, fy: 100.0, cx: 320.0, cy: 240.0, skew: 0.0};
+/// let pinhole = cam_geom_to_rr_pinhole_archetype(&intrinsics.into(), 640, 480);
+/// // Can now be logged to rerun.io
+/// ```
 pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(
     intrinsics: &cam_geom::IntrinsicParametersPerspective<R>,
     width: usize,
@@ -196,7 +260,7 @@ impl<R: RealField + Copy> crate::Camera<R> {
         ))
     }
 
-    /// return a [re_types::archetypes::Pinhole]
+    /// Return a [`re_types::archetypes::Pinhole`]
     ///
     /// The conversion will not succeed if the camera cannot be represented
     /// exactly in re_types.

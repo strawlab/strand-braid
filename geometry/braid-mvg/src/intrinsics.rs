@@ -3,9 +3,20 @@ use nalgebra::RealField;
 
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
+/// Axis along which to mirror camera intrinsic parameters.
+///
+/// This enum specifies which axis to use when creating a mirrored version
+/// of camera intrinsic parameters, typically used for stereo camera setups
+/// or when cameras have different orientations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirrorAxis {
+    /// Mirror along the left-right (horizontal) axis.
+    ///
+    /// This effectively flips the camera horizontally, reversing the x-coordinates.
     LeftRight,
+    /// Mirror along the up-down (vertical) axis.
+    ///
+    /// This effectively flips the camera vertically, reversing the y-coordinates.
     UpDown,
 }
 
@@ -44,7 +55,6 @@ mod tests {
     use nalgebra::{allocator::Allocator, DefaultAllocator, U3, U7};
 
     #[test]
-    #[cfg(feature = "serde-serialize")]
     fn test_serde() {
         let expected = crate::make_default_intrinsics();
         let buf = serde_json::to_string(&expected).unwrap();

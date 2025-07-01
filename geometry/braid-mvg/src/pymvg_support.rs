@@ -1,3 +1,14 @@
+//! PyMVG format support for camera systems.
+//!
+//! This module provides data structures and serialization support for the PyMVG
+//! (Python Multi-View Geometry) JSON format. PyMVG is a Python library for
+//! multiple view geometry that uses a specific JSON schema for storing camera
+//! calibration data.
+//!
+//! The module includes:
+//! - [`PymvgCamera`]: Individual camera representation in PyMVG format
+//! - [`PymvgMultiCameraSystemV1`]: Multi-camera system in PyMVG format
+
 #![allow(non_snake_case)]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -10,6 +21,10 @@ use nalgebra::geometry::Point3;
 use nalgebra::DefaultAllocator;
 use nalgebra::RealField;
 
+/// Multi-camera system in PyMVG JSON format.
+///
+/// This struct represents a complete camera system as stored in PyMVG files,
+/// including version information and a collection of individual cameras.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PymvgMultiCameraSystemV1<R: RealField> {
@@ -17,7 +32,11 @@ pub struct PymvgMultiCameraSystemV1<R: RealField> {
     pub(crate) camera_system: Vec<PymvgCamera<R>>,
 }
 
-// Serialize is not (yet) implemented.
+/// Individual camera representation in PyMVG JSON format.
+///
+/// This struct contains all camera parameters including intrinsics (K, D),
+/// extrinsics (Q, translation), projection matrix (P), rectification matrix (R),
+/// and image dimensions as stored in PyMVG camera calibration files.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PymvgCamera<R: RealField> {
@@ -36,7 +55,7 @@ pub struct PymvgCamera<R: RealField> {
     pub(crate) translation: Point3<R>,
 }
 
-pub mod array_of_arrays {
+mod array_of_arrays {
     use super::*;
 
     /// Serialize an nalgebra::OMatrix to an array of arrays of floats
