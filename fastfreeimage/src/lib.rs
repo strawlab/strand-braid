@@ -722,7 +722,7 @@ impl<'a, T> ValidChunksExact<'a, T> {
 impl<'a, T> Iterator for ValidChunksExact<'a, T> {
     type Item = &'a [T];
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        // Next iterattion through chunked iterator.
+        // Next iteration through chunked iterator.
         if let Some(mut padded_chunk_iter) = self.padded_chunk_iter.take() {
             if let Some(exact_chunk) = padded_chunk_iter
                 .next()
