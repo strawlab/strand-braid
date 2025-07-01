@@ -19,7 +19,7 @@ strand-cam-remote-control.workspace = true
 flydra-feature-detector-types.workspace = true
 strand-http-video-streaming-types.workspace = true
 strand-cam-bui-types.workspace = true
-braid-mvg = { workspace = true, features = ["serde-serialize"] }
+braid-mvg.workspace = true
 
 [features]
 default = ["std"]

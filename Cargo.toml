@@ -281,7 +281,7 @@ braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }
-braid-mvg = { path = "geometry/braid-mvg", features = ["serde-serialize"] }
+braid-mvg = { path = "geometry/braid-mvg" }
 braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz-parser" }
 braidz-rerun = { path = "braidz-rerun" }

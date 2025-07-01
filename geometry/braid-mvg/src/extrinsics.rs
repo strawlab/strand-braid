@@ -150,7 +150,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde-serialize")]
     fn test_serde() {
         let expected = crate::extrinsics::make_default_extrinsics();
         let buf = serde_json::to_string(&expected).unwrap();

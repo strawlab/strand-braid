@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-#[cfg(feature = "serde-serialize")]
 use serde::Deserialize;
 
 use na::core::dimension::{U1, U2, U3, U4};
@@ -645,7 +644,6 @@ impl<R: RealField + Copy> AsRef<cam_geom::Camera<R, RosOpenCvIntrinsics<R>>> for
     }
 }
 
-#[cfg(feature = "serde-serialize")]
 impl<R: RealField + serde::Serialize + Copy> serde::Serialize for Camera<R> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -663,7 +661,6 @@ impl<R: RealField + serde::Serialize + Copy> serde::Serialize for Camera<R> {
     }
 }
 
-#[cfg(feature = "serde-serialize")]
 impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de> for Camera<R> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -766,14 +763,12 @@ impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de>
     }
 }
 
-#[cfg(feature = "serde-serialize")]
 fn _test_camera_is_serialize() {
     // Compile-time test to ensure Camera implements Serialize trait.
     fn implements<T: serde::Serialize>() {}
     implements::<Camera<f64>>();
 }
 
-#[cfg(feature = "serde-serialize")]
 fn _test_camera_is_deserialize() {
     // Compile-time test to ensure Camera implements Deserialize trait.
     fn implements<'de, T: serde::Deserialize<'de>>() {}
@@ -1101,7 +1096,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde-serialize")]
     fn test_serde() {
         let expected = crate::Camera::<f64>::default();
         let buf = serde_json::to_string(&expected).unwrap();

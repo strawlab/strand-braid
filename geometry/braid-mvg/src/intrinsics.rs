@@ -55,7 +55,6 @@ mod tests {
     use nalgebra::{allocator::Allocator, DefaultAllocator, U3, U7};
 
     #[test]
-    #[cfg(feature = "serde-serialize")]
     fn test_serde() {
         let expected = crate::make_default_intrinsics();
         let buf = serde_json::to_string(&expected).unwrap();

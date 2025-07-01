@@ -29,8 +29,6 @@ re_sdk.workspace = true
 re_types.workspace = true
 
 [features]
-serde-serialize = []
-
 rerun-io = ["dep:re_types"]
 
 [package.metadata.docs.rs]

@@ -78,8 +78,7 @@ use crate::{
 /// }
 /// # Ok::<(), braid_mvg::MvgError>(())
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MultiCameraSystem<R: RealField + Serialize + Copy> {
     cams_by_name: BTreeMap<String, Camera<R>>,
     comment: Option<String>,
