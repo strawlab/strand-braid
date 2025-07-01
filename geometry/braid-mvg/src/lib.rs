@@ -248,16 +248,15 @@ pub mod pymvg_support;
 
 /// Camera intrinsic parameter utilities and operations.
 ///
-/// This module provides utilities for working with camera intrinsic parameters,
-/// including lens distortion models, focal length operations, and coordinate
-/// transformations within the image plane.
+/// This module centers around a convenience additions to
+/// [`opencv_ros_camera::RosOpenCvIntrinsics`].
 pub mod intrinsics;
 
 /// Camera extrinsic parameter utilities and factory functions.
 ///
-/// This module provides functions for creating and manipulating camera extrinsic
-/// parameters, including pose construction from various representations and
-/// coordinate frame transformations.
+/// This module provides functions for creating camera extrinsic parameters,
+/// centered around a convenience additions to
+/// [`cam_geom::ExtrinsicParameters`].`
 pub mod extrinsics;
 
 /// Point cloud alignment algorithms and utilities.
