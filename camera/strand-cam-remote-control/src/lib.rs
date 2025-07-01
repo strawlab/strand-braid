@@ -1,30 +1,46 @@
-extern crate strand_cam_types;
-extern crate strand_cam_enum_iter;
-extern crate strand_cam_bui_types;
+//! Types for [Strand Camera](https://strawlab.org/strand-cam) remote control and configuration
+
 extern crate serde;
+extern crate strand_cam_bui_types;
+extern crate strand_cam_enum_iter;
+extern crate strand_cam_types;
 
-use strand_cam_enum_iter::EnumIter;
-use strand_cam_bui_types::ClockModel;
 use serde::{Deserialize, Serialize};
+use strand_cam_bui_types::ClockModel;
+use strand_cam_enum_iter::EnumIter;
 
+/// Frame rate options for video recording.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum RecordingFrameRate {
+    /// 1 frame per second
     Fps1,
+    /// 2 frames per second
     Fps2,
+    /// 5 frames per second
     Fps5,
+    /// 10 frames per second
     Fps10,
+    /// 20 frames per second
     Fps20,
+    /// 25 frames per second
     Fps25,
+    /// 30 frames per second
     Fps30,
+    /// 40 frames per second
     Fps40,
+    /// 50 frames per second
     Fps50,
+    /// 60 frames per second
     Fps60,
+    /// 100 frames per second
     Fps100,
+    /// No frame rate limit
     #[default]
     Unlimited,
 }
 
 impl RecordingFrameRate {
+    /// Returns the duration between frames for this frame rate.
     pub fn interval(&self) -> std::time::Duration {
         use std::time::Duration;
         use RecordingFrameRate::*;
@@ -44,6 +60,7 @@ impl RecordingFrameRate {
         }
     }
 
+    /// Returns frame rate as numerator/denominator, or None for unlimited.
     pub fn as_numerator_denominator(&self) -> Option<(u32, u32)> {
         use RecordingFrameRate::*;
         Some(match self {
@@ -95,6 +112,7 @@ impl EnumIter for RecordingFrameRate {
     }
 }
 
+/// H.264 codec options for MP4 encoding.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Mp4Codec {
     /// Encode data with Nvidia's NVENC.
@@ -107,29 +125,36 @@ pub enum Mp4Codec {
     H264RawStream,
 }
 
+/// Options for OpenH264 encoder.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct OpenH264Options {
     /// Whether OpenH264 should emit debug messages
     pub debug: bool,
+    /// Encoding preset configuration
     pub preset: OpenH264Preset,
 }
 
 impl OpenH264Options {
+    /// Returns debug flag.
+    /// Returns debug flag.
     pub fn debug(&self) -> bool {
         self.debug
     }
+    /// Returns whether frame skipping should be enabled.
     pub fn enable_skip_frame(&self) -> bool {
         match self.preset {
             OpenH264Preset::AllFrames => false,
             OpenH264Preset::SkipFramesBitrate(_) => true,
         }
     }
+    /// Returns the rate control mode to use.
     pub fn rate_control_mode(&self) -> OpenH264RateControlMode {
         match self.preset {
             OpenH264Preset::AllFrames => OpenH264RateControlMode::Off,
             OpenH264Preset::SkipFramesBitrate(_) => OpenH264RateControlMode::Bitrate,
         }
     }
+    /// Returns the target bitrate in bits per second.
     pub fn bitrate_bps(&self) -> u32 {
         match self.preset {
             OpenH264Preset::AllFrames => 0,
@@ -138,9 +163,12 @@ impl OpenH264Options {
     }
 }
 
+/// Encoding presets for OpenH264.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum OpenH264Preset {
+    /// Encode all frames without skipping
     AllFrames,
+    /// Skip frames to achieve target bitrate
     SkipFramesBitrate(u32),
 }
 
@@ -150,6 +178,7 @@ impl Default for OpenH264Preset {
     }
 }
 
+/// Rate control modes for OpenH264 encoder.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 pub enum OpenH264RateControlMode {
     /// Quality mode.
@@ -164,6 +193,7 @@ pub enum OpenH264RateControlMode {
     Off,
 }
 
+/// Options for NVIDIA H.264 encoder.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct NvidiaH264Options {
     /// The bitrate (used in association with the framerate).
@@ -215,6 +245,7 @@ impl Default for RecordingConfig {
 }
 
 impl RecordingConfig {
+    /// Returns the maximum frame rate for this recording configuration.
     pub fn max_framerate(&self) -> &RecordingFrameRate {
         use RecordingConfig::*;
         match self {
@@ -233,6 +264,7 @@ pub const H264_METADATA_UUID: [u8; 16] = [
 ];
 pub const H264_METADATA_VERSION: &str = "https://strawlab.org/h264-metadata/v1/";
 
+/// Metadata to embed in H.264 streams.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct H264Metadata {
     /// version of this structure
@@ -265,6 +297,7 @@ impl H264Metadata {
     }
 }
 
+/// CSV recording configuration.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CsvSaveConfig {
     /// Do not save CSV
@@ -273,18 +306,25 @@ pub enum CsvSaveConfig {
     Saving(Option<f32>),
 }
 
-// April tags
-
+/// AprilTag family types for detection.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub enum TagFamily {
+    /// 36h11 tag family (default)
     #[default]
     Family36h11,
+    /// Standard 41h12 tag family
     FamilyStandard41h12,
+    /// 16h5 tag family
     Family16h5,
+    /// 25h9 tag family
     Family25h9,
+    /// Circle 21h7 tag family
     FamilyCircle21h7,
+    /// Circle 49h12 tag family
     FamilyCircle49h12,
+    /// Custom 48h12 tag family
     FamilyCustom48h12,
+    /// Standard 52h13 tag family
     FamilyStandard52h13,
 }
 
@@ -322,16 +362,25 @@ impl std::fmt::Display for TagFamily {
     }
 }
 
+/// Bitrate selection options for video encoding.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum BitrateSelection {
+    /// Bitrate 500
     Bitrate500,
+    /// Bitrate 1000 (default)
     #[default]
     Bitrate1000,
+    /// Bitrate 2000
     Bitrate2000,
+    /// Bitrate 3000
     Bitrate3000,
+    /// Bitrate 4000
     Bitrate4000,
+    /// Bitrate 5000
     Bitrate5000,
+    /// Bitrate 10000
     Bitrate10000,
+    /// No bitrate limit
     BitrateUnlimited,
 }
 
@@ -366,14 +415,19 @@ impl strand_cam_enum_iter::EnumIter for BitrateSelection {
     }
 }
 
+/// Type alias for optional ffmpeg codec argument lists.
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
 /// Codec-specific arguments for ffmpeg
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct FfmpegCodecArgs {
+    /// Device-specific arguments
     pub device_args: FfmpegCodecArgList,
+    /// Arguments before codec specification
     pub pre_codec_args: FfmpegCodecArgList,
+    /// Codec name
     pub codec: Option<String>,
+    /// Arguments after codec specification
     pub post_codec_args: FfmpegCodecArgList,
 }
 
@@ -400,20 +454,23 @@ impl std::fmt::Display for FfmpegCodecArgs {
     }
 }
 
+/// Codec selection for video encoding.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CodecSelection {
+    /// H.264 NVENC hardware encoder
     H264Nvenc,
+    /// OpenH264 software encoder
     H264OpenH264,
+    /// Custom ffmpeg codec configuration
     Ffmpeg(FfmpegCodecArgs),
 }
 
 impl CodecSelection {
+    /// Checks if this codec selection requires a specific feature.
     pub fn requires(&self, what: &str) -> bool {
         use CodecSelection::*;
         match self {
-            H264Nvenc => {
-                what == "nvenc"
-            },
+            H264Nvenc => what == "nvenc",
             H264OpenH264 => false,
             Ffmpeg(args) => {
                 if let Some(codec) = &args.codec {
@@ -484,6 +541,7 @@ impl strand_cam_enum_iter::EnumIter for CodecSelection {
     }
 }
 
+/// Camera control commands for remote operation.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CamArg {
     /// Ignore future frame processing errors for this duration of seconds from current time.
