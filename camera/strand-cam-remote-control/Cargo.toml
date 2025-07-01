@@ -1,9 +1,12 @@
 [package]
 name = "strand-cam-remote-control"
+description = "Types for Strand Camera remote control and configuration"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
+license = "MIT OR Apache-2.0"
+keywords = ["strand-cam", "remote control", "camera", "configuration"]
 
 [dependencies]
 serde.workspace = true
