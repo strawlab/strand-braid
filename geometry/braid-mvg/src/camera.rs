@@ -44,9 +44,7 @@ use crate::{
 /// - `[R|t]` represents rotation and translation (extrinsics)
 /// - `s` is a scaling factor
 ///
-/// # Lens Distortion
-///
-/// The camera supports OpenCV-compatible Brown-Conrady lens distortion.
+/// Lens distortion is supported via the `opencv-ros-camera` crate.
 ///
 /// # Example
 ///
@@ -410,53 +408,12 @@ impl<R: RealField + Copy> Camera<R> {
     }
 
     /// Get the camera's intrinsic parameters.
-    ///
-    /// Returns a reference to the camera's intrinsic parameters, including
-    /// focal length, principal point, skew, and lens distortion coefficients.
-    ///
-    /// # Returns
-    ///
-    /// Reference to the [`RosOpenCvIntrinsics`] containing all intrinsic parameters
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{Camera, extrinsics, make_default_intrinsics};
-    ///
-    /// let camera = Camera::new(640, 480,
-    ///     extrinsics::make_default_extrinsics::<f64>(),
-    ///     make_default_intrinsics::<f64>())?;
-    /// let intrinsics = camera.intrinsics();
-    /// println!("Focal length X: {}", intrinsics.fx());
-    /// println!("Focal length Y: {}", intrinsics.fy());
-    /// # Ok::<(), braid_mvg::MvgError>(())
-    /// ```
     #[inline]
     pub fn intrinsics(&self) -> &RosOpenCvIntrinsics<R> {
         self.inner.intrinsics()
     }
 
     /// Get the camera's extrinsic parameters.
-    ///
-    /// Returns a reference to the camera's extrinsic parameters, including
-    /// position (camera center) and orientation (rotation) in 3D world coordinates.
-    ///
-    /// # Returns
-    ///
-    /// Reference to the [`ExtrinsicParameters`] containing pose information
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{Camera, extrinsics, make_default_intrinsics};
-    ///
-    /// let camera = Camera::new(640, 480,
-    ///     extrinsics::make_default_extrinsics::<f64>(),
-    ///     make_default_intrinsics::<f64>())?;
-    /// let extrinsics = camera.extrinsics();
-    /// println!("Camera center: {:?}", extrinsics.camcenter());
-    /// # Ok::<(), braid_mvg::MvgError>(())
-    /// ```
     #[inline]
     pub fn extrinsics(&self) -> &ExtrinsicParameters<R> {
         self.inner.extrinsics()
@@ -520,44 +477,12 @@ impl<R: RealField + Copy> Camera<R> {
     }
 
     /// Get the image width in pixels.
-    ///
-    /// # Returns
-    ///
-    /// Image width in pixels
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{Camera, extrinsics, make_default_intrinsics};
-    ///
-    /// let camera = Camera::new(640, 480,
-    ///     extrinsics::make_default_extrinsics::<f64>(),
-    ///     make_default_intrinsics::<f64>())?;
-    /// assert_eq!(camera.width(), 640);
-    /// # Ok::<(), braid_mvg::MvgError>(())
-    /// ```
     #[inline]
     pub fn width(&self) -> usize {
         self.width
     }
 
     /// Get the image height in pixels.
-    ///
-    /// # Returns
-    ///
-    /// Image height in pixels
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{Camera, extrinsics, make_default_intrinsics};
-    ///
-    /// let camera = Camera::new(640, 480,
-    ///     extrinsics::make_default_extrinsics::<f64>(),
-    ///     make_default_intrinsics::<f64>())?;
-    /// assert_eq!(camera.height(), 480);
-    /// # Ok::<(), braid_mvg::MvgError>(())
-    /// ```
     #[inline]
     pub fn height(&self) -> usize {
         self.height
@@ -569,33 +494,6 @@ impl<R: RealField + Copy> Camera<R> {
     /// a 3D point in world coordinates to 2D pixel coordinates. The result
     /// represents the undistorted pixel coordinates (as if using a perfect
     /// pinhole camera model).
-    ///
-    /// # Mathematical Details
-    ///
-    /// The projection follows: `s[u v 1]ᵀ = P[X Y Z 1]ᵀ`
-    /// where P is the camera projection matrix and (X,Y,Z) are world coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `pt3d` - 3D point in world coordinates
-    ///
-    /// # Returns
-    ///
-    /// [`UndistortedPixel`] containing the 2D image coordinates
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{Camera, PointWorldFrame, extrinsics, make_default_intrinsics};
-    /// use nalgebra::Point3;
-    ///
-    /// let camera = Camera::new(640, 480,
-    ///     extrinsics::make_default_extrinsics::<f64>(),
-    ///     make_default_intrinsics::<f64>())?;
-    /// let point_3d = PointWorldFrame { coords: Point3::new(0.0, 0.0, 5.0) };
-    /// let pixel = camera.project_3d_to_pixel(&point_3d);
-    /// # Ok::<(), braid_mvg::MvgError>(())
-    /// ```
     pub fn project_3d_to_pixel(&self, pt3d: &PointWorldFrame<R>) -> UndistortedPixel<R> {
         let coords: Point3<R> = pt3d.coords;
 

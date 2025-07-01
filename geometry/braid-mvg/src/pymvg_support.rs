@@ -1,3 +1,14 @@
+//! PyMVG format support for camera systems.
+//!
+//! This module provides data structures and serialization support for the PyMVG
+//! (Python Multi-View Geometry) JSON format. PyMVG is a Python library for
+//! multiple view geometry that uses a specific JSON schema for storing camera
+//! calibration data.
+//!
+//! The module includes:
+//! - [`PymvgCamera`]: Individual camera representation in PyMVG format
+//! - [`PymvgMultiCameraSystemV1`]: Multi-camera system in PyMVG format
+
 #![allow(non_snake_case)]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

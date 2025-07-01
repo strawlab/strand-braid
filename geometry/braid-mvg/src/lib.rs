@@ -286,33 +286,7 @@ pub use crate::multi_cam_system::MultiCameraSystem;
 /// A 2D pixel coordinate in the distorted image space.
 ///
 /// This represents pixel coordinates as they appear in the raw camera image,
-/// including the effects of lens distortion. These coordinates correspond
-/// to the actual pixel locations in the camera sensor.
-///
-/// # Coordinate System
-///
-/// - **Origin**: Top-left corner of the image (0, 0)
-/// - **X-axis**: Increases to the right
-/// - **Y-axis**: Increases downward
-/// - **Units**: Pixels
-///
-/// # Relationship to Other Coordinate Types
-///
-/// - [`UndistortedPixel`]: Corrected version with distortion removed
-/// - [`PointCameraFrame`]: 3D coordinates in camera reference frame
-/// - [`PointWorldFrame`]: 3D coordinates in world reference frame
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::DistortedPixel;
-/// use nalgebra::Point2;
-///
-/// let pixel = DistortedPixel {
-///     coords: Point2::new(320.5, 240.3)
-/// };
-/// println!("Pixel at ({}, {})", pixel.coords.x, pixel.coords.y);
-/// ```
+/// including the effects of lens distortion.
 #[derive(Debug, Clone)]
 pub struct DistortedPixel<R: RealField + Copy> {
     /// The 2D pixel coordinates (x, y) in the distorted image.
@@ -391,37 +365,7 @@ impl<R: RealField + Copy> DistortedPixel<R> {
 /// A 2D pixel coordinate in the undistorted (rectified) image space.
 ///
 /// This represents pixel coordinates after lens distortion has been removed,
-/// corresponding to an ideal pinhole camera model. These coordinates are used
-/// for geometric computations like triangulation and epipolar geometry.
-///
-/// # Coordinate System
-///
-/// - **Origin**: Top-left corner of the undistorted image (0, 0)
-/// - **X-axis**: Increases to the right
-/// - **Y-axis**: Increases downward
-/// - **Units**: Pixels (in the undistorted image space)
-///
-/// # Mathematical Properties
-///
-/// Undistorted pixels follow the ideal pinhole camera model:
-/// ```text
-/// [u]   [fx  s  cx] [X/Z]
-/// [v] = [ 0 fy  cy] [Y/Z]
-/// [1]   [ 0  0   1] [ 1 ]
-/// ```
-/// where (X,Y,Z) are 3D camera coordinates and (u,v) are undistorted pixels.
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::UndistortedPixel;
-/// use nalgebra::Point2;
-///
-/// let undistorted = UndistortedPixel {
-///     coords: Point2::new(320.0, 240.0)
-/// };
-/// // This pixel can be used directly in geometric computations
-/// ```
+/// corresponding to an ideal pinhole camera model.
 #[derive(Debug, Clone)]
 pub struct UndistortedPixel<R: RealField + Copy> {
     /// The 2D pixel coordinates (x, y) in the undistorted image.
@@ -466,40 +410,7 @@ where
 
 /// A 3D point in the camera coordinate frame.
 ///
-/// This represents a 3D point in the coordinate system of a specific camera,
-/// where the camera is positioned at the origin and oriented according to
-/// the standard computer vision convention.
-///
-/// # Coordinate System Convention
-///
-/// - **Origin**: Camera center (optical center)
-/// - **X-axis**: Points to the right of the camera
-/// - **Y-axis**: Points downward from the camera
-/// - **Z-axis**: Points forward along the optical axis (into the scene)
-/// - **Units**: Typically meters or millimeters
-///
-/// # Mathematical Relationship
-///
-/// Camera frame coordinates relate to world coordinates via the extrinsic parameters:
-/// ```text
-/// [X_cam]   [R | t] [X_world]
-/// [Y_cam] = [0 | 1] [Y_world]
-/// [Z_cam]           [Z_world]
-///                   [   1   ]
-/// ```
-/// where R is the rotation matrix and t is the translation vector.
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::PointCameraFrame;
-/// use nalgebra::Point3;
-///
-/// // A point 1 meter in front of the camera, slightly to the right and up
-/// let camera_point = PointCameraFrame {
-///     coords: Point3::new(0.1, -0.05, 1.0)
-/// };
-/// ```
+/// This represents a 3D point in the coordinate system of a specific camera.
 #[derive(Debug, Clone)]
 pub struct PointCameraFrame<R: RealField + Copy> {
     /// The 3D coordinates (x, y, z) in the camera reference frame.
@@ -554,34 +465,7 @@ where
 /// A 3D point in the world coordinate frame.
 ///
 /// This represents a 3D point in a global coordinate system that is independent
-/// of any specific camera. This is the primary coordinate system for storing
-/// and manipulating 3D scene geometry.
-///
-/// # Coordinate System
-///
-/// The world coordinate system is arbitrary and defined by the user or
-/// calibration process. Common conventions include:
-/// - **Origin**: Often at a calibration target or scene reference point
-/// - **Axes**: User-defined, but typically aligned with scene geometry
-/// - **Units**: Typically meters, millimeters, or other real-world units
-///
-/// # Usage in Multi-View Geometry
-///
-/// World frame points are the output of 3D triangulation and the input
-/// for projection into camera images. They provide a camera-independent
-/// representation of 3D scene structure.
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::PointWorldFrame;
-/// use nalgebra::Point3;
-///
-/// // A point 2 meters above the origin, 1 meter east, 3 meters north
-/// let world_point = PointWorldFrame {
-///     coords: Point3::new(1.0, 3.0, 2.0)
-/// };
-/// ```
+/// of any specific camera.
 #[derive(Debug, Clone)]
 pub struct PointWorldFrame<R: RealField + Copy> {
     /// The 3D coordinates (x, y, z) in the world reference frame.
@@ -634,28 +518,6 @@ where
 }
 
 /// Compute the sum of elements in a vector.
-///
-/// This is a utility function that computes the sum of all elements in a slice
-/// of numeric values. It's used internally for computing reprojection error
-/// statistics and other aggregate measures.
-///
-/// # Arguments
-///
-/// * `vec` - A slice of numeric values to sum
-///
-/// # Returns
-///
-/// The sum of all elements in the vector
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::vec_sum;
-///
-/// let values = vec![1.0, 2.5, 3.2, 0.8];
-/// let total = vec_sum(&values);
-/// assert_eq!(total, 7.5);
-/// ```
 pub fn vec_sum<R: RealField + Copy>(vec: &[R]) -> R {
     vec.iter().fold(na::convert(0.0), |acc, i| acc + *i)
 }
@@ -893,35 +755,8 @@ impl<R: RealField + Copy> WorldCoordAndUndistorted2D<R> {
 
 /// Create default camera intrinsic parameters for testing and prototyping.
 ///
-/// This function generates reasonable default intrinsic parameters for a typical
-/// camera. These parameters are suitable for algorithm testing, unit tests, and
-/// as starting points for calibration procedures.
-///
-/// # Default Parameters
-///
-/// - **Focal length**: fx = fy = 1000 pixels
-/// - **Principal point**: (cx, cy) = (320, 240) pixels
-/// - **Skew**: 0 (rectangular pixels)
-/// - **Distortion**: None (pinhole model)
-///
-/// These defaults assume a VGA-sized image (640×480) with the principal point
-/// at the center and a reasonable focal length.
-///
-/// # ⚠️ Important Note
-///
-/// These parameters are **not suitable for real applications** - always perform
-/// proper camera calibration for production use. The default values are chosen
-/// for testing convenience and may not represent realistic camera behavior.
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::make_default_intrinsics;
-///
-/// let intrinsics = make_default_intrinsics::<f64>();
-/// println!("Default focal length: {}", intrinsics.fx());
-/// println!("Default principal point: ({}, {})", intrinsics.cx(), intrinsics.cy());
-/// ```
+/// These parameters are not suitable for real applications - always perform
+/// proper camera calibration for production use.
 pub fn make_default_intrinsics<R: RealField + Copy>() -> RosOpenCvIntrinsics<R> {
     let cx = na::convert(320.0);
     let cy = na::convert(240.0);

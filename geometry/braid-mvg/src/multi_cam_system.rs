@@ -149,10 +149,6 @@ impl<R: RealField + Default + Serialize + Copy> MultiCameraSystem<R> {
     }
 
     /// Get the collection of cameras in this system.
-    ///
-    /// # Returns
-    ///
-    /// Reference to the map of camera names to [`Camera`] instances
     #[inline]
     pub fn cams_by_name(&self) -> &BTreeMap<String, Camera<R>> {
         &self.cams_by_name
