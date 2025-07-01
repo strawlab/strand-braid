@@ -613,24 +613,6 @@ impl<R: RealField + Copy> PointWorldFrameWithSumReprojError<R> {
 /// This enum allows functions to return either a simple 3D point or a point
 /// with additional reprojection error statistics, depending on the operation
 /// performed and the level of detail requested.
-///
-/// # Variants
-///
-/// * `Point` - Contains just the 3D coordinates
-/// * `WithSumReprojError` - Contains 3D coordinates plus reprojection error analysis
-///
-/// # Example
-///
-/// ```rust
-/// use braid_mvg::{PointWorldFrame, PointWorldFrameMaybeWithSumReprojError};
-/// use nalgebra::Point3;
-///
-/// let simple_point = PointWorldFrame { coords: Point3::new(1.0, 2.0, 3.0) };
-/// let maybe_point = PointWorldFrameMaybeWithSumReprojError::Point(simple_point);
-///
-/// // Extract just the point coordinates regardless of variant
-/// let extracted_point = maybe_point.point();
-/// ```
 #[derive(Debug, Clone)]
 pub enum PointWorldFrameMaybeWithSumReprojError<R: RealField + Copy> {
     /// A simple 3D point without error information.
@@ -644,23 +626,6 @@ impl<R: RealField + Copy> PointWorldFrameMaybeWithSumReprojError<R> {
     ///
     /// This method provides a uniform way to get the 3D point coordinates
     /// whether the enum contains a simple point or a point with error statistics.
-    ///
-    /// # Returns
-    ///
-    /// The [`PointWorldFrame`] containing the 3D coordinates
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use braid_mvg::{PointWorldFrame, PointWorldFrameMaybeWithSumReprojError};
-    /// use nalgebra::Point3;
-    ///
-    /// let point = PointWorldFrame { coords: Point3::new(1.0, 2.0, 3.0) };
-    /// let maybe_point = PointWorldFrameMaybeWithSumReprojError::Point(point);
-    ///
-    /// let extracted = maybe_point.point();
-    /// assert_eq!(extracted.coords, Point3::new(1.0, 2.0, 3.0));
-    /// ```
     pub fn point(self) -> PointWorldFrame<R> {
         use crate::PointWorldFrameMaybeWithSumReprojError::*;
         match self {
