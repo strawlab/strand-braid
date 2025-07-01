@@ -69,7 +69,7 @@ fn rr_translation_and_rotation<R: RealField>(
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use braid_mvg::rerun_io::AsRerunTransform3D;
 /// use braid_mvg::extrinsics;
 ///
@@ -209,12 +209,12 @@ fn pinhole_projection_component<R: RealField>(
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype;
 /// use cam_geom::IntrinsicParametersPerspective;
 ///
-/// let intrinsics = /* create cam-geom intrinsics */;
-/// let pinhole = cam_geom_to_rr_pinhole_archetype(&intrinsics, 640, 480)?;
+/// let intrinsics = cam_geom::PerspectiveParams {fx: 100.0, fy: 100.0, cx: 320.0, cy: 240.0, skew: 0.0};
+/// let pinhole = cam_geom_to_rr_pinhole_archetype(&intrinsics.into(), 640, 480);
 /// // Can now be logged to rerun.io
 /// ```
 pub fn cam_geom_to_rr_pinhole_archetype<R: RealField>(

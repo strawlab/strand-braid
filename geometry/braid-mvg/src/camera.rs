@@ -44,7 +44,8 @@ use crate::{
 /// - `[R|t]` represents rotation and translation (extrinsics)
 /// - `s` is a scaling factor
 ///
-/// Lens distortion is supported via the `opencv-ros-camera` crate.
+/// Lens distortion is supported via the
+/// [`opencv-ros-camera`](https://crates.io/crates/opencv-ros-camera) crate.
 ///
 /// # Example
 ///
