@@ -1,5 +1,8 @@
 [package]
 name = "strand-cam-enum-iter"
+description = "A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2015"
+license = "MIT OR Apache-2.0"
+keywords = ["strand-cam", "enum", "iterator", "camera", "utils"]
