@@ -21,6 +21,10 @@ use nalgebra::geometry::Point3;
 use nalgebra::DefaultAllocator;
 use nalgebra::RealField;
 
+/// Multi-camera system in PyMVG JSON format.
+///
+/// This struct represents a complete camera system as stored in PyMVG files,
+/// including version information and a collection of individual cameras.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PymvgMultiCameraSystemV1<R: RealField> {
@@ -28,7 +32,11 @@ pub struct PymvgMultiCameraSystemV1<R: RealField> {
     pub(crate) camera_system: Vec<PymvgCamera<R>>,
 }
 
-// Serialize is not (yet) implemented.
+/// Individual camera representation in PyMVG JSON format.
+///
+/// This struct contains all camera parameters including intrinsics (K, D),
+/// extrinsics (Q, translation), projection matrix (P), rectification matrix (R),
+/// and image dimensions as stored in PyMVG camera calibration files.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PymvgCamera<R: RealField> {
