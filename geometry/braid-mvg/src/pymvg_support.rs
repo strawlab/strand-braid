@@ -47,7 +47,7 @@ pub struct PymvgCamera<R: RealField> {
     pub(crate) translation: Point3<R>,
 }
 
-pub mod array_of_arrays {
+mod array_of_arrays {
     use super::*;
 
     /// Serialize an nalgebra::OMatrix to an array of arrays of floats
