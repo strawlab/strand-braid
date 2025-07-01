@@ -9,9 +9,9 @@
 //! ## Features
 //!
 //! - Camera modeling with intrinsic and extrinsic parameters based on
-//!   [`cam-geom`](https://crates.io/crates/cam-geom)
+//!   [`cam-geom`](https://docs.rs/cam-geom)
 //! - Lens distortion correction using OpenCV-compatible models based on
-//!   [`opencv-ros-camera`](https://crates.io/crates/opencv-ros-camera)
+//!   [`opencv-ros-camera`](https://docs.rs/opencv-ros-camera)
 //! - Multi-camera system management and calibration
 //! - 3D point triangulation from multiple camera views
 //! - Point alignment algorithms (Kabsch-Umeyama, robust Arun)
@@ -225,14 +225,14 @@ pub enum MvgError {
         /// The pseudo-inverse error message.
         error: String,
     },
-    /// Error from the [`cam-geom`](https://crates.io/crates/cam-geom) crate.
+    /// Error from the [`cam-geom`](https://docs.rs/cam-geom) crate.
     #[error("cam_geom::Error: {source}")]
     CamGeomError {
         /// The underlying cam-geom error.
         #[from]
         source: cam_geom::Error,
     },
-    /// Error from the [`opencv-ros-camera`](https://crates.io/crates/opencv-ros-camera) crate.
+    /// Error from the [`opencv-ros-camera`](https://docs.rs/opencv-ros-camera) crate.
     #[error("opencv_ros_camera::Error: {source}")]
     OpencvRosError {
         /// The underlying opencv-ros-camera error.

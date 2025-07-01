@@ -32,19 +32,23 @@ use crate::{
 ///
 /// # Mathematical Model
 ///
-/// The camera implements the full projective camera model:
+/// The camera implements the projective camera model:
 /// ```text
 /// s[u v 1]ᵀ = K[R|t][X Y Z 1]ᵀ
 /// ```
 /// where:
 /// - `(X,Y,Z)` are 3D world coordinates
-/// - `(u,v)` are 2D image coordinates
+/// - `(u,v)` are 2D undistorted image coordinates
 /// - `K` is the intrinsic matrix
 /// - `[R|t]` represents rotation and translation (extrinsics)
 /// - `s` is a scaling factor
 ///
 /// Lens distortion is supported via the
-/// [`opencv-ros-camera`](https://crates.io/crates/opencv-ros-camera) crate.
+/// [`opencv-ros-camera`](https://docs.rs/opencv-ros-camera) crate.
+///
+/// The parameters for the intrinsic matrix (focal length, principal point, and
+/// skew) in addition to the distortion parameters together comprise the
+/// intrinsic parameters, or "intrinsics".
 ///
 /// # Example
 ///
