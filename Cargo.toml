@@ -331,7 +331,7 @@ parry-geom = { path = "geometry/parry-geom" }
 refraction = { path = "geometry/refraction" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
-strand-bui-backend-session = { path = "strand-bui-backend-session" }
+strand-bui-backend-session = { path = "strand-bui-backend-session", version = "0.1.0" }
 strand-bui-backend-session-types = { path = "strand-bui-backend-session/types", version = "0.1.1" }
 strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-bui-types = { path = "strand-cam-bui-types", version = "0.1.0" }
