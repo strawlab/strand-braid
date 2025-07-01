@@ -260,7 +260,7 @@ impl<R: RealField + Copy> crate::Camera<R> {
         ))
     }
 
-    /// return a [re_types::archetypes::Pinhole]
+    /// Return a [`re_types::archetypes::Pinhole`]
     ///
     /// The conversion will not succeed if the camera cannot be represented
     /// exactly in re_types.
