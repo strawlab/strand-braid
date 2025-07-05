@@ -1,10 +1,11 @@
 [package]
 name = "flydra-pt-detect-cfg"
+description = "Default values for the flydra-feature-detector-types crate"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 flydra-feature-detector-types.workspace = true

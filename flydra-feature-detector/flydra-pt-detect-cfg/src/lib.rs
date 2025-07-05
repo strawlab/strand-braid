@@ -1,3 +1,7 @@
+//! Default values for the [`ImPtDetectCfg`] type of the
+//! [`flydra-feature-detector-types`](https://crates.io/crates/flydra-feature-detector-types)
+//! crate.
+
 // Copyright 2020-2023 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -27,10 +31,12 @@ fn my_default(polarity: ContrastPolarity, valid_region: Shape) -> ImPtDetectCfg 
     }
 }
 
+/// Default configuration for detecting features brighter or darker than background
 pub fn default_absdiff() -> ImPtDetectCfg {
     my_default(ContrastPolarity::DetectAbsDiff, Shape::Everything)
 }
 
+/// Default configuration for detecting features darker than background in a circular region of interest
 pub fn default_dark_circle() -> ImPtDetectCfg {
     my_default(
         ContrastPolarity::DetectDark,
