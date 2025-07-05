@@ -1,5 +1,12 @@
 //! Types for [Strand Camera](https://strawlab.org/strand-cam) remote control and configuration
 
+// Copyright 2020-2025 Andrew D. Straw.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
+// or http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 extern crate serde;
 extern crate strand_cam_bui_types;
 extern crate strand_cam_enum_iter;
@@ -194,21 +201,12 @@ pub enum OpenH264RateControlMode {
 }
 
 /// Options for NVIDIA H.264 encoder.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub struct NvidiaH264Options {
     /// The bitrate (used in association with the framerate).
     pub bitrate: Option<u32>,
     /// The device number of the CUDA device to use.
     pub cuda_device: i32,
-}
-
-impl Default for NvidiaH264Options {
-    fn default() -> Self {
-        Self {
-            bitrate: None,
-            cuda_device: 0,
-        }
-    }
 }
 
 /// Configuration for MP4 recording
@@ -262,6 +260,7 @@ pub const H264_METADATA_UUID: [u8; 16] = [
     // 0ba99cc7-f607-3851-b35e-8c7d8c04da0a
     0x0B, 0xA9, 0x9C, 0xC7, 0xF6, 0x07, 0x08, 0x51, 0x33, 0x5E, 0x8C, 0x7D, 0x8C, 0x04, 0xDA, 0x0A,
 ];
+/// Version for our H264 metadata.
 pub const H264_METADATA_VERSION: &str = "https://strawlab.org/h264-metadata/v1/";
 
 /// Metadata to embed in H.264 streams.
@@ -493,7 +492,7 @@ impl std::fmt::Display for CodecSelection {
                 return std::fmt::Display::fmt(args, f);
             }
         };
-        write!(f, "{}", x)
+        write!(f, "{x}")
     }
 }
 

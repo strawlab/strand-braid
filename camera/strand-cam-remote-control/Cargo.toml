@@ -6,11 +6,12 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 license = "MIT OR Apache-2.0"
-keywords = ["strand-cam", "remote control", "camera", "configuration"]
+keywords = ["strand-cam", "remote-control", "camera", "configuration"]
 
 [dependencies]
 serde.workspace = true
+chrono.workspace = true
+
 strand-cam-types.workspace = true
 strand-cam-bui-types.workspace = true
 strand-cam-enum-iter.workspace = true
-chrono.workspace = true
