@@ -302,7 +302,7 @@ csv-eof = { path = "utils/csv-eof" }
 download-verify = { path = "utils/download-verify" }
 dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
-strand-cam-enum-iter = { path = "utils/strand-cam-enum-iter" }
+strand-cam-enum-iter = { path = "utils/strand-cam-enum-iter", version = "0.1.0" }
 env-tracing-logger = { path = "utils/env-tracing-logger" }
 event-stream-types = { path = "event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
