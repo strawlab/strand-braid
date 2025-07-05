@@ -1,7 +1,8 @@
-//! Configuration types for Flydra feature detection.
+//! Configuration types for [Braid](https://strawlab.org/braid) and Flydra feature detection.
 //!
-//! This crate provides types for configuring 2D feature detection parameters
-//! used in the Flydra tracking system.
+//! This crate provides types for configuring 2D feature detection parameters as
+//! originally used in the Flydra tracking system. Now these types are used in
+//! Strand Camera and Braid.
 
 // Copyright 2020-2023 Andrew D. Straw.
 //

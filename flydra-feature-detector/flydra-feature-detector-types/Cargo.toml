@@ -1,9 +1,11 @@
 [package]
 name = "flydra-feature-detector-types"
+description = "Configuration types for Strand Camera, Braid and Flydra feature detection."
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
+keywords = ["strand-cam", "braid", "camera", "configuration"]
 
 [dependencies]
 serde.workspace = true
