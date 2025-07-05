@@ -135,14 +135,13 @@ pub enum Mp4Codec {
 /// Options for OpenH264 encoder.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct OpenH264Options {
-    /// Whether OpenH264 should emit debug messages
+    /// Enable OpenH264 debug messages
     pub debug: bool,
     /// Encoding preset configuration
     pub preset: OpenH264Preset,
 }
 
 impl OpenH264Options {
-    /// Returns debug flag.
     /// Returns debug flag.
     pub fn debug(&self) -> bool {
         self.debug
@@ -266,20 +265,23 @@ pub const H264_METADATA_VERSION: &str = "https://strawlab.org/h264-metadata/v1/"
 /// Metadata to embed in H.264 streams.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct H264Metadata {
-    /// version of this structure
+    /// Version of this structure
     ///
     /// Should be equal to H264_METADATA_VERSION.
-    ///
     /// This field must always be serialized first.
     pub version: String,
 
+    /// Application name that created the stream
     pub writing_app: String,
 
+    /// Stream creation timestamp
     pub creation_time: chrono::DateTime<chrono::FixedOffset>,
 
+    /// Optional camera name
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera_name: Option<String>,
 
+    /// Optional gamma correction value
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gamma: Option<f32>,
 }
@@ -301,7 +303,7 @@ impl H264Metadata {
 pub enum CsvSaveConfig {
     /// Do not save CSV
     NotSaving,
-    /// Save CSV with this as a framerate limit
+    /// Save CSV with optional framerate limit
     Saving(Option<f32>),
 }
 
@@ -417,7 +419,7 @@ impl strand_cam_enum_iter::EnumIter for BitrateSelection {
 /// Type alias for optional ffmpeg codec argument lists.
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
-/// Codec-specific arguments for ffmpeg
+/// Codec-specific arguments for ffmpeg.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct FfmpegCodecArgs {
     /// Device-specific arguments
