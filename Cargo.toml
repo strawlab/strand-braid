@@ -309,7 +309,7 @@ fastfreeimage = { path = "fastfreeimage" }
 ffmpeg-rewriter = { path = "media-utils/ffmpeg-rewriter" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
 flydra-feature-detector = { path = "flydra-feature-detector" }
-flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types" }
+flydra-feature-detector-types = { path = "flydra-feature-detector/flydra-feature-detector-types", version = "0.1.0" }
 flydra-pt-detect-cfg = { path = "flydra-feature-detector/flydra-pt-detect-cfg" }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "flydra2", default-features = false }
