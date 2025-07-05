@@ -1,5 +1,6 @@
 [package]
 name = "strand-cam-types"
+description = "Core types for camera control and configuration in the Strand Camera ecosystem"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
