@@ -1,3 +1,8 @@
+//! Configuration types for Flydra feature detection.
+//!
+//! This crate provides types for configuring 2D feature detection parameters
+//! used in the Flydra tracking system.
+
 // Copyright 2020-2023 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -9,10 +14,14 @@ use serde::{Deserialize, Serialize};
 
 use strand_http_video_streaming_types::Shape;
 
+/// Polarity of contrast for feature detection.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum ContrastPolarity {
+    /// Detect light features on dark background
     DetectLight,
+    /// Detect dark features on light background
     DetectDark,
+    /// Detect features based on absolute difference
     DetectAbsDiff,
 }
 
