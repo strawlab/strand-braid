@@ -294,7 +294,7 @@ ci2 = { path = "camera/ci2" }
 ci2-async = { path = "camera/ci2-async" }
 ci2-pylon-types = { path = "camera/ci2-pylon-types" }
 ci2-pyloncxx = { path = "camera/ci2-pyloncxx" }
-strand-cam-remote-control = { path = "camera/strand-cam-remote-control" }
+strand-cam-remote-control = { path = "camera/strand-cam-remote-control", version = "0.1.0" }
 strand-cam-types = { path = "camera/strand-cam-types", version = "0.1.0" }
 ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
