@@ -39,3 +39,7 @@ start-listener = ["eyre", "axum-token-auth", "tokio"]
 eyre.workspace = true
 serde_cbor.workspace = true
 csv.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

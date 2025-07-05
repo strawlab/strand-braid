@@ -1,3 +1,8 @@
+//! CBOR codec for tokio streams.
+//!
+//! This module provides a codec for encoding and decoding CBOR packets
+//! in tokio-based network streams.
+
 // Copyright 2020-2023 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -11,6 +16,10 @@ use crate::{
     FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock, Triggerbox,
 };
 
+/// CBOR codec for FlydraRawUdpPacket encoding and decoding.
+///
+/// This codec handles CBOR serialization of UDP packets containing
+/// feature detection data from cameras in the Flydra tracking system.
 #[derive(Default)]
 pub struct CborPacketCodec {
     buffered_results: std::collections::VecDeque<FlydraRawUdpPacket>,

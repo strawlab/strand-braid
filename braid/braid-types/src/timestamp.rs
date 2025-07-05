@@ -11,12 +11,15 @@ use crate::*;
 
 use chrono::Utc;
 
+/// Trait for timestamp sources.
 pub trait Source {}
 
+/// Triggerbox timestamp source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Triggerbox; // Actually, this is not neccesarily from triggerbox. TODO: should rename to "CleverComputation" or something.
 impl Source for Triggerbox {}
 
+/// Host clock timestamp source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostClock;
 impl Source for HostClock {}
@@ -73,6 +76,7 @@ impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
 assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
 
 impl<S> FlydraFloatTimestampLocal<S> {
+    /// Create a timestamp from a chrono DateTime.
     pub fn from_dt<TZ: chrono::TimeZone>(dt: &chrono::DateTime<TZ>) -> Self {
         let value_f64 = strand_datetime_conversion::datetime_to_f64(dt);
         let value_f64 = value_f64.try_into().unwrap();
@@ -80,6 +84,7 @@ impl<S> FlydraFloatTimestampLocal<S> {
         Self { value_f64, source }
     }
 
+    /// Create a timestamp from an f64 value.
     pub fn from_f64(value_f64: f64) -> Self {
         assert!(
             !value_f64.is_nan(),
@@ -88,12 +93,14 @@ impl<S> FlydraFloatTimestampLocal<S> {
         Self::from_notnan_f64(value_f64.try_into().unwrap())
     }
 
+    /// Create a timestamp from a NotNan f64 value.
     pub fn from_notnan_f64(value_f64: NotNan<f64>) -> Self {
         let source = std::marker::PhantomData;
         Self { value_f64, source }
     }
 
     #[inline(always)]
+    /// Get the timestamp as an f64 value.
     pub fn as_f64(&self) -> f64 {
         self.value_f64.into()
     }

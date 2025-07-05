@@ -1,9 +1,23 @@
+//! Core types for the Braid tracking system.
+//!
+//! This crate provides the fundamental data structures and configuration types
+//! used throughout the Braid multi-camera tracking system, including tracking
+//! parameters, camera configurations, and data storage formats.
+//!
+//! ## Features
+//!
+//! - `with-tokio-codec`: Enables CBOR packet codec for tokio-based applications
+//! - `start-listener`: Enables TCP listener utilities for HTTP servers
+
 // Copyright 2020-2023 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[macro_use]
 extern crate static_assertions;
@@ -17,33 +31,51 @@ use serde::{Deserialize, Deserializer, Serialize};
 use strand_bui_backend_session_types::BuiServerAddrInfo;
 use strand_withkey::WithKey;
 
+/// Default address for the model server.
 pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
 
 // These are the filenames saved during recording. --------------------
 //
 // Any changes to these names, including additions and removes, should update
 // BraidMetadataSchemaTag.
+/// Version number for the Braid metadata schema.
 pub const BRAID_SCHEMA: u16 = 3; // BraidMetadataSchemaTag
 
 // CSV files. (These may also exist as .csv.gz)
+/// CSV filename for Kalman filter estimates.
 pub const KALMAN_ESTIMATES_CSV_FNAME: &str = "kalman_estimates.csv";
+/// CSV filename for data association records.
 pub const DATA_ASSOCIATE_CSV_FNAME: &str = "data_association.csv";
+/// CSV filename for 2D distorted coordinate data.
 pub const DATA2D_DISTORTED_CSV_FNAME: &str = "data2d_distorted.csv";
+/// CSV filename for camera information.
 pub const CAM_INFO_CSV_FNAME: &str = "cam_info.csv";
+/// CSV filename for trigger clock information.
 pub const TRIGGER_CLOCK_INFO_CSV_FNAME: &str = "trigger_clock_info.csv";
+/// CSV filename for experiment information.
 pub const EXPERIMENT_INFO_CSV_FNAME: &str = "experiment_info.csv";
+/// CSV filename for text log messages.
 pub const TEXTLOG_CSV_FNAME: &str = "textlog.csv";
 
 // Other files
+/// XML filename for camera calibration data.
 pub const CALIBRATION_XML_FNAME: &str = "calibration.xml";
+/// YAML filename for Braid metadata.
 pub const BRAID_METADATA_YML_FNAME: &str = "braid_metadata.yml";
+/// Markdown filename for README documentation.
 pub const README_MD_FNAME: &str = "README.md";
+/// Directory name for saved images.
 pub const IMAGES_DIRNAME: &str = "images";
+/// Directory name for camera settings.
 pub const CAM_SETTINGS_DIRNAME: &str = "cam_settings";
+/// Directory name for feature detection settings.
 pub const FEATURE_DETECT_SETTINGS_DIRNAME: &str = "feature_detect_settings";
+/// HLog filename for reconstruction latency measurements.
 pub const RECONSTRUCT_LATENCY_HLOG_FNAME: &str = "reconstruct_latency_usec.hlog";
+/// HLog filename for reprojection distance measurements.
 pub const REPROJECTION_DIST_HLOG_FNAME: &str = "reprojection_distance_100x_pixels.hlog";
 
+/// Duration in seconds for triggerbox synchronization.
 pub const TRIGGERBOX_SYNC_SECONDS: u64 = 3;
 
 // Ideas for future:
@@ -72,6 +104,7 @@ pub const TRIGGERBOX_SYNC_SECONDS: u64 = 3;
 // this approach is common with a scale factor of 10.
 // --------------------------------------------------------------------
 
+/// Camera information record for CSV output.
 // Changes to this struct should update BraidMetadataSchemaTag.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CamInfoRow {
@@ -85,11 +118,14 @@ pub struct CamInfoRow {
     pub cam_id: String,
 }
 
+/// Kalman filter state estimate record for CSV output.
 // Changes to this struct should update BraidMetadataSchemaTag.
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KalmanEstimatesRow {
+    /// Object ID being tracked.
     pub obj_id: u32,
+    /// Synchronized frame number.
     pub frame: SyncFno,
     /// The timestamp when the trigger pulse fired.
     ///
@@ -98,20 +134,35 @@ pub struct KalmanEstimatesRow {
     /// synchronization will not have a timestamp.
     #[serde(with = "crate::timestamp_opt_f64")]
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
+    /// X position estimate in meters.
     pub x: f64,
+    /// Y position estimate in meters.
     pub y: f64,
+    /// Z position estimate in meters.
     pub z: f64,
+    /// X velocity estimate in meters per second.
     pub xvel: f64,
+    /// Y velocity estimate in meters per second.
     pub yvel: f64,
+    /// Z velocity estimate in meters per second.
     pub zvel: f64,
+    /// Covariance matrix element P\[0,0\].
     pub P00: f64,
+    /// Covariance matrix element P\[0,1\].
     pub P01: f64,
+    /// Covariance matrix element P\[0,2\].
     pub P02: f64,
+    /// Covariance matrix element P\[1,1\].
     pub P11: f64,
+    /// Covariance matrix element P\[1,2\].
     pub P12: f64,
+    /// Covariance matrix element P\[2,2\].
     pub P22: f64,
+    /// Covariance matrix element P\[3,3\].
     pub P33: f64,
+    /// Covariance matrix element P\[4,4\].
     pub P44: f64,
+    /// Covariance matrix element P\[5,5\].
     pub P55: f64,
 }
 impl WithKey<SyncFno> for KalmanEstimatesRow {
@@ -120,12 +171,17 @@ impl WithKey<SyncFno> for KalmanEstimatesRow {
     }
 }
 
+/// Data association record linking 2D detections to 3D tracks.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DataAssocRow {
     // changes to this struct should update BraidMetadataSchemaTag
+    /// Object ID being tracked.
     pub obj_id: u32,
+    /// Synchronized frame number.
     pub frame: SyncFno,
+    /// Camera number.
     pub cam_num: CamNum,
+    /// Point index within the frame.
     pub pt_idx: u8,
 }
 impl WithKey<SyncFno> for DataAssocRow {
@@ -134,14 +190,22 @@ impl WithKey<SyncFno> for DataAssocRow {
     }
 }
 
+/// A 2D feature detection result transmitted via UDP.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FlydraRawUdpPoint {
+    /// X coordinate in absolute pixels.
     pub x0_abs: f64,
+    /// Y coordinate in absolute pixels.
     pub y0_abs: f64,
+    /// Area of the detection in pixels.
     pub area: f64,
+    /// Optional slope and eccentricity values.
     pub maybe_slope_eccentricty: Option<(f64, f64)>,
+    /// Current pixel value.
     pub cur_val: u8,
+    /// Mean pixel value.
     pub mean_val: f64,
+    /// Sum of squares of pixel values.
     pub sumsqf_val: f64,
 }
 
@@ -150,9 +214,11 @@ pub struct FlydraRawUdpPoint {
 pub struct RawCamName(String);
 
 impl RawCamName {
+    /// Create a new RawCamName from a string.
     pub fn new(s: String) -> Self {
         RawCamName(s)
     }
+    /// Get the camera name as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -164,9 +230,11 @@ impl std::fmt::Display for RawCamName {
     }
 }
 
+/// HTTP API utilities for Braid server.
 pub mod braid_http {
-    // URL paths on Braid HTTP server.
+    /// URL path for remote camera info endpoint.
     pub const REMOTE_CAMERA_INFO_PATH: &str = "remote-camera-info";
+    /// URL path for camera proxy endpoint.
     pub const CAM_PROXY_PATH: &str = "cam-proxy";
 
     /// Encode camera name, potentially with slashes or spaces, to be a single
@@ -179,6 +247,7 @@ pub mod braid_http {
     }
 }
 
+/// Frame rate limiting configuration for camera startup.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub enum StartSoftwareFrameRateLimit {
     /// Set the frame_rate limit at a given frame rate.
@@ -190,13 +259,16 @@ pub enum StartSoftwareFrameRateLimit {
     NoChange,
 }
 
-/// This contains information that Strand Camera needs to start the camera.
+/// Camera startup information sent to strand cameras.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RemoteCameraInfoResponse {
     /// The destination UDP port to use for low-latency tracking data
     pub camdata_udp_port: u16,
+    /// Camera configuration.
     pub config: BraidCameraConfig,
+    /// Whether to force camera synchronization mode.
     pub force_camera_sync_mode: bool,
+    /// Software frame rate limiting configuration.
     pub software_limit_framerate: StartSoftwareFrameRateLimit,
     /// camera triggering configuration (global for all cameras)
     pub trig_config: TriggerType,
@@ -209,14 +281,17 @@ pub struct RemoteCameraInfoResponse {
 pub struct PtpStamp(u64);
 
 impl PtpStamp {
+    /// Create a new PtpStamp from nanoseconds since epoch.
     pub fn new(val: u64) -> Self {
         PtpStamp(val)
     }
 
+    /// Get the raw nanoseconds value.
     pub fn get(&self) -> u64 {
         self.0
     }
 
+    /// Calculate duration since another timestamp.
     pub fn duration_since(&self, other: &Self) -> Option<PtpStampDuration> {
         if self.0 >= other.0 {
             Some(PtpStampDuration(self.0 - other.0))
@@ -231,6 +306,7 @@ impl PtpStamp {
 pub struct PtpStampDuration(u64);
 
 impl PtpStampDuration {
+    /// Get the duration in nanoseconds.
     pub fn nanos(&self) -> u64 {
         self.0
     }
@@ -285,8 +361,10 @@ impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Local> {
     }
 }
 
+/// Default allowed imprecision for frame acquisition duration in milliseconds.
 pub const DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC: Option<f64> = Some(5.0);
 
+/// Configuration for a single camera in the Braid system.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BraidCameraConfig {
@@ -307,6 +385,7 @@ pub struct BraidCameraConfig {
     /// Which camera backend to use.
     #[serde(default)]
     pub start_backend: StartCameraBackend,
+    /// Allowed imprecision for frame acquisition duration.
     pub acquisition_duration_allowed_imprecision_msec: Option<f64>,
     /// The SocketAddr on which the strand camera BUI server should run.
     pub http_server_addr: Option<String>,
@@ -336,6 +415,7 @@ const fn default_send_current_image_interval_msec() -> u64 {
     2000
 }
 
+/// Camera backend selection for local camera startup.
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
@@ -350,6 +430,7 @@ pub enum StartCameraBackend {
 }
 
 impl StartCameraBackend {
+    /// Get the executable name for the camera backend.
     pub fn strand_cam_exe_name(&self) -> Option<&str> {
         match self {
             StartCameraBackend::Remote => None,
@@ -360,6 +441,7 @@ impl StartCameraBackend {
 }
 
 impl BraidCameraConfig {
+    /// Create a default camera configuration with absolute difference point detection.
     pub fn default_absdiff_config(name: String) -> Self {
         Self {
             name,
@@ -376,13 +458,18 @@ impl BraidCameraConfig {
     }
 }
 
+/// Per-camera data to be saved during recording.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PerCamSaveData {
+    /// Current image as PNG data.
     pub current_image_png: PngImageData,
+    /// Current camera settings data.
     pub cam_settings_data: Option<UpdateCamSettings>,
+    /// Current feature detection settings.
     pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
 }
 
+/// Camera registration message sent to Braid.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RegisterNewCamera {
     /// The name of the camera as returned by the camera
@@ -398,14 +485,17 @@ pub struct RegisterNewCamera {
     pub camera_periodic_signal_period_usec: Option<f64>,
 }
 
+/// Image update message.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UpdateImage {
     /// The current image.
     pub current_image_png: PngImageData,
 }
 
+/// PNG image data container.
 #[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PngImageData {
+    /// Raw PNG image data bytes.
     pub data: Vec<u8>,
 }
 
@@ -416,6 +506,7 @@ impl From<Vec<u8>> for PngImageData {
 }
 
 impl PngImageData {
+    /// Get the PNG data as a byte slice.
     pub fn as_slice(&self) -> &[u8] {
         self.data.as_slice()
     }
@@ -427,6 +518,7 @@ impl std::fmt::Debug for PngImageData {
     }
 }
 
+/// Camera settings update message.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UpdateCamSettings {
     /// The current camera settings
@@ -435,12 +527,14 @@ pub struct UpdateCamSettings {
     pub current_cam_settings_extension: String,
 }
 
+/// Feature detection settings update message.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct UpdateFeatureDetectSettings {
     /// The current feature detection settings.
     pub current_feature_detect_settings: flydra_feature_detector_types::ImPtDetectCfg,
 }
 
+/// Camera synchronization state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectedCameraSyncState {
     /// No known reference to other cameras
@@ -450,6 +544,7 @@ pub enum ConnectedCameraSyncState {
 }
 
 impl ConnectedCameraSyncState {
+    /// Check if the camera is synchronized.
     pub fn is_synchronized(&self) -> bool {
         match self {
             ConnectedCameraSyncState::Unsynchronized => false,
@@ -458,27 +553,43 @@ impl ConnectedCameraSyncState {
     }
 }
 
+/// Shared state for the Braid HTTP API.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BraidHttpApiSharedState {
+    /// Camera synchronization trigger configuration.
     pub trigger_type: TriggerType,
+    /// Whether a clock model is needed for synchronization.
     pub needs_clock_model: bool,
+    /// The current clock model for time synchronization.
     pub clock_model: Option<ClockModel>,
+    /// Directory path for CSV table recordings.
     pub csv_tables_dirname: Option<RecordingPath>,
     // This is "fake" because it only signals if each of the connected computers
     // is recording MKVs.
+    /// Path for MP4 recording (signals if cameras are recording).
     pub fake_mp4_recording_path: Option<RecordingPath>,
+    /// Size of post-trigger buffer in frames.
     pub post_trigger_buffer_size: usize,
+    /// Filename of camera calibration file.
     pub calibration_filename: Option<String>,
+    /// List of connected camera information.
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
+    /// Address of the model server.
     pub model_server_addr: Option<SocketAddr>,
+    /// Name of the Flydra application.
     pub flydra_app_name: String,
+    /// Whether all expected cameras are synchronized.
     pub all_expected_cameras_are_synced: bool,
 }
 
+/// Statistics for recent camera activity.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 pub struct RecentStats {
+    /// Total number of frames collected since start.
     pub total_frames_collected: usize,
+    /// Number of frames collected in recent period.
     pub frames_collected: usize,
+    /// Number of points detected in recent period.
     pub points_detected: usize,
 }
 
@@ -493,6 +604,7 @@ pub enum BuiServerInfo {
     Server(BuiServerAddrInfo),
 }
 
+/// Check if a URL refers to a loopback address.
 pub fn is_loopback(url: &http::Uri) -> bool {
     let authority = match url.authority() {
         None => return false,
@@ -507,6 +619,7 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 
 // -----
 
+/// Start a TCP listener for HTTP server with appropriate token configuration.
 #[cfg(feature = "start-listener")]
 pub async fn start_listener(
     address_string: &str,
@@ -535,12 +648,17 @@ pub async fn start_listener(
 
 // -----
 
+/// Text log message record for CSV output.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextlogRow {
     // changes to this struct should update BraidMetadataSchemaTag
+    /// Timestamp from the main brain system.
     pub mainbrain_timestamp: f64,
+    /// Camera identifier.
     pub cam_id: String,
+    /// Host system timestamp.
     pub host_timestamp: f64,
+    /// Log message text.
     pub message: String,
 }
 
@@ -618,16 +736,19 @@ pub struct TrackingParams {
     pub mini_arena_config: MiniArenaConfig,
 }
 
+/// Locator for determining which mini arena contains a point.
 pub struct MiniArenaLocator {
     /// The index number of the mini arena. None if the point is not in a mini arena.
     my_idx: Option<u8>,
 }
 
 impl MiniArenaLocator {
+    /// Create a locator for a specific mini arena index.
     pub fn from_mini_arena_idx(val: u8) -> Self {
         Self { my_idx: Some(val) }
     }
 
+    /// Create a locator indicating no mini arena.
     pub fn new_none() -> Self {
         Self { my_idx: None }
     }
@@ -656,6 +777,7 @@ impl MiniArenaConfig {
         self == &Self::NoMiniArena
     }
 
+    /// Iterate over all mini arena locators in this configuration.
     pub fn iter_locators(&self) -> impl Iterator<Item = MiniArenaLocator> {
         let res = match self {
             Self::NoMiniArena => vec![MiniArenaLocator::from_mini_arena_idx(0)],
@@ -669,6 +791,7 @@ impl MiniArenaConfig {
         res.into_iter()
     }
 
+    /// Get the number of mini arenas in this configuration.
     pub fn len(&self) -> usize {
         match self {
             Self::NoMiniArena => 1,
@@ -679,6 +802,7 @@ impl MiniArenaConfig {
     }
 }
 
+/// Sorted list of floating point values for efficient nearest neighbor search.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Sorted(Vec<f64>);
 
@@ -732,6 +856,7 @@ pub struct XYGridConfig {
 }
 
 impl XYGridConfig {
+    /// Create a new XYGrid configuration with specified centers and radius.
     pub fn new(x: &[f64], y: &[f64], radius: f64) -> Self {
         Self {
             x_centers: Sorted::new(x),
@@ -740,6 +865,7 @@ impl XYGridConfig {
         }
     }
 
+    /// Iterate over all grid center coordinates.
     pub fn iter_centers(&self) -> impl Iterator<Item = (f64, f64)> {
         XYGridIter {
             col_centers: self.x_centers.0.clone(),
@@ -748,6 +874,7 @@ impl XYGridConfig {
         }
     }
 
+    /// Get the arena index for given 3D coordinates.
     pub fn get_arena_index(&self, coords: &[MyFloat; 3]) -> MiniArenaLocator {
         if coords[2] != 0.0 {
             return MiniArenaLocator::new_none();
@@ -794,8 +921,10 @@ fn default_num_observations_to_visibility() -> u8 {
     3
 }
 
+/// Floating point type used for coordinates.
 pub type MyFloat = f64;
 
+/// Create default tracking parameters for full 3D tracking.
 pub fn default_tracking_params_full_3d() -> TrackingParams {
     TrackingParams {
         motion_noise_scale: 0.1,
@@ -810,6 +939,7 @@ pub fn default_tracking_params_full_3d() -> TrackingParams {
     }
 }
 
+/// Create default tracking parameters for flat 3D tracking.
 pub fn default_tracking_params_flat_3d() -> TrackingParams {
     TrackingParams {
         motion_noise_scale: 0.0005,
@@ -824,14 +954,18 @@ pub fn default_tracking_params_flat_3d() -> TrackingParams {
     }
 }
 
-/// Hypothesis testing parameters.
+/// Parameters for hypothesis testing in track initialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HypothesisTestParams {
+    /// Minimum number of cameras required for track initialization.
     pub minimum_number_of_cameras: u8,
+    /// Maximum acceptable error in hypothesis testing.
     pub hypothesis_test_max_acceptable_error: f64,
+    /// Minimum pixel absolute z-score threshold.
     pub minimum_pixel_abs_zscore: f64,
 }
 
+/// Create default hypothesis testing parameters for full 3D tracking.
 pub fn make_hypothesis_test_full3d_default() -> HypothesisTestParams {
     HypothesisTestParams {
         minimum_number_of_cameras: 2,
@@ -840,15 +974,20 @@ pub fn make_hypothesis_test_full3d_default() -> HypothesisTestParams {
     }
 }
 
+/// Information about a connected camera.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CamInfo {
+    /// The raw camera name.
     pub name: RawCamName,
+    /// The camera's synchronization state.
     pub state: ConnectedCameraSyncState,
+    /// HTTP server information for the camera.
     pub strand_cam_http_server_info: BuiServerInfo,
+    /// Recent statistics for the camera.
     pub recent_stats: RecentStats,
 }
 
-/// Messages to Braid
+/// API callback messages sent to Braid.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BraidHttpApiCallback {
     /// Called from strand-cam to register a camera
@@ -877,12 +1016,16 @@ pub enum BraidHttpApiCallback {
     PostTriggerMp4Recording,
 }
 
+/// Wrapper for per-camera data.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PerCam<T> {
+    /// The raw camera name.
     pub raw_cam_name: RawCamName,
+    /// The wrapped data.
     pub inner: T,
 }
 
+/// Raw UDP packet containing 2D feature detections.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FlydraRawUdpPacket {
@@ -901,7 +1044,9 @@ pub struct FlydraRawUdpPacket {
     pub device_timestamp: Option<u64>,
     /// frame number from the camera
     pub block_id: Option<u64>,
+    /// Frame number from the camera.
     pub framenumber: i32,
+    /// Detected 2D points in the frame.
     pub points: Vec<FlydraRawUdpPoint>,
 }
 
@@ -916,7 +1061,9 @@ pub use crate::timestamp::{
     triggerbox_time, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
 };
 
+/// Timestamp serialization for f64 format.
 pub mod timestamp_f64;
+/// Timestamp serialization for optional f64 format.
 pub mod timestamp_opt_f64;
 
 #[cfg(feature = "with-tokio-codec")]
@@ -924,46 +1071,64 @@ mod tokio_cbor;
 #[cfg(feature = "with-tokio-codec")]
 pub use crate::tokio_cbor::CborPacketCodec;
 
+/// Error types for Flydra operations.
 #[derive(thiserror::Error, Debug)]
 pub enum FlydraTypesError {
     #[error("CBOR data")]
+    /// CBOR data error.
     CborDataError,
     #[error("serde error")]
+    /// Serialization/deserialization error.
     SerdeError,
     #[error("unexpected hypothesis testing parameters")]
+    /// Unexpected hypothesis testing parameters.
     UnexpectedHypothesisTestingParameters,
     #[error("input too long")]
+    /// Input data too long.
     InputTooLong,
     #[error("long string not implemented")]
+    /// Long string handling not implemented.
     LongStringNotImplemented,
     #[error("{0}")]
+    /// I/O error.
     IoError(#[from] std::io::Error),
     #[error("{0}")]
+    /// UTF-8 encoding error.
     Utf8Error(#[from] std::str::Utf8Error),
     #[error("URL parse error")]
+    /// URL parsing error.
     UrlParseError,
 }
 
+/// Trigger clock information record for CSV output.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {
     // changes to this should update BraidMetadataSchemaTag
     #[serde(with = "crate::timestamp_f64")]
+    /// Timestamp when recording started.
     pub start_timestamp: FlydraFloatTimestampLocal<HostClock>,
+    /// Number of frames recorded.
     pub framecount: i64,
     /// Fraction of full framecount is tcnt/255
+    /// Trigger counter value.
     pub tcnt: u8,
     #[serde(with = "crate::timestamp_f64")]
+    /// Timestamp when recording stopped.
     pub stop_timestamp: FlydraFloatTimestampLocal<HostClock>,
 }
 
-/// TriggerboxV1 configuration
+/// Configuration for Triggerbox V1 hardware synchronization.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct TriggerboxConfig {
+    /// Device filename for the triggerbox.
     pub device_fname: String,
+    /// Frame rate for synchronized recording.
     pub framerate: f32,
     #[serde(default = "default_query_dt")]
+    /// Query interval for triggerbox status.
     pub query_dt: std::time::Duration,
+    /// Maximum acceptable measurement error.
     pub max_triggerbox_measurement_error: Option<std::time::Duration>,
 }
 
@@ -985,6 +1150,7 @@ const fn default_query_dt() -> std::time::Duration {
     std::time::Duration::from_millis(1500)
 }
 
+/// Configuration for PTP (Precision Time Protocol) synchronization.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct PtpSyncConfig {
@@ -994,9 +1160,11 @@ pub struct PtpSyncConfig {
     pub periodic_signal_period_usec: Option<f64>,
 }
 
+/// Configuration for fake synchronization (no real synchronization).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FakeSyncConfig {
+    /// Simulated frame rate.
     pub framerate: f64,
 }
 
@@ -1006,6 +1174,7 @@ impl Default for FakeSyncConfig {
     }
 }
 
+/// Camera synchronization method configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 #[serde(tag = "trigger_type")]
@@ -1015,6 +1184,7 @@ pub enum TriggerType {
     TriggerboxV1(TriggerboxConfig),
     /// Cameras are synchronized using PTP (Precision Time Protocol, IEEE 1588).
     PtpSync(PtpSyncConfig),
+    /// Cameras are synchronized using device timestamps.
     DeviceTimestamp,
     /// Cameras are not synchronized, but we pretend they are.
     FakeSync(FakeSyncConfig),
@@ -1054,6 +1224,7 @@ pub struct Data2dDistortedRow {
     #[serde(with = "crate::timestamp_opt_f64")]
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "crate::timestamp_f64")]
+    /// Timestamp when the camera received the frame.
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// Timestamp from the camera.
     pub device_timestamp: Option<u64>,
@@ -1083,10 +1254,13 @@ pub struct Data2dDistortedRow {
     /// Multiple detections can occur within a single frame, and each succesive
     /// detection will have a higher index.
     pub frame_pt_idx: u8,
+    /// Current pixel value.
     pub cur_val: u8,
     #[serde(deserialize_with = "invalid_nan")]
+    /// Mean pixel value.
     pub mean_val: f64,
     #[serde(deserialize_with = "invalid_nan")]
+    /// Sum of squares of pixel values.
     pub sumsqf_val: f64,
 }
 
@@ -1108,6 +1282,7 @@ pub struct Data2dDistortedRowF32 {
     #[serde(with = "crate::timestamp_opt_f64")]
     pub timestamp: Option<FlydraFloatTimestampLocal<Triggerbox>>,
     #[serde(with = "crate::timestamp_f64")]
+    /// Timestamp when the camera received the frame.
     pub cam_received_timestamp: FlydraFloatTimestampLocal<HostClock>,
     /// timestamp from the camera
     pub device_timestamp: Option<u64>,
@@ -1132,8 +1307,11 @@ pub struct Data2dDistortedRowF32 {
     /// Multiple detections can occur within a single frame, and each succesive
     /// detection will have a higher index.
     pub frame_pt_idx: u8,
+    /// Current pixel value.
     pub cur_val: u8,
+    /// Mean pixel value.
     pub mean_val: f32,
+    /// Sum of squares of pixel values.
     pub sumsqf_val: f32,
 }
 
@@ -1177,5 +1355,7 @@ where
     )
 }
 
+/// URL path for Braid events endpoint.
 pub const BRAID_EVENTS_URL_PATH: &str = "braid-events";
+/// Event name for Braid events.
 pub const BRAID_EVENT_NAME: &str = "braid";
