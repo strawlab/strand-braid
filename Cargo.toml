@@ -342,7 +342,7 @@ strand-datetime-conversion = { path = "utils/strand-datetime-conversion", versio
 strand-dynamic-frame = { path = "strand-dynamic-frame" }
 strand-http-video-streaming = { path = "strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types", version = "0.1.0" }
-strand-led-box-comms = { path = "led-box/strand-led-box-comms" }
+strand-led-box-comms = { path = "led-box/strand-led-box-comms", version = "0.1.0" }
 strand-withkey = { path = "utils/strand-withkey", version = "0.1.0" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
