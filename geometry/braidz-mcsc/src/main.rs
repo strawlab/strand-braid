@@ -446,7 +446,10 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
     // Load initial guess of camera positions and 3D world points from MCSC results.
     let (mcsc_system, points4cals) = {
-        let (cameras, points4cals) = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir)
+        let flydra_mvg::McscDirData {
+            cameras,
+            points4cals,
+        } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir)
             .with_context(|| format!("while reading calibration at {resultdir}"))?;
         let mut cams = BTreeMap::new();
         for orig_cam in cameras.iter() {

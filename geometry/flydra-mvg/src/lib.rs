@@ -8,8 +8,8 @@ use num_traits::{One, Zero};
 
 use nalgebra as na;
 use nalgebra::{
-    allocator::Allocator, geometry::Point3, DefaultAllocator, Dyn, Matrix3, OMatrix, RealField,
-    Vector3, Vector5, U1, U2, U3, U4,
+    allocator::Allocator, geometry::Point3, DMatrix, DefaultAllocator, Dyn, Matrix3, OMatrix,
+    RealField, Vector3, Vector5, U1, U2, U3, U4,
 };
 
 use cam_geom::ExtrinsicParameters;
@@ -267,9 +267,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
                         e,
                         root_params,
                     );
-                    panic!(
-                        "find_fastest_path_fermat {e} with parameters: {root_params:?}",
-                    );
+                    panic!("find_fastest_path_fermat {e} with parameters: {root_params:?}");
                 }
             };
 
@@ -764,9 +762,15 @@ where
     })
 }
 
-pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(
-    mcsc_dir: P,
-) -> Result<(Vec<SingleCameraCalibration<R>>, Vec<OMatrix<f64, Dyn, Dyn>>)>
+pub struct McscDirData<R>
+where
+    R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
+{
+    pub cameras: Vec<SingleCameraCalibration<R>>,
+    pub points4cals: Vec<DMatrix<f64>>,
+}
+
+pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(mcsc_dir: P) -> Result<McscDirData<R>>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
@@ -812,7 +816,10 @@ where
         }
     }
 
-    Ok((cameras, points4cals))
+    Ok(McscDirData {
+        cameras,
+        points4cals,
+    })
 }
 
 impl<R> FlydraMultiCameraSystem<R>
@@ -823,7 +830,7 @@ where
     where
         P: AsRef<std::path::Path>,
     {
-        let (cameras, _) = read_mcsc_dir(mcsc_dir)?;
+        let McscDirData { cameras, .. } = read_mcsc_dir(mcsc_dir)?;
         let recon = flydra_xml_support::FlydraReconstructor {
             cameras,
             ..Default::default()
