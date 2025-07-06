@@ -66,10 +66,7 @@ pub fn find_root<T>(a: T, b: T, eq: RefractionEq<T>, tolerance: T) -> Option<T>
 where
     T: RealField + Copy,
 {
-    let interval = match Interval::new(a, b) {
-        Some(i) => i,
-        None => return None,
-    };
+    let interval = Interval::new(a, b)?;
 
     let mut bisect = BisectionSearch::new(interval, |x| eq.f(*x));
     loop {
