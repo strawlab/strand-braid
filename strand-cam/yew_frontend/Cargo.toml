@@ -27,14 +27,14 @@ gloo-timers = "0.3.0"
 uuid = { version = "1.2.2", default-features = false, features = ["js", "v4"] }
 
 strand-bui-backend-session-types.workspace = true
-strand-cam-storetype = { path = "../../strand-cam-storetype", default-features = false }
-flydra-feature-detector-types = { path = "../../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
-strand-http-video-streaming-types = { path = "../../strand-http-video-streaming/strand-http-video-streaming-types" }
+strand-cam-storetype.workspace = true
+flydra-feature-detector-types.workspace = true
+strand-http-video-streaming-types.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 
-strand-led-box-comms = { path = "../../led-box/strand-led-box-comms" }
-strand-cam-enum-iter = { path = "../../utils/strand-cam-enum-iter" }
+strand-led-box-comms.workspace = true
+strand-cam-enum-iter.workspace = true
 ads-webasm.workspace = true
 
 [dependencies.web-sys]
