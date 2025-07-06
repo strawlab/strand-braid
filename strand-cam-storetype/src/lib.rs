@@ -13,7 +13,7 @@
 //!
 //! ## Key Components
 //!
-//! - [StoreType]: The main state container for all camera configuration and
+//! - [`StoreType`]: The main state container for all camera configuration and
 //!   status
 //! - Recording management for MP4, FMF, and UFMF formats
 //! - Feature detection and tracking configuration
@@ -24,6 +24,13 @@
 //!
 //! The types in this crate support Server-Sent Events for real-time browser
 //! updates and remote camera control via HTTP APIs.
+
+// Copyright 2020-2023 Andrew D. Straw.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
+// or http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 #![warn(missing_docs)]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
