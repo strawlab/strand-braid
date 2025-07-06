@@ -71,7 +71,7 @@ pub fn initiate_logging<P: AsRef<std::path::Path>>(
     tracing::subscriber::set_global_default(collector)?;
 
     let log_var = if let Ok(var) = std::env::var("RUST_LOG") {
-        format!(" with RUST_LOG=\"{}\".", var)
+        format!(" with RUST_LOG=\"{var}\".")
     } else {
         ".".to_string()
     };
