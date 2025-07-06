@@ -24,7 +24,7 @@
 //! - [`MultiCameraSystem`]: Collection of calibrated cameras
 //! - [`DistortedPixel`], [`UndistortedPixel`]: Pixel coordinate types
 //! - [`PointWorldFrame`], [`PointCameraFrame`]: 3D point types in different
-//!       coordinate systems
+//!   coordinate systems
 //!
 //! ## Coordinate Systems
 //!

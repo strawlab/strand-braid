@@ -712,7 +712,7 @@ impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de>
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 Camera::new(width, height, extrinsics, intrinsics)
-                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
+                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {e}")))
             }
 
             fn visit_map<V>(self, mut map: V) -> std::result::Result<Camera<R2>, V::Error>
@@ -758,7 +758,7 @@ impl<'de, R: RealField + serde::Deserialize<'de> + Copy> serde::Deserialize<'de>
                 let intrinsics =
                     intrinsics.ok_or_else(|| de::Error::missing_field("intrinsics"))?;
                 Camera::new(width, height, extrinsics, intrinsics)
-                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {}", e)))
+                    .map_err(|e| de::Error::custom(format!("failed creating Camera: {e}")))
             }
         }
 
