@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use braid_offline::KalmanizeOptions;
-use braid_types::{CamInfoRow, MyFloat, TextlogRow, TrackingParams};
-use flydra2::Data2dDistortedRow;
+use braid_types::{CamInfoRow, Data2dDistortedRow, MyFloat, TextlogRow, TrackingParams};
 use flydra_mvg::FlydraMultiCameraSystem;
 use strand_cam_csv_config_types::FullCfgFview2_0_26;
 use strand_cam_pseudo_cal::PseudoCameraCalibrationData;

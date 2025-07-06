@@ -11,14 +11,14 @@ use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 use tracing::{debug, info, warn};
 
+use braid_types::{
+    CamInfoRow, Data2dDistortedRow, PerCamSaveData, RawCamName, SyncFno, TrackingParams,
+    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+};
 use braidz_parser::open_maybe_gzipped;
 use flydra2::{
-    new_model_server, CoordProcessor, CoordProcessorConfig, Data2dDistortedRow, FrameData,
-    FrameDataAndPoints, NumberedRawUdpPoint, StreamItem,
-};
-use braid_types::{
-    CamInfoRow, PerCamSaveData, RawCamName, SyncFno, TrackingParams,
-    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    new_model_server, CoordProcessor, CoordProcessorConfig, FrameData, FrameDataAndPoints,
+    NumberedRawUdpPoint, StreamItem,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 

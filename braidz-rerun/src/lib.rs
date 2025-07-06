@@ -1,8 +1,9 @@
-use braidz_types::{CamNum, camera_name_from_filename};
+use braid_mvg::rerun_io::AsRerunTransform3D;
+use braid_types::CamNum;
+use braidz_types::camera_name_from_filename;
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
-use braid_mvg::rerun_io::AsRerunTransform3D;
 use re_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
@@ -284,7 +285,7 @@ impl OfflineBraidzRerunLogger {
 
     pub fn log_data2d_distorted(
         &mut self,
-        row: &braidz_types::Data2dDistortedRow,
+        row: &braid_types::Data2dDistortedRow,
         has_braid_timestamps: bool,
     ) -> eyre::Result<()> {
         // Always cache timing data.
