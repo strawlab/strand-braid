@@ -6,12 +6,15 @@ repository = "https://github.com/strawlab/strand-braid"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
+keywords = ["strand-cam"]
+license = "MIT OR Apache-2.0"
 
 [package.metadata.docs.rs]
-features = ["convert-image"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 
 [dependencies]
-chrono.workspace = true
 machine-vision-formats = { workspace = true, features = ["std"] }
 
 convert-image = { workspace = true, optional = true }

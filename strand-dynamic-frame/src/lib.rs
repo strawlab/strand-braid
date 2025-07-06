@@ -1,4 +1,30 @@
-//! Images from machine vision cameras used in Strand Camera.
+// Copyright 2016-2025 Andrew D. Straw.
+//
+// Licensed under the Apache License, Version 2.0
+// <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! Images from machine vision cameras used in [Strand
+//! Camera](https://strawlab.org/strand-cam).
+//!
+//! Building on the [`machine_vision_formats`] crate which provides compile-time
+//! pixel formats, this crate provides types for images whose pixel format is
+//! determined at runtime. This allows for flexibility in handling images data
+//! whose pixel format is known only dynamically, such as when reading an image
+//! from disk.
+//!
+//! There are two types here:
+//! - [`DynamicFrame`]: A borrowed view of an image with a dynamic pixel format.
+//! - [`DynamicFrameOwned`]: An owned version of `DynamicFrame` that contains
+//!   its own buffer.
+//!
+//! When compiled with the `convert-image` feature, this crate also provides
+//! conversion methods to convert the dynamic frame into a static pixel format
+//! using the [`convert_image`](https://docs.rs/convert-image) crate.
+
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 use std::borrow::Cow;
 
@@ -353,9 +379,6 @@ impl DynamicFrameOwned {
     /// // No conversion or copying needed - returns original data
     /// let owned_image = frame.into_pixel_format::<Mono8>().unwrap();
     /// ```
-    ///
-    /// # Feature Requirements
-    /// This method requires the `convert-image` feature to be enabled.
     pub fn into_pixel_format<FMT>(self) -> Result<OImage<FMT>, convert_image::Error>
     where
         FMT: PixelFormat,
@@ -558,9 +581,6 @@ impl<'a> DynamicFrame<'a> {
     /// // No conversion needed - returns borrowed view
     /// let cow_image = frame.into_pixel_format::<Mono8>().unwrap();
     /// ```
-    ///
-    /// # Feature Requirements
-    /// This method requires the `convert-image` feature to be enabled.
     pub fn into_pixel_format<FMT>(&self) -> Result<CowImage<'_, FMT>, convert_image::Error>
     where
         FMT: PixelFormat,
@@ -632,14 +652,16 @@ impl<'a> DynamicFrame<'a> {
         }
     }
 
-    /// Converts the image data into a mutable destination buffer of the specified pixel format.
+    /// Converts the image data into a mutable destination buffer of the
+    /// specified pixel format.
     ///
-    /// This method will convert the data in-place, modifying the destination buffer to match
-    /// the pixel format of the source image.
+    /// This method will convert the data in-place, modifying the destination
+    /// buffer to match the pixel format of the source image.
     ///
     /// # Parameters
-    /// * `dest` - A mutable reference to the destination buffer implementing [`HasRowChunksExactMut`]
-    ///   for the target pixel format.
+    /// * `dest` - A mutable reference to the destination buffer implementing
+    ///   [`machine_vision_formats::iter::HasRowChunksExactMut`] for the target
+    ///   pixel format.
     ///
     /// # Returns
     /// * `Ok(())` if the conversion was successful
