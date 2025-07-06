@@ -47,11 +47,6 @@ pub enum Error {
         #[from]
         source: toml::de::Error,
     },
-    #[error("{source}")]
-    SendToDiskError {
-        #[from]
-        source: tokio::sync::mpsc::error::SendError<crate::SaveToDiskMsg>,
-    },
     #[error("invalid hypothesis testing parameters")]
     InvalidHypothesisTestingParameters,
     #[error("insufficient data to calculate FPS")]
