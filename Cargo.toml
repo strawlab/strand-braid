@@ -339,7 +339,7 @@ strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype", version = "0.1.0" }
 strand-datetime-conversion = { path = "utils/strand-datetime-conversion", version = "0.1.0" }
-strand-dynamic-frame = { path = "strand-dynamic-frame" }
+strand-dynamic-frame = { path = "strand-dynamic-frame", version = "0.1.0" }
 strand-http-video-streaming = { path = "strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types", version = "0.1.0" }
 strand-led-box-comms = { path = "led-box/strand-led-box-comms", version = "0.1.0" }
