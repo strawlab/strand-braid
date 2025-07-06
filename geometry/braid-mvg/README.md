@@ -20,6 +20,12 @@ computer vision tasks.
 - Coordinate frame transformations between world, camera, and pixel spaces
 - [rerun.io](https://rerun.io) integration for 3D visualization (optional)
 
+## Building the docs
+
+To build and open the docs locally as https://docs.rs/ would do it:
+
+    RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly doc --all-features --open
+
 ## License
 
 Licensed under either of
