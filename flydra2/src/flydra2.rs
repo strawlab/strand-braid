@@ -15,9 +15,6 @@ use hdrhistogram::{
     Counter, Histogram,
 };
 
-use libflate::finish::AutoFinishUnchecked;
-use libflate::gzip::Encoder;
-
 use nalgebra::{
     allocator::Allocator,
     dimension::{DimMin, U1, U2, U3, U6},
@@ -27,14 +24,11 @@ use nalgebra::{
 #[allow(unused_imports)]
 use braid_mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
 
-pub use braidz_types::BraidMetadata;
-
 use braid_types::{
-    CamInfoRow, CamNum, ConnectedCameraSyncState, DataAssocRow, FlydraFloatTimestampLocal,
-    HostClock, KalmanEstimatesRow, RawCamName, SyncFno, TextlogRow, TrackingParams,
-    TriggerClockInfoRow, Triggerbox, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
+    CamInfoRow, CamNum, ConnectedCameraSyncState, Data2dDistortedRowF32, DataAssocRow,
+    FlydraFloatTimestampLocal, HostClock, KalmanEstimatesRow, RawCamName, SyncFno, TextlogRow,
+    TrackingParams, TriggerClockInfoRow, Triggerbox,
 };
-pub use braid_types::{Data2dDistortedRow, Data2dDistortedRowF32};
 
 mod connected_camera_manager;
 pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
@@ -61,7 +55,7 @@ use crate::contiguous_stream::make_contiguous;
 use crate::frame_bundler::bundle_frames;
 pub use crate::frame_bundler::StreamItem;
 
-pub type MyFloat = braid_types::MyFloat; // todo: remove that this is public
+type MyFloat = braid_types::MyFloat;
 
 mod error;
 pub use error::{file_error, wrap_error, Error};
@@ -1075,7 +1069,7 @@ fn test_csv_nan() {
         let rdr = csv::Reader::from_reader(csv_buf.as_slice());
         let mut count = 0;
         for row in rdr.into_deserialize() {
-            let row: Data2dDistortedRow = row.unwrap();
+            let row: braid_types::Data2dDistortedRow = row.unwrap();
             count += 1;
             assert!(row.x.is_nan());
             assert!(row.y.is_nan());

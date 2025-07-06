@@ -2,9 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-pub use braid_types::{
-    CamInfoRow, CamNum, Data2dDistortedRow, KalmanEstimatesRow, TrackingParams,
-};
+use braid_types::{CamNum, TrackingParams};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BraidMetadata {

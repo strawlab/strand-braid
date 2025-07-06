@@ -7,11 +7,14 @@ use std::{
 use hdrhistogram::serialization::interval_log;
 use ordered_float::NotNan;
 
-use braid_types::{FlydraFloatTimestampLocal, HostClock, TextlogRow, TrackingParams, Triggerbox};
+use braid_types::{
+    CamInfoRow, CamNum, Data2dDistortedRow, FlydraFloatTimestampLocal, HostClock,
+    KalmanEstimatesRow, TextlogRow, TrackingParams, Triggerbox,
+};
 
 use braidz_types::{
-    BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, CamInfoRow, CamNum, Data2dDistortedRow,
-    Data2dSummary, HistogramSummary, KalmanEstimatesRow, KalmanEstimatesSummary,
+    BraidMetadata, BraidzSummary, CalibrationInfo, CamInfo, Data2dSummary, HistogramSummary,
+    KalmanEstimatesSummary,
 };
 
 use groupby::{AscendingGroupIter, BufferedSortIter, GroupedRows};

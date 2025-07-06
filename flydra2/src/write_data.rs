@@ -1,10 +1,19 @@
-use crate::*;
+use libflate::{finish::AutoFinishUnchecked, gzip::Encoder};
+use std::{io::Write, sync::Arc};
 use tracing::info;
 
-use std::io::Write;
-
 use braid_types::{
-    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    CamInfoRow, MyFloat, TextlogRow, TrackingParams, BRAID_SCHEMA, CAM_SETTINGS_DIRNAME,
+    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME, RECONSTRUCT_LATENCY_HLOG_FNAME,
+    REPROJECTION_DIST_HLOG_FNAME,
+};
+
+use braidz_types::BraidMetadata;
+
+use crate::{
+    finish_histogram, histogram_record, save_hlog, ConnectedCamerasManager, ExperimentInfoRow,
+    FrameDataAndPoints, HistogramWritingState, KalmanEstimateRecord, OrderingWriter, Result,
+    SaveToDiskMsg, StartSavingCsvConfig, TrackingParamsSaver,
 };
 
 struct WritingState {
@@ -733,20 +742,22 @@ mod test {
         let braidz_name = root.path().join("test.braidz");
 
         fn make_frame_data(i: u64) -> FrameDataAndPoints {
-            let synced_frame = SyncFno(i);
+            let synced_frame = braid_types::SyncFno(i);
             FrameDataAndPoints {
-                frame_data: FrameData {
+                frame_data: crate::FrameData {
                     block_id: None,
-                    cam_name: RawCamName::new("cam".to_string()),
-                    cam_num: CamNum(0),
-                    cam_received_timestamp: FlydraFloatTimestampLocal::from_f64(i as f64 + 0.123),
+                    cam_name: braid_types::RawCamName::new("cam".to_string()),
+                    cam_num: braid_types::CamNum(0),
+                    cam_received_timestamp: braid_types::FlydraFloatTimestampLocal::from_f64(
+                        i as f64 + 0.123,
+                    ),
                     device_timestamp: None,
                     synced_frame,
-                    tdpt: TimeDataPassthrough {
+                    tdpt: crate::TimeDataPassthrough {
                         frame: synced_frame,
                         timestamp: None,
                     },
-                    time_delta: SyncedFrameCount {
+                    time_delta: crate::SyncedFrameCount {
                         frame: synced_frame,
                     },
                     trigger_timestamp: None,
@@ -840,11 +851,11 @@ mod test {
                     i as f64 / num_rows as f64 * 100.0
                 );
             }
-            let actual: Data2dDistortedRow = row?;
+            let actual: braid_types::Data2dDistortedRow = row?;
             let mut expected_rows = make_frame_data(i as u64).into_save(save_empty_data2d);
             assert_eq!(expected_rows.len(), 1);
             let expected = expected_rows.pop().unwrap();
-            let actual: Data2dDistortedRowF32 = actual.into();
+            let actual: braid_types::Data2dDistortedRowF32 = actual.into();
             assert_eq!(actual.frame, expected.frame);
             count += 1;
         }
