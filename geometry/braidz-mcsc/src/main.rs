@@ -105,9 +105,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     let camid2camn_df = {
         // Read `cam_info.csv` to memory.
         let cursor = {
-            let data_fname = archive
-                .path_starter()
-                .join(braid_types::CAM_INFO_CSV_FNAME);
+            let data_fname = archive.path_starter().join(braid_types::CAM_INFO_CSV_FNAME);
             let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
             let mut buf = Vec::new();
             rdr.read_to_end(&mut buf)?;
@@ -592,7 +590,11 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                 cams0.push(cam_fixed.clone());
                 cams_by_name_ba.insert(
                     name.clone(),
-                    braid_mvg::Camera::new_from_cam_geom(mcsc_cam.width(), mcsc_cam.height(), cam_fixed)?,
+                    braid_mvg::Camera::new_from_cam_geom(
+                        mcsc_cam.width(),
+                        mcsc_cam.height(),
+                        cam_fixed,
+                    )?,
                 );
             }
             let start_ba_system = flydra_mvg::FlydraMultiCameraSystem::new(cams_by_name_ba, None);
