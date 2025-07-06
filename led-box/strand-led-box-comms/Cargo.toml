@@ -1,12 +1,16 @@
 [package]
 name = "strand-led-box-comms"
+description = "Communication protocol types for the Strand Camera LED Box device."
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/strawlab/strand-braid"
+keywords = ["strand-cam"]
 
 [dependencies]
 serde.workspace = true
-strand-cam-enum-iter = { path = "../../utils/strand-cam-enum-iter", optional = true }
+strand-cam-enum-iter = { workspace = true, optional = true }
 defmt = { version = "1.0.1", optional = true }
 
 [features]
@@ -14,3 +18,6 @@ std = ["strand-cam-enum-iter"]
 print-defmt = ["defmt"]
 
 default = ["std"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
