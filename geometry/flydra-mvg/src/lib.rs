@@ -268,8 +268,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
                         root_params,
                     );
                     panic!(
-                        "find_fastest_path_fermat {} with parameters: {:?}",
-                        e, root_params,
+                        "find_fastest_path_fermat {e} with parameters: {root_params:?}",
                     );
                 }
             };
@@ -612,7 +611,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
 
     /// Find 3D coordinate using pixel coordinates from cameras
     fn find3d_air(&self, points: &[(String, UndistortedPixel<R>)]) -> Result<PointWorldFrame<R>> {
-        Ok(self.system.find3d(points).map_err(braid_mvg::MvgError::from)?)
+        Ok(self.system.find3d(points)?)
     }
 
     /// Find reprojection error of 3D coordinate into pixel coordinates

@@ -85,16 +85,16 @@ where
     let v: Result<Vec<String>, serde_xml_rs::Error> =
         recon.cameras.iter().map(serde_xml_rs::to_string).collect();
     let v: Vec<String> = v?;
-    let v_indented: Vec<String> = v.iter().map(|s| format!("    {}", s)).collect();
+    let v_indented: Vec<String> = v.iter().map(|s| format!("    {s}")).collect();
     let cams_buf = v_indented.join("\n");
 
     let mut v = vec!["<multi_camera_reconstructor>".to_string()];
     v.push(cams_buf);
     if let Some(ref w) = recon.water {
-        v.push(format!("    <water>{}</water>", w));
+        v.push(format!("    <water>{w}</water>"));
     }
     if let Some(ref c) = recon.comment {
-        v.push(format!("    <comment>{}</comment>", c));
+        v.push(format!("    <comment>{c}</comment>"));
     }
     v.push("</multi_camera_reconstructor>\n".to_string());
     let buf = v.join("\n");

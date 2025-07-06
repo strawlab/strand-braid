@@ -186,7 +186,7 @@ fn test_simple_flydra_xml() {
     for (cam_name, expected) in points_orig.iter() {
         let cam = cams.cam_by_name(cam_name).unwrap();
         let actual = cam.project_3d_to_distorted_pixel(&pt);
-        println!("{}: actual {:?}, expected {:?}", cam_name, actual, expected);
+        println!("{cam_name}: actual {actual:?}, expected {expected:?}");
         assert_relative_eq!(actual.coords, expected.coords, max_relative = 1e-5);
     }
 
