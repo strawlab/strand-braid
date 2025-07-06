@@ -72,7 +72,7 @@ where
             CatchingUp((diff, item)) => {
                 let item_number = item.number();
 
-                let previous = { this.previous.as_mut().take().unwrap() };
+                let previous = this.previous.as_mut().unwrap();
 
                 if diff == 1 {
                     // The new item is already contiguous.

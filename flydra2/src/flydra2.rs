@@ -860,7 +860,7 @@ impl CoordProcessor {
                         // any case, if we are getting frame numbers like this,
                         // clearly we cannot track anymore, so panicing here
                         // only raises the issue slightly earlier.
-                        panic!("Impossible frame number with frame data {:?}", fdp);
+                        panic!("Impossible frame number with frame data {fdp:?}");
                     }
 
                     self.braidz_write_tx

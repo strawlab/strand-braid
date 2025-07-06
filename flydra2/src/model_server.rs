@@ -277,7 +277,7 @@ pub async fn new_model_server(
                             }
                             (SendType::Death(obj_id), _tdpt) => {
                                 // log end of trajectory - indicate there are no more data for this obj_id
-                                let obj_id = format!("/obj/{}", obj_id);
+                                let obj_id = format!("/obj/{obj_id}");
                                 let empty_position: [(f32, f32, f32); 0] = [];
                                 rec.log(
                                     obj_id,
@@ -355,7 +355,7 @@ fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {
     // Serialize to JSON.
     let buf = serde_json::to_string(&data).unwrap();
     // Encode as event source.
-    let buf = format!("event: braid\ndata: {}\n\n", buf);
+    let buf = format!("event: braid\ndata: {buf}\n\n");
     buf
 }
 

@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
 
     let model_server_future = new_model_server(data_rx, addr);
 
-    tokio::spawn(async { model_server_future.await });
+    tokio::spawn(model_server_future);
 
     let starti = Instant::now();
 

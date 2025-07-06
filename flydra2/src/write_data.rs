@@ -185,7 +185,7 @@ impl WritingState {
                 if let Some(data) = &cam.feature_detect_settings {
                     let buf = toml::to_vec(&data.current_feature_detect_settings)?;
                     let fname = format!("{}.toml", raw_cam_name.as_str());
-                    let fullpath = feature_detect_settings_path.clone().join(fname);
+                    let fullpath = feature_detect_settings_path.join(fname);
                     let mut fd = std::fs::File::create(&fullpath)?;
                     fd.write_all(&buf)?;
                 }
@@ -224,12 +224,12 @@ impl WritingState {
                     let offset = local_datetime.offset();
                     use chrono::offset::Offset;
                     let offset_secs = offset.fix().local_minus_utc();
-                    ("UTC_offset_secs", format!("{}", offset_secs))
+                    ("UTC_offset_secs", format!("{offset_secs}"))
                 }
             };
 
             let fps = match fps {
-                Some(fps) => format!("{}", fps),
+                Some(fps) => format!("{fps}"),
                 None => "unknown".to_string(),
             };
             let version = "2.0.0";
