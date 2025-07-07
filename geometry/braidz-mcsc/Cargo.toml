@@ -7,7 +7,7 @@ edition = "2021"
 clap.workspace = true
 eyre.workspace = true
 tracing.workspace = true
-polars = { version = "0.46", default-features = false, features = [
+polars = { version = "0.49.1", default-features = false, features = [
     "dtype-u8",
     "fmt",
     "lazy",
@@ -15,7 +15,7 @@ polars = { version = "0.46", default-features = false, features = [
     "polars-io",
     "serde",
 ] }
-polars-io = { version = "0.46", default-features = false, features = ["csv"] }
+polars-io = { version = "0.49.1", default-features = false, features = ["csv"] }
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 tempfile.workspace = true
