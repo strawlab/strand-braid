@@ -40,6 +40,10 @@ test_crates:
     - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
     - cargo test --release
 
+    # Check that video2rrd compiles
+    - cd $CI_PROJECT_DIR/media-utils/video2rrd
+    - cargo check
+
     # Test ads-apriltag
     - cd $CI_PROJECT_DIR/ads-apriltag
     - cargo test --release
