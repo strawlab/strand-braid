@@ -63,13 +63,15 @@ fn to_rr_image(
     };
 
     let to_save = if let Some(undist_cache) = undist_cache {
-        undistort_image::undistort_image(decoded, &undist_cache)?
+        undistort_image::undistort_image(decoded.borrow(), &undist_cache)?
     } else {
         decoded
     };
 
     // jpeg compression TODO: give option to save uncompressed?
-    let contents = to_save.to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
+    let contents = to_save
+        .borrow()
+        .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
     Ok(re_types::archetypes::EncodedImage::from_file_contents(
         contents,
     ))
