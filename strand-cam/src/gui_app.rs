@@ -1,18 +1,15 @@
 use eframe::egui::{self, Color32, ColorImage, TextureHandle, TextureOptions};
 use machine_vision_formats::{pixel_format::Mono8, ImageData};
 
-use std::sync::{
-    mpsc::{Receiver, Sender},
-    Arc,
-};
+use std::sync::{mpsc::Sender, Arc};
 
-pub(crate) type ImType = machine_vision_formats::owned::OImage<Mono8>;
+pub(crate) type ImType = Arc<strand_dynamic_frame::DynamicFrameOwned>;
 
 pub struct StrandCamEguiApp {
     cmd_tx: tokio::sync::mpsc::Sender<()>,
     gui_singleton: crate::ArcMutGuiSingleton,
     version_string: String,
-    frame_rx: Receiver<ImType>,
+    frame_rx: tokio::sync::watch::Receiver<ImType>,
     egui_ctx_tx: Option<Sender<egui::Context>>,
     screen_texture: Option<TextureHandle>,
 }
@@ -22,7 +19,7 @@ impl StrandCamEguiApp {
         cmd_tx: tokio::sync::mpsc::Sender<()>,
         cc: &eframe::CreationContext<'_>,
         gui_singleton: crate::ArcMutGuiSingleton,
-        frame_rx: Receiver<ImType>,
+        frame_rx: tokio::sync::watch::Receiver<ImType>,
         egui_ctx_tx: Sender<egui::Context>,
     ) -> Self {
         {
@@ -94,10 +91,12 @@ impl eframe::App for StrandCamEguiApp {
         }
 
         let mut do_exit = false;
-        match frame_rx.try_recv() {
-            Ok(wrapped) => {
-                let w = wrapped.width();
-                let h = wrapped.height();
+        match frame_rx.has_changed() {
+            Ok(true) => {
+                let arc_dynamic_owned = frame_rx.borrow_and_update();
+                let dy_ref = arc_dynamic_owned.borrow();
+                let w = dy_ref.width();
+                let h = dy_ref.height();
                 let screen_texture = screen_texture.get_or_insert_with(|| {
                     ctx.load_texture(
                         "screen",
@@ -109,18 +108,23 @@ impl eframe::App for StrandCamEguiApp {
                     )
                 });
 
-                let buf: Vec<u8> = wrapped.into();
-                screen_texture.set(
-                    ColorImage::from_gray([w as usize, h as usize], &buf),
-                    TextureOptions::default(),
-                );
+                if let Some(mono8_im) = dy_ref.as_static::<Mono8>() {
+                    screen_texture.set(
+                        ColorImage::from_gray([w as usize, h as usize], mono8_im.image_data()),
+                        TextureOptions::default(),
+                    );
+                } else {
+                    tracing::error!(
+                        "Received frame with unsupported pixel format: {:?}",
+                        dy_ref.pixel_format()
+                    );
+                }
             }
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                // sender hung up
+            Ok(false) => {}
+            Err(_recv_err) => {
                 tracing::error!("Camera thread disconnected");
                 do_exit = true;
             }
-            Err(std::sync::mpsc::TryRecvError::Empty) => {}
         };
 
         egui::CentralPanel::default().show(ctx, |ui| {

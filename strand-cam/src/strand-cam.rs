@@ -934,7 +934,11 @@ where
         let gui_singleton = Arc::new(std::sync::Mutex::new(GuiShared::default()));
         let gui_singleton2 = gui_singleton.clone();
 
-        let (frame_tx, frame_rx) = std::sync::mpsc::sync_channel(5);
+        let (frame_tx, frame_rx) = tokio::sync::watch::channel(Arc::new(
+            strand_dynamic_frame::DynamicFrameOwned::from_static(
+                formats::owned::OImage::<formats::pixel_format::Mono8>::zeros(0, 0, 0).unwrap(),
+            ),
+        ));
         let (egui_ctx_tx, egui_ctx_rx) = std::sync::mpsc::channel();
 
         let gui_app_stuff = Some(GuiAppStuff {
@@ -1003,7 +1007,7 @@ where
 struct GuiAppStuff {
     quit_rx: tokio::sync::mpsc::Receiver<()>,
     #[cfg(feature = "eframe-gui")]
-    frame_tx: std::sync::mpsc::SyncSender<gui_app::ImType>,
+    frame_tx: tokio::sync::watch::Sender<gui_app::ImType>,
     #[cfg(feature = "eframe-gui")]
     egui_ctx_rx: std::sync::mpsc::Receiver<eframe::egui::Context>,
 }
@@ -2216,13 +2220,15 @@ where
             while let Some(frame_msg) = frame_stream.next().await {
                 match &frame_msg {
                     ci2_async::FrameResult::Frame(fframe) => {
-                        let frame: &DynamicFrame = &fframe.image.borrow();
-                        trace!(
-                            "  got frame {}: {}x{}",
-                            fframe.host_timing.fno,
-                            frame.width(),
-                            frame.height()
-                        );
+                        {
+                            let frame: &DynamicFrame = &fframe.image.borrow();
+                            trace!(
+                                "  got frame {}: {}x{}",
+                                fframe.host_timing.fno,
+                                frame.width(),
+                                frame.height()
+                            );
+                        }
 
                         #[cfg(not(feature = "eframe-gui"))]
                         let _ = gui_stuff2.as_ref();
@@ -2230,23 +2236,15 @@ where
                         #[cfg(feature = "eframe-gui")]
                         {
                             if let Some((gui_frame_tx, egui_ctx)) = gui_stuff2.as_ref() {
-                                if let Some(mono8_frame) =
-                                    frame.as_static::<formats::pixel_format::Mono8>()
-                                {
-                                    let oimage = formats::owned::OImage::copy_from(&mono8_frame);
-                                    match gui_frame_tx.try_send(oimage) {
-                                        Ok(()) => {
-                                            egui_ctx.request_repaint();
-                                        }
-                                        Err(std::sync::mpsc::TrySendError::Full(_)) => {
-                                            tracing::warn!("channel full sending frame to GUI");
-                                        }
-                                        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => {
-                                            eyre::bail!("GUI disconnected");
-                                        }
+                                let arc_clone = fframe.image.clone(); // copy pointer and increment refcount
+
+                                match gui_frame_tx.send(arc_clone) {
+                                    Ok(()) => {
+                                        egui_ctx.request_repaint();
                                     }
-                                } else {
-                                    tracing::warn!("only MONO8 currently supported to send to GUI");
+                                    Err(_arc_clone) => {
+                                        eyre::bail!("GUI disconnected");
+                                    }
                                 }
                             }
                         }
