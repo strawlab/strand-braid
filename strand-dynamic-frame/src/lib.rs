@@ -338,6 +338,24 @@ impl DynamicFrameOwned {
     }
 
     /// Moves the `DynamicFrameOwned` into a static pixel format.
+    ///
+    /// If the requested pixel format matches the current format, this method
+    /// returns an [`formats::owned::OImage`] that owns the data without
+    /// copying. Otherwise, it returns `None` since the data cannot be moved to
+    /// a static format.
+    ///
+    /// To convert to a static format when the target format may not match the
+    /// current format, use [`Self::into_pixel_format<FMT>()`] (requires the
+    /// `convert-image` feature).
+    ///
+    /// # Type Parameters
+    /// * `FMT` - The target pixel format type
+    ///
+    /// # Returns
+    /// * `Some(OImage<FMT>)` - If the target format matches the current format,
+    ///   returns an owned image in the specified format
+    /// * `None` - If the target format does not match the current format
+    ///
     #[must_use]
     pub fn as_static<FMT: PixelFormat>(self) -> Option<formats::owned::OImage<FMT>> {
         let pixfmt = formats::pixel_format::pixfmt::<FMT>().unwrap();
@@ -362,11 +380,16 @@ impl DynamicFrameOwned {
     /// new owned image is returned. In both cases, the original image data is
     /// consumed.
     ///
+    /// To move the data to a specified pixel format while excluding the
+    /// possibility of converting the format in case the requested format does
+    /// not match the current format, use [`Self::as_static<FMT>()`].
+    ///
     /// # Type Parameters
     /// * `FMT` - The target pixel format type
     ///
     /// # Returns
-    /// * `Ok(OImage<FMT>)` - If conversion is successful, returns an owned image in the specified format
+    /// * `Ok(OImage<FMT>)` - If conversion is successful, returns an owned
+    ///   image in the specified format
     /// * `Err(convert_image::Error)` - If conversion fails
     ///
     /// # Examples

@@ -25,7 +25,7 @@ using the [`convert_image`](https://docs.rs/convert-image) crate.
 
 Build and open the docs with:
 
-    RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly  doc --features convert-image --open
+    RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly doc --all-features --open
 
 ## License
 
