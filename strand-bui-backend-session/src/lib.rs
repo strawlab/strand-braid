@@ -135,9 +135,8 @@ pub async fn create_session(
     jar: Arc<RwLock<cookie_store::CookieStore>>,
 ) -> Result<HttpSession, Error> {
     let base_uri = format!("http://{}/", server_info.addr());
-    let token = server_info.token().clone();
     let mut base = HttpSession::new(&base_uri, jar);
-    base.get_with_token("", token).await?;
+    base.get_with_token("", server_info.token()).await?;
     Ok(base)
 }
 
@@ -171,7 +170,7 @@ impl HttpSession {
     /// # Returns
     ///
     /// A complete URI ready for making HTTP requests.
-    fn get_rel_uri(&self, rel: &str, token: Option<AccessToken>) -> hyper::Uri {
+    fn get_rel_uri(&self, rel: &str, token: Option<&AccessToken>) -> hyper::Uri {
         let token = if let Some(tok1) = token {
             match tok1 {
                 AccessToken::NoToken => None,
@@ -210,7 +209,7 @@ impl HttpSession {
     async fn inner_req(
         &mut self,
         rel: &str,
-        token: Option<AccessToken>,
+        token: Option<&AccessToken>,
         accepts: &[HeaderValue],
         method: http::Method,
         body: axum::body::Body,
@@ -293,7 +292,7 @@ impl HttpSession {
     async fn get_with_token(
         &mut self,
         rel: &str,
-        token: AccessToken,
+        token: &AccessToken,
     ) -> Result<hyper::Response<hyper::body::Incoming>, Error> {
         self.inner_req(
             rel,
