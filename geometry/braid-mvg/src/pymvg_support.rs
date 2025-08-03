@@ -113,10 +113,10 @@ mod array_of_arrays {
             .as_array()
             .ok_or_else(|| serde::de::Error::custom("expected array"))?;
 
-        if rows.len() != ROWS::USIZE {
+        if rows.len() != ROWS::DIM {
             return Err(serde::de::Error::custom(format!(
                 "expected {} rows, found {}",
-                ROWS::USIZE,
+                ROWS::DIM,
                 rows.len()
             )));
         }

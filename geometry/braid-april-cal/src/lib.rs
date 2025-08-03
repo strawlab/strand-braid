@@ -350,12 +350,18 @@ fn run_sqpnp<'a>(
     if solver.solve(&p3ds, &p2ds, None) {
         let solution = solver.best_solution().unwrap();
         let r = solution.rotation_matrix();
-        let r: nalgebra::SMatrix<f64, 3, 3> = r.as_dmat3().into();
+        // Convert from glam 0.29 (nalgebra 0.33) to nalgebra 0.34. Waiting for
+        // https://github.com/ricky26/sqpnp-rs/pull/2
+        let r = {
+            let row_data = r.as_dmat3().transpose().to_cols_array();
+            nalgebra::SMatrix::<f64, 3, 3>::from_row_slice(&row_data)
+        };
+        // let r: nalgebra::SMatrix<f64, 3, 3> = r.as_dmat3().into();
         let t = solution.translation();
 
         let extrin = {
             let rotation = nalgebra::UnitQuaternion::from_rotation_matrix(
-                &nalgebra::Rotation3::from_matrix_unchecked(r),
+                &nalgebra::Rotation3::from_matrix(&r),
             );
             let translation = nalgebra::Translation::from(nalgebra::Vector3::new(
                 t.x as f64, t.y as f64, t.z as f64,
