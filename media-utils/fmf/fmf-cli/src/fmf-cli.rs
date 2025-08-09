@@ -207,25 +207,6 @@ impl std::str::FromStr for Codec {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Autocrop {
-    None,
-    Even,
-    Mod16,
-}
-
-impl std::str::FromStr for Autocrop {
-    type Err = &'static str;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "None" | "none" => Ok(Autocrop::None),
-            "Even" | "even" => Ok(Autocrop::Even),
-            "Mod16" | "mod16" => Ok(Autocrop::Mod16),
-            _ => Err("unknown autocrop"),
-        }
-    }
-}
-
 /// convert None into default name, convert "-" into None (for stdout)
 fn default_filename(path: &Path, output: Option<PathBuf>, ext: &str) -> Option<PathBuf> {
     match output {
@@ -378,84 +359,6 @@ fn export_images(path: PathBuf, opts: EncoderOptions) -> Result<()> {
     }
     Ok(())
 }
-
-// fn do_autocrop(w: usize, h: usize, autocrop: Autocrop) -> (usize,usize) {
-//     match autocrop {
-//         Autocrop::None => (w,h),
-//         Autocrop::Even => ((w/2)*2,h),
-//         Autocrop::Mod16 => ((w/16)*16,(h/16)*16),
-//     }
-// }
-
-// fn encode_bgr24_frame( frame: fmf::DynamicFrame, autocrop: Autocrop ) -> fmf::FMFResult<Vec<u8>> {
-//     use PixFmt::*;
-
-//     // convert bayer formats
-//     let frame: ConvertImageFrame = match frame.pixel_format() {
-//         BayerRG8 | BayerGB8 | BayerGR8 | BayerBG8 => {
-//             convert_image::bayer_to_rgb(&frame).unwrap()
-//         }
-//         _ => {
-//             frame.into()
-//         }
-//     };
-
-//     match frame.pixel_format() {
-//         // MONO8 => {
-//         //     // Should we set RGB each to mono? Or use conversion YUV to RGB?
-//         //     unimplemented!();
-//         // }
-//         RGB8 => {
-//             let w = frame.width() as usize;
-//             let h = frame.height() as usize;
-//             let (w,h) = do_autocrop(w,h,autocrop);
-//             let mut buf: Vec<u8> = Vec::with_capacity(w*h*3);
-//             for i in 0..h {
-//                 let rowidx = i*frame.stride();
-//                 for j in 0..w {
-//                     let colidx = j*3;
-//                     let start = rowidx + colidx;
-//                     let stop = start+3;
-//                     let rgb = &frame.image_data()[start..stop];
-//                     let b = rgb[2];
-//                     let g = rgb[1];
-//                     let r = rgb[0];
-//                     buf.push(b);
-//                     buf.push(g);
-//                     buf.push(r);
-//                 }
-//             }
-//             Ok(buf)
-//         }
-//         fmt => {
-//             Err(fmf::FMFError::UnimplementedPixelFormat(fmt))
-//         }
-//     }
-// }
-
-// fn export_bgr24(x: ExportBgr24) -> Result<()> {
-//     use std::io::Write;
-
-//     let output_fname = default_filename(&x.input, x.output, "bgr24");
-
-//     let reader = fmf::FMFReader::new(&x.input)?;
-//     let (w,h) = do_autocrop(reader.width() as usize, reader.height() as usize, x.autocrop);
-
-//     info!("exporting {} ({}x{}) to {}", x.input.display(), w, h,
-//         display_filename(&output_fname, "<stdout>").display());
-
-//     let mut out_fd: Box<dyn Write> = match output_fname {
-//         None => Box::new(std::io::stdout()),
-//         Some(path) => Box::new(std::fs::File::create(&path)?),
-//     };
-
-//     for frame in reader {
-//         let buf = encode_bgr24_frame( frame, x.autocrop )?;
-//         out_fd.write_all(&buf)?;
-//     }
-//     out_fd.flush()?;
-//     Ok(())
-// }
 
 fn export_mp4(x: ExportMp4) -> Result<()> {
     // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
