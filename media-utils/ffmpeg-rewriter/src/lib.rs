@@ -67,7 +67,12 @@ impl FfmpegReWriter {
             return Err(Error::FilenameDoesNotEndWithMp4);
         };
 
-        let srt_file_path = format!("{basename}.srt");
+        // Choose filename that makes conflict unlikely if the user also writes
+        // an SRT file. They are likely to use "{basename}.srt" as this will
+        // then play in VLC and likely other players. As this SRT file is only
+        // temporary, it doesn't matter much what exactly it is called, but it
+        // shouldn't have a high likelihood of conflict.
+        let srt_file_path = format!("{basename}-ffmpeg-rewriter.srt");
         let json_file_path = if let Some(h264_metadata) = &h264_metadata {
             // Save the metadata to a file in case we crash before
             // Self::close(). That way this information can be recovered.
