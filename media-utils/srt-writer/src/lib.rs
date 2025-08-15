@@ -75,7 +75,7 @@ impl BufferingSrtFrameWriter {
     pub fn add_frame(&mut self, pts: Duration, val: String) -> Result<()> {
         if let Some((prev_pts, prev_value)) = self.prev.take() {
             // write buffered value
-            self.srt_wtr.append(prev_pts, pts, &prev_value).unwrap()
+            self.srt_wtr.append(prev_pts, pts, &prev_value)?;
         }
         // store current value
         self.prev = Some((pts, val));
