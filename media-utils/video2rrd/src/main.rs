@@ -20,6 +20,10 @@ struct Opt {
     #[arg(short, long)]
     entity_path: Option<String>,
 
+    /// If true, connect directly to rerun using GRPC rather than saving an output file.
+    #[arg(short, long)]
+    connect: bool,
+
     /// Output rrd filename. Defaults to "<INPUT>.rrd"
     #[arg(short, long)]
     output: Option<PathBuf>,
@@ -112,14 +116,6 @@ fn main() -> eyre::Result<()> {
     env_tracing_logger::init();
     let opt = Opt::parse();
 
-    let output = opt.output;
-
-    let output = output.unwrap_or_else(|| {
-        let mut output = opt.input.as_os_str().to_owned();
-        output.push(".rrd");
-        output.into()
-    });
-
     let mut src = frame_source::FrameSourceBuilder::new(&opt.input).build_source()?;
 
     let entity_path = if let Some(p) = opt.entity_path.as_ref() {
@@ -178,10 +174,30 @@ fn main() -> eyre::Result<()> {
         rec_builder = rec_builder.recording_id(recording_id);
     }
 
-    let rec = rec_builder
-        .save(&output)
-        .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
-    let delete_if_dropped = DeleteIfDropped::new(output);
+    let output = match (opt.output, opt.connect) {
+        (Some(output), false) => Some(output),
+        (None, false) => {
+            let mut output = opt.input.as_os_str().to_owned();
+            output.push(".rrd");
+            let output: PathBuf = output.into();
+            Some(output)
+        }
+        (Some(_output), true) => {
+            eyre::bail!("Cannot specify output file when connecting directly to rerun.");
+        }
+        (None, true) => None,
+    };
+
+    let (rec, delete_if_dropped) = if opt.connect {
+        (rec_builder.connect_grpc()?, None)
+    } else {
+        let output = output.unwrap();
+        let rec = rec_builder
+            .save(&output)
+            .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
+        let delete_if_dropped = DeleteIfDropped::new(output);
+        (rec, Some(delete_if_dropped))
+    };
 
     let src_iter = src.iter();
 
@@ -256,6 +272,8 @@ fn main() -> eyre::Result<()> {
         pb.finish_and_clear();
     }
 
-    delete_if_dropped.keep_file();
+    if let Some(delete_if_dropped) = delete_if_dropped {
+        delete_if_dropped.keep_file();
+    }
     Ok(())
 }
