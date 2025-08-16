@@ -20,11 +20,13 @@ struct Opt {
     #[arg(short, long)]
     entity_path: Option<String>,
 
-    /// If true, connect directly to rerun using GRPC rather than saving an output file.
+    /// If true, connect directly to rerun viewer using GRPC rather than saving an output file.
     #[arg(short, long)]
     connect: bool,
 
-    /// Output rrd filename. Defaults to "<INPUT>.rrd"
+    /// Output rrd filename. Defaults to "<INPUT>.rrd".
+    ///
+    /// This must not be used with --connect.
     #[arg(short, long)]
     output: Option<PathBuf>,
 
