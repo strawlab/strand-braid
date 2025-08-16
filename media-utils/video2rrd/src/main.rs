@@ -159,6 +159,8 @@ fn main() -> eyre::Result<()> {
         .do_decode_h264(do_decode_h264)
         .build_source()?;
 
+    let re_version = re_sdk::build_info().version;
+    tracing::info!("Rerun version: {re_version}");
     tracing::info!("Frame size: {}x{}", src.width(), src.height());
 
     let start_time = if let Some(t) = opt.start_time.as_ref() {
