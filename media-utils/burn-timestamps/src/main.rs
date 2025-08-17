@@ -10,29 +10,6 @@ use rusttype::Font;
 
 use font_drawing::stamp_frame;
 
-// trait DisplayTimestamp {
-//     fn to_display(&self) -> String;
-// }
-
-// impl DisplayTimestamp for frame_source::Timestamp {
-//     fn to_display(&self) -> String {
-//         match self {
-//             frame_source::Timestamp::Duration(dur) => {
-//                 format!("{:9.1}ms", dur.as_secs_f64() * 1000.0)
-//             }
-//             frame_source::Timestamp::Fraction(frac) => {
-//                 format!("{:2.1}%", frac * 100.0)
-//             }
-//         }
-//     }
-// }
-
-// impl DisplayTimestamp for std::time::Duration {
-//     fn to_display(&self) -> String {
-//         frame_source::Timestamp::Duration(*self).to_display()
-//     }
-// }
-
 // TODO: define SrtMsg only once in this codebase.
 #[derive(Serialize, Deserialize)]
 struct SrtMsg {
@@ -86,7 +63,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Load the font
-    // let font_data = include_bytes!("../Roboto-Regular.ttf");
     let font_data = ttf_firacode::REGULAR;
     // This only succeeds if collection consists of one font
     let font = Font::try_from_bytes(font_data as &[u8]).expect("Error constructing Font");
