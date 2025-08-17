@@ -159,6 +159,10 @@ test_crates_rust_stable:
     # First test the crates which do not require packages from the apt
     # repository.
 
+    # Test media-utils/burn-timestamps
+    - cd $CI_PROJECT_DIR/media-utils/burn-timestamps
+    - cargo test
+
     # Test media-utils/show-timestamps
     - cd $CI_PROJECT_DIR/media-utils/show-timestamps
     - cargo test

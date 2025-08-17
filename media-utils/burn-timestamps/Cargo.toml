@@ -1,0 +1,25 @@
+[package]
+name = "burn-timestamps"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+eyre.workspace = true
+chrono.workspace = true
+indicatif.workspace = true
+camino.workspace = true
+tracing.workspace = true
+rusttype.workspace = true
+ttf-firacode.workspace = true
+image.workspace = true
+machine-vision-formats.workspace = true
+
+strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
+font-drawing.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
+env-tracing-logger.workspace = true
+strand-datetime-conversion.workspace = true
+ffmpeg-writer.workspace = true
