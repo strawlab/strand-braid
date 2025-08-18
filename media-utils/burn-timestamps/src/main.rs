@@ -106,7 +106,7 @@ fn main() -> Result<()> {
     }
 
     let mut ffmpeg_wtr =
-        ffmpeg_writer::FfmpegWriter::new(cli.output.as_str(), Default::default(), None)?;
+        ffmpeg_rewriter::FfmpegReWriter::new(cli.output.as_str(), Default::default(), None, None)?;
 
     let mut pb: Option<ProgressBar> = if !cli.no_progress {
         let (lower_bound, _upper_bound) = src.iter().size_hint();
@@ -133,24 +133,25 @@ fn main() -> Result<()> {
             eyre::bail!("Frame {idx} has no decoded image data.",);
         };
 
-        let text = match frame.timestamp() {
-            frame_source::Timestamp::Duration(dur) => {
-                format!(
-                    "{}",
-                    (t0 + dur).to_rfc3339_opts(chrono::format::SecondsFormat::Millis, true)
-                )
-            }
-            frame_source::Timestamp::Fraction(frac) => {
-                format!("{:2.1}%", frac * 100.0)
+        let dur = match frame.timestamp() {
+            frame_source::Timestamp::Duration(dur) => dur,
+            _ => {
+                eyre::bail!("Expected duration timestamp");
             }
         };
+        let ts = t0 + dur;
+
+        let text = format!(
+            "{}",
+            ts.to_rfc3339_opts(chrono::format::SecondsFormat::Millis, true)
+        );
 
         let mut frame_rgb8 = im.into_pixel_format()?.owned();
         stamp_frame(&mut frame_rgb8, &font, &text)?;
 
         let dy_im = strand_dynamic_frame::DynamicFrame::from_static_ref(&frame_rgb8);
 
-        ffmpeg_wtr.write_dynamic_frame(&dy_im)?;
+        ffmpeg_wtr.write_dynamic_frame(&dy_im, ts)?;
     }
 
     ffmpeg_wtr.close()?;
