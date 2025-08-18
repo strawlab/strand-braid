@@ -49,11 +49,17 @@ fn parse_duration(input: &mut &BStr) -> ModalResult<Duration> {
 
 #[rustfmt::skip]
 #[derive(Debug)]
-pub(crate) struct Stanza {
+pub struct Stanza {
     pub(crate) _count: usize,
     pub(crate) _start: std::time::Duration,
     pub(crate) _stop: std::time::Duration,
     pub(crate) lines: String,
+}
+
+impl Stanza {
+    pub fn lines(&self) -> &str {
+        &self.lines
+    }
 }
 
 fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
@@ -114,7 +120,7 @@ fn parse_stanzas(input: &mut &BStr) -> ModalResult<Vec<Stanza>> {
     .parse_next(input)
 }
 
-pub(crate) fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
+pub fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
     let mut fd = std::fs::File::open(p)?;
     let mut buf = Vec::new();
     fd.read_to_end(&mut buf)?;

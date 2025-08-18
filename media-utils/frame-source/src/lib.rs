@@ -11,7 +11,7 @@ mod h264_annexb_splitter;
 pub mod h264_source;
 pub mod mp4_source;
 mod opt_openh264_decoder;
-mod srt_reader;
+pub mod srt_reader;
 pub mod strand_cam_mkv_source;
 
 mod ntp_timestamp;
