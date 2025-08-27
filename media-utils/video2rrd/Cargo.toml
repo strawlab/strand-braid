@@ -5,6 +5,7 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
+camino.workspace = true
 clap.workspace = true
 serde_yaml.workspace = true
 eyre.workspace = true

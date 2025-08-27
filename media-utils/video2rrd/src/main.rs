@@ -1,7 +1,6 @@
 use clap::Parser;
 use eyre::{self, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::path::PathBuf;
 
 use frame_source::{ImageData, Timestamp};
 
@@ -10,7 +9,7 @@ use frame_source::{ImageData, Timestamp};
 struct Opt {
     /// Input video filename.
     #[arg(short, long)]
-    input: PathBuf,
+    input: camino::Utf8PathBuf,
 
     /// Recording ID
     #[arg(short, long)]
@@ -28,7 +27,7 @@ struct Opt {
     ///
     /// This must not be used with --connect.
     #[arg(short, long)]
-    output: Option<PathBuf>,
+    output: Option<camino::Utf8PathBuf>,
 
     /// Start time of the video. By default, this will be read from the video itself.
     #[arg(short, long)]
@@ -86,7 +85,7 @@ fn to_rr_image(
 /// [Self::keep_file] is not called, the file will be automatically deleted when
 /// this goes out of scope.
 struct DeleteIfDropped {
-    fname: Option<PathBuf>,
+    fname: Option<camino::Utf8PathBuf>,
 }
 
 impl Drop for DeleteIfDropped {
@@ -98,7 +97,7 @@ impl Drop for DeleteIfDropped {
 }
 
 impl DeleteIfDropped {
-    fn new(fname: PathBuf) -> Self {
+    fn new(fname: camino::Utf8PathBuf) -> Self {
         Self { fname: Some(fname) }
     }
 
@@ -122,14 +121,7 @@ fn main() -> eyre::Result<()> {
         p.clone()
     } else {
         // get just the filename part
-        let movie_filename = opt
-            .input
-            .file_name()
-            .unwrap()
-            .to_os_string()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let movie_filename = opt.input.file_name().unwrap().to_string();
         movie_filename
     };
 
@@ -188,7 +180,7 @@ fn main() -> eyre::Result<()> {
         (None, false) => {
             let mut output = opt.input.as_os_str().to_owned();
             output.push(".rrd");
-            let output: PathBuf = output.into();
+            let output = camino::Utf8PathBuf::from_os_string(output).unwrap();
             Some(output)
         }
         (Some(_output), true) => {
@@ -197,13 +189,14 @@ fn main() -> eyre::Result<()> {
         (None, true) => None,
     };
 
-    let (rec, delete_if_dropped) = if opt.connect {
+    let (rec, drop_guard) = if opt.connect {
         (rec_builder.connect_grpc()?, None)
     } else {
         let output = output.unwrap();
         let rec = rec_builder
             .save(&output)
-            .wrap_err_with(|| format!("Creating output file {}", output.display()))?;
+            .wrap_err_with(|| format!("Creating output file {output}"))?;
+        tracing::info!("Saving output to {output}");
         let delete_if_dropped = DeleteIfDropped::new(output);
         (rec, Some(delete_if_dropped))
     };
@@ -232,6 +225,16 @@ fn main() -> eyre::Result<()> {
     } else {
         None
     };
+
+    if undist_cache.is_some() {
+        if opt.connect {
+            tracing::info!("Reading timestamps, converting images, and sending to rerun");
+        } else {
+            tracing::info!("Reading timestamps, converting images, and saving to RRD");
+        }
+    } else {
+        tracing::info!("Reading timestamps");
+    }
 
     let mut absolute_timestamps = Vec::new();
     for (fno, frame) in src_iter.enumerate() {
@@ -288,6 +291,11 @@ fn main() -> eyre::Result<()> {
     }
 
     if undist_cache.is_none() {
+        if opt.connect {
+            tracing::info!("Sending video to rerun");
+        } else {
+            tracing::info!("Saving video to RRD");
+        }
         let video_asset = re_types::archetypes::AssetVideo::from_file_path(&opt.input).unwrap();
         rec.log_static(entity_path.as_str(), &video_asset)?;
         let frame_timestamps_nanos =
@@ -309,7 +317,7 @@ fn main() -> eyre::Result<()> {
         )?;
     }
 
-    if let Some(delete_if_dropped) = delete_if_dropped {
+    if let Some(delete_if_dropped) = drop_guard {
         delete_if_dropped.keep_file();
     }
     Ok(())

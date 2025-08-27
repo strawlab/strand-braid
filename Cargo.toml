@@ -145,7 +145,7 @@ base64 = "0.12"
 byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.16", features = ["serde-serialize"] }
-camino = "1.1.9"
+camino = "1.1.12"
 cast = { version = "0.3", features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4.3", features = ["derive", "env", "string"] }
