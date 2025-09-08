@@ -26,6 +26,9 @@ wasm-pack --version
 # Install grass (SASS proceessor)
 cargo install grass
 
+# Install trunk (Rust WASM builder and bundler)
+cargo install trunk
+
 # TODO: include firmware bundled
 rustc --version
 

@@ -4,7 +4,9 @@
 <head>
   <meta charset="utf-8">
   <title>Loading...</title>
-  <link rel="stylesheet" href="style.css">
+  <link data-trunk rel="scss" href="scss/strand-cam-frontend.scss" />
+  <link data-trunk rel="copy-file" href="src/strand-camera-no-text.png">
+  <base data-trunk-public-url />
 </head>
 
 <body>
@@ -39,16 +41,8 @@
         "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
     }
   </script>
-  <!-- Note the usage of `type=module` here as this is an ES6 module -->
-  <script type="module">
-    import init from './strand_cam_frontend_yew.js';
+  <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="strand-cam-frontend-yew" />
 
-    async function run() {
-      await init();
-    }
-
-    run();
-  </script>
   <script type='text/javascript'>
     function _remove_token_from_url() {
       if (window.location.search.length <= 1) {

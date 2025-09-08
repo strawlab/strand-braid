@@ -86,7 +86,7 @@ pub use flydra_pt_detect_cfg::default_dark_circle as default_im_pt_detect;
 
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
-    include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/pkg");
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/dist");
 
 #[cfg(feature = "flydratrax")]
 const KALMAN_TRACKING_PREFS_KEY: &'static str = "kalman-tracking";
@@ -2023,7 +2023,7 @@ where
     let serve_dir = tower_http::services::fs::ServeDir::new(
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("yew_frontend")
-            .join("pkg"),
+            .join("dist"),
     );
 
     let persistent_secret_base64 = if let Some(secret) = &args.secret {

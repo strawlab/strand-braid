@@ -60,7 +60,7 @@ Guide](https://strawlab.github.io/strand-braid/installation.html).
 
 [Install rust](https://rustup.rs/).
 
-[Install wasm-pack](https://rustwasm.github.io/wasm-pack/installer/).
+[Install trunk](https://trunkrs.dev/#install)
 
 Install your camera drivers. Currently Basler Pylon and Allied Vision Vimba are
 supported.
@@ -77,12 +77,12 @@ cd strand-braid # now in /path/to/strand-braid
 ### Strand Camera
 
 First, build the browser user interface (BUI) for Strand Camera. This will build
-files in `strand-cam/yew_frontend/pkg` which get included in the Strand Cam
+files in `strand-cam/yew_frontend/dist` which get included in the Strand Cam
 executable:
 
 ```
 cd /path/to/strand-braid/strand-cam/yew_frontend
-wasm-pack build --target web
+trunk build
 ```
 
 Then, build the Strand Cam executable for Basler cameras using the Pylon

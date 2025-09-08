@@ -12,12 +12,12 @@ fn main() -> Result<(), Box<(dyn std::error::Error)>> {
     #[cfg(feature = "bundle_files")]
     {
         let frontend_dir = std::path::PathBuf::from("yew_frontend");
-        let frontend_pkg_dir = frontend_dir.join("pkg");
+        let frontend_dist_dir = frontend_dir.join("dist");
 
-        if !frontend_pkg_dir.join("strand_cam_frontend_yew.js").exists() {
+        if !frontend_dist_dir.join("index.html").exists() {
             return Err(format!(
-                "The frontend is required but not built. Hint: go to {} and \
-                run `build.sh` (or on Windows, `build.bat`).",
+                "The frontend is required but not present. Hint: go to {} and \
+                run `trunk build`.",
                 frontend_dir.display()
             )
             .into());
