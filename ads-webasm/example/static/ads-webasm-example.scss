@@ -1,10 +1,10 @@
-@use 'colors';
-@use 'base';
-@use 'custom_file_upload';
-@use 'wrap_collapsible';
-@use 'recording_path';
-@use 'ranged_value';
-@use 'config_field';
+@use '../../scss/colors';
+@use '../../scss/base';
+@use '../../scss/custom_file_upload';
+@use '../../scss/wrap_collapsible';
+@use '../../scss/recording_path';
+@use '../../scss/ranged_value';
+@use '../../scss/config_field';
 
 @include base.base(
     $body-color-dark: colors.$body-color-dark,

@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <title>example</title>
-    <link rel="stylesheet" href="style.css">
+    <link data-trunk rel="scss" href="static/ads-webasm-example.scss" />
+    <base data-trunk-public-url />
 </head>
 
 <body>
@@ -33,16 +34,7 @@
         }
     </script>
 
-    <!-- Note the usage of `type=module` here as this is an ES6 module -->
-    <script type="module">
-        import init from './ads_webasm_example.js';
-
-        async function run() {
-            await init();
-        }
-
-        run();
-    </script>
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="ads-webasm-example" />
 
 </body>
 

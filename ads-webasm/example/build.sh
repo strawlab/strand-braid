@@ -1,10 +1,7 @@
 #!/bin/bash -x
 set -euo pipefail
 
-wasm-pack build --target web --dev --features ads-webasm/obj
-
-cp static/index.html pkg/index.html
-grass -I ../scss static/ads-webasm-example.scss pkg/style.css
+trunk build --features ads-webasm/obj
 
 echo "Build OK. Now run with:\n"
-echo "    microserver --port 8000 --no-spa pkg"
+echo "    microserver --port 8080 --no-spa dist"
